@@ -49,6 +49,21 @@ Ton sonucundaki sözcükler: **aynı ton**; **komşu ton** (Camelot çarkında b
   sanatçısı, süresi ve bilgisayarınızdaki dosya yolu (yolda Windows kullanıcı adınız geçebilir).
 - Bu dosyaları bir hata kaydına (GitHub → Issues) sürükleyip bırakarak gönderebilirsiniz.
 
+## Haritayı paylaşmak
+
+Panelin altındaki **Şarkı haritası dosyası** bölümü, şarkının haritasını (vuruşlar, ölçü, bölümler, droplar, enerji,
+ton) bir dosyaya yazar. İşaretlediğiniz vuruşlar, droplar ve seçtiğiniz ton programın bulduğunun yerine geçer: dosya
+sizin düzelttiğiniz hâlidir.
+
+- **Haritayı dışa aktar:** `Sanatçı - Başlık.harita.json` adıyla kaydeder. İçinde **ses ve dosya yolu yoktur**;
+  yalnızca zamanlar, sayılar, şarkının adı ve sesin kısa bir "parmak izi".
+- **Harita içe aktar:** başkasının (ya da sizin başka bir dosyanız için yaptığınız) haritayı çalan şarkıya uygular.
+  Harita dosya adına değil sesin kendisine göre eşleşir: aynı kaydın MP3'ü ile FLAC'ı eşleşir, canlı kayıt ya da
+  başka şarkı eşleşmez. Eşleşirse görseller ve şarkı haritası şeridi onu kullanır.
+- **Kaldır:** programın kendi analizine döner.
+
+Biçimin teknik tanımı: [SARKI-HARITASI.md](SARKI-HARITASI.md).
+
 ## Telif
 
 Ses dosyaları **hiçbir zaman** depoya girmez: `.gitignore` ses uzantılarını yok sayar ve CI'daki

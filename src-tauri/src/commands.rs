@@ -17,6 +17,7 @@ use crate::analysis::annotation::{AnnotatedTrack, Annotation, AnnotationStore};
 use crate::analysis::background::BackgroundAnalysis;
 use crate::analysis::cache::AnalysisCache;
 use crate::analysis::evaluate;
+use crate::analysis::map_file::{ImportedMapStatus, MapFile, MapStore};
 use crate::audio::abx::{AbxChoice, AbxRequest, AbxSource, AbxStatus, AbxTest};
 use crate::audio::crossfeed::{CrossfeedSettings, CrossfeedState};
 use crate::audio::decode::{Decoder, TrackInfo, SUPPORTED_EXTENSIONS};
@@ -556,6 +557,68 @@ pub async fn crossfeed_set(
         .update(|s| s.crossfeed = applied)
         .map_err(|e| reported(format!("Crossfeed ayarı kaydedilemedi: {e}")))?;
     Ok(CrossfeedState::new(applied))
+}
+
+/// Şarkı haritasını dosyaya yazar (açık biçim, `docs/SARKI-HARITASI.md`). Kullanıcının
+/// işaretlediği vuruş, drop ve ton analizinkinin yerine geçer.
+#[tauri::command]
+pub async fn song_map_export(
+    path: PathBuf,
+    target: PathBuf,
+    player: State<'_, PlayerState>,
+    annotations: State<'_, AnnotationStore>,
+) -> Result<(), String> {
+    let info = Decoder::open(&path).map_err(reported)?.info().clone();
+    let marks = annotations.load(&AnnotatedTrack::from_info(&info));
+    let map = player
+        .lock()?
+        .export_song_map(&info, marks.as_ref())
+        .map_err(reported)?;
+    std::fs::write(&target, map.to_json()).map_err(|e| reported(format!("Dosya yazılamadı: {e}")))
+}
+
+/// Şarkı haritası dosyasını şarkıya uygular (parmak iziyle eşleşirse).
+#[tauri::command]
+pub async fn song_map_import(
+    path: PathBuf,
+    file: PathBuf,
+    player: State<'_, PlayerState>,
+) -> Result<ImportedMapStatus, String> {
+    let info = Decoder::open(&path).map_err(reported)?.info().clone();
+    let map = MapFile::read(&file).map_err(reported)?;
+    let name = file
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    player
+        .lock()?
+        .import_song_map(&info, &map, &name)
+        .map_err(reported)
+}
+
+/// Şarkıya içe aktarılmış ve uygulanan harita (yoksa `null`).
+#[tauri::command]
+pub async fn song_map_imported(
+    path: PathBuf,
+    player: State<'_, PlayerState>,
+) -> Result<Option<ImportedMapStatus>, String> {
+    Ok(player.lock()?.imported_song_map(&path))
+}
+
+/// İçe aktarılan haritayı kaldırır: programın analizi geri gelir.
+#[tauri::command]
+pub async fn song_map_remove(path: PathBuf, player: State<'_, PlayerState>) -> Result<(), String> {
+    player
+        .lock()?
+        .remove_song_map(&path)
+        .map_err(|e| reported(format!("Harita kaldırılamadı: {e}")))
+}
+
+/// İçe aktarılan şarkı haritalarının deposunu oynatıcıya bağlar (program açılırken).
+pub fn set_map_store(player: &PlayerState, store: MapStore) {
+    if let Ok(mut player) = player.lock() {
+        player.set_map_store(Arc::new(store));
+    }
 }
 
 /// İşaretleme: şarkının kayıtlı işaretleri (yoksa `null`).

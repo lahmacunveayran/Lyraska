@@ -63,9 +63,9 @@ lyraska/
 │   │                         # useVisualSafe (epilepsi güvenli modu), usePlaybackOptions (ses yüksekliği eşitleme),
 │   │                         # useSkyLook (gece göğünün manzarası: göl, korona, karlı vadi), useCover (kapak),
 │   │                         # useAbx (kör test), useSongKey (çalan şarkının tonu), useParametric (elle
-│   │                         # parametrik EQ), useCrossfeed (crossfeed)
+│   │                         # parametrik EQ), useCrossfeed (crossfeed), useMapFile (şarkı haritası dosyası)
 │   ├── lib/                  # Saf yardımcılar (format, meter, dotFont, vu, sky, highway, queue, sync, songMap,
-│   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed), Rust köprüsü (backend.ts; veri tipleri bindings/ altında
+│   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile), Rust köprüsü (backend.ts; veri tipleri bindings/ altında
 │   │                         # Rust'tan üretilir, elle düzenlenmez), arayüz hatalarını günlüğe yazma (errorReporting.ts), parlama sayacı
 │   │                         # (flash.ts), WebGL2 çizimi (gl.ts ortak; skyRenderer.ts, highwayRenderer.ts),
 │   │                         # WebGL2 açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts)
@@ -104,6 +104,8 @@ lyraska/
 │   │   │   ├── spectrogram.rs #  şarkı açılınca arka planda spektrum (60 kare/sn, 32 bant), seviyeler, LUFS, bas tepeleri
 │   │   │   ├── levels.rs     #   sol/sağ RMS ve tepe; şarkıya göre 0 VU referansı
 │   │   │   ├── annotation.rs #   kullanıcının işaretlediği beat/drop anları (JSON, ses içermez)
+│   │   │   ├── map_file.rs   #   açık şarkı haritası biçimi (dışa/içe aktarma, doğrulama, kayma, içe aktarılanların deposu)
+│   │   │   ├── fingerprint.rs #  ses parmak izi (analiz karelerinden bant bitleri + kroma): aynı kaydı tanır
 │   │   │   ├── evaluate.rs   #   analizi işaretlere göre ölçme (F-ölçüsü, parmak gecikmesi)
 │   │   │   ├── beats.rs      #   başlangıç gücü, tempo ve vuruşlar (dinamik programlama)
 │   │   │   ├── structure.rs  #   ölçü başları ve ölçü güveni, bölümler (Foote yeniliği), droplar, enerji eğrisi
@@ -125,6 +127,7 @@ lyraska/
 │   ├── ROADMAP.md            # Yol haritası
 │   ├── MIMARI.md             # Mimari ve kuralları denetleyen testler
 │   ├── ISARETLEME.md         # İşaretleme aracı kılavuzu (proje sahibi için)
+│   ├── SARKI-HARITASI.md     # Açık şarkı haritası biçimi (sürüm 1) ve ses parmak izi
 │   ├── DOGRULAMA.md          # Gerçek cihazda denenecekler listesi ve proje sahibinin bildirdiği sonuçlar
 │   ├── DENETIM.md            # Kalite denetimi (16 Ekim 2026): sağlık, matematik doğrulaması, bulgular, öncelik sırası
 │   ├── DENETIM-2.md          # İkinci denetim (16 Ekim 2026): düzeltmelerin yeniden denetimi + altı bağımsız denetçi

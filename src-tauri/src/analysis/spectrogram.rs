@@ -13,7 +13,7 @@ use rustfft::{Fft, FftPlanner};
 
 use super::beats::{self, BeatGrid, OnsetDetector};
 use super::cache::CachedAnalysis;
-use super::key::{ChromaAnalyzer, KeyAnalysis};
+use super::key::{ChromaAnalyzer, KeyAnalysis, MusicalKey};
 use super::levels::{self, ChannelLevels, LevelAccumulator, VALUES_PER_FRAME};
 use super::meter;
 use super::structure::{self, SongMap};
@@ -78,6 +78,9 @@ pub struct Spectrogram {
     bass_peaks: RwLock<Option<BassPeaks>>,
     /// Ton analizi: kroma zaman çizgisi ve şarkının tonu (analiz bitince).
     key: RwLock<Option<Arc<KeyAnalysis>>>,
+    /// İçe aktarılan şarkı haritası ([`super::map_file`]): analizin vuruşlarının, yapısının ve
+    /// tonunun önüne geçer; önbelleğe yazılmaz.
+    imported: RwLock<Option<Imported>>,
     /// Şarkının örnekleme hızı (ritim karelerden yeniden hesaplanırken gerekir).
     sample_rate: RwLock<Option<u32>>,
     /// Hazır kare sayısı.
@@ -104,6 +107,7 @@ impl Spectrogram {
             early_loudness: RwLock::new(None),
             bass_peaks: RwLock::new(None),
             key: RwLock::new(None),
+            imported: RwLock::new(None),
             sample_rate: RwLock::new(None),
             ready: AtomicUsize::new(0),
             done: AtomicBool::new(false),
@@ -164,8 +168,9 @@ impl Spectrogram {
             levels: self.levels.read().ok()?.clone(),
             meters: self.meters.read().ok()?.clone(),
             onset: self.onset.read().ok()?.clone(),
-            beats: self.beat_grid().map(|b| (*b).clone()),
-            song_map: self.song_map().map(|m| (*m).clone()),
+            // Programın kendi analizi (içe aktarılan harita önbelleğe yazılmaz).
+            beats: self.analysis_beat_grid().map(|b| (*b).clone()),
+            song_map: self.analysis_song_map().map(|m| (*m).clone()),
             loudness: self.loudness(),
             bass_peaks: self.bass_peaks(),
             key: self.key().map(|k| (*k).clone()),
@@ -232,14 +237,80 @@ impl Spectrogram {
         self.vu_reference.read().ok().and_then(|r| *r)
     }
 
-    /// Şarkının koreografisi; analiz bitene kadar ya da ritim yoksa `None`.
+    /// Şarkının koreografisi (içe aktarılan harita varsa ondan); analiz bitene kadar ya da
+    /// ritim yoksa `None`.
     pub fn choreography(&self) -> Option<Arc<Choreography>> {
-        self.choreography.read().ok().and_then(|c| c.clone())
+        self.imported
+            .read()
+            .ok()
+            .and_then(|i| i.as_ref().and_then(|i| i.choreography.clone()))
+            .or_else(|| self.choreography.read().ok().and_then(|c| c.clone()))
     }
 
-    /// Şarkının yapısı; analiz bitene kadar ya da ritim yoksa `None`.
+    /// Şarkının yapısı (içe aktarılan harita varsa o); analiz bitene kadar ya da ritim yoksa
+    /// `None`.
     pub fn song_map(&self) -> Option<Arc<SongMap>> {
+        self.imported_part(|i| Arc::clone(&i.map))
+            .or_else(|| self.analysis_song_map())
+    }
+
+    /// Programın kendi analizinin yapısı.
+    pub fn analysis_song_map(&self) -> Option<Arc<SongMap>> {
         self.song_map.read().ok().and_then(|m| m.clone())
+    }
+
+    /// İçe aktarılan şarkı haritasını uygular: vuruşlar, yapı, koreografi ve (varsa) ton onun
+    /// olur. Analiz bitmediyse koreografi analiz bitince kurulur.
+    pub fn set_imported(&self, grid: BeatGrid, map: SongMap, key: Option<MusicalKey>) {
+        let Ok(mut imported) = self.imported.write() else {
+            return;
+        };
+        let choreography = if self.is_done() {
+            self.build_choreography(&grid, &map).map(Arc::new)
+        } else {
+            None
+        };
+        *imported = Some(Imported {
+            beats: Arc::new(grid),
+            map: Arc::new(map),
+            key,
+            choreography,
+        });
+    }
+
+    /// İçe aktarılan haritayı kaldırır: programın analizi geri gelir.
+    pub fn clear_imported(&self) {
+        if let Ok(mut imported) = self.imported.write() {
+            *imported = None;
+        }
+    }
+
+    /// İçe aktarılan harita uygulanmış mı?
+    pub fn has_imported(&self) -> bool {
+        self.imported.read().is_ok_and(|i| i.is_some())
+    }
+
+    /// İçe aktarılan haritanın tonu.
+    pub fn imported_key(&self) -> Option<MusicalKey> {
+        self.imported.read().ok().and_then(|i| i.as_ref()?.key)
+    }
+
+    fn imported_part<T>(&self, part: impl FnOnce(&Imported) -> T) -> Option<T> {
+        self.imported.read().ok().and_then(|i| i.as_ref().map(part))
+    }
+
+    /// Koreografi (bütün kareler hazırken).
+    fn build_choreography(&self, grid: &BeatGrid, map: &SongMap) -> Option<Choreography> {
+        let levels = self.levels.read().ok()?;
+        let onset = self.onset.read().ok()?;
+        Some(Choreography::build(
+            grid,
+            map,
+            &levels,
+            BANDS,
+            &onset,
+            FRAMES_PER_SECOND,
+        ))
     }
 
     /// Şarkının ses yüksekliği ve gerçek tepesi; ölçülmediyse ya da sessizse `None`.
@@ -287,8 +358,15 @@ impl Spectrogram {
         self.loudness_ready.store(true, Ordering::Release);
     }
 
-    /// Şarkının vuruş ızgarası; analiz bitene kadar ya da ritim yoksa `None`.
+    /// Şarkının vuruş ızgarası (içe aktarılan harita varsa onunki); analiz bitene kadar ya da
+    /// ritim yoksa `None`.
     pub fn beat_grid(&self) -> Option<Arc<BeatGrid>> {
+        self.imported_part(|i| Arc::clone(&i.beats))
+            .or_else(|| self.analysis_beat_grid())
+    }
+
+    /// Programın kendi analizinin vuruş ızgarası.
+    pub fn analysis_beat_grid(&self) -> Option<Arc<BeatGrid>> {
         self.beats.read().ok().and_then(|b| b.clone())
     }
 
@@ -349,13 +427,7 @@ impl Spectrogram {
             *stored = reference;
         }
         let choreography = match (&grid, &map) {
-            (Some(grid), Some(map)) => {
-                let levels = self.levels.read().ok();
-                let onset = self.onset.read().ok();
-                levels.zip(onset).map(|(levels, onset)| {
-                    Choreography::build(grid, map, &levels, BANDS, &onset, FRAMES_PER_SECOND)
-                })
-            }
+            (Some(grid), Some(map)) => self.build_choreography(grid, map),
             _ => None,
         };
         if let Ok(mut stored) = self.beats.write() {
@@ -368,7 +440,23 @@ impl Spectrogram {
             *stored = map.map(Arc::new);
         }
         self.done.store(true, Ordering::Release);
+        // Analiz sürerken içe aktarılan haritanın koreografisi şimdi kurulur ([`Self::set_imported`]
+        // aynı kilidi tutar: biri ötekini görür).
+        if let Ok(mut imported) = self.imported.write() {
+            if let Some(i) = imported.as_mut().filter(|i| i.choreography.is_none()) {
+                i.choreography = self.build_choreography(&i.beats, &i.map).map(Arc::new);
+            }
+        }
     }
+}
+
+/// İçe aktarılan şarkı haritasının programın türlerindeki hâli.
+struct Imported {
+    beats: Arc<BeatGrid>,
+    map: Arc<SongMap>,
+    key: Option<MusicalKey>,
+    /// Bütün kareler hazır olunca kurulur.
+    choreography: Option<Arc<Choreography>>,
 }
 
 /// Bir şarkının saklanabilir analiz sonucu (önbellek için): ham kareler ve
@@ -583,23 +671,27 @@ pub fn rhythm_from_frames(
         Some(aksak) => Some(aksak.beat_grid()),
         None => tracked,
     };
-    let map = grid.as_ref().and_then(|grid| {
-        // Kare başına ses yüksekliği: iki kanalın etkin seviyesinin ortalaması.
-        let loudness: Vec<f32> = meters
-            .chunks_exact(VALUES_PER_FRAME)
-            .filter_map(levels::decode_frame)
-            .map(|m| 0.5 * (m.rms_db[0] + m.rms_db[1]))
-            .collect();
-        structure::map_song(
-            levels,
-            BANDS,
-            &loudness,
-            grid,
-            FRAMES_PER_SECOND,
-            aksak.as_ref(),
-        )
-    });
+    let map = grid
+        .as_ref()
+        .and_then(|grid| structure_for_beats(levels, meters, grid, aksak.as_ref()));
     (grid, map)
+}
+
+/// Verilen vuruşlara göre şarkı yapısı (ölçü başları, bölümler, droplar, enerji): analizin
+/// kendi vuruşlarıyla ya da kullanıcının işaretlediği vuruşlarla ([`super::map_file`]).
+pub fn structure_for_beats(
+    levels: &[u8],
+    meters: &[u8],
+    grid: &BeatGrid,
+    aksak: Option<&meter::Aksak>,
+) -> Option<SongMap> {
+    // Kare başına ses yüksekliği: iki kanalın etkin seviyesinin ortalaması.
+    let loudness: Vec<f32> = meters
+        .chunks_exact(VALUES_PER_FRAME)
+        .filter_map(levels::decode_frame)
+        .map(|m| 0.5 * (m.rms_db[0] + m.rms_db[1]))
+        .collect();
+    structure::map_song(levels, BANDS, &loudness, grid, FRAMES_PER_SECOND, aksak)
 }
 
 /// Önbellekteki kaydın eskimiş parçalarını yeniden hesaplayıp `target`'ı tamamlar.
@@ -1396,5 +1488,88 @@ mod tests {
         assert_eq!(silent.measured_loudness(), Some(None));
         std::fs::remove_file(path).ok();
         std::fs::remove_file(silent_path).ok();
+    }
+
+    /// İçe aktarılan harita görsellerin, bilgi kartının ve tonun kullandığı ritmin önüne geçer;
+    /// önbelleğe programın kendi analizi yazılır; kaldırılınca analiz geri gelir.
+    #[test]
+    fn ice_aktarilan_harita_analizin_onune_gecer_onbellege_yazilmaz() {
+        use crate::analysis::fingerprint::tests::{analyze_samples, song};
+        let rate = 44_100;
+        let spectrogram = analyze_samples(&song(1, 120.0, 30.0, rate), rate, "ice-aktar.wav");
+        let analysis_grid = spectrogram.beat_grid().unwrap();
+        let analysis_map = spectrogram.song_map().unwrap();
+        // Düzeltilmiş harita: vuruşlar çeyrek vuruş kaydırılmış, tek bölüm, ton La minör.
+        let grid = BeatGrid {
+            bpm: 120.0,
+            beats: analysis_grid.beats.iter().map(|t| t + 0.125).collect(),
+            variable_tempo: false,
+        };
+        let map = SongMap {
+            sections: vec![structure::Section {
+                start: 0.0,
+                end: 30.0,
+                energy: 0.5,
+                label: 0,
+            }],
+            ..(*analysis_map).clone()
+        };
+        let key = MusicalKey::new(9, true, 0.9);
+        spectrogram.set_imported(grid.clone(), map.clone(), Some(key));
+        assert!(spectrogram.has_imported());
+        assert_eq!(*spectrogram.beat_grid().unwrap(), grid);
+        assert_eq!(*spectrogram.song_map().unwrap(), map);
+        assert_eq!(spectrogram.imported_key(), Some(key));
+        let director = spectrogram.choreography().unwrap();
+        assert!(!Arc::ptr_eq(
+            &director,
+            &spectrogram.choreography.read().unwrap().clone().unwrap()
+        ));
+        // Önbelleğe yazılacak olan programın analizi.
+        let saved = spectrogram.saved().unwrap();
+        assert_eq!(saved.beats.as_ref(), Some(&*analysis_grid));
+        assert_eq!(saved.song_map.as_ref(), Some(&*analysis_map));
+        spectrogram.clear_imported();
+        assert!(!spectrogram.has_imported());
+        assert_eq!(spectrogram.beat_grid(), Some(analysis_grid));
+        assert_eq!(spectrogram.imported_key(), None);
+    }
+
+    /// Analiz sürerken uygulanan haritanın koreografisi analiz bitince kurulur.
+    #[test]
+    fn analiz_bitmeden_uygulanan_haritanin_koreografisi_sonra_kurulur() {
+        use crate::analysis::fingerprint::tests::song;
+        let rate = 44_100;
+        let samples = song(2, 100.0, 20.0, rate);
+        let path = temp_path("ice-aktar-erken.wav");
+        write_wav(&path, rate, 1, samples.len(), |f, _| samples[f]);
+        let spectrogram = Spectrogram::new();
+        let grid = BeatGrid {
+            bpm: 100.0,
+            beats: (0..33).map(|i| 0.6 * f64::from(i)).collect(),
+            variable_tempo: false,
+        };
+        let map = SongMap {
+            meter: 4,
+            downbeat_phase: 0,
+            grouping: Vec::new(),
+            meter_confidence: 1.0,
+            downbeats: (0..9).map(|i| 2.4 * f64::from(i)).collect(),
+            sections: Vec::new(),
+            drops: Vec::new(),
+            drop_confidence: Vec::new(),
+            energy: vec![0.5; 20],
+        };
+        spectrogram.set_imported(grid.clone(), map, None);
+        assert!(spectrogram.choreography().is_none(), "kareler daha yok");
+        analyze(Decoder::open(&path).unwrap(), &spectrogram);
+        assert!(spectrogram.choreography().is_some());
+        assert_eq!(*spectrogram.beat_grid().unwrap(), grid);
+        assert_ne!(
+            spectrogram.saved().unwrap().beats.as_ref(),
+            Some(&grid),
+            "önbelleğe analiz yazılır"
+        );
+        std::fs::remove_file(path).ok();
     }
 }

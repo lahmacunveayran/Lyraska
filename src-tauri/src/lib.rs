@@ -81,6 +81,15 @@ pub fn run() {
             commands::restore_settings(&app.state::<commands::PlayerState>(), &store);
             app.manage(store);
 
+            // İçe aktarılan şarkı haritaları: uygulama veri klasöründe, ses içermez.
+            commands::set_map_store(
+                &app.state::<commands::PlayerState>(),
+                match &roaming {
+                    Ok(dir) => analysis::map_file::MapStore::new(dir.join("haritalar")),
+                    Err(_) => analysis::map_file::MapStore::unavailable(),
+                },
+            );
+
             // İnsan işaretleri (beat/drop): uygulama veri klasöründe, ses içermez.
             app.manage(match roaming {
                 Ok(dir) => analysis::annotation::AnnotationStore::new(dir.join("isaretler")),
@@ -138,6 +147,10 @@ pub fn run() {
             commands::parametric_compare,
             commands::parametric_import,
             commands::parametric_export,
+            commands::song_map_export,
+            commands::song_map_import,
+            commands::song_map_imported,
+            commands::song_map_remove,
             commands::crossfeed_get,
             commands::crossfeed_set,
             commands::visual_safe_get,

@@ -30,10 +30,14 @@ use super::peq::{HeadphoneSettings, ParametricSettings, PeqControl};
 use super::render::RenderControls;
 use super::resample::Converter;
 use super::{AudioError, Sample};
+use crate::analysis::annotation::Annotation;
 use crate::analysis::background::ForegroundGuard;
 use crate::analysis::beats::BeatPosition;
 use crate::analysis::cache::{AnalysisCache, CachedAnalysis, FileStamp};
 use crate::analysis::levels::ChannelLevels;
+use crate::analysis::map_file::{
+    AnalysisSnapshot, ImportedMap, ImportedMapStatus, MapError, MapFile, MapSource, MapStore,
+};
 use crate::analysis::spectrogram::{self, Spectrogram, BANDS};
 use crate::diagnostics;
 
@@ -494,12 +498,30 @@ struct Analysis {
 struct AnalysisContext {
     cache: Option<Arc<AnalysisCache>>,
     foreground: Arc<AtomicUsize>,
+    /// İçe aktarılan şarkı haritaları: şarkının analizi kurulurken uygulanır.
+    maps: Option<Arc<MapStore>>,
 }
 
 impl Analysis {
     /// Şarkının analizini başlatır. Önbellekte geçerli kaydı varsa anında hazırdır.
     /// `after` verilirse (sıradaki şarkı) o analiz bitene kadar bekler: önce çalan şarkı.
+    /// Şarkıya içe aktarılmış bir harita varsa (dosyası değişmediyse) analizin önüne geçer.
     fn start(
+        path: &Path,
+        context: &AnalysisContext,
+        after: Option<Arc<Spectrogram>>,
+    ) -> Option<Self> {
+        let analysis = Self::start_analysis(path, context, after)?;
+        if let Some(imported) = context.maps.as_ref().and_then(|maps| maps.load(path)) {
+            let (grid, map) = imported.map.rhythm();
+            analysis
+                .spectrogram
+                .set_imported(grid, map, imported.map.musical_key());
+        }
+        Some(analysis)
+    }
+
+    fn start_analysis(
         path: &Path,
         context: &AnalysisContext,
         after: Option<Arc<Spectrogram>>,
@@ -1071,6 +1093,117 @@ impl Player {
         self.analysis_context.cache = Some(cache);
     }
 
+    /// İçe aktarılan şarkı haritalarının deposu (program açılırken).
+    pub fn set_map_store(&mut self, store: Arc<MapStore>) {
+        self.analysis_context.maps = Some(store);
+    }
+
+    /// Şarkının (çalan ya da sıradaki) bitmiş analizi.
+    fn finished_analysis(&self, path: &Path) -> Result<&Arc<Spectrogram>, MapError> {
+        self.analysis_for(path)
+            .map(|a| &a.spectrogram)
+            .filter(|s| s.is_done())
+            .ok_or(MapError::NotAnalyzed)
+    }
+
+    /// Şarkının haritası (dışa aktarmak için): etkin harita (içe aktarılan varsa o, yoksa
+    /// programın analizi) ve varsa kullanıcının işaretleri.
+    pub fn export_song_map(
+        &self,
+        track: &TrackInfo,
+        marks: Option<&Annotation>,
+    ) -> Result<MapFile, MapError> {
+        let spectrogram = self.finished_analysis(&track.path)?;
+        let saved = spectrogram.saved().ok_or(MapError::NotAnalyzed)?;
+        let (Some(beats), Some(map)) = (spectrogram.beat_grid(), spectrogram.song_map()) else {
+            return Err(MapError::NoRhythm);
+        };
+        let imported = self.map_store().and_then(|maps| maps.load(&track.path));
+        let duration = track
+            .duration_secs
+            .unwrap_or(saved.frames() as f64 / spectrogram::FRAMES_PER_SECOND);
+        let snapshot = AnalysisSnapshot {
+            title: track.title.clone(),
+            artist: track.artist.clone(),
+            duration_secs: duration,
+            sample_rate: saved.sample_rate.unwrap_or(track.sample_rate),
+            levels: &saved.levels,
+            meters: &saved.meters,
+            chroma: saved.key.as_ref().map(|k| &k.chroma[..]),
+            beats: &beats,
+            map: &map,
+            key: spectrogram
+                .imported_key()
+                .or_else(|| saved.key.as_ref().and_then(|k| k.key)),
+            edited: imported.is_some_and(|i| i.map.source == MapSource::Edited),
+        };
+        Ok(MapFile::from_analysis(&snapshot, marks))
+    }
+
+    /// Okunmuş (doğrulanmış) harita dosyasını şarkıya uygular: parmak iziyle eşleştirilir,
+    /// bulunan kayma zamanlara uygulanır, saklanır ve analizin önüne geçer.
+    pub fn import_song_map(
+        &self,
+        track: &TrackInfo,
+        map: &MapFile,
+        source_name: &str,
+    ) -> Result<ImportedMapStatus, MapError> {
+        let spectrogram = self.finished_analysis(&track.path)?;
+        let saved = spectrogram.saved().ok_or(MapError::NotAnalyzed)?;
+        let duration = track
+            .duration_secs
+            .unwrap_or(saved.frames() as f64 / spectrogram::FRAMES_PER_SECOND);
+        let verdict = map.verify(
+            duration,
+            &saved.levels,
+            saved.sample_rate.unwrap_or(track.sample_rate),
+            saved.key.as_ref().map(|k| &k.chroma[..]),
+        )?;
+        let stamp = FileStamp::of(&track.path)
+            .ok_or_else(|| MapError::Read("şarkı dosyası okunamadı".to_owned()))?;
+        let imported = ImportedMap {
+            track_path: track.path.clone(),
+            size_bytes: stamp.size,
+            modified: stamp.modified,
+            imported_at: diagnostics::timestamp(),
+            source_name: source_name.to_owned(),
+            similarity: verdict.similarity(),
+            offset_secs: verdict.offset_secs,
+            map: map.shifted(verdict.offset_secs, duration),
+        };
+        if let Some(maps) = self.map_store() {
+            maps.save(&imported)
+                .map_err(|e| MapError::Read(format!("harita saklanamadı: {e}")))?;
+        }
+        let (grid, rhythm) = imported.map.rhythm();
+        spectrogram.set_imported(grid, rhythm, imported.map.musical_key());
+        Ok(imported.status())
+    }
+
+    /// Şarkıya içe aktarılmış ve uygulanan harita.
+    pub fn imported_song_map(&self, path: &Path) -> Option<ImportedMapStatus> {
+        let spectrogram = &self.analysis_for(path)?.spectrogram;
+        if !spectrogram.has_imported() {
+            return None;
+        }
+        self.map_store()?.load(path).map(|i| i.status())
+    }
+
+    /// İçe aktarılan haritayı kaldırır: programın analizi geri gelir.
+    pub fn remove_song_map(&self, path: &Path) -> std::io::Result<()> {
+        if let Some(maps) = self.map_store() {
+            maps.remove(path)?;
+        }
+        if let Some(analysis) = self.analysis_for(path) {
+            analysis.spectrogram.clear_imported();
+        }
+        Ok(())
+    }
+
+    fn map_store(&self) -> Option<&Arc<MapStore>> {
+        self.analysis_context.maps.as_ref()
+    }
+
     /// Oynatıcının süren analiz sayacı (arka plan analizi bununla bekler).
     pub fn foreground_analyses(&self) -> Arc<AtomicUsize> {
         Arc::clone(&self.analysis_context.foreground)
@@ -1447,7 +1580,12 @@ impl Player {
             .song_map()
             .map(|m| m.sections.clone())
             .unwrap_or_default();
-        Some(key.key_map(&sections))
+        let mut map = key.key_map(&sections);
+        // İçe aktarılan haritanın tonu (ör. kullanıcının düzelttiği) şarkının tonunun yerine.
+        if let Some(imported) = spectrogram.imported_key() {
+            map.key = Some(imported).filter(crate::analysis::key::MusicalKey::is_confident);
+        }
+        Some(map)
     }
 
     /// Ekolayzerin ve bas düğmesinin spektrum bantlarındaki toplam kazancı (dB): filtrelerin
@@ -2564,6 +2702,7 @@ mod tests {
         let context = AnalysisContext {
             cache: Some(Arc::clone(&cache)),
             foreground: Arc::new(AtomicUsize::new(0)),
+            maps: None,
         };
         // Hiç bitmeyecek bir "çalan şarkı" analizi: yenileme iş parçacığı onu bekler.
         let never = Spectrogram::new();
@@ -2676,6 +2815,103 @@ mod tests {
             &player.crossfeed_control
         ));
         std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn sarki_haritasi_disa_aktarilir_baska_dosyaya_uygulanir_ve_kalici() {
+        use crate::analysis::fingerprint::tests::song;
+        use crate::analysis::map_file::{MapFile, MapStore};
+        let rate = 44_100;
+        let samples = song(1, 120.0, 30.0, rate);
+        let original = temp_path("harita-sarki.wav");
+        let copy = temp_path("harita-kopya.wav");
+        for path in [&original, &copy] {
+            write_wav(path, rate, 1, samples.len(), |f, _| samples[f]);
+        }
+        let dir = temp_path("harita-oynatici-deposu");
+        let info = |path: &Path| Decoder::open(path).unwrap().info().clone();
+
+        let mut player = Player::new();
+        player.set_map_store(Arc::new(MapStore::new(dir.clone())));
+        player.load(&original, false).unwrap();
+        assert!(matches!(
+            player.export_song_map(&info(&copy), None),
+            Err(MapError::NotAnalyzed)
+        ));
+        let analysis = Arc::clone(&player.analysis.as_ref().unwrap().spectrogram);
+        assert!(wait_until(|| analysis.is_done()));
+        let exported = player.export_song_map(&info(&original), None).unwrap();
+        // Paylaşılan dosya: metin olarak gider gelir.
+        let shared = MapFile::parse(&exported.to_json()).unwrap();
+        // Biri tonu düzeltmiş (analizin bulduğundan farklı bir ton).
+        let analysis_key = player.song_key().and_then(|k| k.key).map(|k| k.tonic);
+        let corrected = analysis_key.map_or(9, |t| (t + 6) % 12);
+        let edited = MapFile {
+            key: Some(crate::analysis::map_file::MapKey {
+                tonic: corrected,
+                minor: true,
+                confidence: 1.0,
+            }),
+            ..shared
+        };
+
+        // Aynı kaydın başka dosyası.
+        player.load(&copy, false).unwrap();
+        let analysis = Arc::clone(&player.analysis.as_ref().unwrap().spectrogram);
+        assert!(wait_until(|| analysis.is_done()));
+        assert_eq!(player.imported_song_map(&copy), None);
+        let status = player
+            .import_song_map(&info(&copy), &edited, "gece.lyraska-harita.json")
+            .unwrap();
+        assert!(status.similarity > 0.9, "{status:?}");
+        assert!(status.offset_secs.abs() < 0.02, "{status:?}");
+        assert_eq!(status.source_name, "gece.lyraska-harita.json");
+        assert_eq!(player.imported_song_map(&copy), Some(status.clone()));
+        assert_eq!(player.song_key().unwrap().key.unwrap().tonic, corrected);
+
+        // Program yeniden açılır: harita şarkı açılınca, analiz beklenmeden uygulanır.
+        let mut reopened = Player::new();
+        reopened.set_map_store(Arc::new(MapStore::new(dir.clone())));
+        reopened.load(&copy, false).unwrap();
+        let spectrogram = Arc::clone(&reopened.analysis.as_ref().unwrap().spectrogram);
+        assert!(spectrogram.has_imported());
+        assert_eq!(
+            spectrogram.beat_grid().unwrap().beats.len(),
+            edited.beats.len()
+        );
+        assert!(wait_until(|| spectrogram.is_done()));
+        assert_eq!(reopened.imported_song_map(&copy), Some(status));
+        // Kaldırınca programın analizi geri gelir; bir daha açılınca da uygulanmaz.
+        reopened.remove_song_map(&copy).unwrap();
+        assert_eq!(reopened.imported_song_map(&copy), None);
+        assert!(!spectrogram.has_imported());
+        assert_eq!(
+            reopened.song_key().and_then(|k| k.key).map(|k| k.tonic),
+            analysis_key
+        );
+        let mut again = Player::new();
+        again.set_map_store(Arc::new(MapStore::new(dir.clone())));
+        again.load(&copy, false).unwrap();
+        assert!(!again.analysis.as_ref().unwrap().spectrogram.has_imported());
+
+        // Başka şarkıya uygulanmaz.
+        let other_samples = song(5, 120.0, 30.0, rate);
+        let other = temp_path("harita-baska.wav");
+        write_wav(&other, rate, 1, other_samples.len(), |f, _| {
+            other_samples[f]
+        });
+        again.load(&other, false).unwrap();
+        let analysis = Arc::clone(&again.analysis.as_ref().unwrap().spectrogram);
+        assert!(wait_until(|| analysis.is_done()));
+        assert!(matches!(
+            again.import_song_map(&info(&other), &edited, "gece.json"),
+            Err(MapError::NoMatch(_))
+        ));
+        assert!(!analysis.has_imported());
+        for path in [original, copy, other] {
+            std::fs::remove_file(path).ok();
+        }
+        std::fs::remove_dir_all(dir).ok();
     }
 
     #[test]

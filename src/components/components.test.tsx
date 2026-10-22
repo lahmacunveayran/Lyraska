@@ -63,6 +63,13 @@ const backend = vi.hoisted(() => ({
   parametricCompare: vi.fn(),
   parametricImport: vi.fn(),
   parametricExport: vi.fn(),
+  /** Şarkı haritası dosyası: uygulanan harita, çekirdeğe gidenler, seçicilerin verecekleri. */
+  importedMap: null as import("../lib/backend").ImportedMapStatus | null,
+  mapPick: "C:/İndirilenler/gece.harita.json",
+  mapExport: vi.fn(),
+  mapImport: vi.fn(),
+  mapRemove: vi.fn(),
+  songMapAsked: vi.fn(),
   /** Crossfeed: çekirdekteki ayar ve çekirdeğe gidenler. */
   crossfeed: null as import("../lib/backend").CrossfeedSettings | null,
   setCrossfeed: vi.fn(),
@@ -199,7 +206,33 @@ vi.mock("../lib/backend", async (importOriginal) => {
       return enabled;
     },
     getAnnotation: async () => backend.annotation,
-    getSongMap: async () => backend.songMap,
+    getSongMap: async () => {
+      backend.songMapAsked();
+      return backend.songMap;
+    },
+    getImportedSongMap: async () => backend.importedMap,
+    pickSongMapSavePath: async (name: string) => `C:/Belgeler/${name}`,
+    exportSongMap: async (path: string, target: string) => {
+      backend.mapExport(path, target);
+    },
+    pickSongMapFile: async () => backend.mapPick,
+    importSongMap: async (path: string, file: string) => {
+      backend.mapImport(path, file);
+      if (file.includes("baska")) throw "Bu harita bu şarkıya ait değil (benzerlik %4).";
+      backend.importedMap = {
+        sourceName: "gece.harita.json",
+        importedAt: "2026-10-22 10:00:00",
+        similarity: 0.94,
+        offsetSecs: 1.5,
+        source: "edited",
+        beats: 412,
+      };
+      return backend.importedMap;
+    },
+    removeSongMap: async (path: string) => {
+      backend.mapRemove(path);
+      backend.importedMap = null;
+    },
     getSongKey: async () => backend.songKey,
     saveAnnotation: async (
       path: string,
@@ -1903,6 +1936,85 @@ describe("kulaklık düzeltmesi", () => {
     backend.pickProfile.mockResolvedValue("C:\\bozuk.txt");
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Profil yükle" })));
     expect(screen.getByText(/kulaklık düzeltmesi bulunamadı/)).toBeInTheDocument();
+  });
+});
+
+describe("şarkı haritası dosyası", () => {
+  afterEach(() => {
+    backend.desktop = false;
+    backend.status = null;
+    backend.importedMap = null;
+    backend.mapPick = "C:/İndirilenler/gece.harita.json";
+    backend.mapExport.mockReset();
+    backend.mapImport.mockReset();
+    backend.mapRemove.mockReset();
+    backend.songMapAsked.mockReset();
+  });
+
+  const openStrip = async () => {
+    backend.desktop = true;
+    backend.status = playing;
+    render(<App />);
+    await act(async () => fireEvent.keyDown(window, { code: "Space", key: " " }));
+    await act(async () => fireEvent.click(screen.getByRole("tab", { name: "İşaretle" })));
+    const strip = screen.getByRole("group", { name: "Şarkı haritası dosyası" });
+    await waitFor(() =>
+      expect(within(strip).getByRole("button", { name: "Haritayı dışa aktar" })).toBeEnabled(),
+    );
+    return strip;
+  };
+
+  it("dışa aktarır; içe aktarınca durum görünür, şarkı haritası yeniden sorulur; kaldırılır", async () => {
+    const strip = await openStrip();
+    expect(within(strip).getByText(/sesin parmak izine/)).toBeInTheDocument();
+    await act(async () =>
+      fireEvent.click(within(strip).getByRole("button", { name: "Haritayı dışa aktar" })),
+    );
+    expect(backend.mapExport).toHaveBeenCalledWith(
+      track.path,
+      "C:/Belgeler/Lyra - Gece Otoyolu.harita.json",
+    );
+    expect(within(strip).getByText(/^Kaydedildi: /)).toBeInTheDocument();
+
+    const asked = backend.songMapAsked.mock.calls.length;
+    await act(async () =>
+      fireEvent.click(within(strip).getByRole("button", { name: "Harita içe aktar" })),
+    );
+    expect(backend.mapImport).toHaveBeenCalledWith(track.path, "C:/İndirilenler/gece.harita.json");
+    expect(within(strip).getByText(/İçe aktarılan harita kullanılıyor/)).toBeInTheDocument();
+    expect(
+      within(strip).getByText(/benzerlik %94 · 412 vuruş · zamanlar \+1\.500 ms kaydırıldı/),
+    ).toBeInTheDocument();
+    expect(within(strip).getByText(/bir insanın düzelttiği/)).toBeInTheDocument();
+    // Görseller ve şerit yeni haritayı kullanır: harita yeniden sorulur.
+    await waitFor(() => expect(backend.songMapAsked.mock.calls.length).toBeGreaterThan(asked));
+
+    await act(async () => fireEvent.click(within(strip).getByRole("button", { name: "Kaldır" })));
+    expect(backend.mapRemove).toHaveBeenCalledWith(track.path);
+    expect(within(strip).queryByText(/İçe aktarılan harita kullanılıyor/)).not.toBeInTheDocument();
+    expect(within(strip).getByText(/programın kendi analizi/)).toBeInTheDocument();
+  });
+
+  it("şarkı açılınca uygulanmış haritayı gösterir; eşleşmeyen dosyada anlaşılır hata", async () => {
+    backend.importedMap = {
+      sourceName: "eski.harita.json",
+      importedAt: "2026-10-20 10:00:00",
+      similarity: 0.99,
+      offsetSecs: 0,
+      source: "analysis",
+      beats: 300,
+    };
+    const strip = await openStrip();
+    await waitFor(() => expect(within(strip).getByText(/eski\.harita\.json/)).toBeInTheDocument());
+    expect(within(strip).getByText(/analizden/)).toBeInTheDocument();
+    expect(within(strip).queryByText(/kaydırıldı/)).not.toBeInTheDocument();
+    backend.mapPick = "C:/İndirilenler/baska-sarki.harita.json";
+    await act(async () =>
+      fireEvent.click(within(strip).getByRole("button", { name: "Harita içe aktar" })),
+    );
+    expect(within(strip).getByText(/bu şarkıya ait değil \(benzerlik %4\)/)).toBeInTheDocument();
+    // Önceki harita yerinde kalır.
+    expect(within(strip).getByText(/eski\.harita\.json/)).toBeInTheDocument();
   });
 });
 

@@ -9,8 +9,13 @@ const MAX_TRIES = 120;
  * Çalan şarkının tonu ve tonu farklı bölümleri. Analiz bitince gelir: hazır olana kadar ara
  * ara sorulur. Şarkı değişince önceki şarkının tonu hemen bırakılır. Şarkı haritası ton
  * analiziyle birlikte bitmeyebilir: harita gelince bölümlerin tonları için bir kez daha sorulur.
+ * `revision` artınca (içe aktarılan haritanın tonu) yeniden sorulur.
  */
-export function useSongKey(trackPath: string | null, sectionCount: number): KeyMap | null {
+export function useSongKey(
+  trackPath: string | null,
+  sectionCount: number,
+  revision = 0,
+): KeyMap | null {
   const [loaded, setLoaded] = useState<{ path: string; map: KeyMap } | null>(null);
 
   useEffect(() => {
@@ -34,7 +39,7 @@ export function useSongKey(trackPath: string | null, sectionCount: number): KeyM
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [trackPath, sectionCount]);
+  }, [trackPath, sectionCount, revision]);
 
   return loaded && loaded.path === trackPath ? loaded.map : null;
 }

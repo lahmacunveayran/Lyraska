@@ -38,6 +38,7 @@ import { useEqualizer } from "../hooks/useEqualizer";
 import { useParametric } from "../hooks/useParametric";
 import { useHeadphone } from "../hooks/useHeadphone";
 import { useCrossfeed } from "../hooks/useCrossfeed";
+import { useMapFile } from "../hooks/useMapFile";
 import { useIdle } from "../hooks/useIdle";
 import { useKeyboardFocusWithin } from "../hooks/useKeyboardFocus";
 import { usePlayback } from "../hooks/usePlayback";
@@ -103,8 +104,9 @@ export function PlayerScreen() {
     !bitPerfect;
   const statusPath = status.track?.path ?? null;
   const playing = status.state === "playing";
-  const songMap = useSongMap(statusPath);
-  const songKey = useSongKey(statusPath, songMap?.sections.length ?? 0);
+  const mapFile = useMapFile(statusPath, status.track ? trackTitle(status.track) : null);
+  const songMap = useSongMap(statusPath, mapFile.revision);
+  const songKey = useSongKey(statusPath, songMap?.sections.length ?? 0, mapFile.revision);
   const sync = useSync(
     player.openPath,
     player.positionNow,
@@ -462,6 +464,7 @@ export function PlayerScreen() {
             <MarkerPanel
               marker={marker}
               trackTitle={status.track ? trackTitle(status.track) : null}
+              mapFile={mapFile}
               playing={playing}
               durationSecs={durationSecs}
             />

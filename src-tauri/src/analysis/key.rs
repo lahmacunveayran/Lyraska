@@ -85,7 +85,7 @@ pub struct MusicalKey {
 }
 
 impl MusicalKey {
-    fn new(tonic: usize, minor: bool, confidence: f64) -> Self {
+    pub(crate) fn new(tonic: usize, minor: bool, confidence: f64) -> Self {
         Self {
             tonic: (tonic % PITCH_CLASSES) as u8,
             minor,
