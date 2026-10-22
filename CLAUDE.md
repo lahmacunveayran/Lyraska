@@ -107,7 +107,8 @@ lyraska/
 │   │   │   ├── scan.rs       #   paralel etiket okuma, değişmeyeni atlama, silineni çıkarma
 │   │   │   └── service.rs    #   arka plan taraması; komutların kullandığı katman
 │   │   ├── milkdrop/         # MilkDrop sahnesi: kullanıcının .milk klasörü (listeleme, yalnızca o klasörden açma);
-│   │   │                     # parse.rs: .milk → Butterchurn JSON (HLSL gölgelendiriciler atılır; program preset içermez)
+│   │   │                     # parse.rs: .milk → Butterchurn JSON (HLSL gölgelendiriciler atılır; program preset içermez);
+│   │   │                     # eel.rs: döngü kuralı (loop MilkDrop sınırına kırpılır, iç içe/piksel başına döngü yok)
 │   │   ├── storage.rs        # library.sqlite3 şeması ve sıralı göçleri (kütüphane + analiz önbelleği)
 │   │   ├── diagnostics.rs    # Yerel hata ve çökme günlüğü (logs/lyraska.log; gerçek zamanlı yoldan çağrılmaz)
 │   │   ├── settings.rs       # Kalıcı ayarlar (settings.json; ekolayzer, kulaklık, parametrik EQ, crossfeed, eşitleme, güvenli mod, ses gecikmesi)

@@ -439,11 +439,17 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
   - Görsel değişimi her zaman birkaç saniyelik yumuşak bir geçişle olur; kendiliğinden değişim yalnızca şarkıda yeni
     bir bölüm başlayınca ya da drop'ta, en sık 15 saniyede bir.
   - Bazı görsellerin altında "Gölgelendiricileri desteklenmiyor, sade hâliyle çalıyor" yazar: bunlar MilkDrop'taki
-    hâllerinden sade görünür (bu sürümde beklenen). Açılamayan bir görselde neden yazılır ve sonrakine geçilir.
+    hâllerinden sade görünür (bu sürümde beklenen). Açılamayan bir görselde neden yazılır ve sonrakine geçilir;
+    iç içe ya da piksel başına döngü içeren görseller "programı dondurabileceği için açılmıyor" diye atlanır.
+  - Program hiçbir görselde donmamalı. Donarsa (görev yöneticisinden kapatmanız gerekirse) bir sonraki açılışta
+    galeride "… önceki açılışta çalarken program kapandı; atlananlara eklendi" yazmalı ve o görsel bir daha
+    kendiliğinden gelmemeli; **Atlananları yeniden dene** ile geri gelir. Programı normal kapatınca hiçbir görsel
+    atlanmamalı.
   - Programı kapatıp açınca seçtiğiniz klasör hatırlanır.
   - Akıcı mı (tam ekranda takılma, ısınma)? Görev yöneticisinde ekran kartı kullanımı ne kadar?
 - Bildirin: kullandığınız preset paketinin adı; açılmayan ya da çok farklı görünen görsellerin adları; parlama ya da
-  yanıp sönme gördüyseniz (görselin adıyla, hemen); takılma varsa bilgisayarın ekran kartı.
+  yanıp sönme gördüyseniz (görselin adıyla, hemen); takılma ya da donma varsa görselin adı ve bilgisayarın ekran
+  kartı.
 
 ## F. Hata günlüğü
 
