@@ -2,11 +2,14 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { installBrowserGuard } from "./lib/browserGuard";
 import { installErrorReporting } from "./lib/errorReporting";
 import "@fontsource-variable/inter/opsz.css";
 import "./styles/global.css";
 
 installErrorReporting();
+// Sürümde tarayıcı davranışları (F5, sağ tık menüsü, geri) kapalı; geliştirmede açık kalır.
+if (import.meta.env.PROD) installBrowserGuard();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

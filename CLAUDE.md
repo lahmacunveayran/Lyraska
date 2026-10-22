@@ -69,7 +69,8 @@ lyraska/
 │   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile, lyrics,
 │   │                         # clock: akıcı oynatma saati, marks: işaret hesapları, scene: sahne listesi,
 │   │                         # sceneClock: sahne iç saatleri, virtual: uzun listede görünen satırlar),
-│   │                         # usePrefersReducedMotion ("animasyonları azalt"), Rust köprüsü (backend.ts; veri tipleri
+│   │                         # usePrefersReducedMotion ("animasyonları azalt"), browserGuard (sürümde F5, sağ tık
+│   │                         # menüsü, geri gibi tarayıcı davranışlarını kapatır), Rust köprüsü (backend.ts; veri tipleri
 │   │                         # bindings/ altında Rust'tan üretilir, elle düzenlenmez), arayüz hatalarını günlüğe yazma
 │   │                         # (errorReporting.ts), parlama sayacı (flash.ts), WebGL2 çizimi (gl.ts ortak;
 │   │                         # skyRenderer.ts, highwayRenderer.ts), WebGL2 açılamazsa gece göğü için 2D yedek çizim

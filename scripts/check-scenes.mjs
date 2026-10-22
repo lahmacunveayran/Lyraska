@@ -2,7 +2,7 @@
 // "Gece otoyolu" sahnelerini sahte müzik verisiyle çalıştırır ve ölçer:
 //
 // - Ekran kartı çizimi (WebGL2) açıldı mı, gölgelendiriciler derlendi mi?
-// - Konsolda hata var mı?
+// - Konsolda hata var mı? (Programın CSP'si de uygulanır: CSP ihlali konsol hatasıdır.)
 // - Görüntü gerçekten çiziliyor mu (düz/karanlık değil) ve zamanla değişiyor mu?
 // - Gece göğünde sağ üstteki Lyra takımyıldızının yıldızları görünüyor mu?
 // - Parlama sınırı: sessizden tam sese geçişte ekrandaki en büyük parlaklık farkı. Gece göğünün
@@ -470,7 +470,13 @@ async function checkScene(browser, scene, variant) {
   return problems.map((p) => `${variant.label}: ${p}`);
 }
 
-const server = await preview({ preview: { port: PORT, strictPort: true }, logLevel: "warn" });
+// Programın içerik güvenliği politikası (CSP) aynen uygulanır: CSP'nin engellediği bir stil, betik
+// ya da kaynak Edge'de konsol hatası verir ve denetim kırmızı olur (gerçek WebView2'deki gibi).
+const CSP = JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf8")).app.security.csp;
+const server = await preview({
+  preview: { port: PORT, strictPort: true, headers: { "Content-Security-Policy": CSP } },
+  logLevel: "warn",
+});
 const channel = process.env.SCENE_BROWSER_CHANNEL;
 const executablePath = channel ? undefined : process.env.SCENE_BROWSER_PATH;
 const args = (process.env.SCENE_BROWSER_ARGS ?? "").split(/\s+/).filter(Boolean);
