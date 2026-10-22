@@ -241,6 +241,18 @@ pub async fn visual_frame(player: State<'_, PlayerState>) -> Result<Option<Visua
     Ok(player.lock()?.visual_now().map(VisualFrame::from))
 }
 
+/// Şu an duyulan anın ham dalga biçimi (MilkDrop sahnesi): ham bayt olarak 3 × 1024 bayt —
+/// karışım, sol, sağ; 44,1 kHz; 128 = sessizlik (WebAudio `getByteTimeDomainData` biçimi).
+/// JSON sayı dizisi yerine ham yanıt: arayüze `ArrayBuffer` olarak gelir. Çalan şarkı yoksa
+/// boş yanıt.
+#[tauri::command]
+pub async fn visual_waveform(
+    player: State<'_, PlayerState>,
+) -> Result<tauri::ipc::Response, String> {
+    let bytes = player.lock()?.visual_waveform().unwrap_or_default();
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
 /// Kütüphane durumu: klasörler, şarkı sayısı, tarama ilerlemesi.
 #[tauri::command]
 pub async fn library_status(library: State<'_, LibraryState>) -> Result<LibraryStatus, String> {

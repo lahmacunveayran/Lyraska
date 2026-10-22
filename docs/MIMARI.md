@@ -20,6 +20,7 @@ PlayerScreen ── usePlayback ── invoke ──▶ commands.rs (ince) ─�
      │          useLibrary                                    ──▶ library::service
      │          useSongMap                                    ──▶ analysis (önbellek)
      └─ sahneler ─ useVisualFeed ─ her karede visual_frame ──▶ visual_bridge
+                   (MilkDrop) ─ her karede visual_waveform ──▶ audio::player (dalga dokunuşu, ham bayt)
 ```
 
 ## İş parçacıkları
@@ -28,6 +29,7 @@ PlayerScreen ── usePlayback ── invoke ──▶ commands.rs (ince) ─�
 | --------------------------- | ---------------------------------------------------------- | ------------------------------------------- |
 | Tauri komutları             | Arayüzün isteklerini karşılar                              | Kısa sürer; ağır işi arka plana verir       |
 | Çözme (`player.rs`)         | Dosyayı çözer, boşluksuz geçiş, hız dönüştürme             | Halka tampona (rtrb) yazar                  |
+| ↳ dalga dokunuşu            | Halkaya gidenin 44,1 kHz kopyası (`audio/waveform.rs`)     | Önceden ayrılmış halka; kısa kilit          |
 | **Ses çıkışı**              | Halka tampondan okur, EQ, eşitleme, aygıta yazar           | **Gerçek zamanlı:** ayırma/kilit/panik yok  |
 | Analiz (şarkı açılınca)     | Spektrum, seviye, vuruş, şarkı haritası, LUFS, ton         | Sonuç önbelleğe yazılır                     |
 | Hızlı ölçüm                 | Yalnızca ses yüksekliği (EBU R128), FFT'siz                | İlk sesten önce bitsin diye ayrı ve hızlı   |
@@ -164,6 +166,29 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
   anda sıçramaz (test). Konum görsellerle aynıdır (ses aygıtının gecikmesi düşülür).
 - Arayüz her ekran karesinde `visual_frame` ister; `visual_bridge` çalma konumuna (ekran ve aygıt
   gecikmesi telafi edilerek) karşılık gelen kareyi verir. Görseller ses yolundan veri çekmez.
+- **Ham dalga biçimi** (`audio/waveform.rs`, komut `visual_waveform`; MilkDrop/Butterchurn için): analizde dalga
+  saklanmaz (4 dakikalık şarkıda kare başına anlık görüntü onlarca MB olurdu), çalarken canlı bir kopya alınır.
+  - **Kim yazar:** çözme iş parçacığı. Halka tampona yazdığı her dilimi önce seyreltip dokunuşa yazar. Bu nokta
+    aygıt hızına çevrilmiş tek parça akıştır: her örneğin yeri ses çıkışının "duyulan" sayacıyla
+    (`output_heard`) aynı karedir; boşluksuz geçişte şarkılar bu akışta art arda gelir. Ses çıkışının gerçek
+    zamanlı geri çağrısı dokunuşa hiç dokunmaz (`ses_yolu_bellek_ayirmaz` etkilenmez). Dokunuş ekolayzerden önceki
+    sesi görür.
+  - **Seyreltme:** aygıt hızı 88,2 kHz ve üstündeyse [1, 2, 1]/4 süzgeçle ikiye bölünür (Nyquist yakını ≥ 30 dB
+    bastırılır), sonra doğrusal ara değerle 44,1 kHz'e getirilir. Süzgeçler simetrik: gecikme yok, `j`. örnek
+    akışın tam `j · hız / 44100`. karesindedir. 48 kHz'te katlanan bölge yalnız 22,05–24 kHz (görsele etkisi yok).
+  - **Halka:** 4 sn (44,1 kHz'te 176 400 kare, sol/sağ `f32`, ~1,4 MB), oturum kurulurken bir kez ayrılır. Gereken:
+    halka tampon (2 sn) + aygıt arabelleği (~0,1 sn) ileride, ses gecikmesi (en çok 0,4 sn) + 1024 örnek geride
+    → ~2,6 sn; test `dalga_dokunusu_yeterince_uzun` denetler.
+  - **Kim okur:** Tauri komut iş parçacığı (`Player::visual_waveform`): `visual_frame` ile aynı an (duyulan +
+    ekran gecikmesi − ses aygıtı gecikmesi) ile biten son 1024 örnek; 3 × 1024 bayt (karışım, sol, sağ), WebAudio
+    `getByteTimeDomainData` biçimi (128 = sessizlik). Her örneğe ait olduğu şarkının −14 LUFS eşitleme kazancı
+    uygulanır (eşitleme kapalı olsa da; sessiz kaydedilmiş şarkıda da dalga görünsün), kırpılır. JSON yerine ham
+    yanıt (`tauri::ipc::Response`, arayüzde `ArrayBuffer`).
+  - **Eşzamanlama:** kısa bir `Mutex` (iki taraf da gerçek zamanlı değil; yazar bir dilimi, okuyucu 2 × 1024 örneği
+    kopyalar, seyreltme kilit dışında). Çözme halka tamponda 2 sn önden gittiği için kısa bekleme sese yansımaz.
+  - **Geçersiz kılma:** dokunuş oturuma aittir. Sarma, şarkı açma, aygıt değişimi yeni oturum (yeni akış, boş
+    dokunuş) kurar: eski konumun örneği görünmez. Geçiş sürerken ve kör testte boş yanıt; duraklatınca ve şarkı
+    bitince sessizlik (hepsi 128). Henüz yazılmamış ya da halkadan çıkmış örnek sessizliktir, eski veri değil.
 - Her sahne yönetmen notunun üç katmanını kullanır:
   - Gece göğü (`sky.ts`) ve gece otoyolu (`highway.ts`): bölüm teması, ruh hâli, drop öncesi gerilim ve drop
     açılımı, ölçü başı. Doku: vuruş yoğunluğu akışı (otoyolda kıvrılmayı ve şehri), tizlerin canlılığı yıldızların
@@ -250,6 +275,7 @@ Her kural ya bir testle ya da CI'daki bir adımla denetlenir. Elle hatırlanmas�
 | Ölçülen bas tepeleri gerçek artışı karşılar, gereksiz kısmaz                       | `audio::bass` testi `olculen_bas_tepeleri_…`                                                         |
 | Vuruş ilk anı güçlendirir; sürekli basa ve ortaya dokunmaz                         | `audio::punch` testleri, `audio::bass` testi `vurus_…`                                               |
 | Boşluksuz geçişte yeniden örneklenen dalga sınırda kopmaz                          | `audio::player` testi `bosluksuz_geciste_yeniden_…`                                                  |
+| Görsel dalga biçimi duyulan anla biter, sarmada eski veri yok                      | `audio::player` testleri `dalga_bicimi_…`, `audio::waveform` testleri                                |
 | Şarkı sınırında yeni şarkı ilk karesinden kendi seviyesinde                        | `audio::normalize` testi `sessizden_yuksege_…`                                                       |
 | Ekolayzer koruması kazançtan önce kalkmaz, ilk kare korumalı                       | `audio::normalize` testi `esitleme_acilinca_…`                                                       |
 | Sahne denetiminin sahte çekirdeği arayüzün tipleriyle aynı                         | `src/lib/sceneCheck.test.ts` (üretilen tipe bağlı)                                                   |

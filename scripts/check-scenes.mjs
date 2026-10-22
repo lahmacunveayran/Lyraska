@@ -67,6 +67,15 @@ const fakeCore = (level = null, theme = 1) => `
         drops: [], dropConfidence: [],
         energy: [], sections: [{ start: 0, end: 240, energy: 0.8, label: ${theme} }] };
       case "annotation_get": case "song_key": case "track_lyrics": case "song_map_imported": return null;
+      // Ham dalga biçimi (karışım, sol, sağ; 128 = sessizlik): 441 Hz sinüs, LEVEL verilirse o genlikte.
+      case "visual_waveform": {
+        const bytes = new Uint8Array(3 * 1024);
+        for (let i = 0; i < 1024; i++) {
+          const v = Math.floor(128 * (1 + (LEVEL ?? 0.5) * Math.sin(2 * Math.PI * 441 * (t + i / 44100))));
+          bytes[i] = bytes[1024 + i] = bytes[2048 + i] = Math.max(0, Math.min(255, v));
+        }
+        return bytes.buffer;
+      }
       case "visual_frame": return {
         positionSecs: 60 + t,
         bands: Array.from({ length: 32 }, (_, i) =>
