@@ -1,0 +1,55 @@
+// Deney (D1-ARA): kütüphane seçimi sıra numarasıyla tutuluyor; liste değişince (arama ya da
+// tarama tazelemesi) aynı numara başka bir şarkıyı gösterir ve Enter o şarkıyı çalar.
+import { render, fireEvent } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { LibraryPanel } from "/home/user/Lyraska/src/components/LibraryPanel";
+import { EMPTY_LIBRARY, type LibraryTrack } from "/home/user/Lyraska/src/lib/backend";
+import type { LibraryControls } from "/home/user/Lyraska/src/hooks/useLibrary";
+
+const track = (id: number, title: string): LibraryTrack => ({
+  id,
+  path: `C:/m/${title}.flac`,
+  title,
+  artist: null,
+  album: null,
+  trackNumber: null,
+  durationSecs: 100,
+  codec: "flac",
+  bpm: null,
+  analyzed: false,
+  key: null,
+});
+
+const controls = (tracks: LibraryTrack[], query = ""): LibraryControls => ({
+  status: { ...EMPTY_LIBRARY, folders: [{ id: 1, path: "C:/m" } as never], trackCount: tracks.length },
+  tracks,
+  query,
+  setQuery: () => undefined,
+  loading: false,
+  error: null,
+  unavailable: null,
+  addFolder: async () => undefined,
+  addFiles: async () => undefined,
+  addDropped: async () => ({ tracks: [], added: 0 }) as never,
+  removeFolder: async () => undefined,
+  rescan: async () => undefined,
+});
+
+describe("kütüphane seçimi", () => {
+  it("liste değişince seçim başka şarkıya kayar ve Enter onu çalar", () => {
+    const onPlay = vi.fn();
+    const first = [track(1, "Alfa"), track(2, "Beta"), track(3, "Gama")];
+    const props = { available: true, extensions: [], currentPath: null, playing: false, onPlay };
+    const view = render(<LibraryPanel library={controls(first)} {...props} />);
+    fireEvent.click(view.getByText("Beta")); // 2. satır (index 1) seçildi
+    // Tarama sırasında liste tazelendi: sıralamada önüne yeni bir şarkı girdi.
+    const second = [track(1, "Alfa"), track(9, "Ayva"), track(2, "Beta"), track(3, "Gama")];
+    view.rerender(<LibraryPanel library={controls(second)} {...props} />);
+    const list = view.container.querySelector(".library__list")!;
+    fireEvent.keyDown(list, { key: "Enter" });
+    expect(onPlay).toHaveBeenCalledTimes(1);
+    console.log("Enter ile çalınan:", onPlay.mock.calls[0]![0].title);
+    expect(onPlay.mock.calls[0]![0].title).toBe("Ayva"); // kullanıcı "Beta"yı seçmişti
+    expect(view.container.querySelector(".is-selected")?.textContent).toContain("Ayva");
+  });
+});

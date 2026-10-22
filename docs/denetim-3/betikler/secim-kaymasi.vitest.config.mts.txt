@@ -1,0 +1,15 @@
+import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
+export default defineConfig({
+  plugins: [react()],
+  root: "/home/user/Lyraska",
+  define: { __APP_VERSION__: JSON.stringify("x") },
+  server: { fs: { strict: false, allow: ["/"] } },
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: ["/home/user/Lyraska/src/test-setup.ts"],
+    include: ["*.test.tsx"],
+    dir: "/tmp/claude-0/-home-user-Lyraska/ff7ef590-e2e9-5d59-b985-b6cbad3a113b/scratchpad/d1/arayuz",
+  },
+});
