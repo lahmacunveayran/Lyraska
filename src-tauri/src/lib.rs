@@ -6,6 +6,7 @@
 //! - [`director`]: Görsel Yönetmen — şarkıyı önceden bilen koreografi (atmosfer, ritim, doku)
 //! - [`visual_bridge`]: analiz ve çalma zamanını arayüzdeki görsellere taşıyan köprü
 //! - [`library`]: müzik kütüphanesi (SQLite, klasör tarama, arama)
+//! - [`milkdrop`]: MilkDrop sahnesi için kullanıcının kendi `.milk` dosyaları (okuma, çevirme)
 //! - [`storage`]: kütüphane veritabanının şeması ve sıralı göçleri
 //! - [`settings`]: kalıcı kullanıcı ayarları (ekolayzer vb.)
 //! - [`commands`]: arayüzün çağırabildiği Tauri komutları
@@ -18,6 +19,7 @@ pub mod data_dirs;
 pub mod diagnostics;
 pub mod director;
 pub mod library;
+pub mod milkdrop;
 pub mod settings;
 pub mod storage;
 pub mod visual_bridge;
@@ -162,6 +164,9 @@ pub fn run() {
             commands::audio_delay_get,
             commands::audio_delay_set,
             commands::calibration_track,
+            commands::milkdrop_list,
+            commands::milkdrop_set_folder,
+            commands::milkdrop_load,
             commands::abx_start,
             commands::abx_select,
             commands::abx_pause,

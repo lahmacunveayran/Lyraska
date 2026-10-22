@@ -38,3 +38,10 @@ open("sozlu.mp3", "wb").write(b"ID3\x03\x00\x00" + size + frame + open("duz.mp3"
 PY
 rm duz.mp3
 ```
+
+`milkdrop/lyraska-parlama.milk`: bu proje için yazılmış (GPL-3.0) küçük bir MilkDrop 2 görseli (preset); ses değil.
+Bir dalga, bir beşgen ve denklemler içerir; ölçümün parlamayı gördüğünü kanıtlamak için **bilerek parlar** (saniyede
+dört kez tersine döner). Yalnızca testlerde ve sahne denetiminde kullanılır, programla dağıtılmaz.
+`milkdrop/lyraska-parlama.json`: Rust ayrıştırıcısının bu dosyadan ürettiği Butterchurn JSON'u
+(`milkdrop::tests::ornek_gorsel_beklenen_jsona_cevrilir` aynı olduğunu denetler; sahne denetiminin sahte çekirdeği
+bunu döndürür).
