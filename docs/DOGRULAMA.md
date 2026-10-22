@@ -368,6 +368,9 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 
 Sonuçları bana yazdıkça buraya işlenir.
 
+**Doğrulama haftası 22 Ekim 2026'da proje sahibinin kararıyla kapandı** (0.0.52 "iyiydi"). Liste gerçek cihaz
+denemeleri için kılavuz olarak kalır; yeni sürümlerde yeni maddeler eklenir.
+
 | Madde                | Sonuç                                                   | Not                                                                                                                                     |
 | -------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | — (0.0.33'te)        | ❌ Kütüphane hiç açılmıyordu: `no such table: analyses` | #49. 0.0.5–0.0.19'un kütüphane dosyası 0.0.28'den beri açılmıyordu. 0.0.35'te düzeltildi (testli); A0 ile sizin yedeğinizle denenecek.  |
