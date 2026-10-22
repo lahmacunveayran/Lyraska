@@ -391,6 +391,15 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 - Bildirin: benzerlik yüzdeleri (aynı şarkının MP3/FLAC'ında ve başka şarkıda) ve yanlış eşleşme olursa iki şarkının
   adı.
 
+**E7. Kinetik şarkı sözleri (0.0.56)**
+
+- Nasıl: Sözlerini bildiğiniz bir şarkının yanına aynı adla bir `.lrc` dosyası koyun (ör. `Gülümse.mp3` →
+  `Gülümse.lrc`; LRC dosyaları birçok söz programında ve sitede bulunur) ya da içine sözleri gömülü bir şarkı çalın.
+- Neye bakılır: söylenen satır sahnenin üstünde kelime kelime belirir; söylenen kelime renkli, sıradakiler soluk;
+  Türkçe harfler (ş, ğ, ı, İ) bozuk değil; sözler sesle aynı anda (Bluetooth kulaklıkta da, **Senkron** ayarı
+  yapıldıysa). **Ayarlar → Şarkı sözleri** ile kapanır ve kapalı kalır.
+- Bildirin: sözler erken ya da geç kalıyorsa ne kadar; bozuk görünen harf varsa dosyanın nereden geldiği.
+
 ## F. Hata günlüğü
 
 **F1. Hata günlüğü açılıyor**

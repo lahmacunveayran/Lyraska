@@ -22,6 +22,7 @@ use crate::audio::abx::{AbxChoice, AbxRequest, AbxSource, AbxStatus, AbxTest};
 use crate::audio::crossfeed::{CrossfeedSettings, CrossfeedState};
 use crate::audio::decode::{Decoder, TrackInfo, SUPPORTED_EXTENSIONS};
 use crate::audio::eq::{EqSettings, EqState};
+use crate::audio::lyrics::Lyrics;
 use crate::audio::peq::{
     HeadphoneProfile, HeadphoneSettings, HeadphoneState, ParametricSettings, ParametricState,
 };
@@ -179,6 +180,16 @@ pub async fn track_cover(path: PathBuf) -> Result<Option<String>, String> {
         .ok()
         .flatten()
         .map(|cover| cover.data_url()))
+}
+
+/// Şarkının sözleri: yanındaki `.lrc` dosyası ya da şarkıya gömülü sözler; yoksa `null`.
+/// Sözler yalnızca kullanıcının kendi dosyalarından okunur, hiçbir yere kaydedilmez.
+#[tauri::command]
+pub async fn track_lyrics(path: PathBuf) -> Result<Option<Lyrics>, String> {
+    let duration = Decoder::open(&path)
+        .ok()
+        .and_then(|d| d.info().duration_secs);
+    Ok(crate::audio::lyrics::for_track(&path, duration))
 }
 
 /// Boşluksuz geçiş için sıradaki şarkıyı bildirir (`null`: sıra yok).

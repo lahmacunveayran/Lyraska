@@ -34,6 +34,7 @@ pub mod eq;
 pub mod gapless;
 pub mod limiter;
 pub mod loudness;
+pub mod lyrics;
 pub mod normalize;
 pub mod output;
 pub mod peq;

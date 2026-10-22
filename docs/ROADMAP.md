@@ -179,7 +179,12 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
 
 - [ ] 15+ özgün sahne
 - [ ] Butterchurn / MilkDrop desteği
-- [ ] Kinetik şarkı sözleri
+- [x] Kinetik şarkı sözleri (0.0.56): sözler yalnızca kullanıcının kendi dosyalarından (şarkının yanındaki `.lrc` ya
+      da şarkıya gömülü sözler: ID3 USLT, Vorbis `LYRICS`, MP4 `©lyr`); program söz indirmez, saklamaz, dağıtmaz.
+      LRC: satır ve kelime zamanları ("enhanced LRC"), `[offset:]`, aynı zamandaki satır çeviri olarak; UTF-8, UTF-16 ve
+      Windows-1254 (eski Türkçe `.lrc` dosyaları). Kelime zamanı yoksa hece sayısıyla tahmin. Sahnede söylenen satır
+      kelime kelime belirir (parlaklık değişmez, "animasyonları azalt"ta hareket yok), sıradaki satır soluk; ses
+      aygıtının gecikmesi düşülür. Ayarlar > Şarkı sözleri: aç/kapa
 - [ ] Preset sistemi
 - [ ] Kod imzalama (Windows "bilinmeyen yayımcı" uyarısının kalkması)
 - [x] **Açık şarkı haritası formatı** (0.0.55; plan, 9 Ekim 2026): Lyraska'nın şarkı haritası (vuruşlar, ölçü

@@ -39,6 +39,9 @@ import { useParametric } from "../hooks/useParametric";
 import { useHeadphone } from "../hooks/useHeadphone";
 import { useCrossfeed } from "../hooks/useCrossfeed";
 import { useMapFile } from "../hooks/useMapFile";
+import { useLyrics } from "../hooks/useLyrics";
+import { LyricsOverlay } from "./LyricsOverlay";
+import type { Lyrics } from "../lib/backend";
 import { useIdle } from "../hooks/useIdle";
 import { useKeyboardFocusWithin } from "../hooks/useKeyboardFocus";
 import { usePlayback } from "../hooks/usePlayback";
@@ -113,6 +116,7 @@ export function PlayerScreen() {
     status.state === "ended" ? statusPath : null,
   );
   const marker = useMarker(statusPath, playing, player.positionNow, songMap, sync.delayMs);
+  const lyrics = useLyrics(statusPath);
 
   // Panelden ayrılınca işaretleme biter (Boşluk yine çal/duraklat olur), senkron ölçümü de.
   const { setRecording } = marker;
@@ -369,6 +373,8 @@ export function PlayerScreen() {
           cover={cover}
           songMap={songMap}
           songKey={songKey}
+          lyrics={lyrics.visible ? lyrics.lyrics : null}
+          audioDelaySecs={sync.delayMs / 1000}
           soundShaped={soundShaped}
           safe={visualSafe.safe}
           next={upNext}
@@ -512,6 +518,7 @@ export function PlayerScreen() {
               visualSafe={visualSafe}
               playback={playbackOptions}
               skyLook={skyLook}
+              lyrics={lyrics}
             />
           </ErrorBoundary>
         </div>
@@ -529,6 +536,10 @@ interface LiveChromeProps {
   cover: string | null;
   songMap: SongMap | null;
   songKey: KeyMap | null;
+  /** Gösterilecek şarkı sözleri (kapalıysa ya da yoksa `null`). */
+  lyrics: Lyrics | null;
+  /** Ses aygıtının ek gecikmesi (saniye): sözler görseller gibi bu kadar geriden okunur. */
+  audioDelaySecs: number;
   soundShaped: boolean;
   safe: boolean;
   next: UpNext | null;
@@ -549,6 +560,8 @@ function LiveChrome({
   cover,
   songMap,
   songKey,
+  lyrics,
+  audioDelaySecs,
   soundShaped,
   safe,
   next,
@@ -560,35 +573,38 @@ function LiveChrome({
   const position = useLivePosition(player);
   const { status } = player;
   return (
-    <div className="lower">
-      <div className="hero chrome">
-        <NowPlaying
-          status={{ ...status, positionSecs: position }}
-          album={album}
-          queueLabel={queueLabel}
-          error={player.error}
-          available={player.available}
-          cover={cover}
-        />
-        <InfoStack
-          status={status}
-          positionSecs={position}
-          songMap={songMap}
-          songKey={songKey}
-          soundShaped={soundShaped}
-          safe={safe}
-          next={next}
+    <>
+      <LyricsOverlay lyrics={lyrics} positionSecs={position - audioDelaySecs} />
+      <div className="lower">
+        <div className="hero chrome">
+          <NowPlaying
+            status={{ ...status, positionSecs: position }}
+            album={album}
+            queueLabel={queueLabel}
+            error={player.error}
+            available={player.available}
+            cover={cover}
+          />
+          <InfoStack
+            status={status}
+            positionSecs={position}
+            songMap={songMap}
+            songKey={songKey}
+            soundShaped={soundShaped}
+            safe={safe}
+            next={next}
+          />
+        </div>
+
+        <Dock
+          player={player}
+          position={position}
+          layout={layout}
+          canNext={canNext}
+          onPrevious={onPrevious}
+          onNext={onNext}
         />
       </div>
-
-      <Dock
-        player={player}
-        position={position}
-        layout={layout}
-        canNext={canNext}
-        onPrevious={onPrevious}
-        onNext={onNext}
-      />
-    </div>
+    </>
   );
 }

@@ -116,6 +116,7 @@ pub fn run() {
             commands::app_info,
             commands::open_track,
             commands::track_cover,
+            commands::track_lyrics,
             commands::toggle_playback,
             commands::stop_playback,
             commands::seek_playback,

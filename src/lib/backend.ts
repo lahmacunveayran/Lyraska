@@ -32,6 +32,10 @@ import type { KeyRelation } from "./bindings/KeyRelation";
 import type { LibraryFolder } from "./bindings/LibraryFolder";
 import type { LibraryStatus } from "./bindings/LibraryStatus";
 import type { LibraryTrack } from "./bindings/LibraryTrack";
+import type { LyricLine } from "./bindings/LyricLine";
+import type { LyricWord } from "./bindings/LyricWord";
+import type { Lyrics } from "./bindings/Lyrics";
+import type { LyricsSource } from "./bindings/LyricsSource";
 import type { MarkedKey } from "./bindings/MarkedKey";
 import type { MusicalKey } from "./bindings/MusicalKey";
 import type { PlaybackOptions } from "./bindings/PlaybackOptions";
@@ -77,6 +81,10 @@ export type {
   LibraryFolder,
   LibraryStatus,
   LibraryTrack,
+  LyricLine,
+  LyricWord,
+  Lyrics,
+  LyricsSource,
   MarkedKey,
   MusicalKey,
   PlaybackOptions,
@@ -94,6 +102,15 @@ export type {
 export async function getTrackCover(path: string): Promise<string | null> {
   if (!isTauri()) return null;
   return invoke<string | null>("track_cover", { path });
+}
+
+/**
+ * Şarkının sözleri: yanındaki `.lrc` dosyası ya da şarkıya gömülü sözler; yoksa ya da tarayıcı
+ * önizlemesinde `null`. Sözler yalnızca kullanıcının kendi dosyalarından okunur.
+ */
+export async function getTrackLyrics(path: string): Promise<Lyrics | null> {
+  if (!isTauri()) return null;
+  return invoke<Lyrics | null>("track_lyrics", { path });
 }
 
 export async function getSongMap(): Promise<SongMap | null> {

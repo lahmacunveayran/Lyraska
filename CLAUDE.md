@@ -54,7 +54,7 @@ lyraska/
 ├── src/                      # Arayüz (React + TypeScript)
 │   ├── components/           # React bileşenleri: PlayerScreen (sahne tüm pencere; üstünde cam katmanlar:
 │   │                         # NowPlaying büyük başlık, InfoStack drop sayacı ve sıradaki, SeekBar şarkı haritası
-│   │                         # şeridi; sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
+│   │                         # şeridi, LyricsOverlay kinetik sözler; sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
 │   │                         # ayarlar; her panel ve sahne bir ErrorBoundary içinde: hata yalnızca o bölümü kapatır)
 │   ├── hooks/                # usePlayback (oynatıcı + çalma sırası), useLibrary, useEqualizer, useHeadphone,
 │   │                         # useMarker (işaretleme), useSync (ses–görüntü senkronu), useVisualFeed (görsel
@@ -63,9 +63,10 @@ lyraska/
 │   │                         # useVisualSafe (epilepsi güvenli modu), usePlaybackOptions (ses yüksekliği eşitleme),
 │   │                         # useSkyLook (gece göğünün manzarası: göl, korona, karlı vadi), useCover (kapak),
 │   │                         # useAbx (kör test), useSongKey (çalan şarkının tonu), useParametric (elle
-│   │                         # parametrik EQ), useCrossfeed (crossfeed), useMapFile (şarkı haritası dosyası)
+│   │                         # parametrik EQ), useCrossfeed (crossfeed), useMapFile (şarkı haritası dosyası),
+│   │                         # useLyrics (şarkı sözleri)
 │   ├── lib/                  # Saf yardımcılar (format, meter, dotFont, vu, sky, highway, queue, sync, songMap,
-│   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile), Rust köprüsü (backend.ts; veri tipleri bindings/ altında
+│   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile, lyrics), Rust köprüsü (backend.ts; veri tipleri bindings/ altında
 │   │                         # Rust'tan üretilir, elle düzenlenmez), arayüz hatalarını günlüğe yazma (errorReporting.ts), parlama sayacı
 │   │                         # (flash.ts), WebGL2 çizimi (gl.ts ortak; skyRenderer.ts, highwayRenderer.ts),
 │   │                         # WebGL2 açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts)
@@ -75,7 +76,8 @@ lyraska/
 │   │   ├── lib.rs            # Tauri kurulumu, komut kaydı
 │   │   ├── commands.rs       # Arayüzün çağırdığı ince Tauri komutları
 │   │   ├── audio/            # Ses motoru
-│   │   │   ├── decode.rs     #   symphonia ile çözme → f64 örnekler, etiketler, kapak resmi
+│   │   │   ├── decode.rs     #   symphonia ile çözme → f64 örnekler, etiketler, kapak resmi, gömülü sözler
+│   │   │   ├── lyrics.rs     #   şarkı sözleri: yan .lrc ya da gömülü; LRC, kelime zamanları, Türkçe kodlamalar (saklanmaz)
 │   │   │   ├── gapless.rs    #   boşluksuz çalma: MP4/AAC kodlayıcı dolgusu (iTunSMPB, elst)
 │   │   │   ├── eq.rs         #   10 bant ekolayzer: taşma düzeltmeli tasarım, kilitsiz ayar, yumuşak geçiş
 │   │   │   ├── bass.rs       #   bas düğmesi (raf, 0–18 dB), derinlik (alt oktav), küçük hoparlör bası, bas tepesi ölçümü
