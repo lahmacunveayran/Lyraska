@@ -5,9 +5,15 @@
  * (`flashGuard.ts`) geçer.
  *
  * Geçişler müzikle olur: Görsel Yönetmen'in notunda yeni bir bölüm başlayınca ya da drop
- * açılınca. İki geçiş arası en az [`MIN_PRESET_SECONDS`]; bölüm çok uzunsa
- * [`MAX_PRESET_SECONDS`]'ten sonra ilk ölçü başında. Her geçiş en az [`MIN_BLEND_SECONDS`]
- * boyunca harmanlanır (ani değişim parlama sayılabilir; fren ayrıca sınırlar).
+ * açılınca. İki geçiş arası en az [`MIN_PRESET_SECONDS`]; bu süre dolmadan gelen bölüm başı
+ * unutulmaz, süre dolunca ilk ölçü başında geçilir. Bölüm çok uzunsa [`MAX_PRESET_SECONDS`]'ten
+ * sonra ilk ölçü başında. Her geçiş en az [`MIN_BLEND_SECONDS`] boyunca harmanlanır (ani değişim
+ * parlama sayılabilir; fren ayrıca sınırlar).
+ *
+ * Donma koruması: çalan görselin yolu tarayıcı deposunda işaretli durur ([`writePending`]); başka
+ * görsele temiz geçişte, sahneden çıkınca ve sayfa kapanırken silinir. Program bir görsel çalarken
+ * kapanmak zorunda kalırsa (ör. denklem programı dondurdu) işaret kalır; bir sonraki açılışta o
+ * görsel kalıcı "atlananlar" listesine girer ([`addSkipped`]) ve kendiliğinden hiç seçilmez.
  */
 
 import type { VisualFrame } from "./backend";
@@ -69,6 +75,8 @@ export interface ScheduleState {
   /** Yönetmen'in drop açılımı (1 → 0). */
   release: number;
   barPhase: number | null;
+  /** En kısa süre dolmadan gelen, ertelenmiş geçiş (bölüm başı ya da drop). */
+  pending: SwitchReason | null;
 }
 
 export const SCHEDULE_START: ScheduleState = {
@@ -76,6 +84,7 @@ export const SCHEDULE_START: ScheduleState = {
   section: null,
   release: 0,
   barPhase: null,
+  pending: null,
 };
 
 /** Bir karede en fazla bu kadar süre sayılır (sekme uykusundan dönüşte sıçrama olmasın). */
@@ -105,19 +114,37 @@ export function stepSchedule(
   // Analiz yoksa (Yönetmen notu yok) uzun bekleyişin sonunda ölçü beklenmez.
   const long = elapsed >= MAX_PRESET_SECONDS && (barStart || !director);
 
+  const trigger: SwitchReason | null = sectionStart ? "section" : dropStart ? "drop" : null;
+
   let reason: SwitchReason | null = null;
-  if (auto && elapsed >= MIN_PRESET_SECONDS) {
-    reason = sectionStart ? "section" : dropStart ? "drop" : long ? "long" : null;
+  let pending = state.pending;
+  if (auto) {
+    if (elapsed < MIN_PRESET_SECONDS) {
+      // Çok erken: unutulmaz, süre dolunca ilk ölçü başında (ölçü bilinmiyorsa hemen).
+      pending = trigger ?? pending;
+    } else if (trigger) {
+      reason = trigger;
+    } else if (pending && (barStart || barPhase === null)) {
+      reason = pending;
+    } else if (long) {
+      reason = "long";
+    }
   }
   return {
-    state: { elapsed: reason ? 0 : elapsed, section, release, barPhase },
+    state: {
+      elapsed: reason ? 0 : elapsed,
+      section,
+      release,
+      barPhase,
+      pending: reason ? null : pending,
+    },
     reason,
   };
 }
 
-/** Kullanıcı görseli değiştirdi: bekleme süresi baştan başlar. */
+/** Kullanıcı görseli değiştirdi: bekleme süresi baştan başlar, ertelenmiş geçiş unutulur. */
 export function restartSchedule(state: ScheduleState): ScheduleState {
-  return { ...state, elapsed: 0 };
+  return { ...state, elapsed: 0, pending: null };
 }
 
 /** Gezilen görsellerin geçmişi (listedeki sıraları); `position` şu ankinin yeri. */
@@ -134,31 +161,30 @@ const RECENT_AVOID = 8;
 
 /**
  * Sonraki görsel: geçmişte ileri gidilebiliyorsa oraya, değilse yakın zamanda gösterilmemiş
- * rastgele bir görsel. `avoid` (ör. önceki açılışta programı kapatan görsel) mümkünse seçilmez.
- * Liste boşsa `null`.
+ * rastgele bir görsel. `avoid`'dekiler (atlananlar, bu oturumda açılamayanlar) hiç seçilmez;
+ * seçilebilecek görsel kalmadıysa (ya da liste boşsa) `null`.
  */
 export function historyNext(
   history: PresetHistory,
   count: number,
   random: () => number = Math.random,
-  avoid: number | null = null,
+  avoid: ReadonlySet<number> = new Set(),
 ): { history: PresetHistory; index: number } | null {
   if (count <= 0) return null;
   const forward = history.visited[history.position + 1];
-  if (forward !== undefined && forward < count) {
+  if (forward !== undefined && forward < count && !avoid.has(forward)) {
     return { history: { ...history, position: history.position + 1 }, index: forward };
   }
   const kept = history.visited.slice(0, history.position + 1).filter((i) => i < count);
   const current = kept[kept.length - 1];
-  const recent = new Set(kept.slice(-Math.min(RECENT_AVOID, count - 1)));
-  if (avoid !== null) recent.add(avoid);
-  let candidates = Array.from({ length: count }, (_, i) => i).filter((i) => !recent.has(i));
-  if (candidates.length === 0) {
-    candidates = Array.from({ length: count }, (_, i) => i).filter(
-      (i) => i !== current && i !== avoid,
-    );
-  }
-  if (candidates.length === 0) candidates = [0];
+  const allowed = Array.from({ length: count }, (_, i) => i).filter((i) => !avoid.has(i));
+  if (allowed.length === 0) return null;
+  // `slice(-0)` bütün diziyi verirdi: son `n` görsel, n = 0 ise hiçbiri.
+  const n = Math.min(RECENT_AVOID, allowed.length - 1);
+  const recent = new Set(n > 0 ? kept.slice(-n) : []);
+  let candidates = allowed.filter((i) => !recent.has(i));
+  if (candidates.length === 0) candidates = allowed.filter((i) => i !== current);
+  if (candidates.length === 0) candidates = allowed;
   const pick = Math.min(candidates.length - 1, Math.floor(clamp01(random()) * candidates.length));
   const index = candidates[pick] ?? 0;
   const visited = [...kept, index].slice(-MAX_HISTORY);
@@ -176,4 +202,58 @@ export function historyPrevious(
 
 function clamp01(value: number): number {
   return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
+}
+
+const PENDING_KEY = "lyraska.milkdrop.pending";
+const SKIP_KEY = "lyraska.milkdrop.skipped";
+/** Atlananlar listesinde en fazla bu kadar görsel (en eskisi düşer). */
+export const MAX_SKIPPED = 50;
+
+/** Çalan görselin işareti (bkz. dosya başı); depoya erişilemezse `null`. */
+export function readPending(): string | null {
+  try {
+    return window.localStorage.getItem(PENDING_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Çalan görseli işaretler (`null`: işaret silinir). Yazılamazsa sessizce geçer. */
+export function writePending(path: string | null): void {
+  try {
+    if (path === null) window.localStorage.removeItem(PENDING_KEY);
+    else window.localStorage.setItem(PENDING_KEY, path);
+  } catch {
+    /* Depo yoksa donma koruması bu oturumda çalışmaz; program yine çalışır. */
+  }
+}
+
+/** Program çalarken kapandığı için atlanan görseller (yolları). Bozuk kayıtta boş. */
+export function loadSkipList(): string[] {
+  try {
+    const raw: unknown = JSON.parse(window.localStorage.getItem(SKIP_KEY) ?? "[]");
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((p): p is string => typeof p === "string").slice(-MAX_SKIPPED);
+  } catch {
+    return [];
+  }
+}
+
+/** Görseli atlananlara ekler (tekrarsız; en çok [`MAX_SKIPPED`]). */
+export function addSkipped(path: string): void {
+  const list = [...loadSkipList().filter((p) => p !== path), path].slice(-MAX_SKIPPED);
+  try {
+    window.localStorage.setItem(SKIP_KEY, JSON.stringify(list));
+  } catch {
+    /* Saklanamazsa bu oturumda yine atlanır (çağıran ayrıca tutar). */
+  }
+}
+
+/** Atlananlar listesini boşaltır (kullanıcı "yeniden dene" dedi). */
+export function clearSkipList(): void {
+  try {
+    window.localStorage.removeItem(SKIP_KEY);
+  } catch {
+    /* Erişilemiyorsa liste zaten okunamıyor. */
+  }
 }

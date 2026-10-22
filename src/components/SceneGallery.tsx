@@ -315,7 +315,7 @@ function folderName(path: string): string {
  * müzikle kendiliğinden değiştirme. Lyraska hazır görsel içermez.
  */
 function MilkdropSection({ controls }: { controls: MilkdropControls }) {
-  const { library, loading, currentName, simplified, notice, auto } = controls;
+  const { library, loading, currentName, simplified, notice, auto, skippedCount } = controls;
   const count = library.presets.length;
   const none = count === 0;
   return (
@@ -378,6 +378,21 @@ function MilkdropSection({ controls }: { controls: MilkdropControls }) {
       <p className="scene-gallery__notice" role="status">
         {notice ?? ""}
       </p>
+      {skippedCount > 0 && (
+        <div className="scene-gallery__milk-line">
+          <span>
+            {skippedCount} görsel atlandı: önceki açılışlarda program onları çalarken kapandı.
+          </span>
+          <button
+            type="button"
+            className="scene-gallery__button"
+            aria-label="Atlanan görselleri yeniden dene"
+            onClick={controls.retrySkipped}
+          >
+            Atlananları yeniden dene
+          </button>
+        </div>
+      )}
       <p className="scene-gallery__milk-note">
         Lyraska hazır görsel içermez; kendi .milk dosyalarınızı seçersiniz. Görüntü her zaman
         parlaklık freninden geçer.

@@ -44,15 +44,21 @@ const APP_CSP = JSON.parse(
   readFileSync(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"),
 ).app.security.csp;
 /**
- * MilkDrop sahnesinin deneme preseti: Rust ayrıştırıcısının özgün `.milk` dosyasından ürettiği JSON
- * (`milkdrop::tests::ornek_gorsel_beklenen_jsona_cevrilir` ikisinin aynı olduğunu denetler).
+ * MilkDrop sahnesinin deneme presetleri: Rust ayrıştırıcısının özgün `.milk` dosyalarından ürettiği
+ * JSON (`milkdrop::tests::ornek_gorsel_beklenen_jsona_cevrilir` aynı olduklarını denetler).
+ * `parlama`: bilerek parlar; `dongu`: denkleminde çok büyük bir `loop` (programın sınırıyla kırpılmış).
  */
-const MILKDROP_PRESET = JSON.parse(
-  readFileSync(
-    new URL("../src-tauri/tests/data/milkdrop/lyraska-parlama.json", import.meta.url),
-    "utf8",
-  ),
-);
+const milkdropFixture = (name) =>
+  JSON.parse(
+    readFileSync(
+      new URL(`../src-tauri/tests/data/milkdrop/lyraska-${name}.json`, import.meta.url),
+      "utf8",
+    ),
+  );
+const MILKDROP_PRESETS = {
+  parlama: { name: "Lyraska parlama denemesi", preset: milkdropFixture("parlama") },
+  dongu: { name: "Lyraska döngü denemesi", preset: milkdropFixture("dongu") },
+};
 const EXPECT_FALLBACK = process.env.SCENE_EXPECT === "fallback";
 const APP_URL = `http://localhost:${PORT}`;
 
@@ -60,7 +66,7 @@ const APP_URL = `http://localhost:${PORT}`;
  * Tarayıcıda Tauri yerine geçen sahte çekirdek: 128 BPM'lik bir şarkı çalıyor. `level` verilirse bütün bantlar ve
  * VU seviyeleri sabit o düzeyde (parlama sınırı ölçümü için: 0 = sessiz, 1 = tam). `theme`: bölümün renk teması.
  */
-const fakeCore = (level = null, theme = 1, safe = false) => `
+const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama") => `
   const LEVEL = ${level === null ? "null" : level};
   window.isTauri = true;
   const started = performance.now();
@@ -90,9 +96,10 @@ const fakeCore = (level = null, theme = 1, safe = false) => `
       case "visual_safe_get": return ${safe};
       // MilkDrop: tek görsellik klasör ve programın özgün deneme preseti.
       case "milkdrop_list": return { folder: "C:/MilkDrop", truncated: false, error: null,
-        presets: [{ name: "Lyraska parlama denemesi", path: "C:/MilkDrop/lyraska-parlama.milk" }] };
-      case "milkdrop_load": return { name: "Lyraska parlama denemesi", simplified: false,
-        preset: ${JSON.stringify(MILKDROP_PRESET)} };
+        presets: [{ name: ${JSON.stringify(MILKDROP_PRESETS[milk].name)},
+          path: "C:/MilkDrop/lyraska-${milk}.milk" }] };
+      case "milkdrop_load": return { name: ${JSON.stringify(MILKDROP_PRESETS[milk].name)},
+        simplified: false, preset: ${JSON.stringify(MILKDROP_PRESETS[milk].preset)} };
       case "audio_delay_get": return 0;
       // Tek bölümlük harita: arayüzün vurgu rengi (VU ve spektrum sahnelerinin halesi) de temada.
       case "song_map": return { meter: 4, downbeatPhase: 0, grouping: [], meterConfidence: 1, downbeats: [],
@@ -134,7 +141,7 @@ const fakeCore = (level = null, theme = 1, safe = false) => `
  */
 const initScript = (
   sceneId,
-  { look = null, sceneLook = null, level = null, theme = 1, safe = false } = {},
+  { look = null, sceneLook = null, level = null, theme = 1, safe = false, milk = "parlama" } = {},
 ) =>
   `try { localStorage.setItem("lyraska.scene", "${sceneId}");` +
   (look ? ` localStorage.setItem("lyraska.skyLook", "${look}");` : "") +
@@ -143,7 +150,7 @@ const initScript = (
         JSON.stringify({ version: 1, looks: { [sceneId]: sceneLook } }),
       )});`
     : "") +
-  ` } catch {}\n${fakeCore(level, theme, safe)}`;
+  ` } catch {}\n${fakeCore(level, theme, safe, milk)}`;
 
 /** Tuvalin görüntüsünü çözüp parlaklık ölçer (bağıl parlaklık, 0..1). */
 function measure(png) {
@@ -850,6 +857,49 @@ async function checkMilkdropFlashes(browser, bundle, safe) {
   return problems;
 }
 
+/** Döngü denemesi: bu kadar kare (60 kare/sn) en çok bu kadar sürede çizilmeli. */
+const LOOP_FRAMES = 60;
+const LOOP_BUDGET_MS = 60_000;
+
+/**
+ * Programı dondurabilecek döngü: deneme presetinin denkleminde `loop(2000000000, …)` var; program
+ * onu MilkDrop'un sınırına (1 048 576 tur) kırpar (`milkdrop/eel.rs`). Kırpılmasaydı her kare
+ * saniyelerce sürerdi. Gerçek sahnede 60 kare çizilir, süresi ölçülür.
+ */
+async function checkMilkdropLoop(browser) {
+  const label = "MilkDrop · döngü sınırı";
+  const step = 1000 / 60;
+  const page = await openPage(browser, { stepMs: step, viewport: MILKDROP_VIEWPORT, scale: 1 });
+  const problems = [];
+  page.on("console", (m) => {
+    if (m.type() === "error") problems.push(`${label}: konsol: ${m.text()}`);
+  });
+  page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
+  await page.addInitScript(initScript("milkdrop", { milk: "dongu" }));
+  await startPlaying(page, 500, step);
+  const canvas = page.locator(".milkdrop-scene__canvas");
+  const problem = await renderProblem(page, canvas, problems);
+  if (problem) {
+    await page.close();
+    return [`${label}: ${problem}`];
+  }
+  const preset = await canvas.evaluate((c) => c.dataset.preset ?? null);
+  const started = Date.now();
+  await advance(page, (LOOP_FRAMES * 1000) / 60, step);
+  const ms = Date.now() - started;
+  await page.close();
+  console.log(
+    `${label}: görsel ${preset ?? "yok"} · ${LOOP_FRAMES} kare ${(ms / 1000).toFixed(1)} sn`,
+  );
+  if (preset !== MILKDROP_PRESETS.dongu.name) problems.push(`${label}: döngülü görsel açılmadı`);
+  if (ms > LOOP_BUDGET_MS) {
+    problems.push(
+      `${label}: ${LOOP_FRAMES} kare ${(ms / 1000).toFixed(1)} sn sürdü (döngü kırpılmadı?)`,
+    );
+  }
+  return problems;
+}
+
 const server = await preview({ preview: { port: PORT, strictPort: true }, logLevel: "warn" });
 const channel = process.env.SCENE_BROWSER_CHANNEL;
 const executablePath = channel ? undefined : process.env.SCENE_BROWSER_PATH;
@@ -879,6 +929,7 @@ try {
       for (const safe of [false, true]) {
         problems = problems.concat(await checkMilkdropFlashes(browser, bundle, safe));
       }
+      problems = problems.concat(await checkMilkdropLoop(browser));
     }
     const bright = brightestThemes(2);
     for (const scene of ALL_SCENES.filter(selected)) {

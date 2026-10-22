@@ -31,6 +31,8 @@ const fake = vi.hoisted(() => ({
   }[],
   tick: null as ((frame: VisualFrame | null, dt: number) => void) | null,
   waveform: null as Uint8Array | null,
+  /** Butterchurn'ün çizimi bu kadar kez hata versin (ör. denklemde WebAssembly tuzağı). */
+  renderThrows: 0,
 }));
 
 const preset = (name: string): MilkdropPreset => ({
@@ -109,7 +111,12 @@ vi.mock("butterchurn", () => ({
         internalCanvas: document.createElement("canvas"),
         outputGl: {} as unknown,
         loadPreset: vi.fn(async () => undefined),
-        render: vi.fn(),
+        render: vi.fn(() => {
+          if (fake.renderThrows > 0) {
+            fake.renderThrows -= 1;
+            throw new Error("unreachable");
+          }
+        }),
         setRendererSize: vi.fn(),
         loseGLContext: vi.fn(),
       };
@@ -121,7 +128,10 @@ vi.mock("butterchurn", () => ({
 
 import { MilkDropScene } from "./MilkDropScene";
 import { SceneGallery } from "./SceneGallery";
-import { PENDING_KEY, useMilkdrop, type MilkdropControls } from "../hooks/useMilkdrop";
+import { useMilkdrop, type MilkdropControls } from "../hooks/useMilkdrop";
+
+const PENDING_KEY = "lyraska.milkdrop.pending";
+const SKIP_KEY = "lyraska.milkdrop.skipped";
 import type { ScenePresetControls } from "../hooks/useScenePresets";
 
 /** Sahne ve galeri aynı denetimleri paylaşır (programdaki gibi). */
@@ -166,6 +176,7 @@ beforeEach(() => {
   fake.visualizers = [];
   fake.tick = null;
   fake.waveform = null;
+  fake.renderThrows = 0;
   window.localStorage.clear();
 });
 
@@ -267,26 +278,135 @@ describe("MilkDrop sahnesi", () => {
     expect(section).toHaveTextContent(
       "Görsel açılamadı, sonrakine geçildi: Görsel açılamadı (bozuk): MilkDrop görseli değil",
     );
+    // Açılamayan görsel bu oturumda bir daha denenmez (Sonraki de onu seçmez).
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Sonraki MilkDrop görseli" })),
+    );
+    await waitFor(() => expect(fake.loads).toHaveLength(3));
+    expect(fake.loads[2]).toBe(FOLDER.presets[1]!.path);
     vi.restoreAllMocks();
   });
 
-  it("önceki açılışta yüklenirken program kapandıysa o görselle başlanmaz", async () => {
+  it("çalarken kapanan görsel atlananlara girer, kalıcıdır; yeniden denenebilir", async () => {
     fake.folder = { ...FOLDER, presets: FOLDER.presets.slice(0, 2) };
+    // Önceki açılışta "ayna" çalarken program kapandı (işaret kaldı).
     window.localStorage.setItem(PENDING_KEY, FOLDER.presets[0]!.path);
     vi.spyOn(Math, "random").mockReturnValue(0);
-    render(<Harness gallery />);
-    await waitFor(() => expect(fake.loads).toHaveLength(1));
-    expect(fake.loads[0]).toBe(FOLDER.presets[1]!.path);
-    await waitFor(() => expect(fake.visualizers[0]!.loadPreset).toHaveBeenCalledTimes(1));
-    // Açılan görsel işaretlenir (2 sn sorunsuz çizilince silinir); önceki işaret kalmaz.
+    const first = render(<Harness gallery />);
+    await waitFor(() => expect(fake.visualizers[0]?.loadPreset).toHaveBeenCalledTimes(1));
+    expect(fake.loads).toEqual([FOLDER.presets[1]!.path]);
+    expect(JSON.parse(window.localStorage.getItem(SKIP_KEY)!)).toEqual([FOLDER.presets[0]!.path]);
+    fireEvent.click(screen.getByRole("button", { name: /MilkDrop/ }));
+    const section = await screen.findByRole("group", { name: "MilkDrop görselleri" });
+    expect(section).toHaveTextContent(
+      '"ayna" önceki açılışta çalarken program kapandı; atlananlara eklendi.',
+    );
+    expect(section).toHaveTextContent("1 görsel atlandı");
+    // Çalan görselin işareti çaldığı sürece durur (yalnızca 2 sn değil).
+    for (let i = 0; i < 400; i++) act(() => fake.tick?.(null, 1 / 60));
     expect(window.localStorage.getItem(PENDING_KEY)).toBe(FOLDER.presets[1]!.path);
+    // Sahneden çıkınca silinir (programı düzgün kapatmak görseli suçlamaz).
+    first.unmount();
+    expect(window.localStorage.getItem(PENDING_KEY)).toBeNull();
+
+    // Yeni açılış: atlanan yine seçilmez.
+    fake.loads = [];
+    fake.visualizers = [];
+    render(<Harness gallery />);
+    await waitFor(() => expect(fake.visualizers[0]?.loadPreset).toHaveBeenCalledTimes(1));
+    expect(fake.loads).toEqual([FOLDER.presets[1]!.path]);
+    fireEvent.click(screen.getByRole("button", { name: /MilkDrop/ }));
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Atlanan görselleri yeniden dene" })),
+    );
+    expect(window.localStorage.getItem(SKIP_KEY)).toBeNull();
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Sonraki MilkDrop görseli" })),
+    );
+    await waitFor(() => expect(fake.loads).toHaveLength(2));
+    expect(fake.loads[1]).toBe(FOLDER.presets[0]!.path);
+    vi.restoreAllMocks();
+  });
+
+  it("sayfa kapanırken çalan görselin işareti silinir", async () => {
+    fake.folder = FOLDER;
+    render(<Harness />);
+    await waitFor(() => expect(fake.visualizers[0]?.loadPreset).toHaveBeenCalledTimes(1));
+    expect(window.localStorage.getItem(PENDING_KEY)).toBe(fake.loads[0]);
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    expect(window.localStorage.getItem(PENDING_KEY)).toBeNull();
+  });
+
+  it("bütün görseller atlandıysa hiçbiri açılmaz, neden yazılır", async () => {
+    fake.folder = { ...FOLDER, presets: FOLDER.presets.slice(0, 2) };
+    window.localStorage.setItem(
+      SKIP_KEY,
+      JSON.stringify(FOLDER.presets.slice(0, 2).map((p) => p.path)),
+    );
+    render(<Harness gallery />);
+    fireEvent.click(await screen.findByRole("button", { name: /MilkDrop/ }));
+    const section = await screen.findByRole("group", { name: "MilkDrop görselleri" });
+    await waitFor(() =>
+      expect(section).toHaveTextContent("Bu klasördeki görsellerin hepsi atlandı"),
+    );
+    expect(fake.loads).toEqual([]);
+  });
+
+  it("çizerken hata veren görsel bırakılır, sonrakine harmanlamadan geçilir", async () => {
+    fake.folder = FOLDER;
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    render(<Harness gallery />);
+    const visualizer = await waitFor(() => {
+      const v = fake.visualizers[0];
+      expect(v?.loadPreset).toHaveBeenCalledTimes(1);
+      return v!;
+    });
+    fake.renderThrows = 1;
+    act(() => fake.tick?.(null, 1 / 60));
+    await waitFor(() => expect(visualizer.loadPreset).toHaveBeenCalledTimes(2));
+    expect(fake.loads[1]).not.toBe(fake.loads[0]);
+    // Hatalı görsel karışmasın: yeni görsel harmanlamadan gelir (fren ani geçişi yine yumuşatır).
+    expect(visualizer.loadPreset.mock.calls[1]![1]).toBe(0);
     fireEvent.click(screen.getByRole("button", { name: /MilkDrop/ }));
     expect(await screen.findByRole("group", { name: "MilkDrop görselleri" })).toHaveTextContent(
-      '"ayna" önceki açılışta yüklenirken program kapandı; atlandı.',
+      "çizilirken hata verdi",
     );
-    for (let i = 0; i < 130; i++) act(() => fake.tick?.(null, 1 / 60));
-    expect(window.localStorage.getItem(PENDING_KEY)).toBeNull();
     vi.restoreAllMocks();
+  });
+
+  it("bağlam kaybında en çok üç kez yeniden kurulur; temiz bir kare sayacı sıfırlar", async () => {
+    fake.folder = FOLDER;
+    render(<Harness />);
+    const canvas = await waitFor(() => {
+      const found = document.querySelector<HTMLCanvasElement>(".milkdrop-scene__canvas");
+      expect(found).not.toBeNull();
+      return found!;
+    });
+    const loseAndRestore = async (clean: boolean) => {
+      const count = fake.visualizers.length;
+      act(() => {
+        canvas.dispatchEvent(new Event("webglcontextlost"));
+        canvas.dispatchEvent(new Event("webglcontextrestored"));
+      });
+      await waitFor(() => expect(fake.visualizers.length).toBe(count + 1));
+      if (clean) {
+        await waitFor(() => expect(fake.visualizers[count]!.loadPreset).toHaveBeenCalled());
+        act(() => fake.tick?.(null, 1 / 60));
+      }
+    };
+    await waitFor(() => expect(fake.visualizers[0]?.loadPreset).toHaveBeenCalled());
+    // Arada temiz kareler olunca kayıp sayısı birikmez.
+    for (let i = 0; i < 5; i++) await loseAndRestore(true);
+    expect(canvas).not.toHaveAttribute("hidden");
+    // Art arda dört kayıp (arada kare yok): sahne bırakılır.
+    for (let i = 0; i < 3; i++) await loseAndRestore(false);
+    act(() => {
+      canvas.dispatchEvent(new Event("webglcontextlost"));
+      canvas.dispatchEvent(new Event("webglcontextrestored"));
+    });
+    expect(await screen.findByText(/çizmeyi bıraktı/)).toBeInTheDocument();
   });
 
   it("WebGL2 açılamazsa sahne yerine açıklama görünür", async () => {
@@ -343,6 +463,8 @@ describe("MilkDrop denetimleri (galeri)", () => {
       currentName: null,
       simplified: false,
       notice: null,
+      skippedCount: 0,
+      retrySkipped: vi.fn(),
       auto: true,
       setAuto: vi.fn(),
       chooseFolder: vi.fn(async () => undefined),

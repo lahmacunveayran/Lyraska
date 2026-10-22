@@ -93,7 +93,7 @@ describe("sahne denetiminin sahte çekirdeği", () => {
       expect(preset, `"${field}" eksik`).toMatch(new RegExp(`\\b${field}:`));
     }
     // Deneme preseti Rust ayrıştırıcısının çıktısıdır (elle yazılmış JSON değil).
-    expect(preset).toMatch(/JSON\.stringify\(MILKDROP_PRESET\)/);
+    expect(preset).toMatch(/JSON\.stringify\(MILKDROP_PRESETS\[milk\]\.preset\)/);
   });
 
   it("crossfeed durumunun bütün alanlarını döndürür", () => {

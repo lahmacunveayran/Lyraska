@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { VisualFrame } from "./backend";
 import {
   AUTO_BLEND_SECONDS,
@@ -9,13 +9,19 @@ import {
   MIN_PRESET_SECONDS,
   SCHEDULE_START,
   SILENT_LEVELS,
+  MAX_SKIPPED,
   WAVEFORM_WINDOW,
+  addSkipped,
   audioLevels,
   blendSeconds,
+  clearSkipList,
   historyNext,
   historyPrevious,
+  loadSkipList,
+  readPending,
   restartSchedule,
   stepSchedule,
+  writePending,
   type PresetHistory,
   type ScheduleState,
 } from "./milkdrop";
@@ -126,6 +132,22 @@ describe("görsel değiştirme zamanı", () => {
     }
   });
 
+  it("15 sn dolmadan gelen bölüm başı ertelenir: ilk izinli ölçü başında değişir", () => {
+    // 10. saniyede yeni bölüm; ölçü 2 sn (ölçü başları çift saniyelerde).
+    const { switches } = run(SCHEDULE_START, 40, (t) => frame(t < 10 ? 0 : 1, 0, (t / 2) % 1));
+    expect(switches).toHaveLength(1);
+    expect(switches[0]!.reason).toBe("section");
+    expect(switches[0]!.t).toBeGreaterThanOrEqual(MIN_PRESET_SECONDS);
+    expect(switches[0]!.t).toBeCloseTo(16, 1);
+  });
+
+  it("ertelenen geçiş elle değiştirince unutulur", () => {
+    let { state } = run(SCHEDULE_START, 10, (t) => frame(t < 5 ? 0 : 1, 0, (t / 2) % 1));
+    state = restartSchedule(state);
+    const { switches } = run(state, 20, (t) => frame(1, 0, (t / 2) % 1));
+    expect(switches).toEqual([]);
+  });
+
   it("drop açılınca değişir", () => {
     const { switches } = run(SCHEDULE_START, 40, (t) => frame(0, t >= 25 && t < 27 ? 1 : 0));
     expect(switches).toEqual([{ t: expect.closeTo(25, 1) as number, reason: "drop" }]);
@@ -219,12 +241,16 @@ describe("önceki / sonraki geçmişi", () => {
     }
   });
 
-  it("kaçınılacak görsel (önceki açılışta programı kapatan) seçilmez", () => {
+  it("kaçınılacak görseller (atlananlar, açılamayanlar) hiç seçilmez", () => {
     for (let r = 0; r < 1; r += 0.1) {
-      expect(historyNext(EMPTY_HISTORY, 3, () => r, 1)!.index).not.toBe(1);
+      expect(historyNext(EMPTY_HISTORY, 3, () => r, new Set([1]))!.index).not.toBe(1);
     }
-    // Tek görsel varsa yine de açılır.
-    expect(historyNext(EMPTY_HISTORY, 1, () => 0.5, 0)!.index).toBe(0);
+    // Hepsinden kaçınılıyorsa hiçbiri: zorla seçilmez.
+    expect(historyNext(EMPTY_HISTORY, 1, () => 0.5, new Set([0]))).toBeNull();
+    expect(historyNext(EMPTY_HISTORY, 2, () => 0.5, new Set([0, 1]))).toBeNull();
+    // Geçmişte ileride duran görsel sonradan kaçınılacak olduysa oraya gidilmez.
+    const history: PresetHistory = { visited: [0, 1], position: 0 };
+    expect(historyNext(history, 3, () => 0, new Set([1]))!.index).toBe(2);
   });
 
   it("liste küçülünce geçmişteki geçersiz sıralar atlanır; geçmiş sınırlıdır", () => {
@@ -243,5 +269,52 @@ describe("önceki / sonraki geçmişi", () => {
       expect(index).toBeGreaterThanOrEqual(0);
       expect(index).toBeLessThan(4);
     }
+  });
+});
+
+describe("donma işareti ve atlananlar listesi", () => {
+  afterEach(() => {
+    window.localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it("işaret yazılır, okunur, silinir", () => {
+    expect(readPending()).toBeNull();
+    writePending("C:/Görseller/a.milk");
+    expect(readPending()).toBe("C:/Görseller/a.milk");
+    writePending(null);
+    expect(readPending()).toBeNull();
+  });
+
+  it("atlananlar kalıcıdır, tekrarsız ve sınırlıdır", () => {
+    expect(loadSkipList()).toEqual([]);
+    addSkipped("a");
+    addSkipped("b");
+    addSkipped("a");
+    // Yeniden eklenen sona geçer (en yenisi en son; sınır aşılınca en eskisi düşer).
+    expect(loadSkipList()).toEqual(["b", "a"]);
+    for (let i = 0; i < MAX_SKIPPED + 10; i++) addSkipped(`x${i}`);
+    const list = loadSkipList();
+    expect(list).toHaveLength(MAX_SKIPPED);
+    expect(list[list.length - 1]).toBe(`x${MAX_SKIPPED + 9}`);
+    clearSkipList();
+    expect(loadSkipList()).toEqual([]);
+  });
+
+  it("bozuk kayıt ya da depoya erişilemezse boş liste; hata fırlatmaz", () => {
+    window.localStorage.setItem("lyraska.milkdrop.skipped", "{bozuk");
+    expect(loadSkipList()).toEqual([]);
+    window.localStorage.setItem("lyraska.milkdrop.skipped", JSON.stringify(["a", 3, null, "b"]));
+    expect(loadSkipList()).toEqual(["a", "b"]);
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("erişim yok");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("erişim yok");
+    });
+    expect(loadSkipList()).toEqual([]);
+    expect(readPending()).toBeNull();
+    expect(() => addSkipped("a")).not.toThrow();
+    expect(() => writePending("a")).not.toThrow();
   });
 });

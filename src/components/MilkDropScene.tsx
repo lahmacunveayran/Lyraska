@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ButterchurnVisualizer } from "butterchurn";
 import type { MilkdropControls } from "../hooks/useMilkdrop";
-import { markPending } from "../hooks/useMilkdrop";
 import { useVisualFeed } from "../hooks/useVisualFeed";
 import {
   getVisualWaveform,
@@ -12,13 +11,17 @@ import {
 import { describeError } from "../lib/errorReporting";
 import { createFlashGuard, type FlashGuard } from "../lib/flashGuard";
 import { fitCanvas, getWebGl2, gpuName, reportSceneProblem } from "../lib/gl";
-import { SCHEDULE_START, audioLevels, restartSchedule, stepSchedule } from "../lib/milkdrop";
+import {
+  SCHEDULE_START,
+  audioLevels,
+  restartSchedule,
+  stepSchedule,
+  writePending,
+} from "../lib/milkdrop";
 import { usePrefersReducedMotion } from "../lib/usePrefersReducedMotion";
 
 const SCENE_NAME = "MilkDrop";
-/** Görsel açıldıktan sonra bu kadar sorunsuz çizilince "açılırken kapandı" işareti silinir. */
-const SETTLE_SECONDS = 2;
-/** Ekran kartı bağlamı kaybolunca en fazla bu kadar yeniden kurulur. */
+/** Ekran kartı bağlamı art arda (arada temiz kare olmadan) en fazla bu kadar kez yeniden kurulur. */
 const MAX_REBUILDS = 3;
 
 export interface MilkDropSceneProps {
@@ -102,9 +105,9 @@ interface Engine {
   hasPreset: boolean;
   wave: Uint8Array | null;
   waveInFlight: boolean;
-  /** Açılan son görselin yolu ve o zamandan beri çizilen süre ("açılırken kapandı" işareti). */
-  pendingPath: string | null;
-  sinceLoad: number;
+  /** Çalan görselin yolu ve isteğinin sırası (donma işareti ve hata bildirimi için). */
+  currentPath: string | null;
+  currentSerial: number;
   lost: boolean;
 }
 
@@ -129,6 +132,18 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
     safeRef.current = safe;
     engine.current?.guard.setSafe(safe);
   }, [safe]);
+
+  // Program düzgün kapanırken çalan görsel suçlanmasın: donma işareti silinir. (İşaret yalnızca
+  // program bir görsel çalarken zorla kapandıysa kalır; bkz. `lib/milkdrop.ts`.)
+  useEffect(() => {
+    const clear = () => writePending(null);
+    window.addEventListener("pagehide", clear);
+    window.addEventListener("beforeunload", clear);
+    return () => {
+      window.removeEventListener("pagehide", clear);
+      window.removeEventListener("beforeunload", clear);
+    };
+  }, []);
 
   // Kurulum: görünen tuvalde fren, görünmeyen tuvalde Butterchurn.
   useEffect(() => {
@@ -214,8 +229,8 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
           hasPreset: false,
           wave: null,
           waveInFlight: false,
-          pendingPath: null,
-          sinceLoad: 0,
+          currentPath: null,
+          currentSerial: 0,
           lost: false,
         };
         engine.current = created;
@@ -236,8 +251,8 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
       canvas.removeEventListener("webglcontextrestored", onRestored);
       internal?.removeEventListener("webglcontextlost", onInternalLost);
       if (created) {
-        // Açılırken kapanma işareti sahneden çıkınca da silinir.
-        if (created.pendingPath) markPending(null);
+        // Sahneden çıkınca çalan görsel yok: donma işareti silinir.
+        writePending(null);
         try {
           // Ekran kartı kaynakları hemen bırakılsın (bağlam zaten kayıpsa uzantı yoktur).
           created.visualizer.loseGLContext();
@@ -261,17 +276,16 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
       try {
         preset = await loadMilkdropPreset(request.entry.path);
         if (engine.current !== current) return;
-        // Önceki açılışta bu görselde kapandıysak bir dahaki sefere atlansın.
-        markPending(request.entry.path);
-        current.pendingPath = request.entry.path;
-        current.sinceLoad = 0;
+        // Donma işareti: bu görsel çalarken (ya da açılırken) program zorla kapanırsa bir sonraki
+        // açılışta atlanır. İşaret görsel çaldığı sürece durur.
+        writePending(request.entry.path);
         await current.visualizer.loadPreset(
           preset.preset,
           current.hasPreset ? request.blendSeconds : 0,
         );
       } catch (error) {
-        markPending(null);
-        current.pendingPath = null;
+        // Açılamadı: işaret hâlâ çalan görsele döner.
+        writePending(current.hasPreset ? current.currentPath : null);
         // Sahne bu arada yeniden kurulduysa (bağlam kaybı) görsel suçlu değil: yeni kurulum açar.
         if (engine.current === current) {
           controlsRef.current.failed(request.serial, describeError(error));
@@ -279,6 +293,8 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
         return;
       }
       current.hasPreset = true;
+      current.currentPath = request.entry.path;
+      current.currentSerial = request.serial;
       schedule.current = restartSchedule(schedule.current);
       if (canvasRef.current) canvasRef.current.dataset.preset = preset.name;
       controlsRef.current.loaded(request.serial, preset.name, preset.simplified);
@@ -315,18 +331,27 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
     }
     // Butterchurn `elapsedTime` 0 ise kendi saatine döner: en az küçük bir adım verilir.
     const step = Math.min(0.25, Math.max(1 / 240, dt));
-    current.visualizer.render({ audioLevels: audioLevels(current.wave), elapsedTime: step });
+    try {
+      current.visualizer.render({ audioLevels: audioLevels(current.wave), elapsedTime: step });
+    } catch (error) {
+      // Görselin denklemi çizerken hata verdi (ör. WebAssembly tuzağı): görsel bırakılır, bu
+      // oturumda bir daha seçilmez; sonraki harmanlamadan gelir (hatalı görsel karışmasın, ani
+      // geçişi fren yumuşatır). Görüntü o zamana kadar son karede kalır.
+      current.hasPreset = false;
+      current.currentPath = null;
+      writePending(null);
+      controlsRef.current.failed(
+        current.currentSerial,
+        `çizilirken hata verdi (${describeError(error)})`,
+      );
+      return;
+    }
     if (!current.guard.processSource(current.visualizer.internalCanvas, dt)) {
       current.lost = true;
       return;
     }
-    if (current.pendingPath) {
-      current.sinceLoad += dt;
-      if (current.sinceLoad >= SETTLE_SECONDS) {
-        current.pendingPath = null;
-        markPending(null);
-      }
-    }
+    // Temiz bir kare: bağlam kaybı sayacı baştan.
+    rebuilds.current = 0;
     const next = stepSchedule(schedule.current, frame, dt, controlsRef.current.auto);
     schedule.current = next.state;
     if (next.reason) controlsRef.current.advance();

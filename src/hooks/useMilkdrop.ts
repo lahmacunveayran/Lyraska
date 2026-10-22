@@ -10,9 +10,14 @@ import {
 import { describeError } from "../lib/errorReporting";
 import {
   EMPTY_HISTORY,
+  addSkipped,
   blendSeconds,
+  clearSkipList,
   historyNext,
   historyPrevious,
+  loadSkipList,
+  readPending,
+  writePending,
   type PresetHistory,
 } from "../lib/milkdrop";
 
@@ -20,7 +25,7 @@ import {
 export interface MilkdropRequest {
   serial: number;
   entry: MilkdropEntry;
-  /** Harmanlama süresi (saniye); ilk görselde sahne bunu yok sayar (önceki görsel yok). */
+  /** Harmanlama süresi (saniye); önceki görsel yoksa sahne bunu yok sayar. */
   blendSeconds: number;
 }
 
@@ -34,8 +39,12 @@ export interface MilkdropControls {
   currentName: string | null;
   /** Çalan görselin gölgelendiricileri desteklenmediği için sade hâliyle çalıyor. */
   simplified: boolean;
-  /** Kullanıcıya kısa bilgi (ör. açılamayan görsel). */
+  /** Kullanıcıya kısa bilgi (ör. açılamayan ya da atlanan görsel). */
   notice: string | null;
+  /** Bu klasörde, önceki açılışlarda program onları çalarken kapandığı için atlanan görseller. */
+  skippedCount: number;
+  /** Atlananlar listesini boşaltır (kullanıcının açık seçimi); görseller yine seçilebilir. */
+  retrySkipped: () => void;
   /** Müzikle kendiliğinden görsel değiştirme (hatırlanır). */
   auto: boolean;
   setAuto: (auto: boolean) => void;
@@ -45,46 +54,48 @@ export interface MilkdropControls {
   previous: () => void;
   /** Sahne: müzikte uygun an geldi. */
   advance: () => void;
-  /** Sahne: istenen görsel açıldı / açılamadı. */
+  /** Sahne: istenen görsel açıldı / açılamadı ya da çizerken hata verdi. */
   loaded: (serial: number, name: string, simplified: boolean) => void;
   failed: (serial: number, message: string) => void;
 }
 
 const AUTO_KEY = "lyraska.milkdrop.auto";
-/**
- * Açılırken programı kapatmış (ör. sonsuz döngülü denklem) olabilecek görsel: sahne açmadan önce
- * yazar, görsel birkaç saniye sorunsuz çizilince siler. Program bir sonraki açılışta bu görselle
- * başlamaz (yine bu görselde donmasın).
- */
-export const PENDING_KEY = "lyraska.milkdrop.pending";
 /** Art arda bu kadar görsel açılamazsa kendiliğinden denemeyi bırakır. */
 const MAX_FAILURES = 5;
+const ALL_SKIPPED =
+  "Bu klasördeki görsellerin hepsi atlandı (açılamadı ya da önceki açılışlarda program onları " +
+  "çalarken kapandı). Atlananları yeniden deneyebilir ya da başka bir klasör seçebilirsiniz.";
 
-function readStorage(key: string): string | null {
+function readAuto(): boolean {
   try {
-    return window.localStorage.getItem(key);
+    return window.localStorage.getItem(AUTO_KEY) !== "0";
   } catch {
-    return null;
+    return true;
   }
 }
 
-function writeStorage(key: string, value: string | null): void {
+function writeAuto(value: boolean): void {
   try {
-    if (value === null) window.localStorage.removeItem(key);
-    else window.localStorage.setItem(key, value);
+    window.localStorage.setItem(AUTO_KEY, value ? "1" : "0");
   } catch {
-    /* Saklanamazsa bir sonraki açılışta varsayılanla başlar. */
+    /* Saklanamazsa bir sonraki açılışta varsayılanla (açık) başlar. */
   }
 }
 
-/** Görsel açılmadan önce işaretlenir (bkz. [`PENDING_KEY`]). */
-export function markPending(path: string | null): void {
-  writeStorage(PENDING_KEY, path);
+/** Dosya yolunun adı (bildirim için; listede yoksa). */
+function fileName(path: string): string {
+  return (path.split(/[\\/]/).pop() ?? path).replace(/\.milk$/i, "");
 }
 
 /**
  * MilkDrop sahnesinin durumu (seçilen klasör, görsel listesi, çalan görsel, geçmiş). Galeri
  * paneli ve sahne aynı denetimleri paylaşır. Liste yalnızca sahne ilk kez açılınca okunur.
+ *
+ * Atlanan görseller: önceki açılışta program bir görseli çalarken kapandıysa (işareti kalmıştır,
+ * bkz. `lib/milkdrop.ts`) o görsel kalıcı atlananlar listesine girer; bu oturumda açılamayan ya da
+ * çizerken hata veren görseller de oturum boyunca atlanır. Atlananlar hiçbir zaman kendiliğinden
+ * ya da "Sonraki" ile seçilmez; kullanıcı galeride "Atlananları yeniden dene" ile listeyi
+ * boşaltabilir (kendi açık seçimi). Seçilebilecek görsel kalmadıysa hiçbiri açılmaz.
  */
 export function useMilkdrop(active: boolean): MilkdropControls {
   const [library, setLibrary] = useState<MilkdropFolder>(NO_MILKDROP_FOLDER);
@@ -96,43 +107,73 @@ export function useMilkdrop(active: boolean): MilkdropControls {
   const [currentName, setCurrentName] = useState<string | null>(null);
   const [simplified, setSimplified] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [auto, setAutoState] = useState(() => readStorage(AUTO_KEY) !== "0");
+  const [skipped, setSkipped] = useState<string[]>(loadSkipList);
+  const [auto, setAutoState] = useState(readAuto);
   const history = useRef<PresetHistory>(EMPTY_HISTORY);
   const serial = useRef(0);
   const failures = useRef(0);
   const presets = useRef<MilkdropEntry[]>([]);
+  /** Bu oturumda açılamayan ya da çizerken hata veren görseller (yolları). */
+  const bad = useRef(new Set<string>());
+  const skippedRef = useRef(skipped);
+  const requested = useRef<MilkdropEntry | null>(null);
 
-  /** Listeyi değiştirir ve ilk görseli ister (önceki açılışta programı kapatan atlanır). */
-  const install = useCallback((next: MilkdropFolder) => {
-    setLibrary(next);
-    presets.current = next.presets;
-    history.current = EMPTY_HISTORY;
-    failures.current = 0;
-    setCurrentName(null);
-    setSimplified(false);
-    const pending = readStorage(PENDING_KEY);
-    const avoid = pending === null ? -1 : next.presets.findIndex((p) => p.path === pending);
-    if (avoid >= 0) {
-      setNotice(
-        `"${next.presets[avoid]!.name}" önceki açılışta yüklenirken program kapandı; atlandı.`,
-      );
-      markPending(null);
-    } else {
-      setNotice(next.error);
-    }
-    const step = historyNext(EMPTY_HISTORY, next.presets.length, Math.random, avoid);
-    if (!step) {
-      setRequest(null);
-      return;
-    }
-    history.current = step.history;
-    serial.current += 1;
-    setRequest({
-      serial: serial.current,
-      entry: next.presets[step.index]!,
-      blendSeconds: blendSeconds(true),
+  /** Seçilmeyecek görsellerin listedeki sıraları. */
+  const avoid = useCallback(() => {
+    const paths = new Set([...skippedRef.current, ...bad.current]);
+    const out = new Set<number>();
+    presets.current.forEach((p, i) => {
+      if (paths.has(p.path)) out.add(i);
     });
+    return out;
   }, []);
+
+  /** Görseli ister; seçilebilecek görsel yoksa hiçbirini (ve `false` döner). */
+  const go = useCallback(
+    (step: { history: PresetHistory; index: number } | null, manual: boolean) => {
+      const entry = step ? presets.current[step.index] : undefined;
+      if (!step || !entry) return false;
+      history.current = step.history;
+      serial.current += 1;
+      requested.current = entry;
+      setRequest({ serial: serial.current, entry, blendSeconds: blendSeconds(manual) });
+      return true;
+    },
+    [],
+  );
+
+  /** Listeyi değiştirir ve ilk görseli ister. */
+  const install = useCallback(
+    (next: MilkdropFolder) => {
+      setLibrary(next);
+      presets.current = next.presets;
+      history.current = EMPTY_HISTORY;
+      failures.current = 0;
+      setCurrentName(null);
+      setSimplified(false);
+      setRequest(null);
+      requested.current = null;
+      // Önceki açılışta bir görsel çalarken program kapandıysa o görsel atlananlara girer.
+      const pending = readPending();
+      let message = next.error;
+      if (pending !== null) {
+        addSkipped(pending);
+        writePending(null);
+        const name = next.presets.find((p) => p.path === pending)?.name ?? fileName(pending);
+        message = `"${name}" önceki açılışta çalarken program kapandı; atlananlara eklendi.`;
+      }
+      const list = loadSkipList();
+      skippedRef.current = list;
+      setSkipped(list);
+      const chosen = go(
+        historyNext(EMPTY_HISTORY, next.presets.length, Math.random, avoid()),
+        true,
+      );
+      if (!chosen && next.presets.length > 0) message = ALL_SKIPPED;
+      setNotice(message);
+    },
+    [avoid, go],
+  );
 
   // Liste bir kez, sahne ilk kez açılınca okunur (sonra klasör seçilince yenilenir).
   useEffect(() => {
@@ -145,22 +186,13 @@ export function useMilkdrop(active: boolean): MilkdropControls {
   }, [active, install]);
   const loading = choosing || (active && !fetched);
 
-  const go = useCallback(
-    (step: { history: PresetHistory; index: number } | null, manual: boolean) => {
-      const entry = step ? presets.current[step.index] : undefined;
-      if (!step || !entry) return;
-      history.current = step.history;
-      serial.current += 1;
-      setRequest({ serial: serial.current, entry, blendSeconds: blendSeconds(manual) });
-    },
-    [],
-  );
-
   const next = useCallback(() => {
     failures.current = 0;
     setNotice(null);
-    go(historyNext(history.current, presets.current.length), true);
-  }, [go]);
+    if (!go(historyNext(history.current, presets.current.length, Math.random, avoid()), true)) {
+      if (presets.current.length > 0) setNotice(ALL_SKIPPED);
+    }
+  }, [avoid, go]);
 
   const previous = useCallback(() => {
     failures.current = 0;
@@ -169,8 +201,8 @@ export function useMilkdrop(active: boolean): MilkdropControls {
   }, [go]);
 
   const advance = useCallback(() => {
-    go(historyNext(history.current, presets.current.length), false);
-  }, [go]);
+    go(historyNext(history.current, presets.current.length, Math.random, avoid()), false);
+  }, [avoid, go]);
 
   const loaded = useCallback((done: number, name: string, isSimplified: boolean) => {
     if (done !== serial.current) return;
@@ -183,16 +215,36 @@ export function useMilkdrop(active: boolean): MilkdropControls {
   const failed = useCallback(
     (done: number, message: string) => {
       if (done !== serial.current) return;
+      // Bu oturumda bir daha denenmez.
+      if (requested.current) bad.current.add(requested.current.path);
       failures.current += 1;
-      if (failures.current >= MAX_FAILURES || presets.current.length < 2) {
+      if (failures.current >= MAX_FAILURES) {
         setNotice(`Görsel açılamadı: ${message}`);
         return;
       }
-      setNotice(`Görsel açılamadı, sonrakine geçildi: ${message}`);
-      go(historyNext(history.current, presets.current.length), true);
+      const moved = go(
+        historyNext(history.current, presets.current.length, Math.random, avoid()),
+        true,
+      );
+      setNotice(
+        moved ? `Görsel açılamadı, sonrakine geçildi: ${message}` : `Görsel açılamadı: ${message}`,
+      );
     },
-    [go],
+    [avoid, go],
   );
+
+  const retrySkipped = useCallback(() => {
+    clearSkipList();
+    skippedRef.current = [];
+    setSkipped([]);
+    bad.current.clear();
+    failures.current = 0;
+    setNotice(null);
+    // Hiçbir görsel açık değilse (hepsi atlanmıştı) şimdi biri açılır.
+    if (!requested.current) {
+      go(historyNext(history.current, presets.current.length, Math.random, avoid()), true);
+    }
+  }, [avoid, go]);
 
   const chooseFolder = useCallback(async () => {
     try {
@@ -211,8 +263,13 @@ export function useMilkdrop(active: boolean): MilkdropControls {
 
   const setAuto = useCallback((value: boolean) => {
     setAutoState(value);
-    writeStorage(AUTO_KEY, value ? "1" : "0");
+    writeAuto(value);
   }, []);
+
+  const skippedCount = useMemo(() => {
+    const paths = new Set(skipped);
+    return library.presets.filter((p) => paths.has(p.path)).length;
+  }, [library, skipped]);
 
   return useMemo(
     () => ({
@@ -222,6 +279,8 @@ export function useMilkdrop(active: boolean): MilkdropControls {
       currentName,
       simplified,
       notice,
+      skippedCount,
+      retrySkipped,
       auto,
       setAuto,
       chooseFolder,
@@ -238,6 +297,8 @@ export function useMilkdrop(active: boolean): MilkdropControls {
       currentName,
       simplified,
       notice,
+      skippedCount,
+      retrySkipped,
       auto,
       setAuto,
       chooseFolder,
