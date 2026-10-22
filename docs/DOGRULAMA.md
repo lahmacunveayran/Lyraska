@@ -474,3 +474,4 @@ denemeleri için kılavuz olarak kalır; yeni sürümlerde yeni maddeler eklenir
 | — (0.0.39)           | ✅ Denendi, sorun çıkmadı                               | 15 Ekim. Hangi maddelerin denendiği yazılmadı; madde madde sonuçlar gelince tabloya ayrı ayrı işlenecek.                                |
 | Faz 1 (A2, D1 dahil) | ✅ "Faz 1 tamam"                                        | 16 Ekim. Sürükle-bırak (#29) ve kuzey ışıkları (#30) kapandı. Gece göğünün varsayılan manzarası aynı kaldı; değişsin isterseniz yazın.  |
 | — (0.0.52)           | ✅ "Denedim iyiydi"                                     | 22 Ekim. DENETIM-2 düzeltmelerinin sürümü (#89, #90). Hangi maddelerin denendiği yazılmadı; B13–B16 madde madde gelince ayrı işlenecek. |
+| — (0.0.59)           | ✅ "Test ettim. İyi."                                   | 22 Ekim. Şarkı haritası dosyası, kinetik sözler, galeri ve hazır ayarların sürümü (E6–E9). Hangi maddelerin denendiği yazılmadı.        |
