@@ -41,6 +41,13 @@ It is rebuilt automatically every time `main` changes and CI passes. Builds are 
 yet, so Windows SmartScreen will show an "unknown publisher" warning: click **More info → Run
 anyway**.
 
+The app needs Microsoft Edge WebView2, which Windows 10/11 already ships. If it is missing, the
+installer downloads it once; the player itself never connects to the internet.
+
+Data lives in two folders: `%APPDATA%\com.lyraska.app` (settings, annotations) and
+`%LOCALAPPDATA%\com.lyraska.app` (library + analysis cache, logs). Both can be deleted safely;
+the library is rebuilt from your music folders.
+
 ## Tech stack
 
 | Area     | Technology                                                   |

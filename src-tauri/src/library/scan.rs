@@ -64,6 +64,9 @@ pub struct ScanSummary {
     /// Okunamayan (izin, ağ kopması, G/Ç hatası) alt klasör ya da dosya sayısı. Bunların
     /// altındaki bilinen şarkılar "silinmiş" sayılmaz: tarama onlara dokunmaz.
     pub unreadable: usize,
+    /// Kök okunabildiği halde bilinen şarkıların **hiçbiri** bulunamadı (çıkarılmış disk, bağlanmamış
+    /// ağ paylaşımı, boş görünen sürücü): bunlar silinmiş sayılmaz, kütüphanede kalır.
+    pub suspicious: usize,
 }
 
 impl ScanState {
@@ -98,7 +101,7 @@ impl ScanState {
         }
     }
 
-    fn set_scanning(&self, scanning: bool) {
+    pub(super) fn set_scanning(&self, scanning: bool) {
         self.scanning.store(scanning, Ordering::Release);
         if !scanning {
             if let Ok(mut current) = self.current.lock() {
@@ -124,6 +127,7 @@ pub fn scan_folders(
         total.failed += summary.failed;
         total.removed += summary.removed;
         total.unreadable += summary.unreadable;
+        total.suspicious += summary.suspicious;
         Ok(())
     });
     state.set_scanning(false);
@@ -142,7 +146,7 @@ pub fn scan_folder(
         return Err(LibraryError::FolderMissing(folder.path.clone()));
     }
 
-    let (files, unreadable) = find_audio_files(root);
+    let (files, unreadable, skipped) = find_audio_files(root);
     state.found.store(files.len(), Ordering::Relaxed);
     let known = lock(library)?.known_files(folder.id)?;
 
@@ -150,7 +154,17 @@ pub fn scan_folder(
         .iter()
         .map(|(p, _)| p.to_string_lossy().into_owned())
         .collect();
-    let removed = removal_candidates(known.keys(), &on_disk, &unreadable);
+    // Atlanan klasörlerin (geri dönüşüm kutusu vb.) altındaki eski kayıtlar da silinmez.
+    let untouched: Vec<PathBuf> = unreadable.iter().chain(skipped.iter()).cloned().collect();
+    let mut removed = removal_candidates(known.keys(), &on_disk, &untouched);
+    // Kütüphanede şarkı vardı ama diskte hiçbiri yok: büyük olasılıkla disk takılı ya da ağ
+    // paylaşımı bağlı değil. Hepsini silmek, geri gelince bütün kütüphaneyi (analizleriyle)
+    // baştan kurdurur; onun yerine hiçbirine dokunulmaz ve kullanıcıya söylenir.
+    let suspicious = if !known.is_empty() && removed.len() == known.len() {
+        std::mem::take(&mut removed).len()
+    } else {
+        0
+    };
     let to_read: Vec<(PathBuf, FileStamp)> = files
         .into_iter()
         .filter(|(path, stamp)| {
@@ -167,6 +181,7 @@ pub fn scan_folder(
         unchanged: on_disk.len().saturating_sub(to_read.len()),
         removed: removed.len(),
         unreadable: unreadable.len(),
+        suspicious,
         ..ScanSummary::default()
     };
     state.processed.store(summary.unchanged, Ordering::Relaxed);
@@ -244,13 +259,35 @@ fn removal_candidates<'a>(
         .collect()
 }
 
+/// Taranmayan sistem klasörleri: Windows geri dönüşüm kutusu ve sistem bilgisi, Synology NAS
+/// küçük resim klasörü. Nokta ile başlayan gizli klasörler de atlanır (`.Trash-1000`,
+/// `.stfolder`). Buralardaki "silinmiş" şarkılar kütüphaneye girmez.
+const SKIPPED_DIRS: &[&str] = &["$RECYCLE.BIN", "System Volume Information", "@eaDir"];
+
+/// Bu klasöre girilmez mi? (Kökün kendisi hiç atlanmaz: kullanıcı onu seçti.)
+fn is_skipped_dir(entry: &walkdir::DirEntry) -> bool {
+    entry.depth() > 0
+        && entry.file_type().is_dir()
+        && entry.file_name().to_str().is_some_and(|name| {
+            name.starts_with('.') || SKIPPED_DIRS.iter().any(|s| s.eq_ignore_ascii_case(name))
+        })
+}
+
 /// Klasördeki (alt klasörler dahil) desteklenen ses dosyaları ve damgaları; ikinci değer
-/// okunamayan yollar (izin reddi, ağ kopması, G/Ç hatası). Okunamayan yer bilinmiyorsa kökün
-/// kendisi sayılır: o taramada hiçbir şey silinmez.
-fn find_audio_files(root: &Path) -> (Vec<(PathBuf, FileStamp)>, Vec<PathBuf>) {
+/// okunamayan yollar (izin reddi, ağ kopması, G/Ç hatası), üçüncüsü atlanan sistem klasörleri.
+/// Okunamayan yer bilinmiyorsa kökün kendisi sayılır: o taramada hiçbir şey silinmez.
+fn find_audio_files(root: &Path) -> (Vec<(PathBuf, FileStamp)>, Vec<PathBuf>, Vec<PathBuf>) {
     let mut files = Vec::new();
     let mut unreadable = Vec::new();
-    for entry in WalkDir::new(root).follow_links(false) {
+    let mut skipped = Vec::new();
+    let walker = WalkDir::new(root).follow_links(false).into_iter();
+    for entry in walker.filter_entry(|entry| {
+        let skip = is_skipped_dir(entry);
+        if skip {
+            skipped.push(entry.path().to_path_buf());
+        }
+        !skip
+    }) {
         let entry = match entry {
             Ok(entry) => entry,
             Err(error) => {
@@ -266,7 +303,7 @@ fn find_audio_files(root: &Path) -> (Vec<(PathBuf, FileStamp)>, Vec<PathBuf>) {
             Err(_) => unreadable.push(entry.into_path()),
         }
     }
-    (files, unreadable)
+    (files, unreadable, skipped)
 }
 
 /// Uzantısı desteklenen bir ses dosyası mı? (Büyük/küçük harf fark etmez.)
@@ -411,6 +448,67 @@ mod tests {
         let known2 = ["Ağ2/x.mp3".to_owned()];
         let removed2 = removal_candidates(known2.iter(), &HashSet::new(), &[PathBuf::from("Ağ")]);
         assert_eq!(removed2.len(), 1);
+    }
+
+    #[test]
+    fn bos_gorunen_kok_sarkilari_silmez() {
+        // Klasör var ama içinde hiç şarkı yok (sürücü harfi başka diske gitmiş, bölüm bağlı
+        // değil, bulut klasörü boşaltılmış): bilinen bütün şarkılar "kayıp" görünür. Hepsini ve
+        // analizlerini silmek yerine dokunulmaz ve kullanıcıya söylenir (DENETIM-2 KUT-01).
+        let (library, folder, dir) = setup();
+        let state = ScanState::default();
+        scan_folder(&library, &folder, &state).unwrap();
+        let before = library.lock().unwrap().track_count().unwrap();
+        assert_eq!(before, 4);
+        let aside = dir.parent().unwrap().join("kenara");
+        std::fs::rename(&dir, &aside).unwrap();
+        std::fs::create_dir_all(&dir).unwrap();
+        let summary = scan_folder(&library, &folder, &state).unwrap();
+        assert_eq!(summary.removed, 0);
+        assert_eq!(
+            summary.suspicious, 4,
+            "kayıp görünen şarkılar sayılır, silinmez"
+        );
+        assert_eq!(library.lock().unwrap().track_count().unwrap(), before);
+        // Şarkılar geri gelince tarama olağan sürer, hiçbir şey yeniden okunmaz.
+        std::fs::remove_dir(&dir).unwrap();
+        std::fs::rename(&aside, &dir).unwrap();
+        let again = scan_folder(&library, &folder, &state).unwrap();
+        assert_eq!(again.suspicious, 0);
+        assert_eq!(again.unchanged, 4);
+        // Gerçekten silinen tek bir şarkı yine çıkarılır (kısmi kayıp olağandır).
+        std::fs::remove_file(dir.join("uc-uc-ton.ogg")).unwrap();
+        let partial = scan_folder(&library, &folder, &state).unwrap();
+        assert_eq!(partial.removed, 1);
+        assert_eq!(partial.suspicious, 0);
+    }
+
+    #[test]
+    fn geri_donusum_kutusu_ve_gizli_klasorler_taranmaz() {
+        // Sürücü kökü eklenince $RECYCLE.BIN, "System Volume Information", @eaDir ve nokta ile
+        // başlayan klasörler atlanır; oradaki eski kayıtlar da "silinmiş" sayılmaz (KUT-05).
+        let (library, folder, dir) = setup();
+        for skipped in [
+            "$RECYCLE.BIN",
+            "System Volume Information",
+            "@eaDir",
+            ".gizli",
+        ] {
+            std::fs::create_dir_all(dir.join(skipped)).unwrap();
+            std::fs::copy(dir.join("uc-uc-ton.mp3"), dir.join(skipped).join("cop.mp3")).unwrap();
+        }
+        let state = ScanState::default();
+        let summary = scan_folder(&library, &folder, &state).unwrap();
+        assert_eq!(summary.found, 5, "atlanan klasörlerdeki dosyalar sayılmaz");
+        assert_eq!(summary.unreadable, 0, "atlamak okunamamak değildir");
+        let known: Vec<String> = library
+            .lock()
+            .unwrap()
+            .known_files(folder.id)
+            .unwrap()
+            .into_keys()
+            .collect();
+        assert!(known.iter().all(|p| !p.contains("cop.mp3")), "{known:?}");
     }
 
     #[test]

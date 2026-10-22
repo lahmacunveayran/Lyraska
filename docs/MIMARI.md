@@ -154,14 +154,19 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
 
 ## Veri ve kalıcılık
 
-| Ne                              | Nerede                                    | Sürüm/değişiklik nasıl yönetilir                                                  |
-| ------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------- |
-| Kütüphane ve analiz önbelleği   | `library.sqlite3` (uygulama veri klasörü) | `storage.rs`: sıralı göç adımları (`user_version`)                                |
-| Analiz sonuçlarının geçerliliği | aynı dosya, `analyses` tablosu            | Parça başına sürüm (`cache::VERSIONS`); yalnızca değişen parça yeniden hesaplanır |
-| Şarkı etiketlerinin okunuşu     | aynı dosya, `tracks.tags_version`         | `TAGS_VERSION` (okuma kuralı değişince; şu an 1)                                  |
-| Ayarlar                         | `settings.json`                           | Eksik alan varsayılanla dolar; bozuk dosyada varsayılanlar                        |
-| İşaretler                       | `isaretler/*.json`                        | Dosyada `format` alanı                                                            |
-| Hata günlüğü                    | `logs/lyraska.log`                        | 1 MB'ta bir yedeklenir                                                            |
+| Ne                              | Nerede                                  | Sürüm/değişiklik nasıl yönetilir                                                    |
+| ------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------- |
+| Kütüphane ve analiz önbelleği   | `library.sqlite3` (yerel veri klasörü)  | `storage.rs`: sıralı göç adımları (`user_version`); bozuksa `.bozuk-<zaman>` kenara |
+| Analiz sonuçlarının geçerliliği | aynı dosya, `analyses` tablosu          | Parça başına sürüm (`cache::VERSIONS`); yalnızca değişen parça yeniden hesaplanır   |
+| Şarkı etiketlerinin okunuşu     | aynı dosya, `tracks.tags_version`       | `TAGS_VERSION` (okuma kuralı değişince; şu an 1)                                    |
+| Ayarlar                         | `settings.json`                         | Eksik alan varsayılanla dolar; bozuk dosyada varsayılanlar                          |
+| İşaretler                       | `isaretler/*.json`                      | Dosyada `format` alanı                                                              |
+| Hata günlüğü                    | `logs/lyraska.log` (yerel veri klasörü) | 1 MB'ta bir yedeklenir                                                              |
+
+Windows'ta iki veri klasörü vardır: gezici `%APPDATA%\com.lyraska.app` (ayarlar, işaretler: küçük, kullanıcıya ait)
+ve makineye özgü `%LOCALAPPDATA%\com.lyraska.app` (kütüphane + analiz önbelleği, günlükler: büyük, yeniden
+üretilebilir). Eski sürümlerin gezici klasöre yazdığı kütüphane ilk açılışta bir kez taşınır (`data_dirs.rs`);
+taşınamazsa eski yer kullanılır.
 
 ## Kurallar ve onları denetleyenler
 
