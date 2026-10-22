@@ -29,6 +29,7 @@ use crate::audio::peq::{
 use crate::audio::player::{PlaybackStatus, Player};
 use crate::audio::PlaybackOptions;
 use crate::library::{DropOutcome, LibraryService, LibraryStatus, TrackRow};
+use crate::milkdrop::{self, MilkdropFolder, MilkdropPreset};
 use crate::settings::SettingsStore;
 use crate::visual_bridge::VisualFrame;
 use crate::{analysis, audio, diagnostics, visual_bridge};
@@ -386,6 +387,46 @@ pub async fn calibration_track(app: tauri::AppHandle) -> Result<CalibrationTrack
         path,
         clicks: visual_bridge::calibration::click_times(),
     })
+}
+
+/// MilkDrop sahnesi: hatırlanan klasör ve içindeki `.milk` görselleri (seçilmediyse boş).
+#[tauri::command]
+pub async fn milkdrop_list(store: State<'_, SettingsStore>) -> Result<MilkdropFolder, String> {
+    // Klasörü taramak diskte sürebilir: arka plandaki iş parçacığında.
+    let folder = store.get().milkdrop_folder;
+    tauri::async_runtime::spawn_blocking(move || milkdrop::folder_state(folder))
+        .await
+        .map_err(reported)
+}
+
+/// MilkDrop klasörünü seçer (hatırlanır) ve içindeki görselleri döndürür.
+#[tauri::command]
+pub async fn milkdrop_set_folder(
+    path: PathBuf,
+    store: State<'_, SettingsStore>,
+) -> Result<MilkdropFolder, String> {
+    let folder = milkdrop::sanitize_folder(Some(path))
+        .ok_or_else(|| reported("MilkDrop klasörünün yolu geçersiz"))?;
+    store
+        .update(|s| s.milkdrop_folder = Some(folder.clone()))
+        .map_err(|e| reported(format!("MilkDrop klasörü kaydedilemedi: {e}")))?;
+    tauri::async_runtime::spawn_blocking(move || milkdrop::folder_state(Some(folder)))
+        .await
+        .map_err(reported)
+}
+
+/// Seçilen klasördeki bir `.milk` görselini Butterchurn biçimine çevirir. Açılamayan görsel
+/// kullanıcının dosyasıdır, programın hatası değil: günlüğe yazılmaz, nedeni arayüzde görünür.
+#[tauri::command]
+pub async fn milkdrop_load(
+    path: PathBuf,
+    store: State<'_, SettingsStore>,
+) -> Result<MilkdropPreset, String> {
+    let folder = store.get().milkdrop_folder;
+    tauri::async_runtime::spawn_blocking(move || milkdrop::load(folder.as_deref(), &path))
+        .await
+        .map_err(reported)?
+        .map_err(|e| e.to_string())
 }
 
 /// Epilepsi güvenli modu açık mı.

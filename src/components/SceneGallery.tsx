@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import type { MilkdropControls } from "../hooks/useMilkdrop";
 import type { ScenePresetControls } from "../hooks/useScenePresets";
 import { GALLERY_SCENES, sceneKey, type Scene } from "../lib/scene";
 import {
@@ -18,6 +19,8 @@ export interface SceneGalleryProps {
   onChoose: (scene: Scene) => void;
   /** Galeri sahnelerinin görünümleri ve hazır ayarlar. */
   presets: ScenePresetControls;
+  /** MilkDrop sahnesinin denetimleri (sahne seçiliyken listenin altında görünür). */
+  milkdrop?: MilkdropControls;
 }
 
 /** Ok tuşlarıyla gezilen düğmeler: sahneler ve hazır ayarlar. */
@@ -29,7 +32,7 @@ const NAVIGABLE = ".scene-gallery__item, .scene-gallery__preset";
  * (sahne ve görünüm birlikte; kullanıcı kendi ayarını kaydedip silebilir). Liste dışarı tıklayınca,
  * Esc'ye basınca ya da bir sahne seçilince kapanır; görünüm ve hazır ayarlar listeyi kapatmaz.
  */
-export function SceneGallery({ scene, onChoose, presets }: SceneGalleryProps) {
+export function SceneGallery({ scene, onChoose, presets, milkdrop }: SceneGalleryProps) {
   const [open, setOpen] = useState(false);
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
@@ -168,6 +171,8 @@ export function SceneGallery({ scene, onChoose, presets }: SceneGalleryProps) {
             })}
           </div>
 
+          {scene === "milkdrop" && milkdrop && <MilkdropSection controls={milkdrop} />}
+
           {shader && look && (
             <section
               className="scene-gallery__section"
@@ -296,5 +301,102 @@ export function SceneGallery({ scene, onChoose, presets }: SceneGalleryProps) {
         </div>
       )}
     </div>
+  );
+}
+
+/** Klasör yolunun son parçası (gösterim için; tam yol ipucunda). */
+function folderName(path: string): string {
+  const parts = path.split(/[\\/]/).filter(Boolean);
+  return parts[parts.length - 1] ?? path;
+}
+
+/**
+ * MilkDrop sahnesinin denetimleri: seçilen klasör, çalan görsel, önceki/sonraki, klasör seçme ve
+ * müzikle kendiliğinden değiştirme. Lyraska hazır görsel içermez.
+ */
+function MilkdropSection({ controls }: { controls: MilkdropControls }) {
+  const { library, loading, currentName, simplified, notice, auto, skippedCount } = controls;
+  const count = library.presets.length;
+  const none = count === 0;
+  return (
+    <section className="scene-gallery__section" role="group" aria-label="MilkDrop görselleri">
+      <h3 className="scene-gallery__heading">MilkDrop</h3>
+      <p className="scene-gallery__milk-line" title={library.folder ?? undefined}>
+        {library.folder
+          ? `Klasör: ${folderName(library.folder)} · ${count} görsel${
+              library.truncated ? " (fazlası listelenmedi)" : ""
+            }`
+          : "Klasör seçilmedi"}
+      </p>
+      {currentName && (
+        <p className="scene-gallery__milk-line scene-gallery__milk-current">
+          <span className="scene-gallery__name">{currentName}</span>
+          {simplified && (
+            <span className="scene-gallery__hint">
+              Gölgelendiricileri desteklenmiyor, sade hâliyle çalıyor.
+            </span>
+          )}
+        </p>
+      )}
+      <div className="scene-gallery__chips">
+        <button
+          type="button"
+          className="scene-gallery__button"
+          disabled={none}
+          aria-label="Önceki MilkDrop görseli"
+          onClick={controls.previous}
+        >
+          Önceki
+        </button>
+        <button
+          type="button"
+          className="scene-gallery__button"
+          disabled={none}
+          aria-label="Sonraki MilkDrop görseli"
+          onClick={controls.next}
+        >
+          Sonraki
+        </button>
+        <button
+          type="button"
+          className="scene-gallery__button"
+          disabled={loading}
+          aria-label="MilkDrop görsellerinin klasörünü seç"
+          onClick={() => void controls.chooseFolder()}
+        >
+          Klasör seç
+        </button>
+      </div>
+      <label className="scene-gallery__check">
+        <input
+          type="checkbox"
+          checked={auto}
+          onChange={(event) => controls.setAuto(event.target.checked)}
+        />
+        Müzikle kendiliğinden değiştir (bölüm başlarında)
+      </label>
+      <p className="scene-gallery__notice" role="status">
+        {notice ?? ""}
+      </p>
+      {skippedCount > 0 && (
+        <div className="scene-gallery__milk-line">
+          <span>
+            {skippedCount} görsel atlandı: önceki açılışlarda program onları çalarken kapandı.
+          </span>
+          <button
+            type="button"
+            className="scene-gallery__button"
+            aria-label="Atlanan görselleri yeniden dene"
+            onClick={controls.retrySkipped}
+          >
+            Atlananları yeniden dene
+          </button>
+        </div>
+      )}
+      <p className="scene-gallery__milk-note">
+        Lyraska hazır görsel içermez; kendi .milk dosyalarınızı seçersiniz. Görüntü her zaman
+        parlaklık freninden geçer.
+      </p>
+    </section>
   );
 }

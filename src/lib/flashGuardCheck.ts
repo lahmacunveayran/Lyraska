@@ -9,7 +9,11 @@
  * kullanıcı bu desene hiçbir yoldan ulaşamaz.
  *
  * Desen ayrı bir WebGL2 tuvalinde çizilir ve her karede frenin bağlamına doku olarak yüklenir:
- * butterchurn'ün çıktısı da böyle gelecek (`processSource`). Zaman sanaldır: her kare 1/60 sn.
+ * butterchurn'ün çıktısı da böyle gelir (`processSource`). Zaman sanaldır: her kare 1/60 sn.
+ *
+ * Gerçek MilkDrop sahnesinin ölçümü için [`screenWindows`] ve [`flashRate`]: denetim, programın
+ * kendi sayfasında her karede sahnenin görünen tuvalini (frenli) ve Butterchurn'ün görünmeyen
+ * tuvalini (frensiz) okur, parlamaları aynı yöntemle sayar.
  */
 
 import { flashWindow, windowMeans, worstWindowFlashes } from "./flash";
@@ -199,7 +203,7 @@ function runCase(c: FlashCheckCase, width: number, height: number): FlashCheckRe
     const win = flashWindow(width, height);
     const pixels = new Uint8Array(width * height * 4);
     const luminance = new Float64Array(width * height);
-    const decode = Array.from({ length: 256 }, (_, i) => srgbToLinear(i / 255));
+    const decode = SRGB_DECODE;
     const frames: Float64Array[] = [];
     const count = Math.round(c.seconds / DT);
     const started = performance.now();
@@ -211,12 +215,7 @@ function runCase(c: FlashCheckCase, width: number, height: number): FlashCheckRe
         drawCopy(screen, copy, sourceCanvas, width, height);
       }
       screen.readPixels(0, 0, width, height, screen.RGBA, screen.UNSIGNED_BYTE, pixels);
-      for (let p = 0; p < luminance.length; p++) {
-        luminance[p] =
-          0.2126 * decode[pixels[p * 4]!]! +
-          0.7152 * decode[pixels[p * 4 + 1]!]! +
-          0.0722 * decode[pixels[p * 4 + 2]!]!;
-      }
+      toLuminance(pixels, luminance, decode);
       frames.push(windowMeans(luminance, width, height, win, WINDOW_STEP));
     }
     const frameMs = (performance.now() - started) / count;
@@ -240,6 +239,46 @@ function runCase(c: FlashCheckCase, width: number, height: number): FlashCheckRe
     source.getExtension("WEBGL_lose_context")?.loseContext();
     screen.getExtension("WEBGL_lose_context")?.loseContext();
   }
+}
+
+/** 8 bit sRGB pikselleri (RGBA) bağıl parlaklığa çevirir. */
+function toLuminance(pixels: Uint8Array, luminance: Float64Array, decode: readonly number[]) {
+  for (let p = 0; p < luminance.length; p++) {
+    luminance[p] =
+      0.2126 * decode[pixels[p * 4]!]! +
+      0.7152 * decode[pixels[p * 4 + 1]!]! +
+      0.0722 * decode[pixels[p * 4 + 2]!]!;
+  }
+}
+
+const SRGB_DECODE = Array.from({ length: 256 }, (_, i) => srgbToLinear(i / 255));
+
+/**
+ * Bağlamın ekrandaki görüntüsü (varsayılan çerçeve tamponu) için WCAG pencerelerinin ortalama
+ * parlaklıkları (4 piksel adımla). Bağlamın bağlı çerçeve tamponu geri yüklenir. Görüntünün
+ * kare bittikten sonra da okunabilmesi için bağlam `preserveDrawingBuffer` ile açılmış olmalı
+ * (denetim `getContext`'e bunu ekler).
+ */
+export function screenWindows(gl: WebGL2RenderingContext): Float64Array {
+  const width = gl.drawingBufferWidth;
+  const height = gl.drawingBufferHeight;
+  const pixels = new Uint8Array(width * height * 4);
+  const bound = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, bound);
+  const luminance = new Float64Array(width * height);
+  toLuminance(pixels, luminance, SRGB_DECODE);
+  return windowMeans(luminance, width, height, flashWindow(width, height), WINDOW_STEP);
+}
+
+/** Karelerin pencere ortalamalarından saniyedeki parlama ve bir karede en büyük değişim. */
+export function flashRate(
+  frames: readonly Float64Array[],
+  seconds: number,
+): { flashesPerSecond: number; maxStep: number } {
+  const { flashes, maxStep } = worstWindowFlashes(frames);
+  return { flashesPerSecond: flashes / seconds, maxStep };
 }
 
 /** Deseni kaynak tuvale çizer: `i`. kare, açık yarım periyotta beyaz. */

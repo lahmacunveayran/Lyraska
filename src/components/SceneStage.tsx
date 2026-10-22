@@ -1,10 +1,12 @@
 import { DriveScene } from "./DriveScene";
 import { HighwayScene } from "./HighwayScene";
+import { MilkDropScene } from "./MilkDropScene";
 import { ShaderScene } from "./ShaderScene";
 import { SkyScene } from "./SkyScene";
 import { SpectrumDemo } from "./SpectrumDemo";
 import { SpectrumView } from "./SpectrumView";
 import { VuScene } from "./VuScene";
+import type { MilkdropControls } from "../hooks/useMilkdrop";
 import type { Scene } from "../lib/scene";
 import type { SceneLooks } from "../lib/sceneLook";
 import { isShaderScene } from "../lib/shaderScene";
@@ -25,6 +27,8 @@ export interface SceneStageProps {
   title?: string | null;
   /** Galeri sahnelerinin görünümleri (hız, palet). */
   looks?: SceneLooks;
+  /** MilkDrop sahnesinin denetimleri (klasör, görseller); galeri paneliyle paylaşılır. */
+  milkdrop: MilkdropControls;
 }
 
 /** Tüm pencereyi kaplayan görsel sahne. Sahne değişince yenisi yavaşça belirir. */
@@ -36,12 +40,15 @@ export function SceneStage({
   skyLook,
   title = null,
   looks,
+  milkdrop,
 }: SceneStageProps) {
   return (
     <div className="stage" data-scene={scene}>
       {isShaderScene(scene) ? (
         // Her sahne kendi tuvalinde açılır: yenisi yavaşça belirir.
         <ShaderScene key={scene} id={scene} playing={playing} safe={safe} look={looks?.[scene]} />
+      ) : scene === "milkdrop" ? (
+        <MilkDropScene playing={playing} safe={safe} controls={milkdrop} />
       ) : scene === "vu" ? (
         <VuScene playing={playing} safe={safe} />
       ) : scene === "highway" ? (
