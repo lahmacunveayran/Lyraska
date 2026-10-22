@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
@@ -18,6 +18,8 @@
     "check:licenses": "node scripts/check-licenses.mjs",
     "check:commands": "node scripts/check-commands.mjs",
     "check:audio": "node scripts/check-no-audio.mjs",
+    "check:rules": "node scripts/check-rules.mjs",
+    "check:docs": "node scripts/check-docs.mjs",
     "notices": "node scripts/third-party-notices.mjs",
     "check:notices": "node scripts/third-party-notices.mjs --check",
     "check:scenes": "node scripts/check-scenes.mjs"
@@ -46,7 +48,10 @@
     "prettier": "^3.9.9",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.71.0",
-    "vite": "^8.3.2",
+    "vite": "^8.3.5",
     "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
