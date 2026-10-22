@@ -1,0 +1,78 @@
+C01|node scripts/check-commands.mjs|1
+C02|node scripts/check-commands.mjs|1
+C03|node scripts/check-commands.mjs|1
+C04a-rename_all-UI-bozuk|node scripts/check-commands.mjs|1
+C04b-rename_all-UI-dogru|node scripts/check-commands.mjs|1
+C05-allow-araya|node scripts/check-commands.mjs|1
+C06-yorumda-parantez-UI-file-unutuyor|node scripts/check-commands.mjs|1
+C07-tuple-sonrasi-zorunlu-unutuluyor|node scripts/check-commands.mjs|0
+C08-tuple-dogru-kod|node scripts/check-commands.mjs|1
+C09-mut-param-dogru-kod|node scripts/check-commands.mjs|1
+C10-ic-ice-nesne-dogru|node scripts/check-commands.mjs|1
+C11-ic-ice-nesne-sonra-yanlis-ad|node scripts/check-commands.mjs|1
+C12-template-literal-olmayan-komut|node scripts/check-commands.mjs && npm run -s typecheck && npm run -s lint|0
+C13-takma-adli-invoke|node scripts/check-commands.mjs && npm run -s typecheck && npm run -s lint|0
+C14-yorumdaki-cagri-olu-kodu-gizler|node scripts/check-commands.mjs|0
+C15-arguman-turu-yanlis|node scripts/check-commands.mjs && npm run -s typecheck|0
+C16-degiskenle-arguman-dogru|node scripts/check-commands.mjs|1
+C17-generate_handler-cikar|node scripts/check-commands.mjs|1
+L[GPL-2.0-only]|node scripts/check-licenses.mjs; rc=$?; rm -rf node_modules/zz-fake; exit $rc|0
+L[(MIT OR Apache-2.0) AND BUSL-1.1]|node scripts/check-licenses.mjs; rc=$?; rm -rf node_modules/zz-fake; exit $rc|0
+L[MIT AND BUSL-1.1]|node scripts/check-licenses.mjs; rc=$?; rm -rf node_modules/zz-fake; exit $rc|1
+L[busl-1.1]|node scripts/check-licenses.mjs; rc=$?; rm -rf node_modules/zz-fake; exit $rc|1
+L[AGPL-3.0-or-later]|node scripts/check-licenses.mjs; rc=$?; rm -rf node_modules/zz-fake; exit $rc|1
+L[Elastic License 2.0]|node scripts/check-licenses.mjs; rc=$?; rm -rf node_modules/zz-fake; exit $rc|0
+L[PolyForm-Small-Business-1.0.0]|node scripts/check-licenses.mjs; rc=$?; rm -rf node_modules/zz-fake; exit $rc|0
+L[Proprietary]|node scripts/check-licenses.mjs; rc=$?; rm -rf node_modules/zz-fake; exit $rc|0
+L[CC-BY-NC-SA-4.0]|node scripts/check-licenses.mjs; rc=$?; rm -rf node_modules/zz-fake; exit $rc|1
+L[SEE LICENSE IN EULA.txt]|node scripts/check-licenses.mjs; rc=$?; rm -rf node_modules/zz-fake; exit $rc|1
+L[]|node scripts/check-licenses.mjs; rc=$?; rm -rf node_modules/zz-fake; exit $rc|0
+L[MIT OR SSPL-1.0]|node scripts/check-licenses.mjs; rc=$?; rm -rf node_modules/zz-fake; exit $rc|0
+L[LicenseRef-Commercial]|node scripts/check-licenses.mjs; rc=$?; rm -rf node_modules/zz-fake; exit $rc|0
+L[JSON]|node scripts/check-licenses.mjs; rc=$?; rm -rf node_modules/zz-fake; exit $rc|0
+L[licenses:[]]|node scripts/check-licenses.mjs; rc=$?; rm -rf node_modules/zz-fake; exit $rc|0
+A[sarki.mp3]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|1
+A[SARKI.MP3]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|1
+A[Sarki.Flac]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|1
+A[sarki.mid]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|1
+A[sarki.mp2]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|0
+A[sarki.ac3]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|0
+A[sarki.mkv]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|0
+A[sarki.mov]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|0
+A[sarki.3gp]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|0
+A[sarki.amr]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|0
+A[sarki.au]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|0
+A[sarki.w64]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|0
+A[sarki.tta]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|0
+A[sarki.mpc]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|0
+A[sarki.dts]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|0
+A[sarki.weba]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|0
+A[sarki.bin]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|0
+A[docs/ornek.zip]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|0
+A[src-tauri/tests/data/gercek-sarki.mp3]|node scripts/check-no-audio.mjs; rc=$?; git reset -q; exit $rc|0
+N01-npm-dev-paket-uretim-olur|node scripts/third-party-notices.mjs --check|1
+N02-npm-uretim-paketi-cikar|node scripts/third-party-notices.mjs --check|1
+N03-rust-dev-bagimlilik-normal-olur|node scripts/third-party-notices.mjs --check|1
+N04-rust-yeni-dev-bagimlilik|node scripts/third-party-notices.mjs --check|0
+E01-explicit-any|npm run -s lint|1
+E02-eslint-disable-ile-any|npm run -s lint|0
+E03-useEffect-eksik-bagimlilik|npm run -s lint|0
+E04-yuzen-promise|npm run -s lint|0
+E05-kosullu-hook|npm run -s lint|1
+E06-mjs-betikte-tanimsiz-degisken|npm run -s lint|0
+E07-ts-ignore|npm run -s lint|1
+V01-hic-test-yok|npm test|1
+V02-yanlis-adli-test-dosyasi-kirik|npm test -- src/lib/format && npm run -s typecheck && npm run -s lint|0
+V03-it.skip|npm test -- src/lib/format|0
+V04-it.only|npm test -- src/lib/format|0
+V04b-it.only-CI|CI=true npm test -- src/lib/format|1
+V03b-it.skip-CI|CI=true npm test -- src/lib/format|0
+V06-describe.skip-tum-dosya-CI|CI=true npm test -- src/lib/format|0
+P01-mjs-bicim-bozuk|npm run -s format:check|1
+P02-yml-bicim-bozuk|npm run -s format:check|1
+P03-bindings-elle-bozuk-bicim|npm run -s format:check|0
+T01-ortuk-any-parametre|npm run -s typecheck|2
+T02-mjs-tur-hatasi|npm run -s typecheck|0
+R[GPL-2.0-only]|cd src-tauri && cargo deny --offline check licenses 2>&1 | grep -E "error\[|licenses (ok|FAILED)|rejected|^\s+= " | head -6; exit ${PIPESTATUS[0]}|4
+R[(MIT OR Apache-2.0) AND BUSL-1.1]|cd src-tauri && cargo deny --offline check licenses 2>&1 | grep -E "error\[|licenses (ok|FAILED)|rejected|^\s+= " | head -6; exit ${PIPESTATUS[0]}|4
+R[MIT OR GPL-2.0-only]|cd src-tauri && cargo deny --offline check licenses 2>&1 | grep -E "error\[|licenses (ok|FAILED)|rejected|^\s+= " | head -6; exit ${PIPESTATUS[0]}|0
