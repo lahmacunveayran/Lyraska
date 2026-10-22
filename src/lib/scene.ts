@@ -1,7 +1,10 @@
 import { SHADER_SCENES, type ShaderSceneId } from "./shaderScene";
 
-/** Ekrandaki görsel sahneler: beş klasik sahne ve galerideki gölgelendirici sahneleri. */
-export type Scene = "sky" | "highway" | "vu" | "spectrum" | "drive" | ShaderSceneId;
+/**
+ * Ekrandaki görsel sahneler: beş klasik sahne, galerideki gölgelendirici sahneleri ve
+ * kullanıcının kendi `.milk` dosyalarını çalan MilkDrop sahnesi.
+ */
+export type Scene = "sky" | "highway" | "vu" | "spectrum" | "drive" | ShaderSceneId | "milkdrop";
 
 /** Üst çubukta tek tek görünen klasik sahneler. */
 export const CLASSIC_SCENES: { id: Scene; name: string }[] = [
@@ -12,10 +15,22 @@ export const CLASSIC_SCENES: { id: Scene; name: string }[] = [
   { id: "drive", name: "Gece sürüşü" },
 ];
 
+/**
+ * MilkDrop sahnesi: Lyraska'nın kendi sahnesi değil, kullanıcının seçtiği görselleri çalar. Bu
+ * yüzden gölgelendirici sahnelerinin parlaklık modeline girmez; görüntüsü her karede parlaklık
+ * freninden geçer (`flashGuard.ts`).
+ */
+export const MILKDROP_SCENE = {
+  id: "milkdrop",
+  name: "MilkDrop",
+  hint: "Kendi .milk görselleriniz; parlaklık freniyle.",
+} as const;
+
 /** Galerideki sahneler (üst çubukta "Galeri" düğmesinin altında). */
-export const GALLERY_SCENES: { id: Scene; name: string; hint: string }[] = SHADER_SCENES.map(
-  ({ id, name, hint }) => ({ id, name, hint }),
-);
+export const GALLERY_SCENES: { id: Scene; name: string; hint: string }[] = [
+  ...SHADER_SCENES.map(({ id, name, hint }) => ({ id, name, hint })),
+  MILKDROP_SCENE,
+];
 
 /** Bütün sahneler; 1–9 ve 0 tuşları ilk onu, PageDown/PageUp sırayla hepsini seçer. */
 export const SCENES: { id: Scene; name: string }[] = [...CLASSIC_SCENES, ...GALLERY_SCENES];

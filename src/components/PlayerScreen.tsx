@@ -50,6 +50,7 @@ import { useLivePosition, type PlayerControls } from "../hooks/usePlayer";
 import { usePlaybackOptions } from "../hooks/usePlaybackOptions";
 import { useScene } from "../hooks/useScene";
 import { useScenePresets } from "../hooks/useScenePresets";
+import { useMilkdrop } from "../hooks/useMilkdrop";
 import { useSkyLook } from "../hooks/useSkyLook";
 import { useCover } from "../hooks/useCover";
 import { useSongKey } from "../hooks/useSongKey";
@@ -94,6 +95,7 @@ export function PlayerScreen() {
   const playbackOptions = usePlaybackOptions();
   const [scene, chooseScene] = useScene();
   const scenePresets = useScenePresets();
+  const milkdrop = useMilkdrop(scene === "milkdrop");
   const skyLook = useSkyLook();
 
   const playback = usePlayback(info.supportedExtensions);
@@ -290,6 +292,7 @@ export function PlayerScreen() {
           safe={visualSafe.safe}
           skyLook={skyLook.look}
           looks={scenePresets.looks}
+          milkdrop={milkdrop}
           title={
             status.track
               ? [status.track.artist, status.track.title].filter(Boolean).join(" · ")
@@ -332,7 +335,12 @@ export function PlayerScreen() {
                 {name}
               </button>
             ))}
-            <SceneGallery scene={scene} onChoose={chooseScene} presets={scenePresets} />
+            <SceneGallery
+              scene={scene}
+              onChoose={chooseScene}
+              presets={scenePresets}
+              milkdrop={milkdrop}
+            />
           </nav>
           <div className="topbar__actions">
             {chromeButton("library", "Kütüphane", <LibraryIcon />)}

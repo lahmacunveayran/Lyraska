@@ -18,6 +18,8 @@
 }
 
 :root {
+  /* MilkDrop sahnesinin zemini: fren siyahtan başlar, görsel yavaşça belirir. */
+  --milkdrop-backdrop: #000000;
   --bg: #02040b;
   --text-muted: rgba(244, 247, 251, 0.5);
 
@@ -560,6 +562,46 @@ kbd {
   margin: 0;
   font-size: 12px;
   color: var(--ink-3);
+}
+
+/* MilkDrop bölümü: klasör, çalan görsel, kendiliğinden değiştirme ve "hazır görsel yok" notu. */
+.scene-gallery__milk-line {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.scene-gallery__milk-current .scene-gallery__name {
+  color: var(--ink);
+}
+
+.scene-gallery__milk-note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--ink-3);
+}
+
+.scene-gallery__button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.scene-gallery__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.scene-gallery__check input:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 
 .scene-gallery__item {
@@ -1966,6 +2008,53 @@ kbd {
 
 .sky-scene__canvas[hidden] {
   display: none;
+}
+
+/* ---------- MilkDrop sahnesi ---------- */
+
+/* Kullanıcının .milk görselleri. Tuvale yalnızca parlaklık freni çizer; Butterchurn'ün kendi tuvali
+   görünmez. Boşken (klasör yok) ya da çizilemezken ortada kısa bir açıklama. */
+.milkdrop-scene {
+  position: absolute;
+  inset: 0;
+  line-height: 0;
+  background: var(--milkdrop-backdrop);
+}
+
+.milkdrop-scene__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--milkdrop-backdrop);
+}
+
+.milkdrop-scene__canvas[hidden] {
+  display: none;
+}
+
+.milkdrop-scene__message {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  width: min(440px, calc(100% - 48px));
+  transform: translateX(-50%);
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--ink-2);
+}
+
+.milkdrop-scene__message p {
+  margin: 0;
+}
+
+.milkdrop-scene__note {
+  margin-top: 10px !important;
+  font-size: 12px;
+  color: var(--ink-3);
 }
 
 /* ---------- Gece sürüşü sahnesi ---------- */
