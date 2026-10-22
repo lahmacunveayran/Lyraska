@@ -36,7 +36,8 @@ Görselleri şarkıyı **önceden bilen**, tamamen **çevrimdışı** çalışan
 
 - Şarkı çalmadan önce analiz edilir: beat, ölçü, bölümler, drop, enerji → "şarkı haritası".
 - **Görsel Yönetmen** görselleri üç katmanda koreografe eder: **atmosfer**, **ritim**, **doku**.
-- Profesyonel ses: parametrik EQ, AutoEq kulaklık profilleri, loudness (EBU R128), crossfeed, bit-perfect mod.
+- Profesyonel ses: parametrik EQ, AutoEq kulaklık profilleri, loudness (EBU R128), bit-perfect mod; crossfeed
+  planlanıyor (yol haritası).
 - Nostalji modları (eski araba teybi, VU ibreleri vb.) **özgün tasarımdır**.
   **Pioneer adı, logosu, yazı tipi veya herhangi bir varlığı asla kullanılmaz**; başka markaların da.
 - Program hiçbir zaman internete bağlanmak zorunda değildir. Telemetri yoktur.
@@ -95,7 +96,7 @@ lyraska/
 │   │   │   ├── normalize.rs  #   çalarken eşitleme (−14 LUFS) ve ekolayzerin boşluğa göre taşma koruması
 │   │   │   ├── peq.rs        #   kulaklık düzeltmesi: AutoEq/Equalizer APO profili, parametrik EQ (RBJ)
 │   │   │   ├── resample.rs   #   şarkıyı aygıtın hızına çevirme (rubato FFT, yüksek kalite), mono → stereo
-│   │   │   ├── limiter.rs    #   taşma koruması: ileriye bakan tepe sınırlayıcı (0 dBFS)
+│   │   │   ├── limiter.rs    #   taşma koruması: ileriye bakan gerçek tepe sınırlayıcı (−1 dBTP, 8× ara değer)
 │   │   │   ├── render.rs     #   gerçek zamanlı doldurma, ekolayzer, eşitleme, taşma koruması, duraklatma geçişi
 │   │   │   ├── output.rs     #   çıkış soyutlaması, özel mod tamsayı biçimi; output/wasapi.rs = Windows WASAPI
 │   │   │   │                 #   (paylaşımlı; ayarla özel mod = bit-perfect), output/simulated.rs = testlerde

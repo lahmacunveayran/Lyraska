@@ -7,6 +7,13 @@
 //!   hızında ve aygıtın kabul ettiği tamsayı biçiminde açılır. Olay güdümlü özel mod bazı
 //!   USB aygıtlarda takılmaya yol açtığı için yoklama kullanılır: arabellek ~100 ms, aygıtın
 //!   periyodunun yarısında bir doldurulur.
+//! - **Aygıt değişimi**: ayrı bir izleme iş parçacığı yarım saniyede bir varsayılan aygıtın
+//!   kimliğine bakar; değişmişse (kulaklık takıldı) ya da akış koparsa (kulaklık çıkarıldı)
+//!   `SharedState::device_changed` kaldırılır ve oynatıcı şarkıyı yeni varsayılan aygıtta
+//!   kaldığı yerden açar (SES-01).
+//! - **Öncelik**: ses iş parçacığı MMCSS "Pro Audio" sınıfına alınır; ağır analiz iş
+//!   parçacıkları ve WebView çizimi onu geciktiremez (SES-03). Bu, depodaki tek `unsafe`
+//!   çağrıdır; gerekçesi [`boost_thread_priority`] içinde.
 
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::{self, SyncSender};
@@ -33,6 +40,8 @@ const EVENT_TIMEOUT_MS: u32 = 2_000;
 const DRAIN_POLL: Duration = Duration::from_millis(5);
 /// Intel HDA uyumlu aygıtlar özel modda arabelleğin 128 baytın katı olmasını ister.
 const EXCLUSIVE_ALIGN_BYTES: u32 = 128;
+/// Varsayılan aygıt değişti mi diye bakma aralığı (ayrı iş parçacığında; ses yolunda değil).
+const DEVICE_POLL: Duration = Duration::from_millis(500);
 
 /// WASAPI hata kodları (`AUDCLNT_E_…`, audioclient.h).
 const AUDCLNT_E_UNSUPPORTED_FORMAT: u32 = 0x8889_0008;
@@ -128,6 +137,72 @@ pub fn exclusive_format(sample_rate: u32, channels: usize) -> Result<IntFormat, 
         })
 }
 
+/// Ses iş parçacığını Windows'un çoklu ortam sınıf zamanlayıcısına (MMCSS) "Pro Audio" görevi
+/// olarak kaydeder: iş parçacığı normal önceliğin üstüne çıkar, ağır yükte bile 100 ms'lik
+/// aygıt arabelleği boşalmadan sıraya girer. Dönen tutamaç iş parçacığı bitince geri verilir.
+/// Başarısızlık (eski Windows, kısıtlı hesap) hata değildir: normal öncelikle sürülür.
+///
+/// GÜVENLİK: `AvSetMmThreadCharacteristicsW` ve `AvRevertMmThreadCharacteristics` Windows
+/// API çağrılarıdır (`windows` crate'i bunları `unsafe` olarak dışa verir). Girdileri burada
+/// kurulan geçerli, sıfırla biten bir UTF-16 dizisi ve geçerli bir `u32` adresidir; çağrı
+/// yalnızca bu iş parçacığının zamanlayıcı sınıfını değiştirir, belleğe dokunmaz. Tutamaç
+/// yalnızca aynı iş parçacığında ve bir kez geri verilir. CLAUDE.md kuralı gereği `unsafe`
+/// yalnızca bu modülde ve proje sahibine bildirilerek (DENETIM-2 bölüm 5.3) açılmıştır.
+#[allow(unsafe_code)]
+fn boost_thread_priority() -> Option<ThreadPriority> {
+    use windows::core::PCWSTR;
+    use windows::Win32::System::Threading::AvSetMmThreadCharacteristicsW;
+    let task_name: Vec<u16> = "Pro Audio\0".encode_utf16().collect();
+    let mut task_index = 0u32;
+    // GÜVENLİK: bkz. fonksiyon belgesi.
+    let handle =
+        unsafe { AvSetMmThreadCharacteristicsW(PCWSTR(task_name.as_ptr()), &mut task_index) };
+    match handle {
+        Ok(handle) if !handle.is_invalid() => Some(ThreadPriority(handle)),
+        _ => {
+            crate::diagnostics::info(
+                "Ses iş parçacığına MMCSS önceliği verilemedi; normal öncelikle sürüyor",
+            );
+            None
+        }
+    }
+}
+
+/// MMCSS kaydı; düşünce geri verilir.
+struct ThreadPriority(windows::Win32::Foundation::HANDLE);
+
+impl Drop for ThreadPriority {
+    #[allow(unsafe_code)]
+    fn drop(&mut self) {
+        use windows::Win32::System::Threading::AvRevertMmThreadCharacteristics;
+        // GÜVENLİK: tutamaç `boost_thread_priority`'den geldi, bu iş parçacığına aittir ve bir
+        // kez geri verilir (bkz. oradaki açıklama).
+        let _ = unsafe { AvRevertMmThreadCharacteristics(self.0) };
+    }
+}
+
+/// Varsayılan çıkış aygıtının kimliği (COM bu iş parçacığında başlatılmış olmalı).
+fn default_device_id() -> Option<String> {
+    default_device().ok()?.get_id().ok()
+}
+
+/// Varsayılan aygıt değişene ya da oturum bitene kadar yarım saniyede bir bakar; değişince
+/// `device_changed` kaldırır ve biter. Aygıt hiç bulunamazsa (hepsi çıkarıldı) akışın kendisi
+/// hata verir; burada bir şey yapılmaz.
+fn watch_default_device(shared: Arc<SharedState>, current: String) {
+    let _ = initialize_mta();
+    loop {
+        if shared.stop.load(Ordering::Acquire) || shared.ended.load(Ordering::Acquire) {
+            return;
+        }
+        std::thread::sleep(DEVICE_POLL);
+        if default_device_id().is_some_and(|id| id != current) {
+            shared.device_changed.store(true, Ordering::Release);
+            return;
+        }
+    }
+}
+
 pub fn spawn(
     spec: OutputSpec,
     source: Consumer<Sample>,
@@ -138,14 +213,19 @@ pub fn spawn(
         .name("lyraska-ses-cikisi".to_owned())
         .spawn(move || {
             let mut ready = Some(ready_tx);
+            let _priority = boost_thread_priority();
             if let Err(error) = run(spec, source, &shared, &mut ready) {
                 match ready.take() {
                     // Açılışta hata: oynatıcıya hemen bildir.
                     Some(tx) => {
                         let _ = tx.send(Err(error));
                     }
-                    // Çalarken hata: arayüz durum sorgusunda görür.
-                    None => shared.fail(error.to_string()),
+                    // Çalarken hata (çoğunlukla aygıt koptu: kulaklık çıkarıldı): günlüğe ve
+                    // duruma yazılır; oynatıcı şarkıyı o anki varsayılan aygıtta sürdürmeyi dener.
+                    None => {
+                        shared.fail(error.to_string());
+                        shared.device_changed.store(true, Ordering::Release);
+                    }
                 }
             }
         })
@@ -247,7 +327,7 @@ fn open_exclusive(device: &Device, spec: OutputSpec, int: IntFormat) -> Result<S
 fn run(
     spec: OutputSpec,
     mut source: Consumer<Sample>,
-    shared: &SharedState,
+    shared: &Arc<SharedState>,
     ready: &mut Option<Ready>,
 ) -> Result<(), AudioError> {
     initialize_mta()
@@ -259,6 +339,13 @@ fn run(
         OutputMode::Shared => open_shared(&device, spec)?,
         OutputMode::Exclusive(int) => open_exclusive(&device, spec, int)?,
     };
+    // Aygıt değişimini ayrı iş parçacığı izler: ses döngüsü COM sorgusu yapmaz, bellek ayırmaz.
+    if let Ok(id) = device.get_id() {
+        let watcher_shared = Arc::clone(shared);
+        let _ = std::thread::Builder::new()
+            .name("lyraska-aygit-izleme".to_owned())
+            .spawn(move || watch_default_device(watcher_shared, id));
+    }
     let client = &stream.client;
     let render_client = client
         .get_audiorenderclient()

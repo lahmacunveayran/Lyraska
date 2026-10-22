@@ -5,8 +5,12 @@
 //!   ekolayzerden bağımsız, tek dokunuşla bas.
 //! - **Derinlik** (alt oktav, %0–100): bas notalarının bir oktav altı üretilip eklenir;
 //!   kulüpteki gibi göğüste hissedilen gümbürtü, kayıtta derin bas olmasa da. Bas bandının
-//!   (40–120 Hz) her tam dalgasında işaret değiştiren bir kare dalga, bandın zarfıyla
-//!   çarpılır ve dördüncü dereceden 60 Hz süzgeçle yumuşatılır (klasik oktav bölücü).
+//!   (40–160 Hz) yükselen sıfır geçişleri arasındaki süre notanın periyodunu verir; bir
+//!   osilatör bu periyodun iki katında (yarı frekansta) **sinüs** üretir, fazını her
+//!   geçişte yarım dalga sınırına yumuşakça çeker (faz izleyici) ve bandın zarfıyla
+//!   çarpılır. Klasik kare dalgalı oktav bölücüden farkı: seviye notanın frekansından
+//!   bağımsız (55 ve 110 Hz'te 3 dB içinde) ve harmonik bozulma yok denecek kadar az.
+//!   Aynı anda iki bas notası çalınırsa yalnızca biri izlenir (bölücülerin ortak sınırı).
 //! - **Vuruş** (%0–100; [`super::punch`]): davul vuruşlarının ilk anı 8 dB'ye kadar
 //!   güçlenir, sürekli bas aynen kalır. Bas şişmeden göğse çarpan vuruş.
 //! - **Küçük hoparlör bası**: dizüstü ve küçük hoparlörler ~100 Hz'in altını çalamaz;
@@ -29,7 +33,7 @@
 //! yumuşakça uygulanır. Hepsi kapalıyken ses hiç işlenmez. Bellek yalnızca kurulurken
 //! ayrılır.
 
-use std::f64::consts::FRAC_1_SQRT_2;
+use std::f64::consts::{FRAC_1_SQRT_2, PI};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -63,16 +67,31 @@ const HARMONIC_FULL_DB: f64 = 12.0;
 /// Bas zarfının iniş zaman sabiti (s). Zarf anında yükselir: bas birden başlasa da
 /// harmonik üretici doyuma girmez (kare dalga, tık olmaz).
 const ENVELOPE_RELEASE_SECONDS: f64 = 0.15;
-/// Alt oktavın kaynak bandı (Hz) ve sonucu yumuşatan süzgeçler.
+/// Alt oktavın kaynak bandı (Hz): altı ikinci, üstü dördüncü dereceden süzülür. Üst kenar
+/// 160 Hz: bant 55–110 Hz'lik bas notalarında 2 dB içinde düz kalsın (120 Hz'teyken 110 Hz
+/// −4,6 dB'ydi ve alt oktav notaya göre 10 dB oynuyordu).
 const OCTAVE_LOW_HZ: f64 = 40.0;
-const OCTAVE_HIGH_HZ: f64 = 120.0;
-const OCTAVE_SMOOTH_HZ: f64 = 60.0;
+const OCTAVE_HIGH_HZ: f64 = 160.0;
+/// Üretilen sinüsü (zarf basamakları, faz düzeltmeleri, kilit geçişleri) yumuşatan dördüncü
+/// dereceden süzgecin köşesi: en yüksek alt oktavın (80 Hz) üstünde.
+const OCTAVE_SMOOTH_HZ: f64 = 85.0;
 const OCTAVE_DC_HZ: f64 = 18.0;
-/// Alt oktavın genliği (derinlik %100'de, kaynak bas notasına göre; kare dalganın temel
-/// bileşeni 4/π × zarf).
+/// Alt oktavın genliği (derinlik %100'de, kaynak bas notasının bant zarfına göre): 0,8 =
+/// −1,9 dB. Çıktı sinüs olduğu için genlik doğrudan budur; bant ve yumuşatma süzgeçlerinin
+/// kenarları bir miktar daha alır. Ölçülen (`derinlik_seviyesi_notadan_bagimsiz_ve_sinus`):
+/// kaynağa göre 55 Hz'te −4,3 dB, 110 Hz'te −5,4 dB; 3. harmonik alt oktava göre −45 dB.
 const OCTAVE_GAIN: f64 = 0.8;
-/// Alt oktavın, kaynak bandın tepesine göre en büyük genliği (ölçülen ~1,0; pay ile).
+/// Alt oktavın, kaynak bandın tepesine göre en büyük genliği (ölçülen ≤ 0,8; pay ile).
 const OCTAVE_PEAK: f64 = 1.1;
+/// Zarfın yumuşatma süresi: tepe tutucunun testere dişi (her yarım dalgada bir basamak)
+/// sinüse yan bant olarak binmesin.
+const OCTAVE_ENVELOPE_SECONDS: f64 = 0.01;
+/// İzlenen periyodun sınırları (Hz): dışındaki geçişler bas notası sayılmaz (ortadaki sesten
+/// sızan iz gibi), alt oktav yumuşakça susar.
+const OCTAVE_TRACK_MIN_HZ: f64 = 25.0;
+const OCTAVE_TRACK_MAX_HZ: f64 = 250.0;
+/// İzleme kilidinin açılma/kapanma süresi.
+const OCTAVE_LOCK_SECONDS: f64 = 0.01;
 /// Oktav bölücünün kararsız titremesini önleyen eşik (zarfın oranı).
 const OCTAVE_HYSTERESIS: f64 = 0.25;
 /// Bas bandı sesin geri kalanından bu kadar (−40 dB) kısıksa alt oktav yumuşakça susar:
@@ -271,18 +290,33 @@ pub fn settings_boost(bass_db: f64, depth: f64, punch: f64, small_speaker: bool)
     }
 }
 
-/// Alt oktav üretici ("Derinlik").
+/// Alt oktav üretici ("Derinlik"): faz izleyicili yarı frekans osilatörü.
 struct Octaver {
     band_low: Biquad,
     band_high: Biquad,
     band_state: [State; 3],
+    /// Bas bandının tepe zarfı ve yumuşatılmışı.
     envelope: f64,
+    smooth_envelope: f64,
+    envelope_coef: f64,
     /// Bütün sesin tepe zarfı (eşik için).
     full_envelope: f64,
     release: f64,
-    /// Bas dalgası eşiğin altına indi: bir sonraki yükselişte işaret değişir.
+    /// Bas dalgası eşiğin altına indi: bir sonraki yükseliş bir geçiştir.
     armed: bool,
-    sign: f64,
+    /// Son yükselen geçişten beri geçen örnek sayısı; daha önce geçiş görüldü mü.
+    since_cross: usize,
+    crossed: bool,
+    /// Bas notası sayılan periyot aralığı (örnek).
+    min_period: usize,
+    max_period: usize,
+    /// Osilatörün fazı (radyan, 0..2π) ve örnek başına ilerlemesi.
+    phase: f64,
+    increment: f64,
+    /// İzleme kilidi: son periyot geçerliyse açık; çıkış kilidin yumuşatılmışıyla çarpılır.
+    locked: bool,
+    lock: f64,
+    lock_coef: f64,
     smooth: Biquad,
     smooth_state: [State; 2],
     dc: Biquad,
@@ -297,10 +331,20 @@ impl Octaver {
             band_high: Biquad::lowpass(OCTAVE_HIGH_HZ, q, rate),
             band_state: [[0.0; 2]; 3],
             envelope: 0.0,
+            smooth_envelope: 0.0,
+            envelope_coef: 1.0 - (-1.0 / (OCTAVE_ENVELOPE_SECONDS * rate)).exp(),
             full_envelope: 0.0,
             release: (-1.0 / (ENVELOPE_RELEASE_SECONDS * rate)).exp(),
             armed: false,
-            sign: 1.0,
+            since_cross: 0,
+            crossed: false,
+            min_period: (rate / OCTAVE_TRACK_MAX_HZ).round() as usize,
+            max_period: (rate / OCTAVE_TRACK_MIN_HZ).round() as usize,
+            phase: 0.0,
+            increment: PI * OCTAVE_LOW_HZ / rate,
+            locked: false,
+            lock: 0.0,
+            lock_coef: 1.0 - (-1.0 / (OCTAVE_LOCK_SECONDS * rate)).exp(),
             smooth: Biquad::lowpass(OCTAVE_SMOOTH_HZ, q, rate),
             smooth_state: [[0.0; 2]; 2],
             dc: Biquad::highpass(OCTAVE_DC_HZ, q, rate),
@@ -315,18 +359,41 @@ impl Octaver {
         let b = self.band_high.process(&mut self.band_state[1], b);
         let b = self.band_high.process(&mut self.band_state[2], b);
         self.envelope = b.abs().max(self.envelope * self.release);
+        self.smooth_envelope += (self.envelope - self.smooth_envelope) * self.envelope_coef;
         self.full_envelope = mono.abs().max(self.full_envelope * self.release);
-        // Her tam dalgada bir kez (yükselen geçişte) işaret değişir: frekansın yarısı.
+
+        // Yükselen geçişler arasındaki süre notanın periyodu: osilatör bunun iki katında
+        // döner. Her geçişte faz en yakın yarım dalga sınırına (0 ya da π) bir periyot
+        // içinde çekilir; böylece frekans sapması birikmez, sıçrama da olmaz.
+        self.since_cross = (self.since_cross + 1).min(self.max_period + 1);
         let threshold = OCTAVE_HYSTERESIS * self.envelope;
         if b < -threshold {
             self.armed = true;
         } else if self.armed && b > threshold {
             self.armed = false;
-            self.sign = -self.sign;
+            let period = self.since_cross;
+            self.since_cross = 0;
+            self.locked = self.crossed && (self.min_period..=self.max_period).contains(&period);
+            if self.locked {
+                let target = (self.phase / PI).round() * PI;
+                self.increment = (PI + (target - self.phase)) / period as f64;
+            }
+            self.crossed = true;
         }
+        if self.since_cross > self.max_period {
+            // Nota bitti (ya da çok alçak): kilit düşer, alt oktav yumuşakça susar.
+            self.locked = false;
+        }
+        let lock_target = if self.locked { 1.0 } else { 0.0 };
+        self.lock += (lock_target - self.lock) * self.lock_coef;
+        self.phase += self.increment;
+        if self.phase >= 2.0 * PI {
+            self.phase -= 2.0 * PI;
+        }
+
         let presence = (self.envelope / (self.full_envelope * OCTAVE_GATE).max(1e-12)).min(1.0);
-        let square = self.sign * self.envelope * presence * OCTAVE_GAIN;
-        let y = self.smooth.process(&mut self.smooth_state[0], square);
+        let sine = self.phase.sin() * self.smooth_envelope * presence * self.lock * OCTAVE_GAIN;
+        let y = self.smooth.process(&mut self.smooth_state[0], sine);
         let y = self.smooth.process(&mut self.smooth_state[1], y);
         self.dc.process(&mut self.dc_state, y)
     }
@@ -794,6 +861,42 @@ mod tests {
         let mut flat = BassProcessor::new(deep(0.0, 0.0, false), 1, RATE);
         let out = run(&mut flat, 80.0, 0.1);
         assert!(level_db(&out, 40.0) - input_db < -100.0);
+    }
+
+    #[test]
+    fn derinlik_seviyesi_notadan_bagimsiz_ve_sinus() {
+        // 55 ve 110 Hz bas (−6 dBFS, derinlik %100): alt oktav seviyeleri 3 dB içinde,
+        // 3. harmonik alt oktava göre ≤ −25 dB. Eski kare dalgalı bölücü: 10 dB fark,
+        // harmonikler −13…−21 dB.
+        let input_db = 20.0 * 0.5f64.log10();
+        let mut levels = Vec::new();
+        for freq in [55.0, 110.0] {
+            let mut processor = BassProcessor::new(deep(0.0, 1.0, false), 1, RATE);
+            let out = run(&mut processor, freq, 0.5);
+            let sub = level_db(&out, freq / 2.0);
+            let third = level_db(&out, 1.5 * freq);
+            assert!(
+                third - sub <= -25.0,
+                "{freq} Hz: 3. harmonik {:.1} dB (alt oktava göre)",
+                third - sub
+            );
+            assert!(
+                sub - input_db > -6.0,
+                "{freq} Hz: alt oktav {:.1} dB",
+                sub - input_db
+            );
+            assert!(
+                (level_db(&out, freq) - input_db).abs() < 0.5,
+                "nota yerinde kalır"
+            );
+            levels.push(sub);
+        }
+        assert!(
+            (levels[0] - levels[1]).abs() <= 3.0,
+            "55 Hz: {:.1}, 110 Hz: {:.1} dB",
+            levels[0] - input_db,
+            levels[1] - input_db
+        );
     }
 
     #[test]

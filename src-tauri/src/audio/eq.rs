@@ -14,10 +14,17 @@
 //! 2. Filtre biçimi kazançla değiştiği için matris bulunan kazançlarla yeniden
 //!    kurulur ve bir kez daha çözülür.
 //!
+//! En alt (31 Hz) ve en üst (16 kHz) bantlar yalnızca tepe süzgeci olsaydı eğri bant
+//! ortasının dışında yarıya inerdi (31 Hz +12'de 20 Hz yalnızca +5 dB). Bu yüzden uç
+//! bantlar bir tepe süzgeciyle ona bağlı bir **kuyruk rafı**ndan (alçak/yüksek raf)
+//! oluşur; ikisi tasarımda tek filtre gibi ele alınır. Böylece 31 Hz sürgüsü 20 Hz'e,
+//! 16 kHz sürgüsü 20 kHz'e kadar sürer ("hepsi +12"de 20 Hz ve 20 kHz ≥ +10 dB).
+//!
 //! Sonuç, ±12 dB içindeki her ayarda ve her örnekleme hızında tasarım
-//! noktalarında en fazla ~1 dB, yumuşak eğrilerde çok daha az sapar (testlerde
-//! ölçülür). Bütün hesap sabit boyutlu dizilerle yapılır: bellek ayırmaz, bu
-//! yüzden gerçek zamanlı ses iş parçacığında da çalışabilir.
+//! noktalarında en fazla 1,2 dB (308 ayar × 7 hızda ölçülen en kötü 1,11 dB, zikzak
+//! ±12), yumuşak eğrilerde 0,5 dB'den az sapar (testlerde ölçülür). Bütün hesap sabit
+//! boyutlu dizilerle yapılır: bellek ayırmaz, bu yüzden gerçek zamanlı ses iş
+//! parçacığında da çalışabilir.
 //!
 //! Ses işleme [`EqProcessor`] ile yapılır. Ayarlar [`EqControl`] üzerinden
 //! kilitsiz (atomik) olarak iletilir; değişiklikler ~40 ms içinde yumuşakça
@@ -50,6 +57,19 @@ pub const MAX_GAIN_DB: f64 = 12.0;
 
 /// Tasarım noktası sayısı üst sınırı: bant ortaları + aralarındaki noktalar.
 const MAX_POINTS: usize = 2 * BANDS - 1;
+/// Süzgeç sayısı: her banda bir tepe süzgeci + iki uç bandın kuyruk rafları.
+const FILTERS: usize = BANDS + 2;
+/// Alt kuyruk rafı: orta noktası (yarı kazanç) ve Q'su; kazancı bandın kazancının bu katı.
+/// Üst kuyruk rafı da aynı; orta noktası 20 kHz ya da 0,45 · fs (hangisi küçükse).
+/// Değerler Python taramasıyla seçildi: tasarım noktası sapması artmadan 20 Hz ve
+/// 20 kHz'te "hepsi +12"nin ≥ +10 dB olması.
+const TAIL_LOW_HZ: f64 = 32.0;
+const TAIL_LOW_Q: f64 = 0.6;
+const TAIL_LOW_RATIO: f64 = 1.8;
+const TAIL_HIGH_HZ: f64 = 20_000.0;
+const TAIL_HIGH_MAX_RATIO: f64 = 0.45;
+const TAIL_HIGH_Q: f64 = 0.6;
+const TAIL_HIGH_RATIO: f64 = 1.0;
 /// Orta frekansı örnekleme hızının bu oranından yüksek bantlar kullanılmaz
 /// (ör. 22,05 kHz'lik bir dosyada 16 kHz bandı duyulabilir aralığın dışındadır).
 const MAX_CENTER_RATIO: f64 = 0.4;
@@ -375,6 +395,45 @@ impl Biquad {
         }
     }
 
+    /// RBJ raf süzgeçlerinin ortak hazırlığı: (A, cos w0, 2√A·α).
+    fn shelf_terms(w0: f64, gain_db: f64, q: f64) -> (f64, f64, f64) {
+        let a = 10f64.powf(gain_db / 40.0);
+        let (sin, cos) = w0.sin_cos();
+        (a, cos, 2.0 * a.sqrt() * sin / (2.0 * q))
+    }
+
+    /// Alçak raf (RBJ): `w0` orta nokta (kazancın yarısı), altı `gain_db` kadar değişir.
+    fn low_shelf(w0: f64, gain_db: f64, q: f64) -> Self {
+        if gain_db.abs() < FLAT_DB {
+            return Self::IDENTITY;
+        }
+        let (a, cos, k) = Self::shelf_terms(w0, gain_db, q);
+        let a0 = (a + 1.0) + (a - 1.0) * cos + k;
+        Self {
+            b0: a * ((a + 1.0) - (a - 1.0) * cos + k) / a0,
+            b1: 2.0 * a * ((a - 1.0) - (a + 1.0) * cos) / a0,
+            b2: a * ((a + 1.0) - (a - 1.0) * cos - k) / a0,
+            a1: -2.0 * ((a - 1.0) + (a + 1.0) * cos) / a0,
+            a2: ((a + 1.0) + (a - 1.0) * cos - k) / a0,
+        }
+    }
+
+    /// Yüksek raf (RBJ): `w0` orta nokta, üstü `gain_db` kadar değişir.
+    fn high_shelf(w0: f64, gain_db: f64, q: f64) -> Self {
+        if gain_db.abs() < FLAT_DB {
+            return Self::IDENTITY;
+        }
+        let (a, cos, k) = Self::shelf_terms(w0, gain_db, q);
+        let a0 = (a + 1.0) - (a - 1.0) * cos + k;
+        Self {
+            b0: a * ((a + 1.0) + (a - 1.0) * cos + k) / a0,
+            b1: -2.0 * a * ((a - 1.0) + (a + 1.0) * cos) / a0,
+            b2: a * ((a + 1.0) + (a - 1.0) * cos - k) / a0,
+            a1: 2.0 * ((a - 1.0) - (a + 1.0) * cos) / a0,
+            a2: ((a + 1.0) - (a - 1.0) * cos - k) / a0,
+        }
+    }
+
     /// `w` frekansındaki kazanç (dB). `cos_w` = cos(w), `cos_2w` = cos(2w).
     fn response_db(&self, cos_w: f64, cos_2w: f64) -> f64 {
         let Self { b0, b1, b2, a1, a2 } = *self;
@@ -400,6 +459,10 @@ struct Layout {
     /// Bantların orta frekansı ve bant genişliği (radyan/örnek).
     w0: [f64; BANDS],
     bandwidth: [f64; BANDS],
+    /// Kuyruk raflarının orta noktaları (radyan/örnek); üst raf yalnızca 16 kHz bandı
+    /// kullanılıyorsa.
+    tail_low_w: f64,
+    tail_high_w: Option<f64>,
     /// Tasarım noktaları: cos(w) ve cos(2w).
     points: usize,
     cos_w: [f64; MAX_POINTS],
@@ -421,6 +484,10 @@ impl Layout {
             bands,
             w0: [0.0; BANDS],
             bandwidth: [0.0; BANDS],
+            tail_low_w: 2.0 * PI * TAIL_LOW_HZ / sample_rate,
+            tail_high_w: (bands == BANDS).then(|| {
+                2.0 * PI * TAIL_HIGH_HZ.min(TAIL_HIGH_MAX_RATIO * sample_rate) / sample_rate
+            }),
             points: (2 * bands).saturating_sub(1),
             cos_w: [0.0; MAX_POINTS],
             cos_2w: [0.0; MAX_POINTS],
@@ -438,6 +505,36 @@ impl Layout {
             layout.cos_2w[k] = (2.0 * w).cos();
         }
         layout
+    }
+
+    /// m. bandın tepe süzgeci.
+    fn peaking(&self, m: usize, gain_db: f64) -> Biquad {
+        Biquad::peaking(
+            self.w0[m],
+            self.bandwidth[m],
+            gain_db,
+            self.tuning.edge_ratio,
+        )
+    }
+
+    /// m. bandın kuyruk rafı: en alt bantta alçak, en üst (16 kHz) bantta yüksek raf;
+    /// diğer bantlarda etkisiz.
+    fn tail(&self, m: usize, gain_db: f64) -> Biquad {
+        if m == 0 {
+            Biquad::low_shelf(self.tail_low_w, TAIL_LOW_RATIO * gain_db, TAIL_LOW_Q)
+        } else if m == BANDS - 1 {
+            self.tail_high_w.map_or(Biquad::IDENTITY, |w| {
+                Biquad::high_shelf(w, TAIL_HIGH_RATIO * gain_db, TAIL_HIGH_Q)
+            })
+        } else {
+            Biquad::IDENTITY
+        }
+    }
+
+    /// m. bandın (tepe + kuyruk) toplam yanıtı (dB).
+    fn band_response_db(&self, m: usize, gain_db: f64, cos_w: f64, cos_2w: f64) -> f64 {
+        self.peaking(m, gain_db).response_db(cos_w, cos_2w)
+            + self.tail(m, gain_db).response_db(cos_w, cos_2w)
     }
 }
 
@@ -460,11 +557,13 @@ fn design_target(gains_db: &[f64; BANDS], k: usize) -> f64 {
     }
 }
 
-/// Tasarlanmış ekolayzer: bant filtreleri ve en kötü durumdaki ön kazanç.
+/// Tasarlanmış ekolayzer: bant filtreleri (sonra iki kuyruk rafı) ve en kötü durumdaki
+/// ön kazanç.
 #[derive(Debug, Clone, Copy)]
 pub struct Design {
-    filters: [Biquad; BANDS],
-    bands: usize,
+    /// `0..BANDS` tepe süzgeçleri, `BANDS` alt kuyruk, `BANDS + 1` üst kuyruk;
+    /// kullanılmayanlar birim süzgeç.
+    filters: [Biquad; FILTERS],
     /// Boşluk hiç yokken taşmayı önleyecek kazanç (dB, ≤ 0): en yüksek sürgü kadar.
     pub preamp_db: f64,
 }
@@ -478,8 +577,7 @@ impl Design {
     fn with_layout(gains_db: &[f64; BANDS], layout: &Layout) -> Self {
         let n = layout.bands;
         let mut design = Self {
-            filters: [Biquad::IDENTITY; BANDS],
-            bands: n,
+            filters: [Biquad::IDENTITY; FILTERS],
             preamp_db: -gains_db.iter().take(n).fold(0.0f64, |max, &g| max.max(g)),
         };
         if gains_db.iter().take(n).all(|g| g.abs() < FLAT_DB) {
@@ -504,12 +602,11 @@ impl Design {
             gains = solve_gains(layout, &shape, &target);
         }
         for m in 0..n {
-            design.filters[m] = Biquad::peaking(
-                layout.w0[m],
-                layout.bandwidth[m],
-                gains[m],
-                layout.tuning.edge_ratio,
-            );
+            design.filters[m] = layout.peaking(m, gains[m]);
+        }
+        design.filters[BANDS] = layout.tail(0, gains[0]);
+        if n == BANDS {
+            design.filters[BANDS + 1] = layout.tail(BANDS - 1, gains[BANDS - 1]);
         }
         design
     }
@@ -523,9 +620,9 @@ impl Design {
     pub fn response_db(&self, hz: f64, sample_rate: f64) -> f64 {
         let w = 2.0 * PI * hz / sample_rate;
         let (cos_w, cos_2w) = (w.cos(), (2.0 * w).cos());
+        // Kullanılmayan bantlar ve etkisiz kuyruklar birim süzgeçtir (0 dB).
         self.filters
             .iter()
-            .take(self.bands)
             .map(|f| f.response_db(cos_w, cos_2w))
             .sum()
     }
@@ -535,17 +632,13 @@ impl Design {
 /// ve hedef eğriye en yakın filtre kazançlarını en küçük kareler ile çözer.
 fn solve_gains(layout: &Layout, shape: &[f64; BANDS], target: &[f64; MAX_POINTS]) -> [f64; BANDS] {
     let (n, points) = (layout.bands, layout.points);
-    // Etkileşim matrisi: m. filtrenin k. noktadaki tepkisi, kendi kazancına bölünmüş.
+    // Etkileşim matrisi: m. bandın (tepe + kuyruk) k. noktadaki tepkisi, kendi kazancına
+    // bölünmüş.
     let mut matrix = [[0.0; BANDS]; MAX_POINTS];
     for m in 0..n {
-        let filter = Biquad::peaking(
-            layout.w0[m],
-            layout.bandwidth[m],
-            shape[m],
-            layout.tuning.edge_ratio,
-        );
         for k in 0..points {
-            matrix[k][m] = filter.response_db(layout.cos_w[k], layout.cos_2w[k]) / shape[m];
+            matrix[k][m] =
+                layout.band_response_db(m, shape[m], layout.cos_w[k], layout.cos_2w[k]) / shape[m];
         }
     }
     // Normal denklemler: (AᵀA) g = Aᵀt.
@@ -593,8 +686,8 @@ fn solve_linear(a: &mut [[f64; BANDS]; BANDS], b: &mut [f64; BANDS], n: usize) {
     }
 }
 
-/// Bir kanalın filtre durumları (transpoze direkt form II).
-type ChannelState = [[f64; 2]; BANDS];
+/// Bir kanalın filtre durumları (transpoze direkt form II): bantlar + kuyruk rafları.
+type ChannelState = [[f64; 2]; FILTERS];
 
 /// Sesi ekolayzerden geçiren gerçek zamanlı işlemci.
 ///
@@ -629,7 +722,7 @@ impl EqProcessor {
             current: target,
             design: Design::new(&[0.0; BANDS], rate),
             flat: true,
-            state: vec![[[0.0; 2]; BANDS]; channels.max(1)],
+            state: vec![[[0.0; 2]; FILTERS]; channels.max(1)],
             update_frames,
             countdown: 0,
             smoothing: 1.0 - (-(update_frames as f64) / (SMOOTH_SECONDS * rate)).exp(),
@@ -685,14 +778,9 @@ impl EqProcessor {
         let Some(state) = self.state.get_mut(channel) else {
             return x;
         };
+        // Kullanılmayan bantlar ve etkisiz kuyruklar birim süzgeçtir: ucuz, dallanmasız.
         let mut y = x;
-        for (f, s) in self
-            .design
-            .filters
-            .iter()
-            .zip(state.iter_mut())
-            .take(self.layout.bands)
-        {
+        for (f, s) in self.design.filters.iter().zip(state.iter_mut()) {
             let input = y;
             y = f.b0 * input + s[0];
             s[0] = f.b1 * input - f.a1 * y + s[1];
@@ -828,6 +916,41 @@ mod tests {
                 assert!(error < 0.5, "{gains:?}: sapma {error:.2} dB");
             }
         }
+    }
+
+    #[test]
+    fn uc_bantlar_20_hz_ve_20_khze_uzanir() {
+        // Eskiden uç bantlar yalnızca tepe süzgeciydi: "hepsi +12"de 20 Hz +5,2, 20 kHz
+        // +7,7 dB kalıyordu. Kuyruk raflarıyla sürgü duyulabilir aralığın ucuna kadar sürer.
+        let all = Design::new(&[12.0; BANDS], 48_000.0);
+        let low = all.response_db(20.0, 48_000.0);
+        let high = all.response_db(20_000.0, 48_000.0);
+        assert!(low >= 10.0, "20 Hz: {low:.2} dB");
+        assert!(high >= 10.0, "20 kHz: {high:.2} dB");
+        let all = Design::new(&[12.0; BANDS], 44_100.0);
+        assert!(all.response_db(20.0, 44_100.0) >= 10.0);
+        assert!(all.response_db(20_000.0, 44_100.0) >= 9.5);
+
+        // Tek uç bant: sürgünün tamamı kenara kadar, komşu bant ortası yarım, ötesi düz.
+        let mut gains = [0.0; BANDS];
+        gains[0] = 12.0;
+        let bass = Design::new(&gains, 48_000.0);
+        assert!(bass.response_db(20.0, 48_000.0) >= 11.0);
+        assert!((bass.response_db(10.0, 48_000.0) - 12.0).abs() < 1.0);
+        assert!(bass.response_db(125.0, 48_000.0).abs() < 1.0);
+        let mut gains = [0.0; BANDS];
+        gains[BANDS - 1] = -12.0;
+        let treble = Design::new(&gains, 48_000.0);
+        assert!(treble.response_db(20_000.0, 48_000.0) <= -11.0);
+        assert!(treble.response_db(4_000.0, 48_000.0).abs() < 1.0);
+        // Bant ortaları yine sürgüde.
+        assert!((bass.response_db(31.25, 48_000.0) - 12.0).abs() < 0.6);
+        assert!((treble.response_db(16_000.0, 48_000.0) + 12.0).abs() < 0.6);
+        // 16 kHz bandı kullanılmayan hızda üst kuyruk yok, alt kuyruk var.
+        let layout = Layout::new(32_000.0);
+        assert!(layout.tail_high_w.is_none());
+        assert_eq!(layout.tail(BANDS - 1, 12.0), Biquad::IDENTITY);
+        assert_ne!(layout.tail(0, 12.0), Biquad::IDENTITY);
     }
 
     #[test]

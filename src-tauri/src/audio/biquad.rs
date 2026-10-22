@@ -133,6 +133,12 @@ impl Biquad {
     /// `w` açısal frekansındaki (radyan/örnek) kazanç (dB).
     pub fn response_db(&self, w: f64) -> f64 {
         let (cos_w, cos_2w) = (w.cos(), (2.0 * w).cos());
+        10.0 * self.power_gain(cos_w, cos_2w).log10()
+    }
+
+    /// Güç kazancı |H|² (doğrusal); `cos_w` = cos(w), `cos_2w` = cos(2w). Çok sayıda
+    /// süzgecin toplam yanıtı taranırken kosinüsler bir kez hesaplanır, logaritma en sonda alınır.
+    pub fn power_gain(&self, cos_w: f64, cos_2w: f64) -> f64 {
         let Self { b0, b1, b2, a1, a2 } = *self;
         let num = b0 * b0
             + b1 * b1
@@ -140,7 +146,7 @@ impl Biquad {
             + 2.0 * (b0 * b1 + b1 * b2) * cos_w
             + 2.0 * b0 * b2 * cos_2w;
         let den = 1.0 + a1 * a1 + a2 * a2 + 2.0 * (a1 + a1 * a2) * cos_w + 2.0 * a2 * cos_2w;
-        10.0 * (num.max(1e-300) / den.max(1e-300)).log10()
+        num.max(1e-300) / den.max(1e-300)
     }
 
     /// Bir örneği işler (devrik doğrudan biçim II).

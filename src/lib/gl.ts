@@ -9,13 +9,33 @@ void main() {
   gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
 }`;
 
-/** WebGL2 bağlamı; yoksa `null` (sahne o zaman CSS ile çizilmiş durgun görüntüyü gösterir). */
+/**
+ * WebGL2 bağlamı; yoksa `null` (sahne o zaman CSS ile çizilmiş durgun görüntüyü gösterir).
+ *
+ * Önce gerçek ekran kartı istenir (`failIfMajorPerformanceCaveat`): tarayıcı yazılımsal
+ * çizime (SwiftShader/WARP) düşecekse bu istek boş döner. O zaman yazılımsal bağlam yine
+ * açılır (hiç sahne olmamasından iyidir) ama tuvale `data-gpu-caveat="software"` işlenir:
+ * sahneler çözünürlüğü düşürür ([`fitCanvas`]) ki işlemci her kareyi zamanında yetiştirsin.
+ */
 export function getWebGl2(canvas: HTMLCanvasElement): WebGL2RenderingContext | null {
+  const base: WebGLContextAttributes = { antialias: false, alpha: false, depth: false };
   try {
-    return canvas.getContext("webgl2", { antialias: false, alpha: false, depth: false });
+    const hardware = canvas.getContext("webgl2", { ...base, failIfMajorPerformanceCaveat: true });
+    if (hardware) {
+      delete canvas.dataset.gpuCaveat;
+      return hardware;
+    }
+    const software = canvas.getContext("webgl2", base);
+    if (software) canvas.dataset.gpuCaveat = "software";
+    return software;
   } catch {
     return null;
   }
+}
+
+/** Tuval yazılımsal (ekran kartsız) WebGL ile mi açıldı? */
+export function isSoftwareGl(canvas: HTMLCanvasElement): boolean {
+  return canvas.dataset.gpuCaveat === "software";
 }
 
 /**
@@ -135,15 +155,22 @@ export const NO_WEBGL2 = "WebGL2 açılamadı (ekran kartı sürücüsü destekl
  * kartında da her kare zamanında çizilir. Görüntü yumuşak olduğundan fark edilmez.
  */
 export const MAX_CANVAS_PIXELS = 1920 * 1080;
+/** Yazılımsal WebGL'de (ekran kartı yok ya da engelli) en fazla piksel: işlemci 60 kareyi yetiştirsin. */
+export const MAX_CANVAS_PIXELS_SOFTWARE = 960 * 540;
 
 /**
- * Tuvalin piksel oranı: ekranın piksel yoğunluğu (en fazla 2×), tuval `MAX_CANVAS_PIXELS`'ı
+ * Tuvalin piksel oranı: ekranın piksel yoğunluğu (en fazla 2×), tuval `maxPixels`'ı
  * aşacaksa daha düşük (en az 0,5).
  */
-export function canvasScale(cssWidth: number, cssHeight: number, devicePixelRatio: number): number {
+export function canvasScale(
+  cssWidth: number,
+  cssHeight: number,
+  devicePixelRatio: number,
+  maxPixels = MAX_CANVAS_PIXELS,
+): number {
   const pixel = Math.min(devicePixelRatio || 1, 2);
   const area = Math.max(1, cssWidth) * Math.max(1, cssHeight);
-  return Math.max(0.5, Math.min(pixel, Math.sqrt(MAX_CANVAS_PIXELS / area)));
+  return Math.max(0.5, Math.min(pixel, Math.sqrt(maxPixels / area)));
 }
 
 /** Tuvali ekran boyuna getirir (bkz. `canvasScale`); piksel oranını döndürür. */
@@ -152,7 +179,12 @@ export function fitCanvas(canvas: HTMLCanvasElement): {
   height: number;
   pixel: number;
 } {
-  const pixel = canvasScale(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio);
+  const pixel = canvasScale(
+    canvas.clientWidth,
+    canvas.clientHeight,
+    window.devicePixelRatio,
+    isSoftwareGl(canvas) ? MAX_CANVAS_PIXELS_SOFTWARE : MAX_CANVAS_PIXELS,
+  );
   const width = Math.max(1, Math.round(canvas.clientWidth * pixel));
   const height = Math.max(1, Math.round(canvas.clientHeight * pixel));
   if (canvas.width !== width || canvas.height !== height) {

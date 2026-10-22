@@ -1,6 +1,6 @@
 [package]
 name = "lyraska"
-version = "0.0.51"
+version = "0.0.52"
 description = "Görselleri şarkıyı önceden bilen, çevrimdışı müzik çalar"
 authors = ["Lyraska geliştiricileri"]
 license = "GPL-3.0-only"
@@ -35,7 +35,11 @@ codegen-units = 1
 lto = true
 opt-level = 3
 panic = "abort"
-strip = true
+# Çökme günlüğündeki yığın izi çözülebilsin (YAY-11): satır tabloları ayrı sembol dosyasına
+# (Windows'ta .pdb) gider, CI onu saklar; exe'nin kendisi küçük kalır.
+debug = "line-tables-only"
+split-debuginfo = "packed"
+strip = "none"
 
 [lints.rust]
 unsafe_code = "deny"
@@ -48,6 +52,9 @@ panic = "warn"
 
 [target."cfg(windows)".dependencies]
 wasapi = "0.25"
+# Ses iş parçacığına MMCSS "Pro Audio" önceliği (yalnızca output/wasapi.rs; wasapi zaten bu
+# crate'i kullanır, yeni paket gelmez).
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Threading"] }
 
 [dev-dependencies]
 allocation-counter = "0.8.1"

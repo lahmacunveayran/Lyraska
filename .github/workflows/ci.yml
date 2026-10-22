@@ -201,6 +201,8 @@ jobs:
         working-directory: src-tauri
         run: cargo test --locked
       - name: Gerçek ses aygıtıyla deneme
+        # Barındırılan Windows makinesinde ses aygıtı yoktur: deneme "ATLANDI" der ve iş akışına
+        # uyarı düşer (yeşil ama boş). Gerçek aygıt denemesi proje sahibinin kurulumuyla yapılır (YAY-09).
         working-directory: src-tauri
         run: cargo run --locked --example ses_denemesi
       - name: Kurulum dosyasını derle
@@ -212,4 +214,11 @@ jobs:
           name: Lyraska-Kurulum-PR
           path: src-tauri/target/release/bundle/nsis/*-setup.exe
           if-no-files-found: error
+          retention-days: 14
+      - name: Hata ayıklama sembollerini yükle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Lyraska-Semboller-PR
+          path: src-tauri/target/release/*.pdb
+          if-no-files-found: warn
           retention-days: 14

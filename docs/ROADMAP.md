@@ -225,8 +225,9 @@ Faz 6'da sırayı kullanıcı seçer; burada **sırayı program seçer**, geçi�
 
 ## Bekleyen kararlar (proje sahibinde)
 
-- **Ses iş parçacığına Windows ses önceliği (MMCSS, "Pro Audio")**: ağır yükte takılmaya karşı daha sağlam;
-  `unsafe` kod gerektirdiği için onay şart. Öneri: şimdilik yapılmasın, takılma görülürse ilk bu açılsın.
+- ~~**Ses iş parçacığına Windows ses önceliği (MMCSS, "Pro Audio")**~~: proje sahibi kararı Claude'a bıraktı
+  (22 Ekim 2026); 0.0.52'de yalnızca `output/wasapi.rs` içinde `// GÜVENLİK:` gerekçeli tek `unsafe` çağrıyla
+  eklendi (DENETIM-2 bölüm 5.3).
 - **Ekolayzerde sıradaki iş** ([#26](https://github.com/gozlemesevdalisi/Lyraska/issues/26)): elle parametrik EQ
   arayüzü (öneri; lisans beklemiyor), hazır kulaklık listesi (önce ölçüm kaynaklarının lisansı), loudness.
 - **Retriever / Veritas'ta sıradaki adım** ([VERITAS.md](VERITAS.md)): kör dinleme aracı (ABX) 0.0.40'ta geldi;
