@@ -23,6 +23,15 @@
 //
 // Ayrıca parlaklık freni (src/lib/flashGuard.ts) zamana bağlı ölçülür (`SCENE_ONLY=flash-guard`):
 // bilerek parlayan bir desen frenden geçirilir, ekrandaki parlamalar kare kare sayılır.
+//
+// MilkDrop sahnesi (`SCENE_ONLY=milkdrop`) programın özgün deneme presetiyle
+// (src-tauri/tests/data/milkdrop/lyraska-parlama.*: saniyede dört kez tersine dönen, bilerek parlayan
+// bir görsel) gerçek sahnede çalışır: WebGL, hareket ve kare kare parlama ölçümü (görünen tuval
+// frenli, Butterchurn'ün görünmeyen tuvali frensiz denetim olarak), normal ve güvenli modda.
+//
+// Program sayfaları programın gerçek içerik güvenlik politikasıyla (CSP, tauri.conf.json) açılır:
+// `eval`/`new Function` engellidir; Butterchurn'ün yalnızca WebAssembly yolunu kullandığı böylece
+// gerçek tarayıcıda denetlenir (engellenen her şey konsola hata yazar, denetim kırmızı olur).
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -30,6 +39,26 @@ import { chromium } from "playwright-core";
 import { build, preview } from "vite";
 
 const PORT = 4179;
+/** Programın içerik güvenlik politikası (Tauri penceresindekiyle aynı). */
+const APP_CSP = JSON.parse(
+  readFileSync(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"),
+).app.security.csp;
+/**
+ * MilkDrop sahnesinin deneme presetleri: Rust ayrıştırıcısının özgün `.milk` dosyalarından ürettiği
+ * JSON (`milkdrop::tests::ornek_gorsel_beklenen_jsona_cevrilir` aynı olduklarını denetler).
+ * `parlama`: bilerek parlar; `dongu`: denkleminde çok büyük bir `loop` (programın sınırıyla kırpılmış).
+ */
+const milkdropFixture = (name) =>
+  JSON.parse(
+    readFileSync(
+      new URL(`../src-tauri/tests/data/milkdrop/lyraska-${name}.json`, import.meta.url),
+      "utf8",
+    ),
+  );
+const MILKDROP_PRESETS = {
+  parlama: { name: "Lyraska parlama denemesi", preset: milkdropFixture("parlama") },
+  dongu: { name: "Lyraska döngü denemesi", preset: milkdropFixture("dongu") },
+};
 const EXPECT_FALLBACK = process.env.SCENE_EXPECT === "fallback";
 const APP_URL = `http://localhost:${PORT}`;
 
@@ -37,7 +66,7 @@ const APP_URL = `http://localhost:${PORT}`;
  * Tarayıcıda Tauri yerine geçen sahte çekirdek: 128 BPM'lik bir şarkı çalıyor. `level` verilirse bütün bantlar ve
  * VU seviyeleri sabit o düzeyde (parlama sınırı ölçümü için: 0 = sessiz, 1 = tam). `theme`: bölümün renk teması.
  */
-const fakeCore = (level = null, theme = 1) => `
+const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama") => `
   const LEVEL = ${level === null ? "null" : level};
   window.isTauri = true;
   const started = performance.now();
@@ -64,7 +93,13 @@ const fakeCore = (level = null, theme = 1) => `
         maxBands: 20, maxGainDb: 24, minQ: 0.1, maxQ: 30 };
       case "crossfeed_get": return { settings: { enabled: false, cutoffHz: 700, levelDb: 6 }, presets: [],
         delayUs: 227, curveHz: [], nearDb: [], farDb: [] };
-      case "visual_safe_get": return false;
+      case "visual_safe_get": return ${safe};
+      // MilkDrop: tek görsellik klasör ve programın özgün deneme preseti.
+      case "milkdrop_list": return { folder: "C:/MilkDrop", truncated: false, error: null,
+        presets: [{ name: ${JSON.stringify(MILKDROP_PRESETS[milk].name)},
+          path: "C:/MilkDrop/lyraska-${milk}.milk" }] };
+      case "milkdrop_load": return { name: ${JSON.stringify(MILKDROP_PRESETS[milk].name)},
+        simplified: false, preset: ${JSON.stringify(MILKDROP_PRESETS[milk].preset)} };
       case "audio_delay_get": return 0;
       // Tek bölümlük harita: arayüzün vurgu rengi (VU ve spektrum sahnelerinin halesi) de temada.
       case "song_map": return { meter: 4, downbeatPhase: 0, grouping: [], meterConfidence: 1, downbeats: [],
@@ -104,7 +139,10 @@ const fakeCore = (level = null, theme = 1) => `
  * Sayfa açılmadan çalışan betik: sahne ve gök manzarası seçili, sahte çekirdek kurulu.
  * `sceneLook`: galeri sahnesinin görünümü (`{ speed, palette }`, src/lib/sceneLook.ts).
  */
-const initScript = (sceneId, { look = null, sceneLook = null, level = null, theme = 1 } = {}) =>
+const initScript = (
+  sceneId,
+  { look = null, sceneLook = null, level = null, theme = 1, safe = false, milk = "parlama" } = {},
+) =>
   `try { localStorage.setItem("lyraska.scene", "${sceneId}");` +
   (look ? ` localStorage.setItem("lyraska.skyLook", "${look}");` : "") +
   (sceneLook
@@ -112,7 +150,7 @@ const initScript = (sceneId, { look = null, sceneLook = null, level = null, them
         JSON.stringify({ version: 1, looks: { [sceneId]: sceneLook } }),
       )});`
     : "") +
-  ` } catch {}\n${fakeCore(level, theme)}`;
+  ` } catch {}\n${fakeCore(level, theme, safe, milk)}`;
 
 /** Tuvalin görüntüsünü çözüp parlaklık ölçer (bağıl parlaklık, 0..1). */
 function measure(png) {
@@ -211,7 +249,12 @@ const SCALE = 0.5;
  * ölçümü müziğin etkisi yerine iki ayrı anı karşılaştırıyordu.
  */
 const STEP_MS = 250;
-const VIRTUAL_TIME = `
+/**
+ * Sanal zaman (`stepMs` adımla). Yeni her sanal karenin başında, kare çizilmeden önce,
+ * `window.__frameProbe` varsa çağrılır: bir önceki karenin bitmiş görüntüsünü okur (zamana bağlı
+ * parlama ölçümü).
+ */
+const virtualTime = (stepMs) => `
   (() => {
     const realFrame = window.requestAnimationFrame.bind(window);
     const time = { allowed: 0, done: 0, now: 0, lastFrame: -1 };
@@ -222,7 +265,14 @@ const VIRTUAL_TIME = `
           time.lastFrame = frame;
           if (time.done < time.allowed) {
             time.done += 1;
-            time.now += ${STEP_MS};
+            time.now += ${stepMs};
+            // Ölçüm hatası sahnenin döngüsünü durdurmasın: hata saklanır, denetim bildirir.
+            try {
+              if (window.__frameProbe) window.__frameProbe();
+            } catch (error) {
+              window.__frameProbe = null;
+              window.__probeError = String(error);
+            }
           }
         }
         callback(time.now);
@@ -231,12 +281,12 @@ const VIRTUAL_TIME = `
 `;
 
 /** Sahneyi `ms` kadar (sanal) ilerletir ve sahnenin o kareleri işlemesini bekler. */
-async function advance(page, ms) {
+async function advance(page, ms, stepMs = STEP_MS) {
   await page.evaluate(
     (frames) => {
       window.__sceneTime.allowed += frames;
     },
-    Math.round(ms / STEP_MS),
+    Math.round(ms / stepMs),
   );
   await page.waitForFunction(() => window.__sceneTime.done >= window.__sceneTime.allowed, null, {
     polling: 50,
@@ -245,25 +295,36 @@ async function advance(page, ms) {
   await page.waitForTimeout(50);
 }
 
-/** Sahne denetimi için yeni sayfa: sanal zamanlı; bütün işlemler yavaş çizime göre beklenir. */
-async function openPage(browser) {
-  const page = await browser.newPage({
-    viewport: { width: 1280, height: 860 },
-    deviceScaleFactor: SCALE,
-  });
+/**
+ * Sahne denetimi için yeni sayfa: sanal zamanlı; bütün işlemler yavaş çizime göre beklenir.
+ * Program sayfası programın gerçek CSP'siyle gelir (Tauri penceresindeki gibi).
+ */
+async function openPage(
+  browser,
+  { stepMs = STEP_MS, viewport = { width: 1280, height: 860 }, scale = SCALE } = {},
+) {
+  const page = await browser.newPage({ viewport, deviceScaleFactor: scale });
   page.setDefaultTimeout(SLOW);
-  await page.addInitScript(VIRTUAL_TIME);
+  await page.route("**/*", async (route) => {
+    if (route.request().resourceType() !== "document") return route.continue();
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      headers: { ...response.headers(), "content-security-policy": APP_CSP },
+    });
+  });
+  await page.addInitScript(virtualTime(stepMs));
   return page;
 }
 
 /** Programı açar ve çalmaya başlatır; sahne `ms` kadar (sanal) ilerler. */
-async function startPlaying(page, ms) {
+async function startPlaying(page, ms, stepMs = STEP_MS) {
   await page.goto(APP_URL);
-  await advance(page, STEP_MS);
+  await advance(page, stepMs, stepMs);
   await page.mouse.click(5, 5);
   await page.keyboard.press("Space"); // çal
   await page.waitForTimeout(100);
-  await advance(page, ms);
+  await advance(page, ms, stepMs);
 }
 
 /**
@@ -428,6 +489,23 @@ const SCENES = [
     brightOnly: true,
     palette,
   })),
+  // Kullanıcının .milk görselleri (burada programın özgün deneme preseti). Parlaklığı müzikten
+  // değil presetten gelir: sessiz/tam ses sınırı yerine zamana bağlı ölçülür
+  // (`checkMilkdropFlashes`). Fren siyahtan saniyede 0,3 açılır: görüntü belirsin diye uzun
+  // ısınma. Görsel açılmış ve fren kurulmuş olmalı.
+  {
+    id: "milkdrop",
+    name: "MilkDrop",
+    extra: () => null,
+    warmup: 6000,
+    timeBased: true,
+    requires: (state) =>
+      !state.preset
+        ? "MilkDrop görseli açılmadı"
+        : !state.guard
+          ? "parlaklık freni kurulmadı"
+          : null,
+  },
 ];
 
 /** Galeri sahnelerinin sabit paletlerinin adları (`SCENE_PALETTES`, src/lib/sceneLook.ts). */
@@ -496,7 +574,7 @@ const ALL_SCENES = [
   // Halesi bölüm temasının renginde (`--aurora`).
   { id: "spectrum", name: "Nokta matris spektrum", themed: true },
   { id: "vu", name: "VU ibreleri", themed: true },
-  ...SCENES,
+  ...SCENES.filter((s) => !s.timeBased),
 ];
 
 /** Yalnızca bazı sahneleri denetlemek için (geliştirirken): `SCENE_ONLY=sea,nebula`. */
@@ -515,7 +593,7 @@ async function checkScene(browser, scene, variant) {
   await page.addInitScript(
     initScript(scene.id, { look: variant.look, sceneLook: variant.sceneLook }),
   );
-  await startPlaying(page, 1500);
+  await startPlaying(page, scene.warmup ?? 1500);
   await hideChrome(page);
 
   const canvas = page.locator("canvas:not([hidden])").first();
@@ -529,6 +607,8 @@ async function checkScene(browser, scene, variant) {
     fallback: c.dataset.fallback ?? null,
     error: c.dataset.webglError ?? null,
     gpu: c.dataset.gpu ?? null,
+    preset: c.dataset.preset ?? null,
+    guard: c.dataset.guard ?? null,
   }));
   const first = await page.evaluate(measure, await capture(page, canvas));
   await advance(page, 750);
@@ -552,6 +632,8 @@ async function checkScene(browser, scene, variant) {
   }
   const extra = scene.extra(first);
   if (extra) problems.push(extra);
+  const missing = scene.requires?.(state);
+  if (missing) problems.push(missing);
 
   console.log(
     `${variant.label}: WebGL ${state.webgl}${state.fallback ? ` (yedek: ${state.fallback})` : ""} · ekran kartı: ${state.gpu ?? "-"} · ${first.width}×${first.height} · ` +
@@ -596,8 +678,7 @@ async function flashGuardBundle() {
  * parlaklık dizisi `countFlashes` ile sayılır. Frenli her durum saniyede ≤ 3 (güvenli modda ≤ 1)
  * parlamalı; frensiz denetim parlamayı görmeli (ölçümün çalıştığının kanıtı).
  */
-async function checkFlashGuard(browser) {
-  const code = await flashGuardBundle();
+async function checkFlashGuard(browser, code) {
   const page = await browser.newPage({ viewport: { width: 400, height: 300 } });
   page.setDefaultTimeout(SLOW);
   const problems = [];
@@ -639,13 +720,193 @@ async function checkFlashGuard(browser) {
   return problems;
 }
 
-// Programın içerik güvenliği politikası (CSP) aynen uygulanır: CSP'nin engellediği bir stil, betik
-// ya da kaynak Edge'de konsol hatası verir ve denetim kırmızı olur (gerçek WebView2'deki gibi).
-const CSP = JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf8")).app.security.csp;
-const server = await preview({
-  preview: { port: PORT, strictPort: true, headers: { "Content-Security-Policy": CSP } },
-  logLevel: "warn",
-});
+/**
+ * Sayfa açılmadan: WebGL2 bağlamları `preserveDrawingBuffer` ile açılır (görüntü kare bittikten
+ * sonra da okunabilsin) ve OffscreenCanvas'ta açılan (Butterchurn'ün görünmeyen tuvali) bağlam
+ * `window.__offscreenGl` olarak saklanır. Yalnızca denetimde; program bunu yapmaz.
+ */
+const PRESERVE_DRAWING_BUFFER = `
+  (() => {
+    const patch = (proto, record) => {
+      const original = proto.getContext;
+      proto.getContext = function (type, attributes) {
+        if (type !== "webgl2") return original.call(this, type, attributes);
+        const gl = original.call(this, type, { ...(attributes ?? {}), preserveDrawingBuffer: true });
+        if (record && gl) window.__offscreenGl = gl;
+        return gl;
+      };
+    };
+    patch(HTMLCanvasElement.prototype, false);
+    if (window.OffscreenCanvas) patch(OffscreenCanvas.prototype, true);
+  })();
+`;
+
+/** MilkDrop'un kare kare ölçümü: süre (sn) ve pencere (küçük: yazılımsal çizimde de hızlı). */
+const MILKDROP_SECONDS = { normal: 4, safe: 3 };
+const MILKDROP_VIEWPORT = { width: 384, height: 216 };
+
+/**
+ * Gerçek MilkDrop sahnesinde zamana bağlı parlama ölçümü (60 kare/sn sanal zaman): her karede
+ * görünen tuval (frenli) ve Butterchurn'ün görünmeyen tuvali (frensiz) okunur, en kötü WCAG
+ * penceresinin parlamaları sayılır. Frenli saniyede ≤ 3 (güvenli modda ≤ 1) olmalı; frensiz
+ * denetim deneme presetinin gerçekten parladığını göstermeli (ölçümün çalıştığının kanıtı).
+ * Ayrıca sayfanın CSP'sinin `eval`'i gerçekten engellediği denetlenir: Butterchurn bu koşulda
+ * çalışıyorsa JavaScript (`new Function`) yolunu kullanmıyordur.
+ */
+async function checkMilkdropFlashes(browser, bundle, safe) {
+  const label = `MilkDrop · zamana bağlı parlama${safe ? " (güvenli mod)" : ""}`;
+  const seconds = safe ? MILKDROP_SECONDS.safe : MILKDROP_SECONDS.normal;
+  const step = 1000 / 60;
+  const page = await openPage(browser, { stepMs: step, viewport: MILKDROP_VIEWPORT, scale: 1 });
+  const problems = [];
+  // CSP denetiminin bilerek engellettiği dizgi `setTimeout`'unun konsol hatası beklenir.
+  let expectEvalRefusal = false;
+  page.on("console", (m) => {
+    if (m.type() !== "error") return;
+    if (expectEvalRefusal && /unsafe-eval/.test(m.text())) return;
+    problems.push(`${label}: konsol: ${m.text()}`);
+  });
+  page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
+  await page.addInitScript(PRESERVE_DRAWING_BUFFER);
+  // Başlangıç betikleri bir işlevin içinde çalışır: paketin `var`'ı pencereye ayrıca konur.
+  await page.addInitScript(`${bundle}\n;window.LyraskaFlashGuardCheck = LyraskaFlashGuardCheck;`);
+  await page.addInitScript(initScript("milkdrop", { safe }));
+  const started = Date.now();
+  // Görsel açılsın, fren siyahtan biraz açılsın.
+  await startPlaying(page, 2000, step);
+  const canvas = page.locator(".milkdrop-scene__canvas");
+  const problem = await renderProblem(page, canvas, problems);
+  if (problem) {
+    await page.close();
+    return [`${label}: ${problem}`];
+  }
+  const state = await canvas.evaluate((c) => ({
+    webgl: c.dataset.webgl ?? null,
+    preset: c.dataset.preset ?? null,
+    guard: c.dataset.guard ?? null,
+    error: c.dataset.webglError ?? null,
+  }));
+  // CSP gerçekten uygulanıyor mu: sayfanın kendi kodundaki dizgi değerlendirmesi engellenmeli.
+  // (`page.evaluate`'in kendisi CSP'den muaf olduğu için dizgi bir zamanlayıcıyla, sayfanın
+  // kendi görevinde değerlendirilir.) Butterchurn bu sayfada açıldıysa `new Function`'a gerek
+  // duymamıştır; engellenen her deneme konsola hata yazardı.
+  expectEvalRefusal = true;
+  await page.evaluate(() => {
+    window.__cspViolations = [];
+    document.addEventListener("securitypolicyviolation", (e) =>
+      window.__cspViolations.push(e.violatedDirective),
+    );
+    setTimeout("window.__evalRan = true", 0);
+  });
+  await page.waitForTimeout(300);
+  const csp = await page.evaluate(() => ({
+    ran: window.__evalRan === true,
+    violations: window.__cspViolations,
+  }));
+  expectEvalRefusal = false;
+  if (csp.ran || !csp.violations.some((d) => d.startsWith("script-src"))) {
+    problems.push(`${label}: sayfada eval engellenmiyor (CSP uygulanmadı)`);
+  }
+  if (state.webgl !== "on" || !state.preset || !state.guard) {
+    problems.push(
+      `${label}: sahne çizilmiyor (WebGL ${state.webgl}, görsel ${state.preset ?? "yok"}, fren ` +
+        `${state.guard ?? "yok"}${state.error ? `, ${state.error}` : ""})`,
+    );
+    await page.close();
+    return problems;
+  }
+  await page.evaluate(() => {
+    const visible = document.querySelector(".milkdrop-scene__canvas").getContext("webgl2");
+    const internal = window.__offscreenGl ?? null;
+    const frames = { guarded: [], raw: [] };
+    window.__flashFrames = frames;
+    window.__frameProbe = () => {
+      frames.guarded.push(window.LyraskaFlashGuardCheck.screenWindows(visible));
+      if (internal) frames.raw.push(window.LyraskaFlashGuardCheck.screenWindows(internal));
+    };
+  });
+  await advance(page, seconds * 1000, step);
+  const result = await page.evaluate((s) => {
+    window.__frameProbe = null;
+    const { guarded, raw } = window.__flashFrames;
+    const check = window.LyraskaFlashGuardCheck;
+    return {
+      error: window.__probeError ?? null,
+      frames: guarded.length,
+      guarded: check.flashRate(guarded, s),
+      raw: raw.length === guarded.length ? check.flashRate(raw, s) : null,
+    };
+  }, seconds);
+  await page.close();
+  const limit = safe ? 1 : 3;
+  console.log(
+    `${label}: frenli saniyede ${result.guarded.flashesPerSecond.toFixed(2)} parlama (karede en ` +
+      `büyük değişim ${result.guarded.maxStep.toFixed(4)}) · frensiz ` +
+      `${result.raw ? result.raw.flashesPerSecond.toFixed(2) : "-"} · ${result.frames} kare · ` +
+      `fren ${state.guard} · eval engelli · ${((Date.now() - started) / 1000).toFixed(1)} sn`,
+  );
+  if (result.error) problems.push(`${label}: ölçüm hatası: ${result.error}`);
+  if (result.frames < seconds * 60 * 0.9) {
+    problems.push(`${label}: yalnızca ${result.frames} kare ölçüldü`);
+  }
+  if (result.guarded.flashesPerSecond > limit) {
+    problems.push(
+      `${label}: saniyede ${result.guarded.flashesPerSecond.toFixed(2)} parlama > ${limit}`,
+    );
+  }
+  if (!result.raw || result.raw.flashesPerSecond < 2) {
+    problems.push(
+      `${label}: frensiz deneme preseti parlama olarak ölçülmedi ` +
+        `(${result.raw ? result.raw.flashesPerSecond.toFixed(2) : "okunamadı"}): ölçüm çalışmıyor`,
+    );
+  }
+  return problems;
+}
+
+/** Döngü denemesi: bu kadar kare (60 kare/sn) en çok bu kadar sürede çizilmeli. */
+const LOOP_FRAMES = 60;
+const LOOP_BUDGET_MS = 60_000;
+
+/**
+ * Programı dondurabilecek döngü: deneme presetinin denkleminde `loop(2000000000, …)` var; program
+ * onu MilkDrop'un sınırına (1 048 576 tur) kırpar (`milkdrop/eel.rs`). Kırpılmasaydı her kare
+ * saniyelerce sürerdi. Gerçek sahnede 60 kare çizilir, süresi ölçülür.
+ */
+async function checkMilkdropLoop(browser) {
+  const label = "MilkDrop · döngü sınırı";
+  const step = 1000 / 60;
+  const page = await openPage(browser, { stepMs: step, viewport: MILKDROP_VIEWPORT, scale: 1 });
+  const problems = [];
+  page.on("console", (m) => {
+    if (m.type() === "error") problems.push(`${label}: konsol: ${m.text()}`);
+  });
+  page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
+  await page.addInitScript(initScript("milkdrop", { milk: "dongu" }));
+  await startPlaying(page, 500, step);
+  const canvas = page.locator(".milkdrop-scene__canvas");
+  const problem = await renderProblem(page, canvas, problems);
+  if (problem) {
+    await page.close();
+    return [`${label}: ${problem}`];
+  }
+  const preset = await canvas.evaluate((c) => c.dataset.preset ?? null);
+  const started = Date.now();
+  await advance(page, (LOOP_FRAMES * 1000) / 60, step);
+  const ms = Date.now() - started;
+  await page.close();
+  console.log(
+    `${label}: görsel ${preset ?? "yok"} · ${LOOP_FRAMES} kare ${(ms / 1000).toFixed(1)} sn`,
+  );
+  if (preset !== MILKDROP_PRESETS.dongu.name) problems.push(`${label}: döngülü görsel açılmadı`);
+  if (ms > LOOP_BUDGET_MS) {
+    problems.push(
+      `${label}: ${LOOP_FRAMES} kare ${(ms / 1000).toFixed(1)} sn sürdü (döngü kırpılmadı?)`,
+    );
+  }
+  return problems;
+}
+
+const server = await preview({ preview: { port: PORT, strictPort: true }, logLevel: "warn" });
 const channel = process.env.SCENE_BROWSER_CHANNEL;
 const executablePath = channel ? undefined : process.env.SCENE_BROWSER_PATH;
 const args = (process.env.SCENE_BROWSER_ARGS ?? "").split(/\s+/).filter(Boolean);
@@ -663,8 +924,18 @@ try {
         problems = problems.concat(await checkScene(browser, scene, variant));
       }
     }
+    const bundle =
+      !ONLY || ONLY.includes("flash-guard") || ONLY.includes("milkdrop")
+        ? await flashGuardBundle()
+        : null;
     if (!ONLY || ONLY.includes("flash-guard")) {
-      problems = problems.concat(await checkFlashGuard(browser));
+      problems = problems.concat(await checkFlashGuard(browser, bundle));
+    }
+    if (!ONLY || ONLY.includes("milkdrop")) {
+      for (const safe of [false, true]) {
+        problems = problems.concat(await checkMilkdropFlashes(browser, bundle, safe));
+      }
+      problems = problems.concat(await checkMilkdropLoop(browser));
     }
     const bright = brightestThemes(2);
     for (const scene of ALL_SCENES.filter(selected)) {

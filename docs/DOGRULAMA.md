@@ -423,6 +423,36 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
   açınca her sahnenin son görünümü ve kaydettiğiniz ayarlar yerinde.
 - Bildirin: beğenmediğiniz paletler ya da hız aralığı (çok yavaş/çok hızlı); kaydettiğiniz ayar kaybolduysa.
 
+**E10. MilkDrop sahnesi: kendi .milk görselleriniz (0.0.60)**
+
+- Önce: Lyraska hazır MilkDrop görseli içermez (yazarları lisans vermediği için dağıtamıyoruz). Bilgisayarınızda
+  `.milk` dosyaları olan bir klasör gerekir; örneğin eski bir Winamp kurulumundaki
+  `Plugins\Milkdrop2\presets` klasörü ya da kendi indirdiğiniz bir preset paketi. Dosyalar kopyalanmaz, program
+  yalnızca klasörün yerini hatırlar.
+- Nasıl: **Galeri**'den en alttaki **MilkDrop**'u seçin (ya da **PageUp**). Ekranın ortasındaki **Klasör seç**'e
+  basın ve `.milk` dosyalarının olduğu klasörü seçin (bir alt klasördekiler de listelenir). Bir şarkı çalın. Sonra
+  **Galeri**'yi yeniden açın: altta **MilkDrop** bölümü var; **Önceki** / **Sonraki** ile görseller arasında gezin,
+  **Müzikle kendiliğinden değiştir** kutusunu açıp kapatın. **Ayarlar**'da epilepsi güvenli modunu açıp kapatın.
+- Neye bakılır:
+  - Görsel siyahtan birkaç saniyede yavaşça belirir; müziğe (bas, vuruşlar) tepki verir.
+  - **Hiçbir görselde ani parlama ya da hızlı yanıp sönme yok**: parlaklık freni her karede devrede. Çok sert yanıp
+    sönmesi bilinen bir görselde bile ekran ancak yumuşakça aydınlanıp kararmalı (hareket izli, biraz bulanık
+    görünebilir; bu frenin işidir). Güvenli modda bu daha da yavaş.
+  - Görsel değişimi her zaman birkaç saniyelik yumuşak bir geçişle olur; kendiliğinden değişim yalnızca şarkıda yeni
+    bir bölüm başlayınca ya da drop'ta, en sık 15 saniyede bir.
+  - Bazı görsellerin altında "Gölgelendiricileri desteklenmiyor, sade hâliyle çalıyor" yazar: bunlar MilkDrop'taki
+    hâllerinden sade görünür (bu sürümde beklenen). Açılamayan bir görselde neden yazılır ve sonrakine geçilir;
+    iç içe ya da piksel başına döngü içeren görseller "programı dondurabileceği için açılmıyor" diye atlanır.
+  - Program hiçbir görselde donmamalı. Donarsa (görev yöneticisinden kapatmanız gerekirse) bir sonraki açılışta
+    galeride "… önceki açılışta çalarken program kapandı; atlananlara eklendi" yazmalı ve o görsel bir daha
+    kendiliğinden gelmemeli; **Atlananları yeniden dene** ile geri gelir. Programı normal kapatınca hiçbir görsel
+    atlanmamalı.
+  - Programı kapatıp açınca seçtiğiniz klasör hatırlanır.
+  - Akıcı mı (tam ekranda takılma, ısınma)? Görev yöneticisinde ekran kartı kullanımı ne kadar?
+- Bildirin: kullandığınız preset paketinin adı; açılmayan ya da çok farklı görünen görsellerin adları; parlama ya da
+  yanıp sönme gördüyseniz (görselin adıyla, hemen); takılma ya da donma varsa görselin adı ve bilgisayarın ekran
+  kartı.
+
 ## F. Hata günlüğü
 
 **F1. Hata günlüğü açılıyor**
@@ -452,3 +482,4 @@ denemeleri için kılavuz olarak kalır; yeni sürümlerde yeni maddeler eklenir
 | — (0.0.39)           | ✅ Denendi, sorun çıkmadı                               | 15 Ekim. Hangi maddelerin denendiği yazılmadı; madde madde sonuçlar gelince tabloya ayrı ayrı işlenecek.                                |
 | Faz 1 (A2, D1 dahil) | ✅ "Faz 1 tamam"                                        | 16 Ekim. Sürükle-bırak (#29) ve kuzey ışıkları (#30) kapandı. Gece göğünün varsayılan manzarası aynı kaldı; değişsin isterseniz yazın.  |
 | — (0.0.52)           | ✅ "Denedim iyiydi"                                     | 22 Ekim. DENETIM-2 düzeltmelerinin sürümü (#89, #90). Hangi maddelerin denendiği yazılmadı; B13–B16 madde madde gelince ayrı işlenecek. |
+| — (0.0.59)           | ✅ "Test ettim. İyi."                                   | 22 Ekim. Şarkı haritası dosyası, kinetik sözler, galeri ve hazır ayarların sürümü (E6–E9). Hangi maddelerin denendiği yazılmadı.        |

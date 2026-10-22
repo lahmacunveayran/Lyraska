@@ -1,6 +1,12 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import type { CrossfeedState, EqState, ParametricState } from "./backend";
+import type {
+  CrossfeedState,
+  EqState,
+  MilkdropFolder,
+  MilkdropPreset,
+  ParametricState,
+} from "./backend";
 import { createFlashGuard } from "./flashGuard";
 
 /**
@@ -38,6 +44,19 @@ const FULL_PARAMETRIC_STATE: ParametricState = {
   maxQ: 30,
 };
 
+const FULL_MILKDROP_FOLDER: MilkdropFolder = {
+  folder: null,
+  presets: [],
+  truncated: false,
+  error: null,
+};
+
+const FULL_MILKDROP_PRESET: Omit<MilkdropPreset, "preset"> & { preset: null } = {
+  name: "",
+  simplified: false,
+  preset: null,
+};
+
 const FULL_CROSSFEED_STATE: CrossfeedState = {
   settings: { enabled: false, cutoffHz: 700, levelDb: 6 },
   presets: [],
@@ -62,6 +81,19 @@ describe("sahne denetiminin sahte çekirdeği", () => {
     for (const field of Object.keys(FULL_PARAMETRIC_STATE)) {
       expect(response, `"${field}" eksik`).toMatch(new RegExp(`\\b${field}:`));
     }
+  });
+
+  it("MilkDrop klasörünün ve görselinin bütün alanlarını döndürür", () => {
+    const folder = fakeResponse("milkdrop_list");
+    for (const field of Object.keys(FULL_MILKDROP_FOLDER)) {
+      expect(folder, `"${field}" eksik`).toMatch(new RegExp(`\\b${field}:`));
+    }
+    const preset = fakeResponse("milkdrop_load");
+    for (const field of Object.keys(FULL_MILKDROP_PRESET)) {
+      expect(preset, `"${field}" eksik`).toMatch(new RegExp(`\\b${field}:`));
+    }
+    // Deneme preseti Rust ayrıştırıcısının çıktısıdır (elle yazılmış JSON değil).
+    expect(preset).toMatch(/JSON\.stringify\(MILKDROP_PRESETS\[milk\]\.preset\)/);
   });
 
   it("crossfeed durumunun bütün alanlarını döndürür", () => {

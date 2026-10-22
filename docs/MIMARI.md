@@ -21,6 +21,7 @@ PlayerScreen ── usePlayback ── invoke ──▶ commands.rs (ince) ─�
      │          useSongMap                                    ──▶ analysis (önbellek)
      └─ sahneler ─ useVisualFeed ─ her karede visual_frame ──▶ visual_bridge
                    (MilkDrop) ─ her karede visual_waveform ──▶ audio::player (dalga dokunuşu, ham bayt)
+                              └─ görsel açılınca milkdrop_load ──▶ milkdrop (kullanıcının .milk dosyası → JSON)
 ```
 
 ## İş parçacıkları
@@ -258,6 +259,69 @@ alanının ~%25'i büyüklüğünde bir alanda; `lib/flash.ts` sayar). Güvenli 
   bütün WCAG pencerelerinde `countFlashes` ile sayar. Frensiz denetim saniyede ~10 parlama görmeli (ölçüm
   çalışıyor), frenli her durum ≤ 3 (güvenli mod ≤ 1).
 
+## MilkDrop sahnesi
+
+Galerinin son sahnesi kullanıcının kendi MilkDrop görsellerini (`.milk`, "preset") Butterchurn 3.0.0-beta.5 ile
+çizer. **Lyraska hazır görsel içermez ve dağıtmaz** (lisans durumu: `LISANSLAR.md`).
+
+```
+Klasör seç (dialog) ─▶ milkdrop_set_folder ─▶ settings.json'da milkdropFolder (yalnızca yol)
+                       milkdrop_list       ─▶ milkdrop::list (klasör + bir alt düzey, en çok 5000, Türkçe sıralı)
+görsel seçildi ─────▶ milkdrop_load(path) ─▶ milkdrop::load: bağlantı değil, gerçek yeri klasörün içinde
+                                             (en çok bir alt düzey), .milk, dosya ≤ 512 KB;
+                                             UTF-8/UTF-16/Windows-1254 → parse.rs (eel.rs döngü kuralı)
+                                             → Butterchurn JSON
+MilkDropScene ─ loadPreset(json, harmanlama) ─▶ Butterchurn (eel-wasm: EEL → WebAssembly)
+   her kare: visual_waveform → render({ audioLevels, elapsedTime: dt }) → görünmeyen tuval
+             → flashGuard.processSource(görünmeyen tuval, dt) → görünen tuval
+```
+
+- **Çeviri Rust'ta** (`milkdrop/parse.rs`): satırlar anahtarına göre sınıflanır (ayar, `per_frame_N`,
+  `per_pixel_N`, `per_frame_init_N`, `wavecode_K_*`/`wave_K_*N`, `shapecode_K_*`/`shape_K_*N`, `warp_N`/`comp_N`);
+  MilkDrop 1'in eski ayar adları (`fDecay`, `nWaveMode`, `bAdditiveWaves` …) Butterchurn adlarına eşlenir. Denklemler
+  (EEL) metin olarak geçer. Her zaman dört şekil ve dört dalga (Butterchurn bekler). Sınırlar: dosya 512 KB (baytlarda;
+  eski kodlamadan çözülen metin üç kata kadar), 20 000 satır, sonlu sayı, ayar tablosu başına 256 ayar; bozuk girdide
+  panik yok (rastgele girdi testi). Klasör yolu Windows'ta yalnızca yerel disk (`C:\…`, `\\?\C:\…`; ağ paylaşımı ve
+  aygıt yolları değil). Tarama ve okuma arka plandaki iş parçacığında (`spawn_blocking`).
+- **Döngü kuralı** (`milkdrop/eel.rs`): denklemler WebView'in ana iş parçacığında çalışır; eel-wasm `while`'ı
+  1 048 576 turla sınırlar ama `loop(n, …)`'ı sınırlamaz, iç içe döngüler çarpılır: tek bir görsel programı
+  dondurabilirdi. Çeviri bu yüzden:
+  - karede ya da açılışta bir kez çalışan denklemlerde (`per_frame_init`, `per_frame`, dalga `init`/`per_frame`,
+    şekil `init`) döngüye izin verir ama her `loop(A, B)`'yi `loop(min(1048576, A), B)` yapar (MilkDrop'un kendi
+    sınırı) ve iç içe döngüyü reddeder;
+  - karede çok kez çalışanlarda (`per_pixel`, dalga `per_point`, şekil `per_frame`: her örnek için) hiç döngüye
+    izin vermez; görselde en çok 8 döngü.
+  - Metin eel-wasm'ın kendisi gibi okunur (yorumlar `//`, `\\`, `/* */` ve satır sonları atılır; adlar eel-wasm'ın
+    sözcük kuralıyla, büyük/küçük harf farksız): yorumdaki ya da `myloop(` gibi başka addaki döngü sayılmaz.
+  - Reddedilen görsel Türkçe bir nedenle açılmaz ("…programı dondurabileceği için açılmıyor"); arayüz yazar ve bu
+    oturumda bir daha denemez. Kalan risk: 1 048 576 turluk bir döngünün gövdesi çok uzunsa kare yavaşlar (donma
+    değil); gerekirse aşağıdaki donma koruması devreye girer. `check:scenes` gerçek tarayıcıda `loop(2000000000, …)`
+    içeren deneme presetiyle 60 kare çizer (kırpılmamış hâli zaman aşımına uğrar; elle denendi).
+- **Gölgelendiriciler**: MilkDrop 2'nin HLSL gölgelendiricileri henüz GLSL'e çevrilmez; varsa atılır, görsel
+  Butterchurn'ün varsayılan gölgelendiricileriyle "sade hâliyle" çalar ve galeride bu yazılır (`simplified`).
+- **Eval yok**: Butterchurn `onlyUseWASM: true` ile kurulur; JavaScript yolu (`loadJSPreset`, 8 `new Function`) hiç
+  çağrılmaz. CSP: `script-src 'self' 'wasm-unsafe-eval'` (`'unsafe-eval'` yok). `check:scenes` programı bu CSP ile
+  açar, sayfada dizgi değerlendirmesinin engellendiğini ve Butterchurn'ün yine çizdiğini denetler; CSP'den
+  `'wasm-unsafe-eval'` çıkarılınca görsel açılmaz (elle denendi).
+- **Görünmeyen tuval**: Butterchurn kendi OffscreenCanvas'ına (DOM'da değil) çizer; her karede bir 2D tuvale kopyalama
+  özelliği kapatılır (`outputGl = null`). Görünen tuvale yalnızca parlaklık freni çizer; fren kurulamazsa sahne
+  yerine açıklama görünür.
+- **Ne zaman değişir** (`lib/milkdrop.ts`, saf ve test edilir): Görsel Yönetmen'in notunda yeni bölüm başlayınca ya
+  da drop açılınca; iki kendiliğinden geçiş arası en az 15 sn (çalarken; bu süre dolmadan gelen bölüm başı
+  ertelenir, süre dolunca ilk ölçü başında geçilir), bölüm çok uzunsa 90 sn sonra ilk ölçü başında; analiz yoksa
+  90 sn'de bir. Harmanlama en az 3 sn (kendiliğinden 5 sn). Önceki/Sonraki geçmişle;
+  yeni seçim yakın zamanda gösterilmemiş rastgele bir görsel. Kendiliğinden değiştirme galeriden kapatılabilir.
+- **Donma koruması**: çalan görselin yolu tarayıcı deposunda işaretli durur (açılmadan önce yazılır, görsel çaldığı
+  sürece kalır); başka görsele temiz geçişte, sahneden çıkınca ve sayfa kapanırken (`pagehide`, `beforeunload`)
+  silinir. Program bir görsel çalarken zorla kapatılırsa işaret kalır: bir sonraki açılışta o görsel kalıcı
+  **atlananlar** listesine girer (en çok 50) ve kendiliğinden ya da "Sonraki" ile hiç seçilmez. Bu oturumda açılamayan
+  ya da çizerken hata veren (ör. WebAssembly tuzağı) görsel de oturum boyunca atlanır; çizim hatasında sonraki görsel
+  harmanlamadan gelir. Seçilebilecek görsel kalmadıysa hiçbiri açılmaz, neden yazılır. Galerideki "Atlananları
+  yeniden dene" listeyi boşaltır (kullanıcının açık seçimi).
+- "Animasyonları azalt" açıksa sahne çalışmaz, açıklama görünür. Güvenli modda fren r = 0,18/sn.
+- Bağlam kaybı: görünen ya da görünmeyen tuvalin bağlamı kaybolursa sahne baştan kurulur, görsel yeniden açılır; arada
+  temiz bir kare çizilmeden art arda 3 kezden fazla kaybolursa sahne bırakılır (temiz kare sayacı sıfırlar).
+
 ## Arayüz yapısı
 
 - `PlayerScreen` yalnızca parçaları birleştirir:
@@ -284,15 +348,17 @@ alanının ~%25'i büyüklüğünde bir alanda; `lib/flash.ts` sayar). Güvenli 
 
 ## Veri ve kalıcılık
 
-| Ne                              | Nerede                                  | Sürüm/değişiklik nasıl yönetilir                                                    |
-| ------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------- |
-| Kütüphane ve analiz önbelleği   | `library.sqlite3` (yerel veri klasörü)  | `storage.rs`: sıralı göç adımları (`user_version`); bozuksa `.bozuk-<zaman>` kenara |
-| Analiz sonuçlarının geçerliliği | aynı dosya, `analyses` tablosu          | Parça başına sürüm (`cache::VERSIONS`); yalnızca değişen parça yeniden hesaplanır   |
-| Şarkı etiketlerinin okunuşu     | aynı dosya, `tracks.tags_version`       | `TAGS_VERSION` (okuma kuralı değişince; şu an 1)                                    |
-| Ayarlar                         | `settings.json`                         | Eksik alan varsayılanla dolar; bozuk dosyada varsayılanlar                          |
-| İşaretler                       | `isaretler/*.json`                      | Dosyada `format` alanı                                                              |
-| İçe aktarılan şarkı haritaları  | `haritalar/*.json`                      | Biçim sürümü (`map_file::VERSION`); şarkı dosyası değişince uygulanmaz              |
-| Hata günlüğü                    | `logs/lyraska.log` (yerel veri klasörü) | 1 MB'ta bir yedeklenir                                                              |
+| Ne                                 | Nerede                                  | Sürüm/değişiklik nasıl yönetilir                                                    |
+| ---------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------- |
+| Kütüphane ve analiz önbelleği      | `library.sqlite3` (yerel veri klasörü)  | `storage.rs`: sıralı göç adımları (`user_version`); bozuksa `.bozuk-<zaman>` kenara |
+| Analiz sonuçlarının geçerliliği    | aynı dosya, `analyses` tablosu          | Parça başına sürüm (`cache::VERSIONS`); yalnızca değişen parça yeniden hesaplanır   |
+| Şarkı etiketlerinin okunuşu        | aynı dosya, `tracks.tags_version`       | `TAGS_VERSION` (okuma kuralı değişince; şu an 1)                                    |
+| Ayarlar                            | `settings.json`                         | Eksik alan varsayılanla dolar; bozuk dosyada varsayılanlar                          |
+| MilkDrop klasörü                   | `settings.json`, `milkdropFolder`       | Yalnızca yol; göreli ya da `..` içeren yol unutulur. `.milk` dosyaları kopyalanmaz  |
+| MilkDrop donma işareti, atlananlar | tarayıcı deposu (`lyraska.milkdrop.*`)  | En çok 50 yol; bozuk kayıt boş sayılır; "Atlananları yeniden dene" boşaltır         |
+| İşaretler                          | `isaretler/*.json`                      | Dosyada `format` alanı                                                              |
+| İçe aktarılan şarkı haritaları     | `haritalar/*.json`                      | Biçim sürümü (`map_file::VERSION`); şarkı dosyası değişince uygulanmaz              |
+| Hata günlüğü                       | `logs/lyraska.log` (yerel veri klasörü) | 1 MB'ta bir yedeklenir                                                              |
 
 Windows'ta iki veri klasörü vardır; adları program kimliğidir (`tauri.conf.json` `identifier`; eski hesap adını
 taşır, değişirse kullanıcı verisi kaybolur): gezici `%APPDATA%\io.github.gozlemesevdalisi.lyraska` (ayarlar,
@@ -365,6 +431,13 @@ Her kural ya bir testle ya da CI'daki bir adımla denetlenir. Elle hatırlanmas�
 | Parlama sınırı her renk temasında ve her gök manzarasında                          | `npm run check:scenes` (temaya göre renklenen sahneler, CI)                                          |
 | Parlaklık freni: hücre ortalaması bir karede ≤ r·dt, saniyede ≤ 1,65 (güvenli ≤ 1) | `flashGuardMath` testleri + `check:scenes` zamana bağlı ölçüm (frenli ve frensiz desen, CI)          |
 | Parlayan denetim deseni programa girmez                                            | `sceneCheck` testi "programa girmez"                                                                 |
+| MilkDrop sahnesi saniyede ≤ 3 (güvenli ≤ 1) parlar, preset ne olursa olsun         | `check:scenes` gerçek sahnede kare kare (frenli ve frensiz deneme preseti, CI); bileşen testleri     |
+| MilkDrop denklemleri yalnızca WebAssembly'ye derlenir, CSP'de `'unsafe-eval'` yok  | Bileşen testi (`onlyUseWASM`), `check:scenes` (programın CSP'siyle, eval engelli)                    |
+| `.milk` her bölümüyle çevrilir; bozuk dosya panik yaptırmaz; sınırlar              | `milkdrop::parse` ve `milkdrop` testleri; sahne denetimindeki JSON ayrıştırıcının çıktısıyla aynı    |
+| Yalnızca seçilen klasördeki `.milk` dosyaları açılır (bağlantı yok, ≤ 1 alt düzey) | `milkdrop` testleri `yalnizca_secilen_…`, `baglanti_ve_derin_dosyalar_acilmaz`, Windows yolu testi   |
+| MilkDrop denklemleri programı donduramaz (döngü kırpılır, iç içe/piksel başı yok)  | `milkdrop::eel` ve `parse` testleri; `check:scenes` döngü denemesi (gerçek tarayıcı)                 |
+| Çalarken program kapanan görsel bir daha kendiliğinden seçilmez                    | `src/lib/milkdrop.test.ts`, bileşen testleri (işaret, atlananlar, pagehide)                          |
+| MilkDrop geçişleri 15 sn'den sık değil, bölüm başında (erken geleni ertelenir)     | `src/lib/milkdrop.test.ts`                                                                           |
 | Yasaklı lisans yok                                                                 | `npm run check:licenses`, `cargo deny` (CI)                                                          |
 | Üçüncü taraf lisans bildirimleri pakette ve güncel                                 | `npm run check:notices` (CI; `npm run notices` üretir)                                               |
 | Depoda ses dosyası yok                                                             | `npm run check:audio` (CI)                                                                           |

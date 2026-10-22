@@ -182,12 +182,22 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       gölgelendirici çatısı: sahne yalnızca biçimi çizer, parlaklık gece göğünün
       hız sınırlı hesabından tek çarpanla gelir; her sahne gerçek tarayıcıda parlama sınırıyla denetlenir.
       Klavye: 1–9, 0; PageDown/PageUp
-- [ ] Butterchurn / MilkDrop desteği — sürüyor. Araştırma (22 Ekim 2026): butterchurn MIT; yaygın preset
-      paketlerinin lisansı yok, Lyraska preset dağıtmaz, kullanıcı kendi `.milk` dosyalarını açar. Temel (0.0.59):
-      Rust'ta görseller için ham dalga biçimi (`visual_waveform`, karışım/sol/sağ 3×1024 bayt, gecikme telafili) ve
-      güvenilmeyen sahneler için parlaklık freni (bölge parlaklığı karede ≤ r·dt; saniyede ≤ 1,65 parlama, güvenli
-      modda ≤ 0,99; kanıtı `flashGuardMath.ts`, tarayıcıda zamana bağlı ölçüm `check:scenes`). Sırada: butterchurn
-      sahnesi ve `.milk` okuma
+- [x] Butterchurn / MilkDrop desteği (0.0.60): galerinin 16. sahnesi **MilkDrop**, kullanıcının **kendi** `.milk`
+      görsellerini Butterchurn 3.0.0-beta.5 (MIT) ile çizer; **Lyraska hazır görsel içermez** (yaygın paketlerin
+      yazarları lisans vermemiş). Klasör seçilir ve hatırlanır; `.milk` Rust'ta Butterchurn biçimine çevrilir
+      (MilkDrop 1 ve 2 anahtarları, dalgalar, şekiller, denklemler; Türkçe/Batı Windows kodlaması; boyut ve satır
+      sınırı). Denklemler yalnızca WebAssembly'ye derlenir (CSP'de yalnızca `'wasm-unsafe-eval'`, `'unsafe-eval'`
+      yok). Her kare **parlaklık freninden** geçer (saniyede ≤ 1,65 parlama, güvenli modda ≤ 1; gerçek sahnede kare
+      kare ölçülür); "animasyonları azalt"ta sahne çalışmaz. Görsel değişimi bölüm başında ya da drop'ta, en sık
+      15 sn'de bir, en az 3 sn harmanlanarak; Önceki/Sonraki elle. **Donma koruması**: `loop` MilkDrop'un sınırına
+      (1 048 576 tur) kırpılır, iç içe ya da piksel başına döngülü görsel açılmaz; çalarken program kapanan görsel
+      kalıcı olarak atlanır. Temeli (0.0.59): Rust'ta ham dalga biçimi (`visual_waveform`) ve parlaklık freni
+      (kanıtı `flashGuardMath.ts`)
+  - [ ] MilkDrop 2 gölgelendiricilerinin (HLSL) GLSL'e çevrilmesi: şimdilik atılıyor, gölgelendiricili görseller
+        "sade hâliyle" çalıyor (eval'siz bir HLSL çevirici gerekir: Rust'ta ya da `-s DYNAMIC_EXECUTION=0` ile
+        yeniden derlenmiş hlslparser)
+  - [ ] İsteğe bağlı: lisansı tek tek doğrulanmış birkaç preset programla gelsin (ör. MIT lisanslı küçük setler;
+        her biri parlama testinden geçerek) — proje sahibinin kararı
 - [x] Kinetik şarkı sözleri (0.0.56): sözler yalnızca kullanıcının kendi dosyalarından (şarkının yanındaki `.lrc` ya
       da şarkıya gömülü sözler: ID3 USLT, Vorbis `LYRICS`, MP4 `©lyr`); program söz indirmez, saklamaz, dağıtmaz.
       LRC: satır ve kelime zamanları ("enhanced LRC"), `[offset:]`, aynı zamandaki satır çeviri olarak; UTF-8, UTF-16 ve
@@ -221,6 +231,11 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
 
 ## Faz 5 — Büyüme (v1.0 sonrası)
 
+- [ ] **Kaynak ayrıştırma** (proje sahibinin seçimi, 22 Ekim 2026): şarkı arka plan analizinde davul, bas, vokal ve
+      diğerlerine ayrılır; Görsel Yönetmen her birine ayrı tepki verir (davul vuruşu, bas titreşimi, vokalin girişi;
+      sözler vokalle). Yalnızca türetilen zarf ve başlangıç verisi saklanır, ayrılmış ses asla. Önce lisans
+      araştırması: kod **ve** model ağırlıkları (eğitim verisi ticari kullanımı yasaklıyorsa GPL-3.0 ile çelişir);
+      temiz model yoksa yedek: klasik sinyal işlemeyle (vurmalı/ezgisel ayrıştırma, bas izleme, vokal sezimi) Rust'ta
 - [ ] Sistem sesi modu (bilgisayarda çalan her sesi görselleştirme)
 - [ ] Video dışa aktarma
 - [ ] macOS ve Linux sürümleri
@@ -281,8 +296,7 @@ Faz 6'da sırayı kullanıcı seçer; burada **sırayı program seçer**, geçi�
 Proje sahibinin sorularından doğan öneriler. Her biri eklenmeden önce lisansı (kod **ve** model
 ağırlıkları) ayrıca doğrulanır; ticari kullanımı yasaklayanlar alınmaz.
 
-- **Kaynak ayrıştırma** (Demucs benzeri; kod MIT): şarkıyı davul, bas, vokal ve diğerlerine ayırıp
-  Görsel Yönetmen'e ayrı ayrı vermek. Görseller davula ayrı, vokale ayrı tepki verir.
+- ~~**Kaynak ayrıştırma**~~: proje sahibi seçti (22 Ekim 2026), Faz 5'e alındı.
 - **Yapay zekâ ile beat/bölüm tespiti**: klasik yöntemlerden daha isabetli; F-ölçüsü ≥ 0,80 hedefine
   yardım eder. Bilinen bazı modellerin ağırlıkları ticari kullanımı yasakladığı için seçim dikkatle yapılmalı.
 - **Windows uzamsal ses** (Spatial Audio API): kullanıcı Windows Sonic ya da satın aldığı bir uzamsal

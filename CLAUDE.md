@@ -54,7 +54,7 @@ lyraska/
 ├── src/                      # Arayüz (React + TypeScript)
 │   ├── components/           # React bileşenleri: PlayerScreen (sahne tüm pencere; üstünde cam katmanlar:
 │   │                         # NowPlaying büyük başlık, InfoStack drop sayacı ve sıradaki, SeekBar şarkı haritası
-│   │                         # şeridi, LyricsOverlay kinetik sözler; sahneler SceneStage'de, galeri ShaderScene + SceneGallery; sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
+│   │                         # şeridi, LyricsOverlay kinetik sözler; sahneler SceneStage'de, galeri ShaderScene + SceneGallery, MilkDropScene kullanıcının .milk görselleri; sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
 │   │                         # ayarlar; her panel ve sahne bir ErrorBoundary içinde: hata yalnızca o bölümü kapatır)
 │   ├── hooks/                # usePlayer (oynatıcı: aç, çal, sar), usePlayback (oynatıcı + çalma sırası), useLibrary,
 │   │                         # useEqualizer, useHeadphone, useMarker (işaretleme), useSync (ses–görüntü senkronu),
@@ -66,7 +66,7 @@ lyraska/
 │   │                         # useAbx (kör test), useSongKey (çalan şarkının tonu), useParametric (elle
 │   │                         # parametrik EQ), useCrossfeed (crossfeed), useMapFile (şarkı haritası dosyası),
 │   │                         # useLyrics (şarkı sözleri), useScenePresets (galeri sahnelerinin görünümü ve
-│   │                         # hazır ayarlar)
+│   │                         # hazır ayarlar), useMilkdrop (MilkDrop klasörü, görseller, önceki/sonraki)
 │   ├── lib/                  # Saf yardımcılar (format, meter, dotFont, vu, sky, highway, queue, sync, songMap,
 │   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile, lyrics,
 │   │                         # clock: akıcı oynatma saati, marks: işaret hesapları, scene: sahne listesi,
@@ -77,7 +77,7 @@ lyraska/
 │   │                         # (errorReporting.ts), parlama sayacı (flash.ts), WebGL2 çizimi (gl.ts ortak;
 │   │                         # skyRenderer.ts, highwayRenderer.ts; galeri: shaderScene.ts, shaderSources.ts
 │   │                         # gölgelendiriciler, shaderRenderer.ts, sceneLook.ts hız ve palet, scenePreset.ts hazır
-│   │                         # ayarlar), WebGL2 açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts), parlaklık
+│   │                         # ayarlar; milkdrop.ts MilkDrop geçiş zamanı ve ses verisi), WebGL2 açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts), parlaklık
 │   │                         # freni: güvenilmeyen sahnelerin (MilkDrop) son geçişi, bölge parlaklığı karede ≤ r·dt
 │   │                         # (flashGuard.ts; saf hesap ve kanıt flashGuardMath.ts; flashGuardCheck.ts yalnızca
 │   │                         # check:scenes'in parlayan deseni, programa girmez)
@@ -115,6 +115,9 @@ lyraska/
 │   │   ├── data_dirs.rs      # veri klasörleri (Roaming küçük, Local büyük; eskiyi bir kez taşır), tek örnek kilidi
 │   │   ├── atomic_file.rs    # bölünmez dosya yazma (geçici dosya + sync_all + ad değiştirme): ayarlar, işaretler
 │   │   ├── file_manager.rs   # dosya gezginini açma (günlük, işaret klasörü); Windows'ta dosyayı seçili gösterir
+│   │   ├── milkdrop/         # MilkDrop sahnesi: kullanıcının .milk klasörü (listeleme, yalnızca o klasörden açma);
+│   │   │                     # parse.rs: .milk → Butterchurn JSON (HLSL gölgelendiriciler atılır; program preset içermez);
+│   │   │                     # eel.rs: döngü kuralı (loop MilkDrop sınırına kırpılır, iç içe/piksel başına döngü yok)
 │   │   ├── storage.rs        # library.sqlite3 şeması ve sıralı göçleri (kütüphane + analiz önbelleği)
 │   │   ├── diagnostics.rs    # Yerel hata ve çökme günlüğü (logs/lyraska.log; gerçek zamanlı yoldan çağrılmaz)
 │   │   ├── settings.rs       # Kalıcı ayarlar (settings.json; ekolayzer, kulaklık, parametrik EQ, crossfeed, eşitleme, güvenli mod, ses gecikmesi)
@@ -136,7 +139,8 @@ lyraska/
 │   │   └── visual_bridge/    # Çalma zamanı + analiz → görseller (VisualFrame); gecikme telafisi (ekran +
 │   │                         # ses aygıtı), calibration.rs: senkron ölçümü için tıklama kaydı
 │   ├── examples/             # ses_denemesi.rs: gerçek ses aygıtıyla uçtan uca deneme
-│   ├── tests/                # Gerçek kodek testleri (formats.rs) ve sentetik test verisi (data/)
+│   ├── tests/                # Gerçek kodek testleri (formats.rs) ve sentetik test verisi (data/; data/milkdrop/
+│   │                         # projenin özgün, bilerek parlayan deneme preseti)
 │   ├── tauri.conf.json       # Pencere, güvenlik, Windows NSIS kurulum ayarları
 │   └── deny.toml             # cargo-deny lisans kuralları
 ├── scripts/                  # Yardımcı betikler (npm lisans denetimi, depoda ses dosyası denetimi, sahne denetimi,

@@ -9,6 +9,9 @@ import type { Annotation } from "./bindings/Annotation";
 import type { AppInfo } from "./bindings/AppInfo";
 import type { BeatEvaluation } from "./bindings/BeatEvaluation";
 import type { BeatFrame } from "./bindings/BeatFrame";
+import type { ButterchurnPreset } from "./bindings/ButterchurnPreset";
+import type { ButterchurnShape } from "./bindings/ButterchurnShape";
+import type { ButterchurnWave } from "./bindings/ButterchurnWave";
 import type { CalibrationTrack } from "./bindings/CalibrationTrack";
 import type { CrossfeedPreset } from "./bindings/CrossfeedPreset";
 import type { CrossfeedSettings } from "./bindings/CrossfeedSettings";
@@ -37,6 +40,9 @@ import type { LyricWord } from "./bindings/LyricWord";
 import type { Lyrics } from "./bindings/Lyrics";
 import type { LyricsSource } from "./bindings/LyricsSource";
 import type { MarkedKey } from "./bindings/MarkedKey";
+import type { MilkdropEntry } from "./bindings/MilkdropEntry";
+import type { MilkdropFolder } from "./bindings/MilkdropFolder";
+import type { MilkdropPreset } from "./bindings/MilkdropPreset";
 import type { MusicalKey } from "./bindings/MusicalKey";
 import type { PlaybackOptions } from "./bindings/PlaybackOptions";
 import type { PlaybackState } from "./bindings/PlaybackState";
@@ -58,6 +64,9 @@ export type {
   AppInfo,
   BeatEvaluation,
   BeatFrame,
+  ButterchurnPreset,
+  ButterchurnShape,
+  ButterchurnWave,
   CalibrationTrack,
   CrossfeedPreset,
   CrossfeedSettings,
@@ -86,6 +95,9 @@ export type {
   Lyrics,
   LyricsSource,
   MarkedKey,
+  MilkdropEntry,
+  MilkdropFolder,
+  MilkdropPreset,
   MusicalKey,
   PlaybackOptions,
   PlaybackState,
@@ -328,6 +340,44 @@ export async function getVisualWaveform(): Promise<Uint8Array | null> {
   const bytes = await invoke<ArrayBuffer | number[]>("visual_waveform");
   const array = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : Uint8Array.from(bytes);
   return array.length === WAVEFORM_BYTES ? array : null;
+}
+
+/** MilkDrop klasörü seçilmemişken (ve tarayıcı önizlemesinde) durum. */
+export const NO_MILKDROP_FOLDER: MilkdropFolder = {
+  folder: null,
+  presets: [],
+  truncated: false,
+  error: null,
+};
+
+/**
+ * MilkDrop sahnesi: hatırlanan klasör ve içindeki `.milk` görselleri. Lyraska hazır görsel
+ * içermez; kullanıcı kendi klasörünü seçer.
+ */
+export async function getMilkdropFolder(): Promise<MilkdropFolder> {
+  if (!isTauri()) return NO_MILKDROP_FOLDER;
+  return invoke<MilkdropFolder>("milkdrop_list");
+}
+
+/** MilkDrop klasörünü seçer (hatırlanır) ve içindeki görselleri döndürür. */
+export function setMilkdropFolder(path: string): Promise<MilkdropFolder> {
+  return invoke<MilkdropFolder>("milkdrop_set_folder", { path });
+}
+
+/** Seçilen klasördeki bir görseli Butterchurn biçiminde açar (çekirdek `.milk`'i çevirir). */
+export function loadMilkdropPreset(path: string): Promise<MilkdropPreset> {
+  return invoke<MilkdropPreset>("milkdrop_load", { path });
+}
+
+/** MilkDrop görsellerinin klasörünü seçtirir; seçilen klasörün yolu ya da `null`. */
+export async function pickMilkdropFolder(): Promise<string | null> {
+  if (!isTauri()) return null;
+  const selected = await open({
+    title: "MilkDrop görsellerinin (.milk) klasörünü seçin",
+    multiple: false,
+    directory: true,
+  });
+  return typeof selected === "string" ? selected : null;
 }
 
 export function getPlaybackStatus(): Promise<PlaybackStatus> {

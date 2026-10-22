@@ -32,6 +32,8 @@ pub struct Settings {
     pub audio_delay_ms: i32,
     /// Çalma seçenekleri (ses yüksekliği eşitlemesi vb.).
     pub playback: PlaybackOptions,
+    /// MilkDrop sahnesinin `.milk` klasörü (kullanıcının kendi dosyaları); seçilmediyse yok.
+    pub milkdrop_folder: Option<PathBuf>,
     /// Bu sürümün tanımadığı alanlar (daha yeni bir sürümün ayarları): olduğu gibi geri yazılır.
     /// Kullanıcı eski bir test sürümüne dönse de yeni sürümün ayarları silinmez (ISK-09).
     #[serde(flatten)]
@@ -39,7 +41,7 @@ pub struct Settings {
 }
 
 /// Bu sürümün tanıdığı alanlar (dosyadaki adlarıyla).
-const KNOWN_FIELDS: [&str; 7] = [
+const KNOWN_FIELDS: [&str; 8] = [
     "equalizer",
     "headphone",
     "parametric",
@@ -47,6 +49,7 @@ const KNOWN_FIELDS: [&str; 7] = [
     "visualSafe",
     "audioDelayMs",
     "playback",
+    "milkdropFolder",
 ];
 
 /// Ayarları bellekte tutar ve her değişiklikte diske yazar.
@@ -86,6 +89,7 @@ impl SettingsStore {
                 visual_safe: settings.visual_safe,
                 audio_delay_ms: crate::visual_bridge::clamp_audio_delay_ms(settings.audio_delay_ms),
                 playback: settings.playback,
+                milkdrop_folder: crate::milkdrop::sanitize_folder(settings.milkdrop_folder),
                 unknown: settings.unknown,
             }),
         }
@@ -162,6 +166,7 @@ fn parse_lenient(text: &str, path: &Path) -> Settings {
         visual_safe: field(&value, "visualSafe"),
         audio_delay_ms: field(&value, "audioDelayMs"),
         playback: field(&value, "playback"),
+        milkdrop_folder: field(&value, "milkdropFolder"),
         unknown: value
             .iter()
             .filter(|(key, _)| !KNOWN_FIELDS.contains(&key.as_str()))
@@ -298,6 +303,42 @@ mod tests {
         store.update(|s| s.visual_safe = true).unwrap();
         assert!(path.is_dir(), "dosyaya dokunulmaz");
         assert!(store.get().visual_safe, "bellekte sürer");
+    }
+
+    #[test]
+    fn milkdrop_klasoru_hatirlanir_bozugu_unutulur() {
+        let path = temp_path("milkdrop-ayarlar.json");
+        let folder = std::env::temp_dir().join("Görseller");
+        let store = SettingsStore::open(&path);
+        assert_eq!(store.get().milkdrop_folder, None, "varsayılan: seçilmedi");
+        store
+            .update(|s| s.milkdrop_folder = Some(folder.clone()))
+            .unwrap();
+        assert_eq!(
+            SettingsStore::open(&path).get().milkdrop_folder,
+            Some(folder.clone())
+        );
+
+        // Göreli ya da `..` içeren yol (elle düzenlenmiş dosya) unutulur; diğer ayarlar kalır.
+        for bad in [r#""goreli/klasor""#, r#""""#] {
+            std::fs::write(
+                &path,
+                format!(r#"{{"visualSafe":true,"milkdropFolder":{bad}}}"#),
+            )
+            .unwrap();
+            let settings = SettingsStore::open(&path).get();
+            assert_eq!(settings.milkdrop_folder, None, "{bad}");
+            assert!(settings.visual_safe);
+        }
+        let dotted = serde_json::to_string(&folder.join("../baska")).unwrap();
+        std::fs::write(&path, format!(r#"{{"milkdropFolder":{dotted}}}"#)).unwrap();
+        assert_eq!(SettingsStore::open(&path).get().milkdrop_folder, None);
+
+        // Yanlış türde alan: yalnızca o alan varsayılana döner.
+        std::fs::write(&path, r#"{"visualSafe":true,"milkdropFolder":42}"#).unwrap();
+        let settings = SettingsStore::open(&path).get();
+        assert_eq!(settings.milkdrop_folder, None);
+        assert!(settings.visual_safe);
     }
 
     #[test]

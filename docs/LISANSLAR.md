@@ -36,6 +36,42 @@ kuralları). Kod bağımlılıklarının lisanslarını CI denetler (`npm run ch
   kullanım yasağı yok. OFL-1.1 izin listesinde olmadığı için proje sahibine soruldu, 8 Ekim 2026'da onaylandı;
   `src-tauri/deny.toml` izin listesine eklendi.
 
+## MilkDrop sahnesi: Butterchurn ve kullanıcının kendi görselleri
+
+- **Ne için:** galerideki MilkDrop sahnesi kullanıcının kendi `.milk` dosyalarını (MilkDrop görselleri,
+  "preset") Butterchurn ile çizer.
+- **Butterchurn** 3.0.0-beta.5 (npm, sürüm tam sabit): Jordan Berg, <https://github.com/jberg/butterchurn>,
+  **MIT** ("Copyright (c) 2013-2018 Jordan Berg", paketteki `LICENSE`). Çalışma zamanı bağımlılıkları:
+  - `eel-wasm` 0.0.16, <https://github.com/captbaritone/eel-wasm>: **MIT** (yalnızca `package.json` lisans alanı;
+    pakette ve depoda `LICENSE` dosyası yok). Bildirim dosyasına lisans ifadesi ve kaynak deposu yazılır.
+  - `@assemblyscript/loader` 0.17.14, <https://github.com/AssemblyScript/assemblyscript>: **Apache-2.0** (paket
+    lisans ve `NOTICE` dosyası taşımıyor; Apache-2.0 metni bildirim dosyasında başka paketler için zaten var).
+  - `ecma-proposal-math-extensions` 0.0.2, <https://github.com/tc39/proposal-math-extensions>: **MIT** (yalnızca
+    `package.json`; global `Math`'e `clamp` vb. ekler).
+    Dördü de izin listesinde; AGPL ya da ticari kullanım yasağı yok. `npm run notices` bildirimleri üretir.
+- **Güvenlik:** Butterchurn yalnızca WebAssembly yoluyla kullanılır (`onlyUseWASM: true`); pakette 8 `new Function`
+  vardır, hepsi bu ayarla hiç çağrılmayan `loadJSPreset` içindedir. CSP'ye yalnızca `'wasm-unsafe-eval'` eklendi
+  (`'unsafe-eval'` yok); sahne denetimi programı bu CSP ile gerçek tarayıcıda çalıştırır.
+- **Hazır görsel (preset) dağıtılmaz.** Yaygın paketlerin (`butterchurn-presets`, projectM "Cream of the Crop" vb.)
+  yüzlerce yazarı lisans vermemiştir; paketleyicinin MIT'i yazarların eserlerini kapsamaz. Bu yüzden
+  `butterchurn-presets` projeye eklenmez (otomatik lisans denetimi paketin "MIT" alanı yüzünden onu geçirirdi).
+  Kullanıcı kendi bilgisayarındaki klasörü seçer; dosyalar kopyalanmaz, saklanmaz, yalnızca klasörün yolu ayarlarda
+  hatırlanır. Arayüz "Lyraska hazır görsel içermez" der.
+- **`.milk` → Butterchurn çevirisi** (`src-tauri/src/milkdrop/parse.rs`): anahtar eşlemesi ve varsayılanlar
+  `milkdrop-preset-utils` 0.2.1'den (Jordan Berg, <https://github.com/jberg/milkdrop-preset-utils>, **MIT**,
+  "Copyright (c) 2018") uyarlanmıştır; kod Rust'ta yeniden yazıldı, paket bağımlılık olarak eklenmedi. MIT bildirimi:
+
+  > Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+  > documentation files (the "Software"), to deal in the Software without restriction, including without
+  > limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+  > Software, and to permit persons to whom the Software is furnished to do so, subject to the following
+  > conditions: The above copyright notice and this permission notice shall be included in all copies or
+  > substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+
+- **Deneme preseti:** `src-tauri/tests/data/milkdrop/lyraska-parlama.milk` (ve ondan üretilen `.json`) bu proje için
+  yazıldı (GPL-3.0); yalnızca testlerde ve sahne denetiminde kullanılır, programla dağıtılmaz. Ölçümün parlamayı
+  gördüğünü kanıtlamak için **bilerek parlar** (saniyede dört kez tersine dönme).
+
 ## Ton profilleri (Krumhansl ve Kessler, 1982)
 
 - **Ne için:** ton tespiti (`src-tauri/src/analysis/key.rs`): her tonda 12 perdenin ne kadar "yerinde" duyulduğunu
