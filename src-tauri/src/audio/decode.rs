@@ -361,7 +361,7 @@ fn id3v1_text(latin1: &str) -> String {
 }
 
 /// Windows-1254 (Türkçe) kod sayfasındaki karakter.
-fn windows_1254(byte: u8) -> char {
+pub(crate) fn windows_1254(byte: u8) -> char {
     const HIGH: [char; 32] = [
         '€', '\u{FFFD}', '‚', 'ƒ', '„', '…', '†', '‡', 'ˆ', '‰', 'Š', '‹', 'Œ', '\u{FFFD}',
         '\u{FFFD}', '\u{FFFD}', '\u{FFFD}', '‘', '’', '“', '”', '•', '–', '—', '˜', '™', 'š', '›',
@@ -398,6 +398,34 @@ fn probe(path: &Path) -> Result<Box<dyn FormatReader>, AudioError> {
             SymphoniaError::IoError(io) => AudioError::Unsupported(io.to_string()),
             other => AudioError::from(other),
         })
+}
+
+/// Şarkıya gömülü sözler (ID3 USLT, Vorbis `LYRICS`, MP4 `©lyr`); yoksa `None`. Ses çözülmez.
+/// Metin olduğu gibi döner (zamanlı sözler çoğunlukla LRC biçimindedir: [`super::lyrics`]).
+pub fn read_lyrics(path: &Path) -> Result<Option<String>, AudioError> {
+    let mut format = probe(path)?;
+    let mut metadata = format.metadata();
+    let mut revisions = Vec::new();
+    revisions.extend(metadata.current().cloned());
+    while metadata.pop().is_some() {
+        revisions.extend(metadata.current().cloned());
+    }
+    revisions.reverse();
+    Ok(revisions.iter().find_map(|revision| {
+        let track_tags = revision
+            .per_track
+            .iter()
+            .flat_map(|t| t.metadata.tags.iter());
+        revision
+            .media
+            .tags
+            .iter()
+            .chain(track_tags)
+            .find_map(|tag| match &tag.std {
+                Some(StandardTag::Lyrics(text)) => non_empty(text),
+                _ => None,
+            })
+    }))
 }
 
 /// Şarkının içindeki kapak resmi.

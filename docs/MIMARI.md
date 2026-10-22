@@ -157,6 +157,11 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
   aktarılan harita `Spectrogram::set_imported` ile analizin vuruşlarının, yapısının, koreografisinin ve tonunun önüne
   geçer (`beat_grid()`, `song_map()`, `choreography()`); önbelleğe programın analizi yazılır (`saved()`
   `analysis_*` okur). Şarkı açılınca `haritalar/` deposunda dosya damgası tutan harita varsa hemen uygulanır.
+- Kinetik şarkı sözleri (`audio/lyrics.rs`, arayüz `LyricsOverlay.tsx`, `lib/lyrics.ts`): sözler şarkı açılınca bir kez
+  okunur (yan `.lrc` önce; zamanlı olan seçilir), hiçbir yere yazılmaz. Çekirdek satır ve kelime zamanlarını verir
+  (kelime zamanı yoksa hece sayısıyla tahmin); arayüz her karede o anki satırı ve kelimelerin durumunu saf bir
+  fonksiyonla hesaplar (`lyricFrame`): satır sıradaki başlayana kadar kalır, arada yumuşakça söner; görünürlük hiçbir
+  anda sıçramaz (test). Konum görsellerle aynıdır (ses aygıtının gecikmesi düşülür).
 - Arayüz her ekran karesinde `visual_frame` ister; `visual_bridge` çalma konumuna (ekran ve aygıt
   gecikmesi telafi edilerek) karşılık gelen kareyi verir. Görseller ses yolundan veri çekmez.
 - Her sahne yönetmen notunun üç katmanını kullanır:
@@ -252,6 +257,8 @@ Her kural ya bir testle ya da CI'daki bir adımla denetlenir. Elle hatırlanmas�
 | Parametrik EQ'nun yükseltmesi korumaya bildirilir, ses yolunda ikinci kez kısılmaz | `audio::peq` testi `bildirilen_yukseltme_…`                                                          |
 | Crossfeed'de orta ses bit bit aynı, yan kanal hiçbir frekansta yükselmez           | `audio::crossfeed` testleri                                                                          |
 | Crossfeed ses yolunda; ortadaki ses bütün yoldan aynen, bit-perfect'te yok         | `audio::render` testi `crossfeed_ses_yolunda_…`                                                      |
+| Sözler LRC'nin bütün biçimleriyle ve Türkçe kodlamalarla okunur; gömülü sözler     | `audio::lyrics` testleri (`kodlamalar_…`, `gomulu_sozler_okunur`)                                    |
+| Sözlerin görünürlüğü sıçramaz; satır sıradakine boşluksuz geçer                    | `src/lib/lyrics.test.ts`                                                                             |
 | Parmak izi aynı kaydı tanır (kayıplı, kaymış, 22 kHz), başka şarkıyı ayırır        | `analysis::fingerprint` testleri; gerçek kodlayıcılarla `gercek_kodlayicilarla_olcum` (elle, ffmpeg) |
 | Şarkı haritası dosyası doğrulanır; kötü niyetli dosya reddedilir; alanlar sabit    | `analysis::map_file` testleri `bozuk_ve_…`, `bicim_alanlari_sabit`                                   |
 | İçe aktarılan harita analizin önüne geçer, önbelleğe yazılmaz, kalıcı              | `spectrogram` testi `ice_aktarilan_…`, `player` testi `sarki_haritasi_…`                             |

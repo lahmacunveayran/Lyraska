@@ -341,6 +341,83 @@ kbd {
   box-shadow: 0 0 8px var(--accent-glow);
 }
 
+/* ---------- Kinetik şarkı sözleri ---------- */
+
+/* Sahnenin üst yarısında, ortada; dokunulmaz (tıklama sahneye geçer). */
+.lyrics {
+  position: absolute;
+  top: 16%;
+  left: 50%;
+  z-index: 3;
+  width: min(1100px, 84vw);
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  text-shadow:
+    0 2px 18px rgba(0, 0, 0, 0.65),
+    0 0 2px rgba(0, 0, 0, 0.8);
+}
+
+.app.has-drawer .lyrics {
+  left: calc((100vw - var(--drawer-width)) / 2);
+  width: min(900px, calc(100vw - var(--drawer-width) - 80px));
+}
+
+.lyrics__line {
+  margin: 0;
+  font-size: clamp(26px, 3.8vw, 58px);
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  transition: opacity 0.12s linear;
+}
+
+.lyrics__word {
+  display: inline-block;
+  white-space: pre;
+  opacity: 0.34;
+  transition: opacity 0.12s linear;
+}
+
+.lyrics__word.is-sung {
+  opacity: 1;
+}
+
+/* Söylenen kelime: belirir ve alttan yerine oturur (yalnızca konum ve boyut; parlaklık sabit). */
+.lyrics__word.is-current {
+  --p: 0;
+  opacity: 1;
+  color: var(--aurora);
+  transform: translateY(calc((1 - min(1, var(--p) * 4)) * 0.18em))
+    scale(calc(1 + (1 - min(1, var(--p) * 4)) * 0.06));
+}
+
+.lyrics__translation {
+  margin: 10px 0 0;
+  font-size: clamp(15px, 1.6vw, 24px);
+  font-style: italic;
+  color: var(--ink-2);
+}
+
+.lyrics__next {
+  margin: 14px 0 0;
+  font-size: clamp(14px, 1.5vw, 22px);
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lyrics__word.is-current {
+    transform: none;
+  }
+
+  .lyrics__line,
+  .lyrics__word {
+    transition: none;
+  }
+}
+
 /* ---------- Çalan şarkı ve bilgi kartları ---------- */
 
 /* Alt bölüm: büyük başlık ve kartlar, altında şarkı haritası ve düğmeler. */

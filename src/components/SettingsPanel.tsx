@@ -4,6 +4,7 @@ import { signalPathText } from "../lib/format";
 import { SKY_LOOKS } from "../lib/sky";
 import type { PlaybackOptionsControls } from "../hooks/usePlaybackOptions";
 import type { SkyLookControls } from "../hooks/useSkyLook";
+import type { LyricsControls } from "../hooks/useLyrics";
 import type { VisualSafeControls } from "../hooks/useVisualSafe";
 
 export interface SettingsPanelProps {
@@ -13,6 +14,8 @@ export interface SettingsPanelProps {
   visualSafe: VisualSafeControls;
   playback: PlaybackOptionsControls;
   skyLook: SkyLookControls;
+  /** Şarkı sözleri (verilmezse bölüm gösterilmez). */
+  lyrics?: LyricsControls;
 }
 
 const SHORTCUTS: [string, string][] = [
@@ -31,6 +34,7 @@ export function SettingsPanel({
   visualSafe,
   playback,
   skyLook,
+  lyrics,
 }: SettingsPanelProps) {
   const [logError, setLogError] = useState<string | null>(null);
   const [noticesOpen, setNoticesOpen] = useState(false);
@@ -60,6 +64,30 @@ export function SettingsPanel({
           ))}
         </div>
       </div>
+
+      {lyrics && (
+        <div className="settings__group">
+          <h2 className="settings__title">Şarkı sözleri</h2>
+          <button
+            type="button"
+            className={`settings__toggle${lyrics.visible ? " is-on" : ""}`}
+            aria-pressed={lyrics.visible}
+            onClick={() => lyrics.setVisible(!lyrics.visible)}
+          >
+            <span className="settings__switch" aria-hidden />
+            Sahnede şarkı sözleri: {lyrics.visible ? "Açık" : "Kapalı"}
+          </button>
+          <p className="settings__hint">
+            Sözler yalnızca sizin dosyalarınızdan okunur: şarkının yanındaki aynı adlı{" "}
+            <code>.lrc</code> dosyası ya da şarkının içine gömülü sözler. Zamanlı sözler kelime
+            kelime akar; Lyraska söz indirmez, saklamaz.
+            {lyrics.lyrics &&
+              (lyrics.lyrics.synced
+                ? ` Çalan şarkının sözleri: ${lyrics.lyrics.source === "file" ? ".lrc dosyasından" : "şarkının içinden"}.`
+                : " Çalan şarkının sözleri zamanlı değil; sahnede gösterilmez.")}
+          </p>
+        </div>
+      )}
 
       <div className="settings__group">
         <h2 className="settings__title">Görsel güvenlik</h2>

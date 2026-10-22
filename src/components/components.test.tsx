@@ -70,6 +70,8 @@ const backend = vi.hoisted(() => ({
   mapImport: vi.fn(),
   mapRemove: vi.fn(),
   songMapAsked: vi.fn(),
+  /** Çalan şarkının sözleri. */
+  lyrics: null as import("../lib/backend").Lyrics | null,
   /** Crossfeed: çekirdekteki ayar ve çekirdeğe gidenler. */
   crossfeed: null as import("../lib/backend").CrossfeedSettings | null,
   setCrossfeed: vi.fn(),
@@ -211,6 +213,7 @@ vi.mock("../lib/backend", async (importOriginal) => {
       return backend.songMap;
     },
     getImportedSongMap: async () => backend.importedMap,
+    getTrackLyrics: async () => backend.lyrics,
     pickSongMapSavePath: async (name: string) => `C:/Belgeler/${name}`,
     exportSongMap: async (path: string, target: string) => {
       backend.mapExport(path, target);
@@ -2015,6 +2018,84 @@ describe("şarkı haritası dosyası", () => {
     expect(within(strip).getByText(/bu şarkıya ait değil \(benzerlik %4\)/)).toBeInTheDocument();
     // Önceki harita yerinde kalır.
     expect(within(strip).getByText(/eski\.harita\.json/)).toBeInTheDocument();
+  });
+});
+
+describe("şarkı sözleri", () => {
+  afterEach(() => {
+    backend.desktop = false;
+    backend.status = null;
+    backend.lyrics = null;
+    window.localStorage.clear();
+  });
+  const word = (start: number, end: number, text: string) => ({ start, end, text });
+  const synced: import("../lib/backend").Lyrics = {
+    source: "file",
+    synced: true,
+    lines: [
+      {
+        start: 82,
+        end: 85,
+        text: "Gece yolunda yalnız",
+        translation: "Alone on the night road",
+        estimated: false,
+        words: [word(82, 83, "Gece "), word(83, 84, "yolunda "), word(84, 85, "yalnız")],
+      },
+      {
+        start: 85,
+        end: 88,
+        text: "Işıklar akıyor",
+        translation: null,
+        estimated: true,
+        words: [word(85, 86.5, "Işıklar "), word(86.5, 88, "akıyor")],
+      },
+    ],
+  };
+
+  it("çalan satır sahnede kelime kelime; ayardan kapatılır ve hatırlanır", async () => {
+    backend.desktop = true;
+    backend.status = { ...playing, state: "paused" };
+    backend.lyrics = synced;
+    const { container, unmount } = render(<App />);
+    await act(async () => fireEvent.keyDown(window, { code: "Space", key: " " }));
+    // Konum 83,4 sn: "Gece" söylendi, "yolunda" söyleniyor, "yalnız" sırada.
+    await waitFor(() => expect(container.querySelector(".lyrics__line")).not.toBeNull());
+    const states = Array.from(container.querySelectorAll(".lyrics__word")).map((w) => [
+      w.textContent,
+      w.className.replace("lyrics__word ", ""),
+    ]);
+    expect(states).toEqual([
+      ["Gece ", "is-sung"],
+      ["yolunda ", "is-current"],
+      ["yalnız", "is-upcoming"],
+    ]);
+    expect(container.querySelector(".lyrics__translation")?.textContent).toBe(
+      "Alone on the night road",
+    );
+    expect(container.querySelector(".lyrics__next")?.textContent).toBe("Işıklar akıyor");
+
+    await act(async () => fireEvent.click(screen.getByRole("tab", { name: "Ayarlar" })));
+    expect(screen.getByText(/\.lrc dosyasından/)).toBeInTheDocument();
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: /Sahnede şarkı sözleri: Açık/ })),
+    );
+    expect(container.querySelector(".lyrics")).toBeNull();
+    unmount();
+    // Tercih hatırlanır.
+    const again = render(<App />);
+    await act(async () => fireEvent.keyDown(window, { code: "Space", key: " " }));
+    expect(again.container.querySelector(".lyrics")).toBeNull();
+  });
+
+  it("zamansız sözler sahnede gösterilmez, ayarda nedeni yazar", async () => {
+    backend.desktop = true;
+    backend.status = { ...playing, state: "paused" };
+    backend.lyrics = { ...synced, synced: false };
+    const { container } = render(<App />);
+    await act(async () => fireEvent.keyDown(window, { code: "Space", key: " " }));
+    await act(async () => fireEvent.click(screen.getByRole("tab", { name: "Ayarlar" })));
+    await waitFor(() => expect(screen.getByText(/zamanlı değil/)).toBeInTheDocument());
+    expect(container.querySelector(".lyrics")).toBeNull();
   });
 });
 
