@@ -36,7 +36,8 @@ Görselleri şarkıyı **önceden bilen**, tamamen **çevrimdışı** çalışan
 
 - Şarkı çalmadan önce analiz edilir: beat, ölçü, bölümler, drop, enerji → "şarkı haritası".
 - **Görsel Yönetmen** görselleri üç katmanda koreografe eder: **atmosfer**, **ritim**, **doku**.
-- Profesyonel ses: parametrik EQ, AutoEq kulaklık profilleri, loudness (EBU R128), crossfeed, bit-perfect mod.
+- Profesyonel ses: parametrik EQ, AutoEq kulaklık profilleri, loudness (EBU R128), bit-perfect mod; crossfeed
+  planlanıyor (yol haritası).
 - Nostalji modları (eski araba teybi, VU ibreleri vb.) **özgün tasarımdır**.
   **Pioneer adı, logosu, yazı tipi veya herhangi bir varlığı asla kullanılmaz**; başka markaların da.
 - Program hiçbir zaman internete bağlanmak zorunda değildir. Telemetri yoktur.

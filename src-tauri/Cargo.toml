@@ -35,7 +35,11 @@ codegen-units = 1
 lto = true
 opt-level = 3
 panic = "abort"
-strip = true
+# Çökme günlüğündeki yığın izi çözülebilsin (YAY-11): satır tabloları ayrı sembol dosyasına
+# (Windows'ta .pdb) gider, CI onu saklar; exe'nin kendisi küçük kalır.
+debug = "line-tables-only"
+split-debuginfo = "packed"
+strip = "none"
 
 [lints.rust]
 unsafe_code = "deny"

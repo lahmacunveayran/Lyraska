@@ -156,7 +156,7 @@ export function SettingsPanel({
       <div className="settings__group">
         <h2 className="settings__title">Program</h2>
         <p className="settings__text">
-          {info.phase} · Sürüm {info.version}
+          {info.phase} · Sürüm {info.version} · {info.commit}
         </p>
         <p className="settings__hint">Ses motoru: {info.audioEngine}</p>
         {available && (

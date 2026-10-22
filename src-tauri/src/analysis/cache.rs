@@ -57,9 +57,11 @@ pub struct PartVersions {
 
 /// Parçaların şu anki sürümleri.
 pub const VERSIONS: PartVersions = PartVersions {
-    spectrum: 1,
+    // 2: FFT penceresi örnekleme hızına göre (88,2 kHz üstü), alt bantlarda kutu ara değeri.
+    spectrum: 2,
     // 2: şarkı haritasında drop güveni. 3: aksak ölçü (9/8, 7/8, 5/8) ve ölçü güveni.
-    rhythm: 3,
+    // 4: değişken tempo (parça parça tempo, ortanca BPM).
+    rhythm: 4,
     loudness: 1,
     bass: 1,
     key: 1,
@@ -485,6 +487,7 @@ mod tests {
             beats: Some(BeatGrid {
                 bpm: 128.0,
                 beats: vec![0.25, 0.72, 1.19],
+                variable_tempo: false,
             }),
             song_map: Some(SongMap {
                 meter: 4,

@@ -67,6 +67,7 @@ impl Aksak {
         BeatGrid {
             bpm,
             beats: self.beats.clone(),
+            variable_tempo: false,
         }
     }
 

@@ -55,11 +55,20 @@ pub fn onset_latency(sample_rate: u32, fft_size: usize) -> f64 {
 /// Şarkının vuruş ızgarası.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BeatGrid {
-    /// Tempo (vuruş/dakika).
+    /// Tempo (vuruş/dakika). Tempo değişen şarkıda parçaların ortancası.
     pub bpm: f64,
     /// Vuruş anları (saniye, artan sırada).
     pub beats: Vec<f64>,
+    /// Tempo şarkı boyunca belirgin değişiyor (canlı kayıt, ritardando, iki tempolu parça):
+    /// vuruşlar parça parça izlendi, `bpm` yaklaşık bir değerdir (ANL-04).
+    #[serde(default)]
+    pub variable_tempo: bool,
 }
+
+/// Tempo değişimi aranırken şarkının bölündüğü parça uzunluğu (saniye).
+const TEMPO_SEGMENT_SECONDS: f64 = 20.0;
+/// Parça tempoları birbirinden bu orandan çok ayrılıyorsa tempo "değişken" sayılır (%8).
+const VARIABLE_TEMPO_RATIO: f64 = 1.08;
 
 /// Bir anın vuruş ızgarasındaki yeri.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -168,7 +177,28 @@ pub fn track(onset: &[f32], fps: f64, latency: f64) -> Option<BeatGrid> {
     let strength = normalize(onset, fps)?;
     let period = estimate_period(&strength, fps)?;
     let local = smooth(&strength, period / 32.0);
-    let frames = dynamic_beats(&local, period);
+    // Tempo şarkı boyunca değişiyorsa tek periyot bütününe uymaz: parça parça izlenir.
+    let segments = segment_periods(&strength, fps, period);
+    let (frames, variable_tempo, bpm_override) = match segments {
+        Some(segments) => {
+            let mut frames = Vec::new();
+            for (range, period) in &segments {
+                let min_gap = (period * 0.5) as usize;
+                for b in dynamic_beats(&local[range.clone()], *period) {
+                    let b = b + range.start;
+                    // Parça sınırında iki izleme aynı vuruşu bulabilir: yakın olanı atla.
+                    if frames.last().is_none_or(|&last: &usize| b > last + min_gap) {
+                        frames.push(b);
+                    }
+                }
+            }
+            let mut bpms: Vec<f64> = segments.iter().map(|(_, p)| 60.0 * fps / p).collect();
+            bpms.sort_by(f64::total_cmp);
+            let median = bpms[bpms.len() / 2];
+            (frames, true, Some((median * 10.0).round() / 10.0))
+        }
+        None => (dynamic_beats(&local, period), false, None),
+    };
     let frames = trim_quiet_ends(&local, frames);
     if frames.len() < 4 {
         return None;
@@ -179,8 +209,53 @@ pub fn track(onset: &[f32], fps: f64, latency: f64) -> Option<BeatGrid> {
         .map(|&b| (b as f64 + peak_offset(&local, b)) / fps - latency)
         .map(|t| t.max(0.0))
         .collect();
-    let bpm = (600.0 / mean_interval(&beats)).round() / 10.0;
-    Some(BeatGrid { bpm, beats })
+    let bpm = bpm_override.unwrap_or_else(|| (600.0 / mean_interval(&beats)).round() / 10.0);
+    Some(BeatGrid {
+        bpm,
+        beats,
+        variable_tempo,
+    })
+}
+
+/// Şarkıyı ~20 saniyelik parçalara böler ve her parçanın periyodunu ayrı kestirir. Parça
+/// periyotları birbirinden [`VARIABLE_TEMPO_RATIO`]'dan çok ayrılıyorsa parçaları (kare aralığı,
+/// periyot) olarak döndürür; tempo sabitse ya da şarkı iki parçaya yetmiyorsa `None`
+/// (tek periyotla izlenir; sabit tempolu şarkıların sonucu değişmez).
+fn segment_periods(
+    strength: &[f64],
+    fps: f64,
+    global: f64,
+) -> Option<Vec<(std::ops::Range<usize>, f64)>> {
+    let segment = (TEMPO_SEGMENT_SECONDS * fps) as usize;
+    let count = strength.len() / segment;
+    if count < 2 {
+        return None;
+    }
+    let mut segments = Vec::with_capacity(count);
+    for i in 0..count {
+        let start = i * segment;
+        // Son parça kalanı da alır (yarım parça tek başına kestirilmez).
+        let end = if i + 1 == count {
+            strength.len()
+        } else {
+            start + segment
+        };
+        let mut period = estimate_period(&strength[start..end], fps).unwrap_or(global);
+        // Parça kestirimi oktav atlamış olabilir (yarım/iki kat): bütünün oktavına çekilir.
+        while period > global * 1.5 {
+            period /= 2.0;
+        }
+        while period < global / 1.5 {
+            period *= 2.0;
+        }
+        segments.push((start..end, period));
+    }
+    let (min, max) = segments
+        .iter()
+        .fold((f64::MAX, 0.0f64), |(lo, hi), (_, p)| {
+            (lo.min(*p), hi.max(*p))
+        });
+    (max / min > VARIABLE_TEMPO_RATIO).then_some(segments)
 }
 
 /// Verilen aralıkla (saniye) bir ızgara: [`track`] gibi dinamik programlamayla başlangıçlara
@@ -463,6 +538,7 @@ pub(crate) mod tests {
         let grid = BeatGrid {
             bpm: 120.0,
             beats: vec![1.0, 1.5, 2.0],
+            variable_tempo: false,
         };
         assert_eq!(grid.position_at(0.5), None);
         let p = grid.position_at(1.25).unwrap();
@@ -596,6 +672,7 @@ pub(crate) mod tests {
             let (samples, truth) = drum_track(bpm, start, 32.0, rate, seed);
             let grid = analyze_samples(&samples, rate).expect("ritim bulunmalı");
             assert!((grid.bpm - bpm).abs() <= 0.3, "{bpm}: {}", grid.bpm);
+            assert!(!grid.variable_tempo, "{bpm}: sabit tempo değişken sanıldı");
             let f = f_measure(&grid.beats, &truth, 0.07);
             assert!(f > 0.95, "{bpm} BPM: F = {f}");
             // Senkron: eşleşen vuruşların ortalama ve en büyük hatası.
@@ -636,10 +713,41 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn tempo_degisen_sarkida_iki_yarinin_vuruslari_da_bulunur() {
+        // 112 BPM'lik 24 sn + 132 BPM'lik 24 sn: tek periyotla izlense bir yarıda vuruşlar
+        // kayar ve BPM ~122 çıkardı; parça parça izlemeyle ikisi de bulunur (ANL-04).
+        let rate = 22_050;
+        let (mut samples, mut truth) = drum_track(112.0, 0.8, 24.0, rate, 11);
+        let (second, truth2) = drum_track(132.0, 0.5, 24.0, rate, 12);
+        let offset = samples.len() as f64 / f64::from(rate);
+        samples.extend(second);
+        truth.extend(truth2.iter().map(|t| t + offset));
+        let grid = analyze_samples(&samples, rate).expect("ritim bulunmalı");
+        assert!(grid.variable_tempo, "tempo değişimi fark edilmeli");
+        assert!(
+            grid.bpm > 108.0 && grid.bpm < 136.0,
+            "ortanca tempo: {}",
+            grid.bpm
+        );
+        let (first_truth, second_truth): (Vec<f64>, Vec<f64>) =
+            truth.iter().partition(|&&t| t < offset);
+        let (first, second): (Vec<f64>, Vec<f64>) = grid.beats.iter().partition(|&&t| t < offset);
+        let f1 = f_measure(&first, &first_truth, 0.07);
+        let f2 = f_measure(&second, &second_truth, 0.07);
+        eprintln!(
+            "112 BPM yarısı F={f1:.3}, 132 BPM yarısı F={f2:.3}, bpm {}",
+            grid.bpm
+        );
+        assert!(f1 > 0.9, "ilk yarı F = {f1}");
+        assert!(f2 > 0.9, "ikinci yarı F = {f2}");
+    }
+
+    #[test]
     fn her_orneklemede_vuruslar_sesle_senkron() {
         // FFT penceresi düşük hızda zamanda uzun: vuruş ona daha geç oturur. Bu gecikme
-        // düşülmeseydi 22,05 kHz'te +12 ms, 8 kHz'te +37 ms geç kalırdı.
-        for rate in [8_000, 22_050, 32_000, 48_000, 96_000] {
+        // düşülmeseydi 22,05 kHz'te +12 ms, 8 kHz'te +37 ms geç kalırdı. 192 kHz'te pencere
+        // katlanır (ANL-01): kısa vuruşlar kare aralarına düşmez.
+        for rate in [8_000, 22_050, 32_000, 48_000, 96_000, 192_000] {
             let mut errors = Vec::new();
             for (bpm, start, seed) in [(90.0, 1.37, 1), (128.0, 2.0, 3)] {
                 let (samples, truth) = drum_track(bpm, start, 32.0, rate, seed);

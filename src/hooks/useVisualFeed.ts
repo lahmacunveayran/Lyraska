@@ -14,6 +14,10 @@ import { extrapolateFrame } from "../lib/sync";
  * hesaplandığı andan bu yana geçen süre ölçülür ve vuruşa bağlı değerler o kadar ileri
  * alınır (`extrapolateFrame`): hareketler takılmadan, tam vuruşunda akar.
  *
+ * Kimse çalmıyorken (boşta, duraklatılmış) sahneler saniyede 60 yerine en fazla 15 kez
+ * çizilir: tam ekran gölgelendiriciler boşta ekran kartını ve pili tüketmesin; durgun gök
+ * yine yavaşça kıpırdar (ARA-01).
+ *
  * `onTick` hata verirse hata bir sonraki çizimde yeniden fırlatılır: böylece bileşenin
  * hata sınırı yakalar ("Sahne çizilemedi"), döngü her karede aynı hatayı tekrarlamaz.
  */
@@ -49,6 +53,8 @@ export function useVisualFeed(
 
 /** İstekler arası en kısa süre (ms): saniyede en fazla 60 istek (60 Hz'de her kare). */
 const MIN_FETCH_INTERVAL_MS = 1000 / 60 - 2;
+/** Kimse çalmıyorken çizimler arası en kısa süre (ms): saniyede en fazla 15 çizim. */
+export const IDLE_TICK_INTERVAL_MS = 1000 / 15 - 2;
 
 interface Subscriber {
   playing: boolean;
@@ -65,6 +71,9 @@ let latest: VisualFrame | null = null;
 /** En son verinin hesaplandığı an (istek ile yanıtın ortası, ms). */
 let latestAt = 0;
 let lastSentAt = -Infinity;
+/** Son çizimin anı ve o çizimden beri biriken süre (boşta seyrek çizim için). */
+let lastTickAt = -Infinity;
+let pendingDt = 0;
 
 function subscribe(entry: Subscriber) {
   subscribers.add(entry);
@@ -89,14 +98,16 @@ function loop(now: number) {
     return;
   }
   raf = window.requestAnimationFrame(loop);
-  const dt = (now - last) / 1000;
+  // Saat farkı ya da sekme uykusu sonrası eksi süre gelmez.
+  pendingDt += Math.max(0, now - last) / 1000;
   last = now;
 
   let playing = false;
   for (const s of subscribers) playing ||= s.playing && !s.failed;
   if (!playing) {
-    // Kimse çalmıyor: eski kare bir sonraki çalmada görünmesin.
+    // Kimse çalmıyor: eski kare bir sonraki çalmada görünmesin; seyrek çizilir.
     latest = null;
+    if (now - lastTickAt < IDLE_TICK_INTERVAL_MS) return;
   } else if (!inFlight && now - lastSentAt >= MIN_FETCH_INTERVAL_MS) {
     inFlight = true;
     lastSentAt = now;
@@ -118,6 +129,9 @@ function loop(now: number) {
   // Uzun bir takılmadan sonra (sekme arka plandaydı) en fazla 250 ms ileri alınır.
   const age = Math.max(0, Math.min(0.25, (now - latestAt) / 1000));
   const frame = latest ? extrapolateFrame(latest, age) : null;
+  const dt = pendingDt;
+  pendingDt = 0;
+  lastTickAt = now;
   for (const s of subscribers) {
     if (s.failed) continue;
     try {

@@ -407,7 +407,14 @@ mod tests {
             drop_confidence: vec![0.9],
             energy: vec![],
         };
-        (BeatGrid { bpm, beats }, map)
+        (
+            BeatGrid {
+                bpm,
+                beats,
+                variable_tempo: false,
+            },
+            map,
+        )
     }
 
     fn choreography(bpm: f64, bars: usize) -> (Choreography, SongMap) {

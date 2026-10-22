@@ -87,13 +87,13 @@ Durum sözlüğü: **birleşti** = main'de, test ile; **hazır** = yerel dalda y
 | A5  | Drop zamanı ölçü fazına körü körüne bağlı           | açık                   | analiz iyileştirmesi; bkz. ANL-12                                         |
 | A6  | Yenilemede eskimiş ses yüksekliği hızlı ölçülmüyor  | açık                   |                                                                           |
 | U2  | Boşluksuz olmayan geçiş 250 ms yoklamaya bağlı      | açık                   | gizli pencerede zamanlayıcı kısılması; olay tabanlı bildirim gerekir      |
-| U4  | Arama sonrası seçim eski sırada                     | açık                   | bağımsız denetim ARA-03 ile aynı                                          |
-| U5  | Çekmecede odak yönetimi yok                         | açık                   | bağımsız denetim ARA-06 ile aynı                                          |
+| U4  | Arama sonrası seçim eski sırada                     | birleşti               | 0.0.53: seçim liste dışında kalınca düşer; Enter olmayanı çalmaz (ARA-03) |
+| U5  | Çekmecede odak yönetimi yok                         | birleşti               | 0.0.53: odak açan düğmeye döner, sekmelerde ok tuşları (ARA-06)           |
 | U6  | Sahne döngüsü hatası hata sınırına ulaşmıyor        | birleşti               | #85                                                                       |
 | U7  | Kütüphane yoklaması uçuştaki isteği izlemiyor       | açık                   | küçük                                                                     |
 | C4  | Yayında iptal linki boş bırakabilir                 | hazır (PR 4)           | `cancel-in-progress: false`; önce yükle, sonra sil                        |
 | C5  | Güvenlik uyarıları denetlenmiyor                    | hazır (PR 4)           | `Güvenlik uyarıları` işi (cargo-deny advisories, npm audit)               |
-| C6  | Aynı sürümle farklı ikililer; commit ekranda yok    | açık                   | bağımsız denetim YAY-03 "yüksek" dedi; bkz. Bölüm 5                       |
+| C6  | Aynı sürümle farklı ikililer; commit ekranda yok    | birleşti               | 0.0.53: Ayarlar > Program'da derleme kodu, sürüm notlarında SHA-256       |
 | C7  | Sürüm eşitliği testi yok                            | hazır (PR 4)           | `surum_package_json_ile_ayni`                                             |
 | C8  | Yayımcı adı / telif satırı                          | hazır (PR 4)           | `publisher: Lyraska`                                                      |
 | C9  | Bindings denetimi eski dosyayı yakalamıyor          | hazır (PR 4)           | klasör önce boşaltılır                                                    |
@@ -105,13 +105,13 @@ Durum sözlüğü: **birleşti** = main'de, test ile; **hazır** = yerel dalda y
 | S9  | Hata yutma noktaları                                | açık                   | bkz. SES-09                                                               |
 | S10 | `SLOTS = 8` yuva ezilmesi                           | açık                   | uç durum                                                                  |
 | S11 | 5/7.1 kanal ağırlıkları                             | açık                   | bağımsız denetim SES-06 ile aynı                                          |
-| A7  | Tek global ölçü fazı                                | açık                   | bkz. ANL-04/05                                                            |
+| A7  | Tek global ölçü fazı                                | kısmen                 | 0.0.53: tempo parça parça (ANL-04, `variable_tempo`); ölçü fazı açık      |
 | A8  | Arka plan `skip` kümesi oturum boyu kalıcı          | açık                   | A2 düzeltmesiyle etkileşir (ANL-16, Y4)                                   |
 | A9  | Kilit altında analiz `join`                         | birleşti               | 0.0.52: analiz düşürülürken `join` yok; açma/sarma kilit dışında          |
 | A10 | Yenileme başarısızsa sıradaki bekliyor              | açık                   |                                                                           |
 | A11 | Sessizlikte hayalet vuruş                           | açık                   | analiz iyileştirmesi                                                      |
 | A12 | FAT32 yaz/kış saati `mtime`                         | açık                   | bkz. KUT-15                                                               |
-| A13 | Spektrum karesi gecikmesi                           | açık                   | bağımsız denetim ANL-03 ile aynı (ölçtü: 44,1 kHz'te +15 ms)              |
+| A13 | Spektrum karesi gecikmesi                           | birleşti               | 0.0.53: kare pencere ortasına göre okunur; her hızda ±9 ms (ANL-03)       |
 | A14 | `dedup` işlevsiz, Windows ayrılmış adlar vb.        | açık                   | bkz. ANL-15                                                               |
 | K7  | Bozuk veritabanında kurtulma yolu                   | birleşti               | 0.0.51: `.bozuk-<zaman>` kenara alınır, boş kurulur, kullanıcıya söylenir |
 | K8  | OneDrive yer tutucuları indiriliyor                 | açık                   |                                                                           |
@@ -124,7 +124,7 @@ Durum sözlüğü: **birleşti** = main'de, test ile; **hazır** = yerel dalda y
 | K15 | `indexing_slicing` lint'i                           | açık                   |                                                                           |
 | U8  | Harita/ton sorgusu tek hatada vazgeçiyor vb.        | kısmen (PR 6: kısayol) | sorgu yeniden deneme açık                                                 |
 | U9  | Güvenli modda VU lambası 2/sn, şerit hızı           | açık                   | görsel güvenlik; bkz. ARA-07                                              |
-| U10 | Duraklatılmışken tam hız çizim vb.                  | açık                   | bağımsız denetim ARA-01 "yüksek" dedi; bkz. Bölüm 5                       |
+| U10 | Duraklatılmışken tam hız çizim vb.                  | birleşti               | 0.0.53: boşta ≤ 15 çizim/sn, yazılımsal GPU'da yarım çözünürlük (ARA-01)  |
 | C11 | npm lisans yalnız yasak listesi; belgeler eski vb.  | kısmen (PR 4–6)        | çift koşu, `-First 1`, README, hata formu, Faz 2 yapıldı; kalanlar açık   |
 
 Sayım: birleşti 11, hazır 11 (+2 kısmen), onay 2, açık 29. İlk denetimin 9 yüksek önemli maddesinin 9'u ya
@@ -210,14 +210,14 @@ Bu eşleşmeler iki denetimin birbirinden bağımsız olduğunu ve ilk denetimin
 | C1, C2       | YAY-02, YAY-01 (yüksek)               | PR 4'te hazır                                       |
 | C3           | YAY-05                                | PR 5'te hazır                                       |
 | C4, C5       | YAY-04, YAY-06                        | PR 4'te hazır                                       |
-| C6           | YAY-03 (yüksek)                       | açık; bağımsız denetim önemi yükseltti (Bölüm 5)    |
+| C6           | YAY-03 (yüksek)                       | 0.0.53: derleme kodu ekranda, SHA-256 notlarda      |
 | C7, C8       | YAY-10, YAY-08                        | PR 4'te hazır                                       |
 | C9, C10      | YAY-17, YAY-12, YAY-13                | PR 4'te hazır                                       |
 | C11          | YAY-14, YAY-15, YAY-18, KUT-17/YAY-16 | kısmen PR 4–6; kalanı açık                          |
 | U3           | ARA-02                                | #85 ile kapandı (denetim #85'ten önceki kodu gördü) |
-| U4, U5       | ARA-03, ARA-06                        | açık                                                |
+| U4, U5       | ARA-03, ARA-06                        | 0.0.53                                              |
 | U8 (kısayol) | ARA-08                                | PR 6'da hazır                                       |
-| U10          | ARA-01 (yüksek)                       | açık; önemi yükseltildi (Bölüm 5)                   |
+| U10          | ARA-01 (yüksek)                       | 0.0.53: boşta seyrek çizim, GPU uyarısı             |
 | K6           | KUT-06                                | #82 + 0.0.51 (okuma hatasında bellekte sürer)       |
 | K7           | KUT-02 (yüksek)                       | 0.0.51: kenara al, boş kur, söyle                   |
 | K11          | KUT-04, ARA-14                        | açık                                                |
@@ -225,7 +225,7 @@ Bu eşleşmeler iki denetimin birbirinden bağımsız olduğunu ve ilk denetimin
 | S4           | SES-03                                | 0.0.52: MMCSS "Pro Audio"                           |
 | S8, S11      | SES-08, SES-06/MAT-07                 | açık                                                |
 | A9           | ANL-06, SES-02, KUT-08                | 0.0.52: begin/prepare/install, `join` kaldırıldı    |
-| A12, A13     | KUT-15, ANL-03                        | açık; ANL-03 sayısal olarak ölçtü                   |
+| A12, A13     | KUT-15, ANL-03                        | ANL-03 0.0.53'te; KUT-15 açık                       |
 | A14          | ANL-15                                | açık                                                |
 | A1/A4        | ANL-08, MAT-10                        | #85 ile vurgular nabzın alt kümesi; bkz. 4.3        |
 

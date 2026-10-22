@@ -27,8 +27,21 @@ use crate::director::Choreography;
 pub const FRAMES_PER_SECOND: f64 = 60.0;
 /// Saklanan frekans bandı sayısı. Sahneler kendi bant sayılarına indirger.
 pub const BANDS: usize = 32;
-/// FFT pencere uzunluğu (44,1 kHz'te ~46 ms; bas frekanslar için yeterli çözünürlük).
-const FFT_SIZE: usize = 2048;
+/// FFT pencere uzunluğu 48 kHz'e kadar (44,1 kHz'te ~46 ms; bas frekanslar için yeterli
+/// çözünürlük). Daha yüksek hızlarda [`fft_size`] bunu katlar.
+const BASE_FFT_SIZE: usize = 2048;
+
+/// Örnekleme hızına göre FFT pencere uzunluğu: 48 kHz'e kadar 2048 örnek; 88,2/96 kHz'te 4096,
+/// 176,4/192 kHz'te 8192. Pencere **süresi** (~43–46 ms) ve kutu genişliği (~21–23 Hz) böylece
+/// hızdan bağımsız kalır: yüksek çözünürlüklü dosyada kare adımı (192 kHz'te 3 200 örnek) pencereden
+/// uzun olup sesin üçte biri analiz dışı kalmaz; bas bantları aynı kutulara düşmez (ANL-01).
+pub fn fft_size(sample_rate: u32) -> usize {
+    let mut size = BASE_FFT_SIZE;
+    while sample_rate as usize > 48_000 * (size / BASE_FFT_SIZE) {
+        size *= 2;
+    }
+    size
+}
 /// Bantların kapsadığı aralık.
 const MIN_FREQ: f64 = 30.0;
 const MAX_FREQ: f64 = 16_000.0;
@@ -171,11 +184,24 @@ impl Spectrogram {
     }
 
     /// Verilen saniyedeki bant seviyeleri (0..1). O an henüz analiz edilmediyse `None`.
+    ///
+    /// `k`. karenin penceresi `(k+1)/60` saniyede biter; içeriği pencerenin **ortasını**
+    /// (`(k+1)/60 − N/2r`) temsil eder. Kare, `seconds`'a en yakın orta noktaya göre seçilir;
+    /// yoksa görsel 44,1 kHz'te ortalama 15 ms, 8 kHz'te 120 ms geç kalırdı (ANL-03).
     pub fn frame_at(&self, seconds: f64) -> Option<[f32; BANDS]> {
         if !seconds.is_finite() || seconds < 0.0 {
             return None;
         }
-        let index = (seconds * FRAMES_PER_SECOND).floor() as usize;
+        let rate = self
+            .sample_rate
+            .read()
+            .ok()
+            .and_then(|r| *r)
+            .unwrap_or(44_100);
+        let half_window = fft_size(rate) as f64 / (2.0 * f64::from(rate.max(1)));
+        let index = ((seconds + half_window) * FRAMES_PER_SECOND - 1.0)
+            .round()
+            .max(0.0) as usize;
         if index >= self.ready_frames() {
             return None;
         }
@@ -459,11 +485,14 @@ pub fn analyze_paced(mut decoder: Decoder, target: &Spectrogram, pace: &mut dyn 
 pub fn analyze_source(decoder: &mut dyn ChunkSource, target: &Spectrogram, pace: &mut dyn FnMut()) {
     let info = decoder.info().clone();
     let channels = info.channels.max(1);
+    // Hız baştan bilinir: `frame_at` kareyi pencere ortasına göre seçerken kullanır.
+    target.set_sample_rate(Some(info.sample_rate));
+    let fft_size = fft_size(info.sample_rate);
     let mut analyzer = BandAnalyzer::new(info.sample_rate);
 
-    // Dairesel pencere: son FFT_SIZE mono örnek (`head` en eski örneğin yeri).
+    // Dairesel pencere: son `fft_size` mono örnek (`head` en eski örneğin yeri).
     // Her 1/60 saniyede bir kare üretilir ([`frame_end`]).
-    let mut window = vec![0.0; FFT_SIZE];
+    let mut window = vec![0.0; fft_size];
     let mut head = 0usize;
     let mut filled = 0usize;
     // İşlenen örnek sayısı ve sıradaki karenin bittiği örnek.
@@ -501,8 +530,8 @@ pub fn analyze_source(decoder: &mut dyn ChunkSource, target: &Spectrogram, pace:
             let mono = frame.iter().sum::<Sample>() / channels as Sample;
             chroma.add(mono);
             window[head] = mono;
-            head = (head + 1) % FFT_SIZE;
-            filled = (filled + 1).min(FFT_SIZE);
+            head = (head + 1) % fft_size;
+            filled = (filled + 1).min(fft_size);
             position += 1;
             if position == next_end {
                 frame_index += 1;
@@ -510,7 +539,7 @@ pub fn analyze_source(decoder: &mut dyn ChunkSource, target: &Spectrogram, pace:
                 // k. karenin penceresi (k+1)/60 saniyede biter; 44,1 kHz'te ortası k/60
                 // saniyenin yaklaşık 6 ms gerisindedir: görüntü sesle hizalı kalır.
                 // Pencerenin yarısı dolana kadar kare sessiz sayılır.
-                let (levels, onset) = if filled < FFT_SIZE / 2 {
+                let (levels, onset) = if filled < fft_size / 2 {
                     ([0u8; BANDS], analyzer.onset.silent())
                 } else {
                     analyzer.process(&window, head)
@@ -544,7 +573,7 @@ pub fn rhythm_from_frames(
     onset: &[f32],
     sample_rate: u32,
 ) -> (Option<BeatGrid>, Option<SongMap>) {
-    let latency = beats::onset_latency(sample_rate, FFT_SIZE);
+    let latency = beats::onset_latency(sample_rate, fft_size(sample_rate));
     let tracked = beats::track(onset, FRAMES_PER_SECOND, latency);
     // Aksak ölçü (9/8, 7/8, 5/8): vuruşlar grup başları olur, ölçü başları sekizlik ızgarasından.
     let aksak = tracked
@@ -691,13 +720,24 @@ fn frame_end(k: u64, sample_rate: u32) -> u64 {
     ((k + 1) * u64::from(sample_rate) * 2 + fps) / (2 * fps)
 }
 
+/// Bir bandın FFT'den nasıl okunduğu.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum BandPick {
+    /// Bant bir kutudan geniş: [başlangıç, bitiş) kutularının en güçlüsü.
+    Range(usize, usize),
+    /// Bant bir kutudan dar (alt bantlar): bant ortasındaki kesirli kutuda komşu kutular arası
+    /// doğrusal ara değer. Komşu bantlar aynı kutuyu paylaşsa da her biri kendi frekansına
+    /// göre farklı okunur; eskiden ilk 3–5 bant birbirinin kopyasıydı (ANL-02).
+    Interpolate(f64),
+}
+
 /// Bir pencereyi frekans bantlarına ayıran FFT çözümleyici.
 struct BandAnalyzer {
     fft: Arc<dyn Fft<f64>>,
     hann: Vec<f64>,
     buffer: Vec<Complex<f64>>,
-    /// Her bandın FFT kutu aralığı [başlangıç, bitiş).
-    ranges: Vec<(usize, usize)>,
+    /// Her bandın FFT'den okunuşu.
+    picks: Vec<BandPick>,
     /// Her bandın orta frekansına göre eğim düzeltmesi (dB).
     tilt: Vec<f64>,
     /// Tam ölçekli bir sinüsün 0 dB çıkması için ölçek.
@@ -708,20 +748,25 @@ struct BandAnalyzer {
 
 impl BandAnalyzer {
     fn new(sample_rate: u32) -> Self {
-        let fft = FftPlanner::new().plan_fft_forward(FFT_SIZE);
-        let hann: Vec<f64> = (0..FFT_SIZE)
-            .map(|i| 0.5 - 0.5 * (2.0 * std::f64::consts::PI * i as f64 / FFT_SIZE as f64).cos())
+        let fft_size = fft_size(sample_rate);
+        let fft = FftPlanner::new().plan_fft_forward(fft_size);
+        let hann: Vec<f64> = (0..fft_size)
+            .map(|i| 0.5 - 0.5 * (2.0 * std::f64::consts::PI * i as f64 / fft_size as f64).cos())
             .collect();
         let norm = 2.0 / hann.iter().sum::<f64>();
         let edges = band_edges(BANDS, f64::from(sample_rate));
-        let bin_hz = f64::from(sample_rate) / FFT_SIZE as f64;
-        let max_bin = FFT_SIZE / 2;
-        let ranges = edges
+        let bin_hz = f64::from(sample_rate) / fft_size as f64;
+        let max_bin = fft_size / 2;
+        let picks = edges
             .windows(2)
             .map(|e| {
+                if e[1] - e[0] < bin_hz {
+                    let center = ((e[0] * e[1]).sqrt() / bin_hz).clamp(1.0, (max_bin - 1) as f64);
+                    return BandPick::Interpolate(center);
+                }
                 let start = ((e[0] / bin_hz).round() as usize).clamp(1, max_bin - 1);
                 let end = ((e[1] / bin_hz).round() as usize).clamp(start + 1, max_bin);
-                (start, end)
+                BandPick::Range(start, end)
             })
             .collect();
         let tilt = edges
@@ -731,11 +776,11 @@ impl BandAnalyzer {
         Self {
             fft,
             hann,
-            buffer: vec![Complex::default(); FFT_SIZE],
-            ranges,
+            buffer: vec![Complex::default(); fft_size],
+            picks,
             tilt,
             norm,
-            onset: OnsetDetector::new(sample_rate, FFT_SIZE),
+            onset: OnsetDetector::new(sample_rate, fft_size),
         }
     }
 
@@ -749,13 +794,21 @@ impl BandAnalyzer {
         self.fft.process(&mut self.buffer);
 
         let mut out = [0u8; BANDS];
-        for (band, &(start, end)) in self.ranges.iter().enumerate() {
-            // Banttaki en güçlü bileşen: dar bantlarda tek bir notayı da yakalar.
-            let peak = self.buffer[start..end]
-                .iter()
-                .map(|c| c.norm())
-                .fold(0.0, f64::max)
-                * self.norm;
+        for (band, &pick) in self.picks.iter().enumerate() {
+            let peak = match pick {
+                // Banttaki en güçlü bileşen: dar bantlarda tek bir notayı da yakalar.
+                BandPick::Range(start, end) => self.buffer[start..end]
+                    .iter()
+                    .map(|c| c.norm())
+                    .fold(0.0, f64::max),
+                BandPick::Interpolate(center) => {
+                    let low = center.floor() as usize;
+                    let t = center - low as f64;
+                    let a = self.buffer[low].norm();
+                    let b = self.buffer[(low + 1).min(self.buffer.len() - 1)].norm();
+                    a + (b - a) * t
+                }
+            } * self.norm;
             let db = 20.0 * peak.max(1e-12).log10() + self.tilt[band];
             out[band] = to_level(db);
         }
@@ -1182,6 +1235,89 @@ mod tests {
         assert!(spectrogram.frame_at(0.9).unwrap()[band] < 0.1);
         assert!(spectrogram.frame_at(1.1).unwrap()[band] > 0.7);
         std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn kare_icerigi_her_hizda_sesle_ayni_anda() {
+        // Sessizlikten 1 kHz'e keskin geçiş tam 1,000 saniyede. Karenin içeriği pencere ortasına
+        // göre okunduğundan geçiş her hızda ±9 ms içinde görünür (kare adımı 16,7 ms). Eskiden
+        // 44,1 kHz'te ~15 ms, 8 kHz'te ~120 ms geç görünürdü (ANL-03).
+        for rate in [8_000u32, 22_050, 44_100, 48_000, 96_000, 192_000] {
+            let path = temp_path("spektrum-hiza.wav");
+            write_wav(&path, rate, 1, rate as usize * 2, |f, _| {
+                if f < rate as usize {
+                    0.0
+                } else {
+                    0.5 * sine(1000.0, rate, f)
+                }
+            });
+            let spectrogram = analyze_file(&path);
+            let band = band_of(1000.0, f64::from(rate));
+            let steady = spectrogram.frame_at(1.5).unwrap()[band];
+            // Hann penceresinin yarısı sesteyken kutu genliği yarıya (−6 dB = 0,1 seviye) iner.
+            let threshold = steady - 0.1;
+            let crossing = (900..1100)
+                .map(|ms| ms as f64 / 1000.0)
+                .find(|&s| spectrogram.frame_at(s).unwrap()[band] >= threshold)
+                .expect("geçiş görünmeli");
+            let error_ms = (crossing - 1.0) * 1000.0;
+            eprintln!("{rate} Hz: geçiş {error_ms:+.1} ms");
+            assert!(
+                error_ms.abs() <= 9.0,
+                "{rate} Hz: geçiş {error_ms:+.1} ms kaydı"
+            );
+            std::fs::remove_file(path).ok();
+        }
+    }
+
+    #[test]
+    fn alt_bantlar_birbirinin_kopyasi_degil() {
+        // 44,1 kHz'te FFT kutusu 21,5 Hz; ilk bantlar bundan dar. Eskiden bant 0 ile 2 aynı
+        // kutudan okunur, aynı hareketi yapardı. 33 Hz tonunda bant 0, 48 Hz tonunda bant 2
+        // öne çıkmalı (ANL-02).
+        let rate = 44_100;
+        let mut levels = Vec::new();
+        for freq in [33.0, 48.0] {
+            let path = temp_path("spektrum-bas.wav");
+            write_wav(&path, rate, 1, rate as usize * 2, |f, _| {
+                0.5 * sine(freq, rate, f)
+            });
+            levels.push(analyze_file(&path).frame_at(1.0).unwrap());
+            std::fs::remove_file(path).ok();
+        }
+        let (b0, b2) = (
+            band_of(33.0, f64::from(rate)),
+            band_of(48.0, f64::from(rate)),
+        );
+        assert_ne!(b0, b2);
+        assert!(
+            levels[0][b0] > levels[0][b2],
+            "33 Hz: {:?}",
+            &levels[0][..4]
+        );
+        assert!(
+            levels[1][b2] > levels[1][b0],
+            "48 Hz: {:?}",
+            &levels[1][..4]
+        );
+        assert_ne!(levels[0][b0 + 1], levels[0][b0], "komşu bant kopya değil");
+    }
+
+    #[test]
+    fn fft_penceresi_yuksek_hizda_katlanir_suresi_sabit() {
+        assert_eq!(fft_size(44_100), 2048);
+        assert_eq!(fft_size(48_000), 2048);
+        assert_eq!(fft_size(88_200), 4096);
+        assert_eq!(fft_size(96_000), 4096);
+        assert_eq!(fft_size(176_400), 8192);
+        assert_eq!(fft_size(192_000), 8192);
+        // Pencere kare adımından (1/60 sn) hiçbir hızda kısa değil.
+        for rate in [44_100u32, 96_000, 192_000] {
+            assert!(
+                fft_size(rate) as f64 >= f64::from(rate) / FRAMES_PER_SECOND,
+                "{rate}"
+            );
+        }
     }
 
     #[test]

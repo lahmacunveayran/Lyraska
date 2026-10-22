@@ -3,7 +3,11 @@
 /**
  * Karşılama ekranında gösterilen program bilgisi.
  */
-export type AppInfo = { name: string, version: string, phase: string, audioEngine: string, analysis: string, visualBridge: string, 
+export type AppInfo = { name: string, version: string, 
+/**
+ * Derlendiği commit'in kısa kimliği (ör. "a1b2c3d"; yerel derlemede "yerel").
+ */
+commit: string, phase: string, audioEngine: string, analysis: string, visualBridge: string, 
 /**
  * "Dosya aç" penceresinde gösterilecek uzantılar.
  */

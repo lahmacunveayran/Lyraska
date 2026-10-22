@@ -42,6 +42,8 @@ fn reported(error: impl std::fmt::Display) -> String {
 pub struct AppInfo {
     pub name: String,
     pub version: String,
+    /// Derlendiği commit'in kısa kimliği (ör. "a1b2c3d"; yerel derlemede "yerel").
+    pub commit: String,
     pub phase: String,
     pub audio_engine: String,
     pub analysis: String,
@@ -56,6 +58,7 @@ impl AppInfo {
         Self {
             name: "Lyraska".to_owned(),
             version: env!("CARGO_PKG_VERSION").to_owned(),
+            commit: env!("LYRASKA_COMMIT").to_owned(),
             phase: "Faz 2".to_owned(),
             audio_engine: audio::status().label().to_owned(),
             analysis: analysis::status().label().to_owned(),

@@ -12,7 +12,15 @@ vi.mock("./backend", async (importOriginal) => {
   };
 });
 
-import { MAX_CANVAS_PIXELS, canvasScale, linkFullscreenProgram, openScene, retrySetup } from "./gl";
+import {
+  MAX_CANVAS_PIXELS,
+  MAX_CANVAS_PIXELS_SOFTWARE,
+  canvasScale,
+  getWebGl2,
+  linkFullscreenProgram,
+  openScene,
+  retrySetup,
+} from "./gl";
 
 /** Gölgelendirici derleyen ama derleme hatası veren sahte bir WebGL2 bağlamı. */
 function brokenGl(log: string): WebGL2RenderingContext {
@@ -55,6 +63,32 @@ describe("sahne kurulumu", () => {
     ]);
     expect(retrySetup(canvas, "Gece göğü", () => 42)).toBe(42);
     expect(canvas.dataset.webglError).toBeUndefined();
+  });
+
+  it("önce gerçek ekran kartı istenir; yazılımsal çizime düşünce tuval işaretlenir, çözünürlük düşer", () => {
+    // Yazılımsal WebGL (SwiftShader/WARP) tam ekran gölgelendiricide işlemciyi tüketir (ARA-01).
+    const canvas = document.createElement("canvas");
+    const fake = {} as WebGL2RenderingContext;
+    const calls: unknown[] = [];
+    vi.spyOn(canvas, "getContext").mockImplementation(((_: string, options?: unknown) => {
+      calls.push(options);
+      return (options as WebGLContextAttributes).failIfMajorPerformanceCaveat ? null : fake;
+    }) as unknown as typeof canvas.getContext);
+    expect(getWebGl2(canvas)).toBe(fake);
+    expect(calls).toEqual([
+      { antialias: false, alpha: false, depth: false, failIfMajorPerformanceCaveat: true },
+      { antialias: false, alpha: false, depth: false },
+    ]);
+    expect(canvas.dataset.gpuCaveat).toBe("software");
+    expect(canvasScale(1920, 1080, 1, MAX_CANVAS_PIXELS_SOFTWARE)).toBeCloseTo(0.5, 6);
+
+    // Gerçek ekran kartı ilk istekte gelirse işaret konmaz.
+    const good = document.createElement("canvas");
+    vi.spyOn(good, "getContext").mockImplementation(
+      (() => fake) as unknown as typeof good.getContext,
+    );
+    expect(getWebGl2(good)).toBe(fake);
+    expect(good.dataset.gpuCaveat).toBeUndefined();
   });
 
   it("WebGL2 yoksa neden bildirilir", () => {

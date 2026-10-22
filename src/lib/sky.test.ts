@@ -190,7 +190,13 @@ describe("gökyüzünün saatleri", () => {
 describe("Görsel Yönetmen ile gök", () => {
   it("en kötü durumda bile saniyede 3'ten fazla parlamaz (normal ve güvenli mod)", () => {
     // Yönetmenin bütün değerleri ve bantlar aynı anda tam ölçekle gidip geliyor.
-    for (const safe of [false, true]) {
+    // Güvenli mod ve "animasyonları azalt" tercihi de ölçüme girer (ARA-07).
+    for (const [safe, reduced] of [
+      [false, false],
+      [true, false],
+      [false, true],
+      [true, true],
+    ] as const) {
       for (const hz of [0.5, 1, 1.5, 2, 3, 4, 6, 8, 12, 20, 30]) {
         let s = SKY_AT_REST;
         const luminance: number[] = [];
@@ -200,10 +206,13 @@ describe("Görsel Yönetmen ile gök", () => {
           const director: DirectorInput = on
             ? { mood: 1, theme: flips++, pulse: 1, accent: 1, anticipation: 0, release: 1 }
             : { ...CALM, anticipation: 1 };
-          s = stepSky(s, on ? [1, 1, 1] : [0, 0, 0], DT, false, director, safe);
+          s = stepSky(s, on ? [1, 1, 1] : [0, 0, 0], DT, reduced, director, safe);
           luminance.push(auroraLuminance(s.energies, s.bloom));
         }
-        expect(countFlashes(luminance) / 10, `${hz} Hz, güvenli: ${safe}`).toBeLessThanOrEqual(2);
+        expect(
+          countFlashes(luminance) / 10,
+          `${hz} Hz, güvenli: ${safe}, azaltılmış: ${reduced}`,
+        ).toBeLessThanOrEqual(2);
       }
     }
   });
