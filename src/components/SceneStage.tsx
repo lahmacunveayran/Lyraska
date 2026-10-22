@@ -1,10 +1,12 @@
 import { DriveScene } from "./DriveScene";
 import { HighwayScene } from "./HighwayScene";
+import { ShaderScene } from "./ShaderScene";
 import { SkyScene } from "./SkyScene";
 import { SpectrumDemo } from "./SpectrumDemo";
 import { SpectrumView } from "./SpectrumView";
 import { VuScene } from "./VuScene";
 import type { Scene } from "../lib/scene";
+import { isShaderScene } from "../lib/shaderScene";
 import type { SkyLook } from "../lib/sky";
 
 const SPECTRUM_BANDS = 16;
@@ -33,7 +35,10 @@ export function SceneStage({
 }: SceneStageProps) {
   return (
     <div className="stage" data-scene={scene}>
-      {scene === "vu" ? (
+      {isShaderScene(scene) ? (
+        // Her sahne kendi tuvalinde açılır: yenisi yavaşça belirir.
+        <ShaderScene key={scene} id={scene} playing={playing} safe={safe} />
+      ) : scene === "vu" ? (
         <VuScene playing={playing} safe={safe} />
       ) : scene === "highway" ? (
         <HighwayScene playing={playing} safe={safe} />

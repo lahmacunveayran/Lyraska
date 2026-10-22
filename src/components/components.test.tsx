@@ -1316,6 +1316,45 @@ describe("sahneler", () => {
     );
   });
 
+  it("galeri: listeden, 1–9 ve 0 tuşlarıyla, PageDown/PageUp ile sahne seçilir", async () => {
+    render(<App />);
+    const toggle = screen.getByRole("button", { name: /Galeri/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await act(async () => fireEvent.click(toggle));
+    const list = screen.getByRole("group", { name: "Galeri" });
+    expect(within(list).getAllByRole("button")).toHaveLength(5);
+    // Esc listeyi kapatır, çekmeceye dokunmaz.
+    await act(async () => fireEvent.keyDown(list, { key: "Escape" }));
+    expect(screen.queryByRole("group", { name: "Galeri" })).not.toBeInTheDocument();
+    await act(async () => fireEvent.click(toggle));
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: /Bulutsu.*renkli toz/ })),
+    );
+    // Seçince liste kapanır, düğme sahnenin adını gösterir; sahne çizilir (jsdom'da WebGL yok).
+    expect(screen.queryByRole("group", { name: "Galeri" })).not.toBeInTheDocument();
+    const pill = screen.getByRole("button", { name: /Bulutsu/ });
+    expect(pill).toHaveAttribute("aria-pressed", "true");
+    const nebula = screen.getByRole("img", { name: /Bulutsu: yıldızların önünde/ });
+    expect(nebula).toHaveAttribute("data-webgl", "off");
+    expect(nebula.dataset.webglError).toMatch(/WebGL2 açılamadı/);
+    expect(window.localStorage.getItem("lyraska.scene")).toBe("nebula");
+
+    await act(async () => fireEvent.keyDown(window, { key: "0" }));
+    expect(screen.getByRole("img", { name: /Kaleydoskop/ })).toBeInTheDocument();
+    await act(async () => fireEvent.keyDown(window, { key: "PageDown" }));
+    expect(screen.getByRole("button", { name: "Gece göğü" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await act(async () => fireEvent.keyDown(window, { key: "PageUp" }));
+    expect(screen.getByRole("img", { name: /Kaleydoskop/ })).toBeInTheDocument();
+    await act(async () => fireEvent.keyDown(window, { key: "6" }));
+    expect(screen.getByRole("img", { name: /Gece denizi/ })).toBeInTheDocument();
+    // Klasik sahneye dönünce galeri düğmesi yeniden "Galeri".
+    await act(async () => fireEvent.keyDown(window, { key: "1" }));
+    expect(screen.getByRole("button", { name: /Galeri/ })).toHaveAttribute("aria-pressed", "false");
+  });
+
   it("1–5 tuşları sahne seçer; arama kutusuna yazarken seçmez", async () => {
     render(<App />);
     await act(async () => fireEvent.keyDown(window, { key: "3" }));

@@ -400,6 +400,14 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
   yapıldıysa). **Ayarlar → Şarkı sözleri** ile kapanır ve kapalı kalır.
 - Bildirin: sözler erken ya da geç kalıyorsa ne kadar; bozuk görünen harf varsa dosyanın nereden geldiği.
 
+**E8. Galerideki yeni sahneler (0.0.57)**
+
+- Nasıl: üst çubukta **Galeri**'ye tıklayın; **Gece denizi**, **Bulutsu**, **Işık tüneli**, **Ateşböcekleri**,
+  **Kaleydoskop**. Klavyeden 6–9 ve 0; **PageDown/PageUp** bütün sahneleri sırayla gezer.
+- Neye bakılır: her sahne müzikle akar (vuruşta hızlanır), bölüm değişince renkler yavaşça değişir, droptan önce
+  toplanıp drop'ta açılır; hiçbirinde ani parlama yok. Tam ekranda akıcı mı (takılma, ısınma)?
+- Bildirin: beğendiğiniz ve beğenmediğiniz sahneler; takılan sahne varsa bilgisayarın ekran kartı.
+
 ## F. Hata günlüğü
 
 **F1. Hata günlüğü açılıyor**

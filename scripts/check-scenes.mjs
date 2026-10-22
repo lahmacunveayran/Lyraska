@@ -373,6 +373,15 @@ const SCENES = [
   { id: "highway", name: "Gece otoyolu", extra: () => null, themed: true },
   // Ön camdan aynı yol; torpidonun ışığı ve teyp de temada.
   { id: "drive", name: "Gece sürüşü", extra: () => null, themed: true },
+  // Galerinin gölgelendirici sahneleri (src/lib/shaderScene.ts). Renkleri gece göğünün temaları;
+  // parlama sınırı en parlak iki temada ölçülür (denetim süresi).
+  ...[
+    ["sea", "Gece denizi"],
+    ["nebula", "Bulutsu"],
+    ["tunnel", "Işık tüneli"],
+    ["fireflies", "Ateşböcekleri"],
+    ["kaleido", "Kaleydoskop"],
+  ].map(([id, name]) => ({ id, name, extra: () => null, themed: true, brightOnly: true })),
 ];
 
 /**
@@ -411,6 +420,10 @@ const ALL_SCENES = [
   { id: "vu", name: "VU ibreleri", themed: true },
   ...SCENES,
 ];
+
+/** Yalnızca bazı sahneleri denetlemek için (geliştirirken): `SCENE_ONLY=sea,nebula`. */
+const ONLY = process.env.SCENE_ONLY?.split(",").filter(Boolean) ?? null;
+const selected = (scene) => !ONLY || ONLY.includes(scene.id);
 
 async function checkScene(browser, scene, variant) {
   const page = await openPage(browser);
@@ -483,15 +496,15 @@ try {
     const sky = SCENES.find((s) => s.id === "sky");
     problems = await checkScene(browser, sky, variants(sky)[0]);
   } else {
-    for (const scene of SCENES) {
+    for (const scene of SCENES.filter(selected)) {
       for (const variant of variants(scene)) {
         problems = problems.concat(await checkScene(browser, scene, variant));
       }
     }
     const bright = brightestThemes(2);
-    for (const scene of ALL_SCENES) {
+    for (const scene of ALL_SCENES.filter(selected)) {
       for (const [i, variant] of variants(scene).entries()) {
-        const themes = !scene.themed ? [null] : i === 0 ? THEMES : bright;
+        const themes = !scene.themed ? [null] : i === 0 && !scene.brightOnly ? THEMES : bright;
         for (const theme of themes) {
           problems = problems.concat(await checkFlashBound(browser, scene, variant, theme));
         }
