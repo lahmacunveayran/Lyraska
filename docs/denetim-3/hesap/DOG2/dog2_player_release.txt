@@ -1,0 +1,20 @@
+   Compiling lyraska v0.0.55 (/home/user/Lyraska/.claude/worktrees/agent-abfcae10248a4c0ff/src-tauri)
+    Finished `release` profile [optimized + debuginfo] target(s) in 2m 51s
+     Running unittests src/lib.rs (/home/user/Lyraska/.claude/worktrees/agent-a93bff2795655c113/src-tauri/target/release/deps/lyraska_lib-64533dee089ff214)
+
+running 4 tests
+test audio::player::denetim_dog2::dog2_rts01_komut_sirasiyla_iki_oturum ... DOG2 RTS-01 gecikme 0 ms: oturum sayısı 1, iki çıkışın birlikte ilerlediği süre 0.00 ms; açma: stop=false faded_out=false; sonunda çalan B mi: true
+DOG2 RTS-01 gecikme 1 ms: oturum sayısı 2, iki çıkışın birlikte ilerlediği süre 0.00 ms; açma: stop=false faded_out=false | sarma: stop=true faded_out=false; sonunda çalan B mi: true
+DOG2 RTS-01 gecikme 3 ms: oturum sayısı 2, iki çıkışın birlikte ilerlediği süre 0.00 ms; açma: stop=false faded_out=false | sarma: stop=true faded_out=false; sonunda çalan B mi: true
+ok
+test audio::player::denetim_dog2::dog2_rts01_ters_sira_yaris_yok ... DOG2 RTS-01 ters sıra: açma sürerken begin_seek = false
+ok
+test audio::player::denetim_dog2::dog2_rts02_bit_perfect_degisimi_ve_bitince_cal_kilit_altinda ... DOG2 RTS-02: bit-perfect değişimi 9.2 ms (sorgu 9.4 ms bekledi); bitince çal 4.3 ms (sorgu 4.5 ms bekledi)
+ok
+test audio::player::denetim_dog2::dog2_rts03_24_bit_aygitta_32_bit_sarki_ve_hata_buyuklugu ... DOG2 RTS-03: 32 bit şarkı doğrudan: bit_perfect=false notice=Some("şarkı 32 bit, aygıt özel modda en çok 24 bit kabul ediyor; bit-perfect yerine paylaşımlı yol kullanıldı")
+DOG2 RTS-03: boşluksuz geçişten sonra çalan 32 bit şarkı, ekranda bit_perfect=true bit_depth=Some(24)
+DOG2 RTS-03: 24 bit sinyal 16 bit akışta: 43920/44100 örnek değişti (%99.59); en büyük hata -96.3 dBFS (titreşimsiz yuvarlama)
+ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 421 filtered out; finished in 0.26s
+

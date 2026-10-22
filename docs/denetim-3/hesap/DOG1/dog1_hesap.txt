@@ -1,0 +1,27 @@
+=== DSP-08 / ARY-14: BW Oct → Q ===
+Lyraska: Q = 1/(2 sinh(ln2/2·BW)) (analog tanım). RBJ Cookbook / APO: α = sin w0 · sinh(ln2/2·BW·w0/sin w0).
+  44100 Hz, PK +6 dB, BW 1.0: en büyük eğri farkı (dB)  1k:0.01  4k:0.16  8k:0.68  10k:1.10  12k:1.65  16k:3.25
+  44100 Hz, PK +6 dB, BW 2.0: en büyük eğri farkı (dB)  1k:0.01  4k:0.18  8k:0.78  10k:1.27  12k:1.94  16k:4.00
+  44100 Hz, PK +6 dB, BW 0.5: en büyük eğri farkı (dB)  1k:0.01  4k:0.16  8k:0.66  10k:1.06  12k:1.57  16k:3.00
+  48000 Hz, PK +6 dB, BW 1.0: en büyük eğri farkı (dB)  1k:0.01  4k:0.14  8k:0.57  10k:0.92  12k:1.36  16k:2.64
+  48000 Hz, PK +6 dB, BW 2.0: en büyük eğri farkı (dB)  1k:0.01  4k:0.15  8k:0.65  10k:1.05  12k:1.59  16k:3.21
+  48000 Hz, PK +6 dB, BW 0.5: en büyük eğri farkı (dB)  1k:0.01  4k:0.13  8k:0.55  10k:0.88  12k:1.30  16k:2.47
+
+=== DSP-09: A/B telafisindeki 'K ağırlığı' (analog RBJ raf + YG) ile BS.1770-4'ün 48 kHz süzgeci ===
+  en büyük mutlak fark 0.491 dB @ 1589 Hz; 1 kHz'e göre normalize: 0.234 dB
+  PK 1500 Hz +12 dB Q 0.7: telafi kodun ağırlığıyla 5.098 dB, BS.1770 ağırlığıyla 5.245 dB, fark -0.147 dB
+  PK 3000 Hz +6 dB Q 1.0: telafi kodun ağırlığıyla 2.092 dB, BS.1770 ağırlığıyla 2.118 dB, fark -0.026 dB
+  PK 100 Hz +6 dB Q 0.7: telafi kodun ağırlığıyla 1.052 dB, BS.1770 ağırlığıyla 1.036 dB, fark +0.016 dB
+  PK 8000 Hz +6 dB Q 2.0: telafi kodun ağırlığıyla 1.369 dB, BS.1770 ağırlığıyla 1.350 dB, fark +0.019 dB
+
+=== DSP-06: sınırlayıcının ara değerleyicisi (limiter.rs interpolator, 8×, 16 katsayı/faz) ===
+  44100 Hz, 10000 Hz: fazların genliği en çok +0.00, en az +0.00 dB
+  44100 Hz, 15000 Hz: fazların genliği en çok -0.00, en az -0.01 dB
+  44100 Hz, 18000 Hz: fazların genliği en çok -0.03, en az -0.97 dB
+  44100 Hz, 19000 Hz: fazların genliği en çok -0.07, en az -2.24 dB
+  44100 Hz, 20000 Hz: fazların genliği en çok -0.11, en az -4.59 dB
+  48000 Hz, 10000 Hz: fazların genliği en çok -0.00, en az -0.00 dB
+  48000 Hz, 15000 Hz: fazların genliği en çok -0.00, en az -0.00 dB
+  48000 Hz, 18000 Hz: fazların genliği en çok -0.01, en az -0.19 dB
+  48000 Hz, 19000 Hz: fazların genliği en çok -0.02, en az -0.57 dB
+  48000 Hz, 20000 Hz: fazların genliği en çok -0.05, en az -1.35 dB

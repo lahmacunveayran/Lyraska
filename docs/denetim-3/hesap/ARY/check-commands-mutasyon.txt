@@ -1,0 +1,6 @@
+check:commands GEÇTİ, typecheck GEÇTİ  M0 bozma yok (temel)
+    → Komut sözleşmesi tamam: 53 komut, arayüzde 53 çağrı; adlar ve argümanlar eşleşiyor.
+check:commands GEÇTİ, typecheck GEÇTİ  M1 arayüz boolean yerine metin gönderir: { compare } → { compare: String(compare) }
+    → Komut sözleşmesi tamam: 53 komut, arayüzde 53 çağrı; adlar ve argümanlar eşleşiyor.
+check:commands YAKALADI, typecheck GEÇTİ  M3 arayüzde argüman adı yanlış: { path } → { pth: path } (yakalanmalı)
+    → Komut sözleşmesi bozuk: |   src/lib/backend.ts:483: "parametric_export" komutunda "pth" diye bir parametre yok |   src/lib/backend.ts:483: "parametric_export" komutuna zorunlu "path" gönderilmiyor

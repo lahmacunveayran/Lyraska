@@ -1,0 +1,160 @@
+
+ RUN  v5.0.3 /home/user/Lyraska/.claude/worktrees/agent-a75463ff42f9c178f
+
+stdout | src/components/ary-denetim.test.tsx > ARY — parametrik ekolayzer arayüzü > ARY-ölçek: sürüklerken ölçek ±18'den ±24'e geçince kazanç 0,4 piksellik harekette sıçramaz
+ARY-ölçek: imleç y = 11,2 / 9,0 / 8,6 px → kazanç 16.9 / 17.1 / 22.9 dB
+
+stdout | src/components/ary-denetim.test.tsx > ARY — parametrik ekolayzer arayüzü > ARY-yükleme: açılıştaki yükleme bitmeden dokunulursa kayıtlı 8 bant ezilmez
+ARY-yükleme: çekirdeğe giden bant sayısı 6 (kayıtlı 8 bant + 1 bekleniyordu)
+
+ ❯ src/components/ary-denetim.test.tsx (9 tests | 8 failed) 971ms
+   ❯ ARY — parametrik ekolayzer arayüzü (8)
+     × ARY-yerel: Türkçe binlik noktasıyla '2.500' Hz iki bin beş yüz hertz olur (10 Hz değil) 304ms
+     × ARY-tür: tür LP'ye çevrilip PK'ye dönünce bandın kazancı kaybolmaz 147ms
+     × ARY-duyuru: dosya yükleme hatası ekran okuyucuya duyurulur (role=alert/status/aria-live) 61ms
+     × ARY-ad: kapalı bandın anahtarı 'açık' diye okunmaz 109ms
+     × ARY-odak: düğümde Delete ile son bant silinince odak sayfanın başına düşmez 74ms
+     × ARY-ölçek: sürüklerken ölçek ±18'den ±24'e geçince kazanç 0,4 piksellik harekette sıçramaz 68ms
+     × ARY-yükleme: açılıştaki yükleme bitmeden dokunulursa kayıtlı 8 bant ezilmez 61ms
+   ❯ ARY — görünüm sekmeleri (WAI-ARIA tabs) (1)
+     × ARY-sekme: sekmeler sekme paneline bağlı ve ok tuşlarıyla gezilebilir 34ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/ary-denetim.test.tsx > ARY — parametrik ekolayzer arayüzü > ARY-yerel: Türkçe binlik noktasıyla '2.500' Hz iki bin beş yüz hertz olur (10 Hz değil)
+AssertionError: expected 10 to be 2500 // Object.is equality
+
+- Expected
++ Received
+
+- 2500
++ 10
+
+ ❯ src/components/ary-denetim.test.tsx:88:42
+     86|     await act(async () => fireEvent.click(within(p).getByRole("button"…
+     87|     await typeInto(within(p).getByRole("textbox", { name: "Frekans" })…
+     88|     expect(lastSent()?.bands[2]?.freqHz).toBe(2500);
+       |                                          ^
+     89|   });
+     90|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  src/components/ary-denetim.test.tsx > ARY — parametrik ekolayzer arayüzü > ARY-tür: tür LP'ye çevrilip PK'ye dönünce bandın kazancı kaybolmaz
+AssertionError: expected { kind: 'peaking', freqHz: 1000, …(3) } to match object { kind: 'peaking', gainDb: 6 }
+(3 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "gainDb": 6,
++   "gainDb": 0,
+    "kind": "peaking",
+  }
+
+ ❯ src/components/ary-denetim.test.tsx:98:34
+     96|     await act(async () => fireEvent.change(kind(), { target: { value: …
+     97|     await act(async () => fireEvent.change(kind(), { target: { value: …
+     98|     expect(lastSent()?.bands[2]).toMatchObject({ kind: "peaking", gain…
+       |                                  ^
+     99|   });
+    100|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  src/components/ary-denetim.test.tsx > ARY — parametrik ekolayzer arayüzü > ARY-duyuru: dosya yükleme hatası ekran okuyucuya duyurulur (role=alert/status/aria-live)
+AssertionError: expected null not to be null
+ ❯ src/components/ary-denetim.test.tsx:108:79
+    106|     await act(async () => fireEvent.click(within(p).getByRole("button"…
+    107|     const message = within(p).getByText(/3\. satır okunamadı/);
+    108|     expect(message.closest('[role="alert"],[role="status"],[aria-live]…
+       |                                                                               ^
+    109|   });
+    110|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  src/components/ary-denetim.test.tsx > ARY — parametrik ekolayzer arayüzü > ARY-ad: kapalı bandın anahtarı 'açık' diye okunmaz
+Error: [2mexpect([22m[31melement[39m[2m).not.toHaveAccessibleName()[22m
+
+Expected element not to have accessible name:
+[32m  Bant 1 açık[39m
+Received:
+[31m  Bant 1 açık[39m
+ ❯ src/components/ary-denetim.test.tsx:118:24
+    116|     expect(toggle).toHaveAttribute("aria-checked", "false");
+    117|     // Ekran okuyucu: "Bant 1 açık, anahtar, kapalı"
+    118|     expect(toggle).not.toHaveAccessibleName("Bant 1 açık");
+       |                        ^
+    119|   });
+    120|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  src/components/ary-denetim.test.tsx > ARY — parametrik ekolayzer arayüzü > ARY-odak: düğümde Delete ile son bant silinince odak sayfanın başına düşmez
+AssertionError: expected <body><div>…(1)</div></body> not to be <body><div>…(1)</div></body> // Object.is equality
+ ❯ src/components/ary-denetim.test.tsx:127:40
+    125|     await act(async () => fireEvent.keyDown(node, { key: "Delete" }));
+    126|     expect(lastSent()?.bands).toHaveLength(4);
+    127|     expect(document.activeElement).not.toBe(document.body);
+       |                                        ^
+    128|   });
+    129|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  src/components/ary-denetim.test.tsx > ARY — parametrik ekolayzer arayüzü > ARY-ölçek: sürüklerken ölçek ±18'den ±24'e geçince kazanç 0,4 piksellik harekette sıçramaz
+AssertionError: expected 5.799999999999997 to be less than 1
+ ❯ src/components/ary-denetim.test.tsx:145:45
+    143|     }
+    144|     console.log(`ARY-ölçek: imleç y = 11,2 / 9,0 / 8,6 px → kazanç ${g…
+    145|     expect(Math.abs(gains[2]! - gains[1]!)).toBeLessThan(1);
+       |                                             ^
+    146|   });
+    147|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  src/components/ary-denetim.test.tsx > ARY — parametrik ekolayzer arayüzü > ARY-yükleme: açılıştaki yükleme bitmeden dokunulursa kayıtlı 8 bant ezilmez
+AssertionError: expected 6 to be 9 // Object.is equality
+
+- Expected
++ Received
+
+- 9
++ 6
+
+ ❯ src/components/ary-denetim.test.tsx:169:38
+    167|       `ARY-yükleme: çekirdeğe giden bant sayısı ${lastSent()?.bands.le…
+    168|     );
+    169|     expect(lastSent()?.bands.length).toBe(9);
+       |                                      ^
+    170|   });
+    171|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  src/components/ary-denetim.test.tsx > ARY — görünüm sekmeleri (WAI-ARIA tabs) > ARY-sekme: sekmeler sekme paneline bağlı ve ok tuşlarıyla gezilebilir
+Error: [2mexpect([22m[31melement[39m[2m).toHaveAttribute([22m[32m[32m"aria-controls"[32m[39m[2m) // element.hasAttribute("aria-controls")[22m
+
+Expected the element to have attribute:
+[32m  aria-controls[39m
+Received:
+[31m  null[39m
+ ❯ src/components/ary-denetim.test.tsx:210:21
+    208|     });
+    209|     const graphic = screen.getByRole("tab", { name: /Grafik/ });
+    210|     expect(graphic).toHaveAttribute("aria-controls");
+       |                     ^
+    211|     await act(async () => graphic.focus());
+    212|     await act(async () => fireEvent.keyDown(graphic, { key: "ArrowRigh…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  8 failed | 2 passed (10)
+   Start at  18:20:50
+   Duration  2.67s (environment 46%, tests 27%, transform 17%, setup 6%, import 3%)
+

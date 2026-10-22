@@ -1,0 +1,17 @@
+// DOĞRULAMA-1: ARY-06 bağımsız kanıt (saf işlev düzeyinde). Depoya girmez.
+import { describe, expect, it } from "vitest";
+import { parseFrequency, roundHz, formatFrequency } from "./parametric";
+
+describe("dog1 ARY-06", () => {
+  it("Türkçe binlik noktası", () => {
+    const rows = ["2.500", "1.000", "12.000", "2500", "2,5k", "2.5k", "1.000,5", "86,3"].map(
+      (t) => {
+        const parsed = parseFrequency(t);
+        return `${t} → parse ${parsed} → roundHz ${parsed === null ? "—" : roundHz(parsed)}`;
+      },
+    );
+    console.log(rows.join("\n"));
+    console.log(`ekranda gösterim: 2500 → "${formatFrequency(2500)}", 10 → "${formatFrequency(10)}"`);
+    expect(parseFrequency("2.500")).toBe(2.5);
+  });
+});

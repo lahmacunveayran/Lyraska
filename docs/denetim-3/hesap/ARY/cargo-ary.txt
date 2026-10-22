@@ -1,0 +1,243 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling lyraska v0.0.55 (/home/user/Lyraska/.claude/worktrees/agent-a7b50cb293c957377/src-tauri)
+    Finished `test` profile [optimized + debuginfo] target(s) in 8m 23s
+     Running unittests src/lib.rs (target/debug/deps/lyraska_lib-ba84adbcfd387021)
+
+running 12 tests
+test audio::peq::ary_denetim::ary_anlamsiz_degerler_sessizce_kabul ... Filter 1: ON PK Fc -1000 Hz Gain 6 dB Q 1        → Ok(ParametricBand { kind: Peaking, freq_hz: 10.0, gain_db: 6.0, q: 1.0, enabled: true })
+Filter 1: ON PK Fc 1000 Hz Gain 1e308 dB Q 1     → Ok(ParametricBand { kind: Peaking, freq_hz: 1000.0, gain_db: 24.0, q: 1.0, enabled: true })
+Filter 1: ON PK Fc 1000 Hz Gain 6 dB Q 0         → Ok(ParametricBand { kind: Peaking, freq_hz: 1000.0, gain_db: 6.0, q: 0.1, enabled: true })
+Filter 1: ON PK Fc 1000 Hz Gain 6 dB Q -5        → Ok(ParametricBand { kind: Peaking, freq_hz: 1000.0, gain_db: 6.0, q: 0.1, enabled: true })
+ok
+test audio::peq::ary_denetim::ary_birden_fazla_preamp ... ön kazanç -4 dB (Equalizer APO: −8 dB)
+
+thread 'audio::peq::ary_denetim::ary_birden_fazla_preamp' (3333) panicked at src/audio/peq.rs:1868:9:
+assertion failed: (profile.preamp_db + 8.0).abs() < 1e-9
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: core::panicking::panic
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:150:5
+   3: lyraska_lib::audio::peq::ary_denetim::ary_birden_fazla_preamp
+             at ./src/audio/peq.rs:1868:9
+   4: lyraska_lib::audio::peq::ary_denetim::ary_birden_fazla_preamp::{closure#0}
+             at ./src/audio/peq.rs:1864:33
+   5: <lyraska_lib::audio::peq::ary_denetim::ary_birden_fazla_preamp::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   6: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+test audio::peq::ary_denetim::ary_bulanik_okuma_ve_gidis_donus ... okunan 2887, reddedilen 17113, gidiş-dönüşte sabit 2887/2887; panik yok
+ok
+test audio::peq::ary_denetim::ary_channel_bolumleri ... filtre sayısı 2, 1 kHz'te uygulanan kazanç 12.00 dB (Equalizer APO: her kanalda 6 dB)
+
+thread 'audio::peq::ary_denetim::ary_channel_bolumleri' (3350) panicked at src/audio/peq.rs:1856:9:
+Channel: L/R bölümleri birleştirildi: 1 kHz'te 12.00 dB
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::audio::peq::ary_denetim::ary_channel_bolumleri
+             at ./src/audio/peq.rs:1856:9
+   3: lyraska_lib::audio::peq::ary_denetim::ary_channel_bolumleri::{closure#0}
+             at ./src/audio/peq.rs:1843:31
+   4: <lyraska_lib::audio::peq::ary_denetim::ary_channel_bolumleri::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+test audio::peq::ary_denetim::ary_ekrandaki_egri_duyulan_egri ... Rbj   44100 Hz  PK 16 kHz +6 dB Q 2                                  en büyük fark  3.00 dB @   18346 Hz (ekranda +4.05, duyulan +1.05)
+Rbj   48000 Hz  PK 16 kHz +6 dB Q 2                                  en büyük fark  2.37 dB @   18346 Hz (ekranda +4.05, duyulan +1.68)
+Rbj   44100 Hz  HS 10 kHz +6 dB Q 0,707                              en büyük fark  0.58 dB @   14159 Hz (ekranda +4.90, duyulan +5.49)
+Rbj   48000 Hz  HS 10 kHz +6 dB Q 0,707                              en büyük fark  0.47 dB @   14572 Hz (ekranda +5.01, duyulan +5.49)
+Rbj   44100 Hz  PK 12 kHz −8 dB Q 4                                  en büyük fark  1.79 dB @   13367 Hz (ekranda -4.10, duyulan -2.31)
+Rbj   48000 Hz  PK 12 kHz −8 dB Q 4                                  en büyük fark  1.43 dB @   13367 Hz (ekranda -4.10, duyulan -2.67)
+Rbj   44100 Hz  AutoEq benzeri (LSC 105, PK 1923, PK 3500, HSC 10k)  en büyük fark  0.18 dB @   14159 Hz (ekranda +1.67, duyulan +1.84)
+Rbj   48000 Hz  AutoEq benzeri (LSC 105, PK 1923, PK 3500, HSC 10k)  en büyük fark  0.14 dB @   14572 Hz (ekranda +1.70, duyulan +1.84)
+Matched   44100 Hz  PK 16 kHz +6 dB Q 2                                  en büyük fark  0.51 dB @   11913 Hz (ekranda +2.56, duyulan +3.07)
+Matched   48000 Hz  PK 16 kHz +6 dB Q 2                                  en büyük fark  0.38 dB @   20000 Hz (ekranda +3.20, duyulan +2.82)
+Matched   44100 Hz  HS 10 kHz +6 dB Q 0,707                              en büyük fark  0.11 dB @   15887 Hz (ekranda +5.15, duyulan +5.26)
+Matched   48000 Hz  HS 10 kHz +6 dB Q 0,707                              en büyük fark  0.09 dB @   16828 Hz (ekranda +5.30, duyulan +5.39)
+Matched   44100 Hz  PK 12 kHz −8 dB Q 4                                  en büyük fark  0.40 dB @   11247 Hz (ekranda -6.28, duyulan -6.68)
+Matched   48000 Hz  PK 12 kHz −8 dB Q 4                                  en büyük fark  0.31 dB @   12988 Hz (ekranda -5.54, duyulan -5.23)
+Matched   44100 Hz  AutoEq benzeri (LSC 105, PK 1923, PK 3500, HSC 10k)  en büyük fark  0.03 dB @   16350 Hz (ekranda +1.77, duyulan +1.80)
+Matched   48000 Hz  AutoEq benzeri (LSC 105, PK 1923, PK 3500, HSC 10k)  en büyük fark  0.02 dB @   17319 Hz (ekranda +1.81, duyulan +1.84)
+Kulaklık PK 16 kHz +6 Q2: ekranda (48 kHz) – duyulan (44,1 kHz) en büyük fark 0.73 dB
+
+thread 'audio::peq::ary_denetim::ary_ekrandaki_egri_duyulan_egri' (3351) panicked at src/audio/peq.rs:2067:9:
+"Equalizer APO ile aynı" tasarımda ekrandaki eğri duyulandan 3.00 dB sapıyor
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::audio::peq::ary_denetim::ary_ekrandaki_egri_duyulan_egri
+             at ./src/audio/peq.rs:2067:9
+   3: lyraska_lib::audio::peq::ary_denetim::ary_ekrandaki_egri_duyulan_egri::{closure#0}
+             at ./src/audio/peq.rs:1997:41
+   4: <lyraska_lib::audio::peq::ary_denetim::ary_ekrandaki_egri_duyulan_egri::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+test audio::peq::ary_denetim::ary_gidis_donus_kayipsiz ... önce: 5 bant, tasarım Matched; sonra: 4 bant, tasarım Rbj
+
+thread 'audio::peq::ary_denetim::ary_gidis_donus_kayipsiz' (3352) panicked at src/audio/peq.rs:1836:9:
+assertion `left == right` failed: kapalı bant kayboldu
+  left: 4
+ right: 5
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: core::panicking::assert_failed_inner
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:434:23
+   3: core::panicking::assert_failed::<usize, usize>
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:394:5
+   4: lyraska_lib::audio::peq::ary_denetim::ary_gidis_donus_kayipsiz
+             at ./src/audio/peq.rs:1836:9
+   5: lyraska_lib::audio::peq::ary_denetim::ary_gidis_donus_kayipsiz::{closure#0}
+             at ./src/audio/peq.rs:1821:34
+   6: <lyraska_lib::audio::peq::ary_denetim::ary_gidis_donus_kayipsiz::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   7: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+test audio::peq::ary_denetim::ary_kapali_ekolayzer_kaydedilip_geri_yuklenir ... --- dışa aktarılan ---
+# Lyraska parametrik ekolayzer (Equalizer APO biçimi)
+# Lyraska'da analog eğriye eşlenmiş tasarım: Equalizer APO'da 10 kHz üstü biraz farklı duyulabilir
+Preamp: -4.00 dB
+Filter 1: OFF LSC Fc 105.00 Hz Gain 0.00 dB Q 0.7071
+Filter 2: OFF PK Fc 250.00 Hz Gain 4.00 dB Q 1.0000
+Filter 3: OFF PK Fc 1000.00 Hz Gain 0.00 dB Q 1.0000
+Filter 4: OFF PK Fc 4000.00 Hz Gain 0.00 dB Q 1.0000
+Filter 5: OFF HSC Fc 10000.00 Hz Gain 0.00 dB Q 0.7071
+---
+geri okuma: Err(Empty)
+
+thread 'audio::peq::ary_denetim::ary_kapali_ekolayzer_kaydedilip_geri_yuklenir' (3353) panicked at src/audio/peq.rs:1813:9:
+Lyraska'nın kendi yazdığı dosya Lyraska'ya geri yüklenemiyor: Err(Empty)
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::audio::peq::ary_denetim::ary_kapali_ekolayzer_kaydedilip_geri_yuklenir
+             at ./src/audio/peq.rs:1813:9
+   3: lyraska_lib::audio::peq::ary_denetim::ary_kapali_ekolayzer_kaydedilip_geri_yuklenir::{closure#0}
+             at ./src/audio/peq.rs:1805:55
+   4: <lyraska_lib::audio::peq::ary_denetim::ary_kapali_ekolayzer_kaydedilip_geri_yuklenir::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+test audio::peq::ary_denetim::ary_utf16_dosya ... arayüzde görünen hata: Dosya okunamadı: stream did not contain valid UTF-8
+ok
+test commands::ary_denetim::ary_parametrik_kayit_oynatici_kilidini_tutar ... 40 parametric_set; kilidin tutulduğu en uzun süre 570.659316ms; visual_frame'in kilit beklemesi en kötü 582.773818ms, p95 88.707073ms; (eğri hesabı 1.679879ms, kaydetme 767.981µs; hata ayıklama derlemesi, /tmp)
+
+thread 'commands::ary_denetim::ary_parametrik_kayit_oynatici_kilidini_tutar' (3355) panicked at src/commands.rs:1031:9:
+visual_frame bir ekran karesinin dörtte birinden uzun bekledi: 582.773818ms
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::commands::ary_denetim::ary_parametrik_kayit_oynatici_kilidini_tutar
+             at ./src/commands.rs:1031:9
+   3: lyraska_lib::commands::ary_denetim::ary_parametrik_kayit_oynatici_kilidini_tutar::{closure#0}
+             at ./src/commands.rs:983:54
+   4: <lyraska_lib::commands::ary_denetim::ary_parametrik_kayit_oynatici_kilidini_tutar::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+test settings::ary_denetim::ary_surum_dusurme_ve_geri_yukseltme ... eski program okudu: kulaklık profili YOK
+geri yükseltmede: crossfeed açık=false, parametrik bant 3 = 0 dB, kulaklık profili YOK
+
+thread 'settings::ary_denetim::ary_surum_dusurme_ve_geri_yukseltme' (3403) panicked at src/settings.rs:458:9:
+assertion failed: back.crossfeed.enabled && back.parametric.bands[2].gain_db == -4.0
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: core::panicking::panic
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:150:5
+   3: lyraska_lib::settings::ary_denetim::ary_surum_dusurme_ve_geri_yukseltme
+             at ./src/settings.rs:458:9
+   4: lyraska_lib::settings::ary_denetim::ary_surum_dusurme_ve_geri_yukseltme::{closure#0}
+             at ./src/settings.rs:409:45
+   5: <lyraska_lib::settings::ary_denetim::ary_surum_dusurme_ve_geri_yukseltme::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   6: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+test settings::ary_denetim::ary_tek_bant_bozuksa_parametrik_ayarin_tamami_gider ... okunan parametrik: 5 bant, ilk bant LowShelf 105 Hz 0 dB, tasarım Matched
+diskte 6000 Hz'lik bant duruyor mu: false; .bozuk yedeği var mı: false
+
+thread 'settings::ary_denetim::ary_tek_bant_bozuksa_parametrik_ayarin_tamami_gider' (3405) panicked at src/settings.rs:344:9:
+tanınan 6 bant da kayboldu (bant başına değil alan başına geri dönüş)
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::settings::ary_denetim::ary_tek_bant_bozuksa_parametrik_ayarin_tamami_gider
+             at ./src/settings.rs:344:9
+   3: lyraska_lib::settings::ary_denetim::ary_tek_bant_bozuksa_parametrik_ayarin_tamami_gider::{closure#0}
+             at ./src/settings.rs:323:61
+   4: <lyraska_lib::settings::ary_denetim::ary_tek_bant_bozuksa_parametrik_ayarin_tamami_gider::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+test settings::ary_denetim::ary_tek_filtre_bozuksa_kulaklik_profili_gider ... kulaklık: açık=false profil=None
+
+thread 'settings::ary_denetim::ary_tek_filtre_bozuksa_kulaklik_profili_gider' (3407) panicked at src/settings.rs:363:9:
+bir filtrenin q'su bozuk diye profilin tamamı gitti
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::settings::ary_denetim::ary_tek_filtre_bozuksa_kulaklik_profili_gider
+             at ./src/settings.rs:363:9
+   3: lyraska_lib::settings::ary_denetim::ary_tek_filtre_bozuksa_kulaklik_profili_gider::{closure#0}
+             at ./src/settings.rs:351:55
+   4: <lyraska_lib::settings::ary_denetim::ary_tek_filtre_bozuksa_kulaklik_profili_gider::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+
+failures:
+
+failures:
+    audio::peq::ary_denetim::ary_birden_fazla_preamp
+    audio::peq::ary_denetim::ary_channel_bolumleri
+    audio::peq::ary_denetim::ary_ekrandaki_egri_duyulan_egri
+    audio::peq::ary_denetim::ary_gidis_donus_kayipsiz
+    audio::peq::ary_denetim::ary_kapali_ekolayzer_kaydedilip_geri_yuklenir
+    commands::ary_denetim::ary_parametrik_kayit_oynatici_kilidini_tutar
+    settings::ary_denetim::ary_surum_dusurme_ve_geri_yukseltme
+    settings::ary_denetim::ary_tek_bant_bozuksa_parametrik_ayarin_tamami_gider
+    settings::ary_denetim::ary_tek_filtre_bozuksa_kulaklik_profili_gider
+
+test result: FAILED. 3 passed; 9 failed; 0 ignored; 0 measured; 412 filtered out; finished in 2.85s
+
+error: test failed, to rerun pass `--lib`

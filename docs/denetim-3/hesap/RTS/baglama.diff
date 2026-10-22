@@ -1,0 +1,61 @@
+diff --git a/src-tauri/src/audio/peq.rs b/src-tauri/src/audio/peq.rs
+index d76f5b1..4e447d2 100644
+--- a/src-tauri/src/audio/peq.rs
++++ b/src-tauri/src/audio/peq.rs
+@@ -1784,3 +1784,8 @@ Filter 4: ON PK Fc 19000 Hz Gain 8 dB Q 3.0
+         assert_eq!(off.boost_db, 0.0);
+     }
+ }
++
++/// Bağımsız denetim (RTS) kanıt testleri.
++#[cfg(test)]
++#[path = "denetim_rts_peq.rs"]
++mod denetim_rts;
+diff --git a/src-tauri/src/audio/player.rs b/src-tauri/src/audio/player.rs
+index 7972269..dc531d5 100644
+--- a/src-tauri/src/audio/player.rs
++++ b/src-tauri/src/audio/player.rs
+@@ -1855,6 +1855,11 @@ pub(crate) fn wait_for_prefill(shared: &SharedState, timeout: Duration) {
+     }
+ }
+ 
++/// Bağımsız denetim (RTS) kanıt testleri.
++#[cfg(test)]
++#[path = "denetim_rts_player.rs"]
++mod denetim_rts;
++
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+diff --git a/src-tauri/src/audio/render.rs b/src-tauri/src/audio/render.rs
+index 53f73e2..614a6d2 100644
+--- a/src-tauri/src/audio/render.rs
++++ b/src-tauri/src/audio/render.rs
+@@ -264,6 +264,11 @@ fn to_device(sample: Sample) -> Sample {
+     }
+ }
+ 
++/// Bağımsız denetim (RTS) kanıt testleri.
++#[cfg(test)]
++#[path = "denetim_rts_render.rs"]
++mod denetim_rts;
++
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+diff --git a/src-tauri/src/commands.rs b/src-tauri/src/commands.rs
+index 1744fd3..fc7f7ef 100644
+--- a/src-tauri/src/commands.rs
++++ b/src-tauri/src/commands.rs
+@@ -838,6 +838,11 @@ pub async fn playback_status(player: State<'_, PlayerState>) -> Result<PlaybackS
+     Ok(player.lock()?.status())
+ }
+ 
++/// Bağımsız denetim (RTS) kanıt testleri.
++#[cfg(test)]
++#[path = "denetim_rts_commands.rs"]
++mod denetim_rts;
++
+ #[cfg(test)]
+ mod tests {
+     use super::*;

@@ -1,0 +1,24 @@
+Sınırlayıcı (limiter.rs) ara değerleyicisinin tam ölçekli sinüste en kötü ölçümü (dBTP; gerçek 0,00):
+     44100: 1k -0.00  5k +0.00  11.025k -0.04  15k -0.00  17k -0.00  18k -0.00  19k -0.00  20k -0.00
+     48000: 1k -0.00  5k -0.00  12k -0.04  15k -0.00  17k -0.02  18k -0.08  19k -0.02  20k -0.12
+     96000: 1k -0.00  5k -0.00  12k -0.04  15k -0.00  17k -0.00  18k -0.01  19k -0.00  20k -0.00
+    192000: 1k +0.00  5k +0.00  12k -0.04  15k +0.00  17k +0.00  18k -0.01  19k +0.00  20k -0.00
+Analiz ölçeri (loudness.rs 4×/12) aynı sinüslerde:
+     44100: 5k -0.00  11.025k -0.17  15k -0.00  18k -0.00  20k -0.00
+     48000: 5k -0.00  12k -0.17  15k -0.02  18k -0.21  20k -0.30
+  44,1 kHz fazların 15000 Hz kazancı: -0.00 -0.00 -0.01 -0.01 -0.01 -0.01 -0.00 -0.00
+  44,1 kHz fazların 18000 Hz kazancı: -0.03 -0.29 -0.67 -0.97 -0.97 -0.67 -0.29 -0.03
+  44,1 kHz fazların 20000 Hz kazancı: -0.11 -1.02 -2.75 -4.59 -4.59 -2.75 -1.02 -0.11
+Bant sınırlı gürültüde kaçırma (sınırlayıcı ara değerleyicisi):
+  sınırlayıcı 8×16, 44100 Hz, 20-20000 Hz gürültü: en kötü kaçırma -0.61 dB
+  sınırlayıcı 8×16, 44100 Hz, 12000-20000 Hz gürültü: en kötü kaçırma -1.13 dB
+  sınırlayıcı 8×16, 44100 Hz, 16000-20000 Hz gürültü: en kötü kaçırma -1.05 dB
+  sınırlayıcı 8×16, 48000 Hz, 20-20000 Hz gürültü: en kötü kaçırma -0.22 dB
+  sınırlayıcı 8×16, 48000 Hz, 12000-20000 Hz gürültü: en kötü kaçırma -0.79 dB
+  sınırlayıcı 8×16, 48000 Hz, 16000-20000 Hz gürültü: en kötü kaçırma -0.47 dB
+  analiz 4×12, 44100 Hz, 20-20000 Hz gürültü: en kötü kaçırma -1.02 dB
+  analiz 4×12, 44100 Hz, 12000-20000 Hz gürültü: en kötü kaçırma -1.43 dB
+  analiz 4×12, 44100 Hz, 16000-20000 Hz gürültü: en kötü kaçırma -1.14 dB
+  analiz 4×12, 48000 Hz, 20-20000 Hz gürültü: en kötü kaçırma -0.56 dB
+  analiz 4×12, 48000 Hz, 12000-20000 Hz gürültü: en kötü kaçırma -0.95 dB
+  analiz 4×12, 48000 Hz, 16000-20000 Hz gürültü: en kötü kaçırma -0.58 dB

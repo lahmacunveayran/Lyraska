@@ -1,0 +1,54 @@
+// ARY: `npm run check:commands` neyi yakalıyor, neyi kaçırıyor? Çalışma ağacının kopyasında küçük
+// bozmalar (mutasyon) yapılır ve denetim betiği o kopyada çalıştırılır.
+// Kullanım: node check-commands-mutasyon.mjs <çalışma ağacı yolu>
+import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+
+const repo = process.argv[2];
+if (!repo) throw new Error("çalışma ağacının yolunu verin");
+
+const mutations = [
+  {
+    name: "M0 bozma yok (temel)",
+    file: null,
+  },
+  {
+    name: "M1 arayüz boolean yerine metin gönderir: { compare } → { compare: String(compare) }",
+    file: "src/lib/backend.ts",
+    from: 'invoke<ParametricState>("parametric_compare", { compare })',
+    to: 'invoke<ParametricState>("parametric_compare", { compare: String(compare) })',
+  },
+  {
+    name: "M3 arayüzde argüman adı yanlış: { path } → { pth: path } (yakalanmalı)",
+    file: "src/lib/backend.ts",
+    from: 'invoke<void>("parametric_export", { path })',
+    to: 'invoke<void>("parametric_export", { pth: path })',
+  },
+];
+
+for (const m of mutations) {
+  const dir = mkdtempSync(join(tmpdir(), "ary-cc-"));
+  cpSync(join(repo, "src"), join(dir, "src"), { recursive: true });
+  cpSync(join(repo, "src-tauri/src"), join(dir, "src-tauri/src"), { recursive: true });
+  cpSync(join(repo, "scripts/check-commands.mjs"), join(dir, "check-commands.mjs"));
+  if (m.file) {
+    const path = join(dir, m.file);
+    const text = readFileSync(path, "utf8");
+    if (!text.includes(m.from)) throw new Error(`${m.name}: kalıp bulunamadı`);
+    writeFileSync(path, text.replace(m.from, m.to));
+  }
+  const run = spawnSync("node", ["check-commands.mjs"], { cwd: dir, encoding: "utf8" });
+  // Tür denetimi (npm run typecheck) aynı kopyada:
+  for (const f of ["tsconfig.json", "package.json", "vite.config.ts", "eslint.config.js"]) {
+    cpSync(join(repo, f), join(dir, f));
+  }
+  symlinkSync(join(repo, "node_modules"), join(dir, "node_modules"));
+  const tsc = spawnSync(join(repo, "node_modules/.bin/tsc"), ["--noEmit"], { cwd: dir, encoding: "utf8" });
+  const out = (run.stdout + run.stderr).trim().split("\n").slice(0, 3).join(" | ");
+  console.log(
+    `check:commands ${run.status === 0 ? "GEÇTİ" : "YAKALADI"}, typecheck ${tsc.status === 0 ? "GEÇTİ" : "YAKALADI"}  ${m.name}\n    → ${out}`,
+  );
+  rmSync(dir, { recursive: true, force: true });
+}

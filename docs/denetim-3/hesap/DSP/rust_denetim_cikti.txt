@@ -1,0 +1,297 @@
+    Blocking waiting for file lock on build directory
+   Compiling lyraska v0.0.55 (/home/user/Lyraska/.claude/worktrees/agent-a955d4da88340075e/src-tauri)
+    Finished `test` profile [optimized + debuginfo] target(s) in 20m 23s
+     Running unittests src/lib.rs (target/debug/deps/lyraska_lib-ba84adbcfd387021)
+
+running 14 tests
+test audio::biquad::denetim_dsp::denetim_dsp_katsayi_dokumu ... ignored
+LS 24 kHz +6 dB @48k: sayısal 1 kHz 0.00 dB, analog 6.00 dB
+HS 22 kHz +12 dB @44.1k: sayısal 16k 0.00 / 20k 0.00 dB; analog 16k 2.96 / 20k 5.02 dB
+
+thread 'audio::biquad::denetim_dsp::denetim_dsp_nyquist_yakininda_raf_sessizce_kaybolur' (28132) panicked at src/audio/denetim_dsp_biquad.rs:171:5:
+raf kayboldu: 0.00 dB
+stack backtrace:
+44100 Hafif: b0 0.9708 b1 -0.9127 a1 -0.8835; ‖g‖₁ = 1.4434 (+3.19 dB)
+44100 Orta: b0 0.9535 b1 -0.9072 a1 -0.8606; ‖g‖₁ = 1.5747 (+3.94 dB)
+44100 Güçlü: b0 0.9449 b1 -0.9076 a1 -0.8525; ‖g‖₁ = 1.6365 (+4.28 dB)
+44100 Hoparlör gibi: b0 0.9328 b1 -0.9246 a1 -0.8573; ‖g‖₁ = 1.8080 (+5.14 dB)
+44100 uç: b0 0.9634 b1 -0.9589 a1 -0.9223; ‖g‖₁ = 1.8693 (+5.43 dB)
+48000 Hafif: b0 0.9730 b1 -0.9194 a1 -0.8925; ‖g‖₁ = 1.4479 (+3.21 dB)
+48000 Orta: b0 0.9570 b1 -0.9142 a1 -0.8712; ‖g‖₁ = 1.5817 (+3.98 dB)
+48000 Güçlü: b0 0.9491 b1 -0.9146 a1 -0.8637; ‖g‖₁ = 1.6448 (+4.32 dB)
+48000 Hoparlör gibi: b0 0.9379 b1 -0.9303 a1 -0.8682; ‖g‖₁ = 1.8183 (+5.19 dB)
+48000 uç: b0 0.9663 b1 -0.9621 a1 -0.9284; ‖g‖₁ = 1.8750 (+5.46 dB)
+96000 Hafif: b0 0.9861 b1 -0.9586 a1 -0.9448; ‖g‖₁ = 1.4741 (+3.37 dB)
+96000 Orta: b0 0.9778 b1 -0.9557 a1 -0.9335; ‖g‖₁ = 1.6233 (+4.21 dB)
+96000 Güçlü: b0 0.9737 b1 -0.9558 a1 -0.9295; ‖g‖₁ = 1.6939 (+4.58 dB)
+96000 Hoparlör gibi: b0 0.9679 b1 -0.9640 a1 -0.9318; ‖g‖₁ = 1.8783 (+5.48 dB)
+96000 uç: b0 0.9828 b1 -0.9807 a1 -0.9635; ‖g‖₁ = 1.9081 (+5.61 dB)
+Hafif: tam ölçekli ilintisiz gürültüde örnek tepesi +1.16 dBFS
+Orta: tam ölçekli ilintisiz gürültüde örnek tepesi +1.77 dBFS
+Güçlü: tam ölçekli ilintisiz gürültüde örnek tepesi +2.00 dBFS
+Hoparlör gibi: tam ölçekli ilintisiz gürültüde örnek tepesi +2.41 dBFS
+Orta: 5 kHz altında ekran (96 kHz) – 44,1 kHz farkı en çok 0.253 dB @ 4743 Hz
+test audio::crossfeed::denetim_dsp::denetim_dsp_crossfeed_sayilari ... ok
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::audio::biquad::denetim_dsp::denetim_dsp_nyquist_yakininda_raf_sessizce_kaybolur
+             at ./src/audio/denetim_dsp_biquad.rs:171:5
+   3: lyraska_lib::audio::biquad::denetim_dsp::denetim_dsp_nyquist_yakininda_raf_sessizce_kaybolur::{closure#0}
+             at ./src/audio/denetim_dsp_biquad.rs:158:57
+   4: <lyraska_lib::audio::biquad::denetim_dsp::denetim_dsp_nyquist_yakininda_raf_sessizce_kaybolur::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test audio::biquad::denetim_dsp::denetim_dsp_nyquist_yakininda_raf_sessizce_kaybolur ... FAILED
+44100 Hz, 10000 Hz: +0.00 +0.00 +0.00 +0.00 +0.00 +0.00 +0.00 +0.00 dB
+44100 Hz, 15000 Hz: -0.00 -0.00 -0.01 -0.01 -0.01 -0.01 -0.00 -0.00 dB
+44100 Hz, 18000 Hz: -0.03 -0.29 -0.67 -0.97 -0.97 -0.67 -0.29 -0.03 dB
+44100 Hz, 20000 Hz: -0.11 -1.02 -2.75 -4.59 -4.59 -2.75 -1.02 -0.11 dB
+48000 Hz, 10000 Hz: -0.00 -0.00 -0.00 -0.00 -0.00 -0.00 -0.00 -0.00 dB
+48000 Hz, 15000 Hz: -0.00 -0.00 -0.00 -0.00 -0.00 -0.00 -0.00 -0.00 dB
+48000 Hz, 18000 Hz: -0.01 -0.06 -0.14 -0.19 -0.19 -0.14 -0.06 -0.01 dB
+48000 Hz, 20000 Hz: -0.05 -0.39 -0.93 -1.35 -1.35 -0.93 -0.39 -0.05 dB
+96000 Hz, 10000 Hz: -0.00 -0.00 -0.00 -0.00 dB
+96000 Hz, 15000 Hz: -0.00 -0.00 -0.00 -0.00 dB
+96000 Hz, 18000 Hz: -0.00 -0.00 -0.00 -0.00 dB
+96000 Hz, 20000 Hz: -0.00 -0.00 -0.00 -0.00 dB
+192000 Hz, 10000 Hz: -0.00 -0.00 dB
+192000 Hz, 15000 Hz: -0.00 -0.00 dB
+192000 Hz, 18000 Hz: -0.00 -0.00 dB
+192000 Hz, 20000 Hz: +0.00 +0.00 dB
+test audio::limiter::denetim_dsp::denetim_dsp_ara_degerleyici_yaniti ... ok
+test audio::limiter::denetim_dsp::denetim_dsp_sinirlayici_dosya ... ignored
+44100 Hz, 1000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+Peaking: RBJ ort 0.696  eşlenmiş ort 0.157
+44100 Hz, 5000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+44100 Hz, 10000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+44100 Hz, 12000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+44100 Hz, 15000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -0.999 dBTP
+44100 Hz, 17000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+44100 Hz, 18000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -0.996 dBTP
+LowShelf: RBJ ort 0.643  eşlenmiş ort 0.200
+44100 Hz, 19000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+44100 Hz, 20000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+48000 Hz, 1000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+48000 Hz, 5000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+48000 Hz, 10000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -0.998 dBTP
+48000 Hz, 12000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -0.959 dBTP
+HighShelf: RBJ ort 0.589  eşlenmiş ort 0.241
+LowPass: RBJ ort 3.972  eşlenmiş ort 0.161
+48000 Hz, 15000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+HighPass: RBJ ort 0.760  eşlenmiş ort 0.127
+BandPass: RBJ ort 4.059  eşlenmiş ort 0.328
+Notch: RBJ ort 0.875  eşlenmiş ort 0.219
+48000 Hz, 17000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+AllPass: RBJ ort 0.000  eşlenmiş ort 0.000
+test audio::biquad::denetim_dsp::denetim_dsp_dogruluk_tablosu_yazdir ... ok
+loudness_db 5.85, boost_db 0.00; 1 kHz: ekolayzerli +0.00 dB, karşılaştırma +5.85 dB
+
+thread 'audio::peq::denetim_dsp::denetim_dsp_ab_telafisi_calan_hizdaki_sesle_uyusur' (28355) panicked at src/audio/denetim_dsp_peq.rs:128:5:
+A/B iki taraf 5.85 dB farklı
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::audio::peq::denetim_dsp::denetim_dsp_ab_telafisi_calan_hizdaki_sesle_uyusur
+             at ./src/audio/denetim_dsp_peq.rs:128:5
+   3: lyraska_lib::audio::peq::denetim_dsp::denetim_dsp_ab_telafisi_calan_hizdaki_sesle_uyusur::{closure#0}
+             at ./src/audio/denetim_dsp_peq.rs:112:56
+   4: <lyraska_lib::audio::peq::denetim_dsp::denetim_dsp_ab_telafisi_calan_hizdaki_sesle_uyusur::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test audio::peq::denetim_dsp::denetim_dsp_ab_telafisi_calan_hizdaki_sesle_uyusur ... FAILED
+PK Q30 +12 iki tarama noktası arasında: ön kazanç -10.27 dB, gerçek tepe 12.00 dB @ 1527.61 Hz, tam ölçekli sinüs çıkışı +1.73 dBFS
+PK Q10 +12 iki tarama noktası arasında: ön kazanç -11.76 dB, gerçek tepe 12.00 dB @ 1527.61 Hz, tam ölçekli sinüs çıkışı +0.24 dBFS
+PK 14 Hz +12 Q 2 (20 Hz altı): ön kazanç -4.10 dB, gerçek tepe 12.00 dB @ 14.00 Hz, tam ölçekli sinüs çıkışı +7.90 dBFS
+LSC 15 Hz +12 Q 2 (rezonanslı raf): ön kazanç -0.00 dB, gerçek tepe 16.58 dB @ 9.60 Hz, tam ölçekli sinüs çıkışı +16.58 dBFS
+
+thread 'audio::peq::denetim_dsp::denetim_dsp_kulaklik_on_kazanci_tepeyi_karsilar' (28356) panicked at src/audio/denetim_dsp_peq.rs:180:5:
+kulaklık düzeltmesi tam ölçekli sesi +16.58 dBFS'e çıkarıyor
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::audio::peq::denetim_dsp::denetim_dsp_kulaklik_on_kazanci_tepeyi_karsilar
+             at ./src/audio/denetim_dsp_peq.rs:180:5
+   3: lyraska_lib::audio::peq::denetim_dsp::denetim_dsp_kulaklik_on_kazanci_tepeyi_karsilar::{closure#0}
+             at ./src/audio/denetim_dsp_peq.rs:139:53
+   4: <lyraska_lib::audio::peq::denetim_dsp::denetim_dsp_kulaklik_on_kazanci_tepeyi_karsilar::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test audio::peq::denetim_dsp::denetim_dsp_kulaklik_on_kazanci_tepeyi_karsilar ... FAILED
+eşlenmiş HS 10 kHz +6 (varsayılan bant) @ 44100: en büyük fark 0.11 dB (15887 Hz: çizilen +5.15, işlemciden ölçülen +5.27)
+eşlenmiş HS 10 kHz +6 (varsayılan bant) @ 48000: en büyük fark 0.09 dB (16828 Hz: çizilen +5.30, işlemciden ölçülen +5.39)
+eşlenmiş PK 12 kHz +9 Q 2 @ 44100: en büyük fark 0.38 dB (16350 Hz: çizilen +3.48, işlemciden ölçülen +3.11)
+eşlenmiş PK 12 kHz +9 Q 2 @ 48000: en büyük fark 0.30 dB (16828 Hz: çizilen +3.12, işlemciden ölçülen +2.81)
+APO'dan içe aktarılmış (RBJ) HSC 10 kHz +6 + PK 16 kHz +6 Q 1.41 @ 44100: en büyük fark 3.01 dB (19433 Hz: çizilen +9.69, işlemciden ölçülen +6.68)
+APO'dan içe aktarılmış (RBJ) HSC 10 kHz +6 + PK 16 kHz +6 Q 1.41 @ 48000: en büyük fark 2.41 dB (20000 Hz: çizilen +9.33, işlemciden ölçülen +6.92)
+eşlenmiş HS 22 kHz +12 (hava bandı) @ 44100: en büyük fark 5.26 dB (20000 Hz: çizilen +5.26, işlemciden ölçülen +0.00)
+eşlenmiş HS 22 kHz +12 (hava bandı) @ 48000: en büyük fark 1.21 dB (17319 Hz: çizilen +3.78, işlemciden ölçülen +4.99)
+
+thread 'audio::peq::denetim_dsp::denetim_dsp_parametrik_cizilen_egri_duyulan_egri' (28358) panicked at src/audio/denetim_dsp_peq.rs:106:5:
+çizilen ile duyulan eğri arasında 5.26 dB fark
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::audio::peq::denetim_dsp::denetim_dsp_parametrik_cizilen_egri_duyulan_egri
+             at ./src/audio/denetim_dsp_peq.rs:106:5
+   3: lyraska_lib::audio::peq::denetim_dsp::denetim_dsp_parametrik_cizilen_egri_duyulan_egri::{closure#0}
+             at ./src/audio/denetim_dsp_peq.rs:45:54
+   4: <lyraska_lib::audio::peq::denetim_dsp::denetim_dsp_parametrik_cizilen_egri_duyulan_egri::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test audio::peq::denetim_dsp::denetim_dsp_parametrik_cizilen_egri_duyulan_egri ... FAILED
+48000 Hz, 18000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -0.932 dBTP
+duyulur bantta en kötü eksik: 3.01 dB — 48000: [-12.0, 12.0, -12.0, 12.0, -12.0, 12.0, -12.0, 12.0, -12.0, 12.0] tepe 15.01 dB @ 20000 Hz, bildirilen 12.00
+20 Hz altında en kötü eksik: 3.02 dB — 192000: [12.0, -12.0, 12.0, -12.0, 12.0, -12.0, 12.0, -12.0, 12.0, -12.0] tepe 15.02 dB @ 2.0 Hz, bildirilen 12.00
+31 Hz +12: 12 Hz sinüs işlemciden +11.89 dB geçti; bildirilen yükseltme 12.00 dB
+
+thread 'audio::eq::denetim_dsp::denetim_dsp_ekolayzer_bildirilen_yukseltme_gercek_tepeyi_karsilar' (28134) panicked at src/audio/denetim_dsp_eq.rs:74:5:
+bildirilen yükseltme gerçek tepeyi karşılamıyor
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::audio::eq::denetim_dsp::denetim_dsp_ekolayzer_bildirilen_yukseltme_gercek_tepeyi_karsilar
+             at ./src/audio/denetim_dsp_eq.rs:74:5
+   3: lyraska_lib::audio::eq::denetim_dsp::denetim_dsp_ekolayzer_bildirilen_yukseltme_gercek_tepeyi_karsilar::{closure#0}
+             at ./src/audio/denetim_dsp_eq.rs:31:71
+   4: <lyraska_lib::audio::eq::denetim_dsp::denetim_dsp_ekolayzer_bildirilen_yukseltme_gercek_tepeyi_karsilar::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test audio::eq::denetim_dsp::denetim_dsp_ekolayzer_bildirilen_yukseltme_gercek_tepeyi_karsilar ... FAILED
+44100→48000: 1k -0.000 10k -0.000 16k -0.000 18k -0.000 19k -0.000 20k +0.000 21k -0.000
+48000 Hz, 19000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+48000→44100: 1k -0.000 10k +0.000 16k +0.000 18k +0.000 19k +0.000 20k -0.000 21k +0.000 | örtüşme 22550 Hz -190.1 dB
+48000 Hz, 20000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -0.884 dBTP
+44100→96000: 1k -0.000 10k -0.000 16k -0.000 18k -0.000 19k -0.000 20k +0.000 21k -0.000
+96000→48000: 1k -0.000 10k -0.000 16k -0.000 18k +0.000 19k -0.000 20k -0.000 21k +0.000 | örtüşme 24500 Hz -184.6 dB | örtüşme 26000 Hz -196.8 dB | örtüşme 28000 Hz -202.8 dB
+88200 Hz, 1000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+192000→44100: 1k -0.000 10k -0.000 16k -0.000 18k +0.000 19k -0.000 20k -0.000 21k +0.000 | örtüşme 22550 Hz -181.1 dB | örtüşme 24050 Hz -193.6 dB | örtüşme 26050 Hz -199.7 dB
+test audio::resample::denetim_dsp::denetim_dsp_yeniden_ornekleme_yaniti ... ok
+88200 Hz, 5000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+88200 Hz, 10000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+88200 Hz, 12000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+88200 Hz, 15000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+88200 Hz, 17000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+88200 Hz, 18000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+88200 Hz, 19000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+88200 Hz, 20000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+96000 Hz, 1000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+96000 Hz, 5000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+96000 Hz, 10000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+96000 Hz, 12000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -0.958 dBTP
+96000 Hz, 15000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+en kötü fark: 0.739 dB — Spec { kind: LowShelf, freq_hz: 6324.55532033676, gain_db: 18.0, q: 8.0 } @ 48000: eşlenmiş 7.10 dB, RBJ 6.36 dB
+
+thread 'audio::biquad::denetim_dsp::denetim_dsp_eslenmis_hicbir_ayarda_rbj_den_kotu_degil' (28131) panicked at src/audio/denetim_dsp_biquad.rs:110:5:
+eşlenmiş RBJ'den 0.74 dB kötü: Spec { kind: LowShelf, freq_hz: 6324.55532033676, gain_db: 18.0, q: 8.0 } @ 48000: eşlenmiş 7.10 dB, RBJ 6.36 dB
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::audio::biquad::denetim_dsp::denetim_dsp_eslenmis_hicbir_ayarda_rbj_den_kotu_degil
+             at ./src/audio/denetim_dsp_biquad.rs:110:5
+   3: lyraska_lib::audio::biquad::denetim_dsp::denetim_dsp_eslenmis_hicbir_ayarda_rbj_den_kotu_degil::{closure#0}
+             at ./src/audio/denetim_dsp_biquad.rs:82:59
+   4: <lyraska_lib::audio::biquad::denetim_dsp::denetim_dsp_eslenmis_hicbir_ayarda_rbj_den_kotu_degil::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test audio::biquad::denetim_dsp::denetim_dsp_eslenmis_hicbir_ayarda_rbj_den_kotu_degil ... FAILED
+96000 Hz, 17000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+96000 Hz, 18000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+96000 Hz, 19000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+96000 Hz, 20000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -0.995 dBTP
+176400 Hz, 1000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+176400 Hz, 5000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+176400 Hz, 10000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+176400 Hz, 12000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+176400 Hz, 15000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+en kötü eksik bildirim 1.85 dB: 192000 Hz Matched: bildirilen 14.95, gerçek 16.80 dB; [ParametricBand { kind: HighShelf, freq_hz: 5705.271289560804, gain_db: 7.739437394901302, q: 2.178925044606028, enabled: true }, ParametricBand { kind: Peaking, freq_hz: 17124.94705081031, gain_db: -1.4510059749845396, q: 0.40804826493464946, enabled: true }, ParametricBand { kind: LowShelf, freq_hz: 13996.742668410927, gain_db: -9.706001029087876, q: 4.521381525769316, enabled: true }, ParametricBand { kind: Peaking, freq_hz: 42.3617429145698, gain_db: 7.846726447433561, q: 4.111089745508815, enabled: true }]
+
+thread 'audio::peq::denetim_dsp::denetim_dsp_parametrik_yukseltme_her_hizda_karsilanir' (28359) panicked at src/audio/denetim_dsp_peq.rs:226:5:
+parametrik yükseltme 1.85 dB eksik bildiriliyor
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::audio::peq::denetim_dsp::denetim_dsp_parametrik_yukseltme_her_hizda_karsilanir
+             at ./src/audio/denetim_dsp_peq.rs:226:5
+   3: lyraska_lib::audio::peq::denetim_dsp::denetim_dsp_parametrik_yukseltme_her_hizda_karsilanir::{closure#0}
+             at ./src/audio/denetim_dsp_peq.rs:186:59
+   4: <lyraska_lib::audio::peq::denetim_dsp::denetim_dsp_parametrik_yukseltme_her_hizda_karsilanir::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test audio::peq::denetim_dsp::denetim_dsp_parametrik_yukseltme_her_hizda_karsilanir ... FAILED
+176400 Hz, 17000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+176400 Hz, 18000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -0.999 dBTP
+176400 Hz, 19000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+176400 Hz, 20000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+192000 Hz, 1000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+192000 Hz, 5000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+192000 Hz, 10000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+192000 Hz, 12000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+192000 Hz, 15000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+192000 Hz, 17000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+192000 Hz, 18000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+test audio::limiter::denetim_dsp::denetim_dsp_yuksek_frekansta_gercek_tepe_tavani_asmaz has been running for over 60 seconds
+192000 Hz, 19000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+192000 Hz, 20000 Hz sinüs (0 dBTP): çıkış gerçek tepesi en çok -1.000 dBTP
+en kötü: -0.884 dBTP (48000 Hz hız, 20000 Hz, faz 2.356)
+
+thread 'audio::limiter::denetim_dsp::denetim_dsp_yuksek_frekansta_gercek_tepe_tavani_asmaz' (28165) panicked at src/audio/denetim_dsp_limiter.rs:38:5:
+çıkış -0.88 dBTP > −1 dBTP
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::audio::limiter::denetim_dsp::denetim_dsp_yuksek_frekansta_gercek_tepe_tavani_asmaz
+             at ./src/audio/denetim_dsp_limiter.rs:38:5
+   3: lyraska_lib::audio::limiter::denetim_dsp::denetim_dsp_yuksek_frekansta_gercek_tepe_tavani_asmaz::{closure#0}
+             at ./src/audio/denetim_dsp_limiter.rs:7:59
+   4: <lyraska_lib::audio::limiter::denetim_dsp::denetim_dsp_yuksek_frekansta_gercek_tepe_tavani_asmaz::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test audio::limiter::denetim_dsp::denetim_dsp_yuksek_frekansta_gercek_tepe_tavani_asmaz ... FAILED
+
+failures:
+
+failures:
+    audio::biquad::denetim_dsp::denetim_dsp_eslenmis_hicbir_ayarda_rbj_den_kotu_degil
+    audio::biquad::denetim_dsp::denetim_dsp_nyquist_yakininda_raf_sessizce_kaybolur
+    audio::eq::denetim_dsp::denetim_dsp_ekolayzer_bildirilen_yukseltme_gercek_tepeyi_karsilar
+    audio::limiter::denetim_dsp::denetim_dsp_yuksek_frekansta_gercek_tepe_tavani_asmaz
+    audio::peq::denetim_dsp::denetim_dsp_ab_telafisi_calan_hizdaki_sesle_uyusur
+    audio::peq::denetim_dsp::denetim_dsp_kulaklik_on_kazanci_tepeyi_karsilar
+    audio::peq::denetim_dsp::denetim_dsp_parametrik_cizilen_egri_duyulan_egri
+    audio::peq::denetim_dsp::denetim_dsp_parametrik_yukseltme_her_hizda_karsilanir
+
+test result: FAILED. 4 passed; 8 failed; 2 ignored; 0 measured; 412 filtered out; finished in 64.14s
+
+error: test failed, to rerun pass `--lib`

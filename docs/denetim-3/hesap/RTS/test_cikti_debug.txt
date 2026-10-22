@@ -1,0 +1,36 @@
+   Compiling lyraska v0.0.55 (/home/user/Lyraska/.claude/worktrees/agent-a93bff2795655c113/src-tauri)
+    Finished `test` profile [optimized + debuginfo] target(s) in 34.94s
+     Running unittests src/lib.rs (target/debug/deps/lyraska_lib-ba84adbcfd387021)
+
+running 9 tests
+test audio::peq::denetim_rts::rts_peq_kanali_yirtik_okur ... RTS yırtık okuma: 200000 tasarım; A 24971, B 10937, karışık 164092 (karışıkken sürüm önce = sonra: 20774)
+ok
+test audio::peq::denetim_rts::rts_peq_tasarim_suresi_ve_ayirma ... RTS tasarım kulaklık (tepe taraması dahil) @ 44100 Hz: ortalama 232 µs, en kötü 316 µs (10 ms'lik paylaşımlı periyodun %3.2'i)
+RTS tasarım kulaklık (tepe taraması dahil) @ 48000 Hz: ortalama 324 µs, en kötü 2898 µs (10 ms'lik paylaşımlı periyodun %29.0'i)
+RTS tasarım kulaklık (tepe taraması dahil) @ 96000 Hz: ortalama 1337 µs, en kötü 43214 µs (10 ms'lik paylaşımlı periyodun %432.1'i)
+RTS tasarım kulaklık (tepe taraması dahil) @ 192000 Hz: ortalama 417 µs, en kötü 2814 µs (10 ms'lik paylaşımlı periyodun %28.1'i)
+RTS tasarım parametrik @ 44100 Hz: ortalama 462 µs, en kötü 10866 µs (10 ms'lik paylaşımlı periyodun %108.7'i)
+RTS tasarım parametrik @ 48000 Hz: ortalama 277 µs, en kötü 550 µs (10 ms'lik paylaşımlı periyodun %5.5'i)
+RTS tasarım parametrik @ 96000 Hz: ortalama 324 µs, en kötü 1868 µs (10 ms'lik paylaşımlı periyodun %18.7'i)
+RTS tasarım parametrik @ 192000 Hz: ortalama 450 µs, en kötü 7844 µs (10 ms'lik paylaşımlı periyodun %78.4'i)
+ok
+test audio::peq::denetim_rts::rts_peq_yirtik_okuma_iki_duz_ayardan_yuksek_tepe_uretir ... RTS en kötü: A tepe 0.00 dB, B tepe 0.00 dB; 400000 tasarım, A 188693, B 205211, karışık 6096, karışığın 1 kHz kazancı en çok ±48.0 dB
+ok
+test audio::player::denetim_rts::rts_bit_perfect_bosluksuz_geciste_bit_derinligi_denetlenmez ... RTS boşluksuz: çalan "rts-bp-24", ekranda bit_perfect=true bit_depth=Some(16)
+RTS 24 bit örnek 0x12d65a aygıta 0x12d600 olarak gider
+ok
+test audio::player::denetim_rts::rts_durdurma_ve_aygit_degisimi_kilidi_gecis_boyunca_tutar ... RTS kilit: açma/sarma hazırlığı 8.6 ms sürdü, durum sorgusu 0.01 ms bekledi; durdur 8.1 ms (sorgu 8.1 ms bekledi); aygıt değişimi 10.2 ms (sorgu 10.3 ms bekledi)
+ok
+test audio::player::denetim_rts::rts_sarma_ve_acma_ust_uste_iki_oturum_ayni_anda_calar ... RTS üst üste: sarma oturumu 6800 kare, açma oturumu 6800 kare aynı 20 ms'de çaldı; duraklatılmış mı: false / false
+RTS eski hazırlık: stop=true faded_out=false (kısılma beklenmeden kesildi)
+ok
+test audio::render::denetim_rts::rts_crossfeed_cok_kanalda_sessizce_atlanir ... RTS 5.1: crossfeed açık, sağ ön kanalın tepesi 0
+ok
+test audio::render::denetim_rts::rts_en_agir_ayarlarla_blok_suresi_ve_ayirma ... RTS blok (10 ms, 2 kanal, 48 kHz, 20+20 eşlenmiş süzgeç, ekolayzer, bas, vuruş, alt oktav, crossfeed, eşitleme, sınırlayıcı; sürekli ayar değişimi): medyan 738 µs, %99 1577 µs, en kötü 2167 µs (periyodun %21.7'i); bellek ayırma 0
+ok
+test commands::denetim_rts::rts_parametrik_ayar_kilit_altinda_diske_yazar ... RTS parametric_set: kilit ortalama 14.89 ms, en kötü 65.40 ms; parçalar: ses kanalı 1.235 ms, disk (sync_all) 1.344 ms, eğriler 2.181 ms
+ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 412 filtered out; finished in 1.96s
+
+EXIT 0

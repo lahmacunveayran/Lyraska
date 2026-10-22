@@ -1,0 +1,124 @@
+// Doğrulayıcı (DOG2) kanıtı, RTS-01'in arayüz ayağı: "Önceki"ye iki kez hızlıca basınca
+// arayüz sarma (seek_playback) ve şarkı açma (open_track) komutlarını AYNI ANDA gönderir mi?
+import { act, renderHook } from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
+import type { PlaybackStatus, TrackInfo } from "../lib/backend";
+import { usePlayback } from "./usePlayback";
+
+const backend = vi.hoisted(() => ({
+  current: null as string | null,
+  position: 0,
+  opens: [] as { path: string; finish: () => void }[],
+  seeks: [] as { seconds: number; finish: () => void }[],
+  /** Çekirdekte aynı anda süren (yanıtı gelmemiş) komutların günlüğü. */
+  log: [] as string[],
+}));
+
+const track = (path: string): TrackInfo => ({
+  path,
+  fileName: path,
+  title: path,
+  artist: null,
+  album: null,
+  albumArtist: null,
+  trackNumber: null,
+  discNumber: null,
+  codec: "flac",
+  sampleRate: 44100,
+  channels: 2,
+  durationSecs: 200,
+});
+
+const status = (): PlaybackStatus => ({
+  state: backend.current ? "playing" : "idle",
+  track: backend.current ? track(backend.current) : null,
+  positionSecs: backend.position,
+  underruns: 0,
+  error: null,
+  bpm: null,
+  output: null,
+});
+
+const inFlight = () =>
+  `süren: ${backend.seeks.map((s) => `seek(${s.seconds})`).join(",")}` +
+  ` ${backend.opens.map((o) => `open(${o.path})`).join(",")}`;
+
+vi.mock("../lib/backend", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/backend")>();
+  return {
+    ...actual,
+    isDesktop: () => true,
+    openTrack: (path: string) =>
+      new Promise<TrackInfo>((resolve) => {
+        backend.opens.push({
+          path,
+          finish: () => {
+            backend.current = path;
+            backend.position = 60;
+            resolve(track(path));
+          },
+        });
+        backend.log.push(`open_track(${path}) gönderildi; ${inFlight()}`);
+      }),
+    seekPlayback: (seconds: number) =>
+      new Promise<PlaybackStatus>((resolve) => {
+        backend.seeks.push({
+          seconds,
+          finish: () => {
+            backend.position = seconds;
+            resolve(status());
+          },
+        });
+        backend.log.push(`seek_playback(${seconds}) gönderildi; ${inFlight()}`);
+      }),
+    getPlaybackStatus: async () => status(),
+    setNextTrack: async () => {},
+  };
+});
+
+beforeEach(() => {
+  backend.current = null;
+  backend.position = 0;
+  backend.opens = [];
+  backend.seeks = [];
+  backend.log = [];
+});
+
+it("DOG2 RTS-01: 'Önceki'ye çift basış sarma ile açmayı aynı anda çekirdeğe gönderir", async () => {
+  const { result } = renderHook(() => usePlayback(["flac"]));
+  act(() => result.current.playList(["A", "B", "C"], "B"));
+  const first = backend.opens.shift()!;
+  await act(async () => {
+    first.finish();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  expect(result.current.player.position).toBeGreaterThan(3);
+
+  // 1. basış: şarkının ortasında → başa sar (seek_playback(0), yanıt henüz gelmedi).
+  act(() => result.current.previous());
+  expect(backend.seeks).toHaveLength(1);
+  // Ekran hemen 0'ı gösterir: 2. basış artık "önceki şarkı" anlamına gelir.
+  expect(result.current.player.position).toBe(0);
+  // 2. basış (sarma yanıtı gelmeden, ör. 150 ms sonra): A açılır.
+  act(() => result.current.previous());
+  for (const line of backend.log) console.log(`DOG2 ${line}`);
+  expect(backend.opens.map((o) => o.path)).toEqual(["A"]);
+  expect(backend.seeks).toHaveLength(1);
+  // İki komut aynı anda çekirdekte: open_track, seek_playback'in yanıtını beklemeden gitti.
+  expect(backend.log.at(-1)).toContain("seek(0)");
+});
+
+it("DOG2 RTS-01 (ters sıra): açma sürerken sarma da gönderilir (çekirdekte begin_seek None döner)", async () => {
+  const { result } = renderHook(() => usePlayback(["flac"]));
+  act(() => result.current.playList(["A", "B", "C"], "B"));
+  const first = backend.opens.shift()!;
+  await act(async () => {
+    first.finish();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  act(() => result.current.next()); // C açılıyor
+  act(() => void result.current.player.seek(30)); // açılış sürerken sarma
+  for (const line of backend.log) console.log(`DOG2 ${line}`);
+  expect(backend.opens.map((o) => o.path)).toEqual(["C"]);
+  expect(backend.seeks).toHaveLength(1);
+});
