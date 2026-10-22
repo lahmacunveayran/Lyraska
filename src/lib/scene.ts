@@ -1,8 +1,10 @@
-/** Ekrandaki görsel sahneler. */
-export type Scene = "sky" | "highway" | "vu" | "spectrum" | "drive";
+import { SHADER_SCENES, type ShaderSceneId } from "./shaderScene";
 
-/** Üst çubuktaki sırayla; 1–5 tuşları da bu sırayı izler. */
-export const SCENES: { id: Scene; name: string }[] = [
+/** Ekrandaki görsel sahneler: beş klasik sahne ve galerideki gölgelendirici sahneleri. */
+export type Scene = "sky" | "highway" | "vu" | "spectrum" | "drive" | ShaderSceneId;
+
+/** Üst çubukta tek tek görünen klasik sahneler. */
+export const CLASSIC_SCENES: { id: Scene; name: string }[] = [
   { id: "sky", name: "Gece göğü" },
   { id: "highway", name: "Gece otoyolu" },
   { id: "vu", name: "VU ibreleri" },
@@ -10,12 +12,35 @@ export const SCENES: { id: Scene; name: string }[] = [
   { id: "drive", name: "Gece sürüşü" },
 ];
 
+/** Galerideki sahneler (üst çubukta "Galeri" düğmesinin altında). */
+export const GALLERY_SCENES: { id: Scene; name: string; hint: string }[] = SHADER_SCENES.map(
+  ({ id, name, hint }) => ({ id, name, hint }),
+);
+
+/** Bütün sahneler; 1–9 ve 0 tuşları ilk onu, PageDown/PageUp sırayla hepsini seçer. */
+export const SCENES: { id: Scene; name: string }[] = [...CLASSIC_SCENES, ...GALLERY_SCENES];
+
+/** Sahnenin tuşu ("1"–"9", "0"); tuşu olmayan sahnede `null`. */
+export function sceneKey(scene: Scene): string | null {
+  const index = SCENES.findIndex((s) => s.id === scene);
+  return index >= 0 && index < 10 ? String((index + 1) % 10) : null;
+}
+
+/** Sıradaki (`step` = 1) ya da önceki (−1) sahne; sonda başa döner. */
+export function nextScene(scene: Scene, step: 1 | -1): Scene {
+  const index = Math.max(
+    0,
+    SCENES.findIndex((s) => s.id === scene),
+  );
+  return SCENES[(index + step + SCENES.length) % SCENES.length]!.id;
+}
+
 const STORAGE_KEY = "lyraska.scene";
 const DEFAULT_SCENE: Scene = "sky";
 
-/** Klavyede 1–5 tuşunun seçtiği sahne; başka tuşta `null`. */
+/** Klavyede 1–9 ve 0 tuşunun seçtiği sahne; başka tuşta `null`. */
 export function sceneForKey(key: string): Scene | null {
-  const index = /^[1-9]$/.test(key) ? Number(key) - 1 : -1;
+  const index = /^[0-9]$/.test(key) ? (Number(key) + 9) % 10 : -1;
   return SCENES[index]?.id ?? null;
 }
 

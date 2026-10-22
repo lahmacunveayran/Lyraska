@@ -1,10 +1,13 @@
 import { DriveScene } from "./DriveScene";
 import { HighwayScene } from "./HighwayScene";
+import { ShaderScene } from "./ShaderScene";
 import { SkyScene } from "./SkyScene";
 import { SpectrumDemo } from "./SpectrumDemo";
 import { SpectrumView } from "./SpectrumView";
 import { VuScene } from "./VuScene";
 import type { Scene } from "../lib/scene";
+import type { SceneLooks } from "../lib/sceneLook";
+import { isShaderScene } from "../lib/shaderScene";
 import type { SkyLook } from "../lib/sky";
 
 const SPECTRUM_BANDS = 16;
@@ -20,6 +23,8 @@ export interface SceneStageProps {
   skyLook: SkyLook;
   /** Çalan şarkının adı (gece sürüşünde teybin ekranında kayar). */
   title?: string | null;
+  /** Galeri sahnelerinin görünümleri (hız, palet). */
+  looks?: SceneLooks;
 }
 
 /** Tüm pencereyi kaplayan görsel sahne. Sahne değişince yenisi yavaşça belirir. */
@@ -30,10 +35,14 @@ export function SceneStage({
   safe,
   skyLook,
   title = null,
+  looks,
 }: SceneStageProps) {
   return (
     <div className="stage" data-scene={scene}>
-      {scene === "vu" ? (
+      {isShaderScene(scene) ? (
+        // Her sahne kendi tuvalinde açılır: yenisi yavaşça belirir.
+        <ShaderScene key={scene} id={scene} playing={playing} safe={safe} look={looks?.[scene]} />
+      ) : scene === "vu" ? (
         <VuScene playing={playing} safe={safe} />
       ) : scene === "highway" ? (
         <HighwayScene playing={playing} safe={safe} />

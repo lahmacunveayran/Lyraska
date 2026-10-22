@@ -54,17 +54,19 @@ lyraska/
 ├── src/                      # Arayüz (React + TypeScript)
 │   ├── components/           # React bileşenleri: PlayerScreen (sahne tüm pencere; üstünde cam katmanlar:
 │   │                         # NowPlaying büyük başlık, InfoStack drop sayacı ve sıradaki, SeekBar şarkı haritası
-│   │                         # şeridi, LyricsOverlay kinetik sözler; sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
+│   │                         # şeridi, LyricsOverlay kinetik sözler; sahneler SceneStage'de, galeri ShaderScene + SceneGallery; sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
 │   │                         # ayarlar; her panel ve sahne bir ErrorBoundary içinde: hata yalnızca o bölümü kapatır)
 │   ├── hooks/                # usePlayer (oynatıcı: aç, çal, sar), usePlayback (oynatıcı + çalma sırası), useLibrary,
 │   │                         # useEqualizer, useHeadphone, useMarker (işaretleme), useSync (ses–görüntü senkronu),
 │   │                         # useVisualFeed (görsel verisi), useSongMap (çalan şarkının haritası), useDrawer
-│   │                         # (çekmece), useScene (sahne, 1–5), useDropToLibrary (sürükle-bırak), useIdle (sinema
-│   │                         # görünümü), useKeyboardFocus (klavye odağı sinema görünümünü tutar), useVisualSafe
-│   │                         # (epilepsi güvenli modu), usePlaybackOptions (ses yüksekliği eşitleme), useSkyLook (gece
-│   │                         # göğünün manzarası: göl, korona, karlı vadi), useCover (kapak), useAbx (kör test),
-│   │                         # useSongKey (çalan şarkının tonu), useParametric (elle parametrik EQ), useCrossfeed
-│   │                         # (crossfeed), useMapFile (şarkı haritası dosyası), useLyrics (şarkı sözleri)
+│   │                         # (çekmece), useScene (sahne, 1–9 ve 0, PageDown/PageUp), useDropToLibrary (sürükle-bırak),
+│   │                         # useIdle (sinema görünümü), useKeyboardFocus (klavye odağı sinema görünümünü tutar),
+│   │                         # useVisualSafe (epilepsi güvenli modu), usePlaybackOptions (ses yüksekliği eşitleme),
+│   │                         # useSkyLook (gece göğünün manzarası: göl, korona, karlı vadi), useCover (kapak),
+│   │                         # useAbx (kör test), useSongKey (çalan şarkının tonu), useParametric (elle
+│   │                         # parametrik EQ), useCrossfeed (crossfeed), useMapFile (şarkı haritası dosyası),
+│   │                         # useLyrics (şarkı sözleri), useScenePresets (galeri sahnelerinin görünümü ve
+│   │                         # hazır ayarlar)
 │   ├── lib/                  # Saf yardımcılar (format, meter, dotFont, vu, sky, highway, queue, sync, songMap,
 │   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile, lyrics,
 │   │                         # clock: akıcı oynatma saati, marks: işaret hesapları, scene: sahne listesi,
@@ -73,8 +75,12 @@ lyraska/
 │   │                         # menüsü, geri gibi tarayıcı davranışlarını kapatır), Rust köprüsü (backend.ts; veri tipleri
 │   │                         # bindings/ altında Rust'tan üretilir, elle düzenlenmez), arayüz hatalarını günlüğe yazma
 │   │                         # (errorReporting.ts), parlama sayacı (flash.ts), WebGL2 çizimi (gl.ts ortak;
-│   │                         # skyRenderer.ts, highwayRenderer.ts), WebGL2 açılamazsa gece göğü için 2D yedek çizim
-│   │                         # (skyFallback.ts)
+│   │                         # skyRenderer.ts, highwayRenderer.ts; galeri: shaderScene.ts, shaderSources.ts
+│   │                         # gölgelendiriciler, shaderRenderer.ts, sceneLook.ts hız ve palet, scenePreset.ts hazır
+│   │                         # ayarlar), WebGL2 açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts), parlaklık
+│   │                         # freni: güvenilmeyen sahnelerin (MilkDrop) son geçişi, bölge parlaklığı karede ≤ r·dt
+│   │                         # (flashGuard.ts; saf hesap ve kanıt flashGuardMath.ts; flashGuardCheck.ts yalnızca
+│   │                         # check:scenes'in parlayan deseni, programa girmez)
 │   └── styles/               # CSS; renkler :root değişkenlerinde
 ├── src-tauri/                # Rust çekirdeği
 │   ├── src/
@@ -99,6 +105,8 @@ lyraska/
 │   │   │   │                 #   (paylaşımlı; ayarla özel mod = bit-perfect), output/simulated.rs = testlerde
 │   │   │   │                 #   aygıtsız sanal çıkış
 │   │   │   ├── abx.rs        #   kör dinleme testi: iki sürümü hizalama, ses yüksekliği eşitleme, işlemsiz A/B/X
+│   │   │   ├── waveform.rs   #   görseller (MilkDrop) için ham dalga: çözme iş parçacığının yazdığı 44,1 kHz kopya,
+│   │   │   │                 #   önceden ayrılmış 4 sn halka; komut iş parçacığı duyulan ana kadarki 1024 örneği okur
 │   │   │   └── player.rs     #   oturumlar, iş parçacıkları, halka tampon (rtrb), boşluksuz geçiş
 │   │   ├── library/          # Müzik kütüphanesi (SQLite, uygulama veri klasöründe)
 │   │   │   ├── db.rs         #   kaynak (klasör ya da tek şarkı) ve şarkı tabloları, Türkçe arama, BPM

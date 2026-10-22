@@ -177,15 +177,28 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
 
 ## Faz 4 — Görsel kütüphane ve v1.0 (18 Ocak – 28 Şubat 2027; lansman Mart 2027 başı)
 
-- [ ] 15+ özgün sahne
-- [ ] Butterchurn / MilkDrop desteği
+- [x] 15+ özgün sahne (0.0.57): beş klasik sahneye on sahnelik galeri eklendi: gece denizi, bulutsu, ışık tüneli,
+      ateşböcekleri, kaleydoskop, ipek şeritler, sarmal gökada, kum tepeleri, yağmurlu cam, kristal ağ. Ortak
+      gölgelendirici çatısı: sahne yalnızca biçimi çizer, parlaklık gece göğünün
+      hız sınırlı hesabından tek çarpanla gelir; her sahne gerçek tarayıcıda parlama sınırıyla denetlenir.
+      Klavye: 1–9, 0; PageDown/PageUp
+- [ ] Butterchurn / MilkDrop desteği — sürüyor. Araştırma (22 Ekim 2026): butterchurn MIT; yaygın preset
+      paketlerinin lisansı yok, Lyraska preset dağıtmaz, kullanıcı kendi `.milk` dosyalarını açar. Temel (0.0.59):
+      Rust'ta görseller için ham dalga biçimi (`visual_waveform`, karışım/sol/sağ 3×1024 bayt, gecikme telafili) ve
+      güvenilmeyen sahneler için parlaklık freni (bölge parlaklığı karede ≤ r·dt; saniyede ≤ 1,65 parlama, güvenli
+      modda ≤ 0,99; kanıtı `flashGuardMath.ts`, tarayıcıda zamana bağlı ölçüm `check:scenes`). Sırada: butterchurn
+      sahnesi ve `.milk` okuma
 - [x] Kinetik şarkı sözleri (0.0.56): sözler yalnızca kullanıcının kendi dosyalarından (şarkının yanındaki `.lrc` ya
       da şarkıya gömülü sözler: ID3 USLT, Vorbis `LYRICS`, MP4 `©lyr`); program söz indirmez, saklamaz, dağıtmaz.
       LRC: satır ve kelime zamanları ("enhanced LRC"), `[offset:]`, aynı zamandaki satır çeviri olarak; UTF-8, UTF-16 ve
       Windows-1254 (eski Türkçe `.lrc` dosyaları). Kelime zamanı yoksa hece sayısıyla tahmin. Sahnede söylenen satır
       kelime kelime belirir (parlaklık değişmez, "animasyonları azalt"ta hareket yok), sıradaki satır soluk; ses
       aygıtının gecikmesi düşülür. Ayarlar > Şarkı sözleri: aç/kapa
-- [ ] Preset sistemi
+- [x] Preset sistemi (0.0.58): galerinin her sahnesinde **Görünüm**: hız (0,5–2×; yalnızca hareket, parlaklık
+      değişmez) ve renk paleti (bölüm teması ya da özgün Buz, Kor, Orman, Gül paletleri; geçiş 1 saniyede karışarak,
+      parlaklıkları temalardan yüksek değil). **Hazır ayarlar**: sahne ve görünümü tek tıkla kurar; altı hazır ayar
+      programla gelir (ör. "Sakin deniz"), kullanıcı kendi ayarını adıyla kaydedip siler (en fazla 50; tarayıcı
+      deposunda, okunurken doğrulanır). Her sahnenin son görünümü hatırlanır
 - [ ] Kod imzalama (Windows "bilinmeyen yayımcı" uyarısının kalkması)
 - [x] **Açık şarkı haritası formatı** (0.0.55; plan, 9 Ekim 2026): Lyraska'nın şarkı haritası (vuruşlar, ölçü
       başları, bölümler, droplar ve güvenleri, enerji, ton) belgelenmiş, sürümlü bir JSON biçiminde dışa ve içe

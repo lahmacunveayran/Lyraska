@@ -1,6 +1,7 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { CrossfeedState, EqState, ParametricState } from "./backend";
+import { createFlashGuard } from "./flashGuard";
 
 /**
  * Sahne denetiminin (`scripts/check-scenes.mjs`) sahte çekirdeği, arayüzün beklediği verinin
@@ -75,5 +76,26 @@ describe("sahne denetiminin sahte çekirdeği", () => {
     for (const field of Object.keys(FULL_EQ_STATE)) {
       expect(response, `"${field}" eksik`).toMatch(new RegExp(`\\b${field}:`));
     }
+  });
+});
+
+describe("parlaklık freninin denetim deseni", () => {
+  it("programa girmez: hiçbir uygulama dosyası denetim modülünü içe aktarmaz", () => {
+    // Bilerek parlayan desen yalnızca `scripts/check-scenes.mjs`'in ayrı paketinde çalışır.
+    const files = readdirSync("src", { recursive: true, encoding: "utf8" }).filter(
+      (f) => /\.(ts|tsx)$/.test(f) && !/\.test\.tsx?$/.test(f) && !f.endsWith("flashGuardCheck.ts"),
+    );
+    expect(files.length).toBeGreaterThan(20);
+    for (const file of files) {
+      expect(readFileSync(`src/${file}`, "utf8"), file).not.toMatch(/flashGuardCheck/);
+    }
+    expect(readFileSync("index.html", "utf8")).not.toMatch(/flashGuardCheck/);
+  });
+
+  it("fren kurulamazsa nedeni döner (çağıran sahneyi göstermez)", () => {
+    const lost = { isContextLost: () => true } as unknown as WebGL2RenderingContext;
+    const setup = createFlashGuard(lost);
+    expect(setup.ok).toBe(false);
+    if (!setup.ok) expect(setup.reason).toMatch(/kayıp/);
   });
 });

@@ -15,6 +15,7 @@ import { LibraryPanel } from "./LibraryPanel";
 import { MarkerPanel } from "./MarkerPanel";
 import { NowPlaying } from "./NowPlaying";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { SceneGallery } from "./SceneGallery";
 import { SceneStage } from "./SceneStage";
 import { SettingsPanel } from "./SettingsPanel";
 import { SyncPanel } from "./SyncPanel";
@@ -28,7 +29,7 @@ import {
   type KeyMap,
   type SongMap,
 } from "../lib/backend";
-import { SCENES } from "../lib/scene";
+import { CLASSIC_SCENES } from "../lib/scene";
 import { fileStem, trackTitle } from "../lib/format";
 import { confidentDrops, themeAt } from "../lib/songMap";
 import { timelineLayout, type TimelineLayout } from "../lib/timeline";
@@ -48,6 +49,7 @@ import { usePlayback } from "../hooks/usePlayback";
 import { useLivePosition, type PlayerControls } from "../hooks/usePlayer";
 import { usePlaybackOptions } from "../hooks/usePlaybackOptions";
 import { useScene } from "../hooks/useScene";
+import { useScenePresets } from "../hooks/useScenePresets";
 import { useSkyLook } from "../hooks/useSkyLook";
 import { useCover } from "../hooks/useCover";
 import { useSongKey } from "../hooks/useSongKey";
@@ -91,6 +93,7 @@ export function PlayerScreen() {
   const visualSafe = useVisualSafe();
   const playbackOptions = usePlaybackOptions();
   const [scene, chooseScene] = useScene();
+  const scenePresets = useScenePresets();
   const skyLook = useSkyLook();
 
   const playback = usePlayback(info.supportedExtensions);
@@ -275,7 +278,7 @@ export function PlayerScreen() {
         fallback={() => (
           <div className="stage" data-scene="error">
             <p className="stage__error" role="alert">
-              Sahne çizilemedi; hata günlüğe yazıldı. Başka bir sahne seçebilirsiniz (1–5).
+              Sahne çizilemedi; hata günlüğe yazıldı. Başka bir sahne seçebilirsiniz (1–9, 0).
             </p>
           </div>
         )}
@@ -286,6 +289,7 @@ export function PlayerScreen() {
           hasTrack={hasTrack}
           safe={visualSafe.safe}
           skyLook={skyLook.look}
+          looks={scenePresets.looks}
           title={
             status.track
               ? [status.track.artist, status.track.title].filter(Boolean).join(" · ")
@@ -316,7 +320,7 @@ export function PlayerScreen() {
             <span className="brand__name">Lyraska</span>
           </div>
           <nav className="scenes" aria-label="Sahne">
-            {SCENES.map(({ id, name }, index) => (
+            {CLASSIC_SCENES.map(({ id, name }, index) => (
               <button
                 key={id}
                 type="button"
@@ -328,6 +332,7 @@ export function PlayerScreen() {
                 {name}
               </button>
             ))}
+            <SceneGallery scene={scene} onChoose={chooseScene} presets={scenePresets} />
           </nav>
           <div className="topbar__actions">
             {chromeButton("library", "Kütüphane", <LibraryIcon />)}

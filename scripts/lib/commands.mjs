@@ -136,6 +136,8 @@ function rustToTsInner(type) {
     return head;
   }
   if (/^\(\s*\)$/.test(t)) return "void";
+  // Ham bayt yanıtı: arayüze ArrayBuffer olarak (eski WebView'de sayı dizisi) gelir.
+  if (/^(tauri::)?(ipc::)?Response$/.test(t)) return "ArrayBuffer | number[]";
   if (/^&?'?\w*\s*(mut\s+)?str$/.test(t) || /^(String|PathBuf|&Path|Path)$/.test(t))
     return "string";
   if (/^&/.test(t)) return rustToTsInner(t.replace(/^&('\w+\s+)?(mut\s+)?/, ""));

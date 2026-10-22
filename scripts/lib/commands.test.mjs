@@ -65,6 +65,9 @@ describe("Rust tarafı ayrıştırma", () => {
     expect(rustToTs("Result<Option<Vec<String>>, String>")).toBe("null | string[]");
     expect(rustToTs("Result<(), String>")).toBe("void");
     expect(rustToTs("crate::analysis::key::KeyMap")).toBe("KeyMap");
+    expect(normalizeTs(rustToTs("Result<tauri::ipc::Response, String>"))).toBe(
+      "ArrayBuffer | number[]",
+    );
     expect(rustToTs("Vec<TrackRow>", renames)).toBe("LibraryTrack[]");
     expect(normalizeTs("Promise<LibraryTrack[] | null>")).toBe("LibraryTrack[] | null");
   });

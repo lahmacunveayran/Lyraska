@@ -20,6 +20,7 @@ PlayerScreen ── usePlayback ── invoke ──▶ commands.rs (ince) ─�
      │          useLibrary                                    ──▶ library::service
      │          useSongMap                                    ──▶ analysis (önbellek)
      └─ sahneler ─ useVisualFeed ─ her karede visual_frame ──▶ visual_bridge
+                   (MilkDrop) ─ her karede visual_waveform ──▶ audio::player (dalga dokunuşu, ham bayt)
 ```
 
 ## İş parçacıkları
@@ -28,6 +29,7 @@ PlayerScreen ── usePlayback ── invoke ──▶ commands.rs (ince) ─�
 | --------------------------- | ---------------------------------------------------------- | ------------------------------------------- |
 | Tauri komutları             | Arayüzün isteklerini karşılar                              | Kısa sürer; ağır işi arka plana verir       |
 | Çözme (`player.rs`)         | Dosyayı çözer, boşluksuz geçiş, hız dönüştürme             | Halka tampona (rtrb) yazar                  |
+| ↳ dalga dokunuşu            | Halkaya gidenin 44,1 kHz kopyası (`audio/waveform.rs`)     | Önceden ayrılmış halka; kısa kilit          |
 | **Ses çıkışı**              | Halka tampondan okur, EQ, eşitleme, aygıta yazar           | **Gerçek zamanlı:** ayırma/kilit/panik yok  |
 | Analiz (şarkı açılınca)     | Spektrum, seviye, vuruş, şarkı haritası, LUFS, ton         | Sonuç önbelleğe yazılır                     |
 | Hızlı ölçüm                 | Yalnızca ses yüksekliği (EBU R128), FFT'siz                | İlk sesten önce bitsin diye ayrı ve hızlı   |
@@ -164,6 +166,29 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
   anda sıçramaz (test). Konum görsellerle aynıdır (ses aygıtının gecikmesi düşülür).
 - Arayüz her ekran karesinde `visual_frame` ister; `visual_bridge` çalma konumuna (ekran ve aygıt
   gecikmesi telafi edilerek) karşılık gelen kareyi verir. Görseller ses yolundan veri çekmez.
+- **Ham dalga biçimi** (`audio/waveform.rs`, komut `visual_waveform`; MilkDrop/Butterchurn için): analizde dalga
+  saklanmaz (4 dakikalık şarkıda kare başına anlık görüntü onlarca MB olurdu), çalarken canlı bir kopya alınır.
+  - **Kim yazar:** çözme iş parçacığı. Halka tampona yazdığı her dilimi önce seyreltip dokunuşa yazar. Bu nokta
+    aygıt hızına çevrilmiş tek parça akıştır: her örneğin yeri ses çıkışının "duyulan" sayacıyla
+    (`output_heard`) aynı karedir; boşluksuz geçişte şarkılar bu akışta art arda gelir. Ses çıkışının gerçek
+    zamanlı geri çağrısı dokunuşa hiç dokunmaz (`ses_yolu_bellek_ayirmaz` etkilenmez). Dokunuş ekolayzerden önceki
+    sesi görür.
+  - **Seyreltme:** aygıt hızı 88,2 kHz ve üstündeyse [1, 2, 1]/4 süzgeçle ikiye bölünür (Nyquist yakını ≥ 30 dB
+    bastırılır), sonra doğrusal ara değerle 44,1 kHz'e getirilir. Süzgeçler simetrik: gecikme yok, `j`. örnek
+    akışın tam `j · hız / 44100`. karesindedir. 48 kHz'te katlanan bölge yalnız 22,05–24 kHz (görsele etkisi yok).
+  - **Halka:** 4 sn (44,1 kHz'te 176 400 kare, sol/sağ `f32`, ~1,4 MB), oturum kurulurken bir kez ayrılır. Gereken:
+    halka tampon (2 sn) + aygıt arabelleği (~0,1 sn) ileride, ses gecikmesi (en çok 0,4 sn) + 1024 örnek geride
+    → ~2,6 sn; test `dalga_dokunusu_yeterince_uzun` denetler.
+  - **Kim okur:** Tauri komut iş parçacığı (`Player::visual_waveform`): `visual_frame` ile aynı an (duyulan +
+    ekran gecikmesi − ses aygıtı gecikmesi) ile biten son 1024 örnek; 3 × 1024 bayt (karışım, sol, sağ), WebAudio
+    `getByteTimeDomainData` biçimi (128 = sessizlik). Her örneğe ait olduğu şarkının −14 LUFS eşitleme kazancı
+    uygulanır (eşitleme kapalı olsa da; sessiz kaydedilmiş şarkıda da dalga görünsün), kırpılır. JSON yerine ham
+    yanıt (`tauri::ipc::Response`, arayüzde `ArrayBuffer`).
+  - **Eşzamanlama:** kısa bir `Mutex` (iki taraf da gerçek zamanlı değil; yazar bir dilimi, okuyucu 2 × 1024 örneği
+    kopyalar, seyreltme kilit dışında). Çözme halka tamponda 2 sn önden gittiği için kısa bekleme sese yansımaz.
+  - **Geçersiz kılma:** dokunuş oturuma aittir. Sarma, şarkı açma, aygıt değişimi yeni oturum (yeni akış, boş
+    dokunuş) kurar: eski konumun örneği görünmez. Geçiş sürerken ve kör testte boş yanıt; duraklatınca ve şarkı
+    bitince sessizlik (hepsi 128). Henüz yazılmamış ya da halkadan çıkmış örnek sessizliktir, eski veri değil.
 - Her sahne yönetmen notunun üç katmanını kullanır:
   - Gece göğü (`sky.ts`) ve gece otoyolu (`highway.ts`): bölüm teması, ruh hâli, drop öncesi gerilim ve drop
     açılımı, ölçü başı. Doku: vuruş yoğunluğu akışı (otoyolda kıvrılmayı ve şehri), tizlerin canlılığı yıldızların
@@ -175,7 +200,63 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
   - Gece sürüşü (`DriveScene`): ön camda gece otoyolunun aynı çizimi; torpidonun ve teybin ışığı sahne ışığından,
     teybin VU ibreleri ve spektrumu tek görsel veri akışından. Kasetin makaraları çalarken döner ("animasyonları
     azalt"ta durur). Çerçeve açıkken teyp geri planda (kısık), sinema görünümünde yavaşça belirir.
+  - Galeri (`shaderScene.ts`, `shaderSources.ts`, `shaderRenderer.ts`, `ShaderScene`): gece denizi, bulutsu, ışık
+    tüneli, ateşböcekleri, kaleydoskop, ipek şeritler, sarmal gökada, kum tepeleri, yağmurlu cam, kristal ağ. Her biri tek bir parça gölgelendiricisidir ve gece göğünün saf hesabını
+    (`stepSky`) paylaşır: bölüm teması renkleri, gerilim ve açılım biçimi, vuruşlar akışı sürer. Sahnenin kodu
+    yalnızca biçimi çizer; parlaklık ortak gövdedeki tek çarpandan gelir (`sceneLevel`: perde parlaklığının hız
+    sınırlı, tekdüze dönüşümü; müzik ışığı en fazla %28 güçlendirir). Gölgelendiriciye anlık vuruş seviyesi gitmez.
+  - Galeri görünümü ve hazır ayarlar (`sceneLook.ts`, `scenePreset.ts`, `useScenePresets`, galeri panosu
+    `SceneGallery`): **hız** (0,5–2×) yalnızca hareketi ölçekler. Gölgelendiriciye akış saati yerine sahnenin kendi
+    saati gider: her karede akış saatinin artışının (sarılmada modüloyla) hız katı kadar ilerler ve `foldTime` ile
+    katlanır; `stepSky`'a giden süre ölçeklenmez (parlaklığın hız sınırı aynı kalır), kırpışma saati de bilerek
+    ölçeklenmez (küçük ışıkların parlaklık değişimi hızlanmasın). **Palet**: bölüm teması ya da sabit özgün palet
+    (`--scene-palette-<id>-low/high`); değişince görünen renklerden 1 saniyede doğrusal karışır (renk kanalı
+    saniyede en fazla tam ölçek). Sabit paletlerin parlaklığı temalarınkini aşmaz (`sceneLook.test.ts`), sahne
+    denetimi iki sahneyi en parlak palette ve 2× hızda da ölçer. Parlaklık parametresi yoktur: parlaklık yalnızca
+    `sceneLevel`'dan gelir. Hazır ayarlar ve her sahnenin son görünümü tarayıcı deposunda (`lyraska.scenePresets`,
+    `lyraska.sceneLooks`; sürümlü JSON); okunurken doğrulanır (hız sınırlanır, bilinmeyen sahne/palet atlanır,
+    en fazla 50 kayıt, ad en fazla 40 karakter).
   - Parlaklığı değiştiren her değer hız sınırlıdır (güvenli modda yarı hız); her sahnenin kendi parlama testi var.
+
+## Epilepsi güvenliği
+
+Kural: hiçbir sahne saniyede 3'ten fazla parlamaz (WCAG 2.3.1: bağıl parlaklıkta ≥ 0,1'lik iki zıt değişim, görüş
+alanının ~%25'i büyüklüğünde bir alanda; `lib/flash.ts` sayar). Güvenli modda hedef saniyede ≤ 1.
+
+- **Kendi sahnelerimiz**: parlaklık hız sınırlı tek çarpandan gelir (yukarıda); sessiz → tam ses farkı parlama
+  eşiğinin altında kalır (`check:scenes` her temada ölçer).
+- **Güvenilmeyen sahneler için parlaklık freni** (`lib/flashGuard.ts`, saf hesap ve kanıt `lib/flashGuardMath.ts`):
+  MilkDrop presetleri (butterchurn) gibi parlaklığı müzikten bağımsız sıçrayabilen, CI'da denenemeyen (kullanıcının
+  kendi dosyaları) görüntüler için WebGL2 son geçişi. Sahne kendi görünmez tuvaline/dokusuna çizer; görünür tuvale
+  yalnızca fren çizer. Görüntü 32×18 hücreye, hücre 8×8 bloğa bölünür; her karede:
+  - Ölçüm ekran kartında: girdinin blok ortalamaları (doğrusal RGB), önceki gösterilen görüntünün blok ortalamaları
+    (ping-pong durum), hücre başına köşe ağırlıklı parlaklık farkları.
+  - Gösterilen piksel `O = H_b + a(b)·(X − H_b)`: önceki gösterilen blok rengiyle yeni görüntünün karışımı. Pay
+    `a`, hücre köşelerinde seçilir (köşeye dokunan hücrelerin en küçüğü) ve blok içinde çift doğrusal karışır; fren
+    devrede değilken `a = 1`, görüntü bit bit aynı geçer. Parlaklaşmada da ani kararmada da aynı formül.
+  - **Sınır (kesin)**: her hücrenin gösterilen ortalama parlaklığı bir karede en çok `r·dt` değişir; hücrelerden
+    oluşan her pencerenin ortalaması hücrelerin ağırlıklı ortalaması olduğundan o da. 0,1'lik bir değişim en az
+    `0,1/r` sn sürer: saniyede ≤ `r/0,2` parlama; ekranın 8 bit yuvarlaması dahil ≤ `r / (2·(0,1 − 2·0,0045))`.
+    Normal mod r = 0,3/sn → ≤ 1,65; güvenli mod r = 0,18/sn → ≤ 0,99. `dt` en çok 0,1 sn sayılır.
+  - Saklama: `EXT_color_buffer_float` varsa R32F; yoksa RGBA8'de 24 bit sabit nokta (aynı sınır). Kurulum bir öz
+    denetimle biter (beyaz kare siyahtan ancak `r·dt` açılmalı). Kurulamazsa `createFlashGuard` `{ ok: false }`
+    döndürür: güvenilmeyen sahne hiç gösterilmez; fren kapatılamaz, sessizce atlanamaz.
+  - İlk karede (ya da `reset`) gösterilen siyahtır: sahne en çok `r` hızla belirir (beyaz ekran ~3,3 sn).
+  - Bilinen sınırlar: (1) hücre kenarlarına hizasız bir pencerede, kenar hücrelerinin içindeki dağılım bir terim
+    ekler; tekdüze ve hücreden büyük ölçekli değişimlerde sıfırdır, köşe ağırlıkları birinci dereceden dağılımı da
+    görür; ancak hücre içinde ortalaması ve köşe ağırlıklı toplamları sıfır olan, belirli bir pencerenin kenarına göre
+    kurgulanmış ince desenler kesin sınırın dışındadır. (2) Aynı parlaklıkta kırmızı ↔ başka renk titreşimi
+    (WCAG "red flash") parlaklık frenine görünmez; doymuş kırmızı ↔ karanlık geçişleri sınırlıdır. Gerekirse bir
+    "kırmızılık" kanalı aynı yöntemle sınırlanır. (3) Fren hızlı ve büyük ölçekli hareketi de yavaşlatır (iz
+    bırakır): sınır parlamayı değil parlaklık değişim hızını keser.
+  - Butterchurn kendi WebGL2 bağlamında çizer; çıktısı her karede `processSource` ile dokuya yüklenir
+    (`texImage2D`). Bağlamlar arası kopya sürücüye göre işlemciden geçebilir; gerçek cihazda ölçülmeli.
+- **Denetim**: `flashGuardMath` testleri (işlemcideki kaynak uygulamayla kötü niyetli girdiler: 0,5–30 Hz kare
+  dalgalar, gürültü, tek bölge, kırmızı, hücre yarılarının titreşimi; yavaş görüntü ve gece göğünün parlaklık eğrisi
+  değişmeden geçer) ve `check:scenes`'teki zamana bağlı ölçüm: `flashGuardCheck.ts` (yalnızca denetim paketinde,
+  programa girmez) bilerek parlayan deseni gerçek tarayıcıda frenden geçirir, her kare ekranı okur, 4 piksel adımlı
+  bütün WCAG pencerelerinde `countFlashes` ile sayar. Frensiz denetim saniyede ~10 parlama görmeli (ölçüm
+  çalışıyor), frenli her durum ≤ 3 (güvenli mod ≤ 1).
 
 ## Arayüz yapısı
 
@@ -191,7 +272,9 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
 - Durum ve davranış hook'lardadır:
   - `usePlayback`: oynatıcı ve çalma sırası.
   - `useDrawer`: çekmece ve Esc.
-  - `useScene`: sahne seçimi ve 1–5 tuşları.
+  - `useScene`: sahne seçimi; 1–9 ve 0 tuşları, PageDown/PageUp sıradaki/önceki sahne (`SceneGallery`: üst
+    çubuktaki galeri listesi).
+  - `useScenePresets`: galeri sahnelerinin görünümü (hız, palet) ve hazır ayarlar.
   - `useDropToLibrary`: sürükle-bırak.
   - `useIdle`: sinema görünümü.
   - `useSongMap`: çalan şarkının haritası.
@@ -235,6 +318,7 @@ Her kural ya bir testle ya da CI'daki bir adımla denetlenir. Elle hatırlanmas�
 | Ölçülen bas tepeleri gerçek artışı karşılar, gereksiz kısmaz                       | `audio::bass` testi `olculen_bas_tepeleri_…`                                                         |
 | Vuruş ilk anı güçlendirir; sürekli basa ve ortaya dokunmaz                         | `audio::punch` testleri, `audio::bass` testi `vurus_…`                                               |
 | Boşluksuz geçişte yeniden örneklenen dalga sınırda kopmaz                          | `audio::player` testi `bosluksuz_geciste_yeniden_…`                                                  |
+| Görsel dalga biçimi duyulan anla biter, sarmada eski veri yok                      | `audio::player` testleri `dalga_bicimi_…`, `audio::waveform` testleri                                |
 | Şarkı sınırında yeni şarkı ilk karesinden kendi seviyesinde                        | `audio::normalize` testi `sessizden_yuksege_…`                                                       |
 | Ekolayzer koruması kazançtan önce kalkmaz, ilk kare korumalı                       | `audio::normalize` testi `esitleme_acilinca_…`                                                       |
 | Sahne denetiminin sahte çekirdeği arayüzün tipleriyle aynı                         | `src/lib/sceneCheck.test.ts` (üretilen tipe bağlı)                                                   |
@@ -279,6 +363,8 @@ Her kural ya bir testle ya da CI'daki bir adımla denetlenir. Elle hatırlanmas�
 | Ölçü belirsizse ölçü başı vurgulanmaz (yönetmen, otoyol, bilgi kartı)              | `structure` testi `olcu_basi_tutarsiz_…`, `director`, highway, bileşen testi                         |
 | Hiçbir sahne saniyede 3'ten fazla parlamaz                                         | Sahne testleri (`sky`, `highway`, `stageLight`) + `npm run check:scenes` (CI)                        |
 | Parlama sınırı her renk temasında ve her gök manzarasında                          | `npm run check:scenes` (temaya göre renklenen sahneler, CI)                                          |
+| Parlaklık freni: hücre ortalaması bir karede ≤ r·dt, saniyede ≤ 1,65 (güvenli ≤ 1) | `flashGuardMath` testleri + `check:scenes` zamana bağlı ölçüm (frenli ve frensiz desen, CI)          |
+| Parlayan denetim deseni programa girmez                                            | `sceneCheck` testi "programa girmez"                                                                 |
 | Yasaklı lisans yok                                                                 | `npm run check:licenses`, `cargo deny` (CI)                                                          |
 | Üçüncü taraf lisans bildirimleri pakette ve güncel                                 | `npm run check:notices` (CI; `npm run notices` üretir)                                               |
 | Depoda ses dosyası yok                                                             | `npm run check:audio` (CI)                                                                           |
