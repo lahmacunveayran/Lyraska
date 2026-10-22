@@ -68,17 +68,32 @@ for (const dir of ["src", "scripts"]) {
   }
 }
 
-// Çevrimdışı: arayüzde uzak adres yok (yorumlar ve testler hariç).
+// Çevrimdışı: arayüzde uzak adres yok (yorumlar ve testler hariç): http(s), ws(s), ftp ve
+// protokolsüz `//alan.adi/...` (CSS `url(//…)`, `src="//…"`).
+const REMOTE =
+  /\b(?:https?|wss?|ftp):\/\/|(?:url\(\s*["']?|(?:src|href)\s*=\s*["'])\/\/[\w.-]+\.[a-z]{2,}/i;
 for (const file of [...walk(join(ROOT, "src")), join(ROOT, "index.html")]) {
   if (!/\.(ts|tsx|css|html)$/.test(file) || /\.test\./.test(file)) continue;
   const lines = readFileSync(file, "utf8").split("\n");
   lines.forEach((line, i) => {
     // Yorumlar atlanır; `https://` içindeki `//` yorum değildir (önünde `:` olan `//` kalır).
-    const code = line.replace(/(^|[^:])\/\/.*$/, "$1").replace(/^\s*\*.*$/, "");
-    if (/https?:\/\//.test(code)) {
+    const code = line.replace(/(^|[^:("'=])\/\/.*$/, "$1").replace(/^\s*\*.*$/, "");
+    if (REMOTE.test(code)) {
       problems.push(`${relative(ROOT, file)}:${i + 1}: uzak adres (program internete bağlanmaz)`);
     }
   });
+}
+// Çekirdekte ağ kodu yok: soket, HTTP istemcisi.
+for (const file of walk(join(ROOT, "src-tauri/src"))) {
+  if (!file.endsWith(".rs")) continue;
+  const text = readFileSync(file, "utf8");
+  for (const m of text.matchAll(
+    /\b(std::net|TcpStream|TcpListener|UdpSocket|reqwest|ureq|hyper::)/g,
+  )) {
+    problems.push(
+      `${relative(ROOT, file)}:${lineOf(text, m.index)}: ağ kodu (${m[1]}); program internete bağlanmaz`,
+    );
+  }
 }
 const csp = JSON.parse(readFileSync(join(ROOT, "src-tauri/tauri.conf.json"), "utf8")).app.security
   .csp;

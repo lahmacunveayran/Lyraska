@@ -209,7 +209,11 @@ pub fn notice_dialog(text: &str, error: bool) {
         let script = "Add-Type -AssemblyName System.Windows.Forms; \
             [void][System.Windows.Forms.MessageBox]::Show($env:LYRASKA_NOTICE, 'Lyraska', 'OK', \
             $env:LYRASKA_NOTICE_ICON)";
-        let _ = std::process::Command::new("powershell")
+        // Tam yol: PATH'e ve programın kendi klasöründeki aynı adlı bir dosyaya güvenilmez.
+        let system_root = std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into());
+        let powershell = std::path::Path::new(&system_root)
+            .join(r"System32\WindowsPowerShell\v1.0\powershell.exe");
+        let _ = std::process::Command::new(powershell)
             .args(["-NoProfile", "-NonInteractive", "-Command", script])
             .env("LYRASKA_NOTICE", text)
             .env(

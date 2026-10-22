@@ -267,6 +267,11 @@ pub async fn seek_playback(
 /// analiz o ana yetişmediyse `null` döner.
 #[tauri::command]
 pub async fn visual_frame(player: State<'_, PlayerState>) -> Result<Option<VisualFrame>, String> {
+    // Aygıt değiştiyse şarkı yeni aygıtta kilit dışında yeniden açılır (bkz. `playback_status`).
+    let transition = player.lock()?.begin_device_recovery();
+    if transition.is_some() {
+        finish_transition(transition, &player).await?;
+    }
     Ok(player.lock()?.visual_now().map(VisualFrame::from))
 }
 
@@ -892,7 +897,9 @@ pub async fn abx_stop(player: State<'_, PlayerState>) -> Result<AbxStatus, Strin
 /// Konum, durum ve şarkı bilgisi. Arayüz bunu düzenli aralıklarla sorar.
 #[tauri::command]
 pub async fn playback_status(player: State<'_, PlayerState>) -> Result<PlaybackStatus, String> {
-    Ok(player.lock()?.status())
+    // Kulaklık takılıp çıkarılınca: yeni aygıtı açmak kilit dışında (görseller beklemez).
+    let transition = player.lock()?.begin_device_recovery();
+    finish_transition(transition, &player).await
 }
 
 #[cfg(test)]
