@@ -1,0 +1,6 @@
+# Rust araç zinciri tek yerde: CI, test sürümü ve yerel derleme aynı sürümü kullanır. Yeni Clippy
+# lint'leri ilgisiz PR'ları kırmasın diye sabit sürüm; yükseltme bilinçli bir PR'la yapılır.
+[toolchain]
+channel = "1.97.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
