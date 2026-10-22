@@ -1,0 +1,26 @@
+--- src/audio/crossfeed.rs
++++ replace SideFilter::response -> (f64, f64) with (0.0, 1.0)
+@@ -211,22 +211,17 @@
+             b0: (k + zero) / norm,
+             b1: (zero - k) / norm,
+             a1: (pole - k) / norm,
+         }
+     }
+ 
+     /// `w` (radyan/örnek) açısal frekansındaki karmaşık yanıt (gerçek, sanal).
+     fn response(&self, w: f64) -> (f64, f64) {
+-        let (s, c) = w.sin_cos();
+-        // e^{−jw} = c − j·s
+-        let (nr, ni) = (self.b0 + self.b1 * c, -self.b1 * s);
+-        let (dr, di) = (1.0 + self.a1 * c, -self.a1 * s);
+-        let d = dr * dr + di * di;
+-        ((nr * dr + ni * di) / d, (ni * dr - nr * di) / d)
++        (0.0, 1.0) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     #[inline]
+     fn process(&self, state: &mut f64, x: Sample) -> Sample {
+         // Devrik doğrudan biçim II (birinci dereceden).
+         let y = self.b0 * x + *state;
+         *state = self.b1 * x - self.a1 * y;
+         y

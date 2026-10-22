@@ -1,0 +1,28 @@
+--- src/audio/crossfeed.rs
++++ replace CrossfeedSettings::sanitized -> Self with Default::default()
+@@ -93,24 +93,17 @@
+             cutoff_hz,
+             level_db,
+         }
+     }
+ }
+ 
+ impl CrossfeedSettings {
+     pub fn sanitized(self) -> Self {
+-        let finite = |x: f64, fallback: f64| if x.is_finite() { x } else { fallback };
+-        let default = Self::default();
+-        Self {
+-            enabled: self.enabled,
+-            cutoff_hz: finite(self.cutoff_hz, default.cutoff_hz)
+-                .clamp(MIN_CUTOFF_HZ, MAX_CUTOFF_HZ),
+-            level_db: finite(self.level_db, default.level_db).clamp(MIN_LEVEL_DB, MAX_LEVEL_DB),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Karşı kulağın alçak frekanstaki payı r0 (doğrusal, 0–1).
+     pub fn ratio(&self) -> f64 {
+         10f64.powf(-self.level_db / 20.0)
+     }
+ }
+ 

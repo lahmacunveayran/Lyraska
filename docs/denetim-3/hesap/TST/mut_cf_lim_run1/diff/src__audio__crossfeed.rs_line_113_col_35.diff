@@ -1,0 +1,21 @@
+--- src/audio/crossfeed.rs
++++ replace / with % in CrossfeedSettings::ratio
+@@ -105,17 +105,17 @@
+             cutoff_hz: finite(self.cutoff_hz, default.cutoff_hz)
+                 .clamp(MIN_CUTOFF_HZ, MAX_CUTOFF_HZ),
+             level_db: finite(self.level_db, default.level_db).clamp(MIN_LEVEL_DB, MAX_LEVEL_DB),
+         }
+     }
+ 
+     /// Karşı kulağın alçak frekanstaki payı r0 (doğrusal, 0–1).
+     pub fn ratio(&self) -> f64 {
+-        10f64.powf(-self.level_db / 20.0)
++        10f64.powf(-self.level_db % /* ~ changed by cargo-mutants ~ */ 20.0)
+     }
+ }
+ 
+ /// Arayüze giden durum: ayar, hazır ayar adları ve çizim için eğriler.
+ #[derive(Debug, Clone, PartialEq, Serialize)]
+ #[serde(rename_all = "camelCase")]
+ #[cfg_attr(test, derive(ts_rs::TS), ts(export))]
+ pub struct CrossfeedState {

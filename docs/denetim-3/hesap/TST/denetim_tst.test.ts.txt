@@ -1,0 +1,25 @@
+// TST denetimi: kaçan iki TypeScript mutantını (P10, X12) yakalayan önerilen testler.
+import { describe, expect, it } from "vitest";
+import { crossfeedResponseDb } from "./crossfeed";
+import { analogDb } from "./parametric";
+
+describe("denetim: önizleme formülleri", () => {
+  it("yüksek raf: bölgesinin dışında 0 dB, bölgesinde tam kazanç (P10)", () => {
+    const hs = { kind: "highShelf" as const, freqHz: 5000, gainDb: -6, q: 0.7, enabled: true };
+    expect(analogDb(hs, 20)).toBeCloseTo(0, 2);
+    expect(analogDb(hs, 5000)).toBeCloseTo(-3, 6);
+  });
+
+  it("crossfeed: kesim frekansında karşı kulak, alçak frekanstakinden 3,01 dB daha kısık (X12)", () => {
+    for (const [cutoffHz, levelDb] of [
+      [650, 9.5],
+      [700, 6],
+      [570, 1],
+    ] as const) {
+      const at = crossfeedResponseDb({ enabled: true, cutoffHz, levelDb }, cutoffHz);
+      // ρ(fc) = r0·(1 − j)/2 → |ρ| = r0/√2.
+      const rhoDb = -levelDb - 10 * Math.log10(2);
+      expect(at.farDb - at.nearDb).toBeCloseTo(rhoDb, 6);
+    }
+  });
+});

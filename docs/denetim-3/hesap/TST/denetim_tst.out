@@ -1,0 +1,109 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 20.70s
+     Running unittests src/lib.rs (target/debug/deps/lyraska_lib-ba84adbcfd387021)
+
+running 5 tests
+test audio::denetim_tst::tst01_kirpilmis_9khz_48khz_te_de_tavani_asmaz ... TST01 44100 Hz: çıkışın gerçek tepesi -0.940 dBTP (sınır -1 + 0,1)
+TST01 48000 Hz: çıkışın gerçek tepesi -0.690 dBTP (sınır -1 + 0,1)
+
+thread 'audio::denetim_tst::tst01_kirpilmis_9khz_48khz_te_de_tavani_asmaz' (17350) panicked at src/audio/denetim_tst.rs:72:9:
+48000 Hz: gerçek tepe -0.690 dBTP > −0,9 dBTP
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::audio::denetim_tst::tst01_kirpilmis_9khz_48khz_te_de_tavani_asmaz
+             at ./src/audio/denetim_tst.rs:72:9
+   3: lyraska_lib::audio::denetim_tst::tst01_kirpilmis_9khz_48khz_te_de_tavani_asmaz::{closure#0}
+             at ./src/audio/denetim_tst.rs:58:51
+   4: <lyraska_lib::audio::denetim_tst::tst01_kirpilmis_9khz_48khz_te_de_tavani_asmaz::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+test audio::denetim_tst::tst02_dar_tepe_korumaya_eksik_bildirilmez ... TST02 Q= 3.0  +6.0 dB Rbj: gerçek tepe +6.000, bildirilen +5.991, eksik 0.009 dB
+TST02 Q= 3.0  +6.0 dB Matched: gerçek tepe +6.001, bildirilen +5.993, eksik 0.008 dB
+TST02 Q= 3.0 +24.0 dB Rbj: gerçek tepe +24.000, bildirilen +23.909, eksik 0.091 dB
+TST02 Q= 3.0 +24.0 dB Matched: gerçek tepe +24.005, bildirilen +23.916, eksik 0.089 dB
+TST02 Q=10.0 +24.0 dB Rbj: gerçek tepe +24.000, bildirilen +23.083, eksik 0.917 dB
+TST02 Q=10.0 +24.0 dB Matched: gerçek tepe +24.000, bildirilen +23.104, eksik 0.896 dB
+TST02 Q=30.0 +24.0 dB Rbj: gerçek tepe +24.000, bildirilen +19.088, eksik 4.912 dB
+TST02 Q=30.0 +24.0 dB Matched: gerçek tepe +24.000, bildirilen +19.159, eksik 4.841 dB
+TST02 Q ≤ 3 en kötü 0.091
+
+thread 'audio::denetim_tst::tst02_dar_tepe_korumaya_eksik_bildirilmez' (17351) panicked at src/audio/denetim_tst.rs:120:5:
+korumaya eksik bildirildi: ["Q=3 24 dB Rbj: 0.091 dB eksik", "Q=3 24 dB Matched: 0.089 dB eksik", "Q=10 24 dB Rbj: 0.917 dB eksik", "Q=10 24 dB Matched: 0.896 dB eksik", "Q=30 24 dB Rbj: 4.912 dB eksik", "Q=30 24 dB Matched: 4.841 dB eksik"]
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::audio::denetim_tst::tst02_dar_tepe_korumaya_eksik_bildirilmez
+             at ./src/audio/denetim_tst.rs:120:5
+   3: lyraska_lib::audio::denetim_tst::tst02_dar_tepe_korumaya_eksik_bildirilmez::{closure#0}
+             at ./src/audio/denetim_tst.rs:84:47
+   4: <lyraska_lib::audio::denetim_tst::tst02_dar_tepe_korumaya_eksik_bildirilmez::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+test audio::denetim_tst::tst03_cizilen_egri_duyulan_egriyle_ayni ... TST03 Matched 44100 Hz: çizilen − duyulan en büyük fark 0.58 dB (12619 Hz'te)
+TST03 Matched 48000 Hz: çizilen − duyulan en büyük fark 0.41 dB (12619 Hz'te)
+TST03 Rbj 44100 Hz: çizilen − duyulan en büyük fark 2.65 dB (18346 Hz'te)
+TST03 Rbj 48000 Hz: çizilen − duyulan en büyük fark 2.07 dB (18881 Hz'te)
+
+thread 'audio::denetim_tst::tst03_cizilen_egri_duyulan_egriyle_ayni' (17352) panicked at src/audio/denetim_tst.rs:176:5:
+çizilen eğri duyulandan farklı: ["Matched @ 44100: 0.58 dB (12619 Hz)", "Rbj @ 44100: 2.65 dB (18346 Hz)", "Rbj @ 48000: 2.07 dB (18881 Hz)"]
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::audio::denetim_tst::tst03_cizilen_egri_duyulan_egriyle_ayni
+             at ./src/audio/denetim_tst.rs:176:5
+   3: lyraska_lib::audio::denetim_tst::tst03_cizilen_egri_duyulan_egriyle_ayni::{closure#0}
+             at ./src/audio/denetim_tst.rs:128:45
+   4: <lyraska_lib::audio::denetim_tst::tst03_cizilen_egri_duyulan_egriyle_ayni::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+test audio::denetim_tst::tst04_eslenmis_hicbir_ayarda_rbj_den_uzak_degil ... TST04 18676 ayarın 3 tanesinde eşlenmiş RBJ'den 0,05 dB'den fazla uzak; en kötü +0.739 dB: Spec { kind: LowShelf, freq_hz: 6324.55532033676, gain_db: 18.0, q: 8.0 } @ 48000: eşlenmiş 7.10, RBJ 6.36
+
+thread 'audio::denetim_tst::tst04_eslenmis_hicbir_ayarda_rbj_den_uzak_degil' (17353) panicked at src/audio/denetim_tst.rs:247:5:
+en kötü +0.739 dB: Spec { kind: LowShelf, freq_hz: 6324.55532033676, gain_db: 18.0, q: 8.0 } @ 48000: eşlenmiş 7.10, RBJ 6.36
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::audio::denetim_tst::tst04_eslenmis_hicbir_ayarda_rbj_den_uzak_degil
+             at ./src/audio/denetim_tst.rs:247:5
+   3: lyraska_lib::audio::denetim_tst::tst04_eslenmis_hicbir_ayarda_rbj_den_uzak_degil::{closure#0}
+             at ./src/audio/denetim_tst.rs:183:53
+   4: <lyraska_lib::audio::denetim_tst::tst04_eslenmis_hicbir_ayarda_rbj_den_uzak_degil::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+test audio::denetim_tst::tst05_ses_yolu_parametrik_ekolayzer_aciktayken_de_temiz ... TST05 100 Hz: genlik 0.0781, bozulma + gürültü -151.1 dB
+TST05 1000 Hz: genlik 0.0356, bozulma + gürültü -154.5 dB
+TST05 3000 Hz: genlik 0.0804, bozulma + gürültü -151.3 dB
+TST05 10000 Hz: genlik 0.0426, bozulma + gürültü -152.2 dB
+ok
+
+failures:
+
+failures:
+    audio::denetim_tst::tst01_kirpilmis_9khz_48khz_te_de_tavani_asmaz
+    audio::denetim_tst::tst02_dar_tepe_korumaya_eksik_bildirilmez
+    audio::denetim_tst::tst03_cizilen_egri_duyulan_egriyle_ayni
+    audio::denetim_tst::tst04_eslenmis_hicbir_ayarda_rbj_den_uzak_degil
+
+test result: FAILED. 1 passed; 4 failed; 0 ignored; 0 measured; 412 filtered out; finished in 6.12s
+
+error: test failed, to rerun pass `--lib`

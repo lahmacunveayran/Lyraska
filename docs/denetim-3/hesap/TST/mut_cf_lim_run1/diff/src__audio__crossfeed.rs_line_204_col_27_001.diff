@@ -1,0 +1,21 @@
+--- src/audio/crossfeed.rs
++++ replace * with / in SideFilter::design
+@@ -196,17 +196,17 @@
+ 
+     /// G(s) = (s + z)/(s + p), z = ωc(1 − r0), p = ωc(1 + r0); çift doğrusal dönüşüm, z ile p'nin
+     /// geometrik ortasında ön bükme (orada analog ile tam aynı).
+     fn design(settings: &CrossfeedSettings, sample_rate: f64) -> Self {
+         let r0 = settings.ratio().clamp(0.0, 0.999);
+         let wc = 2.0 * PI * settings.cutoff_hz;
+         let (zero, pole) = (wc * (1.0 - r0), wc * (1.0 + r0));
+         let wm = (zero * pole).sqrt();
+-        let t = wm / (2.0 * sample_rate);
++        let t = wm / (2.0 / /* ~ changed by cargo-mutants ~ */ sample_rate);
+         if !(t > 0.0 && t < PI / 2.0 * 0.99) {
+             return Self::IDENTITY;
+         }
+         let k = wm / t.tan();
+         let norm = k + pole;
+         Self {
+             b0: (k + zero) / norm,
+             b1: (zero - k) / norm,

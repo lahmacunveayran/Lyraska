@@ -1,0 +1,35 @@
+--- src/audio/crossfeed.rs
++++ replace SideFilter::design -> Self with Default::default()
+@@ -192,31 +192,17 @@
+         b0: 1.0,
+         b1: 0.0,
+         a1: 0.0,
+     };
+ 
+     /// G(s) = (s + z)/(s + p), z = ωc(1 − r0), p = ωc(1 + r0); çift doğrusal dönüşüm, z ile p'nin
+     /// geometrik ortasında ön bükme (orada analog ile tam aynı).
+     fn design(settings: &CrossfeedSettings, sample_rate: f64) -> Self {
+-        let r0 = settings.ratio().clamp(0.0, 0.999);
+-        let wc = 2.0 * PI * settings.cutoff_hz;
+-        let (zero, pole) = (wc * (1.0 - r0), wc * (1.0 + r0));
+-        let wm = (zero * pole).sqrt();
+-        let t = wm / (2.0 * sample_rate);
+-        if !(t > 0.0 && t < PI / 2.0 * 0.99) {
+-            return Self::IDENTITY;
+-        }
+-        let k = wm / t.tan();
+-        let norm = k + pole;
+-        Self {
+-            b0: (k + zero) / norm,
+-            b1: (zero - k) / norm,
+-            a1: (pole - k) / norm,
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// `w` (radyan/örnek) açısal frekansındaki karmaşık yanıt (gerçek, sanal).
+     fn response(&self, w: f64) -> (f64, f64) {
+         let (s, c) = w.sin_cos();
+         // e^{−jw} = c − j·s
+         let (nr, ni) = (self.b0 + self.b1 * c, -self.b1 * s);
+         let (dr, di) = (1.0 + self.a1 * c, -self.a1 * s);

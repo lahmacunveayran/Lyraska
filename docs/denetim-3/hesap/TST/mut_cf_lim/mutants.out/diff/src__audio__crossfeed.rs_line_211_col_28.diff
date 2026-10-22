@@ -1,0 +1,21 @@
+--- src/audio/crossfeed.rs
++++ replace / with % in SideFilter::design
+@@ -203,17 +203,17 @@
+         let wm = (zero * pole).sqrt();
+         let t = wm / (2.0 * sample_rate);
+         if !(t > 0.0 && t < PI / 2.0 * 0.99) {
+             return Self::IDENTITY;
+         }
+         let k = wm / t.tan();
+         let norm = k + pole;
+         Self {
+-            b0: (k + zero) / norm,
++            b0: (k + zero) % /* ~ changed by cargo-mutants ~ */ norm,
+             b1: (zero - k) / norm,
+             a1: (pole - k) / norm,
+         }
+     }
+ 
+     /// `w` (radyan/örnek) açısal frekansındaki karmaşık yanıt (gerçek, sanal).
+     fn response(&self, w: f64) -> (f64, f64) {
+         let (s, c) = w.sin_cos();

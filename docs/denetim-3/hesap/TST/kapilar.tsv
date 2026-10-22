@@ -1,0 +1,19 @@
+kapi	komut	sure_sn	cikis_kodu	ozet
+fmt	cd src-tauri && cargo fmt --check	1.8	0	
+npm_test	npm test	291.3	1	 Test Files  1 failed | 38 passed (39)       Tests  23 failed | 286 passed (309) 
+lint	npm run lint	57.7	0	
+typecheck	npm run typecheck	34.7	0	
+format_check	npm run format:check	31.3	0	
+check_commands	npm run check:commands	0.7	0	Komut sözleşmesi tamam: 53 komut, arayüzde 53 çağrı; adlar ve argümanlar eşleşiyor. 
+check_licenses	npm run check:licenses	0.7	0	Lisans denetimi tamam: 242 paket incelendi, yasak lisans yok. 
+check_audio	npm run check:audio	0.6	0	Ses dosyası denetimi tamam: 329 dosya incelendi. 
+check_notices	npm run check:notices	17.5	0	Üçüncü taraf lisans bildirimleri güncel. 
+clippy	cd src-tauri && cargo clippy --all-targets -- -D warnings	619.4	0	
+cargo_test	cd src-tauri && cargo test	1539.8	0	test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s 
+clippy_win	cd src-tauri && cargo clippy --target x86_64-pc-windows-gnu --all-targets -- -D warnings	496.0	0	
+deny	cd src-tauri && cargo deny check licenses bans sources	20.1	0	bans ok, licenses ok, sources ok 
+deny_adv	cd src-tauri && cargo deny check advisories	8.7	0	advisories ok 
+build	npm run build	287.2	0	✓ built in 6.41s 
+check_scenes	npm run check:scenes	3.1	1	
+check_scenes	SCENE_BROWSER_PATH=/opt/pw-browsers/chromium npm run check:scenes	559	0	Sahne denetimi tamam: sahneler ekran kartında çiziliyor. (ilk deneme çıkış 1: playwright-core sürümünün beklediği chromium_headless_shell-1243 ortamda yok; yol verilince geçti)
+npm_test	npm test	56.9	0	 Test Files  39 passed (39)       Tests  309 passed (309) 

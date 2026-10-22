@@ -101,12 +101,12 @@ hedefinde temiz; `cargo fmt`, Vitest 309/309, ESLint, `tsc`, Prettier, `check:co
 
 ## 3. Denetim 2 — bağımsız denetim özeti
 
-| Alan                              | Puan   | Bulgu (Y/O/D) | Denetçinin en önemli üç bulgusu                                                                                                                                                                |
-| --------------------------------- | ------ | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| DSP ve matematik (DSP)            | 6,5/10 | 12 (0/8/4)    | DSP-01 koruma taraması 20 Hz altını ve çok dar tepeleri görmüyor; DSP-02 ekran eğrisi ve A/B telafisi 96 kHz'te; DSP-06 sınırlayıcı geniş bantlı tizde −1 dBTP'yi aşıyor                       |
-| Gerçek zamanlı ses (RTS)          | 7/10   | 7 (0/3/4)     | RTS-01 sarma ile şarkı açma üst üste gelince eski oturum kısılmadan kesilir; RTS-02 durdurma/aygıt değişimi kilit altında; RTS-03 bit-perfect'te sıradaki şarkının bit derinliği denetlenmiyor |
-| Arayüz, sözleşme, kalıcılık (ARY) | 6,5/10 | 18 (0/8/10)   | ARY-01 tek bozuk bant bütün parametrik ayarı siler; ARY-04 kapalı ekolayzerin dosyası geri yüklenemez; ARY-05 APO `Channel:` bölümleri toplanır                                                |
-| Test etkinliği (TST)              | TST    | TST           | TST                                                                                                                                                                                            |
+| Alan                              | Puan   | Bulgu (Y/O/D) | Denetçinin en önemli üç bulgusu                                                                                                                                                                                                                               |
+| --------------------------------- | ------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DSP ve matematik (DSP)            | 6,5/10 | 12 (0/8/4)    | DSP-01 koruma taraması 20 Hz altını ve çok dar tepeleri görmüyor; DSP-02 ekran eğrisi ve A/B telafisi 96 kHz'te; DSP-06 sınırlayıcı geniş bantlı tizde −1 dBTP'yi aşıyor                                                                                      |
+| Gerçek zamanlı ses (RTS)          | 7/10   | 7 (0/3/4)     | RTS-01 sarma ile şarkı açma üst üste gelince eski oturum kısılmadan kesilir; RTS-02 durdurma/aygıt değişimi kilit altında; RTS-03 bit-perfect'te sıradaki şarkının bit derinliği denetlenmiyor                                                                |
+| Arayüz, sözleşme, kalıcılık (ARY) | 6,5/10 | 18 (0/8/10)   | ARY-01 tek bozuk bant bütün parametrik ayarı siler; ARY-04 kapalı ekolayzerin dosyası geri yüklenemez; ARY-05 APO `Channel:` bölümleri toplanır                                                                                                               |
+| Test etkinliği (TST)              | 7/10   | 9 (0/5/4)     | TST-04 A/B telafisi ve korumaya bildirim oynatıcı katmanında testsiz (iki elle mutasyon 409 testten kaçıyor); TST-01 sınırlayıcı 48 kHz'te −1 dBTP'yi 0,31 dB aşıyor, belge ve test yalnız 44,1 kHz; TST-02 dar bantta tepe taraması 4,9 dB'e kadar kaçırıyor |
 
 Y/O/D = Yüksek/Orta/Düşük. Kritik bulgu hiçbir alanda yok. Tam raporlar: `docs/denetim-3/DSP.md`, `RTS.md`,
 `ARY.md`, `TST.md`; kanıtlar `docs/denetim-3/hesap/<önek>/`.
@@ -145,19 +145,19 @@ TST doğrulaması: TST
 
 ### 4.1 Bağımsız denetimin habersizce yeniden bulduğu Denetim 1 bulguları
 
-| Denetim 1 | Denetim 2          | Not                                                                                          |
-| --------- | ------------------ | -------------------------------------------------------------------------------------------- |
-| D1-02     | ARY-11             | aynı sayılar (17 → 23 dB); ARY Düşük dedi, Denetim 1 Orta: ses anında ~6 dB yükseliyor       |
-| D1-04     | DSP-02 = ARY-03    | üç ayrı yoldan aynı kök: `ANALYSIS_RATE = 96 kHz`                                            |
-| D1-05     | ARY-05             | ikisi de `Preamp:` toplamasını da gördü                                                      |
-| D1-06     | DSP-03 (ve DSP-05) | DSP daha geniş: alçak geçiren, çentik, tüm geçiren de; HP sınırda −46,6 dB                   |
-| D1-07     | ARY-02 = RTS-05    | üç bağımsız ölçüm: 4 ms (D1), 3,5–5,3 ms (doğrulayıcı), ortalama 11 ms, en kötü 236 ms (RTS) |
-| D1-08     | ARY-06             | aynı                                                                                         |
-| D1-09     | ARY-04             | ARY daha ağırını buldu: kapalı ekolayzerin dosyası hiç geri yüklenemiyor                     |
-| D1-10     | RTS-04             | RTS stres testiyle gösterdi; seqlock önerisi ikisinde de                                     |
-| D1-12     | RTS-06             | RTS: çok kanallı şarkıda ışık yanmayı sürdürüyor                                             |
-| D1-13     | ARY-15             | aynı                                                                                         |
-| Bilgi     | RTS-07             | tasarım süresi: 397 µs (D1, hata ayıklama derlemesi), 168–337 µs (RTS, sürüm)                |
+| Denetim 1 | Denetim 2                | Not                                                                                          |
+| --------- | ------------------------ | -------------------------------------------------------------------------------------------- |
+| D1-02     | ARY-11                   | aynı sayılar (17 → 23 dB); ARY Düşük dedi, Denetim 1 Orta: ses anında ~6 dB yükseliyor       |
+| D1-04     | DSP-02 = ARY-03 = TST-03 | dört ayrı yoldan aynı kök (`ANALYSIS_RATE = 96 kHz`) ve aynı test boşluğu                    |
+| D1-05     | ARY-05                   | ikisi de `Preamp:` toplamasını da gördü                                                      |
+| D1-06     | DSP-03 (ve DSP-05)       | DSP daha geniş: alçak geçiren, çentik, tüm geçiren de; HP sınırda −46,6 dB                   |
+| D1-07     | ARY-02 = RTS-05          | üç bağımsız ölçüm: 4 ms (D1), 3,5–5,3 ms (doğrulayıcı), ortalama 11 ms, en kötü 236 ms (RTS) |
+| D1-08     | ARY-06                   | aynı                                                                                         |
+| D1-09     | ARY-04                   | ARY daha ağırını buldu: kapalı ekolayzerin dosyası hiç geri yüklenemiyor                     |
+| D1-10     | RTS-04                   | RTS stres testiyle gösterdi; seqlock önerisi ikisinde de                                     |
+| D1-12     | RTS-06                   | RTS: çok kanallı şarkıda ışık yanmayı sürdürüyor                                             |
+| D1-13     | ARY-15                   | aynı                                                                                         |
+| Bilgi     | RTS-07                   | tasarım süresi: 397 µs (D1, hata ayıklama derlemesi), 168–337 µs (RTS, sürüm)                |
 
 ### 4.2 Yalnızca Denetim 1'in bulduğu
 
@@ -176,7 +176,11 @@ TST doğrulaması: TST
 - **DSP-07** "eşlenmiş tasarım hiçbir ayarda RBJ'den kötü olamaz" iddiası yüksek Q'lu raflarda yanlış.
 - **ARY-04** kapalı ekolayzerin kaydedilen dosyası geri yüklenemiyor.
 - **ARY-07, ARY-08** erişilebilirlik: hata duyurusu ve kontrast.
-- TST
+- **TST-04** A/B telafisinin işareti ters çevrilse ya da korumaya bildirim 0'a indirilse bile bütün testler geçiyor.
+- **TST-05** kararsız bileşen testi (5 sn zaman aşımının %95–99'unda bitiyor).
+- **Mutasyon skorları:** `crossfeed.rs` çekirdeği 83 mutantta %93,7 (kaçan 5'i eşdeğer: etkin %100); arayüz önizleme
+  formüllerinde 34 elle mutasyonda %58,8 (eşdeğerler çıkarılınca %69; iki gerçek boşluk); oynatıcı bağlantısında 2/2
+  kaçtı. Süre yetmediği için `limiter.rs`, `biquad.rs`, `peq.rs`, `render.rs` mutasyonla denetlenemedi.
 
 ### 4.4 Ayrışmalar
 
