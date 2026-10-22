@@ -15,6 +15,7 @@ import { LibraryPanel } from "./LibraryPanel";
 import { MarkerPanel } from "./MarkerPanel";
 import { NowPlaying } from "./NowPlaying";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { SceneGallery } from "./SceneGallery";
 import { SceneStage } from "./SceneStage";
 import { SettingsPanel } from "./SettingsPanel";
 import { SyncPanel } from "./SyncPanel";
@@ -28,7 +29,7 @@ import {
   type KeyMap,
   type SongMap,
 } from "../lib/backend";
-import { SCENES } from "../lib/scene";
+import { CLASSIC_SCENES } from "../lib/scene";
 import { fileStem, trackTitle } from "../lib/format";
 import { confidentDrops, themeAt } from "../lib/songMap";
 import { timelineLayout, type TimelineLayout } from "../lib/timeline";
@@ -275,7 +276,7 @@ export function PlayerScreen() {
         fallback={() => (
           <div className="stage" data-scene="error">
             <p className="stage__error" role="alert">
-              Sahne çizilemedi; hata günlüğe yazıldı. Başka bir sahne seçebilirsiniz (1–5).
+              Sahne çizilemedi; hata günlüğe yazıldı. Başka bir sahne seçebilirsiniz (1–9, 0).
             </p>
           </div>
         )}
@@ -316,7 +317,7 @@ export function PlayerScreen() {
             <span className="brand__name">Lyraska</span>
           </div>
           <nav className="scenes" aria-label="Sahne">
-            {SCENES.map(({ id, name }, index) => (
+            {CLASSIC_SCENES.map(({ id, name }, index) => (
               <button
                 key={id}
                 type="button"
@@ -328,6 +329,7 @@ export function PlayerScreen() {
                 {name}
               </button>
             ))}
+            <SceneGallery scene={scene} onChoose={chooseScene} />
           </nav>
           <div className="topbar__actions">
             {chromeButton("library", "Kütüphane", <LibraryIcon />)}

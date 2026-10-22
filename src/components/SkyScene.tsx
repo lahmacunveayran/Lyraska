@@ -101,7 +101,7 @@ export function SkyScene({ playing, safe = false, look = "lake" }: SkySceneProps
 }
 
 /** Yönetmen notunun göğün kullandığı kısmı; analiz bitmediyse `null`. */
-function directorInput(frame: VisualFrame): DirectorInput | null {
+export function directorInput(frame: VisualFrame): DirectorInput | null {
   const d = frame.director;
   if (!d) return null;
   return {

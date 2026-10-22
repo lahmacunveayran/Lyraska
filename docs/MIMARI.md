@@ -175,6 +175,11 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
   - Gece sürüşü (`DriveScene`): ön camda gece otoyolunun aynı çizimi; torpidonun ve teybin ışığı sahne ışığından,
     teybin VU ibreleri ve spektrumu tek görsel veri akışından. Kasetin makaraları çalarken döner ("animasyonları
     azalt"ta durur). Çerçeve açıkken teyp geri planda (kısık), sinema görünümünde yavaşça belirir.
+  - Galeri (`shaderScene.ts`, `shaderSources.ts`, `shaderRenderer.ts`, `ShaderScene`): gece denizi, bulutsu, ışık
+    tüneli, ateşböcekleri, kaleydoskop, ipek şeritler, sarmal gökada, kum tepeleri, yağmurlu cam, kristal ağ. Her biri tek bir parça gölgelendiricisidir ve gece göğünün saf hesabını
+    (`stepSky`) paylaşır: bölüm teması renkleri, gerilim ve açılım biçimi, vuruşlar akışı sürer. Sahnenin kodu
+    yalnızca biçimi çizer; parlaklık ortak gövdedeki tek çarpandan gelir (`sceneLevel`: perde parlaklığının hız
+    sınırlı, tekdüze dönüşümü; müzik ışığı en fazla %28 güçlendirir). Gölgelendiriciye anlık vuruş seviyesi gitmez.
   - Parlaklığı değiştiren her değer hız sınırlıdır (güvenli modda yarı hız); her sahnenin kendi parlama testi var.
 
 ## Arayüz yapısı
@@ -191,7 +196,8 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
 - Durum ve davranış hook'lardadır:
   - `usePlayback`: oynatıcı ve çalma sırası.
   - `useDrawer`: çekmece ve Esc.
-  - `useScene`: sahne seçimi ve 1–5 tuşları.
+  - `useScene`: sahne seçimi; 1–9 ve 0 tuşları, PageDown/PageUp sıradaki/önceki sahne (`SceneGallery`: üst
+    çubuktaki galeri listesi).
   - `useDropToLibrary`: sürükle-bırak.
   - `useIdle`: sinema görünümü.
   - `useSongMap`: çalan şarkının haritası.
