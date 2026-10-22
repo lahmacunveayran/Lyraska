@@ -15,6 +15,13 @@
 //! uygulanır. Filtreler RBJ "Audio EQ Cookbook" formülleriyle, 64-bit tasarlanır.
 //! Ayar değişince eski ve yeni filtre takımı ~30 ms boyunca çapraz geçişle
 //! karıştırılır (tıkırtı olmaz). Gerçek zamanlı yolda bellek ayırma ve kilit yoktur.
+//!
+//! **Ön kazanç ve örnekleme hızı.** Çift doğrusal dönüşüm Nyquist'e yakın filtreleri
+//! büker: aynı profilin tepesi 44,1 kHz'te 96 kHz'tekinden birkaç dB farklı olabilir.
+//! Bu yüzden ön kazanç sınırı iki yerde hesaplanır: profil okunurken (hız bilinmez)
+//! 44,1 ve 48 kHz'in kötüsüne göre ([`HeadphoneProfile::sanitized`]), ses yolunda ise
+//! çalan hızda yeniden ([`PeqControl::design`]) — düzeltme hiçbir hızda taşırmaz ve
+//! başka bir hızın tahminiyle gereksiz kısmaz. Arayüzün çizdiği eğri 48 kHz'e göredir.
 
 use std::f64::consts::PI;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
@@ -37,6 +44,15 @@ const MAX_Q: f64 = 30.0;
 const MIN_PREAMP_DB: f64 = -40.0;
 /// Ayar değişince eski ve yeni filtrelerin karıştırılma süresi.
 const CROSSFADE_SECONDS: f64 = 0.03;
+/// Örnekleme hızı bilinmeyen yerlerde (arayüz eğrisi) kullanılan temsilî hız.
+const DISPLAY_RATE: f64 = 48_000.0;
+/// Profil okunurken ön kazanç sınırı bu hızların en kötüsüne göre konur (en yaygın iki hız;
+/// başka bir hızda çalınırken ses yolu kendi hızıyla yeniden sınırlar).
+const REFERENCE_RATES: [f64; 2] = [44_100.0, 48_000.0];
+/// Tepe 20 Hz'ten Nyquist'in hemen altına (0,49 · fs) kadar oktavda bu kadar noktayla
+/// taranır: dar (Q = 3) bir tepe bile 0,05 dB içinde bulunur.
+const PEAK_SCAN_PER_OCTAVE: f64 = 48.0;
+const PEAK_SCAN_LOW_HZ: f64 = 20.0;
 
 /// Filtre türü.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -114,7 +130,7 @@ impl HeadphoneState {
         let curve_db = settings
             .profile
             .as_ref()
-            .map(|p| p.response_db(&curve_hz, 96_000.0))
+            .map(|p| p.response_db(&curve_hz, DISPLAY_RATE))
             .unwrap_or_default();
         Self {
             enabled: settings.enabled,
@@ -239,7 +255,8 @@ impl HeadphoneProfile {
     }
 
     /// Değerleri güvenli aralığa çeker. Ön kazanç, filtrelerin en yüksek
-    /// yükseltmesinden az olamaz: düzeltme sesi taşırmasın.
+    /// yükseltmesinden az olamaz: düzeltme sesi taşırmasın. Tepe `REFERENCE_RATES`'in
+    /// en kötüsüne göre bulunur; çalma hızındaki asıl sınır ses yolunda konur.
     pub fn sanitized(mut self) -> Self {
         self.filters.truncate(MAX_FILTERS);
         for f in &mut self.filters {
@@ -247,7 +264,10 @@ impl HeadphoneProfile {
             f.gain_db = finite_or(f.gain_db, 0.0).clamp(-MAX_GAIN_DB, MAX_GAIN_DB);
             f.q = finite_or(f.q, 1.0).clamp(MIN_Q, MAX_Q);
         }
-        let peak = response_peak_db(&self.filters);
+        let peak = REFERENCE_RATES
+            .iter()
+            .map(|&rate| response_peak_db(&self.filters, rate))
+            .fold(f64::NEG_INFINITY, f64::max);
         self.preamp_db = finite_or(self.preamp_db, 0.0)
             .min(-peak.max(0.0))
             .clamp(MIN_PREAMP_DB, 0.0);
@@ -294,17 +314,36 @@ fn finite_or(x: f64, fallback: f64) -> f64 {
     }
 }
 
-/// Filtrelerin toplam yanıtının en yüksek değeri (dB); 20 Hz–20 kHz taranır.
-fn response_peak_db(filters: &[PeqFilter]) -> f64 {
-    let rate = 96_000.0;
-    let coefs: Vec<Biquad> = filters.iter().map(|f| design(f, rate)).collect();
-    (0..=400)
-        .map(|i| 20.0 * 1000f64.powf(f64::from(i) / 400.0))
+/// Filtrelerin `sample_rate`'teki toplam yanıtının en yüksek değeri (dB).
+fn response_peak_db(filters: &[PeqFilter], sample_rate: f64) -> f64 {
+    let mut coefs = [Biquad::IDENTITY; MAX_FILTERS];
+    for (coef, f) in coefs.iter_mut().zip(filters) {
+        *coef = design(f, sample_rate);
+    }
+    coefs_peak_db(&coefs[..filters.len().min(MAX_FILTERS)], sample_rate)
+}
+
+/// Katsayıları hazır filtrelerin toplam yanıtının en yüksek değeri (dB); 20 Hz'ten
+/// 0,49 · fs'e kadar taranır (Nyquist'e yakın raflar en yüksek değerine orada ulaşır).
+/// Bellek ayırmaz: ses iş parçacığında da çağrılır.
+fn coefs_peak_db(coefs: &[Biquad], sample_rate: f64) -> f64 {
+    let top_hz = sample_rate * 0.49;
+    let octaves = (top_hz / PEAK_SCAN_LOW_HZ).max(1.0).log2();
+    let points = (octaves * PEAK_SCAN_PER_OCTAVE).ceil() as usize;
+    (0..=points)
+        .map(|i| PEAK_SCAN_LOW_HZ * 2f64.powf(octaves * i as f64 / points as f64))
         .map(|hz| {
-            let w = 2.0 * PI * hz / rate;
-            coefs.iter().map(|c| c.response_db(w)).sum::<f64>()
+            let w = 2.0 * PI * hz / sample_rate;
+            let (cos_w, cos_2w) = (w.cos(), (2.0 * w).cos());
+            coefs
+                .iter()
+                .map(|c| c.power_gain(cos_w, cos_2w))
+                .product::<f64>()
         })
-        .fold(f64::NEG_INFINITY, f64::max)
+        .fold(0.0, f64::max)
+        .max(1e-300)
+        .log10()
+        * 10.0
 }
 
 /// Profildeki bir filtrenin katsayıları (RBJ Audio EQ Cookbook).
@@ -373,7 +412,8 @@ impl PeqControl {
         self.version.load(Ordering::Acquire)
     }
 
-    /// Ses iş parçacığı için katsayılar (ayırma yok).
+    /// Ses iş parçacığı için katsayılar (ayırma yok). Ön kazanç, filtrelerin bu hızdaki
+    /// tepesini de aşmayacak kadar düşürülür: profil başka hızlar için sınırlanmıştı.
     fn design(&self, sample_rate: f64, bank: &mut Bank) {
         let enabled = self.enabled.load(Ordering::Relaxed);
         let count = if enabled {
@@ -404,7 +444,9 @@ impl PeqControl {
         }
         bank.count = count;
         bank.gain = if enabled {
-            10f64.powf(f64::from_bits(self.preamp_db.load(Ordering::Relaxed)) / 20.0)
+            let preamp_db = f64::from_bits(self.preamp_db.load(Ordering::Relaxed));
+            let peak_db = coefs_peak_db(&bank.coefs[..count], sample_rate);
+            10f64.powf(preamp_db.min(-peak_db.max(0.0)) / 20.0)
         } else {
             1.0
         };
@@ -660,6 +702,69 @@ Filter 5: ON HSC Fc 10000 Hz Gain 2.0 dB Q 0.70
             "köşede yarı kazanç"
         );
         assert!((gain_at(&low, 5000.0) + 8.0).abs() < 0.05);
+    }
+
+    /// Verilen hızda profilin tepesi (ön kazanç dahil, dB).
+    fn peak_with_preamp(profile: &HeadphoneProfile, rate: f64) -> f64 {
+        let freqs: Vec<f64> = (0..=2000)
+            .map(|i| 20.0 * 1000f64.powf(f64::from(i) / 2000.0))
+            .filter(|&hz| hz < rate * 0.49)
+            .collect();
+        profile
+            .response_db(&freqs, rate)
+            .into_iter()
+            .fold(f64::NEG_INFINITY, f64::max)
+    }
+
+    #[test]
+    fn on_kazanc_siniri_44_1_ve_48_khzde_gecerli() {
+        // Nyquist'e yakın yüksek raf: tepe 96 kHz'te +5,74, 44,1 kHz'te +6,00 dB. Sınır
+        // 96 kHz'e göre konsaydı 44,1 kHz'te 0,25 dB taşardı.
+        let profile =
+            HeadphoneProfile::parse("Filter 1: ON HSC Fc 10000 Hz Gain 6 dB Q 0.7\n", "x").unwrap();
+        for rate in [44_100.0, 48_000.0] {
+            let peak = peak_with_preamp(&profile, rate);
+            assert!(peak <= 1e-6, "{rate} Hz: tepe {peak:+.3} dB > 0");
+        }
+        assert!(profile.preamp_db <= -5.99, "{}", profile.preamp_db);
+    }
+
+    #[test]
+    fn ses_yolu_on_kazanci_calan_hizda_sinirlar() {
+        // Yüksek frekans filtrelerinin birikmesi: tepe 96 kHz'te +18,9, 48 kHz'te +15,9,
+        // 44,1 kHz'te +15,1 dB. Eski kod 96 kHz tahminiyle 44,1 kHz'te 3,8 dB gereksiz
+        // kısıyordu; şimdi profil 48 kHz'e, ses yolu çalan hıza göre sınırlar.
+        let text = "Filter 1: ON HSC Fc 10000 Hz Gain 6 dB Q 0.7
+Filter 2: ON PK Fc 16000 Hz Gain 6 dB Q 1.41
+Filter 3: ON PK Fc 8000 Hz Gain 5 dB Q 1.0
+Filter 4: ON PK Fc 19000 Hz Gain 8 dB Q 3.0
+";
+        let profile = HeadphoneProfile::parse(text, "x").unwrap();
+        let peak_96k = response_peak_db(&profile.filters, 96_000.0);
+        let peak_44k = response_peak_db(&profile.filters, 44_100.0);
+        assert!(peak_96k - peak_44k > 3.0, "{peak_96k} {peak_44k}");
+        assert!(
+            profile.preamp_db > -(peak_44k + 1.0),
+            "profil gereksiz kısıyor: {} dB, 44,1 kHz tepesi {peak_44k:.2}",
+            profile.preamp_db
+        );
+
+        for rate in [44_100u32, 96_000] {
+            let control = Arc::new(PeqControl::default());
+            control.set(Some(&profile), true);
+            let mut processor = PeqProcessor::new(Arc::clone(&control), 2, rate);
+            // 100 Hz'te filtreler etkisiz: ölçülen, uygulanan ön kazançtır.
+            let applied = measure(&mut processor, 100.0, rate);
+            let peak = response_peak_db(&profile.filters, f64::from(rate));
+            assert!(
+                applied <= -peak + 0.05,
+                "{rate} Hz: {applied:.2} dB, tepe {peak:.2}"
+            );
+            assert!(
+                applied >= -(peak.max(-profile.preamp_db) + 0.05),
+                "{rate} Hz: gereksiz kısma {applied:.2} dB"
+            );
+        }
     }
 
     #[test]

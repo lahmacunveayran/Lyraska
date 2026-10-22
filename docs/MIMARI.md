@@ -53,12 +53,18 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
     boşluk yetiyorsa hiç kısılmaz, yetmezse yalnızca eksik kadar kısılır (hızlı iner, yavaş kalkar).
   - Oturumdaki her şarkının akıştaki başlangıç karesi `TrackLevels`'ta tutulur: boşluksuz geçişte kazanç tam
     şarkı sınırında değişir.
-  - İlk ses, ölçüm için en fazla 0,6 sn bekler (sessizlik yazılır, şarkı yerinde durur); önbellekteki şarkıda ve
-    sarmada beklenmez. Ölçüm yetişmezse tipik bir kayıt (−10 LUFS) varsayılır, ölçüm gelince yavaşça düzelir.
+  - İlk ses, ölçüm (ya da ilk 5 saniyeden erken tahmin) için en fazla 0,15 sn bekler (sessizlik yazılır, şarkı
+    yerinde durur); önbellekteki şarkıda ve sarmada beklenmez. Ölçüm yetişmezse tipik bir kayıt (−10 LUFS)
+    varsayılır, ölçüm gelince 1,5 sn'de yavaşça düzelir.
+  - Taşma koruması (`audio/limiter.rs`): ileriye bakan sınırlayıcı **örnekler arası** (gerçek) tepeyi 8× ara
+    değerleyerek ölçer ve çıkışı −1 dBTP'de tutar (EBU R128 tavanı); gecikme 1,5 ms. Bit-perfect'te yalnızca
+    gecikme hattıdır.
 - **Bas motoru** (`audio/bass.rs`; ayarları ekolayzerinkinin içinde, aynı kilitsiz kanaldan):
   - Bas düğmesi (0–18 dB; 12'nin üstü kulüp düzeyi): 100 Hz alçak raf.
-  - Derinlik (alt oktav): bas bandının (40–120 Hz) her tam dalgasında işaret değiştiren kare dalga × bandın zarfı,
-    dördüncü dereceden 60 Hz süzgeçle yumuşatılır. Bas bandı sesin geri kalanından 40 dB'den kısıksa yumuşakça susar.
+  - Derinlik (alt oktav): bas bandının (40–160 Hz) periyodu yükselen geçişlerden izlenir ve yarı frekansta bir
+    sinüs üretilir (faz izleyici; periyot aralık dışına çıkınca susar) × bandın zarfı, dördüncü dereceden 85 Hz
+    süzgeçle yumuşatılır. Seviye notadan bağımsızdır (55 ve 110 Hz arası fark ~1 dB; 3. harmonik −45 dB). Aynı anda
+    iki bas notasından yalnız biri izlenir. Bas bandı sesin geri kalanından 40 dB'den kısıksa yumuşakça susar.
   - Vuruş (`audio/punch.rs`, %0–100): davul vuruşunun ilk anı 8 dB'ye kadar güçlenir, sürekli bas aynen kalır.
     Bas bandında (150 Hz altı) bir tepe tutucu (20 ms tutar) vuruşu anında görür; gecikmeli zarf onu ~30 ms
     gecikmeyle izler, inişte birlikte iner. Aradaki fark (1 dB eşiğin üstü) 100 Hz alçak rafı yükseltir; raf

@@ -107,7 +107,8 @@ impl Renderer {
                 (LOUDNESS_WAIT_SECONDS * f64::from(sample_rate)) as usize
             },
             bit_perfect: controls.bit_perfect,
-            limiter: Limiter::new(channels, sample_rate),
+            // Bit-perfect'te örnekler aynen geçer: sınırlayıcı yalnızca gecikme hattıdır.
+            limiter: Limiter::new(channels, sample_rate).with_bypass(controls.bit_perfect),
             frame: vec![0.0; channels],
         }
     }
@@ -588,7 +589,7 @@ mod tests {
         // kesin ölçüm gelince kazanç 1,5 sn'de kayar (SES-04).
         let levels = Arc::new(TrackLevels::new());
         let mut renderer = Renderer::new(1, RATE, normalizing(&levels));
-        let mut source = filled(&[0.5; 12_000]);
+        let mut source = filled(&[0.4; 12_000]);
         let mut out = [0.0f64; 50];
         assert_eq!(
             renderer
@@ -605,7 +606,7 @@ mod tests {
                 .frames_consumed,
             200
         );
-        let estimated = 0.5 * 10f64.powf(-6.0 / 20.0);
+        let estimated = 0.4 * 10f64.powf(-6.0 / 20.0);
         assert!((out[199] - estimated).abs() < 1e-6, "{}", out[199]);
         // Kesin ölçüm: −20 LUFS → +6 dB; 1,5 sn zaman sabitiyle oraya kayar, arada sıçrama yok.
         levels.set_loudness(
@@ -624,7 +625,7 @@ mod tests {
                 last = s;
             }
         }
-        let expected = 0.5 * 10f64.powf(6.0 / 20.0);
+        let expected = 0.4 * 10f64.powf(6.0 / 20.0);
         assert!((last - expected).abs() < 2e-3, "{last} ≠ {expected}");
     }
 
