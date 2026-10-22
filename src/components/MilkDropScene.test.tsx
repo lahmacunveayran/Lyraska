@@ -264,6 +264,9 @@ describe("MilkDrop sahnesi", () => {
     // Sade hâliyle çalan görsel (gölgelendiricisi atılmış) belirtilir.
     expect(section).toHaveTextContent("bulut sade");
     expect(section).toHaveTextContent("Gölgelendiricileri desteklenmiyor, sade hâliyle çalıyor.");
+    expect(section).toHaveTextContent(
+      "Görsel açılamadı, sonrakine geçildi: Görsel açılamadı (bozuk): MilkDrop görseli değil",
+    );
     vi.restoreAllMocks();
   });
 
@@ -271,9 +274,18 @@ describe("MilkDrop sahnesi", () => {
     fake.folder = { ...FOLDER, presets: FOLDER.presets.slice(0, 2) };
     window.localStorage.setItem(PENDING_KEY, FOLDER.presets[0]!.path);
     vi.spyOn(Math, "random").mockReturnValue(0);
-    render(<Harness />);
+    render(<Harness gallery />);
     await waitFor(() => expect(fake.loads).toHaveLength(1));
     expect(fake.loads[0]).toBe(FOLDER.presets[1]!.path);
+    await waitFor(() => expect(fake.visualizers[0]!.loadPreset).toHaveBeenCalledTimes(1));
+    // Açılan görsel işaretlenir (2 sn sorunsuz çizilince silinir); önceki işaret kalmaz.
+    expect(window.localStorage.getItem(PENDING_KEY)).toBe(FOLDER.presets[1]!.path);
+    fireEvent.click(screen.getByRole("button", { name: /MilkDrop/ }));
+    expect(await screen.findByRole("group", { name: "MilkDrop görselleri" })).toHaveTextContent(
+      '"ayna" önceki açılışta yüklenirken program kapandı; atlandı.',
+    );
+    for (let i = 0; i < 130; i++) act(() => fake.tick?.(null, 1 / 60));
+    expect(window.localStorage.getItem(PENDING_KEY)).toBeNull();
     vi.restoreAllMocks();
   });
 

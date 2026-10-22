@@ -272,7 +272,10 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
       } catch (error) {
         markPending(null);
         current.pendingPath = null;
-        controlsRef.current.failed(request.serial, describeError(error));
+        // Sahne bu arada yeniden kurulduysa (bağlam kaybı) görsel suçlu değil: yeni kurulum açar.
+        if (engine.current === current) {
+          controlsRef.current.failed(request.serial, describeError(error));
+        }
         return;
       }
       current.hasPreset = true;

@@ -158,11 +158,13 @@ export function useMilkdrop(active: boolean): MilkdropControls {
 
   const next = useCallback(() => {
     failures.current = 0;
+    setNotice(null);
     go(historyNext(history.current, presets.current.length), true);
   }, [go]);
 
   const previous = useCallback(() => {
     failures.current = 0;
+    setNotice(null);
     go(historyPrevious(history.current), true);
   }, [go]);
 
@@ -175,7 +177,7 @@ export function useMilkdrop(active: boolean): MilkdropControls {
     failures.current = 0;
     setCurrentName(name);
     setSimplified(isSimplified);
-    setNotice(null);
+    // Bilgi (ör. atlanan görsel) kullanıcı başka bir görsel seçene kadar kalır.
   }, []);
 
   const failed = useCallback(
