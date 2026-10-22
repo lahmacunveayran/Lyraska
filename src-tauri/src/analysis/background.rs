@@ -9,6 +9,11 @@
 //! düşük önceliklidir: oynatıcının analizi sürerken hiç çalışmaz, kendi işinde de
 //! zamanının yarısında bekler; böylece işlemcinin en fazla bir çekirdeğinin
 //! yarısını kullanır ve ses ya da görüntü hiç etkilenmez.
+//!
+//! **Çökme döngüsü koruması** ([`CrashGuard`]): sürüm derlemesi panikte kapanır
+//! (`panic = "abort"`). Analizi programı kapatan bir dosya kütüphanede kalsaydı, program her
+//! açılışta aynı dosyaya gelip yeniden kapanırdı. Analiz edilen dosya diske yazılır; program o
+//! dosyanın analizinde iki kez kapanırsa dosya atlanır (dosya değişince yeniden denenir).
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -32,6 +37,111 @@ const REST_PER_WORK: f64 = 1.0;
 const PACE_SLICE: Duration = Duration::from_millis(20);
 /// Veritabanından bir seferde alınan şarkı sayısı.
 const BATCH: usize = 16;
+/// Bir dosya, analizinde program bu kadar kez kapandıysa atlanır. Bir kez yetmez: kullanıcı
+/// programı Görev Yöneticisi'nden kapatmış ya da elektrik kesilmiş olabilir.
+const CRASH_STRIKES: u32 = 2;
+
+/// Analizi süren dosyanın diskteki izi (bkz. modül belgesi).
+pub struct CrashGuard {
+    dir: Option<PathBuf>,
+}
+
+impl CrashGuard {
+    /// `dir`: kütüphanenin klasörü (izler `analiz-suruyor.txt` ve `analiz-atla.txt`).
+    pub fn new(dir: PathBuf) -> Self {
+        Self { dir: Some(dir) }
+    }
+
+    /// İz tutulmaz (testler, klasörü olmayan önbellek).
+    pub fn disabled() -> Self {
+        Self { dir: None }
+    }
+
+    fn file(&self, name: &str) -> Option<PathBuf> {
+        Some(self.dir.as_ref()?.join(name))
+    }
+
+    /// Açılışta: önceki oturum bir dosyanın analizinde kapandıysa o dosyanın sayacı artar. Döner:
+    /// atlanacak dosyalar (sayacı sınıra ulaşanlar, yol + damga).
+    pub fn recover(&self) -> HashSet<(PathBuf, FileStamp)> {
+        let (Some(current), Some(skip_file)) = (
+            self.file("analiz-suruyor.txt"),
+            self.file("analiz-atla.txt"),
+        ) else {
+            return HashSet::new();
+        };
+        let mut strikes = read_strikes(&skip_file);
+        if let Some(crashed) = std::fs::read_to_string(&current)
+            .ok()
+            .and_then(|text| parse_entry(text.trim()))
+        {
+            let count = strikes.entry(crashed.clone()).or_insert(0);
+            *count += 1;
+            diagnostics::error(&format!(
+                "Önceki açılışta program şu dosyanın analizinde kapandı ({}. kez): {}{}",
+                count,
+                crashed.0.display(),
+                if *count >= CRASH_STRIKES {
+                    "; bu dosya artık arka planda analiz edilmeyecek (dosya değişirse yeniden denenir)"
+                } else {
+                    ""
+                }
+            ));
+            let text: String = strikes
+                .iter()
+                .map(|((path, stamp), n)| {
+                    format!(
+                        "{n}\t{}\t{}\t{}\n",
+                        stamp.size,
+                        stamp.modified,
+                        path.display()
+                    )
+                })
+                .collect();
+            let _ = crate::atomic_file::write(&skip_file, text.as_bytes());
+            let _ = std::fs::remove_file(&current);
+        }
+        strikes
+            .into_iter()
+            .filter(|(_, n)| *n >= CRASH_STRIKES)
+            .map(|(entry, _)| entry)
+            .collect()
+    }
+
+    /// Dosyanın analizi başlıyor.
+    fn begin(&self, path: &Path, stamp: FileStamp) {
+        if let Some(current) = self.file("analiz-suruyor.txt") {
+            let line = format!("{}\t{}\t{}", stamp.size, stamp.modified, path.display());
+            let _ = crate::atomic_file::write(&current, line.as_bytes());
+        }
+    }
+
+    /// Analiz bitti (başarılı ya da değil): program bu dosyada kapanmadı.
+    fn end(&self) {
+        if let Some(current) = self.file("analiz-suruyor.txt") {
+            let _ = std::fs::remove_file(current);
+        }
+    }
+}
+
+fn parse_entry(line: &str) -> Option<(PathBuf, FileStamp)> {
+    let mut parts = line.splitn(3, '\t');
+    let size = parts.next()?.parse().ok()?;
+    let modified = parts.next()?.parse().ok()?;
+    let path = PathBuf::from(parts.next()?);
+    Some((path, FileStamp { size, modified }))
+}
+
+fn read_strikes(path: &Path) -> std::collections::HashMap<(PathBuf, FileStamp), u32> {
+    std::fs::read_to_string(path)
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|line| {
+            let (count, rest) = line.split_once('\t')?;
+            Some((parse_entry(rest)?, count.parse().ok()?))
+        })
+        .collect()
+}
 
 /// Oynatıcının o an süren analizlerinin sayacı. Analiz iş parçacığı başlarken
 /// artırır, biterken (bu nesne düşünce) azaltır.
@@ -67,7 +177,11 @@ pub struct BackgroundAnalysis {
 
 impl BackgroundAnalysis {
     /// Arka plan analizini başlatır. `foreground`: oynatıcının süren analiz sayısı.
-    pub fn start(cache: Arc<AnalysisCache>, foreground: Arc<AtomicUsize>) -> Self {
+    pub fn start(
+        cache: Arc<AnalysisCache>,
+        foreground: Arc<AtomicUsize>,
+        guard: CrashGuard,
+    ) -> Self {
         let shared = Arc::new(Shared {
             stop: AtomicBool::new(false),
             wake: Mutex::new(false),
@@ -77,7 +191,7 @@ impl BackgroundAnalysis {
         let worker = Arc::clone(&shared);
         let thread = std::thread::Builder::new()
             .name("lyraska-arka-plan-analiz".to_owned())
-            .spawn(move || run(&cache, &foreground, &worker))
+            .spawn(move || run(&cache, &foreground, &worker, &guard))
             .map_err(|e| diagnostics::error(&format!("Arka plan analizi başlatılamadı: {e}")))
             .ok();
         Self {
@@ -116,12 +230,13 @@ impl Drop for BackgroundAnalysis {
     }
 }
 
-fn run(cache: &AnalysisCache, foreground: &AtomicUsize, shared: &Shared) {
+fn run(cache: &AnalysisCache, foreground: &AtomicUsize, shared: &Shared, guard: &CrashGuard) {
     // Bu tarama kaydıyla (yol + kütüphanedeki damga) bir daha denenmeyecek şarkılar:
     // açılamayanlar ve taramadan sonra diskte değişenler. Değişen şarkının analizi
     // diskteki damgayla kaydedilir (oynatıcı onu kullanır); ama kütüphane kaydı
     // yeniden taranana kadar "bekliyor" görünür ve yoksa tekrar tekrar analiz edilirdi.
-    let mut skip: HashSet<(PathBuf, FileStamp)> = HashSet::new();
+    // Önceki açılışlarda programı kapatan dosyalar da baştan atlanır.
+    let mut skip: HashSet<(PathBuf, FileStamp)> = guard.recover();
     while !shared.stop.load(Ordering::Acquire) {
         let batch: Vec<(PathBuf, FileStamp)> =
             match cache.pending_library_tracks(BATCH + skip.len()) {
@@ -140,7 +255,10 @@ fn run(cache: &AnalysisCache, foreground: &AtomicUsize, shared: &Shared) {
                 return;
             }
             wait_for_foreground(foreground, shared);
-            match analyze_one(&path, cache, foreground, shared) {
+            guard.begin(&path, library_stamp);
+            let outcome = analyze_one(&path, cache, foreground, shared);
+            guard.end();
+            match outcome {
                 Outcome::Stored(stamp) => {
                     shared.analyzed.fetch_add(1, Ordering::AcqRel);
                     if stamp != library_stamp {
@@ -312,7 +430,8 @@ mod tests {
         let (service, cache, songs) = library_with_songs();
         assert_eq!(service.status().unwrap().analyzed, 0);
         let foreground = Arc::new(AtomicUsize::new(0));
-        let background = BackgroundAnalysis::start(Arc::clone(&cache), foreground);
+        let background =
+            BackgroundAnalysis::start(Arc::clone(&cache), foreground, CrashGuard::disabled());
         assert!(wait_until(|| background.analyzed() == songs.len(), 30));
         for song in &songs {
             let saved = cache.load(song, FileStamp::of(song).unwrap()).unwrap();
@@ -332,7 +451,11 @@ mod tests {
     fn tonsuz_eski_kayitlarda_yalnizca_ton_hesaplanir() {
         let (service, cache, songs) = library_with_songs();
         let foreground = Arc::new(AtomicUsize::new(0));
-        let background = BackgroundAnalysis::start(Arc::clone(&cache), Arc::clone(&foreground));
+        let background = BackgroundAnalysis::start(
+            Arc::clone(&cache),
+            Arc::clone(&foreground),
+            CrashGuard::disabled(),
+        );
         assert!(wait_until(|| background.analyzed() == songs.len(), 30));
         background.stop();
         let before: Vec<_> = songs
@@ -351,7 +474,8 @@ mod tests {
             )
             .unwrap();
         assert_eq!(service.status().unwrap().analyzed, 0);
-        let background = BackgroundAnalysis::start(Arc::clone(&cache), foreground);
+        let background =
+            BackgroundAnalysis::start(Arc::clone(&cache), foreground, CrashGuard::disabled());
         assert!(wait_until(|| background.analyzed() == songs.len(), 30));
         for (song, old) in songs.iter().zip(&before) {
             let now = cache
@@ -370,7 +494,11 @@ mod tests {
     fn ritim_hesabi_degisince_yalnizca_ritim_yenilenir() {
         let (service, cache, songs) = library_with_songs();
         let foreground = Arc::new(AtomicUsize::new(0));
-        let background = BackgroundAnalysis::start(Arc::clone(&cache), Arc::clone(&foreground));
+        let background = BackgroundAnalysis::start(
+            Arc::clone(&cache),
+            Arc::clone(&foreground),
+            CrashGuard::disabled(),
+        );
         assert!(wait_until(|| background.analyzed() == songs.len(), 30));
         background.stop();
         let before: Vec<_> = songs
@@ -387,7 +515,8 @@ mod tests {
             )
             .unwrap();
         assert_eq!(service.status().unwrap().analyzed, 0);
-        let background = BackgroundAnalysis::start(Arc::clone(&cache), foreground);
+        let background =
+            BackgroundAnalysis::start(Arc::clone(&cache), foreground, CrashGuard::disabled());
         assert!(wait_until(|| background.analyzed() == songs.len(), 30));
         for (song, old) in songs.iter().zip(&before) {
             let now = cache
@@ -416,7 +545,8 @@ mod tests {
         drop(file);
 
         let foreground = Arc::new(AtomicUsize::new(0));
-        let background = BackgroundAnalysis::start(Arc::clone(&cache), foreground);
+        let background =
+            BackgroundAnalysis::start(Arc::clone(&cache), foreground, CrashGuard::disabled());
         assert!(wait_until(|| background.analyzed() >= songs.len(), 30));
         std::thread::sleep(Duration::from_millis(600));
         assert_eq!(
@@ -435,7 +565,11 @@ mod tests {
         let (_service, cache, songs) = library_with_songs();
         let foreground = Arc::new(AtomicUsize::new(0));
         let busy = ForegroundGuard::new(&foreground);
-        let background = BackgroundAnalysis::start(Arc::clone(&cache), Arc::clone(&foreground));
+        let background = BackgroundAnalysis::start(
+            Arc::clone(&cache),
+            Arc::clone(&foreground),
+            CrashGuard::disabled(),
+        );
         std::thread::sleep(Duration::from_millis(400));
         assert_eq!(
             background.analyzed(),
@@ -451,10 +585,48 @@ mod tests {
     fn durdurunca_hemen_biter() {
         let (_service, cache, _songs) = library_with_songs();
         let foreground = Arc::new(AtomicUsize::new(1)); // hep meşgul: iş parçacığı bekliyor
-        let background = BackgroundAnalysis::start(cache, foreground);
+        let background = BackgroundAnalysis::start(cache, foreground, CrashGuard::disabled());
         std::thread::sleep(Duration::from_millis(50));
         let started = Instant::now();
         background.stop();
         assert!(started.elapsed() < Duration::from_secs(1));
+    }
+
+    #[test]
+    fn programi_iki_kez_kapatan_dosya_atlanir_degisince_yeniden_denenir() {
+        let dir = temp_path("cokme-izi");
+        let guard = CrashGuard::new(dir.clone());
+        let stamp = FileStamp {
+            size: 10,
+            modified: 20,
+        };
+        let path = PathBuf::from("C:\\Müzik\\bozuk.wav");
+
+        // 1. açılış: analiz sürerken program kapandı (iz kaldı).
+        guard.begin(&path, stamp);
+        assert!(
+            guard.recover().is_empty(),
+            "bir kez yetmez (elle kapatma olabilir)"
+        );
+        // 2. açılış: yine aynı dosyada kapandı.
+        guard.begin(&path, stamp);
+        let skip = guard.recover();
+        assert!(skip.contains(&(path.clone(), stamp)));
+        // Sonraki açılışlarda da atlanır; iz yokken sayaç artmaz.
+        assert_eq!(guard.recover(), skip);
+        // Dosya değişti (başka damga): yeniden denenir.
+        assert!(!skip.contains(&(
+            path.clone(),
+            FileStamp {
+                size: 11,
+                modified: 20
+            }
+        )));
+
+        // Düzgün biten analiz iz bırakmaz.
+        let other = PathBuf::from("C:\\Müzik\\iyi.flac");
+        guard.begin(&other, stamp);
+        guard.end();
+        assert!(!guard.recover().iter().any(|(p, _)| p == &other));
     }
 }

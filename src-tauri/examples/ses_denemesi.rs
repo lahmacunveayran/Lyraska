@@ -7,7 +7,7 @@
 //! Çalıştırma: `cargo run --example ses_denemesi`
 
 // Deneme kodu: beklenmeyen bir hata denemeyi hemen durdurmalı.
-#![allow(clippy::expect_used)]
+#![allow(clippy::expect_used, reason = "elle çalıştırılan deneme programı")]
 
 use std::path::Path;
 use std::process::ExitCode;

@@ -13,8 +13,10 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use serde::Serialize;
 use tauri::State;
 
-use crate::analysis::annotation::{AnnotatedTrack, Annotation, AnnotationStore};
-use crate::analysis::background::BackgroundAnalysis;
+use crate::analysis::annotation::{
+    AnnotatedTrack, Annotation, AnnotationStore, EvaluationSaveError,
+};
+use crate::analysis::background::{BackgroundAnalysis, CrashGuard};
 use crate::analysis::cache::AnalysisCache;
 use crate::analysis::evaluate;
 use crate::analysis::map_file::{ImportedMapStatus, MapFile, MapStore};
@@ -63,8 +65,9 @@ impl AppInfo {
         Self {
             name: "Lyraska".to_owned(),
             version: env!("CARGO_PKG_VERSION").to_owned(),
-            commit: env!("LYRASKA_COMMIT").to_owned(),
-            phase: "Faz 2".to_owned(),
+            commit: env!("LYRASKA_BUILD_COMMIT").to_owned(),
+            // Faz adı değil: programda birden çok fazın işi bir arada; yol haritası docs/ROADMAP.md.
+            phase: "Test sürümü".to_owned(),
             audio_engine: audio::status().label().to_owned(),
             analysis: analysis::status().label().to_owned(),
             visual_bridge: visual_bridge::status().label().to_owned(),
@@ -88,6 +91,13 @@ impl PlayerState {
     }
 }
 
+/// Program kapanırken oynatıcıyı kapatır (`lib.rs`, `RunEvent::Exit`).
+pub fn stop_on_exit(player: &PlayerState) {
+    if let Ok(mut player) = player.0.lock() {
+        player.shutdown();
+    }
+}
+
 /// Kayıtlı ayarları oynatıcıya uygular (program açılırken).
 pub fn restore_settings(player: &PlayerState, store: &SettingsStore) {
     if let Ok(mut player) = player.lock() {
@@ -108,12 +118,14 @@ pub fn restore_settings(player: &PlayerState, store: &SettingsStore) {
 pub fn start_analysis_cache(
     player: &PlayerState,
     cache: Arc<AnalysisCache>,
+    guard: CrashGuard,
 ) -> Option<BackgroundAnalysis> {
     let mut player = player.lock().ok()?;
     player.set_analysis_cache(Arc::clone(&cache));
     Some(BackgroundAnalysis::start(
         cache,
         player.foreground_analyses(),
+        guard,
     ))
 }
 
@@ -666,7 +678,7 @@ pub async fn annotation_evaluate(
     store: State<'_, AnnotationStore>,
 ) -> Result<Annotation, String> {
     let track = annotated_track(&path)?;
-    let mut annotation = store
+    let annotation = store
         .load(&track)
         .ok_or_else(|| "Önce işaretleri kaydedin.".to_owned())?;
     if annotation.beats.len() < 8 {
@@ -681,11 +693,16 @@ pub async fn annotation_evaluate(
     .await
     .map_err(reported)?
     .map_err(reported)?;
-    annotation.evaluation = Some(result);
+    // Yalnızca ölçülen işaretler hâlâ diskteyse yazılır: ölçüm sürerken kaydedilen yeni işaretler
+    // eskileriyle ezilmez (DENETIM-FAZ0 ISK-03).
     store
-        .save(&annotation)
-        .map_err(|e| reported(format!("Sonuç kaydedilemedi: {e}")))?;
-    Ok(annotation)
+        .save_evaluation(&annotation, result)
+        .map_err(|e| match e {
+            EvaluationSaveError::MarksChanged => {
+                "Ölçüm sürerken işaretler değişti; sonuç yazılmadı. Yeniden ölçün.".to_owned()
+            }
+            EvaluationSaveError::Io(e) => reported(format!("Sonuç kaydedilemedi: {e}")),
+        })
 }
 
 /// Çalan şarkının yapısı (ölçü, bölümler, droplar, enerji); analiz bitmediyse `null`.

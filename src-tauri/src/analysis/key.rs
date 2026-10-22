@@ -387,7 +387,7 @@ impl ChromaAnalyzer {
             self.process();
         }
         self.position += 1;
-        if self.position % self.samples_per_second == 0 {
+        if self.position.is_multiple_of(self.samples_per_second) {
             self.close_second();
         }
     }
@@ -454,7 +454,7 @@ impl ChromaAnalyzer {
 
     /// Şarkı bitti: akort kayması bulunur, kroma 12 perdeye katlanır ve ton tahmin edilir.
     pub fn finish(mut self) -> KeyAnalysis {
-        if self.position % self.samples_per_second != 0 {
+        if !self.position.is_multiple_of(self.samples_per_second) {
             self.close_second();
         }
         let tuning = if self.tuning_sin == 0.0 && self.tuning_cos == 0.0 {

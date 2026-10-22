@@ -540,7 +540,7 @@ mod tests {
                 let period = rate as usize / 100;
                 let mut peak = 0.0f64;
                 for i in 0..rate as usize {
-                    let x = if (i / (period / 2)) % 2 == 0 {
+                    let x = if (i / (period / 2)).is_multiple_of(2) {
                         1.0
                     } else {
                         -1.0

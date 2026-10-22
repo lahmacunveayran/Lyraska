@@ -982,6 +982,13 @@ impl Player {
         self.session = None;
     }
 
+    /// Program kapanırken: ses yumuşakça kısılır, oturum ve kör test kapanır, ses aygıtı bırakılır
+    /// (süreç sonlanırken aygıtta yarım arabellek "tık"ı kalmasın).
+    pub fn shutdown(&mut self) {
+        self.abx = None;
+        self.close_session();
+    }
+
     /// Kör dinleme testini kurar. Çalan şarkı durur (ses aygıtı teste geçer); test bitince
     /// kaldığı yerde duraklatılmış açılır.
     pub fn abx_start(&mut self, request: &AbxRequest) -> Result<AbxStatus, AudioError> {

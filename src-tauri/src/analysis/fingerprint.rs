@@ -377,7 +377,7 @@ impl ChromaPrint {
 
 /// `digits` onaltılık rakamlık kelimeler; uzunluk ya da rakam bozuksa `None`.
 fn parse_hex(text: &str, digits: usize) -> Option<Vec<u32>> {
-    if !text.is_ascii() || text.len() % digits != 0 {
+    if !text.is_ascii() || !text.len().is_multiple_of(digits) {
         return None;
     }
     text.as_bytes()
@@ -505,7 +505,7 @@ pub(crate) mod tests {
                 let in_beat = t % beat;
                 let beat_index = (t / beat) as usize;
                 let root = roots[(beat_index / 4) % 4];
-                let kick = if beat_index % 2 == 0 {
+                let kick = if beat_index.is_multiple_of(2) {
                     (2.0 * PI * 55.0 * in_beat).sin() * (-in_beat * 18.0).exp()
                 } else {
                     0.0

@@ -10,8 +10,10 @@
 //! - [`settings`]: kalıcı kullanıcı ayarları (ekolayzer vb.)
 //! - [`commands`]: arayüzün çağırabildiği Tauri komutları
 //! - [`diagnostics`]: yerel hata ve çökme günlüğü
+//! - [`data_dirs`]: veri klasörleri ve tek örnek kilidi; [`atomic_file`]: bölünmez dosya yazma
 
 pub mod analysis;
+pub mod atomic_file;
 pub mod audio;
 pub mod commands;
 pub mod data_dirs;
@@ -27,23 +29,54 @@ use tauri::Manager;
 /// Programı başlatır.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let context = tauri::generate_context!();
+    // Küçük, kullanıcıya ait veri (ayarlar, işaretler) gezici klasörde (Roaming); büyük ve yeniden
+    // üretilebilir veri (kütüphane + analiz önbelleği, günlükler) makineye özgü klasörde (Local).
+    // Eski sürümün Roaming'e yazdıkları bir kez taşınır. Klasörler Tauri'den önce bulunur:
+    let early = data_dirs::DataDirs::resolve(&context.config().identifier);
+    // Hata ve çökme günlüğü en önce, pencereden de önce açılır: WebView2 ya da pencere açılamazsa
+    // Tauri panikler; o çökme de günlüğe yazılır ve kullanıcıya gösterilir.
+    if let Some(dirs) = &early {
+        diagnostics::init(&dirs.big.join("logs"));
+    }
+    // Tek örnek: program zaten açıksa ikinci kopya aynı dosyalara dokunmadan kapanır.
+    let _instance = match early
+        .as_ref()
+        .map(|dirs| data_dirs::acquire_instance_lock(&dirs.big))
+    {
+        Some(Ok(lock)) => Some(lock),
+        Some(Err(data_dirs::LockError::AlreadyRunning)) => {
+            diagnostics::info("Lyraska zaten açık; ikinci kopya kapanıyor");
+            already_running_notice();
+            return;
+        }
+        Some(Err(data_dirs::LockError::Io(e))) => {
+            diagnostics::error(&format!("Tek örnek kilidi alınamadı: {e}"));
+            None
+        }
+        None => None,
+    };
+
     let built = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(commands::PlayerState::default())
-        .setup(|app| {
-            // Küçük, kullanıcıya ait veri (ayarlar, işaretler) gezici klasörde (Roaming); büyük
-            // ve yeniden üretilebilir veri (kütüphane + analiz önbelleği, günlükler) makineye
-            // özgü klasörde (Local). Eski sürümün Roaming'e yazdıkları bir kez taşınır.
-            let roaming = app.path().app_data_dir().map_err(|e| e.to_string());
-            let big = match (&roaming, app.path().app_local_data_dir()) {
-                (Ok(roaming), Ok(local)) => Ok(data_dirs::big_data_dir(roaming, &local)),
-                (Ok(roaming), Err(_)) => Ok(roaming.clone()),
-                (Err(e), _) => Err(e.clone()),
+        .setup(move |app| {
+            let (roaming, big) = match early {
+                Some(dirs) => (Ok(dirs.roaming), Ok(dirs.big)),
+                // İşletim sistemi klasörü bildirmediyse Tauri'ninki (aynı kural).
+                None => {
+                    let roaming = app.path().app_data_dir().map_err(|e| e.to_string());
+                    let big = match (&roaming, app.path().app_local_data_dir()) {
+                        (Ok(roaming), Ok(local)) => Ok(data_dirs::big_data_dir(roaming, &local)),
+                        (Ok(roaming), Err(_)) => Ok(roaming.clone()),
+                        (Err(e), _) => Err(e.clone()),
+                    };
+                    if let Ok(dir) = &big {
+                        diagnostics::init(&dir.join("logs"));
+                    }
+                    (roaming, big)
+                }
             };
-            // Hata ve çökme günlüğü en önce açılır: kurulumdaki hatalar da yazılsın.
-            if let Ok(dir) = &big {
-                diagnostics::init(&dir.join("logs"));
-            }
             // Kütüphane açılır açılmaz arka planda güncellenir.
             let service = big.clone().and_then(|dir| {
                 library::LibraryService::open(&dir.join("library.sqlite3"))
@@ -66,9 +99,15 @@ pub fn run() {
                 .map_err(|e| diagnostics::error(&format!("Analiz önbelleği açılamadı: {e}")))
                 .ok()
                 .and_then(|cache| {
+                    // Çökme döngüsü koruması: analizi programı kapatan dosya atlanır.
+                    let guard = match &big {
+                        Ok(dir) => analysis::background::CrashGuard::new(dir.clone()),
+                        Err(_) => analysis::background::CrashGuard::disabled(),
+                    };
                     commands::start_analysis_cache(
                         &app.state::<commands::PlayerState>(),
                         std::sync::Arc::new(cache),
+                        guard,
                     )
                 });
             app.manage(commands::BackgroundState(background));
@@ -95,6 +134,7 @@ pub fn run() {
                 Ok(dir) => analysis::annotation::AnnotationStore::new(dir.join("isaretler")),
                 Err(_) => analysis::annotation::AnnotationStore::unavailable(),
             });
+            diagnostics::mark_started();
             Ok(())
         })
         // Sürükle-bırak sorunlarını ayırt etmek için: Windows dosyaları pencereye
@@ -168,12 +208,12 @@ pub fn run() {
             commands::abx_status,
             commands::abx_stop,
         ])
-        .build(tauri::generate_context!());
+        .build(context);
     let app = match built {
         Ok(app) => app,
         Err(e) => {
-            // Pencere ya da WebView2 açılamadı. Günlük açılmışsa nedeni oraya da yazılır
-            // (kullanıcı hata kaydına ekler); program panik yerine düzgünce kapanır.
+            // Olay döngüsü ya da bir eklenti kurulamadı (pencere ve WebView2 burada değil, `run`
+            // içinde açılır; onların hatası panik olarak günlüğe ve uyarı kutusuna gider).
             let message = format!("Lyraska başlatılamadı: {e}");
             diagnostics::error(&message);
             eprintln!("{message}");
@@ -182,8 +222,25 @@ pub fn run() {
     };
     app.run(|app, event| {
         if let tauri::RunEvent::Exit = event {
+            // Ses önce durur: kapanış sırasında aygıtta yarım arabellek kalmasın.
+            commands::stop_on_exit(&app.state::<commands::PlayerState>());
             app.state::<commands::LibraryState>().shutdown();
             app.state::<commands::BackgroundState>().shutdown();
         }
     });
+}
+
+/// Program zaten açıkken ikinci kez başlatılınca: kullanıcıya kısa bir not (Windows).
+fn already_running_notice() {
+    #[cfg(windows)]
+    {
+        let _ = rfd::MessageDialog::new()
+            .set_level(rfd::MessageLevel::Info)
+            .set_title("Lyraska")
+            .set_description("Lyraska zaten açık. Görev çubuğundaki Lyraska penceresine geçin.")
+            .set_buttons(rfd::MessageButtons::Ok)
+            .show();
+    }
+    #[cfg(not(windows))]
+    eprintln!("Lyraska zaten açık.");
 }

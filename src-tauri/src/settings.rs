@@ -149,21 +149,11 @@ fn parse_lenient(text: &str, path: &Path) -> Settings {
     }
 }
 
-/// Önce geçici dosyaya yazılır, diske işlenir (`sync_all`), sonra adı değiştirilir: yazma ya da
-/// yeniden adlandırma sırasında elektrik kesilse de eski ayarlar bozulmaz.
+/// Bölünmez yazma (`atomic_file`): yazma ya da yeniden adlandırma sırasında elektrik kesilse de
+/// eski ayarlar bozulmaz.
 fn save(path: &Path, settings: &Settings) -> io::Result<()> {
-    use std::io::Write;
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir)?;
-    }
     let text = serde_json::to_string_pretty(settings).map_err(io::Error::other)?;
-    let temp = path.with_extension("json.tmp");
-    {
-        let mut file = std::fs::File::create(&temp)?;
-        file.write_all(text.as_bytes())?;
-        file.sync_all()?;
-    }
-    std::fs::rename(&temp, path)
+    crate::atomic_file::write(path, text.as_bytes())
 }
 
 #[cfg(test)]

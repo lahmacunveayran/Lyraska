@@ -8,6 +8,7 @@
 //! depoya girmez.
 
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
@@ -92,19 +93,35 @@ fn clean_times(mut times: Vec<f64>) -> Vec<f64> {
     times
 }
 
-/// İşaret dosyalarının klasörü.
+/// İşaret dosyalarının klasörü. Yazmalar sıraya girer (`writes`): "doğruluğu ölç" sonucu, ölçüm
+/// sürerken kaydedilen yeni işaretlerin üstüne yazılamaz (`save_evaluation`).
 pub struct AnnotationStore {
     dir: Option<PathBuf>,
+    writes: Mutex<()>,
+}
+
+/// Ölçüm sonucu yazılamadı.
+#[derive(Debug)]
+pub enum EvaluationSaveError {
+    /// Ölçüm sürerken işaretler değişti; sonuç eski işaretlere ait, yazılmadı.
+    MarksChanged,
+    Io(std::io::Error),
 }
 
 impl AnnotationStore {
     pub fn new(dir: PathBuf) -> Self {
-        Self { dir: Some(dir) }
+        Self {
+            dir: Some(dir),
+            writes: Mutex::new(()),
+        }
     }
 
     /// Klasörü bilinmeyen depo (uygulama veri klasörü bulunamadıysa).
     pub fn unavailable() -> Self {
-        Self { dir: None }
+        Self {
+            dir: None,
+            writes: Mutex::new(()),
+        }
     }
 
     pub fn dir(&self) -> Option<&Path> {
@@ -119,17 +136,47 @@ impl AnnotationStore {
     /// Yazar; yazılan dosyanın yolunu döndürür. Önce geçici dosyaya yazılır.
     /// Şarkının etiketi değiştiyse eski adlı dosyası kaldırılır (tek kopya kalır).
     pub fn save(&self, annotation: &Annotation) -> std::io::Result<PathBuf> {
+        let _turn = self
+            .writes
+            .lock()
+            .map_err(|_| std::io::Error::other("kilit"))?;
+        self.write(annotation)
+    }
+
+    /// Ölçüm sonucunu, ölçülen işaretler hâlâ diskteyse yazar. Ölçüm birkaç saniye sürer; bu
+    /// sırada kullanıcı işaretlemeyi sürdürüp kaydettiyse eski işaretler + sonuç yeni işaretlerin
+    /// üstüne yazılmaz (kayıp güncelleme, DENETIM-FAZ0 ISK-03).
+    pub fn save_evaluation(
+        &self,
+        measured: &Annotation,
+        evaluation: BeatEvaluation,
+    ) -> Result<Annotation, EvaluationSaveError> {
+        let _turn = self
+            .writes
+            .lock()
+            .map_err(|_| EvaluationSaveError::Io(std::io::Error::other("kilit")))?;
+        let current = self
+            .load(&measured.track)
+            .ok_or(EvaluationSaveError::MarksChanged)?;
+        if current.beats != measured.beats
+            || current.drops != measured.drops
+            || current.key != measured.key
+        {
+            return Err(EvaluationSaveError::MarksChanged);
+        }
+        let mut updated = current;
+        updated.evaluation = Some(evaluation);
+        self.write(&updated).map_err(EvaluationSaveError::Io)?;
+        Ok(updated)
+    }
+
+    fn write(&self, annotation: &Annotation) -> std::io::Result<PathBuf> {
         let track_path = &annotation.track.path;
         let path = self
             .file_for(track_path, &label(&annotation.track))
             .ok_or_else(|| std::io::Error::other("uygulama veri klasörü bulunamadı"))?;
-        if let Some(dir) = path.parent() {
-            std::fs::create_dir_all(dir)?;
-        }
         let text = serde_json::to_string_pretty(annotation).map_err(std::io::Error::other)?;
-        let temp = path.with_extension("json.tmp");
-        std::fs::write(&temp, text)?;
-        std::fs::rename(&temp, &path)?;
+        crate::atomic_file::write(&path, text.as_bytes())?;
         for old in self.files_of(track_path) {
             if old != path {
                 let _ = std::fs::remove_file(old);
@@ -276,6 +323,41 @@ mod tests {
         let old: Annotation = serde_json::from_value(old).unwrap();
         assert_eq!(old.key, None);
         assert_eq!(old.beats, annotation.beats);
+    }
+
+    fn evaluation() -> BeatEvaluation {
+        serde_json::from_value(serde_json::json!({
+            "fMeasure": 0.9, "tapOffsetMs": 12.0, "fMeasureAligned": 0.95,
+            "detectedBpm": 120.0, "markedBpm": 120.0, "detectedCount": 8, "markedCount": 8
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn olcum_surerken_kaydedilen_isaretler_ezilmez() {
+        // Hata (ISK-03): ölçüm başlarken okunan işaretler (A) + sonuç, ölçüm sürerken kaydedilen
+        // yeni işaretlerin (B) üstüne yazılıyordu.
+        let store = AnnotationStore::new(temp_path("isaret-yaris").with_extension(""));
+        let measured = Annotation::new(track("C:\\Müzik\\a.flac"), vec![1.0, 2.0], vec![], None);
+        store.save(&measured).unwrap();
+        let newer = Annotation::new(measured.track.clone(), vec![1.0, 2.0, 3.0], vec![], None);
+        store.save(&newer).unwrap();
+
+        assert!(matches!(
+            store.save_evaluation(&measured, evaluation()),
+            Err(EvaluationSaveError::MarksChanged)
+        ));
+        let on_disk = store.load(&measured.track).unwrap();
+        assert_eq!(on_disk.beats, vec![1.0, 2.0, 3.0], "yeni işaretler yerinde");
+        assert_eq!(on_disk.evaluation, None);
+
+        // İşaretler değişmediyse sonuç yazılır.
+        let saved = store.save_evaluation(&newer, evaluation()).unwrap();
+        assert_eq!(saved.beats, newer.beats);
+        assert_eq!(
+            store.load(&newer.track).unwrap().evaluation,
+            Some(evaluation())
+        );
     }
 
     #[test]
