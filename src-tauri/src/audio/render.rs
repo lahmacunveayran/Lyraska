@@ -43,10 +43,12 @@ impl Default for RenderControls {
 
 /// Duraklat/devam geçişinin süresi. Ani kesilme "tık" sesine yol açar.
 pub const FADE_SECONDS: f64 = 0.010;
-/// Eşitleme açıkken ilk ses, şarkının ses yüksekliği ölçümü gelene kadar en fazla bu kadar
-/// bekletilir: seviye ilk örnekten doğru olsun. Önbellekteki şarkılarda ve sarmada ölçüm
-/// zaten hazırdır, hiç beklenmez; yeni bir şarkıda hızlı ölçüm genellikle yetişir.
-const LOUDNESS_WAIT_SECONDS: f64 = 0.6;
+/// Eşitleme açıkken ilk ses, şarkının ses yüksekliği ölçümü (ya da erken tahmini) gelene kadar
+/// en fazla bu kadar bekletilir: seviye ilk örnekten doğru olsun. Önbellekteki şarkılarda ve
+/// sarmada ölçüm zaten hazırdır, hiç beklenmez; yeni bir şarkıda kısa şarkıların ölçümü ya da
+/// uzunların erken tahmini (ilk 5 sn) genellikle bu sürede gelir. Gelmezse şarkı tipik bir kayıt
+/// varsayımıyla başlar ve ölçüm gelince kazanç 1,5 sn'de yumuşakça düzelir (SES-04).
+const LOUDNESS_WAIT_SECONDS: f64 = 0.15;
 
 /// Bir doldurma turunun sonucu.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -557,9 +559,10 @@ mod tests {
         let levels = Arc::new(TrackLevels::new());
         let mut renderer = Renderer::new(1, RATE, normalizing(&levels));
         let mut source = filled(&[0.5; 1000]);
-        let mut out = [0.0f64; 100];
-        for _ in 0..6 {
-            // 0,6 sn (600 kare) beklenir.
+        let mut out = [0.0f64; 50];
+        for _ in 0..3 {
+            // En çok 0,15 sn (150 kare) beklenir: önce 0,6 sn'ydi, önbelleksiz her şarkıda
+            // duyulur bir sessizlikti (SES-04).
             assert_eq!(
                 renderer
                     .render(&mut source, &mut out, false)
@@ -577,6 +580,52 @@ mod tests {
         // Tipik kayıt varsayılır (−10 LUFS → −4 dB).
         let expected = 0.5 * 10f64.powf(-4.0 / 20.0);
         assert!((out[199] - expected).abs() < 1e-6, "{}", out[199]);
+    }
+
+    #[test]
+    fn erken_tahmin_ilk_sesi_baslatir_kesin_olcum_yumusakca_duzeltir() {
+        // Uzun şarkıda kesin ölçüm saniyeler sürer; ilk 5 sn'nin tahmini gelince şarkı başlar,
+        // kesin ölçüm gelince kazanç 1,5 sn'de kayar (SES-04).
+        let levels = Arc::new(TrackLevels::new());
+        let mut renderer = Renderer::new(1, RATE, normalizing(&levels));
+        let mut source = filled(&[0.5; 12_000]);
+        let mut out = [0.0f64; 50];
+        assert_eq!(
+            renderer
+                .render(&mut source, &mut out, false)
+                .frames_consumed,
+            0
+        );
+        // Tahmin: −8 LUFS → −6 dB.
+        levels.set_loudness_estimate(0, loud());
+        let mut out = [0.0f64; 200];
+        assert_eq!(
+            renderer
+                .render(&mut source, &mut out, false)
+                .frames_consumed,
+            200
+        );
+        let estimated = 0.5 * 10f64.powf(-6.0 / 20.0);
+        assert!((out[199] - estimated).abs() < 1e-6, "{}", out[199]);
+        // Kesin ölçüm: −20 LUFS → +6 dB; 1,5 sn zaman sabitiyle oraya kayar, arada sıçrama yok.
+        levels.set_loudness(
+            0,
+            Some(crate::audio::loudness::Loudness {
+                integrated_lufs: -20.0,
+                true_peak_dbtp: -12.0,
+            }),
+        );
+        let mut last = out[199];
+        let mut out = [0.0f64; 100];
+        for _ in 0..100 {
+            renderer.render(&mut source, &mut out, false);
+            for &s in &out {
+                assert!((s - last).abs() < 0.02, "sıçrama: {last} → {s}");
+                last = s;
+            }
+        }
+        let expected = 0.5 * 10f64.powf(6.0 / 20.0);
+        assert!((last - expected).abs() < 2e-3, "{last} ≠ {expected}");
     }
 
     #[test]

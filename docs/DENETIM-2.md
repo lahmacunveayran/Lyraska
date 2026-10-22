@@ -81,7 +81,7 @@ Durum sözlüğü: **birleşti** = main'de, test ile; **hazır** = yerel dalda y
 | K6  | Ayar kaydı fsync yok, tek bozuk alan her şeyi siler | birleşti               | #82; okuma hatası yolu (KUT-06) 0.0.51: bellekte sürer, üstüne yazılmaz   |
 | S2  | Bit-perfect dar bit derinliğinde yanıltıyor         | birleşti               | #84; paylaşımlı yola dönüş + açıklama                                     |
 | S3  | Özel modda şarkı sonunda arabellek tekrarı          | birleşti               | #84; bir tampon sessizlik; cihazda doğrulanacak (DOGRULAMA B11)           |
-| S4  | MMCSS yok (öncelik)                                 | onay                   | `unsafe` gerektirir; bağımsız denetim SES-03 ile aynı                     |
+| S4  | MMCSS yok (öncelik)                                 | birleşti               | 0.0.52: `wasapi.rs` "Pro Audio", tek gerekçeli `unsafe` (karar 5.3)       |
 | A3  | Geçişte görsel şarkı seçimi gecikmeyi saymıyor      | birleşti               | #85; `playing_at(offset)`                                                 |
 | A4  | Nabız ∪ vurgu garantisi                             | birleşti (kısmen)      | #85; vurgular nabzın alt kümesi; sarmadaki durumsuzluk TS sınırlayıcıda   |
 | A5  | Drop zamanı ölçü fazına körü körüne bağlı           | açık                   | analiz iyileştirmesi; bkz. ANL-12                                         |
@@ -107,7 +107,7 @@ Durum sözlüğü: **birleşti** = main'de, test ile; **hazır** = yerel dalda y
 | S11 | 5/7.1 kanal ağırlıkları                             | açık                   | bağımsız denetim SES-06 ile aynı                                          |
 | A7  | Tek global ölçü fazı                                | açık                   | bkz. ANL-04/05                                                            |
 | A8  | Arka plan `skip` kümesi oturum boyu kalıcı          | açık                   | A2 düzeltmesiyle etkileşir (ANL-16, Y4)                                   |
-| A9  | Kilit altında analiz `join`                         | açık                   | bağımsız denetim ANL-06 ve SES-02 ile aynı                                |
+| A9  | Kilit altında analiz `join`                         | birleşti               | 0.0.52: analiz düşürülürken `join` yok; açma/sarma kilit dışında          |
 | A10 | Yenileme başarısızsa sıradaki bekliyor              | açık                   |                                                                           |
 | A11 | Sessizlikte hayalet vuruş                           | açık                   | analiz iyileştirmesi                                                      |
 | A12 | FAT32 yaz/kış saati `mtime`                         | açık                   | bkz. KUT-15                                                               |
@@ -222,9 +222,9 @@ Bu eşleşmeler iki denetimin birbirinden bağımsız olduğunu ve ilk denetimin
 | K7           | KUT-02 (yüksek)                       | 0.0.51: kenara al, boş kur, söyle                   |
 | K11          | KUT-04, ARA-14                        | açık                                                |
 | K3           | KUT-09                                | 0.0.51: tam tarama tek tarama                       |
-| S4           | SES-03                                | karar bekliyor (`unsafe`)                           |
+| S4           | SES-03                                | 0.0.52: MMCSS "Pro Audio"                           |
 | S8, S11      | SES-08, SES-06/MAT-07                 | açık                                                |
-| A9           | ANL-06, SES-02, KUT-08                | açık; üç denetçi bağımsızca aynı kilidi işaret etti |
+| A9           | ANL-06, SES-02, KUT-08                | 0.0.52: begin/prepare/install, `join` kaldırıldı    |
 | A12, A13     | KUT-15, ANL-03                        | açık; ANL-03 sayısal olarak ölçtü                   |
 | A14          | ANL-15                                | açık                                                |
 | A1/A4        | ANL-08, MAT-10                        | #85 ile vurgular nabzın alt kümesi; bkz. 4.3        |

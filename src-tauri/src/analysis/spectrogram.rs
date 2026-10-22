@@ -59,6 +59,8 @@ pub struct Spectrogram {
     /// geçişiyle analiz bitmeden de gelebilir ([`Spectrogram::set_measured_loudness`]).
     loudness: RwLock<Option<Loudness>>,
     loudness_ready: AtomicBool,
+    /// Hızlı ölçümün ilk saniyelerden erken tahmini (kesin ölçüm gelene kadar).
+    early_loudness: RwLock<Option<Loudness>>,
     /// Bas tepeleri (yalnızca tam analizde ölçülür).
     bass_peaks: RwLock<Option<BassPeaks>>,
     /// Ton analizi: kroma zaman çizgisi ve şarkının tonu (analiz bitince).
@@ -86,6 +88,7 @@ impl Spectrogram {
             choreography: RwLock::new(None),
             loudness: RwLock::new(None),
             loudness_ready: AtomicBool::new(false),
+            early_loudness: RwLock::new(None),
             bass_peaks: RwLock::new(None),
             key: RwLock::new(None),
             sample_rate: RwLock::new(None),
@@ -235,6 +238,21 @@ impl Spectrogram {
             .then(|| self.loudness())
     }
 
+    /// Hızlı ölçümün ilk saniyelerden tahmini; kesin ölçüm hazırsa ya da tahmin henüz yoksa
+    /// `None`. Eşitleme ilk sesi 0,6 s yerine 0,15 s bekler ve bununla başlar (SES-04).
+    pub fn early_loudness(&self) -> Option<Loudness> {
+        if self.loudness_ready.load(Ordering::Acquire) {
+            return None;
+        }
+        self.early_loudness.read().ok().and_then(|l| *l)
+    }
+
+    pub fn set_early_loudness(&self, loudness: Loudness) {
+        if let Ok(mut stored) = self.early_loudness.write() {
+            *stored = Some(loudness);
+        }
+    }
+
     /// Ses yüksekliği ölçümünü yayımlar (hızlı ölçüm geçişi ya da analizin sonu).
     pub fn set_measured_loudness(&self, loudness: Option<Loudness>) {
         if let Ok(mut stored) = self.loudness.write() {
@@ -371,6 +389,12 @@ pub fn measure_loudness(mut decoder: Decoder, target: &Spectrogram) {
     let info = decoder.info().clone();
     let channels = info.channels.max(1);
     let mut meter = LoudnessMeter::new(info.sample_rate, channels);
+    // Bütünleşik ölçüm bütün şarkıyı ister (4 dk'lık MP3 1–3 sn); ilk saniyelerden bir
+    // tahmin yayımlanır ki ilk ses −10 LUFS varsayımıyla değil, şarkının kendi girişiyle
+    // başlasın. Kesin ölçüm gelince kazanç yumuşakça düzelir.
+    let early_frames = info.sample_rate as usize * EARLY_LOUDNESS_SECONDS;
+    let mut frames = 0usize;
+    let mut early_sent = false;
     loop {
         if target.is_cancelled() || target.measured_loudness().is_some() {
             return;
@@ -379,6 +403,13 @@ pub fn measure_loudness(mut decoder: Decoder, target: &Spectrogram) {
             Ok(Some(chunk)) => {
                 for frame in chunk.chunks_exact(channels) {
                     meter.add(frame);
+                }
+                frames += chunk.len() / channels;
+                if !early_sent && frames >= early_frames {
+                    early_sent = true;
+                    if let Some(early) = meter.finish() {
+                        target.set_early_loudness(early);
+                    }
                 }
             }
             Ok(None) => break,
@@ -390,6 +421,9 @@ pub fn measure_loudness(mut decoder: Decoder, target: &Spectrogram) {
         target.set_measured_loudness(meter.finish());
     }
 }
+
+/// Erken ses yüksekliği tahmini için ölçülen ilk süre (saniye).
+const EARLY_LOUDNESS_SECONDS: usize = 5;
 
 /// Şarkıyı baştan sona çözerek spektrogramı doldurur. Ayrı iş parçacığında çalışır.
 pub fn analyze(decoder: Decoder, target: &Spectrogram) {
@@ -1159,6 +1193,38 @@ mod tests {
         analyze(Decoder::open(&path).unwrap(), &spectrogram);
         assert!(!spectrogram.is_done());
         assert_eq!(spectrogram.ready_frames(), 0);
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn hizli_olcum_ilk_saniyelerden_erken_tahmin_yayimlar() {
+        // 8 sn: ilk 5 sn yarım genlik (−6 LUFS), sonrası −8 dB daha sessiz (göreli kapının
+        // üstünde). Erken tahmin yalnızca ilk 5 sn'yi görür; kesin ölçüm bütünü (daha sessiz).
+        // Kesin ölçüm gelince tahmin dışarıya verilmez (SES-04).
+        let path = temp_path("spektrum-erken.wav");
+        let rate = 8_000;
+        write_wav(&path, rate, 1, rate as usize * 8, |f, _| {
+            let gain = if f < rate as usize * 5 { 0.5 } else { 0.2 };
+            gain * sine(1000.0, rate, f)
+        });
+        let quick = Spectrogram::new();
+        assert_eq!(quick.early_loudness(), None);
+        measure_loudness(Decoder::open(&path).unwrap(), &quick);
+        let early = quick.early_loudness.read().unwrap().unwrap();
+        let measured = quick.measured_loudness().flatten().unwrap();
+        assert!(
+            (early.integrated_lufs + 6.0).abs() < 0.5,
+            "erken tahmin yüksek bölümü ölçer: {early:?}"
+        );
+        assert!(
+            measured.integrated_lufs < early.integrated_lufs - 1.0,
+            "kesin ölçüm bütünü: {measured:?}"
+        );
+        assert_eq!(
+            quick.early_loudness(),
+            None,
+            "kesin ölçüm varken tahmin verilmez"
+        );
         std::fs::remove_file(path).ok();
     }
 

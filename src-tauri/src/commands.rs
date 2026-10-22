@@ -147,13 +147,19 @@ pub fn app_info() -> AppInfo {
     AppInfo::current()
 }
 
-/// Şarkıyı açar ve çalmaya başlar.
+/// Şarkıyı açar ve çalmaya başlar. Dosyayı açma, ön dolum ve ses aygıtını açma yüzlerce ms
+/// sürer: oynatıcı kilidi dışında, ayrı iş parçacığında yapılır; görseller ve durum sorguları bu
+/// sırada beklemez (SES-02).
 #[tauri::command]
 pub async fn open_track(
     path: PathBuf,
     player: State<'_, PlayerState>,
 ) -> Result<TrackInfo, String> {
-    player.lock()?.load(&path, true).map_err(reported)
+    let transition = player.lock()?.begin_transition(&path, true, None);
+    let prepared = tauri::async_runtime::spawn_blocking(move || Player::prepare(transition))
+        .await
+        .map_err(reported)?;
+    player.lock()?.install(prepared).map_err(reported)
 }
 
 /// Şarkının içindeki kapak resmi (`data:` adresi; kapak yoksa `null`). Okunamayan dosya
@@ -192,15 +198,20 @@ pub async fn stop_playback(player: State<'_, PlayerState>) -> Result<PlaybackSta
     Ok(player.status())
 }
 
-/// Şarkıda verilen saniyeye atlar.
+/// Şarkıda verilen saniyeye atlar (yeni oturum; hazırlığı kilit dışında, bkz. `open_track`).
 #[tauri::command]
 pub async fn seek_playback(
     seconds: f64,
     player: State<'_, PlayerState>,
 ) -> Result<PlaybackStatus, String> {
-    let mut player = player.lock()?;
-    player.seek(seconds).map_err(reported)?;
-    Ok(player.status())
+    let transition = player.lock()?.begin_seek(seconds);
+    if let Some(transition) = transition {
+        let prepared = tauri::async_runtime::spawn_blocking(move || Player::prepare(transition))
+            .await
+            .map_err(reported)?;
+        player.lock()?.install(prepared).map_err(reported)?;
+    }
+    Ok(player.lock()?.status())
 }
 
 /// Şu an duyulan anın görsel verisi. Arayüz her ekran karesinde sorar;
@@ -773,7 +784,11 @@ mod tests {
 
     #[test]
     fn oynatici_durumu_arayuz_bicimine_uyar() {
-        let json = serde_json::to_value(Player::new().status()).unwrap();
+        let json = serde_json::to_value({
+            let mut player = Player::new();
+            player.status()
+        })
+        .unwrap();
         assert_eq!(json["state"], "idle");
         assert_eq!(json["positionSecs"], 0.0);
         assert!(json.get("underruns").is_some());
