@@ -2458,6 +2458,126 @@ kbd {
   margin: 0;
 }
 
+/* Crossfeed şeridi: kulaklık düzeltmesinin altında */
+.xf {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.xf__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.xf__hint {
+  display: block;
+  margin: 6px 0 8px;
+}
+
+.xf__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.xf__more {
+  margin-left: auto;
+}
+
+.xf__advanced {
+  margin-top: 4px;
+}
+
+.xf__label {
+  min-width: 7ch;
+}
+
+.xf__value {
+  min-width: 7.5ch;
+}
+
+.xf__plot {
+  position: relative;
+  margin: 10px 0 0;
+}
+
+.xf__plot svg {
+  display: block;
+  width: 100%;
+  height: 72px;
+  border-radius: 6px;
+  background: var(--well);
+}
+
+.xf__line {
+  fill: none;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.xf__line--near {
+  stroke: var(--vfd);
+}
+
+.xf__line--far {
+  stroke: var(--accent);
+}
+
+.xf.is-off .xf__plot,
+.xf.is-off .xf__advanced {
+  opacity: 0.45;
+}
+
+.xf__axis {
+  position: relative;
+  height: 14px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.xf__axis span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.xf__axis span:first-child {
+  transform: none;
+}
+
+.xf__axis span:last-child {
+  transform: translateX(-100%);
+}
+
+.xf__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.xf__key::before {
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  margin-right: 6px;
+  vertical-align: middle;
+  content: "";
+}
+
+.xf__key--near::before {
+  background: var(--vfd);
+}
+
+.xf__key--far::before {
+  background: var(--accent);
+}
+
 .eq__line.eq__line--headphone {
   stroke: var(--accent);
   stroke-dasharray: 6 5;

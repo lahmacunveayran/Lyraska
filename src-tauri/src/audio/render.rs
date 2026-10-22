@@ -8,6 +8,7 @@ use std::sync::Arc;
 use rtrb::Consumer;
 
 use super::bass::BassProcessor;
+use super::crossfeed::{CrossfeedControl, CrossfeedProcessor};
 use super::eq::{EqControl, EqProcessor};
 use super::limiter::Limiter;
 use super::normalize::{Leveler, LoudnessControl, TrackLevels};
@@ -23,6 +24,8 @@ pub struct RenderControls {
     pub headphone: Arc<PeqControl>,
     /// Kullanıcının elle parametrik ekolayzeri.
     pub parametric: Arc<PeqControl>,
+    /// Crossfeed (yalnızca stereo).
+    pub crossfeed: Arc<CrossfeedControl>,
     pub loudness: Arc<LoudnessControl>,
     pub levels: Arc<TrackLevels>,
     /// Bit-perfect oturum: ses hiç işlenmez (yalnızca duraklatma geçişi ve taşma koruması,
@@ -31,12 +34,13 @@ pub struct RenderControls {
 }
 
 impl Default for RenderControls {
-    /// Sesi hiç değiştirmeyen ayarlar (ekolayzer düz, düzeltme ve eşitleme kapalı).
+    /// Sesi hiç değiştirmeyen ayarlar (ekolayzer düz, düzeltme, crossfeed ve eşitleme kapalı).
     fn default() -> Self {
         Self {
             eq: Arc::default(),
             headphone: Arc::default(),
             parametric: Arc::default(),
+            crossfeed: Arc::default(),
             loudness: Arc::new(LoudnessControl::new(false)),
             levels: Arc::new(TrackLevels::new()),
             bit_perfect: false,
@@ -75,6 +79,8 @@ pub struct Renderer {
     bass: BassProcessor,
     headphone: PeqProcessor,
     parametric: PeqProcessor,
+    /// Kulaklıkta hoparlörden dinler gibi: orta ses aynen, yan ses süzülür.
+    crossfeed: CrossfeedProcessor,
     /// Ses yüksekliği eşitlemesi ve ekolayzerin taşma koruması.
     leveler: Leveler,
     levels: Arc<TrackLevels>,
@@ -102,6 +108,7 @@ impl Renderer {
             eq: EqProcessor::new(controls.eq, channels, sample_rate),
             headphone: PeqProcessor::new(controls.headphone, channels, sample_rate),
             parametric: PeqProcessor::new(controls.parametric, channels, sample_rate),
+            crossfeed: CrossfeedProcessor::new(controls.crossfeed, channels, sample_rate),
             leveler,
             levels: controls.levels,
             loudness: controls.loudness,
@@ -144,6 +151,7 @@ impl Renderer {
         self.bass.begin_block();
         self.headphone.begin_block();
         self.parametric.begin_block();
+        self.crossfeed.begin_block();
         let normalize = self.loudness.enabled();
         if self.wait_frames > 0 {
             if !normalize || self.levels.is_known(0) {
@@ -201,8 +209,10 @@ impl Renderer {
                 }
             } else {
                 // Sıra: kulaklık düzeltmesi → parametrik ekolayzer → grafik ekolayzer → bas →
-                // eşitleme ve ekolayzerin taşma koruması → ses geçişi → taşma koruması
-                // (sınırlayıcı).
+                // crossfeed → eşitleme ve ekolayzerin taşma koruması → ses geçişi → taşma
+                // koruması (sınırlayıcı). Crossfeed hiçbir frekansı yükseltmez (|G| ≤ 1): korumaya
+                // pay bildirmez; ani yan ses sıçramalarında örnek tepesi biraz aşarsa sınırlayıcı
+                // yakalar.
                 self.headphone.process_frame(&mut self.frame);
                 self.parametric.process_frame(&mut self.frame);
                 self.eq.advance_frame();
@@ -210,6 +220,7 @@ impl Renderer {
                     *value = self.eq.process(channel, *value);
                 }
                 self.bass.process_frame(&mut self.frame);
+                self.crossfeed.process_frame(&mut self.frame);
                 let level = self.leveler.next_gain(&self.levels, normalize);
                 let gain = level * self.gain;
                 for value in self.frame.iter_mut() {
@@ -397,6 +408,7 @@ mod tests {
     /// tasarlanır), duraklatıp devam ederken ve veri yetişmezken tek bir ayırma bile olmamalı.
     #[test]
     fn ses_yolu_bellek_ayirmaz() {
+        use crate::audio::crossfeed::CrossfeedSettings;
         use crate::audio::eq::{EqSettings, BANDS};
         use crate::audio::peq::{FilterKind, HeadphoneProfile, PeqControl, PeqFilter};
 
@@ -457,9 +469,16 @@ mod tests {
             crate::audio::peq::DesignMethod::Matched,
             true,
         );
+        // Crossfeed açık (yan ses de olsun: sağ kanal sol kanalın yarısı).
+        let crossfeed = Arc::new(CrossfeedControl::default());
+        crossfeed.set(CrossfeedSettings {
+            enabled: true,
+            cutoff_hz: 700.0,
+            level_db: 6.0,
+        });
         let w = 2.0 * std::f64::consts::PI * 220.0 / f64::from(rate);
         let samples: Vec<Sample> = (0..rate * 2)
-            .map(|i| 0.9 * (w * f64::from(i / 2)).sin())
+            .map(|i| 0.9 * (w * f64::from(i / 2)).sin() * if i % 2 == 0 { 1.0 } else { 0.5 })
             .collect();
         let mut source = filled(&samples);
         let loudness = Arc::new(LoudnessControl::new(true));
@@ -468,6 +487,7 @@ mod tests {
             eq: eq.clone(),
             headphone: headphone.clone(),
             parametric: parametric.clone(),
+            crossfeed: crossfeed.clone(),
             loudness: loudness.clone(),
             levels: levels.clone(),
             bit_perfect: false,
@@ -538,6 +558,19 @@ mod tests {
                         true,
                     ),
                     90 => loudness.set(false),
+                    // Crossfeed ayarı çalarken değişir (çapraz geçiş), duraklatılmışken kapanır,
+                    // sonra yeniden açılır.
+                    115 => crossfeed.set(CrossfeedSettings {
+                        enabled: true,
+                        cutoff_hz: 570.0,
+                        level_db: 1.0,
+                    }),
+                    125 => crossfeed.set(CrossfeedSettings::default()),
+                    145 => crossfeed.set(CrossfeedSettings {
+                        enabled: true,
+                        cutoff_hz: 1200.0,
+                        level_db: 15.0,
+                    }),
                     100 => {
                         eq.set(flat);
                     }
@@ -699,7 +732,7 @@ mod tests {
         use crate::audio::peq::{FilterKind, HeadphoneProfile, PeqFilter};
         use crate::audio::test_util::{fit, sine};
         // Bütün doğrusal işlemler açık: kulaklık düzeltmesi, "Bas" ayarı, bas düğmesi,
-        // eşitleme. (Küçük hoparlör bası bilerek harmonik ekler; kendi testinde.) Ses yolu doğrusal
+        // crossfeed, eşitleme. (Küçük hoparlör bası bilerek harmonik ekler; kendi testinde.) Ses yolu doğrusal
         // olmalı: çıkışta tondan başka bir şey (bozulma, gürültü, cızırtı) olmamalı.
         let rate = 48_000u32;
         let mut gains = [0.0; BANDS];
@@ -735,6 +768,12 @@ mod tests {
                 true_peak_dbtp: -6.0,
             }),
         );
+        let crossfeed = Arc::new(CrossfeedControl::default());
+        crossfeed.set(crate::audio::crossfeed::CrossfeedSettings {
+            enabled: true,
+            cutoff_hz: 700.0,
+            level_db: 4.5,
+        });
         let mut renderer = Renderer::new(
             2,
             rate,
@@ -747,6 +786,7 @@ mod tests {
                 })),
                 headphone,
                 parametric: Arc::default(),
+                crossfeed: crossfeed.clone(),
                 loudness: Arc::new(LoudnessControl::new(true)),
                 levels,
                 bit_perfect: false,
@@ -754,8 +794,12 @@ mod tests {
         );
         for freq in [100.0, 1000.0, 10_000.0] {
             let frames = rate as usize * 2;
+            // Sağ kanal sol kanalın ters işaretli yarısı: yan ses de var, crossfeed çalışır.
             let samples: Vec<Sample> = (0..frames)
-                .flat_map(|f| [0.5 * sine(freq, rate, f); 2])
+                .flat_map(|f| {
+                    let x = 0.5 * sine(freq, rate, f);
+                    [x, -0.5 * x]
+                })
                 .collect();
             let mut source = filled(&samples);
             let mut left = Vec::with_capacity(frames);
@@ -818,6 +862,78 @@ mod tests {
         let start = 2 * latency;
         assert_eq!(&out[start + fade..start + samples.len()], &samples[fade..]);
         assert!(!levels.is_known(0));
+    }
+
+    /// Crossfeed ses yolunda: tamamen sola kaydırılmış bas sağ kulağa da gider (alçak frekansta
+    /// ayar kadar kısık); ortadaki ses (L = R) bütün yoldan bit bit aynı geçer; bit-perfect'te
+    /// ve kapalıyken sağ kanal sessiz kalır.
+    #[test]
+    fn crossfeed_ses_yolunda_ortadaki_ses_ayni_bit_perfectte_atlanir() {
+        use crate::audio::crossfeed::CrossfeedSettings;
+        use crate::audio::test_util::sine;
+        let rate = 48_000u32;
+        let crossfeed = Arc::new(CrossfeedControl::default());
+        crossfeed.set(CrossfeedSettings {
+            enabled: true,
+            cutoff_hz: 700.0,
+            level_db: 6.0,
+        });
+        let controls = RenderControls {
+            crossfeed: Arc::clone(&crossfeed),
+            ..RenderControls::default()
+        };
+        let frames = rate as usize;
+        let run = |controls: RenderControls, samples: &[Sample]| -> Vec<Sample> {
+            let mut renderer = Renderer::new(2, rate, controls);
+            let mut source = filled(samples);
+            let mut out = vec![0.0; samples.len()];
+            renderer.render(&mut source, &mut out, false);
+            out
+        };
+        let left_only: Vec<Sample> = (0..frames)
+            .flat_map(|f| [0.5 * sine(100.0, rate, f), 0.0])
+            .collect();
+        let tail = |out: &[Sample], channel: usize| {
+            out.chunks_exact(2)
+                .skip(frames / 2)
+                .map(|f| f[channel].abs())
+                .fold(0.0f64, f64::max)
+        };
+
+        let out = run(controls.clone(), &left_only);
+        let ild = 20.0 * (tail(&out, 0) / tail(&out, 1)).log10();
+        assert!((ild - 6.0).abs() < 0.3, "kulaklar arası fark {ild:.2} dB");
+
+        // Ortadaki ses: açılış geçişinden sonra, sınırlayıcının gecikmesi kadar kayarak aynen.
+        let center: Vec<Sample> = (0..frames)
+            .flat_map(|f| [0.5 * sine(440.0, rate, f); 2])
+            .collect();
+        let out = run(controls.clone(), &center);
+        let latency = Renderer::new(2, rate, controls.clone()).latency_frames();
+        let start = 2 * (latency + 480);
+        assert_eq!(
+            &out[start..],
+            &center[start - 2 * latency..center.len() - 2 * latency]
+        );
+
+        // Bit-perfect oturumda ve crossfeed kapalıyken sağ kulağa hiçbir şey gitmez.
+        let bit_perfect = run(
+            RenderControls {
+                bit_perfect: true,
+                ..controls
+            },
+            &left_only,
+        );
+        assert_eq!(tail(&bit_perfect, 1), 0.0);
+        crossfeed.set(CrossfeedSettings::default());
+        let off = run(
+            RenderControls {
+                crossfeed,
+                ..RenderControls::default()
+            },
+            &left_only,
+        );
+        assert_eq!(tail(&off, 1), 0.0);
     }
 
     #[test]

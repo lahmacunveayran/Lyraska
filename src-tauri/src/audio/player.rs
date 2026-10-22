@@ -21,6 +21,7 @@ use rtrb::{Producer, RingBuffer};
 use serde::Serialize;
 
 use super::abx::{AbxChoice, AbxRequest, AbxSource, AbxStatus, AbxTest, PreparedAbx};
+use super::crossfeed::{CrossfeedControl, CrossfeedSettings};
 use super::decode::{Decoder, TrackInfo};
 use super::eq::{protection_db, Design, EqControl, EqSettings, EqState};
 use super::normalize::{LoudnessControl, TrackLevels};
@@ -684,6 +685,9 @@ pub struct Player {
     parametric_control: Arc<PeqControl>,
     parametric: ParametricSettings,
     parametric_compare: bool,
+    /// Crossfeed: ses çıkışının okuduğu kanal ve son ayar.
+    crossfeed_control: Arc<CrossfeedControl>,
+    crossfeed: CrossfeedSettings,
     /// Ses yüksekliği eşitlemesi açık mı (ses çıkışı okur).
     loudness: Arc<LoudnessControl>,
     /// Bit-perfect (özel mod) isteniyor mu? Yeni oturumlarda uygulanır.
@@ -1214,12 +1218,28 @@ impl Player {
             .set_compare(self.parametric_comparing(), self.parametric.loudness_db());
     }
 
+    /// Crossfeed ayarı.
+    pub fn crossfeed(&self) -> CrossfeedSettings {
+        self.crossfeed
+    }
+
+    /// Crossfeed'i değiştirir; çalan ses ~30 ms'lik çapraz geçişle değişir (tık yok). Hiçbir
+    /// frekansı yükseltmediği için taşma korumasına pay bildirilmez. Bit-perfect oturumda ve
+    /// mono/çok kanallı şarkıda ses işlenmez; ayar saklanır, sonraki stereo oturumda uygulanır.
+    pub fn set_crossfeed(&mut self, settings: CrossfeedSettings) -> CrossfeedSettings {
+        let settings = settings.sanitized();
+        self.crossfeed_control.set(settings);
+        self.crossfeed = settings;
+        settings
+    }
+
     /// Oturumların ses işlemesinin ayarları (şarkı seviyeleri her oturumda yeniden kurulur).
     fn render_controls(&self) -> RenderControls {
         RenderControls {
             eq: Arc::clone(&self.eq),
             headphone: Arc::clone(&self.headphone_control),
             parametric: Arc::clone(&self.parametric_control),
+            crossfeed: Arc::clone(&self.crossfeed_control),
             loudness: Arc::clone(&self.loudness),
             levels: Arc::new(TrackLevels::new()),
             // Oturum, aygıtı özel modda açabildiyse kendisi açar.
@@ -2617,6 +2637,44 @@ mod tests {
         let session = player.session.as_ref().unwrap();
         assert!(Arc::ptr_eq(&session.shared.controls.eq, &player.eq));
         assert_eq!(session.shared.controls.eq.settings().gains_db[5], -12.0);
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn crossfeed_sinirlanir_ve_her_oturuma_ulasir() {
+        use crate::audio::crossfeed::CrossfeedSettings;
+        let path = temp_path("crossfeed.wav");
+        write_wav(&path, 44_100, 2, 44_100, |frame, channel| {
+            if channel == 0 {
+                0.5 * crate::audio::test_util::sine(100.0, 44_100, frame)
+            } else {
+                0.0
+            }
+        });
+        let mut player = Player::new();
+        assert!(!player.crossfeed().enabled, "varsayılan kapalı");
+        let applied = player.set_crossfeed(CrossfeedSettings {
+            enabled: true,
+            cutoff_hz: 5.0,
+            level_db: f64::INFINITY,
+        });
+        assert_eq!(applied.cutoff_hz, crate::audio::crossfeed::MIN_CUTOFF_HZ);
+        assert_eq!(applied.level_db, CrossfeedSettings::default().level_db);
+        assert_eq!(player.crossfeed(), applied);
+
+        // Şarkı açılınca ve sarınca yeni oturum aynı kanalı okur: ayar değişikliği çalan sese ulaşır.
+        player.load(&path, false).unwrap();
+        let session = player.session.as_ref().unwrap();
+        assert!(Arc::ptr_eq(
+            &session.shared.controls.crossfeed,
+            &player.crossfeed_control
+        ));
+        player.seek(0.5).unwrap();
+        let session = player.session.as_ref().unwrap();
+        assert!(Arc::ptr_eq(
+            &session.shared.controls.crossfeed,
+            &player.crossfeed_control
+        ));
         std::fs::remove_file(path).ok();
     }
 

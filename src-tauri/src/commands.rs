@@ -18,6 +18,7 @@ use crate::analysis::background::BackgroundAnalysis;
 use crate::analysis::cache::AnalysisCache;
 use crate::analysis::evaluate;
 use crate::audio::abx::{AbxChoice, AbxRequest, AbxSource, AbxStatus, AbxTest};
+use crate::audio::crossfeed::{CrossfeedSettings, CrossfeedState};
 use crate::audio::decode::{Decoder, TrackInfo, SUPPORTED_EXTENSIONS};
 use crate::audio::eq::{EqSettings, EqState};
 use crate::audio::peq::{
@@ -92,6 +93,7 @@ pub fn restore_settings(player: &PlayerState, store: &SettingsStore) {
         player.set_equalizer(settings.equalizer);
         player.set_headphone(settings.headphone);
         player.set_parametric(settings.parametric);
+        player.set_crossfeed(settings.crossfeed);
         player.set_visual_safe(settings.visual_safe);
         player.set_audio_delay_ms(settings.audio_delay_ms);
         // Açılışta çalan şarkı yok: aygıt açılmaz, hata olamaz.
@@ -534,6 +536,26 @@ fn apply_parametric(
         .update(|s| s.parametric = applied.clone())
         .map_err(|e| reported(format!("Parametrik ekolayzer kaydedilemedi: {e}")))?;
     Ok(ParametricState::new(applied, player.parametric_comparing()))
+}
+
+/// Crossfeed: ayar, hazır ayarlar ve çizim için eğriler.
+#[tauri::command]
+pub async fn crossfeed_get(player: State<'_, PlayerState>) -> Result<CrossfeedState, String> {
+    Ok(CrossfeedState::new(player.lock()?.crossfeed()))
+}
+
+/// Crossfeed'i uygular ve kaydeder; uygulanan (sınırlara çekilmiş) durumu döndürür.
+#[tauri::command]
+pub async fn crossfeed_set(
+    settings: CrossfeedSettings,
+    player: State<'_, PlayerState>,
+    store: State<'_, SettingsStore>,
+) -> Result<CrossfeedState, String> {
+    let applied = player.lock()?.set_crossfeed(settings);
+    store
+        .update(|s| s.crossfeed = applied)
+        .map_err(|e| reported(format!("Crossfeed ayarı kaydedilemedi: {e}")))?;
+    Ok(CrossfeedState::new(applied))
 }
 
 /// İşaretleme: şarkının kayıtlı işaretleri (yoksa `null`).

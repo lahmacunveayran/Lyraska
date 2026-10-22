@@ -37,6 +37,7 @@ import { useDropToLibrary } from "../hooks/useDropToLibrary";
 import { useEqualizer } from "../hooks/useEqualizer";
 import { useParametric } from "../hooks/useParametric";
 import { useHeadphone } from "../hooks/useHeadphone";
+import { useCrossfeed } from "../hooks/useCrossfeed";
 import { useIdle } from "../hooks/useIdle";
 import { useKeyboardFocusWithin } from "../hooks/useKeyboardFocus";
 import { usePlayback } from "../hooks/usePlayback";
@@ -82,6 +83,7 @@ export function PlayerScreen() {
   const equalizer = useEqualizer();
   const headphone = useHeadphone();
   const parametric = useParametric();
+  const crossfeed = useCrossfeed();
   const visualSafe = useVisualSafe();
   const playbackOptions = usePlaybackOptions();
   const [scene, chooseScene] = useScene();
@@ -90,11 +92,14 @@ export function PlayerScreen() {
   const playback = usePlayback(info.supportedExtensions);
   const { player, playList, upcoming } = playback;
   const { status } = player;
-  // Ekolayzer ya da kulaklık düzeltmesi sesi değiştiriyorsa ekolayzer ışığı yanar.
-  // Bit-perfect çalarken ikisi de sese uygulanmaz.
+  // Ekolayzer, kulaklık düzeltmesi ya da crossfeed sesi değiştiriyorsa ekolayzer ışığı yanar.
+  // Bit-perfect çalarken hiçbiri sese uygulanmaz.
   const bitPerfect = status.output?.bitPerfect ?? false;
   const soundShaped =
-    (equalizer.active || headphone.active || (parametric.active && !parametric.comparing)) &&
+    (equalizer.active ||
+      headphone.active ||
+      crossfeed.active ||
+      (parametric.active && !parametric.comparing)) &&
     !bitPerfect;
   const statusPath = status.track?.path ?? null;
   const playing = status.state === "playing";
@@ -441,6 +446,7 @@ export function PlayerScreen() {
               equalizer={equalizer}
               headphone={headphone}
               parametric={parametric}
+              crossfeed={crossfeed}
               bypassed={bitPerfect}
             />
           </ErrorBoundary>

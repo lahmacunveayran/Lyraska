@@ -2,6 +2,8 @@ import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerE
 import type { EqualizerControls } from "../hooks/useEqualizer";
 import type { HeadphoneControls } from "../hooks/useHeadphone";
 import type { ParametricControls } from "../hooks/useParametric";
+import type { CrossfeedControls } from "../hooks/useCrossfeed";
+import { CrossfeedStrip } from "./CrossfeedStrip";
 import { ParametricEq } from "./ParametricEq";
 import {
   BASS_CLUB_DB,
@@ -141,6 +143,8 @@ export interface EqualizerPanelProps {
   headphone?: HeadphoneControls;
   /** Elle parametrik ekolayzer (verilmezse yalnızca grafik ekolayzer). */
   parametric?: ParametricControls;
+  /** Crossfeed (verilmezse bölüm gösterilmez); kulaklık düzeltmesinin altında, iki görünümde de. */
+  crossfeed?: CrossfeedControls;
   /** Bit-perfect çalıyor: ses işlenmiyor, ayarlar şimdilik etkisiz. */
   bypassed?: boolean;
 }
@@ -341,11 +345,19 @@ export function EqualizerPanel({
   equalizer,
   headphone,
   parametric,
+  crossfeed,
   bypassed = false,
 }: EqualizerPanelProps) {
   const [view, setView] = useState<"graphic" | "parametric">("graphic");
   if (!parametric) {
-    return <GraphicEqualizer equalizer={equalizer} headphone={headphone} bypassed={bypassed} />;
+    return (
+      <GraphicEqualizer
+        equalizer={equalizer}
+        headphone={headphone}
+        crossfeed={crossfeed}
+        bypassed={bypassed}
+      />
+    );
   }
   return (
     <div className="eq-views">
@@ -370,10 +382,16 @@ export function EqualizerPanel({
         ))}
       </div>
       {view === "graphic" ? (
-        <GraphicEqualizer equalizer={equalizer} headphone={headphone} bypassed={bypassed} />
+        <GraphicEqualizer
+          equalizer={equalizer}
+          headphone={headphone}
+          crossfeed={crossfeed}
+          bypassed={bypassed}
+        />
       ) : (
         <>
           {headphone && <HeadphoneStrip headphone={headphone} />}
+          {crossfeed && <CrossfeedStrip crossfeed={crossfeed} bypassed={bypassed} />}
           <ParametricEq parametric={parametric} bypassed={bypassed} />
         </>
       )}
@@ -385,6 +403,7 @@ export function EqualizerPanel({
 function GraphicEqualizer({
   equalizer,
   headphone,
+  crossfeed,
   bypassed = false,
 }: Omit<EqualizerPanelProps, "parametric">) {
   const { settings, state, error } = equalizer;
@@ -436,14 +455,16 @@ function GraphicEqualizer({
 
       {bypassed && (
         <p className="library__notice library__problem">
-          Bit-perfect açık: ses hiç işlenmiyor, ekolayzer ve kulaklık düzeltmesi şimdilik devre
-          dışı. Ayarlar &gt; Ses bölümünden kapatabilirsiniz.
+          Bit-perfect açık: ses hiç işlenmiyor, ekolayzer, kulaklık düzeltmesi ve crossfeed şimdilik
+          devre dışı. Ayarlar &gt; Ses bölümünden kapatabilirsiniz.
         </p>
       )}
 
       <BassStrip equalizer={equalizer} />
 
       {headphone && <HeadphoneStrip headphone={headphone} />}
+
+      {crossfeed && <CrossfeedStrip crossfeed={crossfeed} bypassed={bypassed} />}
 
       <div className="eq__presets" role="group" aria-label="Hazır ayarlar">
         {EQ_PRESETS.map((p) => (

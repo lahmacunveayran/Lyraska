@@ -10,6 +10,9 @@ import type { AppInfo } from "./bindings/AppInfo";
 import type { BeatEvaluation } from "./bindings/BeatEvaluation";
 import type { BeatFrame } from "./bindings/BeatFrame";
 import type { CalibrationTrack } from "./bindings/CalibrationTrack";
+import type { CrossfeedPreset } from "./bindings/CrossfeedPreset";
+import type { CrossfeedSettings } from "./bindings/CrossfeedSettings";
+import type { CrossfeedState } from "./bindings/CrossfeedState";
 import type { DesignMethod } from "./bindings/DesignMethod";
 import type { DirectorFrame } from "./bindings/DirectorFrame";
 import type { DropOutcome } from "./bindings/DropOutcome";
@@ -50,6 +53,9 @@ export type {
   BeatEvaluation,
   BeatFrame,
   CalibrationTrack,
+  CrossfeedPreset,
+  CrossfeedSettings,
+  CrossfeedState,
   DesignMethod,
   DirectorFrame,
   DropOutcome,
@@ -492,6 +498,18 @@ export async function pickParametricSavePath(): Promise<string | null> {
     filters: [{ name: "Equalizer APO", extensions: ["txt"] }],
   });
   return path ?? null;
+}
+
+/** Crossfeed (kulaklıkta hoparlörden dinler gibi). Tarayıcı önizlemesinde `null`: arayüz çizer. */
+export async function getCrossfeed(): Promise<CrossfeedState | null> {
+  if (!isTauri()) return null;
+  return invoke<CrossfeedState>("crossfeed_get");
+}
+
+/** Crossfeed ayarını uygular ve kaydeder; uygulanan (sınırlara çekilmiş) durumu döndürür. */
+export async function setCrossfeed(settings: CrossfeedSettings): Promise<CrossfeedState | null> {
+  if (!isTauri()) return null;
+  return invoke<CrossfeedState>("crossfeed_set", { settings });
 }
 
 /** Pencereye dosya sürükleme olaylarını dinleyen işlevler. */

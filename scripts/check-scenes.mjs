@@ -57,6 +57,8 @@ const fakeCore = (level = null, theme = 1) => `
       case "parametric_get": return { settings: { enabled: true, bands: [], design: "matched" },
         comparing: false, curveHz: [], curveDb: [], bandCurvesDb: [], boostDb: 0, loudnessDb: 0,
         maxBands: 20, maxGainDb: 24, minQ: 0.1, maxQ: 30 };
+      case "crossfeed_get": return { settings: { enabled: false, cutoffHz: 700, levelDb: 6 }, presets: [],
+        delayUs: 227, curveHz: [], nearDb: [], farDb: [] };
       case "visual_safe_get": return false;
       case "audio_delay_get": return 0;
       // Tek bölümlük harita: arayüzün vurgu rengi (VU ve spektrum sahnelerinin halesi) de temada.

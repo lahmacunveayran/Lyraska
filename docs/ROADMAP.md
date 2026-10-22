@@ -138,10 +138,16 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       şarkının ölçülen bas tepelerine göre akıllı taşma koruması (bas yükselince ses gereksiz kısılmaz).
       Hazır ayarlar: Bas, Derin bas, Kulüp, Küçük hoparlör. 0.0.31: "Vuruş" (proje sahibinin seçimi: davul
       vuruşunun ilk anı 8 dB'ye kadar güçlenir, bas şişmez)
-- [ ] Crossfeed — çekirdek hazır (0.0.53, `audio/crossfeed.rs`, testli): orta ses bit bit aynı, yan kanal hiçbir
-      frekansta yükselmez, kulaklar arası seviye ve zaman farkı hedefte. Kalan: ses yoluna bağlama (bastan sonra,
-      eşitlemeden önce; bit-perfect'te kapalı), kalıcı ayar, komutlar, arayüz (Ekolayzer panelinde kulaklık bölümü)
-- [ ] Retriever: sıkıştırılmış (MP3 vb.) sesi iyileştirme — çalışma adı; ürün içi adı özgün olacak
+- [x] Crossfeed (0.0.54; çekirdek 0.0.53): kulaklıkta hoparlörden dinler gibi. Orta ses (vokal, bas, davul) bit bit
+      aynı, yan kanal hiçbir frekansta yükselmez, kulaklar arası seviye ve zaman farkı hedefte. Ekolayzer panelinde
+      kulaklık düzeltmesinin altında: aç/kapa, dört hazır ayar (Hafif, Orta, Güçlü, Hoparlör gibi), gelişmiş ayar
+      (kesim 300–1200 Hz, seviye 1–15 dB), iki kulağın eğrisi ve zaman farkı. Ses yolunda bastan sonra; bit-perfect'te
+      atlanır; ayar kalıcı
+- [x] Retriever: sıkıştırılmış (MP3 vb.) sesi iyileştirme — **araştırıldı, MP3 için kapıdan geçmedi** (kapandı,
+      22 Ekim 2026). İki bağımsız araştırma (R1 klasik yöntemler, R2 öğrenmeli önsel) duyulur iyileşme bulamadı ve
+      nedenini ölçtü; programa kod girmedi. Kör test (ABX) bu çalışmadan programa kaldı. Yeniden açılması yeni bir
+      bilgi kaynağı ister (aynı şarkının ikinci kopyası ya da kayıpsız referans); AAC için aynı deney ayrıca yapılmadan
+      karar verilmez
   - Araştırma ve ölçüm: [VERITAS.md](VERITAS.md) (14 Ekim 2026). MP3 her katsayı için gerçek değerin hangi aralıkta
     (kutu) olduğunu kesin olarak taşır; gerçek LAME 3.100 ile doğru kutu kuralı (adj43 + bant kuralı) kapsama %100.
   - R1 sonucu (gerçek dalga biçimi, algısal ölçü): kutulara sadık klasik yöntemler SNR'ı 0,2–1,3 dB artırıyor ama
@@ -241,9 +247,10 @@ Faz 6'da sırayı kullanıcı seçer; burada **sırayı program seçer**, geçi�
   eklendi (DENETIM-2 bölüm 5.3).
 - **Ekolayzerde sıradaki iş** ([#26](https://github.com/gozlemesevdalisi/Lyraska/issues/26)): elle parametrik EQ
   arayüzü (öneri; lisans beklemiyor), hazır kulaklık listesi (önce ölçüm kaynaklarının lisansı), loudness.
-- **Retriever / Veritas'ta sıradaki adım** ([VERITAS.md](VERITAS.md)): kör dinleme aracı (ABX) 0.0.40'ta geldi;
-  "320 kbps ile FLAC'ı ayırabiliyor muyum?" sorusunu kulakla cevaplar. R2 sonucu geldi: kapıdan geçmedi, MP3 kolu
-  kapandı (bölüm 8); kâhin ayrıştırması bizim düzeneğimizde birebir tekrarlandı (devir notu 2026-10-16).
+- **Retriever / Veritas** ([VERITAS.md](VERITAS.md)): yol haritasında kapandı (22 Ekim 2026; "araştırıldı, MP3 için
+  kapıdan geçmedi"). Açık kalan tek seçenek: AAC için aynı deneyin yapılıp yapılmayacağı (öneri: şimdilik hayır;
+  MP3 sonucu beklentiyi düşürüyor). Kör test (ABX) "320 kbps ile FLAC'ı ayırabiliyor muyum?" sorusunu kulakla
+  cevaplamak için programda.
 - **Fikir havuzu** (aşağıda): hangilerinin yol haritasına gireceği.
 
 ## Fikir havuzu (karar bekliyor)

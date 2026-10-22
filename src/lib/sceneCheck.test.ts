@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import type { EqState, ParametricState } from "./backend";
+import type { CrossfeedState, EqState, ParametricState } from "./backend";
 
 /**
  * Sahne denetiminin (`scripts/check-scenes.mjs`) sahte çekirdeği, arayüzün beklediği verinin
@@ -37,6 +37,15 @@ const FULL_PARAMETRIC_STATE: ParametricState = {
   maxQ: 30,
 };
 
+const FULL_CROSSFEED_STATE: CrossfeedState = {
+  settings: { enabled: false, cutoffHz: 700, levelDb: 6 },
+  presets: [],
+  delayUs: 227,
+  curveHz: [],
+  nearDb: [],
+  farDb: [],
+};
+
 /** Sahte çekirdekte bir komutun döndürdüğü nesnenin metni. */
 function fakeResponse(command: string): string {
   // Testler depo kökünde çalışır.
@@ -50,6 +59,13 @@ describe("sahne denetiminin sahte çekirdeği", () => {
   it("parametrik ekolayzer durumunun bütün alanlarını döndürür", () => {
     const response = fakeResponse("parametric_get");
     for (const field of Object.keys(FULL_PARAMETRIC_STATE)) {
+      expect(response, `"${field}" eksik`).toMatch(new RegExp(`\\b${field}:`));
+    }
+  });
+
+  it("crossfeed durumunun bütün alanlarını döndürür", () => {
+    const response = fakeResponse("crossfeed_get");
+    for (const field of Object.keys(FULL_CROSSFEED_STATE)) {
       expect(response, `"${field}" eksik`).toMatch(new RegExp(`\\b${field}:`));
     }
   });
