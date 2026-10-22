@@ -182,12 +182,20 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       gölgelendirici çatısı: sahne yalnızca biçimi çizer, parlaklık gece göğünün
       hız sınırlı hesabından tek çarpanla gelir; her sahne gerçek tarayıcıda parlama sınırıyla denetlenir.
       Klavye: 1–9, 0; PageDown/PageUp
-- [ ] Butterchurn / MilkDrop desteği — sürüyor. Araştırma (22 Ekim 2026): butterchurn MIT; yaygın preset
-      paketlerinin lisansı yok, Lyraska preset dağıtmaz, kullanıcı kendi `.milk` dosyalarını açar. Temel (0.0.59):
-      Rust'ta görseller için ham dalga biçimi (`visual_waveform`, karışım/sol/sağ 3×1024 bayt, gecikme telafili) ve
-      güvenilmeyen sahneler için parlaklık freni (bölge parlaklığı karede ≤ r·dt; saniyede ≤ 1,65 parlama, güvenli
-      modda ≤ 0,99; kanıtı `flashGuardMath.ts`, tarayıcıda zamana bağlı ölçüm `check:scenes`). Sırada: butterchurn
-      sahnesi ve `.milk` okuma
+- [x] Butterchurn / MilkDrop desteği (0.0.60): galerinin 16. sahnesi **MilkDrop**, kullanıcının **kendi** `.milk`
+      görsellerini Butterchurn 3.0.0-beta.5 (MIT) ile çizer; **Lyraska hazır görsel içermez** (yaygın paketlerin
+      yazarları lisans vermemiş). Klasör seçilir ve hatırlanır; `.milk` Rust'ta Butterchurn biçimine çevrilir
+      (MilkDrop 1 ve 2 anahtarları, dalgalar, şekiller, denklemler; Türkçe/Batı Windows kodlaması; boyut ve satır
+      sınırı). Denklemler yalnızca WebAssembly'ye derlenir (CSP'de yalnızca `'wasm-unsafe-eval'`, `'unsafe-eval'`
+      yok). Her kare **parlaklık freninden** geçer (saniyede ≤ 1,65 parlama, güvenli modda ≤ 1; gerçek sahnede kare
+      kare ölçülür); "animasyonları azalt"ta sahne çalışmaz. Görsel değişimi bölüm başında ya da drop'ta, en sık
+      15 sn'de bir, en az 3 sn harmanlanarak; Önceki/Sonraki elle. Temeli
+      (0.0.59): Rust'ta ham dalga biçimi (`visual_waveform`) ve parlaklık freni (kanıtı `flashGuardMath.ts`)
+  - [ ] MilkDrop 2 gölgelendiricilerinin (HLSL) GLSL'e çevrilmesi: şimdilik atılıyor, gölgelendiricili görseller
+        "sade hâliyle" çalıyor (eval'siz bir HLSL çevirici gerekir: Rust'ta ya da `-s DYNAMIC_EXECUTION=0` ile
+        yeniden derlenmiş hlslparser)
+  - [ ] İsteğe bağlı: lisansı tek tek doğrulanmış birkaç preset programla gelsin (ör. MIT lisanslı küçük setler;
+        her biri parlama testinden geçerek) — proje sahibinin kararı
 - [x] Kinetik şarkı sözleri (0.0.56): sözler yalnızca kullanıcının kendi dosyalarından (şarkının yanındaki `.lrc` ya
       da şarkıya gömülü sözler: ID3 USLT, Vorbis `LYRICS`, MP4 `©lyr`); program söz indirmez, saklamaz, dağıtmaz.
       LRC: satır ve kelime zamanları ("enhanced LRC"), `[offset:]`, aynı zamandaki satır çeviri olarak; UTF-8, UTF-16 ve
