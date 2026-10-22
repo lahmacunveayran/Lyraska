@@ -284,7 +284,7 @@ vec3 scene(vec2 uv, vec2 p) {
   vec2 s = rot(spin) * q;
   float r = length(s);
   float a = atan(s.y, s.x);
-  float arm = pow(0.5 + 0.5 * cos(2.0 * a - 5.0 * log(r + 0.02)), 2.5);
+  float arm = pow(max(0.5 + 0.5 * cos(2.0 * a - 5.0 * log(r + 0.02)), 0.0), 2.5);
   float dust = fbm(s * 5.0 + 3.0);
   float disc = exp(-r * 2.6);
   float body = disc * (0.25 + 0.75 * arm) * (0.5 + 0.5 * dust);

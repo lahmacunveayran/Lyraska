@@ -30,10 +30,11 @@ export function SceneGallery({ scene, onChoose }: SceneGalleryProps) {
   // Açılınca seçili (yoksa ilk) sahneye odaklan: klavyeyle hemen gezilebilsin.
   useEffect(() => {
     if (!open) return;
-    const list = root.current?.querySelector<HTMLButtonElement>(
-      '.scene-gallery__item[aria-pressed="true"], .scene-gallery__item',
-    );
-    list?.focus();
+    // Seçici listesi belge sırasındaki ilk eşleşmeyi verir; seçili olan ayrıca aranır.
+    const item =
+      root.current?.querySelector<HTMLButtonElement>('.scene-gallery__item[aria-pressed="true"]') ??
+      root.current?.querySelector<HTMLButtonElement>(".scene-gallery__item");
+    item?.focus();
   }, [open]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -62,7 +63,6 @@ export function SceneGallery({ scene, onChoose }: SceneGalleryProps) {
         className={`pill scene-gallery__toggle${active ? " is-on" : ""}`}
         aria-expanded={open}
         aria-controls={listId}
-        aria-pressed={active !== null}
         title="Galerideki sahneler (PageDown / PageUp: sıradaki / önceki sahne)"
         onClick={() => setOpen((o) => !o)}
       >
@@ -84,6 +84,8 @@ export function SceneGallery({ scene, onChoose }: SceneGalleryProps) {
                 onClick={() => {
                   onChoose(id);
                   setOpen(false);
+                  // Seçilen düğme kaybolur: odak gövdeye düşmesin, galeri düğmesine dönsün.
+                  button.current?.focus();
                 }}
               >
                 <span className="scene-gallery__name">

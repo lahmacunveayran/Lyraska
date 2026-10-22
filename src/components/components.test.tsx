@@ -1333,7 +1333,7 @@ describe("sahneler", () => {
     // Seçince liste kapanır, düğme sahnenin adını gösterir; sahne çizilir (jsdom'da WebGL yok).
     expect(screen.queryByRole("group", { name: "Galeri" })).not.toBeInTheDocument();
     const pill = screen.getByRole("button", { name: /Bulutsu/ });
-    expect(pill).toHaveAttribute("aria-pressed", "true");
+    expect(pill).toHaveClass("is-on");
     const nebula = screen.getByRole("img", { name: /Bulutsu: yıldızların önünde/ });
     expect(nebula).toHaveAttribute("data-webgl", "off");
     expect(nebula.dataset.webglError).toMatch(/WebGL2 açılamadı/);
@@ -1358,7 +1358,35 @@ describe("sahneler", () => {
     expect(screen.getByRole("img", { name: /Gece denizi/ })).toBeInTheDocument();
     // Klasik sahneye dönünce galeri düğmesi yeniden "Galeri".
     await act(async () => fireEvent.keyDown(window, { key: "1" }));
-    expect(screen.getByRole("button", { name: /Galeri/ })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: /Galeri/ })).not.toHaveClass("is-on");
+  });
+
+  it("galeri listesi açılınca seçili sahneye odaklanır; seçimden sonra odak düğmeye döner", async () => {
+    window.localStorage.setItem("lyraska.scene", "fireflies");
+    render(<App />);
+    const toggle = screen.getByRole("button", { name: /Ateşböcekleri/ });
+    // Düğme bir açılır liste düğmesidir: basılı/basılı değil durumu taşımaz.
+    expect(toggle).not.toHaveAttribute("aria-pressed");
+    await act(async () => fireEvent.click(toggle));
+    const list = screen.getByRole("group", { name: "Galeri" });
+    expect(document.activeElement).toBe(
+      within(list).getByRole("button", { name: /Ateşböcekleri/ }),
+    );
+    await act(async () =>
+      fireEvent.click(within(list).getByRole("button", { name: /Kristal ağ/ })),
+    );
+    // Seçilen düğme kaybolur; odak gövdeye düşmez, galeri düğmesine döner.
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: /Kristal ağ/ }));
+  });
+
+  it("PageDown basılı tutulunca sahneler art arda değişmez (tekrar eden tuş yok sayılır)", async () => {
+    render(<App />);
+    await act(async () => fireEvent.keyDown(window, { key: "PageDown" }));
+    expect(window.localStorage.getItem("lyraska.scene")).toBe("highway");
+    for (let i = 0; i < 5; i++) {
+      await act(async () => fireEvent.keyDown(window, { key: "PageDown", repeat: true }));
+    }
+    expect(window.localStorage.getItem("lyraska.scene")).toBe("highway");
   });
 
   it("1–5 tuşları sahne seçer; arama kutusuna yazarken seçmez", async () => {

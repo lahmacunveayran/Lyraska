@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   CLASSIC_SCENES,
@@ -87,5 +88,21 @@ describe("sahneler", () => {
       throw new Error("erişim yok");
     });
     expect(() => saveScene("vu")).not.toThrow();
+  });
+
+  it("üst çubuk (galeri listesi) çekmecenin üstünde çizilir", () => {
+    // Galeri listesi üst çubuğun katmanındadır; üst çubuk çekmecenin altında kalırsa liste açık
+    // çekmecenin arkasında görünmez olur (1280×800'de tamamen). Üst çubuğun kutusu çekmeceyle
+    // çakışmadığı için onu öne almak başka bir şeyi örtmez.
+    const css = readFileSync("src/styles/global.css", "utf8");
+    const rule = (selector: string, property: string) => {
+      const block = css.slice(css.indexOf(`\n${selector} {`));
+      const body = block.slice(0, block.indexOf("}"));
+      const value = body.match(new RegExp(`${property}:\\s*(\\d+)`))?.[1];
+      expect(value, `${selector} ${property}`).toBeDefined();
+      return Number(value);
+    };
+    expect(rule(".topbar", "z-index")).toBeGreaterThan(rule(".drawer", "z-index"));
+    expect(rule(".drawer", "top")).toBeGreaterThan(rule(".topbar", "top") + 50);
   });
 });

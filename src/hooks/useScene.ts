@@ -22,6 +22,13 @@ export function useScene(): [Scene, (scene: Scene) => void] {
       // Çekmecede PageDown/PageUp paneli kaydırır.
       const paging = event.key === "PageDown" || event.key === "PageUp";
       if (paging && target?.closest(".drawer")) return;
+      // Basılı tutulan PageDown her karede yeni bir sahne açardı (tuş tekrarı ~30/sn): her biri
+      // yeni bir WebGL bağlamı ve gölgelendirici derlemesi; ardışık sahnelerin parlaklık farkı da
+      // parlama sayılabilecek kadar büyük olabilir.
+      if (paging && event.repeat) {
+        event.preventDefault();
+        return;
+      }
       const picked =
         event.key === "PageDown"
           ? nextScene(current.current, 1)
