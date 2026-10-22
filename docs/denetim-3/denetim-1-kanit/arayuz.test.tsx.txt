@@ -1,0 +1,74 @@
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
+import { ParametricEq } from "../components/ParametricEq";
+import type { ParametricControls } from "../hooks/useParametric";
+import type { ParametricSettings } from "../lib/backend";
+import { DEFAULT_PARAMETRIC, parametricIsActive, previewParametricState } from "../lib/parametric";
+
+let latest: ParametricSettings = DEFAULT_PARAMETRIC;
+function Harness() {
+  const [settings, setSettings] = useState<ParametricSettings>(DEFAULT_PARAMETRIC);
+  latest = settings;
+  const controls: ParametricControls = {
+    settings,
+    state: previewParametricState(settings),
+    active: parametricIsActive(settings),
+    comparing: false,
+    busy: false,
+    error: null,
+    update: (change) =>
+      setSettings((s) => {
+        const next = change(s);
+        latest = next;
+        return next;
+      }),
+    setCompare: () => {},
+    importFile: async () => {},
+    exportFile: async () => {},
+    reset: () => {},
+  };
+  return <ParametricEq parametric={controls} />;
+}
+
+const W = 1000;
+const H = 320;
+function setup() {
+  render(<Harness />);
+  const plot = document.querySelector(".peq__plot") as HTMLElement;
+  plot.getBoundingClientRect = () =>
+    ({ left: 0, top: 0, width: W, height: H, right: W, bottom: H, x: 0, y: 0 }) as DOMRect;
+  return plot;
+}
+
+describe("Denetim 1 kanıtları", () => {
+  it("D1-c: 1 piksellik sürükleme kazancı 1 dB'den fazla değiştirmemeli", async () => {
+    setup();
+    const node = screen.getByRole("button", { name: /^Bant 2:/ });
+    const x = 300;
+    await act(async () => {
+      fireEvent.pointerDown(node, { button: 0, clientX: x, clientY: H / 2, pointerId: 1 });
+    });
+    const gains: number[] = [];
+    for (let y = 12; y >= 4; y--) {
+      await act(async () => {
+        fireEvent.pointerMove(node, { clientX: x, clientY: y, pointerId: 1 });
+      });
+      gains.push(latest.bands[1]!.gainDb);
+    }
+    console.log("D1-c kazançlar (y=12..4 px):", gains.join(", "));
+    const steps = gains.slice(1).map((g, i) => Math.abs(g - gains[i]!));
+    expect(Math.max(...steps)).toBeLessThan(1);
+  });
+
+  it("D1-d: fare tekerleği grafiğin üstünden geçerken sayfayı kaydırmalı, Q'yu değiştirmemeli", () => {
+    const plot = setup();
+    const before = latest.bands[0]!.q;
+    const event = new WheelEvent("wheel", { deltaY: 100, bubbles: true, cancelable: true });
+    act(() => {
+      plot.dispatchEvent(event);
+    });
+    console.log("D1-d Q:", before, "→", latest.bands[0]!.q, "defaultPrevented:", event.defaultPrevented);
+    expect(event.defaultPrevented).toBe(false);
+    expect(latest.bands[0]!.q).toBe(before);
+  });
+});
