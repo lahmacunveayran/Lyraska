@@ -32,14 +32,14 @@ for (const file of walk(join(ROOT, "src-tauri"))) {
   if (!file.endsWith(".rs")) continue;
   const name = relative(ROOT, file);
   const text = readFileSync(file, "utf8");
-  for (const m of text.matchAll(/allow\(\s*unsafe_code/g)) {
+  for (const m of text.matchAll(/\b(?:allow|expect|warn)\s*\([^)\]]*\bunsafe_code\b/g)) {
     if (!UNSAFE_ALLOWED.has(name)) {
       problems.push(
         `${name}:${lineOf(text, m.index)}: unsafe yalnızca WASAPI çıkışında açılabilir`,
       );
     }
   }
-  for (const m of text.matchAll(/#\[ignore\s*\]/g)) {
+  for (const m of text.matchAll(/#\[(?:ignore\s*\]|cfg_attr\([^\]]*\bignore\b(?!\s*=)[^\]]*\])/g)) {
     problems.push(
       `${name}:${lineOf(text, m.index)}: gerekçesiz #[ignore] (#[ignore = "neden"] yazın)`,
     );
@@ -54,7 +54,9 @@ for (const dir of ["src", "scripts"]) {
     const text = readFileSync(file, "utf8");
     const isTest = /\.test\.(ts|tsx|mjs)$/.test(file);
     if (isTest) {
-      for (const m of text.matchAll(/\b(describe|it|test)\.(skip|only|todo|skipIf|runIf)\b/g)) {
+      for (const m of text.matchAll(
+        /\b(describe|it|test|bench)(?:\.\w+)*\.(skip|only|todo|skipIf|runIf)\b/g,
+      )) {
         problems.push(`${name}:${lineOf(text, m.index)}: ${m[0]} — testler atlanmaz`);
       }
       for (const m of text.matchAll(/\b(xit|xdescribe|fit|fdescribe)\(/g)) {

@@ -1,0 +1,19 @@
+{
+  // Kalite kapılarının betikleri (scripts/) JavaScript; tür denetimi JSDoc ve çıkarımla yapılır.
+  // check-scenes.mjs dışarıda: yarısı tarayıcıda çalışır (page.evaluate), sayfanın kendi
+  // değişkenlerini kullanır.
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2023"],
+    "allowJs": true,
+    "checkJs": true,
+    "strict": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["scripts/**/*.mjs", "eslint.config.js"],
+  "exclude": ["scripts/check-scenes.mjs"]
+}

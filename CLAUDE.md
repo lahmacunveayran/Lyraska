@@ -55,7 +55,12 @@ lyraska/
 │   ├── components/           # React bileşenleri: PlayerScreen (sahne tüm pencere; üstünde cam katmanlar:
 │   │                         # NowPlaying büyük başlık, InfoStack drop sayacı ve sıradaki, SeekBar şarkı haritası
 │   │                         # şeridi, LyricsOverlay kinetik sözler; sahneler SceneStage'de, galeri ShaderScene + SceneGallery, MilkDropScene kullanıcının .milk görselleri; sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
-│   │                         # ayarlar; her panel ve sahne bir ErrorBoundary içinde: hata yalnızca o bölümü kapatır)
+│   │                         # ayarlar; her panel ve sahne bir ErrorBoundary içinde: hata yalnızca o bölümü kapatır).
+│   │                         # Klasik sahneler SkyScene, HighwayScene, DriveScene, VuScene (VuMeter), SpectrumView
+│   │                         # (DotMatrix, SpectrumDemo karşılama gösterisi); paneller LibraryPanel, EqualizerPanel
+│   │                         # (CrossfeedStrip, ParametricEq), MarkerPanel, SyncPanel, AbxPanel, SettingsPanel;
+│   │                         # Dock alttaki cam (şerit, süre, çalma düğmeleri), DropOverlay sürükle-bırak, Marquee kayan
+│   │                         # yazı, icons simgeler
 │   ├── hooks/                # usePlayer (oynatıcı: aç, çal, sar), usePlayback (oynatıcı + çalma sırası), useLibrary,
 │   │                         # useEqualizer, useHeadphone, useMarker (işaretleme), useSync (ses–görüntü senkronu),
 │   │                         # useVisualFeed (görsel verisi), useSongMap (çalan şarkının haritası), useDrawer
@@ -68,6 +73,7 @@ lyraska/
 │   │                         # useLyrics (şarkı sözleri), useScenePresets (galeri sahnelerinin görünümü ve
 │   │                         # hazır ayarlar), useMilkdrop (MilkDrop klasörü, görseller, önceki/sonraki)
 │   ├── lib/                  # Saf yardımcılar (format, meter, dotFont, vu, sky, highway, queue, sync, songMap,
+│   │                         # analysis: BPM sütunu, drop: bırakma bildirimi, eq: ekolayzer bantları,
 │   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile, lyrics,
 │   │                         # clock: akıcı oynatma saati, marks: işaret hesapları, scene: sahne listesi,
 │   │                         # sceneClock: sahne iç saatleri, virtual: uzun listede görünen satırlar),
@@ -194,6 +200,7 @@ Hepsi depo kökünde çalıştırılır.
 | Yalnızca arayüz (tarayıcıda)   | `npm run dev`                                                                                                                          |
 | Arayüz testleri                | `npm test`                                                                                                                             |
 | Arayüz lint / tür / biçim      | `npm run lint`, `npm run typecheck`, `npm run format:check`                                                                            |
+| Bütün arayüz denetimleri       | `npm run check` (biçim, lint, tür, testler, `check:*`; push öncesi tek komut)                                                          |
 | Biçimlendir                    | `npm run format` ve `cd src-tauri && cargo fmt`                                                                                        |
 | Rust testleri                  | `cd src-tauri && cargo test` (arayüz veri tiplerini de `src/lib/bindings/`'e üretir)                                                   |
 | Komut sözleşmesi               | `npm run check:commands` (arayüzün çağrıları ↔ çekirdeğin komutları)                                                                   |
@@ -255,7 +262,8 @@ Görsel güvenlik (zorunlu):
 - Kalite hedefleri ölçülebilir testlere bağlanır: beat F-ölçüsü ≥ 0,80; senkron ±20 ms;
   1080p dahili GPU'da 60 fps; 1 saat çalmada sıfır takılma.
 - Push'tan önce yerelde şunlar temiz olmalı: biçim, lint, tür denetimi, testler, lisans denetimi ve `check:*`
-  kapıları (README'deki "Checks" listesi CI'nın çalıştırdığının aynısıdır).
+  kapıları. Arayüz tarafının hepsi tek komutta: `npm run check`; Rust tarafı için README'deki "Checks" listesi
+  (CI'nın çalıştırdığının aynısı; `check:docs` CI'nın her `check:*` betiğini çalıştırdığını denetler).
 
 ## Lisans kuralları
 

@@ -26,6 +26,28 @@ function matching(text, open) {
   return -1;
 }
 
+/**
+ * Fonksiyon gövdesinin sonu. `{` ile başlıyorsa eşleşen `}`; değilse (ok fonksiyonunun tek ifadesi)
+ * üst düzeyde `;`, `,` ya da kapanan bir parantez. Yalnızca (), [], {} sayılır (`<` karşılaştırma
+ * olabilir).
+ */
+function bodyEnd(text, from) {
+  let depth = 0;
+  let i = from;
+  while (i < text.length && /\s/.test(text[i])) i++;
+  const block = text[i] === "{";
+  for (; i < text.length; i++) {
+    const c = text[i];
+    if (c === "(" || c === "[" || c === "{") depth++;
+    else if (c === ")" || c === "]" || c === "}") {
+      depth--;
+      if (block && depth === 0) return i;
+      if (depth < 0) return i;
+    } else if (!block && depth === 0 && (c === ";" || c === ",")) return i;
+  }
+  return text.length;
+}
+
 /** Üst düzey virgüllerden böler (tür içindeki `<…, …>` ve `(…, …)` virgülleri hariç). */
 export function splitTopLevel(text, separator = ",") {
   const parts = [];
@@ -208,12 +230,29 @@ export function tsInterfaces(text) {
 export function uiCalls(text, file = "") {
   const calls = [];
   const interfaces = tsInterfaces(text);
-  const fnPattern = /function\s+\w+\s*(?:<[^>]*>)?\s*\(/g;
-  const functions = [...text.matchAll(fnPattern)].map((m) => {
+  // Çağrıyı saran fonksiyon: `function ad(…) { … }` ya da `const ad = (…) => …`. Gövdenin sonu da
+  // tutulur: bir çağrının değerleri yalnızca içinde durduğu fonksiyonun parametrelerinden okunur.
+  const fnPattern =
+    /function\s+\w+\s*(?:<[^>]*>)?\s*\(|(?:const|let)\s+\w+\s*=\s*(?:async\s*)?(?:<[^>]*>)?\s*\(/g;
+  const functions = [...text.matchAll(fnPattern)].flatMap((m) => {
     const open = m.index + m[0].length - 1;
     const close = matching(text, open);
-    return { at: m.index, params: parseTsParams(text.slice(open + 1, close)) };
+    if (close < 0) return [];
+    const arrow = !m[0].startsWith("function");
+    const bodyAt = arrow ? text.indexOf("=>", close) : text.indexOf("{", close);
+    if (bodyAt < 0) return [];
+    return [
+      {
+        at: m.index,
+        end: bodyEnd(text, arrow ? bodyAt + 2 : bodyAt),
+        params: parseTsParams(text.slice(open + 1, close)),
+      },
+    ];
   });
+  // `import { invoke as çağır }`: takma adlı çağrılar okunamaz, sözleşme dışı kalırdı.
+  for (const m of text.matchAll(/\binvoke\s+as\s+\w+/g)) {
+    calls.push({ name: null, alias: true, where: `${file}:${lineOf(text, m.index)}` });
+  }
   for (const m of text.matchAll(/\binvoke\s*(<)?/g)) {
     let at = m.index + m[0].length;
     let returns = null;
@@ -231,7 +270,7 @@ export function uiCalls(text, file = "") {
       continue;
     }
     const line = lineOf(text, m.index);
-    const enclosing = functions.filter((f) => f.at < m.index).pop();
+    const enclosing = functions.filter((f) => f.at < m.index && m.index < f.end).pop();
     const args = [];
     if (call[3]) {
       const open = at + call[0].length - 1;
@@ -288,6 +327,10 @@ export function contractProblems(
     }
   }
   for (const call of calls) {
+    if (call.alias) {
+      problems.push(`${call.where}: invoke takma adla içe aktarılmış; adıyla (invoke) çağırın`);
+      continue;
+    }
     if (call.name === null) {
       problems.push(`${call.where}: invoke'a komut adı değişkenle verilmiş; adı düz metin yazın`);
       continue;

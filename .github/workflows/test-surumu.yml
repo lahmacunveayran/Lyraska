@@ -53,6 +53,8 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
+      # Elle başlatmada commit'in CI sonucunu okumak için (yalnızca okuma).
+      actions: read
     outputs:
       sha: ${{ steps.kaynak.outputs.sha }}
       version: ${{ steps.surum.outputs.version }}
@@ -63,6 +65,20 @@ jobs:
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: echo "sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+      # Elle başlatma CI'yi atlayamaz: main'in bu commit'i için push CI'si başarıyla bitmiş olmalı
+      # (otomatik başlatmada bu, derle.if'te zaten denetlenir).
+      - name: Elle başlatmada CI yeşil mi
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.kaynak.outputs.sha }}
+        run: |
+          passed=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SHA&event=push&status=success" --jq '.total_count')
+          if [ "$passed" -lt 1 ]; then
+            echo "::error::$SHA için başarılı bir CI çalıştırması yok; test sürümü yayımlanmaz."
+            exit 1
+          fi
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           ref: ${{ steps.kaynak.outputs.sha }}

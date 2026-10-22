@@ -9,7 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.scripts.json",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -22,7 +22,8 @@
     "check:docs": "node scripts/check-docs.mjs",
     "notices": "node scripts/third-party-notices.mjs",
     "check:notices": "node scripts/third-party-notices.mjs --check",
-    "check:scenes": "node scripts/check-scenes.mjs"
+    "check:scenes": "node scripts/check-scenes.mjs",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run check:commands && npm run check:licenses && npm run check:rules && npm run check:docs && npm run check:audio -- --history"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.3.0",

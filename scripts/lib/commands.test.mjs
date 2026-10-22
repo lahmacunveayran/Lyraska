@@ -115,6 +115,30 @@ describe("sözleşme", () => {
     );
   });
 
+  it("değer çağrıyı saran fonksiyondan okunur; ok fonksiyonu ve takma ad (denetimdeki kaçaklar)", () => {
+    const ts = `
+export function seek(seconds: number): Promise<Status> {
+  return invoke<Status>("seek", { seconds });
+}
+export const seekText = (seconds: string) => invoke<Status>("seek", { seconds });
+`;
+    const problems = problemsFor(RUST, ts, "generate_handler![commands::seek]");
+    expect(problems).toContain(
+      'x.ts:5: "seek" / "seconds": Rust f64 bekliyor, arayüz string gönderiyor',
+    );
+    expect(problems.filter((p) => p.startsWith("x.ts:3"))).toEqual([]);
+
+    const outside = `export function a(seconds: number) { return 1; }\nconst b = invoke<Status>("seek", { seconds });`;
+    expect(problemsFor(RUST, outside, "generate_handler![commands::seek]")).toContain(
+      'x.ts:2: "seek" / "seconds" değerinin türü çözülemedi (parametreyi doğrudan ya da `istek.alan` biçiminde verin)',
+    );
+
+    const alias = `import { invoke as call } from "@tauri-apps/api/core";`;
+    expect(problemsFor(RUST, alias, "generate_handler![commands::seek]")).toContain(
+      "x.ts:1: invoke takma adla içe aktarılmış; adıyla (invoke) çağırın",
+    );
+  });
+
   it("yanlış ad, eksik zorunlu parametre, kayıtsız ve kullanılmayan komut", () => {
     const ts = `export function seek(secs: number) { return invoke<Status>("seek", { secs }); }`;
     const problems = problemsFor(RUST, ts, "generate_handler![commands::seek, commands::list]");

@@ -16,13 +16,13 @@ const ALLOWED_DIR = "src-tauri/tests/data/";
 const MAX_TEST_AUDIO_BYTES = 256 * 1024;
 const history = process.argv.includes("--history");
 
-const git = (args, input) =>
-  execFileSync("git", args, { input, maxBuffer: 1 << 30, encoding: input ? undefined : "utf8" });
+const gitText = (args) => execFileSync("git", args, { maxBuffer: 1 << 30, encoding: "utf8" });
+const gitBytes = (args, input) => execFileSync("git", args, { input, maxBuffer: 1 << 30 });
 
 const problems = [];
 
 // Şu anki ağaç: ad, içerik, izinli klasörün kuralları.
-const files = git(["ls-files", "-z"]).split("\0").filter(Boolean);
+const files = gitText(["ls-files", "-z"]).split("\0").filter(Boolean);
 const readme = readFileSync(`${ALLOWED_DIR}README.md`, "utf8");
 const documented = documentedNames(readme);
 for (const file of files) {
@@ -56,7 +56,7 @@ let blobCount = 0;
 if (history) {
   // Aynı içerik geçmişte birden çok yolda durmuş olabilir: hepsi tutulur.
   const paths = new Map();
-  for (const line of git(["rev-list", "--objects", "--all"]).split("\n")) {
+  for (const line of gitText(["rev-list", "--objects", "--all"]).split("\n")) {
     if (!line) continue;
     const space = line.indexOf(" ");
     const sha = space > 0 ? line.slice(0, space) : line;
@@ -64,7 +64,7 @@ if (history) {
     if (space > 0) paths.get(sha).push(line.slice(space + 1));
   }
   // Yalnızca bir dala ya da etikete ulaşılabilen nesneler (yerelde artakalan sahipsiz nesneler değil).
-  const blobs = git(
+  const blobs = gitBytes(
     ["cat-file", "--batch-check=%(objectname) %(objecttype)"],
     `${[...paths.keys()].join("\n")}\n`,
   )
@@ -74,7 +74,7 @@ if (history) {
     .filter(([, type]) => type === "blob")
     .map(([sha]) => sha);
   blobCount = blobs.length;
-  const output = git(["cat-file", "--batch"], `${blobs.join("\n")}\n`);
+  const output = gitBytes(["cat-file", "--batch"], `${blobs.join("\n")}\n`);
   let at = 0;
   while (at < output.length) {
     const headerEnd = output.indexOf(0x0a, at);

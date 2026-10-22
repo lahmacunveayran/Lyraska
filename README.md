@@ -91,9 +91,8 @@ Checks (the same ones CI runs, from the repository root):
 
 ```sh
 npm ci && npm run build   # the Rust build embeds dist/
-npm run format:check && npm run lint && npm run typecheck && npm test
-npm run check:commands && npm run check:licenses && npm run check:rules && npm run check:docs
-npm run check:audio -- --history && npm audit --audit-level=high
+npm run check             # format, lint, types, tests, check:commands/licenses/rules/docs/audio
+npm audit --audit-level=high
 (cd src-tauri && cargo fmt --check && cargo clippy --all-targets --locked -- -D warnings)
 (cd src-tauri && cargo test --locked)   # also regenerates src/lib/bindings (must be unchanged)
 (cd src-tauri && cargo deny check licenses bans sources advisories)
