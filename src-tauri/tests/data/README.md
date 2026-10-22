@@ -45,3 +45,6 @@ dört kez tersine döner). Yalnızca testlerde ve sahne denetiminde kullanılır
 `milkdrop/lyraska-parlama.json`: Rust ayrıştırıcısının bu dosyadan ürettiği Butterchurn JSON'u
 (`milkdrop::tests::ornek_gorsel_beklenen_jsona_cevrilir` aynı olduğunu denetler; sahne denetiminin sahte çekirdeği
 bunu döndürür).
+`milkdrop/lyraska-dongu.milk` (+ `.json`): yine bu proje için yazılmış; denklemindeki çok büyük
+`loop(2000000000, …)` programın döngü sınırıyla `loop(min(1048576, …), …)` olur. Sahne denetimi bu görselin programı
+dondurmadan çizildiğini gerçek tarayıcıda denetler.

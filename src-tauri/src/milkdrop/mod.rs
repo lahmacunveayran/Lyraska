@@ -10,6 +10,7 @@
 //! boyut sınırı vardır. Çevrilen preset yalnızca sayılar ve EEL denklem metni taşır; denklemleri
 //! arayüzdeki Butterchurn WebAssembly'ye derler (JavaScript olarak çalıştırılmaz).
 
+pub mod eel;
 pub mod parse;
 
 use std::io::Read;
@@ -86,16 +87,39 @@ pub enum MilkdropError {
     },
 }
 
-/// Ayarlardan okunan klasör yolu: boş, göreli, `..` içeren ya da aşırı uzun yol unutulur.
-/// Klasörün var olup olmadığına bakılmaz (çıkarılmış disk takılınca yine çalışsın).
+/// Ayarlardan okunan klasör yolu: boş, göreli, `..` içeren ya da aşırı uzun yol unutulur;
+/// Windows'ta yalnızca yerel disk yolu (`C:\…`; ağ paylaşımı ve aygıt yolları değil). Klasörün
+/// var olup olmadığına bakılmaz (çıkarılmış disk takılınca yine çalışsın).
 pub fn sanitize_folder(folder: Option<PathBuf>) -> Option<PathBuf> {
     folder.filter(|path| {
         let text = path.as_os_str();
+        let local = if cfg!(windows) {
+            windows_local_absolute(&path.to_string_lossy())
+        } else {
+            path.is_absolute()
+        };
         !text.is_empty()
             && text.len() <= MAX_FOLDER_PATH
-            && path.is_absolute()
+            && local
             && !path.components().any(|c| c == Component::ParentDir)
     })
+}
+
+/// Windows yolu yerel bir diskte mutlak mı? Yalnızca `C:\…` (ya da `C:/…`) ve `\\?\C:\…`
+/// (Rust'taki `Prefix::Disk` ve `Prefix::VerbatimDisk`). Ağ paylaşımı (`\\sunucu\…`,
+/// `\\?\UNC\…`), aygıt (`\\.\…`), diğer `\\?\` yolları, sürücüye göreli (`C:a`) ve kökten
+/// (`\a`) yollar ve `..` içeren yollar reddedilir. Linux'ta da sınansın diye metin üzerinde çalışır.
+pub fn windows_local_absolute(path: &str) -> bool {
+    let (rest, verbatim) = match path.strip_prefix(r"\\?\") {
+        Some(rest) => (rest, true),
+        None => (path, false),
+    };
+    let is_separator = |c: char| c == '\\' || (!verbatim && c == '/');
+    let mut chars = rest.chars();
+    let drive = chars.next().is_some_and(|c| c.is_ascii_alphabetic())
+        && chars.next() == Some(':')
+        && chars.next().is_some_and(is_separator);
+    drive && !rest.split(is_separator).any(|part| part == "..")
 }
 
 /// Klasörün durumu: seçilmemişse boş liste; okunamıyorsa hata metniyle.
@@ -198,19 +222,39 @@ fn is_milk(path: &Path) -> bool {
 
 /// Seçilen klasördeki bir görseli okur ve çevirir. Klasörün dışındaki ya da `.milk` olmayan
 /// dosyalar açılmaz.
+///
+/// Bağlantılar izlenmez: dosyanın kendisi sembolik bağlantıysa açılmaz; klasör ve dosya gerçek
+/// yerleriyle (`canonicalize`, Windows'ta bağlantı noktaları da) karşılaştırılır ve dosya klasörün
+/// en çok bir alt düzeyinde olmalıdır (listedeki gibi: `klasör/x.milk`, `klasör/alt/x.milk`).
 pub fn load(folder: Option<&Path>, path: &Path) -> Result<MilkdropPreset, MilkdropError> {
     let folder = folder.ok_or(MilkdropError::NoFolder)?;
-    let inside = crate::library::path_covers(folder, path)
-        && path != folder
-        && !path.components().any(|c| c == Component::ParentDir);
-    if !inside || !is_milk(path) {
+    if !is_milk(path) || path.components().any(|c| c == Component::ParentDir) {
         return Err(MilkdropError::OutsideFolder);
     }
     let read_error = |source| MilkdropError::Read {
         path: path.display().to_string(),
         source,
     };
-    let file = std::fs::File::open(path).map_err(read_error)?;
+    let meta = std::fs::symlink_metadata(path).map_err(read_error)?;
+    if !meta.file_type().is_file() {
+        return Err(MilkdropError::OutsideFolder);
+    }
+    let root = folder
+        .canonicalize()
+        .map_err(|source| MilkdropError::Folder {
+            path: folder.display().to_string(),
+            source,
+        })?;
+    let real = path.canonicalize().map_err(read_error)?;
+    let depth = real
+        .strip_prefix(&root)
+        .map_err(|_| MilkdropError::OutsideFolder)?
+        .components()
+        .count();
+    if !(1..=2).contains(&depth) {
+        return Err(MilkdropError::OutsideFolder);
+    }
+    let file = std::fs::File::open(&real).map_err(read_error)?;
     let mut bytes = Vec::new();
     // Sınırdan bir bayt fazlası okunur: büyük dosya belleğe alınmadan reddedilir.
     file.take(parse::MAX_FILE_BYTES + 1)
@@ -386,6 +430,98 @@ mod tests {
     }
 
     #[test]
+    fn boyut_siniri_dosyanin_baytlarinda() {
+        // ~300 KB Windows-1254 dosya: Türkçe harfler UTF-8'de iki bayt olur (~600 KB metin) ama
+        // dosyanın kendisi sınırın altında: açılmalı.
+        let dir = temp_path("milk-1254");
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut bytes = b"[preset00]\r\nzoom=1.1\r\n".to_vec();
+        for i in 0..300 {
+            bytes.extend_from_slice(format!("per_frame_{}=a = 1; // ", i + 1).as_bytes());
+            // ş ğ ı İ ö ç ü (Windows-1254)
+            for _ in 0..140 {
+                bytes.extend_from_slice(b"\xFE\xF0\xFD\xDD\xF6\xE7\xFC");
+            }
+            bytes.extend_from_slice(b"\r\n");
+        }
+        assert!(bytes.len() > 290 * 1024 && (bytes.len() as u64) < parse::MAX_FILE_BYTES);
+        let path = dir.join("uzun.milk");
+        std::fs::write(&path, &bytes).unwrap();
+        let loaded = load(Some(&dir), &path).unwrap();
+        assert!(loaded.preset.frame_eqs_eel.len() > parse::MAX_FILE_BYTES as usize);
+        assert!(loaded.preset.frame_eqs_eel.contains("şğıİöçü"));
+    }
+
+    #[test]
+    fn windows_yolu_yalnizca_yerel_disk_olabilir() {
+        for ok in [
+            r"C:\Müzik\MilkDrop",
+            "D:/Görseller",
+            r"\\?\C:\Görseller",
+            r"c:\",
+        ] {
+            assert!(windows_local_absolute(ok), "{ok}");
+        }
+        for bad in [
+            r"\\sunucu\paylasim\milk",
+            "//sunucu/paylasim/milk",
+            r"\\?\UNC\sunucu\paylasim",
+            r"\\.\COM1",
+            r"\\.\C:\milk",
+            r"\\?\GLOBALROOT\Device\x",
+            r"C:goreli",
+            r"\kok\ama\surucusuz",
+            "goreli/klasor",
+            r"C:\a\..\b",
+            r"\\?\C:\a\..\b",
+            "",
+            "1:/x",
+        ] {
+            assert!(!windows_local_absolute(bad), "{bad}");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn baglanti_ve_derin_dosyalar_acilmaz() {
+        use std::os::unix::fs::symlink;
+        let dir = temp_path("milk-bag");
+        let outside = temp_path("milk-dis");
+        std::fs::create_dir_all(dir.join("alt/derin")).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        let preset = "[preset00]\nzoom=1.2\n";
+        std::fs::write(outside.join("gizli.milk"), preset).unwrap();
+        std::fs::write(dir.join("alt/iyi.milk"), preset).unwrap();
+        std::fs::write(dir.join("alt/derin/cok.milk"), preset).unwrap();
+        // Dosyanın kendisi bağlantı (dışarıyı ya da içeriyi gösterse de).
+        symlink(outside.join("gizli.milk"), dir.join("bag.milk")).unwrap();
+        symlink(dir.join("alt/iyi.milk"), dir.join("ic-bag.milk")).unwrap();
+        // Alt klasör dışarıyı gösteren bağlantı.
+        symlink(&outside, dir.join("dis")).unwrap();
+
+        assert!(
+            load(Some(&dir), &dir.join("alt/iyi.milk")).is_ok(),
+            "bir alt düzey açılır"
+        );
+        for bad in [
+            dir.join("bag.milk"),
+            dir.join("ic-bag.milk"),
+            dir.join("dis/gizli.milk"),
+            dir.join("alt/derin/cok.milk"),
+        ] {
+            assert!(
+                matches!(load(Some(&dir), &bad), Err(MilkdropError::OutsideFolder)),
+                "{}",
+                bad.display()
+            );
+        }
+        // Klasörün kendisi bağlantıysa gerçek yeriyle çalışır.
+        let linked = temp_path("milk-klasor-bag");
+        symlink(&dir, &linked).unwrap();
+        assert!(load(Some(&linked), &linked.join("alt/iyi.milk")).is_ok());
+    }
+
+    #[test]
     fn eski_windows_kodlamasi_ve_utf16_okunur() {
         let dir = temp_path("milk-kodlama");
         std::fs::create_dir_all(&dir).unwrap();
@@ -413,14 +549,21 @@ mod tests {
     fn ornek_gorsel_beklenen_jsona_cevrilir() {
         // Sahne denetimi (`scripts/check-scenes.mjs`) sahte çekirdekte bu JSON'u döndürür: gerçek
         // tarayıcıda denenen preset, bu ayrıştırıcının çıktısıyla birebir aynıdır.
+        // İkincisi (döngü denemesi) çok büyük `loop`'un kırpılmış hâlini taşır.
         let folder = fixture("");
-        let loaded = load(Some(&folder), &fixture("lyraska-parlama.milk")).unwrap();
-        assert!(!loaded.simplified);
-        let expected: serde_json::Value = serde_json::from_str(
-            &std::fs::read_to_string(fixture("lyraska-parlama.json")).unwrap(),
-        )
-        .unwrap();
-        assert_eq!(serde_json::to_value(&loaded.preset).unwrap(), expected);
+        for name in ["lyraska-parlama", "lyraska-dongu"] {
+            let loaded = load(Some(&folder), &fixture(&format!("{name}.milk"))).unwrap();
+            assert!(!loaded.simplified);
+            let expected: serde_json::Value = serde_json::from_str(
+                &std::fs::read_to_string(fixture(&format!("{name}.json"))).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(
+                serde_json::to_value(&loaded.preset).unwrap(),
+                expected,
+                "{name}"
+            );
+        }
     }
 
     #[test]

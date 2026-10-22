@@ -25,14 +25,20 @@
 //! geçerlidir; denklem satırları numara sırasıyla birleştirilir; sayılar sonlu olmalıdır.
 //!
 //! Kötü niyetli ya da bozuk dosyaya karşı: boyut ve satır sınırı, sonlu sayı, ayar sayısı sınırı,
-//! denetim karakterleri temizlenir. Ayrıştırıcı hiçbir girdide panik yapmaz (testler).
+//! denetim karakterleri temizlenir; programı dondurabilecek döngüler sınırlanır ya da görsel
+//! reddedilir (`eel.rs`). Ayrıştırıcı hiçbir girdide panik yapmaz (testler).
 
 use std::collections::BTreeMap;
 
 use serde::Serialize;
 
+use super::eel::{self, LoopError, LoopPolicy};
+
 /// Okunan dosyanın en büyük boyutu (bayt). Gerçek presetler çoğunlukla 30 KB'ın altındadır.
 pub const MAX_FILE_BYTES: u64 = 512 * 1024;
+/// Çözülmüş metnin en büyük boyutu (bayt): eski Windows kodlamasında bir bayt UTF-8'de en çok üç
+/// bayt olur. Dosyanın kendi sınırı [`MAX_FILE_BYTES`] (`load` baytlarda denetler).
+pub const MAX_TEXT_BYTES: usize = 3 * MAX_FILE_BYTES as usize;
 /// Dosyadaki en fazla satır.
 pub const MAX_LINES: usize = 20_000;
 /// Bir `baseVals` tablosundaki en fazla ayar (MilkDrop'ta ~100 ayar var).
@@ -102,6 +108,12 @@ pub enum ParseError {
     TooManyLines,
     #[error("MilkDrop görseli değil: tanınan hiçbir ayar ya da denklem yok")]
     NotAPreset,
+    #[error(
+        "Bu görsel iç içe ya da piksel başına döngü içeriyor; programı dondurabileceği için açılmıyor."
+    )]
+    UnsafeLoop,
+    #[error("Bu görsel çok fazla döngü içeriyor; programı dondurabileceği için açılmıyor.")]
+    TooManyLoops,
 }
 
 /// Denklem türleri (ana preset).
@@ -180,7 +192,7 @@ impl Values {
 
 /// `.milk` metnini ayrıştırır. Hiçbir girdide panik yapmaz.
 pub fn parse(text: &str) -> Result<Parsed, ParseError> {
-    if text.len() as u64 > MAX_FILE_BYTES {
+    if text.len() > MAX_TEXT_BYTES {
         return Err(ParseError::TooLarge);
     }
     let lines: Vec<&str> = text.lines().collect();
@@ -243,34 +255,47 @@ pub fn parse(text: &str) -> Result<Parsed, ParseError> {
         return Err(ParseError::NotAPreset);
     }
 
+    // Döngü denetimi (`eel.rs`): denklemin ne sıklıkla çalıştığına göre.
+    let mut loops = 0usize;
+    let mut guarded = |code: CodeLines, policy: LoopPolicy| -> Result<String, ParseError> {
+        let (text, count) =
+            eel::guard_loops(&code.join(), policy).map_err(|error| match error {
+                LoopError::TooMany => ParseError::TooManyLoops,
+                LoopError::Nested | LoopError::Forbidden => ParseError::UnsafeLoop,
+            })?;
+        loops += count;
+        if loops > eel::MAX_LOOPS {
+            return Err(ParseError::TooManyLoops);
+        }
+        Ok(text)
+    };
     let [init, frame, pixel] = main;
-    let waves = wave_values
-        .into_iter()
-        .zip(wave_code)
-        .map(|(values, [init, frame, point])| ButterchurnWave {
+    let mut waves = Vec::with_capacity(WAVES);
+    for (values, [init, frame, point]) in wave_values.into_iter().zip(wave_code) {
+        waves.push(ButterchurnWave {
             base_vals: values.0,
-            init_eqs_eel: init.join(),
-            frame_eqs_eel: frame.join(),
-            point_eqs_eel: point.join(),
-        })
-        .collect();
-    let shapes = shape_values
-        .into_iter()
-        .zip(shape_code)
-        .map(|(values, [init, frame])| ButterchurnShape {
+            init_eqs_eel: guarded(init, LoopPolicy::Capped)?,
+            frame_eqs_eel: guarded(frame, LoopPolicy::Capped)?,
+            point_eqs_eel: guarded(point, LoopPolicy::Forbidden)?,
+        });
+    }
+    let mut shapes = Vec::with_capacity(SHAPES);
+    for (values, [init, frame]) in shape_values.into_iter().zip(shape_code) {
+        shapes.push(ButterchurnShape {
             base_vals: values.0,
-            init_eqs_eel: init.join(),
-            frame_eqs_eel: frame.join(),
-        })
-        .collect();
+            init_eqs_eel: guarded(init, LoopPolicy::Capped)?,
+            // Şekil denklemleri her örnek (en çok 1024) için ayrı çalışır.
+            frame_eqs_eel: guarded(frame, LoopPolicy::Forbidden)?,
+        });
+    }
     let preset = ButterchurnPreset {
         version,
         base_vals: base.0,
         shapes,
         waves,
-        init_eqs_eel: init.join(),
-        frame_eqs_eel: frame.join(),
-        pixel_eqs_eel: pixel.join(),
+        init_eqs_eel: guarded(init, LoopPolicy::Capped)?,
+        frame_eqs_eel: guarded(frame, LoopPolicy::Capped)?,
+        pixel_eqs_eel: guarded(pixel, LoopPolicy::Forbidden)?,
         warp: String::new(),
         comp: String::new(),
     };
@@ -807,7 +832,8 @@ per_frame_1=wave_r = 0.5 + 0.5*sin(time);\n";
 
     #[test]
     fn sinirlar_asilinca_reddedilir() {
-        let big = "a".repeat(MAX_FILE_BYTES as usize + 1);
+        // Sınır dosyanın baytlarındadır (`load`); çözülmüş metin eski kodlamadan en çok üç kat büyür.
+        let big = "a".repeat(MAX_TEXT_BYTES + 1);
         assert_eq!(parse(&big), Err(ParseError::TooLarge));
         let many = "\n".repeat(MAX_LINES + 1);
         assert_eq!(parse(&many), Err(ParseError::TooManyLines));
@@ -815,6 +841,62 @@ per_frame_1=wave_r = 0.5 + 0.5*sin(time);\n";
         let names: String = (0..5000).map(|i| format!("ayar{i}=1\n")).collect();
         let preset = parse_ok(&names).preset;
         assert_eq!(preset.base_vals.len(), MAX_BASE_VALUES);
+    }
+
+    #[test]
+    fn donguler_denklemin_calisma_sikligina_gore_denetlenir() {
+        // Karede (ya da açılışta) bir kez çalışanlar: döngü sayısı MilkDrop sınırına kırpılır.
+        let preset = parse_ok(
+            "per_frame_1=loop(2000000000, q1 = q1 + 1);\n\
+             per_frame_init_1=while(a)\n\
+             wave_0_init1=loop(5, b = 1);\n\
+             wave_0_per_frame1=LOOP(n, b = 2);\n\
+             shape_0_init1=loop(7, c = 1);\n",
+        )
+        .preset;
+        assert_eq!(
+            preset.frame_eqs_eel,
+            "loop(min(1048576, 2000000000), q1 = q1 + 1);"
+        );
+        assert_eq!(preset.init_eqs_eel, "while(a)");
+        assert_eq!(
+            preset.waves[0].init_eqs_eel,
+            "loop(min(1048576, 5), b = 1);"
+        );
+        assert_eq!(
+            preset.waves[0].frame_eqs_eel,
+            "LOOP(min(1048576, n), b = 2);"
+        );
+        assert_eq!(
+            preset.shapes[0].init_eqs_eel,
+            "loop(min(1048576, 7), c = 1);"
+        );
+
+        // Karede çok kez çalışanlar (piksel, dalga noktası, şekil örneği): döngü yasak.
+        for text in [
+            "per_pixel_1=loop(2, a = 1);",
+            "wave_1_per_point1=while(x)",
+            "shape_2_per_frame1=loop(3, a)",
+            "shape_2_per_frame_1=a = 1;\nshape_2_per_frame_2=WHILE (b)",
+        ] {
+            assert_eq!(parse(text), Err(ParseError::UnsafeLoop), "{text}");
+        }
+        // İç içe döngü; satırlara bölünse de (eel-wasm satırları birleştirir).
+        for text in [
+            "per_frame_1=loop(9, loop(9, a));",
+            "per_frame_1=loop(9,\nper_frame_2=while(a));",
+            "wave_0_per_frame1=while(loop(2, a))",
+        ] {
+            assert_eq!(parse(text), Err(ParseError::UnsafeLoop), "{text}");
+        }
+        // Çok fazla döngü (bütün denklemlerde toplam).
+        let many: String = (0..=super::super::eel::MAX_LOOPS)
+            .map(|i| format!("per_frame_{}=loop(2, a = 1);\n", i + 1))
+            .collect();
+        assert_eq!(parse(&many), Err(ParseError::TooManyLoops));
+        // Yorumdaki ya da başka addaki döngü sayılmaz.
+        let fine = parse_ok("per_pixel_1=myloop(1, 2); // loop(1e9, a)\n").preset;
+        assert_eq!(fine.pixel_eqs_eel, "myloop(1, 2); // loop(1e9, a)");
     }
 
     #[test]
