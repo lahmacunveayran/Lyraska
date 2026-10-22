@@ -211,9 +211,12 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
 | İçe aktarılan şarkı haritaları  | `haritalar/*.json`                      | Biçim sürümü (`map_file::VERSION`); şarkı dosyası değişince uygulanmaz              |
 | Hata günlüğü                    | `logs/lyraska.log` (yerel veri klasörü) | 1 MB'ta bir yedeklenir                                                              |
 
-Windows'ta iki veri klasörü vardır: gezici `%APPDATA%\com.lyraska.app` (ayarlar, işaretler, haritalar: küçük,
-kullanıcıya ait) ve makineye özgü `%LOCALAPPDATA%\com.lyraska.app` (kütüphane + analiz önbelleği, günlükler: büyük,
-yeniden üretilebilir). Eski sürümlerin gezici klasöre yazdığı kütüphane ilk açılışta bir kez taşınır (`data_dirs.rs`);
+Windows'ta iki veri klasörü vardır; adları program kimliğidir (`tauri.conf.json` `identifier`; eski hesap adını
+taşır, değişirse kullanıcı verisi kaybolur): gezici `%APPDATA%\io.github.gozlemesevdalisi.lyraska` (ayarlar,
+işaretler, haritalar: küçük, kullanıcıya ait, **yeniden üretilemez**) ve makineye özgü
+`%LOCALAPPDATA%\io.github.gozlemesevdalisi.lyraska` (kütüphane + analiz önbelleği, günlükler: büyük, yeniden
+üretilebilir; silinirse müzik klasörleri yeniden eklenir). `npm run check:docs` belgelerdeki klasör adlarını
+kimlikle karşılaştırır. Eski sürümlerin gezici klasöre yazdığı kütüphane ilk açılışta bir kez taşınır (`data_dirs.rs`);
 taşınamazsa eski yer kullanılır.
 
 ## Kurallar ve onları denetleyenler

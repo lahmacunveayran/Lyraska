@@ -24,7 +24,7 @@
   /* Cam katmanlar ve yazı */
   --ink: #f4f7fb;
   --ink-2: rgba(244, 247, 251, 0.72);
-  --ink-3: rgba(244, 247, 251, 0.48);
+  --ink-3: rgba(244, 247, 251, 0.56); /* koyu zeminde ≈ 5,9:1 (WCAG AA, payla) */
   --ink-dark: #070b14;
   --glass-fill: rgba(12, 16, 26, 0.46);
   --glass-strong: rgba(9, 12, 20, 0.8);
@@ -1172,10 +1172,20 @@ kbd {
   display: none;
 }
 
-.settings__notices-frame {
+.settings__notices-text {
   display: block;
   width: 100%;
   height: 320px;
+  overflow: auto;
+  padding: 10px 12px;
+  font:
+    12px/1.45 ui-monospace,
+    "Cascadia Mono",
+    Consolas,
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink-2);
   margin-top: 10px;
   border: 1px solid var(--glass-edge);
   border-radius: 12px;
@@ -1922,6 +1932,21 @@ kbd {
     0 0 calc(4px + 4px * var(--stage-glow) * var(--stage-spread))
       color-mix(in srgb, var(--vfd-glow) calc(70% + 30% * var(--stage-glow)), transparent)
   );
+}
+
+/* Şarkı yokken gösteri: gerçek ses verisi sanılmasın diye ekranda yazar. */
+.spectrum-scene__demo {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(52vh + 8px);
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  pointer-events: none;
 }
 
 /* ---------- Kütüphane ---------- */

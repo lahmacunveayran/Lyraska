@@ -28,8 +28,8 @@ kuralları). Kod bağımlılıklarının lisanslarını CI denetler (`npm run ch
 - **Paket:** `@fontsource-variable/inter` 5.3.0 (npm). Yalnızca `opsz.css` kullanılır: düz stil, ağırlık ve
   optik boyut eksenleri. Yazı tipi dosyaları programın içine paketlenir; çalışırken internete bağlanılmaz.
 - **Lisans:** SIL Open Font License 1.1 (OFL-1.1). Ticari kullanıma açıktır. Yazı tipi programla birlikte
-  dağıtılabilir; tek başına satılamaz, değiştirilirse "Inter" adıyla dağıtılamaz. Lyraska yazı tipini
-  değiştirmeden kullanır.
+  dağıtılabilir; tek başına satılamaz. Inter'in ayrılmış yazı tipi adı (Reserved Font Name) yoktur. Lyraska,
+  Fontsource'un alt kümelere ayrılmış woff2 dosyalarını olduğu gibi kullanır.
 - **Lisans metni:** programla birlikte dağıtılır: `public/lisanslar/Inter-OFL-1.1.txt` (paketteki `LICENSE`
   dosyasının kopyası).
 - **Doğrulama ve onay:** paketin `package.json` lisans alanı ve `LICENSE` dosyası OFL-1.1; AGPL ya da ticari

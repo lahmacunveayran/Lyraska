@@ -51,11 +51,15 @@ export function SceneStage({
               className="vfd vfd--primary"
             />
           ) : (
-            <SpectrumDemo
-              bands={SPECTRUM_BANDS}
-              rows={SPECTRUM_ROWS}
-              className="vfd vfd--primary"
-            />
+            <>
+              <SpectrumDemo
+                bands={SPECTRUM_BANDS}
+                rows={SPECTRUM_ROWS}
+                safe={safe}
+                className="vfd vfd--primary"
+              />
+              <p className="spectrum-scene__demo">Gösteri · şarkı açınca gerçek spektrum</p>
+            </>
           )}
         </div>
       ) : (

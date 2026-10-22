@@ -14,18 +14,18 @@ değişmesi gerekiyorsa önce proje sahibine sorulur.
   o zaman da hangi sayfada hangi butona basılacağı tam olarak yazılır.
 - Sahibine karar sorulacaksa seçenekler ve Claude'un önerisi birlikte sunulur.
 - Test için sahibine her zaman sabit indirme linki verilir:
-  https://github.com/gozlemesevdalisi/Lyraska/releases/download/test-surumu/Lyraska-Kurulum.exe
+  https://github.com/lahmacunveayran/Lyraska/releases/download/test-surumu/Lyraska-Kurulum.exe
 
 ## Ürün
 
-Adı **Lyraska** (lir çalgısı ve Lyra takımyıldızından). Depo: `gozlemesevdalisi/Lyraska`.
+Adı **Lyraska** (lir çalgısı ve Lyra takımyıldızından). Depo: `lahmacunveayran/Lyraska` (eski adı `gozlemesevdalisi/Lyraska`; program kimliği `io.github.gozlemesevdalisi.lyraska` kullanıcı verisi kaybolmasın diye aynı kalır).
 
 Görselleri şarkıyı **önceden bilen**, tamamen **çevrimdışı** çalışan bir Windows müzik çalar.
 
 - Şarkı çalmadan önce analiz edilir: beat, ölçü, bölümler, drop, enerji → "şarkı haritası".
 - **Görsel Yönetmen** görselleri üç katmanda koreografe eder: **atmosfer**, **ritim**, **doku**.
-- Profesyonel ses: parametrik EQ, AutoEq kulaklık profilleri, loudness (EBU R128), bit-perfect mod; crossfeed
-  planlanıyor (yol haritası).
+- Profesyonel ses: parametrik EQ, AutoEq kulaklık profilleri, loudness (EBU R128), crossfeed, bit-perfect mod,
+  kör test (ABX).
 - Nostalji modları (eski araba teybi, VU ibreleri vb.) **özgün tasarımdır**.
   **Pioneer adı, logosu, yazı tipi veya herhangi bir varlığı asla kullanılmaz**; başka markaların da.
 - Program hiçbir zaman internete bağlanmak zorunda değildir. Telemetri yoktur.
@@ -56,20 +56,24 @@ lyraska/
 │   │                         # NowPlaying büyük başlık, InfoStack drop sayacı ve sıradaki, SeekBar şarkı haritası
 │   │                         # şeridi, LyricsOverlay kinetik sözler; sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
 │   │                         # ayarlar; her panel ve sahne bir ErrorBoundary içinde: hata yalnızca o bölümü kapatır)
-│   ├── hooks/                # usePlayback (oynatıcı + çalma sırası), useLibrary, useEqualizer, useHeadphone,
-│   │                         # useMarker (işaretleme), useSync (ses–görüntü senkronu), useVisualFeed (görsel
-│   │                         # verisi), useSongMap (çalan şarkının haritası), useDrawer (çekmece), useScene
-│   │                         # (sahne, 1–5), useDropToLibrary (sürükle-bırak), useIdle (sinema görünümü),
-│   │                         # useVisualSafe (epilepsi güvenli modu), usePlaybackOptions (ses yüksekliği eşitleme),
-│   │                         # useSkyLook (gece göğünün manzarası: göl, korona, karlı vadi), useCover (kapak),
-│   │                         # useAbx (kör test), useSongKey (çalan şarkının tonu), useParametric (elle
-│   │                         # parametrik EQ), useCrossfeed (crossfeed), useMapFile (şarkı haritası dosyası),
-│   │                         # useLyrics (şarkı sözleri)
+│   ├── hooks/                # usePlayer (oynatıcı: aç, çal, sar), usePlayback (oynatıcı + çalma sırası), useLibrary,
+│   │                         # useEqualizer, useHeadphone, useMarker (işaretleme), useSync (ses–görüntü senkronu),
+│   │                         # useVisualFeed (görsel verisi), useSongMap (çalan şarkının haritası), useDrawer
+│   │                         # (çekmece), useScene (sahne, 1–5), useDropToLibrary (sürükle-bırak), useIdle (sinema
+│   │                         # görünümü), useKeyboardFocus (klavye odağı sinema görünümünü tutar), useVisualSafe
+│   │                         # (epilepsi güvenli modu), usePlaybackOptions (ses yüksekliği eşitleme), useSkyLook (gece
+│   │                         # göğünün manzarası: göl, korona, karlı vadi), useCover (kapak), useAbx (kör test),
+│   │                         # useSongKey (çalan şarkının tonu), useParametric (elle parametrik EQ), useCrossfeed
+│   │                         # (crossfeed), useMapFile (şarkı haritası dosyası), useLyrics (şarkı sözleri)
 │   ├── lib/                  # Saf yardımcılar (format, meter, dotFont, vu, sky, highway, queue, sync, songMap,
-│   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile, lyrics), Rust köprüsü (backend.ts; veri tipleri bindings/ altında
-│   │                         # Rust'tan üretilir, elle düzenlenmez), arayüz hatalarını günlüğe yazma (errorReporting.ts), parlama sayacı
-│   │                         # (flash.ts), WebGL2 çizimi (gl.ts ortak; skyRenderer.ts, highwayRenderer.ts),
-│   │                         # WebGL2 açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts)
+│   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile, lyrics,
+│   │                         # clock: akıcı oynatma saati, marks: işaret hesapları, scene: sahne listesi,
+│   │                         # sceneClock: sahne iç saatleri, virtual: uzun listede görünen satırlar),
+│   │                         # usePrefersReducedMotion ("animasyonları azalt"), Rust köprüsü (backend.ts; veri tipleri
+│   │                         # bindings/ altında Rust'tan üretilir, elle düzenlenmez), arayüz hatalarını günlüğe yazma
+│   │                         # (errorReporting.ts), parlama sayacı (flash.ts), WebGL2 çizimi (gl.ts ortak;
+│   │                         # skyRenderer.ts, highwayRenderer.ts), WebGL2 açılamazsa gece göğü için 2D yedek çizim
+│   │                         # (skyFallback.ts)
 │   └── styles/               # CSS; renkler :root değişkenlerinde
 ├── src-tauri/                # Rust çekirdeği
 │   ├── src/
@@ -99,6 +103,8 @@ lyraska/
 │   │   │   ├── db.rs         #   kaynak (klasör ya da tek şarkı) ve şarkı tabloları, Türkçe arama, BPM
 │   │   │   ├── scan.rs       #   paralel etiket okuma, değişmeyeni atlama, silineni çıkarma
 │   │   │   └── service.rs    #   arka plan taraması; komutların kullandığı katman
+│   │   ├── data_dirs.rs      # veri klasörleri (Roaming küçük, Local büyük; eskiyi bir kez taşır), tek örnek kilidi
+│   │   ├── atomic_file.rs    # bölünmez dosya yazma (geçici dosya + sync_all + ad değiştirme): ayarlar, işaretler
 │   │   ├── storage.rs        # library.sqlite3 şeması ve sıralı göçleri (kütüphane + analiz önbelleği)
 │   │   ├── diagnostics.rs    # Yerel hata ve çökme günlüğü (logs/lyraska.log; gerçek zamanlı yoldan çağrılmaz)
 │   │   ├── settings.rs       # Kalıcı ayarlar (settings.json; ekolayzer, kulaklık, parametrik EQ, crossfeed, eşitleme, güvenli mod, ses gecikmesi)
@@ -221,7 +227,8 @@ TypeScript / React:
 Görsel güvenlik (zorunlu):
 
 - **Epilepsi güvenliği**: hiçbir sahne saniyede 3'ten fazla parlama üretmez. Ani tam ekran beyaz/kırmızı
-  geçiş yoktur. Faz 2'de bu kural bir "epilepsi güvenli modu" ile denetlenebilir hale gelir.
+  geçiş yoktur. "Epilepsi güvenli modu" (Ayarlar) açıkken saniyede en fazla 1 nabız; sahneler ve karşılama
+  gösterisi buna uyar ve her sahne kendi parlama testini taşır.
 - İşletim sistemindeki "animasyonları azalt" tercihine (`prefers-reduced-motion`) uyulur.
 
 ## Test kuralları

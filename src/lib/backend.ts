@@ -147,7 +147,7 @@ export const BROWSER_FALLBACK: AppInfo = {
   name: "Lyraska",
   version: __APP_VERSION__,
   commit: "tarayıcı",
-  phase: "Faz 2",
+  phase: "Test sürümü",
   audioEngine: "tarayıcı önizlemesi",
   analysis: "tarayıcı önizlemesi",
   visualBridge: "tarayıcı önizlemesi",
