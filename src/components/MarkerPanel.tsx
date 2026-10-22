@@ -3,7 +3,7 @@ import type { MarkerControls } from "../hooks/useMarker";
 import { openAnnotationFolder } from "../lib/backend";
 import { formatTime } from "../lib/format";
 import { importedSummary } from "../lib/mapFile";
-import { tapBpm } from "../lib/marks";
+import { MIN_EVALUATION_BEATS, tapBpm } from "../lib/marks";
 import {
   KEY_CONFIDENCE_MIN,
   MARKED_KEY_OPTIONS,
@@ -281,7 +281,11 @@ export function MarkerPanel({
           <button
             type="button"
             className="chip chip--button"
-            disabled={marks.beats.length < 8 || marker.savedFile === null || marker.evaluating}
+            disabled={
+              marks.beats.length < MIN_EVALUATION_BEATS ||
+              marker.savedFile === null ||
+              marker.evaluating
+            }
             title="Programın bulduğu vuruşları sizin işaretlerinizle karşılaştırır (birkaç saniye sürer)."
             onClick={() => void marker.evaluate()}
           >

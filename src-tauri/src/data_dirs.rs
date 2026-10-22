@@ -73,6 +73,23 @@ pub fn acquire_instance_lock(dir: &Path) -> Result<InstanceLock, LockError> {
     }
 }
 
+/// Oturum işareti: program açıkken `big` klasöründe `oturum-acik` dosyası durur, düzgün kapanışta
+/// silinir. Açılışta hâlâ duruyorsa önceki oturum yarıda kesildi (çökme, elektrik kesintisi,
+/// Görev Yöneticisi): döner `true` ve kütüphane bu açılışta tam denetlenir. Tek örnek kilidinden
+/// sonra çağrılır (ikinci kopya işarete dokunmaz).
+pub fn begin_session(dir: &Path) -> bool {
+    let marker = dir.join("oturum-acik");
+    let unclean = marker.exists();
+    let _ = std::fs::create_dir_all(dir);
+    let _ = std::fs::write(&marker, b"");
+    unclean
+}
+
+/// Düzgün kapanış: oturum işareti kalkar.
+pub fn end_session(dir: &Path) {
+    let _ = std::fs::remove_file(dir.join("oturum-acik"));
+}
+
 /// Dosyayı ya da klasörü taşır. `rename` farklı birimler arasında çalışmaz (ör. Roaming başka bir
 /// diske yönlendirilmiş kurumsal profil): o zaman kopyalanıp eskisi silinir. Kopyalama yarıda
 /// kalırsa yarım kopya silinir, kaynak yerinde kalır.
@@ -229,6 +246,16 @@ mod tests {
         // Kaynak yoksa hata; hedefte yarım kopya kalmaz.
         assert!(copy_then_remove(&root.join("a/yok"), &root.join("b/yok")).is_err());
         assert!(!root.join("b/yok").exists());
+    }
+
+    #[test]
+    fn yarida_kalan_oturum_sonraki_acilista_anlasilir() {
+        let dir = temp_path("oturum");
+        assert!(!begin_session(&dir), "ilk açılış temiz");
+        end_session(&dir);
+        assert!(!begin_session(&dir), "düzgün kapanıştan sonra temiz");
+        // Kapanış olmadan yeniden açılış: önceki oturum yarıda kalmış.
+        assert!(begin_session(&dir));
     }
 
     #[test]

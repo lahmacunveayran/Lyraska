@@ -93,6 +93,9 @@ fn clean_times(mut times: Vec<f64>) -> Vec<f64> {
     times
 }
 
+/// Doğruluk ölçümü için en az bu kadar işaretli vuruş gerekir (arayüzde `MIN_EVALUATION_BEATS`).
+pub const MIN_EVALUATION_BEATS: usize = 8;
+
 /// İşaret dosyalarının klasörü. Yazmalar sıraya girer (`writes`): "doğruluğu ölç" sonucu, ölçüm
 /// sürerken kaydedilen yeni işaretlerin üstüne yazılamaz (`save_evaluation`).
 pub struct AnnotationStore {

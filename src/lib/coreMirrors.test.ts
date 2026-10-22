@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { BASS_CLUB_DB, BASS_MAX_DB, EQ_BANDS_HZ, EQ_MAX_DB, PUNCH_MAX_DB } from "./eq";
+import { MIN_EVALUATION_BEATS } from "./marks";
 import { PEQ_FREQ_MAX, PEQ_FREQ_MIN, PEQ_LIMITS } from "./parametric";
 import { MAX_AUDIO_DELAY_MS, MIN_AUDIO_DELAY_MS } from "./sync";
 
@@ -30,6 +31,10 @@ describe("arayüzdeki sınırlar çekirdekteki asıllarıyla aynı", () => {
     expect(BASS_MAX_DB).toBe(rustNumber("audio/bass.rs", "MAX_BASS_DB"));
     expect(BASS_CLUB_DB).toBe(rustNumber("audio/bass.rs", "CLUB_BASS_DB"));
     expect(PUNCH_MAX_DB).toBe(rustNumber("audio/punch.rs", "PUNCH_MAX_DB"));
+  });
+
+  it("işaretleme: doğruluk ölçümü için en az vuruş", () => {
+    expect(MIN_EVALUATION_BEATS).toBe(rustNumber("analysis/annotation.rs", "MIN_EVALUATION_BEATS"));
   });
 
   it("ses gecikmesi (senkron)", () => {

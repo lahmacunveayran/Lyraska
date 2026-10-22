@@ -19,6 +19,7 @@ pub mod commands;
 pub mod data_dirs;
 pub mod diagnostics;
 pub mod director;
+pub mod file_manager;
 pub mod library;
 pub mod settings;
 pub mod storage;
@@ -56,6 +57,12 @@ pub fn run() {
         }
         None => None,
     };
+    // Önceki oturum yarıda kaldıysa (çökme, elektrik kesintisi) kütüphane bu açılışta tam denetlenir.
+    let session_dir = early.as_ref().map(|dirs| dirs.big.clone());
+    let unclean = session_dir.as_deref().is_some_and(data_dirs::begin_session);
+    if unclean {
+        diagnostics::info("Önceki oturum düzgün kapanmamış; kütüphane dosyası denetleniyor");
+    }
 
     let built = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -79,7 +86,7 @@ pub fn run() {
             };
             // Kütüphane açılır açılmaz arka planda güncellenir.
             let service = big.clone().and_then(|dir| {
-                library::LibraryService::open(&dir.join("library.sqlite3"))
+                library::LibraryService::open_checked(&dir.join("library.sqlite3"), unclean)
                     .map_err(|e| e.to_string())
             });
             match &service {
@@ -220,12 +227,15 @@ pub fn run() {
             std::process::exit(1);
         }
     };
-    app.run(|app, event| {
+    app.run(move |app, event| {
         if let tauri::RunEvent::Exit = event {
             // Ses önce durur: kapanış sırasında aygıtta yarım arabellek kalmasın.
             commands::stop_on_exit(&app.state::<commands::PlayerState>());
             app.state::<commands::LibraryState>().shutdown();
             app.state::<commands::BackgroundState>().shutdown();
+            if let Some(dir) = &session_dir {
+                data_dirs::end_session(dir);
+            }
         }
     });
 }

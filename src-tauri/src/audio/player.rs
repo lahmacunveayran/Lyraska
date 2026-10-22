@@ -1239,26 +1239,42 @@ impl Player {
 
     /// Çalar ya da kaldığı yerden devam eder. Şarkı bittiyse baştan çalar.
     pub fn play(&mut self) -> Result<(), AudioError> {
+        match self.begin_play() {
+            Some(transition) => self.install(Self::prepare(transition)).map(|_| ()),
+            None => Ok(()),
+        }
+    }
+
+    /// Çalmanın kilit altındaki adımı (hiç beklemez). Duraklatılmış oturum hemen sürer (`None`).
+    /// Bitmiş ya da hatalı oturumun yeniden kurulması gerekir: dönen geçiş kilit dışında
+    /// [`Self::prepare`] ile hazırlanıp [`Self::install`] ile kurulur (bkz. `open_track`).
+    pub fn begin_play(&mut self) -> Option<Transition> {
         self.device_recoveries = 0;
-        let Some(session) = &self.session else {
-            return Ok(());
-        };
+        let session = self.session.as_ref()?;
         match session.state() {
             PlaybackState::Ended => {
                 let path = session.now_playing().0.path;
-                self.load(&path, true).map(|_| ())
+                Some(self.begin_transition(&path, true, None))
             }
             PlaybackState::Error => {
                 // Ör. aygıt koptu (kulaklık çıkarıldı): o anki varsayılan aygıtta kalınan
                 // yerden sürer.
                 let (track, position) = session.now_playing();
-                self.restart(&track.path, true, Some(position)).map(|_| ())
+                Some(self.begin_transition(&track.path, true, Some(position)))
             }
             _ => {
                 session.shared.paused.store(false, Ordering::Release);
-                Ok(())
+                None
             }
         }
+    }
+
+    /// Durdurmanın kilit altındaki adımı: şarkı başa sarılıp duraklatılmış açılacak (geçiş kilit
+    /// dışında hazırlanır). Oturum yoksa `None`.
+    pub fn begin_stop(&mut self) -> Option<Transition> {
+        let path = self.session.as_ref()?.now_playing().0.path;
+        self.device_recoveries = 0;
+        Some(self.begin_transition(&path, false, None))
     }
 
     /// Duraklatır (ses ~10 ms içinde yumuşakça kısılır).
@@ -1289,11 +1305,10 @@ impl Player {
 
     /// Durdurur ve şarkının başına döner (duraklatılmış olarak).
     pub fn stop(&mut self) -> Result<(), AudioError> {
-        let Some(session) = &self.session else {
-            return Ok(());
-        };
-        let path = session.now_playing().0.path;
-        self.load(&path, false).map(|_| ())
+        match self.begin_stop() {
+            Some(transition) => self.install(Self::prepare(transition)).map(|_| ()),
+            None => Ok(()),
+        }
     }
 
     pub fn state(&self) -> PlaybackState {

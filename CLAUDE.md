@@ -106,6 +106,7 @@ lyraska/
 │   │   │   └── service.rs    #   arka plan taraması; komutların kullandığı katman
 │   │   ├── data_dirs.rs      # veri klasörleri (Roaming küçük, Local büyük; eskiyi bir kez taşır), tek örnek kilidi
 │   │   ├── atomic_file.rs    # bölünmez dosya yazma (geçici dosya + sync_all + ad değiştirme): ayarlar, işaretler
+│   │   ├── file_manager.rs   # dosya gezginini açma (günlük, işaret klasörü); Windows'ta dosyayı seçili gösterir
 │   │   ├── storage.rs        # library.sqlite3 şeması ve sıralı göçleri (kütüphane + analiz önbelleği)
 │   │   ├── diagnostics.rs    # Yerel hata ve çökme günlüğü (logs/lyraska.log; gerçek zamanlı yoldan çağrılmaz)
 │   │   ├── settings.rs       # Kalıcı ayarlar (settings.json; ekolayzer, kulaklık, parametrik EQ, crossfeed, eşitleme, güvenli mod, ses gecikmesi)
