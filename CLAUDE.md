@@ -64,12 +64,14 @@ lyraska/
 │   │                         # useSkyLook (gece göğünün manzarası: göl, korona, karlı vadi), useCover (kapak),
 │   │                         # useAbx (kör test), useSongKey (çalan şarkının tonu), useParametric (elle
 │   │                         # parametrik EQ), useCrossfeed (crossfeed), useMapFile (şarkı haritası dosyası),
-│   │                         # useLyrics (şarkı sözleri)
+│   │                         # useLyrics (şarkı sözleri), useScenePresets (galeri sahnelerinin görünümü ve
+│   │                         # hazır ayarlar)
 │   ├── lib/                  # Saf yardımcılar (format, meter, dotFont, vu, sky, highway, queue, sync, songMap,
 │   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile, lyrics), Rust köprüsü (backend.ts; veri tipleri bindings/ altında
 │   │                         # Rust'tan üretilir, elle düzenlenmez), arayüz hatalarını günlüğe yazma (errorReporting.ts), parlama sayacı
 │   │                         # (flash.ts), WebGL2 çizimi (gl.ts ortak; skyRenderer.ts, highwayRenderer.ts; galeri: shaderScene.ts,
-│   │                         # shaderSources.ts gölgelendiriciler, shaderRenderer.ts),
+│   │                         # shaderSources.ts gölgelendiriciler, shaderRenderer.ts, sceneLook.ts hız ve palet,
+│   │                         # scenePreset.ts hazır ayarlar),
 │   │                         # WebGL2 açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts)
 │   └── styles/               # CSS; renkler :root değişkenlerinde
 ├── src-tauri/                # Rust çekirdeği

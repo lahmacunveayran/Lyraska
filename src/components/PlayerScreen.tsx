@@ -49,6 +49,7 @@ import { usePlayback } from "../hooks/usePlayback";
 import { useLivePosition, type PlayerControls } from "../hooks/usePlayer";
 import { usePlaybackOptions } from "../hooks/usePlaybackOptions";
 import { useScene } from "../hooks/useScene";
+import { useScenePresets } from "../hooks/useScenePresets";
 import { useSkyLook } from "../hooks/useSkyLook";
 import { useCover } from "../hooks/useCover";
 import { useSongKey } from "../hooks/useSongKey";
@@ -92,6 +93,7 @@ export function PlayerScreen() {
   const visualSafe = useVisualSafe();
   const playbackOptions = usePlaybackOptions();
   const [scene, chooseScene] = useScene();
+  const scenePresets = useScenePresets();
   const skyLook = useSkyLook();
 
   const playback = usePlayback(info.supportedExtensions);
@@ -287,6 +289,7 @@ export function PlayerScreen() {
           hasTrack={hasTrack}
           safe={visualSafe.safe}
           skyLook={skyLook.look}
+          looks={scenePresets.looks}
           title={
             status.track
               ? [status.track.artist, status.track.title].filter(Boolean).join(" · ")
@@ -329,7 +332,7 @@ export function PlayerScreen() {
                 {name}
               </button>
             ))}
-            <SceneGallery scene={scene} onChoose={chooseScene} />
+            <SceneGallery scene={scene} onChoose={chooseScene} presets={scenePresets} />
           </nav>
           <div className="topbar__actions">
             {chromeButton("library", "Kütüphane", <LibraryIcon />)}

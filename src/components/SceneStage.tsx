@@ -6,6 +6,7 @@ import { SpectrumDemo } from "./SpectrumDemo";
 import { SpectrumView } from "./SpectrumView";
 import { VuScene } from "./VuScene";
 import type { Scene } from "../lib/scene";
+import type { SceneLooks } from "../lib/sceneLook";
 import { isShaderScene } from "../lib/shaderScene";
 import type { SkyLook } from "../lib/sky";
 
@@ -22,6 +23,8 @@ export interface SceneStageProps {
   skyLook: SkyLook;
   /** Çalan şarkının adı (gece sürüşünde teybin ekranında kayar). */
   title?: string | null;
+  /** Galeri sahnelerinin görünümleri (hız, palet). */
+  looks?: SceneLooks;
 }
 
 /** Tüm pencereyi kaplayan görsel sahne. Sahne değişince yenisi yavaşça belirir. */
@@ -32,12 +35,13 @@ export function SceneStage({
   safe,
   skyLook,
   title = null,
+  looks,
 }: SceneStageProps) {
   return (
     <div className="stage" data-scene={scene}>
       {isShaderScene(scene) ? (
         // Her sahne kendi tuvalinde açılır: yenisi yavaşça belirir.
-        <ShaderScene key={scene} id={scene} playing={playing} safe={safe} />
+        <ShaderScene key={scene} id={scene} playing={playing} safe={safe} look={looks?.[scene]} />
       ) : scene === "vu" ? (
         <VuScene playing={playing} safe={safe} />
       ) : scene === "highway" ? (
