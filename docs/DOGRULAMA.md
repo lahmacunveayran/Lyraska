@@ -11,7 +11,7 @@ düzeltilir.
 
 1. Test sürümünü kurun: https://github.com/gozlemesevdalisi/Lyraska/releases/download/test-surumu/Lyraska-Kurulum.exe
    Windows "bilinmeyen yayımcı" derse **Ek bilgi → Yine de çalıştır**.
-2. **Ayarlar** (sağ üstteki dişli) → en altta sürüm **0.0.44 ya da sonrası** yazmalı.
+2. **Ayarlar** (sağ üstteki dişli) → **Program** bölümünde sürüm **0.0.46 ya da sonrası** yazmalı.
 3. Maddeleri sırayla deneyin. Her madde için bana yalnızca şunu yazmanız yeterli:
    - madde numarası ve **✅ oldu** ya da **❌ olmadı**,
    - olmadıysa ne gördüğünüzü bir cümleyle (ekran görüntüsü varsa çok iyi).
@@ -153,6 +153,29 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
   - İki farklı şarkı seçerseniz "aynı kayda benzemiyor" der, test başlamaz; çalan şarkı kesilmez.
 - Bildirin: hangi iki dosyayla denediniz ve sonuç (ör. "FLAC – MP3 320: 16'da 9, ayırt edilemedi").
 
+**B10. Bozuk dosya sırayı durdurmuyor (#74, 0.0.46)**
+
+- Önce: kütüphanedeki bir klasöre uzantısı `.mp3` olan ama ses olmayan bir dosya koyun (ör. bir metin dosyasını
+  `bozuk.mp3` diye kopyalayın) ve kütüphaneyi yeniletin.
+- Nasıl: o klasörde `bozuk.mp3`'ten önceki şarkıyı çalın, sonuna kadar bekleyin (ya da **Sonraki**'ye basın).
+- Neye bakılır: bozuk dosya atlanır, bir sonraki şarkı çalar; **Önceki/Sonraki** düğmeleri açık kalır. Bozuk
+  dosyaya elle tıklarsanız hata mesajı çıkar ama sıra yine çalışır.
+
+**B11. Özel modda şarkı sonu (#79, 0.0.46)**
+
+- Nasıl: **Ayarlar → Bit-perfect** açıkken bir şarkıyı sonuna kadar dinleyin; **Sesin yolu** satırında "özel mod"
+  yazmalı.
+- Neye bakılır: şarkının son saniyesi bir kez çalar, tekrar etmez, sonda tık ya da hırıltı yok; sonraki şarkı
+  başlar.
+
+**B12. 24 bit şarkı, 16 bit aygıt (#79, 0.0.46)**
+
+- Önce: 24 bit bir FLAC gerekir (çoğu yüksek çözünürlüklü indirme). Ses aygıtı Windows'ta 16 bit'e ayarlı olsun
+  (Ses ayarları → aygıt özellikleri → Gelişmiş → "16 bit, 44100 Hz").
+- Nasıl: Bit-perfect açıkken şarkıyı çalın; **Ayarlar → Sesin yolu**'na bakın.
+- Neye bakılır: program özel modu açmaz; "şarkı 24 bit, aygıt özel modda en çok 16 bit kabul ediyor; bit-perfect
+  yerine paylaşımlı yol kullanıldı" benzeri bir açıklama yazar. Ses normal çalar.
+
 ## C. Ekolayzer ve bas
 
 **C1. Bas ve Derinlik (0.0.29)**
@@ -177,11 +200,11 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 - Nasıl: autoeq.app'ten kulaklığınızın "Equalizer APO" (ParametricEQ.txt) dosyasını indirin; **Ekolayzer →
   Kulaklık profili** ile yükleyin; açıp kapatın.
 - Neye bakılır: profil adı görünür; açıkken ses dengesi değişir; kapalıyken eski hâline döner.
-- 0.0.49'dan beri Equalizer APO'nun bütün süzgeç türleri okunur (REW gibi programların dosyaları da): LS/HS, eğimli
+- 0.0.51'den beri Equalizer APO'nun bütün süzgeç türleri okunur (REW gibi programların dosyaları da): LS/HS, eğimli
   raflar ("LSC 6 dB"), "BW Oct", LP, HP, BP, NO, AP. Elinizde böyle bir dosya varsa yükleyin; Equalizer APO'da
   nasıl duyuluyorsa Lyraska'da da öyle duyulmalı. Okunamayan satır olursa hangi satır olduğu yazar.
 
-**C5. Parametrik ekolayzer (0.0.49)**
+**C5. Parametrik ekolayzer (0.0.51)**
 
 - Nasıl: **Ekolayzer** panelinin üstünde **Parametrik**'i seçin. Grafikteki numaralı yuvarlakları sürükleyin
   (sağa-sola frekans, yukarı-aşağı kazanç; Shift basılıyken ince ayar). Fare tekerleği seçili bandın Q'sunu
@@ -262,6 +285,20 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
   belirir. Hiçbir yerde marka adı ya da logosu yok. Ani parlama yok.
 - Bildirin: beğendiniz mi, değişmesini istediğiniz bir şey var mı (renk, teybin boyutu, kaset)?
 
+**D10. Hızlı tempoda nabız düzenli (#80, 0.0.47)**
+
+- Nasıl: 170–180 BPM bir şarkı (drum and bass ya da hızlı bir rock) çalın; **Gece göğü** ya da **Gece otoyolu**
+  sahnesinde bir dakika izleyin. Sonra **Ayarlar → Epilepsi güvenli modu**'nu açıp aynı şarkıyı izleyin.
+- Neye bakılır: nabız düzenli; "bir hızlı bir yavaş" diye gidip gelmiyor (iki vuruşta bir atar). Güvenli modda
+  saniyede en çok bir kez, yine düzenli.
+
+**D11. Bluetooth'ta şarkı geçişi (#80, 0.0.47)**
+
+- Nasıl: Bluetooth kulaklıkla **Ayarlar → Ses gecikmesi**'ni ölçün ya da 200 ms yapın. Kütüphaneden art arda iki
+  şarkı çalın, ilkinin bitişini izleyin.
+- Neye bakılır: ilk şarkının son vuruşları görsellerde görünür; ikinci şarkı başlarken görseller donup
+  beklemez, kulağınıza gelenle birlikte geçer.
+
 ## E. Senkron ve işaretleme
 
 **E1. Kablolu kulaklıkta senkron (0.0.21)**
@@ -307,6 +344,12 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 
 - Nasıl: **Ayarlar → Hata günlüğü**.
 - Neye bakılır: Dosya Gezgini açılır ve `lyraska.log` seçili görünür (kullanıcı adınızda boşluk olsa da).
+
+**F2. Lisanslar (#76)**
+
+- Nasıl: **Ayarlar → Lisanslar → Üçüncü taraf lisans bildirimleri**.
+- Neye bakılır: panelin içinde uzun bir metin açılır (kütüphane adları, telif satırları, lisans metinleri);
+  kaydırılabilir. Windows **Uygulamalar** listesinde Lyraska'nın yayımcısı "Lyraska" yazar (0.0.48 ve sonrası).
 
 ---
 
