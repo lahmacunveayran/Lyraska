@@ -115,14 +115,14 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
 - [x] Yüksek kaliteli yeniden örnekleme (aygıtın hızına, Windows'a bırakmadan), taşma koruması, sinyal yolu göstergesi (öne alındı: 0.0.12).
       "Müzikler garip geliyor" bildiriminin proje sahibince doğrulanması bekliyor
       ([#25](https://github.com/gozlemesevdalisi/Lyraska/issues/25))
-- [x] Parametrik EQ (0.0.51; motor ve elle ayar arayüzü).
+- [x] Parametrik EQ (0.0.53; motor ve elle ayar arayüzü).
       Ekolayzerle ilgili kalan işler tek yerde: [#26](https://github.com/gozlemesevdalisi/Lyraska/issues/26)
-  - [x] Süzgeç çekirdeği (0.0.51; proje sahibi, 16 Ekim 2026: "en üst düzey mühendislik, en üst düzey matematik"):
+  - [x] Süzgeç çekirdeği (0.0.53; proje sahibi, 16 Ekim 2026: "en üst düzey mühendislik, en üst düzey matematik"):
         sekiz tür (tepe, raflar, alçak/yüksek/bant geçiren, çentik, tüm geçiren); RBJ'nin yanında analog eğriye
         eşlenmiş tasarım (44,1 kHz'te ortalama sapma tepe süzgecinde 0,70 → 0,16 dB, alçak geçirende 3,97 → 0,16 dB;
         hiçbir ayarda RBJ'den uzak değil). Kulaklık profilleri Equalizer APO'nun kaynak kodundaki anlamlarla okunur
         (LS/HS köşe frekansı, Q'suz rafta S = 0,9, eğim, BW Oct, LP/HP/BP/NO/AP)
-  - [x] Elle ayar arayüzü (0.0.51): Ekolayzer panelinde "Parametrik" görünümü; grafikte sürüklenen bantlar (Shift
+  - [x] Elle ayar arayüzü (0.0.53): Ekolayzer panelinde "Parametrik" görünümü; grafikte sürüklenen bantlar (Shift
         ince ayar, tekerlek Q, çift tıklama bant ekler), klavye, sayısal kutular, sekiz tür, bant aç/kapa, Equalizer
         APO dosyası yükleme/kaydetme, eşit ses yüksekliğinde A/B karşılaştırma, tasarım seçimi (analog eğriye sadık /
         Equalizer APO ile aynı)
@@ -138,7 +138,7 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       şarkının ölçülen bas tepelerine göre akıllı taşma koruması (bas yükselince ses gereksiz kısılmaz).
       Hazır ayarlar: Bas, Derin bas, Kulüp, Küçük hoparlör. 0.0.31: "Vuruş" (proje sahibinin seçimi: davul
       vuruşunun ilk anı 8 dB'ye kadar güçlenir, bas şişmez)
-- [ ] Crossfeed — çekirdek hazır (0.0.51, `audio/crossfeed.rs`, testli): orta ses bit bit aynı, yan kanal hiçbir
+- [ ] Crossfeed — çekirdek hazır (0.0.53, `audio/crossfeed.rs`, testli): orta ses bit bit aynı, yan kanal hiçbir
       frekansta yükselmez, kulaklar arası seviye ve zaman farkı hedefte. Kalan: ses yoluna bağlama (bastan sonra,
       eşitlemeden önce; bit-perfect'te kapalı), kalıcı ayar, komutlar, arayüz (Ekolayzer panelinde kulaklık bölümü)
 - [ ] Retriever: sıkıştırılmış (MP3 vb.) sesi iyileştirme — çalışma adı; ürün içi adı özgün olacak
@@ -236,8 +236,9 @@ Faz 6'da sırayı kullanıcı seçer; burada **sırayı program seçer**, geçi�
 
 ## Bekleyen kararlar (proje sahibinde)
 
-- **Ses iş parçacığına Windows ses önceliği (MMCSS, "Pro Audio")**: ağır yükte takılmaya karşı daha sağlam;
-  `unsafe` kod gerektirdiği için onay şart. Öneri: şimdilik yapılmasın, takılma görülürse ilk bu açılsın.
+- ~~**Ses iş parçacığına Windows ses önceliği (MMCSS, "Pro Audio")**~~: proje sahibi kararı Claude'a bıraktı
+  (22 Ekim 2026); 0.0.52'de yalnızca `output/wasapi.rs` içinde `// GÜVENLİK:` gerekçeli tek `unsafe` çağrıyla
+  eklendi (DENETIM-2 bölüm 5.3).
 - **Ekolayzerde sıradaki iş** ([#26](https://github.com/gozlemesevdalisi/Lyraska/issues/26)): elle parametrik EQ
   arayüzü (öneri; lisans beklemiyor), hazır kulaklık listesi (önce ölçüm kaynaklarının lisansı), loudness.
 - **Retriever / Veritas'ta sıradaki adım** ([VERITAS.md](VERITAS.md)): kör dinleme aracı (ABX) 0.0.40'ta geldi;

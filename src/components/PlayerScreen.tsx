@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { Dock } from "./Dock";
 import { DropOverlay } from "./DropOverlay";
 import { EqualizerPanel } from "./EqualizerPanel";
@@ -194,6 +202,36 @@ export function PlayerScreen() {
       }
     : null;
 
+  // Odak yönetimi (ARA-06): çekmece açılınca odak seçili sekmeye gider; kapanınca onu açan
+  // düğmeye döner (yoksa klavye kullanıcısı belgenin başından Tab'lamaya başlardı).
+  const drawerTrigger = useRef<HTMLElement | null>(null);
+  const wasOpen = useRef(drawer.open);
+  useEffect(() => {
+    if (wasOpen.current === drawer.open) return;
+    wasOpen.current = drawer.open;
+    if (drawer.open) {
+      document.getElementById(`drawer-tab-${drawer.panel}`)?.focus();
+    } else {
+      drawerTrigger.current?.focus();
+    }
+  }, [drawer.open, drawer.panel]);
+  // Sekmelerde ok tuşları (ARIA sekme örüntüsü): ←/→ komşu sekme, Home/End uçlar.
+  const onTabsKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    const index = PANELS.findIndex(([id]) => id === drawer.panel);
+    const moves: Record<string, number> = {
+      ArrowRight: index + 1,
+      ArrowLeft: index - 1,
+      Home: 0,
+      End: PANELS.length - 1,
+    };
+    const target = moves[event.key];
+    if (target === undefined) return;
+    event.preventDefault();
+    const next = PANELS[(target + PANELS.length) % PANELS.length]![0];
+    drawer.select(next);
+    document.getElementById(`drawer-tab-${next}`)?.focus();
+  };
+
   const chromeButton = (id: Panel, label: string, icon: ReactNode, led?: boolean) => (
     <button
       type="button"
@@ -202,7 +240,10 @@ export function PlayerScreen() {
       aria-expanded={drawer.open && drawer.panel === id}
       aria-controls="drawer"
       title={label}
-      onClick={() => drawer.toggle(id)}
+      onClick={(event) => {
+        drawerTrigger.current = event.currentTarget;
+        drawer.toggle(id);
+      }}
     >
       {icon}
       {led !== undefined && <span className={`led${led ? " is-on" : ""}`} aria-hidden />}
@@ -243,31 +284,47 @@ export function PlayerScreen() {
       </ErrorBoundary>
       <div className="stage__shade" aria-hidden />
 
-      <header className="topbar chrome">
-        <div className="brand" title={`Lyraska ${info.version}`}>
-          <LyraMark />
-          <span className="brand__name">Lyraska</span>
-        </div>
-        <nav className="scenes" aria-label="Sahne">
-          {SCENES.map(({ id, name }, index) => (
-            <button
-              key={id}
-              type="button"
-              className={`pill${scene === id ? " is-on" : ""}`}
-              aria-pressed={scene === id}
-              title={`${name} (${index + 1})`}
-              onClick={() => chooseScene(id)}
-            >
-              {name}
-            </button>
-          ))}
-        </nav>
-        <div className="topbar__actions">
-          {chromeButton("library", "Kütüphane", <LibraryIcon />)}
-          {chromeButton("eq", "Ekolayzer", <SlidersIcon />, soundShaped)}
-          {chromeButton("settings", "Ayarlar", <SettingsIcon />)}
-        </div>
-      </header>
+      {/* Üst çubuk ve çalma denetimleri de kendi hata sınırlarında (ARA-04): birinde çizim hatası
+          olursa yalnızca o bölüm kapanır; sahne, kısayollar ve paneller sürer. */}
+      <ErrorBoundary
+        name="Üst çubuk"
+        fallback={(retry) => (
+          <header className="topbar chrome">
+            <div className="app-alert" role="alert">
+              <span>Üst çubuk çizilemedi; hata günlüğe yazıldı.</span>
+              <button type="button" className="glass-button" onClick={retry}>
+                Yeniden dene
+              </button>
+            </div>
+          </header>
+        )}
+      >
+        <header className="topbar chrome">
+          <div className="brand" title={`Lyraska ${info.version}`}>
+            <LyraMark />
+            <span className="brand__name">Lyraska</span>
+          </div>
+          <nav className="scenes" aria-label="Sahne">
+            {SCENES.map(({ id, name }, index) => (
+              <button
+                key={id}
+                type="button"
+                className={`pill${scene === id ? " is-on" : ""}`}
+                aria-pressed={scene === id}
+                title={`${name} (${index + 1})`}
+                onClick={() => chooseScene(id)}
+              >
+                {name}
+              </button>
+            ))}
+          </nav>
+          <div className="topbar__actions">
+            {chromeButton("library", "Kütüphane", <LibraryIcon />)}
+            {chromeButton("eq", "Ekolayzer", <SlidersIcon />, soundShaped)}
+            {chromeButton("settings", "Ayarlar", <SettingsIcon />)}
+          </div>
+        </header>
+      </ErrorBoundary>
 
       {/* Kütüphane açılamadıysa çekmece kapalıyken de görünür; ayrıntı kütüphane panelinde. */}
       {library.unavailable && !(drawer.open && drawer.panel === "library") && (
@@ -282,21 +339,38 @@ export function PlayerScreen() {
         </div>
       )}
 
-      <LiveChrome
-        player={player}
-        album={status.track?.album ?? current?.album ?? null}
-        queueLabel={playback.queueLabel}
-        cover={cover}
-        songMap={songMap}
-        songKey={songKey}
-        soundShaped={soundShaped}
-        safe={visualSafe.safe}
-        next={upNext}
-        layout={layout}
-        canNext={playback.canNext}
-        onPrevious={playback.previous}
-        onNext={playback.next}
-      />
+      <ErrorBoundary
+        name="Çalma denetimleri"
+        fallback={(retry) => (
+          <div className="lower">
+            <div className="app-alert chrome" role="alert">
+              <span>
+                Çalma denetimleri çizilemedi; hata günlüğe yazıldı. Klavye kısayolları (Boşluk, ok
+                tuşları) çalışır.
+              </span>
+              <button type="button" className="glass-button" onClick={retry}>
+                Yeniden dene
+              </button>
+            </div>
+          </div>
+        )}
+      >
+        <LiveChrome
+          player={player}
+          album={status.track?.album ?? current?.album ?? null}
+          queueLabel={playback.queueLabel}
+          cover={cover}
+          songMap={songMap}
+          songKey={songKey}
+          soundShaped={soundShaped}
+          safe={visualSafe.safe}
+          next={upNext}
+          layout={layout}
+          canNext={playback.canNext}
+          onPrevious={playback.previous}
+          onNext={playback.next}
+        />
+      </ErrorBoundary>
 
       <aside
         id="drawer"
@@ -306,7 +380,7 @@ export function PlayerScreen() {
         inert={!drawer.open}
       >
         <div className="drawer__head">
-          <div className="drawer__tabs" role="tablist" aria-label="Paneller">
+          <div className="drawer__tabs" role="tablist" aria-label="Paneller" onKeyDown={onTabsKey}>
             {PANELS.map(([id, label]) => (
               <button
                 key={id}
@@ -315,6 +389,7 @@ export function PlayerScreen() {
                 id={`drawer-tab-${id}`}
                 aria-controls={`drawer-panel-${id}`}
                 aria-selected={drawer.panel === id}
+                tabIndex={drawer.panel === id ? 0 : -1}
                 className={`drawer__tab${drawer.panel === id ? " is-selected" : ""}`}
                 onClick={() => drawer.select(id)}
               >

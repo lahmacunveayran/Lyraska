@@ -64,6 +64,9 @@ impl LoudnessControl {
 
 const UNKNOWN: u8 = 0;
 const MEASURED: u8 = 1;
+/// Hızlı ölçümün ilk saniyelerden tahmini: kazanç buna göre başlar, kesin ölçüm gelince
+/// (`MEASURED`/`SILENT`) yumuşakça düzelir.
+const ESTIMATED: u8 = 3;
 /// Analiz bitti ama ölçülecek ses yok (sessiz şarkı): kazanç uygulanmaz.
 const SILENT: u8 = 2;
 
@@ -169,10 +172,32 @@ impl TrackLevels {
         self.count.load(Ordering::Acquire)
     }
 
-    /// `index`. şarkının ölçümü biliniyor mu?
+    /// `index`. şarkının ölçümü (tahmin de olsa) biliniyor mu? Ses çıkışı ilk sesi buna bakarak
+    /// başlatır.
     pub fn is_known(&self, index: usize) -> bool {
         self.slot(index)
             .is_some_and(|s| s.state.load(Ordering::Acquire) != UNKNOWN)
+    }
+
+    /// `index`. şarkının kesin ölçümü yazıldı mı (tahmin sayılmaz)?
+    pub fn is_final(&self, index: usize) -> bool {
+        self.slot(index)
+            .is_some_and(|s| matches!(s.state.load(Ordering::Acquire), MEASURED | SILENT))
+    }
+
+    /// `index`. şarkı için erken tahmin (ilk saniyelerin ölçümü). Kesin ölçümün üstüne yazmaz.
+    pub fn set_loudness_estimate(&self, index: usize, loudness: Loudness) {
+        let Some(slot) = self.slot(index) else {
+            return;
+        };
+        if matches!(slot.state.load(Ordering::Acquire), MEASURED | SILENT) {
+            return;
+        }
+        slot.lufs
+            .store(loudness.integrated_lufs.to_bits(), Ordering::Relaxed);
+        slot.peak
+            .store(loudness.true_peak_dbtp.to_bits(), Ordering::Relaxed);
+        slot.state.store(ESTIMATED, Ordering::Release);
     }
 
     /// `index`. şarkının ölçümünü yazar (`None`: sessiz şarkı, ölçülecek ses yok).
@@ -197,7 +222,7 @@ impl TrackLevels {
         let measured = self
             .slot(index)
             .and_then(|slot| match slot.state.load(Ordering::Acquire) {
-                MEASURED => Some(Some(Loudness {
+                MEASURED | ESTIMATED => Some(Some(Loudness {
                     integrated_lufs: f64::from_bits(slot.lufs.load(Ordering::Relaxed)),
                     true_peak_dbtp: f64::from_bits(slot.peak.load(Ordering::Relaxed)),
                 })),
@@ -744,5 +769,21 @@ mod tests {
         assert!(!levels.is_known(16));
         levels.set_loudness(19, Some(loud()));
         assert!(levels.is_known(19));
+    }
+    #[test]
+    fn erken_tahmin_kesin_olcumun_ustune_yazmaz_ve_kesin_sayilmaz() {
+        let levels = TrackLevels::new();
+        assert!(!levels.is_known(0) && !levels.is_final(0));
+        levels.set_loudness_estimate(0, quiet());
+        assert!(levels.is_known(0), "ilk ses başlayabilir");
+        assert!(!levels.is_final(0), "kesin ölçüm hâlâ bekleniyor");
+        assert!((levels.level(0, true).gain_db - 6.0).abs() < 1e-9);
+        levels.set_loudness(0, Some(loud()));
+        assert!(levels.is_final(0));
+        levels.set_loudness_estimate(0, quiet());
+        assert!(
+            (levels.level(0, true).gain_db + 6.0).abs() < 1e-9,
+            "kesin ölçüm korunur"
+        );
     }
 }

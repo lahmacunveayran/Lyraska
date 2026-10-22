@@ -35,6 +35,14 @@ fn main() -> ExitCode {
             println!(
                 "ATLANDI: bu makinede kullanılabilir ses çıkışı yok; gerçek çalma denenemedi."
             );
+            // GitHub Actions'ta iş yeşil kalır ama çalıştırmada görünür bir uyarı düşer: "denendi"
+            // sanılmasın (YAY-09).
+            if std::env::var_os("GITHUB_ACTIONS").is_some() {
+                println!(
+                    "::warning title=Ses aygıtı yok::Gerçek ses aygıtıyla deneme bu makinede \
+                     yapılamadı (ses çıkışı yok); yalnızca sanal çıkış testleri koştu."
+                );
+            }
             ExitCode::SUCCESS
         }
         Err(Outcome::Failed(message)) => {

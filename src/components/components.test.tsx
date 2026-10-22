@@ -51,6 +51,8 @@ const backend = vi.hoisted(() => ({
   /** Şarkıların içindeki kapaklar (yol → `data:` adresi). */
   covers: {} as Record<string, string>,
   coverAsked: vi.fn(),
+  /** Bilgi yığını çizimde hata versin (hata sınırı testi). */
+  infoStackFails: false,
   /** Kütüphane panelinin kaç kez çizildiği (her karede yeniden çizilmemeli). */
   libraryPanelRenders: 0,
   /** Kör test: süren testin durumu ve dosya seçicinin vereceği yollar. */
@@ -62,6 +64,19 @@ const backend = vi.hoisted(() => ({
   parametricImport: vi.fn(),
   parametricExport: vi.fn(),
 }));
+
+// Bilgi yığını istenirse çizimde hata verir: hata sınırlarının yeri sınanır (ARA-04).
+vi.mock("./InfoStack", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./InfoStack")>();
+  const { createElement } = await import("react");
+  return {
+    ...actual,
+    InfoStack: (props: Parameters<typeof actual.InfoStack>[0]) => {
+      if (backend.infoStackFails) throw new Error("sahte çizim hatası");
+      return createElement(actual.InfoStack, props);
+    },
+  };
+});
 
 // Kütüphane paneli aynen çizilir; yalnızca çizim sayılır.
 vi.mock("./LibraryPanel", async (importOriginal) => {
@@ -913,6 +928,98 @@ describe("kütüphane", () => {
       expect(screen.getByRole("button", { name: "Sonraki" })).toBeEnabled();
     }
     expect(backend.open).toHaveBeenCalledTimes(opened);
+  });
+
+  it("arama sonucu küçülünce eski seçim düşer; Enter olmayan şarkıyı çalmaya kalkmaz", async () => {
+    // Eskiden 3. satır seçiliyken arama tek sonuca düşerse Enter `tracks[2]` (undefined) ile
+    // çalmaya çalışır, olay işleyicisinde TypeError çıkardı (ARA-03).
+    backend.desktop = true;
+    backend.library = library;
+    backend.tracks = [song(1, "Mayın Tarlası"), song(2, "Bir Kedi Gördüm"), song(3, "Hoşçakal")];
+    render(<App />);
+    const third = await screen.findByText("Hoşçakal");
+    await act(async () => fireEvent.click(third));
+    const list = screen.getByRole("grid").querySelector(".library__list")!;
+    expect(list).toHaveAttribute("aria-activedescendant", "library-row-3");
+    expect(third.closest('[role="row"]')).toHaveAttribute("aria-selected", "true");
+    // Hücreler ekran okuyucu için gridcell (ARA-05).
+    expect(third.closest('[role="row"]')!.querySelectorAll('[role="gridcell"]')).toHaveLength(7);
+
+    backend.tracks = [song(1, "Mayın Tarlası")];
+    const search = screen.getByRole("searchbox", { name: "Kütüphanede ara" });
+    await act(async () => fireEvent.change(search, { target: { value: "mayın" } }));
+    await waitFor(() => expect(screen.queryByText("Hoşçakal")).not.toBeInTheDocument());
+    expect(list).not.toHaveAttribute("aria-activedescendant");
+    expect(screen.getByText("Mayın Tarlası").closest('[role="row"]')).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+    await act(async () => fireEvent.keyDown(list, { key: "Enter" }));
+    expect(backend.open).not.toHaveBeenCalled();
+    // Ok tuşuyla seçip Enter: ilk (tek) şarkı çalar.
+    await act(async () => fireEvent.keyDown(list, { key: "ArrowDown" }));
+    await act(async () => fireEvent.keyDown(list, { key: "Enter" }));
+    expect(backend.open).toHaveBeenCalledWith(backend.tracks[0]!.path);
+  });
+
+  it("çekmece kapanınca odak açan düğmeye döner; sekmelerde ok tuşları gezer", async () => {
+    backend.desktop = true;
+    backend.library = library;
+    render(<App />);
+    await screen.findByRole("tab", { name: "Kütüphane" });
+    const drawer = document.getElementById("drawer")!;
+    const libraryButton = screen.getByRole("button", { name: "Kütüphane" });
+    // Açılışta çekmece açıktır: düğme kapatır, odak düğmede kalır.
+    libraryButton.focus();
+    await act(async () => fireEvent.click(libraryButton));
+    expect(drawer).toHaveAttribute("aria-hidden", "true");
+    expect(document.activeElement).toBe(libraryButton);
+    // Yeniden açınca odak seçili sekmeye gider.
+    await act(async () => fireEvent.click(libraryButton));
+    const libraryTab = screen.getByRole("tab", { name: "Kütüphane" });
+    expect(document.activeElement).toBe(libraryTab);
+    expect(libraryTab).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("tab", { name: /Ekolayzer/ })).toHaveAttribute("tabindex", "-1");
+    // → sağdaki sekmeye geçer ve odaklar; End sona, ← geri.
+    await act(async () => fireEvent.keyDown(libraryTab, { key: "ArrowRight" }));
+    const eqTab = screen.getByRole("tab", { name: /Ekolayzer/ });
+    expect(eqTab).toHaveAttribute("aria-selected", "true");
+    expect(document.activeElement).toBe(eqTab);
+    await act(async () => fireEvent.keyDown(eqTab, { key: "End" }));
+    expect(screen.getByRole("tab", { name: "Ayarlar" })).toHaveAttribute("aria-selected", "true");
+    await act(async () => fireEvent.keyDown(document.activeElement!, { key: "ArrowRight" }));
+    expect(screen.getByRole("tab", { name: "Kütüphane" })).toHaveAttribute("aria-selected", "true");
+    // Esc kapatır: odak çekmeceyi açan düğmeye döner.
+    await act(async () => fireEvent.keyDown(window, { key: "Escape" }));
+    expect(drawer).toHaveAttribute("aria-hidden", "true");
+    expect(document.activeElement).toBe(libraryButton);
+  });
+
+  it("çalma denetimlerinde çizim hatası sahneyi ve panelleri düşürmez", async () => {
+    // Eskiden LiveChrome hata sınırının dışındaydı: kök sınır bütün pencereyi kapatırdı (ARA-04).
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    backend.desktop = true;
+    backend.library = library;
+    backend.infoStackFails = true;
+    try {
+      render(<App />);
+      const alert = await screen.findByText(/Çalma denetimleri çizilemedi/);
+      expect(alert).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Kütüphane" })).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: "Kütüphane" })).toBeInTheDocument();
+      expect(document.querySelector(".stage, .sky-scene")).not.toBeNull();
+      await waitFor(() =>
+        expect(backend.logError).toHaveBeenCalledWith(
+          expect.stringMatching(/^Çalma denetimleri çizilemedi: .*sahte çizim hatası/),
+        ),
+      );
+      // Düzelince "Yeniden dene" denetimleri geri getirir.
+      backend.infoStackFails = false;
+      await act(async () => fireEvent.click(screen.getByRole("button", { name: "Yeniden dene" })));
+      expect(screen.queryByText(/Çalma denetimleri çizilemedi/)).not.toBeInTheDocument();
+    } finally {
+      backend.infoStackFails = false;
+    }
   });
 
   it("arama kutusuna yazılanla arar ve klasör kaldırılabilir", async () => {

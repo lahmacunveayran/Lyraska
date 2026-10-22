@@ -175,7 +175,13 @@ describe("gece otoyolu", () => {
   });
 
   it("en kötü durumda bile saniyede 3'ten fazla parlamaz (epilepsi güvenliği)", () => {
-    for (const safe of [false, true]) {
+    // Güvenli mod ve "animasyonları azalt" tercihi de ölçüme girer (ARA-07).
+    for (const [safe, reduced] of [
+      [false, false],
+      [true, false],
+      [false, true],
+      [true, true],
+    ] as const) {
       for (const hz of [0.5, 1, 1.5, 2, 3, 4, 6, 8, 12, 20, 30]) {
         let s = HIGHWAY_AT_REST;
         const luminance: number[] = [];
@@ -184,10 +190,13 @@ describe("gece otoyolu", () => {
           const input: HighwayInput = on
             ? { ...music(i * DT, { release: 1, theme: i }), energies: [1, 1, 1] }
             : { ...music(i * DT, { mood: 0, anticipation: 1 }), energies: [0, 0, 0] };
-          s = stepHighway(s, input, DT, false, safe);
+          s = stepHighway(s, input, DT, reduced, safe);
           luminance.push(highwayLuminance(s.glow, s.bloom));
         }
-        expect(countFlashes(luminance) / 10, `${hz} Hz, güvenli: ${safe}`).toBeLessThanOrEqual(2);
+        expect(
+          countFlashes(luminance) / 10,
+          `${hz} Hz, güvenli: ${safe}, azaltılmış: ${reduced}`,
+        ).toBeLessThanOrEqual(2);
       }
     }
     // Senaryo gerçekten parlatıp söndürebiliyor: yavaş değişimde parlamalar sayılır.

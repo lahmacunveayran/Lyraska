@@ -464,11 +464,17 @@ impl Biquad {
     }
 
     fn response_db_phi(&self, p0: f64, p1: f64, p2: f64) -> f64 {
+        10.0 * self.power_gain((p0, p1, p2)).log10()
+    }
+
+    /// Güç kazancı |H|² (doğrusal), φ-tabanında (`phi(w)`). Çok sayıda süzgecin toplam yanıtı
+    /// taranırken φ frekans başına bir kez hesaplanır, logaritma en sonda alınır. Bellek ayırmaz.
+    pub fn power_gain(&self, (p0, p1, p2): (f64, f64, f64)) -> f64 {
         let num = Power::of(self.b0, self.b1, self.b2);
         let den = Power::of(1.0, self.a1, self.a2);
         let n = num.b0 * p0 + num.b1 * p1 + num.b2 * p2;
         let d = den.b0 * p0 + den.b1 * p1 + den.b2 * p2;
-        10.0 * (n.max(1e-300) / d.max(1e-300)).log10()
+        n.max(1e-300) / d.max(1e-300)
     }
 
     /// Kararlı mı? (Kutuplar birim çemberin içinde: |a2| < 1 ve |a1| < 1 + a2.)
@@ -503,8 +509,8 @@ impl Biquad {
     }
 }
 
-/// φ0 = cos²(ω/2), φ1 = sin²(ω/2), φ2 = 4·φ0·φ1.
-fn phi(w: f64) -> (f64, f64, f64) {
+/// φ0 = cos²(ω/2), φ1 = sin²(ω/2), φ2 = 4·φ0·φ1 (`w` radyan/örnek).
+pub fn phi(w: f64) -> (f64, f64, f64) {
     let (sin, cos) = (w / 2.0).sin_cos();
     let (p0, p1) = (cos * cos, sin * sin);
     (p0, p1, 4.0 * p0 * p1)

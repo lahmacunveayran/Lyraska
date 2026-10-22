@@ -14,6 +14,7 @@
 pub mod analysis;
 pub mod audio;
 pub mod commands;
+pub mod data_dirs;
 pub mod diagnostics;
 pub mod director;
 pub mod library;
@@ -30,19 +31,24 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(commands::PlayerState::default())
         .setup(|app| {
+            // Küçük, kullanıcıya ait veri (ayarlar, işaretler) gezici klasörde (Roaming); büyük
+            // ve yeniden üretilebilir veri (kütüphane + analiz önbelleği, günlükler) makineye
+            // özgü klasörde (Local). Eski sürümün Roaming'e yazdıkları bir kez taşınır.
+            let roaming = app.path().app_data_dir().map_err(|e| e.to_string());
+            let big = match (&roaming, app.path().app_local_data_dir()) {
+                (Ok(roaming), Ok(local)) => Ok(data_dirs::big_data_dir(roaming, &local)),
+                (Ok(roaming), Err(_)) => Ok(roaming.clone()),
+                (Err(e), _) => Err(e.clone()),
+            };
             // Hata ve çökme günlüğü en önce açılır: kurulumdaki hatalar da yazılsın.
-            if let Ok(dir) = app.path().app_data_dir() {
+            if let Ok(dir) = &big {
                 diagnostics::init(&dir.join("logs"));
             }
-            // Kütüphane uygulama veri klasöründe durur; açılır açılmaz arka planda güncellenir.
-            let service = app
-                .path()
-                .app_data_dir()
-                .map_err(|e| e.to_string())
-                .and_then(|dir| {
-                    library::LibraryService::open(&dir.join("library.sqlite3"))
-                        .map_err(|e| e.to_string())
-                });
+            // Kütüphane açılır açılmaz arka planda güncellenir.
+            let service = big.clone().and_then(|dir| {
+                library::LibraryService::open(&dir.join("library.sqlite3"))
+                    .map_err(|e| e.to_string())
+            });
             match &service {
                 Ok(service) => service.request_scan(),
                 Err(error) => diagnostics::error(&format!("Kütüphane açılamadı: {error}")),
@@ -51,10 +57,8 @@ pub fn run() {
 
             // Şarkı haritası önbelleği kütüphaneyle aynı veritabanında; kütüphane arka
             // planda, düşük öncelikle analiz edilir (önce çalan, sonra sıradaki şarkı).
-            let background = app
-                .path()
-                .app_data_dir()
-                .map_err(|e| e.to_string())
+            let background = big
+                .clone()
                 .and_then(|dir| {
                     analysis::cache::AnalysisCache::open(&dir.join("library.sqlite3"))
                         .map_err(|e| e.to_string())
@@ -70,7 +74,7 @@ pub fn run() {
             app.manage(commands::BackgroundState(background));
 
             // Ayarlar (ekolayzer) kaldığı gibi geri yüklenir.
-            let store = match app.path().app_data_dir() {
+            let store = match &roaming {
                 Ok(dir) => settings::SettingsStore::open(&dir.join("settings.json")),
                 Err(_) => settings::SettingsStore::in_memory(),
             };
@@ -78,7 +82,7 @@ pub fn run() {
             app.manage(store);
 
             // İnsan işaretleri (beat/drop): uygulama veri klasöründe, ses içermez.
-            app.manage(match app.path().app_data_dir() {
+            app.manage(match roaming {
                 Ok(dir) => analysis::annotation::AnnotationStore::new(dir.join("isaretler")),
                 Err(_) => analysis::annotation::AnnotationStore::unavailable(),
             });

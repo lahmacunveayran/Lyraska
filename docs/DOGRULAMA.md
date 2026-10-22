@@ -176,6 +176,35 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 - Neye bakılır: program özel modu açmaz; "şarkı 24 bit, aygıt özel modda en çok 16 bit kabul ediyor; bit-perfect
   yerine paylaşımlı yol kullanıldı" benzeri bir açıklama yazar. Ses normal çalar.
 
+**B13. Kulaklık takınca ses kulaklığa geçer (SES-01, 0.0.52)**
+
+- Nasıl: hoparlörden şarkı çalarken 3,5 mm kulaklık takın (ya da Bluetooth kulaklık bağlayın). Sonra kulaklığı
+  çıkarın.
+- Neye bakılır: 1 saniye içinde ses kulaklıktan sürer; şarkı kaldığı yerden devam eder, durmaz, baştan başlamaz.
+  Kulaklığı çıkarınca ses hoparlöre döner; **Çal**'a basmak gerekmez. **Sesin yolu** satırında yeni aygıtın adı
+  yazar. Hiç aygıt kalmazsa (tek aygıt çıkarıldı) hata yazısı çıkar; aygıt gelince **Çal** ile sürer.
+
+**B14. Şarkı değiştirirken görseller donmuyor (SES-02, 0.0.52)**
+
+- Nasıl: görseller açıkken şarkı çalarken başka şarkıya tıklayın ve ilerleme çubuğunda ileri geri sarın; mümkünse
+  yavaş bir diskteki (USB bellek, ağ paylaşımı) şarkıyla da deneyin.
+- Neye bakılır: tıkladığınız anda görsel sahne akmaya devam eder (donup atlamaz); yeni şarkı birkaç yüz ms'de
+  başlar. Çok kısa aralıklarla iki şarkıya art arda tıklarsanız son tıkladığınız çalar.
+
+**B15. İlk ses gecikmesi (SES-04, 0.0.52)**
+
+- Nasıl: **Ayarlar → Ses yüksekliği eşitleme** açıkken daha önce hiç çalmadığınız (analizi yapılmamış) uzun bir
+  şarkıyı açın.
+- Neye bakılır: ses en geç ~0,2 sn'de başlar (önceki sürümde 0,6 sn'ye kadar sessizlik vardı); ilk saniyelerde
+  seviye duyulur biçimde sıçramaz (yavaş, hafif bir düzelme olabilir).
+
+**B16. Ağır yükte takılma yok (SES-03, 0.0.52)**
+
+- Nasıl: büyük bir klasör yeni eklenmişken (arka plan analizi sürerken; Ayarlar'da "analiz ediliyor" sayısı
+  düşerken) şarkı çalın, bu arada tarayıcıda video açın.
+- Neye bakılır: ses takılmaz; **Ayarlar → Program** altındaki takılma sayacı 0 kalır. (Ses iş parçacığı artık
+  Windows'un "Pro Audio" önceliğinde.)
+
 ## C. Ekolayzer ve bas
 
 **C1. Bas ve Derinlik (0.0.29)**
@@ -200,11 +229,11 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 - Nasıl: autoeq.app'ten kulaklığınızın "Equalizer APO" (ParametricEQ.txt) dosyasını indirin; **Ekolayzer →
   Kulaklık profili** ile yükleyin; açıp kapatın.
 - Neye bakılır: profil adı görünür; açıkken ses dengesi değişir; kapalıyken eski hâline döner.
-- 0.0.51'den beri Equalizer APO'nun bütün süzgeç türleri okunur (REW gibi programların dosyaları da): LS/HS, eğimli
+- 0.0.53'ten beri Equalizer APO'nun bütün süzgeç türleri okunur (REW gibi programların dosyaları da): LS/HS, eğimli
   raflar ("LSC 6 dB"), "BW Oct", LP, HP, BP, NO, AP. Elinizde böyle bir dosya varsa yükleyin; Equalizer APO'da
   nasıl duyuluyorsa Lyraska'da da öyle duyulmalı. Okunamayan satır olursa hangi satır olduğu yazar.
 
-**C5. Parametrik ekolayzer (0.0.51)**
+**C5. Parametrik ekolayzer (0.0.53)**
 
 - Nasıl: **Ekolayzer** panelinin üstünde **Parametrik**'i seçin. Grafikteki numaralı yuvarlakları sürükleyin
   (sağa-sola frekans, yukarı-aşağı kazanç; Shift basılıyken ince ayar). Fare tekerleği seçili bandın Q'sunu

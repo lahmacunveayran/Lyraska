@@ -74,6 +74,25 @@ describe("useVisualFeed", () => {
     expect(backend.calls).toBe(after);
   });
 
+  it("kimse çalmıyorken sahne seyrek çizilir (saniyede ~15), çalarken her karede", async () => {
+    // Boşta 60 kare/sn tam ekran çizim ekran kartını ve pili boşa tüketiyordu (ARA-01).
+    const idle = vi.fn();
+    const a = renderHook(() => useVisualFeed(false, idle));
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    const idleTicks = idle.mock.calls.length;
+    a.unmount();
+    const active = vi.fn();
+    const b = renderHook(() => useVisualFeed(true, active));
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    const activeTicks = active.mock.calls.length;
+    b.unmount();
+    expect(idleTicks, `boşta ${idleTicks}, çalarken ${activeTicks}`).toBeLessThan(activeTicks / 2);
+    expect(idleTicks).toBeGreaterThan(2);
+    // Boştaki çizimlere biriken süre (dt) verilir: hareket yavaşlamaz, seyrekleşir.
+    const totalDt = idle.mock.calls.reduce((sum, call) => sum + (call[1] as number), 0);
+    expect(totalDt).toBeGreaterThan(0.25);
+  });
+
   it("çalmayan dinleyici kare almaz, çalan alır", async () => {
     const idle = vi.fn();
     const active = vi.fn();

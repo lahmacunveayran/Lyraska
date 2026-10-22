@@ -75,6 +75,9 @@ pub struct SharedState {
     next_path: Mutex<Option<PathBuf>>,
     /// Çalma sırasında veri yetişmediği tur sayısı (hedef: her zaman 0).
     pub underruns: AtomicU64,
+    /// Varsayılan ses aygıtı değişti ya da koptu (kulaklık takıldı/çıkarıldı): oynatıcı oturumu
+    /// yeni varsayılan aygıtta kaldığı yerden yeniden açar. Çıkış tarafı yazar (SES-01).
+    pub device_changed: AtomicBool,
     /// Ses işlemenin ayarları: ekolayzer, kulaklık düzeltmesi, eşitleme (oynatıcı boyunca
     /// aynı; her oturum paylaşır) ve bu oturumdaki şarkıların ses yükseklikleri.
     pub controls: RenderControls,
@@ -354,9 +357,20 @@ impl Session {
             rate_ratio: f64::from(info.sample_rate) / f64::from(spec.sample_rate),
         };
         let levels = Arc::new(TrackLevels::new());
-        // Ölçüm hazırsa (önbellek, sarma) ilk örnekten uygulanır.
-        if let Some(measured) = analysis.as_ref().and_then(|a| a.measured_loudness()) {
-            levels.set_loudness(0, measured);
+        // Ölçüm hazırsa (önbellek, sarma) ilk örnekten uygulanır; yalnızca erken tahmin varsa
+        // onunla başlanır, kesin ölçüm gelince kazanç yumuşakça düzelir.
+        match analysis.as_ref() {
+            Some(a) => match a.measured_loudness() {
+                Some(measured) => levels.set_loudness(0, measured),
+                None => {
+                    if let Some(early) = a.early_loudness() {
+                        levels.set_loudness_estimate(0, early);
+                    }
+                }
+            },
+            // Analiz hiç başlatılamadı (dosya ikinci kez açılamadı): ölçüm gelmeyecek; ilk ses
+            // boşuna bekletilmez, eşitleme bu şarkıya uygulanmaz (SES-04).
+            None => levels.set_loudness(0, None),
         }
         if let Some(peaks) = analysis.as_ref().and_then(|a| a.bass_peaks()) {
             levels.set_bass_peaks(0, &peaks);
@@ -592,13 +606,64 @@ impl Analysis {
 }
 
 impl Drop for Analysis {
+    /// İptal eder ama iş parçacığını **beklemez**: iş parçacığı o anda önbelleğe yazıyorsa
+    /// (kütüphane taramasıyla çakışırsa 5 sn'ye kadar) oynatıcı kilidi onu beklemesin; iş
+    /// parçacığı iptali ilk dilimde görür ve kendi biter (ANL-06).
     fn drop(&mut self) {
         self.spectrogram.cancel();
-        if let Some(thread) = self.thread.take() {
-            let _ = thread.join();
-        }
+        drop(self.thread.take());
     }
 }
+
+/// Kilit **dışında** yapılacak oturum geçişi: eski oturumun kısılıp kapanması, analizin
+/// başlatılması, dosyanın açılması, ön dolum ve ses aygıtının açılması yüzlerce ms sürer
+/// (yavaş diskte saniyeler). Arayüzün durum ve görsel sorguları bu sırada beklemesin diye
+/// oynatıcı yalnızca [`Player::begin_transition`] ve [`Player::install`] sırasında kilitlenir;
+/// aradaki [`Player::prepare`] ayrı bir iş parçacığında çalışır (SES-02, KUT-08).
+pub struct Transition {
+    seq: u64,
+    path: PathBuf,
+    autoplay: bool,
+    start_secs: Option<f64>,
+    /// Kapatılacak eski oturum (kısılması bekleyip düşürülür).
+    old: Option<Session>,
+    /// Artık gerekmeyen analizler (iş parçacıkları kilit dışında bırakılır).
+    stale: Vec<Analysis>,
+    analysis: AnalysisPlan,
+    context: AnalysisContext,
+    next: Option<PathBuf>,
+    controls: RenderControls,
+    bit_perfect: bool,
+}
+
+/// Geçişte şarkının analizi nereden gelir.
+enum AnalysisPlan {
+    /// Oynatıcıdaki analiz aynı şarkının (sarma, durdurma): yerinde kalır.
+    Keep(Option<Arc<Spectrogram>>),
+    /// Önceden başlatılmış analiz (sıradaki şarkı) oynatıcıdan alındı.
+    Use(Analysis),
+    /// Kilit dışında yeni analiz başlatılır.
+    Start,
+}
+
+/// Hazırlanmış geçiş: [`Player::install`] ile oynatıcıya takılır.
+pub struct Prepared {
+    seq: u64,
+    analysis: Option<Analysis>,
+    outcome: Result<Session, AudioError>,
+}
+
+/// Geçiş sürerken durum sorgusuna verilen cevap (eski oturum kapandı, yenisi henüz yok).
+struct PendingTransition {
+    seq: u64,
+    track: Option<TrackInfo>,
+    position_secs: f64,
+    playing: bool,
+}
+
+/// Aygıt değişiminde art arda en fazla bu kadar otomatik yeniden açma denenir; sonra hata
+/// durumunda kalınır (aygıt sürekli kopuyorsa döngüye girilmez).
+const MAX_DEVICE_RECOVERIES: u8 = 3;
 
 /// Arayüzün kullandığı oynatıcı. Tauri tarafında bir `Mutex` içinde tutulur.
 #[derive(Default)]
@@ -637,6 +702,12 @@ pub struct Player {
     abx: Option<AbxTest>,
     /// Kör test başlarken çalan şarkı ve konumu: test bitince orada duraklatılmış açılır.
     abx_resume: Option<(PathBuf, f64)>,
+    /// Son başlatılan geçişin sırası: eskisi sonradan bitse de takılmaz.
+    transition_seq: u64,
+    /// Kilit dışında süren geçiş (durum sorgusu için).
+    pending: Option<PendingTransition>,
+    /// Aygıt değişiminde art arda yapılan otomatik yeniden açma sayısı.
+    device_recoveries: u8,
 }
 
 impl Player {
@@ -645,46 +716,152 @@ impl Player {
     }
 
     /// Şarkıyı açar. `autoplay` ise hemen çalmaya başlar, değilse başında duraklatılmış bekler.
+    /// Kilit altında bloklar; arayüz komutu bunun yerine [`Self::begin_transition`] →
+    /// [`Self::prepare`] → [`Self::install`] üçlüsünü kullanır.
     pub fn load(&mut self, path: &Path, autoplay: bool) -> Result<TrackInfo, AudioError> {
+        self.device_recoveries = 0;
         self.restart(path, autoplay, None)
     }
 
-    /// Oturumu yeniden kurar (yeni şarkı, sarma, durdurma için ortak yol).
+    /// Oturumu yeniden kurar (yeni şarkı, sarma, durdurma için ortak yol): geçişin üç adımı
+    /// art arda, aynı iş parçacığında.
     fn restart(
         &mut self,
         path: &Path,
         autoplay: bool,
         start_secs: Option<f64>,
     ) -> Result<TrackInfo, AudioError> {
+        let transition = self.begin_transition(path, autoplay, start_secs);
+        self.install(Self::prepare(transition))
+    }
+
+    /// Geçişin kilit altındaki ilk adımı (hiç beklemez): eski oturumun sesi kısılmaya başlar ve
+    /// oynatıcıdan alınır, analiz planlanır. Dönen değer [`Self::prepare`]'e verilir.
+    pub fn begin_transition(
+        &mut self,
+        path: &Path,
+        autoplay: bool,
+        start_secs: Option<f64>,
+    ) -> Transition {
         // Kör test açıksa kapanır: ses aygıtı şarkıya geçer.
         self.abx = None;
         self.abx_resume = None;
-        self.close_session();
         self.last_error = None;
         // Sıradaki şarkı açılan şarkının kendisiyse (boşluksuz geçiş sonrası) artık sırada değil.
         if self.next_path.as_deref() == Some(path) {
             self.next_path = None;
         }
+        self.transition_seq += 1;
+        let seq = self.transition_seq;
+        let old = self.session.take();
+        let mut pending = PendingTransition {
+            seq,
+            track: None,
+            position_secs: start_secs.unwrap_or(0.0),
+            playing: autoplay,
+        };
+        if let Some(session) = &old {
+            if matches!(
+                session.state(),
+                PlaybackState::Playing | PlaybackState::Paused
+            ) {
+                // Kısılma hemen başlar; hoparlöre ulaşması `prepare`'de beklenir.
+                session.shared.paused.store(true, Ordering::Release);
+            }
+            let (track, _) = session.now_playing();
+            if track.path == path {
+                pending.track = Some(track);
+            }
+        }
+        self.pending = Some(pending);
+        let mut stale = Vec::new();
+        let analysis = if self.analysis.as_ref().is_some_and(|a| a.path == path) {
+            AnalysisPlan::Keep(self.analysis.as_ref().map(|a| Arc::clone(&a.spectrogram)))
+        } else {
+            stale.extend(self.analysis.take());
+            match self.next_analysis.take() {
+                Some(next) if next.path == path => AnalysisPlan::Use(next),
+                other => {
+                    stale.extend(other);
+                    AnalysisPlan::Start
+                }
+            }
+        };
+        Transition {
+            seq,
+            path: path.to_path_buf(),
+            autoplay,
+            start_secs,
+            old,
+            stale,
+            analysis,
+            context: self.analysis_context.clone(),
+            next: self.next_path.clone(),
+            controls: self.render_controls(),
+            bit_perfect: self.bit_perfect,
+        }
+    }
+
+    /// Çalan şarkıda sarma geçişini başlatır; şarkı yoksa `None`.
+    pub fn begin_seek(&mut self, seconds: f64) -> Option<Transition> {
+        let session = self.session.as_ref()?;
+        let path = session.now_playing().0.path;
+        let resume = session.state() == PlaybackState::Playing;
+        Some(self.begin_transition(&path, resume, Some(seconds)))
+    }
+
+    /// Geçişin bloklayan orta adımı; oynatıcı kilidi **olmadan** çağrılır (ayrı iş parçacığı).
+    pub fn prepare(transition: Transition) -> Prepared {
+        let Transition {
+            seq,
+            path,
+            autoplay,
+            start_secs,
+            old,
+            stale,
+            analysis,
+            context,
+            next,
+            controls,
+            bit_perfect,
+        } = transition;
+        // Eski oturum: kısılma hoparlöre ulaşınca kapanır ("tık" olmasın); ses aygıtı serbest
+        // kalır, iki şarkı üst üste çalmaz.
+        if let Some(session) = old {
+            if session.shared.paused.load(Ordering::Acquire)
+                && !session.shared.ended.load(Ordering::Acquire)
+                && session.shared.error().is_none()
+            {
+                wait_for_fade_out(&session.shared, FADE_OUT_TIMEOUT);
+            }
+            drop(session);
+        }
+        drop(stale);
         // Analiz önce kurulur: ses yüksekliği ölçümü hazırsa ilk örnekten uygulanır.
-        self.adopt_analysis(path);
-        let analysis = self
-            .analysis
-            .as_ref()
-            .filter(|a| a.path == path)
-            .map(|a| Arc::clone(&a.spectrogram));
-        let controls = self.render_controls();
+        let (analysis, spectrogram) = match analysis {
+            AnalysisPlan::Keep(spectrogram) => (None, spectrogram),
+            AnalysisPlan::Use(analysis) => {
+                let spectrogram = Arc::clone(&analysis.spectrogram);
+                (Some(analysis), Some(spectrogram))
+            }
+            AnalysisPlan::Start => {
+                let analysis = Analysis::start(&path, &context, None);
+                let spectrogram = analysis.as_ref().map(|a| Arc::clone(&a.spectrogram));
+                (analysis, spectrogram)
+            }
+        };
         let start = |bit_perfect: bool| {
             Session::start(
-                path,
+                &path,
                 autoplay,
                 start_secs,
-                self.next_path.clone(),
+                next.clone(),
                 &controls,
-                analysis.clone(),
+                spectrogram.clone(),
                 bit_perfect,
             )
         };
-        let started = match start(self.bit_perfect) {
+        let outcome = match start(bit_perfect) {
             // Aygıt özel moda alınamadı (ör. başka program tutuyor): normal yoldan çal,
             // nedeni sinyal yolunda göster.
             Err(AudioError::Exclusive(reason)) => start(false).map(|mut session| {
@@ -693,7 +870,37 @@ impl Player {
             }),
             other => other,
         };
-        match started {
+        Prepared {
+            seq,
+            analysis,
+            outcome,
+        }
+    }
+
+    /// Geçişin kilit altındaki son adımı (hiç beklemez): hazırlanan oturum takılır. Bu arada
+    /// daha yeni bir geçiş başladıysa hazırlanan oturum kapatılır ve yenisi beklenir.
+    pub fn install(&mut self, prepared: Prepared) -> Result<TrackInfo, AudioError> {
+        let Prepared {
+            seq,
+            analysis,
+            outcome,
+        } = prepared;
+        if seq != self.transition_seq {
+            return match outcome {
+                Ok(session) => {
+                    session.shared.stop.store(true, Ordering::Release);
+                    Ok(session.info.clone())
+                }
+                Err(error) => Err(error),
+            };
+        }
+        if self.pending.as_ref().is_some_and(|p| p.seq == seq) {
+            self.pending = None;
+        }
+        if let Some(analysis) = analysis {
+            self.analysis = Some(analysis);
+        }
+        match outcome {
             Ok(session) => {
                 let info = session.info.clone();
                 self.session = Some(session);
@@ -704,6 +911,33 @@ impl Player {
                 Err(error)
             }
         }
+    }
+
+    /// Varsayılan ses aygıtı değişti ya da koptuysa (kulaklık takıldı/çıkarıldı) çalan şarkıyı
+    /// yeni varsayılan aygıtta kaldığı yerden sürdürür (duraklatılmışsa duraklatılmış). Durum
+    /// sorgusunda ve her görsel karede bakılır (SES-01). Art arda çok tekrarlanırsa durur:
+    /// aygıt gerçekten yoksa hata durumu gösterilir.
+    fn recover_device(&mut self) {
+        let Some(session) = &self.session else {
+            return;
+        };
+        if !session.shared.device_changed.swap(false, Ordering::AcqRel) {
+            return;
+        }
+        if session.shared.ended.load(Ordering::Acquire)
+            || self.device_recoveries >= MAX_DEVICE_RECOVERIES
+        {
+            return;
+        }
+        self.device_recoveries += 1;
+        let (track, position) = session.now_playing();
+        let resume = !session.shared.paused.load(Ordering::Acquire);
+        diagnostics::info(&format!(
+            "Ses aygıtı değişti; \"{}\" yeni aygıtta {position:.1}. saniyeden sürdürülüyor",
+            track.file_name
+        ));
+        // Açılamazsa (aygıt hiç yok) hata durumu gösterilir; kullanıcı "çal" ile yeniden dener.
+        let _ = self.restart(&track.path, resume, Some(position));
     }
 
     /// Çalan oturumu kapatır. Ses önce yumuşakça kısılır, kısılma hoparlöre ulaşınca oturum
@@ -861,6 +1095,7 @@ impl Player {
 
     /// Çalar ya da kaldığı yerden devam eder. Şarkı bittiyse baştan çalar.
     pub fn play(&mut self) -> Result<(), AudioError> {
+        self.device_recoveries = 0;
         let Some(session) = &self.session else {
             return Ok(());
         };
@@ -902,12 +1137,10 @@ impl Player {
     /// Şarkıda verilen saniyeye atlar. Çalıyorsa çalmaya devam eder, değilse
     /// yeni noktada duraklatılmış bekler.
     pub fn seek(&mut self, seconds: f64) -> Result<(), AudioError> {
-        let Some(session) = &self.session else {
-            return Ok(());
-        };
-        let path = session.now_playing().0.path;
-        let resume = session.state() == PlaybackState::Playing;
-        self.restart(&path, resume, Some(seconds)).map(|_| ())
+        match self.begin_seek(seconds) {
+            Some(transition) => self.install(Self::prepare(transition)).map(|_| ()),
+            None => Ok(()),
+        }
     }
 
     /// Durdurur ve şarkının başına döner (duraklatılmış olarak).
@@ -920,10 +1153,12 @@ impl Player {
     }
 
     pub fn state(&self) -> PlaybackState {
-        match &self.session {
-            Some(session) => session.state(),
-            None if self.last_error.is_some() => PlaybackState::Error,
-            None => PlaybackState::Idle,
+        match (&self.session, &self.pending) {
+            (Some(session), _) => session.state(),
+            (None, Some(pending)) if pending.playing => PlaybackState::Playing,
+            (None, Some(_)) => PlaybackState::Paused,
+            (None, None) if self.last_error.is_some() => PlaybackState::Error,
+            (None, None) => PlaybackState::Idle,
         }
     }
 
@@ -1039,7 +1274,7 @@ impl Player {
             return;
         };
         for (index, segment) in segments.iter().enumerate() {
-            let known = levels.is_known(index);
+            let known = levels.is_final(index);
             let bass_known = levels.has_bass_peaks(index);
             if known && bass_known {
                 continue;
@@ -1053,6 +1288,10 @@ impl Player {
             if !known {
                 if let Some(measured) = spectrogram.measured_loudness() {
                     levels.set_loudness(index, measured);
+                } else if !levels.is_known(index) {
+                    if let Some(early) = spectrogram.early_loudness() {
+                        levels.set_loudness_estimate(index, early);
+                    }
                 }
             }
             // Bas tepeleri tam analizle gelir: koruma o an yumuşakça gevşer.
@@ -1107,6 +1346,7 @@ impl Player {
     /// Spektrum ekolayzerden önce çıkarıldığı için ekolayzerin etkisi burada eklenir:
     /// görseller duyulanı gösterir.
     pub fn visual_now(&mut self) -> Option<VisualData> {
+        self.recover_device();
         // Boşluksuz geçişle gelen şarkının ölçümü de vaktinde ses yoluna yazılsın.
         self.sync_levels();
         // Gecikme telafisi: ekranda görüneceği an ve ses aygıtının ek gecikmesi. Boşluksuz
@@ -1242,7 +1482,8 @@ impl Player {
         response.map(|db| db + protection)
     }
 
-    pub fn status(&self) -> PlaybackStatus {
+    pub fn status(&mut self) -> PlaybackStatus {
+        self.recover_device();
         let level = self.current_level();
         match &self.session {
             Some(session) => {
@@ -1266,10 +1507,11 @@ impl Player {
                     output: Some(output),
                 }
             }
+            // Geçiş sürüyor (yeni şarkı açılıyor ya da sarılıyor): hedef durum gösterilir.
             None => PlaybackStatus {
                 state: self.state(),
-                track: None,
-                position_secs: 0.0,
+                track: self.pending.as_ref().and_then(|p| p.track.clone()),
+                position_secs: self.pending.as_ref().map_or(0.0, |p| p.position_secs),
                 underruns: 0,
                 error: self.last_error.clone(),
                 bpm: None,
@@ -1314,9 +1556,17 @@ fn decode_loop(
         }
         // İlk şarkının ölçümü gelince hemen ses yoluna yazılır: ses çıkışı ilk sesi bunu
         // bekleyerek başlatır (sonraki şarkılarınkini oynatıcı yazar).
-        if !levels.is_known(0) {
-            if let Some(measured) = analysis.as_ref().and_then(|a| a.measured_loudness()) {
-                levels.set_loudness(0, measured);
+        if !levels.is_final(0) {
+            if let Some(a) = analysis.as_ref() {
+                if let Some(measured) = a.measured_loudness() {
+                    levels.set_loudness(0, measured);
+                } else if !levels.is_known(0) {
+                    // Hızlı ölçümün ilk saniyelerden tahmini: −10 LUFS varsayımından iyidir;
+                    // kesin ölçüm gelince kazanç yumuşakça düzelir (SES-04).
+                    if let Some(early) = a.early_loudness() {
+                        levels.set_loudness_estimate(0, early);
+                    }
+                }
             }
         }
         if pos == pending.len() {
@@ -1484,7 +1734,7 @@ mod tests {
 
     #[test]
     fn yeni_oynatici_bos_durumda() {
-        let player = Player::new();
+        let mut player = Player::new();
         let status = player.status();
         assert_eq!(status.state, PlaybackState::Idle);
         assert!(status.track.is_none());
@@ -1903,6 +2153,152 @@ mod tests {
         let session = player.session.as_ref().unwrap();
         let start = session.shared.segments.lock().unwrap()[0].start_frame;
         assert_eq!(start, 9_600, "baştan değil, kalınan yerden (1,2 sn)");
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn aygit_degisince_sarki_yeni_aygitta_kaldigi_yerden_surer() {
+        // Kulaklık takıldı: Windows varsayılan aygıtı değiştirdi, çıkış tarafı işareti kaldırdı.
+        // Durum sorgusu şarkıyı yeni aygıtta aynı konumdan ve aynı durumda açar (SES-01).
+        let path = ramp_song("aygit-degisti.wav");
+        let mut player = Player::new();
+        player.load(&path, false).unwrap();
+        player.seek(1.2).unwrap();
+        let old = Arc::clone(&player.session.as_ref().unwrap().shared);
+        old.device_changed.store(true, Ordering::Release);
+
+        let status = player.status();
+        assert_eq!(
+            status.state,
+            PlaybackState::Paused,
+            "duraklatılmıştı, öyle kalır"
+        );
+        let session = player.session.as_ref().unwrap();
+        assert!(!Arc::ptr_eq(&session.shared, &old), "yeni oturum");
+        assert!(old.stop.load(Ordering::Acquire), "eskisi kapandı");
+        let start = session.shared.segments.lock().unwrap()[0].start_frame;
+        assert_eq!(start, 9_600, "kalınan yerden (1,2 sn)");
+
+        // Çalarken: çalmaya devam eder.
+        player.play().unwrap();
+        let shared = Arc::clone(&player.session.as_ref().unwrap().shared);
+        shared.device_changed.store(true, Ordering::Release);
+        assert_eq!(player.status().state, PlaybackState::Playing);
+        assert!(!Arc::ptr_eq(
+            &player.session.as_ref().unwrap().shared,
+            &shared
+        ));
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn aygit_kopunca_otomatik_toparlanir_surekli_kopuyorsa_hata_durumunda_kalir() {
+        // Kulaklık çıkarıldı: akış hata verdi ve işareti kaldırdı. Şarkı o anki varsayılan
+        // aygıtta kendiliğinden sürer; "çal"a basmak gerekmez. Aygıt art arda kopuyorsa
+        // sonsuz döngüye girilmez: üçüncü denemeden sonra hata durumu gösterilir.
+        let path = ramp_song("aygit-koptu.wav");
+        let mut player = Player::new();
+        player.load(&path, true).unwrap();
+        for attempt in 1..=MAX_DEVICE_RECOVERIES {
+            let shared = Arc::clone(&player.session.as_ref().unwrap().shared);
+            shared.fail("Ses aygıtına yazılamadı".to_owned());
+            shared.device_changed.store(true, Ordering::Release);
+            // Görsel sorgusu da toparlanmayı tetikler.
+            let _ = player.visual_now();
+            assert_eq!(
+                player.state(),
+                PlaybackState::Playing,
+                "{attempt}. kopmada toparlanır"
+            );
+        }
+        let shared = Arc::clone(&player.session.as_ref().unwrap().shared);
+        shared.fail("Ses aygıtına yazılamadı".to_owned());
+        shared.device_changed.store(true, Ordering::Release);
+        assert_eq!(
+            player.status().state,
+            PlaybackState::Error,
+            "artık denenmez"
+        );
+        // Kullanıcı "çal" deyince sayaç sıfırlanır ve yeniden denenir.
+        player.play().unwrap();
+        assert_eq!(player.state(), PlaybackState::Playing);
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn gecis_kilit_disinda_hazirlanir_durum_bu_sirada_cevap_verir() {
+        // Arayüz komutu: begin (kilitli, anında) → prepare (kilitsiz, ayrı iş parçacığı) →
+        // install (kilitli, anında). Hazırlık sürerken durum sorgusu hedef durumu söyler ve
+        // eski oturumun sesi kısılmaya başlamıştır (SES-02, KUT-08).
+        let path = ramp_song("gecis.wav");
+        let mut player = Player::new();
+        player.load(&path, true).unwrap();
+        assert!(wait_until(|| player.status().position_secs > 0.3));
+        let old = Arc::clone(&player.session.as_ref().unwrap().shared);
+
+        let transition = player.begin_transition(&path, true, Some(1.0));
+        assert!(player.session.is_none(), "eski oturum oynatıcıdan alındı");
+        assert!(old.paused.load(Ordering::Acquire), "kısılma başladı");
+        assert!(
+            !old.stop.load(Ordering::Acquire),
+            "ama henüz kapanmadı (kilit dışında)"
+        );
+        let status = player.status();
+        assert_eq!(status.state, PlaybackState::Playing, "hedef durum");
+        assert_eq!(status.track.map(|t| t.path), Some(path.clone()));
+        assert_eq!(status.position_secs, 1.0);
+
+        let prepared = std::thread::spawn(move || Player::prepare(transition))
+            .join()
+            .unwrap();
+        assert!(
+            old.stop.load(Ordering::Acquire),
+            "hazırlık eskisini kapattı"
+        );
+        let info = player.install(prepared).unwrap();
+        assert_eq!(info.path, path);
+        let session = player.session.as_ref().unwrap();
+        assert_eq!(
+            session.shared.segments.lock().unwrap()[0].start_frame,
+            8_000
+        );
+        assert_eq!(player.state(), PlaybackState::Playing);
+        assert!(player.pending.is_none());
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn daha_yeni_gecis_baslamissa_eski_hazirlik_takilmaz() {
+        // Kullanıcı art arda iki şarkıya tıkladı: ilk hazırlık sonra bitse de ikinci kazanır.
+        let a = ramp_song("gecis-a.wav");
+        let b = ramp_song("gecis-b.wav");
+        let mut player = Player::new();
+        let first = player.begin_transition(&a, false, None);
+        let second = player.begin_transition(&b, false, None);
+        let second_ready = Player::prepare(second);
+        let first_ready = Player::prepare(first);
+        player.install(first_ready).unwrap();
+        assert!(player.session.is_none(), "eski geçiş takılmadı");
+        player.install(second_ready).unwrap();
+        assert_eq!(player.status().track.unwrap().path, b);
+        assert_eq!(player.analysis.as_ref().unwrap().path, b);
+        std::fs::remove_file(a).ok();
+        std::fs::remove_file(b).ok();
+    }
+
+    #[test]
+    fn analiz_baslatilamazsa_ilk_ses_beklemez() {
+        // Analiz yoksa ölçüm hiç gelmeyecek: eşitleme bu şarkıya uygulanmaz, ses beklemeden
+        // başlar (SES-04).
+        let path = ramp_song("analizsiz.wav");
+        let controls = Player::new().render_controls();
+        let session = Session::start(&path, false, None, None, &controls, None, false).unwrap();
+        assert!(session.shared.controls.levels.is_known(0));
+        assert_eq!(
+            session.shared.controls.levels.level(0, true).gain_db,
+            0.0,
+            "ölçülemeyen şarkıya kazanç uygulanmaz"
+        );
         std::fs::remove_file(path).ok();
     }
 

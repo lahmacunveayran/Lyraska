@@ -84,6 +84,14 @@ jobs:
           path: ${{ env.ASSET_NAME }}
           if-no-files-found: error
           retention-days: 7
+      - name: Hata ayıklama sembollerini sakla
+        # Çökme günlüğündeki yığın izini çözmek için (YAY-11); pakete girmez, 90 gün saklanır.
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: semboller-${{ steps.surum.outputs.version }}-${{ steps.kaynak.outputs.sha }}
+          path: src-tauri/target/release/*.pdb
+          if-no-files-found: warn
+          retention-days: 90
 
   yayinla:
     name: test-surumu Release'ini yenile
@@ -103,15 +111,20 @@ jobs:
         with:
           name: kurulum
       - name: Sürüm notlarını hazırla
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           short_sha=${SHA::7}
           date=$(TZ=Europe/Istanbul date +'%d.%m.%Y %H:%M')
+          sha256=$(sha256sum "$ASSET_NAME" | cut -d' ' -f1)
           cat > notlar.md <<NOTES
           **En güncel test sürümü** — \`main\`'de CI yeşil bittiğinde otomatik yenilenir.
 
-          - Sürüm: \`$VERSION\`
+          - Sürüm: \`$VERSION\` · derleme kodu \`$short_sha\` (programda **Ayarlar → Program**'da yazar)
           - Commit: [\`$short_sha\`](https://github.com/$GH_REPO/commit/$SHA)
           - Derlenme: $date (İstanbul)
+          - SHA-256 (\`$ASSET_NAME\`): \`$sha256\`
+          - Hata ayıklama sembolleri: [derleme çalıştırmasının "semboller" dosyası]($RUN_URL) (90 gün)
 
           ### Kurulum
           1. **$ASSET_NAME** dosyasını indirin ve çift tıklayın.

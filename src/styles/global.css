@@ -2045,7 +2045,12 @@ kbd {
 }
 
 .library__list:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--vfd-ghost);
+  /* Klavye odağı görünür olmalı (WCAG 2.4.7): liste çerçevesi ve seçili satırın sol kenarı. */
+  box-shadow: inset 0 0 0 2px var(--vfd);
+}
+
+.library__list:focus-visible .library__row.is-selected {
+  box-shadow: inset 3px 0 0 var(--vfd);
 }
 
 .library__list .library__row:hover {

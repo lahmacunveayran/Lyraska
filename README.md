@@ -14,7 +14,8 @@ _song map_. A **Visual Director** then choreographs the visuals in three layers 
 **rhythm** and **texture**) so that scenes anticipate the music instead of merely reacting to it.
 
 Alongside the visuals, Lyraska aims to be a serious audio player: parametric EQ, AutoEq
-headphone profiles, EBU R128 loudness normalisation, crossfeed and a bit-perfect output mode.
+headphone profiles, EBU R128 loudness normalisation, a bit-perfect output mode, and crossfeed
+(planned).
 
 ## Highlights (planned)
 
@@ -26,7 +27,7 @@ headphone profiles, EBU R128 loudness normalisation, crossfeed and a bit-perfect
 - **Photosensitivity-safe** — no scene pulses more than three times per second; a safe mode lowers
   that to one per second, and the app honours the system "reduce motion" preference.
 - **Pro audio** — 64-bit internal processing, WASAPI output, parametric EQ, AutoEq, loudness,
-  crossfeed, bit-perfect mode.
+  bit-perfect mode (crossfeed planned).
 
 See the [roadmap](docs/ROADMAP.md) (in Turkish) for phases and dates. Version 1.0 is planned for
 early March 2027.
@@ -40,6 +41,13 @@ The latest test build of the Windows installer is always available at the same l
 It is rebuilt automatically every time `main` changes and CI passes. Builds are not code-signed
 yet, so Windows SmartScreen will show an "unknown publisher" warning: click **More info → Run
 anyway**.
+
+The app needs Microsoft Edge WebView2, which Windows 10/11 already ships. If it is missing, the
+installer downloads it once; the player itself never connects to the internet.
+
+Data lives in two folders: `%APPDATA%\com.lyraska.app` (settings, annotations) and
+`%LOCALAPPDATA%\com.lyraska.app` (library + analysis cache, logs). Both can be deleted safely;
+the library is rebuilt from your music folders.
 
 ## Tech stack
 

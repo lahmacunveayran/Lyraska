@@ -37,6 +37,11 @@ export function folderName(path: string): string {
 }
 
 /** Kütüphane: arama, klasörler, tarama durumu ve şarkı listesi. */
+/** Satırın belge kimliği (`aria-activedescendant` için). */
+function rowId(trackId: number): string {
+  return `library-row-${trackId}`;
+}
+
 export function LibraryPanel({
   library,
   available,
@@ -46,7 +51,10 @@ export function LibraryPanel({
   onPlay,
 }: LibraryPanelProps) {
   const { status, tracks, query } = library;
-  const [selected, setSelected] = useState(-1);
+  const [selectedIndex, setSelected] = useState(-1);
+  // Arama sonucu küçülünce eski seçim listenin dışında kalabilir: o zaman seçim yok sayılır
+  // (Enter olmayan şarkıyı çalmaya kalkmaz, `aria-selected` yanlış satıra düşmez) (ARA-03).
+  const selected = selectedIndex < tracks.length ? selectedIndex : -1;
   const [scrollTop, setScrollTop] = useState(0);
   const [viewport, setViewport] = useState(400);
   const listRef = useRef<HTMLDivElement>(null);
@@ -87,9 +95,11 @@ export function LibraryPanel({
     } else if (event.key === "Home" || event.key === "End") {
       event.preventDefault();
       select(event.key === "Home" ? 0 : tracks.length - 1);
-    } else if (event.key === "Enter" && selected >= 0) {
+    } else if (event.key === "Enter") {
+      const track = tracks[selected];
+      if (!track) return;
       event.preventDefault();
-      onPlay(tracks[selected]!, tracks);
+      onPlay(track, tracks);
     }
   };
 
@@ -274,6 +284,9 @@ export function LibraryPanel({
             onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
             onKeyDown={onListKey}
             aria-label="Şarkılar"
+            aria-activedescendant={
+              selected >= 0 && tracks[selected] ? rowId(tracks[selected].id) : undefined
+            }
           >
             {tracks.length === 0 ? (
               <p className="library__none">
@@ -287,6 +300,7 @@ export function LibraryPanel({
                   return (
                     <div
                       key={track.id}
+                      id={rowId(track.id)}
                       role="row"
                       aria-rowindex={index + 1}
                       aria-selected={index === selected}
@@ -296,7 +310,7 @@ export function LibraryPanel({
                       onDoubleClick={() => onPlay(track, tracks)}
                       title={track.path}
                     >
-                      <span className="library__no">
+                      <span className="library__no" role="gridcell">
                         {isCurrent ? (
                           playing ? (
                             <PlayIcon />
@@ -307,24 +321,30 @@ export function LibraryPanel({
                           (track.trackNumber ?? "")
                         )}
                       </span>
-                      <span className="library__cell">{track.title}</span>
-                      <span className="library__cell library__muted">{track.artist ?? "—"}</span>
-                      <span className="library__cell library__muted library__album">
+                      <span className="library__cell" role="gridcell">
+                        {track.title}
+                      </span>
+                      <span className="library__cell library__muted" role="gridcell">
+                        {track.artist ?? "—"}
+                      </span>
+                      <span className="library__cell library__muted library__album" role="gridcell">
                         {track.album ?? "—"}
                       </span>
                       <span
                         className="library__time library__bpm"
+                        role="gridcell"
                         title={track.analyzed ? undefined : "Analiz bekliyor"}
                       >
                         {bpmLabel(track)}
                       </span>
                       <span
                         className="library__time library__key"
+                        role="gridcell"
                         title={track.analyzed ? undefined : "Analiz bekliyor"}
                       >
                         {keyCell(track)}
                       </span>
-                      <span className="library__time">
+                      <span className="library__time" role="gridcell">
                         {track.durationSecs ? formatTime(track.durationSecs) : ""}
                       </span>
                     </div>
