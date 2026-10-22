@@ -182,7 +182,12 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       gölgelendirici çatısı: sahne yalnızca biçimi çizer, parlaklık gece göğünün
       hız sınırlı hesabından tek çarpanla gelir; her sahne gerçek tarayıcıda parlama sınırıyla denetlenir.
       Klavye: 1–9, 0; PageDown/PageUp
-- [ ] Butterchurn / MilkDrop desteği
+- [ ] Butterchurn / MilkDrop desteği — sürüyor. Araştırma (22 Ekim 2026): butterchurn MIT; yaygın preset
+      paketlerinin lisansı yok, Lyraska preset dağıtmaz, kullanıcı kendi `.milk` dosyalarını açar. Temel (0.0.59):
+      Rust'ta görseller için ham dalga biçimi (`visual_waveform`, karışım/sol/sağ 3×1024 bayt, gecikme telafili) ve
+      güvenilmeyen sahneler için parlaklık freni (bölge parlaklığı karede ≤ r·dt; saniyede ≤ 1,65 parlama, güvenli
+      modda ≤ 0,99; kanıtı `flashGuardMath.ts`, tarayıcıda zamana bağlı ölçüm `check:scenes`). Sırada: butterchurn
+      sahnesi ve `.milk` okuma
 - [x] Kinetik şarkı sözleri (0.0.56): sözler yalnızca kullanıcının kendi dosyalarından (şarkının yanındaki `.lrc` ya
       da şarkıya gömülü sözler: ID3 USLT, Vorbis `LYRICS`, MP4 `©lyr`); program söz indirmez, saklamaz, dağıtmaz.
       LRC: satır ve kelime zamanları ("enhanced LRC"), `[offset:]`, aynı zamandaki satır çeviri olarak; UTF-8, UTF-16 ve
