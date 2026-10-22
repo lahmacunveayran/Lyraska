@@ -63,69 +63,69 @@ vardır; Bölüm B bu riske karşıdır.
 Durum sözlüğü: **birleşti** = main'de, test ile; **hazır** = yerel dalda yazıldı ve test edildi, PR sırada;
 **açık** = henüz yapılmadı; **onay** = proje sahibinin kararı gerekir.
 
-| Kod | Konu (kısa)                                         | Durum                  | Nerede / not                                                             |
-| --- | --------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------ |
-| K1  | Okunamayan klasör "silinmiş" sayılıyor              | birleşti               | #82; `removal_candidates`, `ScanSummary.unreadable`                      |
-| S1  | MP3'te ilk 47 örnek                                 | birleşti               | #84; `pts + trim_start`; `formats.rs` 66 150 örnek, korelasyon > 0,98    |
-| U1  | Açılamayan şarkı sırayı öldürüyor                   | birleşti               | #84; `openPath` sonuç döndürür, otomatik geçişte atlama                  |
-| C1  | Test sürümü CI'yi beklemiyor                        | hazır (PR 4)           | `workflow_run` kapısı                                                    |
-| C2  | Yazma izni + sabitlenmemiş eylemler                 | hazır (PR 4)           | iş bazlı izin, SHA sabitleme, `persist-credentials: false`, token yok    |
-| C3  | Üçüncü taraf lisans bildirimleri yok                | hazır (PR 5)           | `UCUNCU-TARAF.txt` (179 crate + 6 npm), CI denetimi, Ayarlar > Lisanslar |
-| U3  | Görsel veri karede 2–3 kez                          | birleşti               | #85; tek paylaşımlı döngü, ≤ 60 istek/sn                                 |
-| A2  | Yarım analiz "tamam" diye saklanıyor                | birleşti               | #82; `truncated`, `saved() → None`                                       |
-| A1  | Nabız seyreltmesi 172–176 BPM'de düzensiz           | birleşti               | #85; `stride`: sabit adım + 20 ms pay                                    |
-| K2  | Analiz tablosu sorguları yavaşlatıyor mu            | açık (ölçüm gerek)     | önce büyük kütüphanede `library_status` süresi ölçülecek                 |
-| K3  | Tarama bayrağı `scanning=false` yarışı              | açık                   | küçük; bağımsız denetim KUT-09 ile aynı kök                              |
-| K4  | Çıkarılan kaynağın taraması yazıyor                 | birleşti               | #82                                                                      |
-| K5  | Kör test hazırlığı kilit altında                    | birleşti               | #84; `spawn_blocking` + `abx_install`                                    |
-| K6  | Ayar kaydı fsync yok, tek bozuk alan her şeyi siler | birleşti               | #82; okuma hatası yolu için bkz. KUT-06                                  |
-| S2  | Bit-perfect dar bit derinliğinde yanıltıyor         | birleşti               | #84; paylaşımlı yola dönüş + açıklama                                    |
-| S3  | Özel modda şarkı sonunda arabellek tekrarı          | birleşti               | #84; bir tampon sessizlik; cihazda doğrulanacak (DOGRULAMA B11)          |
-| S4  | MMCSS yok (öncelik)                                 | onay                   | `unsafe` gerektirir; bağımsız denetim SES-03 ile aynı                    |
-| A3  | Geçişte görsel şarkı seçimi gecikmeyi saymıyor      | birleşti               | #85; `playing_at(offset)`                                                |
-| A4  | Nabız ∪ vurgu garantisi                             | birleşti (kısmen)      | #85; vurgular nabzın alt kümesi; sarmadaki durumsuzluk TS sınırlayıcıda  |
-| A5  | Drop zamanı ölçü fazına körü körüne bağlı           | açık                   | analiz iyileştirmesi; bkz. ANL-12                                        |
-| A6  | Yenilemede eskimiş ses yüksekliği hızlı ölçülmüyor  | açık                   |                                                                          |
-| U2  | Boşluksuz olmayan geçiş 250 ms yoklamaya bağlı      | açık                   | gizli pencerede zamanlayıcı kısılması; olay tabanlı bildirim gerekir     |
-| U4  | Arama sonrası seçim eski sırada                     | açık                   | bağımsız denetim ARA-03 ile aynı                                         |
-| U5  | Çekmecede odak yönetimi yok                         | açık                   | bağımsız denetim ARA-06 ile aynı                                         |
-| U6  | Sahne döngüsü hatası hata sınırına ulaşmıyor        | birleşti               | #85                                                                      |
-| U7  | Kütüphane yoklaması uçuştaki isteği izlemiyor       | açık                   | küçük                                                                    |
-| C4  | Yayında iptal linki boş bırakabilir                 | hazır (PR 4)           | `cancel-in-progress: false`; önce yükle, sonra sil                       |
-| C5  | Güvenlik uyarıları denetlenmiyor                    | hazır (PR 4)           | `Güvenlik uyarıları` işi (cargo-deny advisories, npm audit)              |
-| C6  | Aynı sürümle farklı ikililer; commit ekranda yok    | açık                   | bağımsız denetim YAY-03 "yüksek" dedi; bkz. Bölüm 5                      |
-| C7  | Sürüm eşitliği testi yok                            | hazır (PR 4)           | `surum_package_json_ile_ayni`                                            |
-| C8  | Yayımcı adı / telif satırı                          | hazır (PR 4)           | `publisher: Lyraska`                                                     |
-| C9  | Bindings denetimi eski dosyayı yakalamıyor          | hazır (PR 4)           | klasör önce boşaltılır                                                   |
-| C10 | timeout yok, araç zinciri `@stable`                 | hazır (PR 4)           | `timeout-minutes`, Rust 1.97.0                                           |
-| S5  | EQ korumasına bildirilen yükseltme anlık            | açık                   | ses yolu; dikkatli test gerektirir                                       |
-| S6  | Bas/vuruş zarfı denormal                            | açık                   | küçük; `flush`                                                           |
-| S7  | Bozuk `elst`'te u64 taşması                         | açık                   | küçük; `checked_mul`                                                     |
-| S8  | Kör test 0,5 sn'den önce negatif kayma              | açık                   | bağımsız denetim SES-08 ile aynı                                         |
-| S9  | Hata yutma noktaları                                | açık                   | bkz. SES-09                                                              |
-| S10 | `SLOTS = 8` yuva ezilmesi                           | açık                   | uç durum                                                                 |
-| S11 | 5/7.1 kanal ağırlıkları                             | açık                   | bağımsız denetim SES-06 ile aynı                                         |
-| A7  | Tek global ölçü fazı                                | açık                   | bkz. ANL-04/05                                                           |
-| A8  | Arka plan `skip` kümesi oturum boyu kalıcı          | açık                   | A2 düzeltmesiyle etkileşir (ANL-16, Y4)                                  |
-| A9  | Kilit altında analiz `join`                         | açık                   | bağımsız denetim ANL-06 ve SES-02 ile aynı                               |
-| A10 | Yenileme başarısızsa sıradaki bekliyor              | açık                   |                                                                          |
-| A11 | Sessizlikte hayalet vuruş                           | açık                   | analiz iyileştirmesi                                                     |
-| A12 | FAT32 yaz/kış saati `mtime`                         | açık                   | bkz. KUT-15                                                              |
-| A13 | Spektrum karesi gecikmesi                           | açık                   | bağımsız denetim ANL-03 ile aynı (ölçtü: 44,1 kHz'te +15 ms)             |
-| A14 | `dedup` işlevsiz, Windows ayrılmış adlar vb.        | açık                   | bkz. ANL-15                                                              |
-| K7  | Bozuk veritabanında kurtulma yolu                   | onay (tasarım)         | bağımsız denetim KUT-02 "yüksek" dedi; öneri Bölüm 5.3                   |
-| K8  | OneDrive yer tutucuları indiriliyor                 | açık                   |                                                                          |
-| K9  | Sembolik bağ sessizce atlanıyor                     | açık                   |                                                                          |
-| K10 | NFD Türkçe arama                                    | açık                   | küçük                                                                    |
-| K11 | Tarama sürerken liste baştan isteniyor              | açık                   | bağımsız denetim KUT-04 ve ARA-14 ile aynı                               |
-| K12 | Günlükte kullanıcı adı                              | açık                   | maskeleme                                                                |
-| K13 | Tek kopya koruması yok                              | açık                   | tauri-plugin-single-instance                                             |
-| K14 | UTF-8 olmayan yollar; alttan taşma                  | kısmen (#82: taşma)    | `saturating_sub`; lossy yol açık                                         |
-| K15 | `indexing_slicing` lint'i                           | açık                   |                                                                          |
-| U8  | Harita/ton sorgusu tek hatada vazgeçiyor vb.        | kısmen (PR 6: kısayol) | sorgu yeniden deneme açık                                                |
-| U9  | Güvenli modda VU lambası 2/sn, şerit hızı           | açık                   | görsel güvenlik; bkz. ARA-07                                             |
-| U10 | Duraklatılmışken tam hız çizim vb.                  | açık                   | bağımsız denetim ARA-01 "yüksek" dedi; bkz. Bölüm 5                      |
-| C11 | npm lisans yalnız yasak listesi; belgeler eski vb.  | kısmen (PR 4–6)        | çift koşu, `-First 1`, README, hata formu, Faz 2 yapıldı; kalanlar açık  |
+| Kod | Konu (kısa)                                         | Durum                  | Nerede / not                                                              |
+| --- | --------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------- |
+| K1  | Okunamayan klasör "silinmiş" sayılıyor              | birleşti               | #82; `removal_candidates`, `ScanSummary.unreadable`                       |
+| S1  | MP3'te ilk 47 örnek                                 | birleşti               | #84; `pts + trim_start`; `formats.rs` 66 150 örnek, korelasyon > 0,98     |
+| U1  | Açılamayan şarkı sırayı öldürüyor                   | birleşti               | #84; `openPath` sonuç döndürür, otomatik geçişte atlama                   |
+| C1  | Test sürümü CI'yi beklemiyor                        | hazır (PR 4)           | `workflow_run` kapısı                                                     |
+| C2  | Yazma izni + sabitlenmemiş eylemler                 | hazır (PR 4)           | iş bazlı izin, SHA sabitleme, `persist-credentials: false`, token yok     |
+| C3  | Üçüncü taraf lisans bildirimleri yok                | hazır (PR 5)           | `UCUNCU-TARAF.txt` (179 crate + 6 npm), CI denetimi, Ayarlar > Lisanslar  |
+| U3  | Görsel veri karede 2–3 kez                          | birleşti               | #85; tek paylaşımlı döngü, ≤ 60 istek/sn                                  |
+| A2  | Yarım analiz "tamam" diye saklanıyor                | birleşti               | #82; `truncated`, `saved() → None`                                        |
+| A1  | Nabız seyreltmesi 172–176 BPM'de düzensiz           | birleşti               | #85; `stride`: sabit adım + 20 ms pay                                     |
+| K2  | Analiz tablosu sorguları yavaşlatıyor mu            | açık (ölçüm gerek)     | önce büyük kütüphanede `library_status` süresi ölçülecek                  |
+| K3  | Tarama bayrağı `scanning=false` yarışı              | birleşti               | 0.0.51: tam tarama tek tarama olarak koşar (KUT-09 ile birlikte)          |
+| K4  | Çıkarılan kaynağın taraması yazıyor                 | birleşti               | #82                                                                       |
+| K5  | Kör test hazırlığı kilit altında                    | birleşti               | #84; `spawn_blocking` + `abx_install`                                     |
+| K6  | Ayar kaydı fsync yok, tek bozuk alan her şeyi siler | birleşti               | #82; okuma hatası yolu (KUT-06) 0.0.51: bellekte sürer, üstüne yazılmaz   |
+| S2  | Bit-perfect dar bit derinliğinde yanıltıyor         | birleşti               | #84; paylaşımlı yola dönüş + açıklama                                     |
+| S3  | Özel modda şarkı sonunda arabellek tekrarı          | birleşti               | #84; bir tampon sessizlik; cihazda doğrulanacak (DOGRULAMA B11)           |
+| S4  | MMCSS yok (öncelik)                                 | onay                   | `unsafe` gerektirir; bağımsız denetim SES-03 ile aynı                     |
+| A3  | Geçişte görsel şarkı seçimi gecikmeyi saymıyor      | birleşti               | #85; `playing_at(offset)`                                                 |
+| A4  | Nabız ∪ vurgu garantisi                             | birleşti (kısmen)      | #85; vurgular nabzın alt kümesi; sarmadaki durumsuzluk TS sınırlayıcıda   |
+| A5  | Drop zamanı ölçü fazına körü körüne bağlı           | açık                   | analiz iyileştirmesi; bkz. ANL-12                                         |
+| A6  | Yenilemede eskimiş ses yüksekliği hızlı ölçülmüyor  | açık                   |                                                                           |
+| U2  | Boşluksuz olmayan geçiş 250 ms yoklamaya bağlı      | açık                   | gizli pencerede zamanlayıcı kısılması; olay tabanlı bildirim gerekir      |
+| U4  | Arama sonrası seçim eski sırada                     | açık                   | bağımsız denetim ARA-03 ile aynı                                          |
+| U5  | Çekmecede odak yönetimi yok                         | açık                   | bağımsız denetim ARA-06 ile aynı                                          |
+| U6  | Sahne döngüsü hatası hata sınırına ulaşmıyor        | birleşti               | #85                                                                       |
+| U7  | Kütüphane yoklaması uçuştaki isteği izlemiyor       | açık                   | küçük                                                                     |
+| C4  | Yayında iptal linki boş bırakabilir                 | hazır (PR 4)           | `cancel-in-progress: false`; önce yükle, sonra sil                        |
+| C5  | Güvenlik uyarıları denetlenmiyor                    | hazır (PR 4)           | `Güvenlik uyarıları` işi (cargo-deny advisories, npm audit)               |
+| C6  | Aynı sürümle farklı ikililer; commit ekranda yok    | açık                   | bağımsız denetim YAY-03 "yüksek" dedi; bkz. Bölüm 5                       |
+| C7  | Sürüm eşitliği testi yok                            | hazır (PR 4)           | `surum_package_json_ile_ayni`                                             |
+| C8  | Yayımcı adı / telif satırı                          | hazır (PR 4)           | `publisher: Lyraska`                                                      |
+| C9  | Bindings denetimi eski dosyayı yakalamıyor          | hazır (PR 4)           | klasör önce boşaltılır                                                    |
+| C10 | timeout yok, araç zinciri `@stable`                 | hazır (PR 4)           | `timeout-minutes`, Rust 1.97.0                                            |
+| S5  | EQ korumasına bildirilen yükseltme anlık            | açık                   | ses yolu; dikkatli test gerektirir                                        |
+| S6  | Bas/vuruş zarfı denormal                            | açık                   | küçük; `flush`                                                            |
+| S7  | Bozuk `elst`'te u64 taşması                         | açık                   | küçük; `checked_mul`                                                      |
+| S8  | Kör test 0,5 sn'den önce negatif kayma              | açık                   | bağımsız denetim SES-08 ile aynı                                          |
+| S9  | Hata yutma noktaları                                | açık                   | bkz. SES-09                                                               |
+| S10 | `SLOTS = 8` yuva ezilmesi                           | açık                   | uç durum                                                                  |
+| S11 | 5/7.1 kanal ağırlıkları                             | açık                   | bağımsız denetim SES-06 ile aynı                                          |
+| A7  | Tek global ölçü fazı                                | açık                   | bkz. ANL-04/05                                                            |
+| A8  | Arka plan `skip` kümesi oturum boyu kalıcı          | açık                   | A2 düzeltmesiyle etkileşir (ANL-16, Y4)                                   |
+| A9  | Kilit altında analiz `join`                         | açık                   | bağımsız denetim ANL-06 ve SES-02 ile aynı                                |
+| A10 | Yenileme başarısızsa sıradaki bekliyor              | açık                   |                                                                           |
+| A11 | Sessizlikte hayalet vuruş                           | açık                   | analiz iyileştirmesi                                                      |
+| A12 | FAT32 yaz/kış saati `mtime`                         | açık                   | bkz. KUT-15                                                               |
+| A13 | Spektrum karesi gecikmesi                           | açık                   | bağımsız denetim ANL-03 ile aynı (ölçtü: 44,1 kHz'te +15 ms)              |
+| A14 | `dedup` işlevsiz, Windows ayrılmış adlar vb.        | açık                   | bkz. ANL-15                                                               |
+| K7  | Bozuk veritabanında kurtulma yolu                   | birleşti               | 0.0.51: `.bozuk-<zaman>` kenara alınır, boş kurulur, kullanıcıya söylenir |
+| K8  | OneDrive yer tutucuları indiriliyor                 | açık                   |                                                                           |
+| K9  | Sembolik bağ sessizce atlanıyor                     | açık                   |                                                                           |
+| K10 | NFD Türkçe arama                                    | açık                   | küçük                                                                     |
+| K11 | Tarama sürerken liste baştan isteniyor              | açık                   | bağımsız denetim KUT-04 ve ARA-14 ile aynı                                |
+| K12 | Günlükte kullanıcı adı                              | açık                   | maskeleme                                                                 |
+| K13 | Tek kopya koruması yok                              | açık                   | tauri-plugin-single-instance                                              |
+| K14 | UTF-8 olmayan yollar; alttan taşma                  | kısmen (#82: taşma)    | `saturating_sub`; lossy yol açık                                          |
+| K15 | `indexing_slicing` lint'i                           | açık                   |                                                                           |
+| U8  | Harita/ton sorgusu tek hatada vazgeçiyor vb.        | kısmen (PR 6: kısayol) | sorgu yeniden deneme açık                                                 |
+| U9  | Güvenli modda VU lambası 2/sn, şerit hızı           | açık                   | görsel güvenlik; bkz. ARA-07                                              |
+| U10 | Duraklatılmışken tam hız çizim vb.                  | açık                   | bağımsız denetim ARA-01 "yüksek" dedi; bkz. Bölüm 5                       |
+| C11 | npm lisans yalnız yasak listesi; belgeler eski vb.  | kısmen (PR 4–6)        | çift koşu, `-First 1`, README, hata formu, Faz 2 yapıldı; kalanlar açık   |
 
 Sayım: birleşti 11, hazır 11 (+2 kısmen), onay 2, açık 29. İlk denetimin 9 yüksek önemli maddesinin 9'u ya
 birleşti ya hazır.
@@ -218,10 +218,10 @@ Bu eşleşmeler iki denetimin birbirinden bağımsız olduğunu ve ilk denetimin
 | U4, U5       | ARA-03, ARA-06                        | açık                                                |
 | U8 (kısayol) | ARA-08                                | PR 6'da hazır                                       |
 | U10          | ARA-01 (yüksek)                       | açık; önemi yükseltildi (Bölüm 5)                   |
-| K6           | KUT-06                                | #82 bozuk dosyayı kapsadı; okuma hatası yolu açık   |
-| K7           | KUT-02 (yüksek)                       | karar bekliyor (Bölüm 5.3)                          |
+| K6           | KUT-06                                | #82 + 0.0.51 (okuma hatasında bellekte sürer)       |
+| K7           | KUT-02 (yüksek)                       | 0.0.51: kenara al, boş kur, söyle                   |
 | K11          | KUT-04, ARA-14                        | açık                                                |
-| K3           | KUT-09                                | açık                                                |
+| K3           | KUT-09                                | 0.0.51: tam tarama tek tarama                       |
 | S4           | SES-03                                | karar bekliyor (`unsafe`)                           |
 | S8, S11      | SES-08, SES-06/MAT-07                 | açık                                                |
 | A9           | ANL-06, SES-02, KUT-08                | açık; üç denetçi bağımsızca aynı kilidi işaret etti |
@@ -327,6 +327,12 @@ spektrum sürümünü artıran ANL-01/02 ve tasarım kararı gerektirenler ayrı
 - **SES-04, SES-05, SES-06 / S11, SES-07/09/13**, **A8 / ANL-16 / Y4**, **K12 / Y8**, **SES-11** (belge).
 
 ### 5.3 Proje sahibinin kararını bekleyenler
+
+**Karar (22 Ekim 2026):** proje sahibi dört konuyu "en iyi olacak şekilde" Claude'a bıraktı; aşağıdaki **öneri**
+sütunu uygulanan karardır. Bozuk veritabanı (b): uygulandı (0.0.51, `Library::open` kenara alır, boş kurar, durum
+ekranında söyler). MMCSS (b): `wasapi.rs` içinde `// GÜVENLİK:` gerekçeli `unsafe`, proje sahibine bu belgeyle
+bildirildi. WebView2 (a): kurulumda WebView2 yoksa bir kez internet gerekir, program çalışırken asla (README). Gerçek
+şarkılarla ölçüm: proje sahibinin işaretleme aracıyla yapacağı doğrulama (ISARETLEME.md).
 
 | Konu                                    | Seçenekler                                                                                                                                               | Öneri                                                                                                       |
 | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |

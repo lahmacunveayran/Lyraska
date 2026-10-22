@@ -1,7 +1,7 @@
 //! Kütüphane veritabanı (SQLite).
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use rusqlite::{params, params_from_iter, Connection, OptionalExtension};
 use serde::Serialize;
@@ -55,15 +55,46 @@ pub use crate::analysis::cache::FileStamp;
 
 pub struct Library {
     conn: Connection,
+    /// Bozuk dosya kenara alınıp kütüphane yeniden kurulduysa kullanıcıya gösterilecek açıklama.
+    recovery_notice: Option<String>,
 }
 
 impl Library {
-    /// Veritabanını açar (yoksa oluşturur).
+    /// Veritabanını açar (yoksa oluşturur). Dosya SQLite değilse ya da bozuksa (elektrik
+    /// kesintisi, dolu disk) program her açılışta kapalı kalmasın diye dosya `-wal`/`-shm`
+    /// eşleriyle birlikte `<ad>.bozuk-<zaman>` adıyla kenara alınır ve boş kütüphane kurulur;
+    /// `recovery_notice` bunu söyler. Başka hatalar (izin, kilit) olduğu gibi döner.
     pub fn open(path: &Path) -> Result<Self, LibraryError> {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        Self::init(Connection::open(path)?)
+        let error = match Connection::open(path)
+            .map_err(LibraryError::from)
+            .and_then(Self::init)
+        {
+            Ok(library) => return Ok(library),
+            Err(error) => error,
+        };
+        if !is_corruption(&error) {
+            return Err(error);
+        }
+        let moved = move_corrupt_aside(path)?;
+        crate::diagnostics::error(&format!(
+            "Kütüphane dosyası bozuk ({error}); {} olarak kenara alındı, boş kütüphane kuruldu.",
+            moved.display()
+        ));
+        let mut library = Self::init(Connection::open(path)?)?;
+        library.recovery_notice = Some(format!(
+            "Kütüphane dosyası bozulmuştu; \"{}\" adıyla kenara alındı ve kütüphane boş olarak \
+             yeniden kuruldu. Klasörlerinizi yeniden ekleyin; analizler yeniden yapılır.",
+            moved.display()
+        ));
+        Ok(library)
+    }
+
+    /// Açılışta bozuk dosya kenara alındıysa kullanıcıya gösterilecek açıklama.
+    pub fn recovery_notice(&self) -> Option<&str> {
+        self.recovery_notice.as_deref()
     }
 
     /// Bellekte geçici veritabanı (testler için).
@@ -91,7 +122,10 @@ impl Library {
         )?;
         // Şema ve göçler tek yerde (kütüphane ve analiz önbelleği aynı dosyayı kullanır).
         crate::storage::migrate(&mut conn)?;
-        Ok(Self { conn })
+        Ok(Self {
+            conn,
+            recovery_notice: None,
+        })
     }
 
     pub fn add_folder(&self, path: &str) -> Result<FolderRow, LibraryError> {
@@ -397,10 +431,81 @@ fn search_text(info: &TrackInfo) -> String {
     search_key(&parts.into_iter().flatten().collect::<Vec<_>>().join(" "))
 }
 
+/// Hata, dosyanın SQLite veritabanı olmadığını ya da bozuk olduğunu mu söylüyor?
+fn is_corruption(error: &LibraryError) -> bool {
+    let code = match error {
+        LibraryError::Database(
+            rusqlite::Error::SqliteFailure(e, _) | rusqlite::Error::SqlInputError { error: e, .. },
+        ) => e.code,
+        _ => return false,
+    };
+    matches!(
+        code,
+        rusqlite::ErrorCode::NotADatabase | rusqlite::ErrorCode::DatabaseCorrupt
+    )
+}
+
+/// Bozuk veritabanını (ve `-wal`/`-shm` eşlerini) `<ad>.bozuk-<zaman>` adıyla kenara alır;
+/// yeni adı döner. Silinmez: kullanıcı isterse kurtarma denenebilir.
+fn move_corrupt_aside(path: &Path) -> Result<PathBuf, LibraryError> {
+    // "2026-10-22 07:19:48 UTC" → "20261022-071948"
+    let digits: String = crate::diagnostics::timestamp()
+        .chars()
+        .filter(char::is_ascii_digit)
+        .collect();
+    let (date, time) = digits.split_at(digits.len().min(8));
+    let mut target = path.as_os_str().to_owned();
+    target.push(format!(".bozuk-{date}-{time}"));
+    let target = PathBuf::from(target);
+    std::fs::rename(path, &target)?;
+    for suffix in ["-wal", "-shm"] {
+        let mut side = path.as_os_str().to_owned();
+        side.push(suffix);
+        let side = PathBuf::from(side);
+        if side.exists() {
+            let mut side_target = target.as_os_str().to_owned();
+            side_target.push(suffix);
+            std::fs::rename(&side, PathBuf::from(side_target))?;
+        }
+    }
+    Ok(target)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
+
+    #[test]
+    fn sqlite_olmayan_dosya_kenara_alinir_ve_yeni_kutuphane_acilir() {
+        // Bozuk dosya (elektrik kesintisi, dolu disk): program her açılışta kapalı kalmasın;
+        // dosya `.bozuk-<zaman>` adıyla kenara alınır, boş kütüphane kurulur (DENETIM-2 KUT-02).
+        let path = crate::audio::test_util::temp_path("bozuk.sqlite3");
+        std::fs::write(&path, b"bu bir sqlite dosyasi degil".repeat(40)).unwrap();
+        std::fs::write(path.with_extension("sqlite3-wal"), b"wal").unwrap();
+        let library = Library::open(&path).unwrap();
+        assert!(
+            library
+                .recovery_notice()
+                .is_some_and(|n| n.contains("yeniden kuruldu")),
+            "kullanıcıya söylenir"
+        );
+        assert_eq!(library.track_count().unwrap(), 0);
+        let names: Vec<String> = std::fs::read_dir(path.parent().unwrap())
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        assert!(
+            names.iter().any(|n| n.starts_with("bozuk.sqlite3.bozuk-")),
+            "{names:?}"
+        );
+        // Eski -wal yeni kütüphaneyle kullanılmaz (SQLite ya kendi siler ya da biz kenara
+        // alırız); yeni bağlantının kendi -wal dosyası olabilir ama içinde eski veri yoktur.
+        let wal = std::fs::read(path.with_extension("sqlite3-wal")).unwrap_or_default();
+        assert_ne!(wal, b"wal", "{names:?}");
+        // Sağlam dosya kenara alınmaz, bildirim yok.
+        let sound = Library::open(&path).unwrap();
+        assert!(sound.recovery_notice().is_none());
+    }
 
     fn track(
         path: &str,

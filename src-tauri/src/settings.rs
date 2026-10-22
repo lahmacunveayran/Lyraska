@@ -41,12 +41,23 @@ impl SettingsStore {
     /// o alan varsayılana döner (ekolayzer, kulaklık profili ve gecikme birbirini götürmez); dosya
     /// hiç JSON değilse `settings.json.bozuk` olarak saklanır ve günlüğe yazılır.
     pub fn open(path: &Path) -> Self {
-        let settings = match std::fs::read_to_string(path) {
-            Ok(text) => parse_lenient(&text, path),
-            Err(_) => Settings::default(),
+        let (settings, path) = match std::fs::read_to_string(path) {
+            Ok(text) => (parse_lenient(&text, path), Some(path.to_path_buf())),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                (Settings::default(), Some(path.to_path_buf()))
+            }
+            // Dosya var ama okunamıyor (izin, paylaşım ihlali): varsayılanlarla başlanır ama
+            // kullanıcının eski ayarlarının üstüne yazılmaz; bu oturumda yalnızca bellekte (KUT-06).
+            Err(e) => {
+                crate::diagnostics::error(&format!(
+                    "Ayar dosyası okunamadı ({}): {e}. Bu oturumda ayarlar kaydedilmeyecek.",
+                    path.display()
+                ));
+                (Settings::default(), None)
+            }
         };
         Self {
-            path: Some(path.to_path_buf()),
+            path,
             current: Mutex::new(Settings {
                 equalizer: settings.equalizer.sanitized(),
                 headphone: settings.headphone.sanitized(),
@@ -217,6 +228,19 @@ mod tests {
             path.with_extension("json.bozuk").exists(),
             "bozuk dosya silinmeden önce yedeklenir"
         );
+    }
+
+    #[test]
+    fn okunamayan_dosya_ustune_yazilmaz() {
+        // Dosya var ama okunamıyor (paylaşım ihlali, izin): varsayılanla başlanır ama ilk ayar
+        // değişikliğinde eski ayarların üstüne yazılmaz; bu oturumda kayıt yapılmaz (KUT-06).
+        let path = temp_path("kilitli-ayarlar.json");
+        std::fs::create_dir_all(&path).unwrap(); // klasör: okunamaz ama "yok" da değil
+        let store = SettingsStore::open(&path);
+        assert_eq!(store.get(), Settings::default());
+        store.update(|s| s.visual_safe = true).unwrap();
+        assert!(path.is_dir(), "dosyaya dokunulmaz");
+        assert!(store.get().visual_safe, "bellekte sürer");
     }
 
     #[test]

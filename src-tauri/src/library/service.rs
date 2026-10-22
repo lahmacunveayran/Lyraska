@@ -62,11 +62,19 @@ pub struct LibraryService {
     pending: Arc<Mutex<ScanRequest>>,
     worker_running: Arc<AtomicBool>,
     problems: Arc<Mutex<Vec<String>>>,
+    /// Açılışta bozuk veritabanı kenara alındıysa açıklaması; oturum boyunca sorunların başında
+    /// gösterilir (tam tarama sorun listesini yenilese de silinmez).
+    recovery_notice: Option<String>,
 }
 
 impl LibraryService {
     pub fn open(path: &Path) -> Result<Self, LibraryError> {
-        Ok(Self::new(Library::open(path)?))
+        let library = Library::open(path)?;
+        let recovery_notice = library.recovery_notice().map(str::to_owned);
+        Ok(Self {
+            recovery_notice,
+            ..Self::new(library)
+        })
     }
 
     pub fn new(library: Library) -> Self {
@@ -76,6 +84,7 @@ impl LibraryService {
             pending: Arc::new(Mutex::new(ScanRequest::default())),
             worker_running: Arc::new(AtomicBool::new(false)),
             problems: Arc::new(Mutex::new(Vec::new())),
+            recovery_notice: None,
         }
     }
 
@@ -92,7 +101,12 @@ impl LibraryService {
             track_count: lib.track_count()?,
             analyzed: lib.analyzed_count()?,
             scan: self.scan.progress(),
-            problems: self.problems.lock().map(|p| p.clone()).unwrap_or_default(),
+            problems: self
+                .recovery_notice
+                .iter()
+                .cloned()
+                .chain(self.problems.lock().map(|p| p.clone()).unwrap_or_default())
+                .collect(),
         })
     }
 
@@ -251,6 +265,7 @@ impl LibraryService {
 }
 
 /// İstenen klasörleri (ya da hepsini) tarar; bir klasördeki sorun diğerlerini durdurmaz.
+/// Bütün klasörler tek bir tarama sayılır: `scanning` bayrağı klasörler arasında düşmez (KUT-09).
 fn run_scan(library: &Mutex<Library>, scan: &ScanState, request: &ScanRequest) -> Vec<String> {
     let folders = match library.lock() {
         Ok(lib) => match lib.folders() {
@@ -259,21 +274,27 @@ fn run_scan(library: &Mutex<Library>, scan: &ScanState, request: &ScanRequest) -
         },
         Err(_) => return vec!["Kütüphane kilitlenemedi".to_owned()],
     };
-    folders
+    scan.set_scanning(true);
+    let problems = folders
         .iter()
         .filter(|folder| request.all || request.folders.contains(&folder.id))
-        .filter_map(|folder| {
-            match scan::scan_folders(library, std::slice::from_ref(folder), scan) {
-                Ok(summary) if summary.unreadable > 0 => Some(format!(
-                    "{}: {} alt klasör ya da dosya okunamadı (izin, ağ ya da disk hatası); \
+        .filter_map(|folder| match scan::scan_folder(library, folder, scan) {
+            Ok(summary) if summary.suspicious > 0 => Some(format!(
+                "{}: kütüphanedeki {} şarkının hiçbiri bulunamadı (disk takılı değil ya da ağ \
+                     paylaşımı bağlı değil olabilir); şarkılar kütüphanede tutuldu.",
+                folder.path, summary.suspicious
+            )),
+            Ok(summary) if summary.unreadable > 0 => Some(format!(
+                "{}: {} alt klasör ya da dosya okunamadı (izin, ağ ya da disk hatası); \
                      oradaki şarkılara dokunulmadı.",
-                    folder.path, summary.unreadable
-                )),
-                Ok(_) => None,
-                Err(e) => Some(e.to_string()),
-            }
+                folder.path, summary.unreadable
+            )),
+            Ok(_) => None,
+            Err(e) => Some(e.to_string()),
         })
-        .collect()
+        .collect();
+    scan.set_scanning(false);
+    problems
 }
 
 #[cfg(test)]
