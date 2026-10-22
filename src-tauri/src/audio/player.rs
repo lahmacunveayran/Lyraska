@@ -5,7 +5,8 @@
 //!
 //! ```text
 //! çözme iş parçacığı ──► halka tampon (2 sn, f64) ──► çıkış iş parçacığı (WASAPI)
-//!          └──────────── SharedState (atomik işaretler) ───────────┘
+//!          ├──────────── SharedState (atomik işaretler) ───────────┘
+//!          └──► dalga biçimi dokunuşu (44,1 kHz kopya) ◄── komut iş parçacığı (görseller)
 //! ```
 //!
 //! İş parçacıkları birbirleriyle yalnızca kilitsiz halka tampon ve atomik
@@ -29,6 +30,7 @@ use super::output::{self, DeviceInfo, OutputMode, OutputSpec};
 use super::peq::{HeadphoneSettings, ParametricSettings, PeqControl};
 use super::render::RenderControls;
 use super::resample::Converter;
+use super::waveform::{self, Decimator, WaveformTap};
 use super::{AudioError, Sample};
 use crate::analysis::annotation::Annotation;
 use crate::analysis::background::ForegroundGuard;
@@ -86,6 +88,9 @@ pub struct SharedState {
     /// Ses işlemenin ayarları: ekolayzer, kulaklık düzeltmesi, eşitleme (oynatıcı boyunca
     /// aynı; her oturum paylaşır) ve bu oturumdaki şarkıların ses yükseklikleri.
     pub controls: RenderControls,
+    /// Görseller için dalga biçimi: çözme iş parçacığı yazar, komut iş parçacığı okur. Gerçek
+    /// zamanlı yolda kullanılmaz. Oturuma aittir: sarmada ve şarkı açılınca yenisi kurulur.
+    waveform: WaveformTap,
     error: Mutex<Option<String>>,
 }
 
@@ -94,6 +99,7 @@ impl SharedState {
         let state = Self {
             controls,
             segments: Mutex::new(vec![first]),
+            waveform: WaveformTap::new(),
             ..Self::default()
         };
         state.paused.store(paused, Ordering::Release);
@@ -138,6 +144,37 @@ impl SharedState {
             seconds = seconds.min(duration);
         }
         Some((segment.info.clone(), seconds))
+    }
+
+    /// Akışın `heard`. karesinden `offset_secs` ötedeki ana kadarki son 1024 örneğin dalga
+    /// biçimi (karışım, sol, sağ; [`waveform::to_bytes`]). Her örneğe ait olduğu şarkının
+    /// −14 LUFS eşitleme kazancı uygulanır (kullanıcı eşitlemeyi kapatmış olsa da: sessiz
+    /// kaydedilmiş şarkıda da dalga görünsün); boşluksuz geçişte kazanç tam şarkı sınırında
+    /// değişir. Çözme henüz başlamadıysa `None`.
+    fn waveform_at(&self, heard: u64, offset_secs: f64) -> Option<Vec<u8>> {
+        let window = self.waveform.read(heard, offset_secs)?;
+        let levels = &self.controls.levels;
+        let last = window.first + waveform::WINDOW as i64 - 1;
+        let gains: Vec<(i64, f64)> = {
+            let segments = self.segments.lock().ok()?;
+            let starts: Vec<i64> = segments
+                .iter()
+                .map(|s| window.index_at_frame(s.first_output_frame))
+                .collect();
+            starts
+                .iter()
+                .enumerate()
+                // Yalnızca pencereye düşen şarkılar.
+                .filter(|&(i, &start)| {
+                    start <= last && starts.get(i + 1).is_none_or(|&next| next > window.first)
+                })
+                .map(|(i, &start)| {
+                    let gain_db = levels.level(i, true).gain_db;
+                    (start, 10f64.powf(gain_db / 20.0))
+                })
+                .collect()
+        };
+        Some(waveform::to_bytes(&window, &gains))
     }
 
     /// Şu an duyulan şarkının oturumdaki sırası.
@@ -1544,6 +1581,24 @@ impl Player {
         })
     }
 
+    /// Şu an duyulan anın ham dalga biçimi (MilkDrop sahnesi): 3 × 1024 bayt — karışım, sol,
+    /// sağ; 44,1 kHz; 128 = sessizlik. Görsel karelerle aynı an (ekran ve ses aygıtı gecikmesi
+    /// telafi edilerek). Duraklatılmışsa ya da şarkı bittiyse sessizlik; çalan oturum yoksa
+    /// (açılıyor, sarılıyor, kör test, hata) `None`.
+    pub fn visual_waveform(&self) -> Option<Vec<u8>> {
+        let session = self.session.as_ref()?;
+        match session.state() {
+            PlaybackState::Playing => {}
+            PlaybackState::Paused | PlaybackState::Ended => return Some(waveform::silence()),
+            PlaybackState::Idle | PlaybackState::Error => return None,
+        }
+        // Boşluksuz geçişle gelen şarkının ölçümü de kazanca yansısın.
+        self.sync_levels();
+        let heard = session.shared.output_heard.load(Ordering::Acquire);
+        let offset = crate::visual_bridge::visual_offset_secs(self.audio_delay_ms);
+        session.shared.waveform_at(heard, offset)
+    }
+
     /// Ses aygıtının ek gecikmesi (ms).
     pub fn audio_delay_ms(&self) -> i32 {
         self.audio_delay_ms
@@ -1707,6 +1762,12 @@ fn decode_loop(
     // Hızı ya da kanal sayısı farklı sıradaki şarkı: önceki şarkının kuyruğu yazılınca
     // kendi dönüştürücüsüyle başlar.
     let mut waiting: Option<Decoder> = None;
+    // Görseller için dalga biçimi dokunuşu: halka tampona giden akışın 44,1 kHz kopyası.
+    // Akış aygıt hızında ve tek parça olduğu için her örneğin yeri, ses çıkışının "duyulan"
+    // sayacıyla aynı karedir (boşluksuz geçiş dahil).
+    shared.waveform.start(spec.sample_rate);
+    let mut decimator = Decimator::new(spec.sample_rate);
+    let mut tap: Vec<[f32; 2]> = Vec::new();
 
     loop {
         if shared.stop.load(Ordering::Acquire) {
@@ -1799,6 +1860,9 @@ fn decode_loop(
             std::thread::sleep(DECODE_IDLE);
             continue;
         }
+        // Önce dokunuşa: dokunuş halka tampondan hiçbir zaman geride kalmaz.
+        decimator.process(&pending[pos..pos + n], channels, &mut tap);
+        shared.waveform.write(&tap);
         if let Ok(chunk) = producer.write_chunk_uninit(n) {
             chunk.fill_from_iter(pending[pos..pos + n].iter().copied());
         }
@@ -1808,6 +1872,9 @@ fn decode_loop(
             shared.prefilled.store(true, Ordering::Release);
         }
     }
+    // Süzgeçlerde bekleyen son örnekler (sonrası sessizlik).
+    decimator.finish(&mut tap);
+    shared.waveform.write(&tap);
     shared.prefilled.store(true, Ordering::Release);
     shared.decode_done.store(true, Ordering::Release);
 }
@@ -3237,6 +3304,246 @@ mod tests {
                 "{i}. örnek değişti"
             );
         }
+        std::fs::remove_file(path).ok();
+    }
+
+    // --- Görseller için dalga biçimi dokunuşu (MilkDrop) ---
+
+    use super::super::loudness::Loudness;
+    use super::super::waveform::{to_byte, TAP_FRAMES, WAVEFORM_BYTES, WINDOW};
+    use crate::visual_bridge::{visual_offset_secs, DISPLAY_LEAD_SECONDS, MAX_AUDIO_DELAY_MS};
+
+    /// Kazancı 0 dB yapan ölçüm (−14 LUFS).
+    const NEUTRAL: Loudness = Loudness {
+        integrated_lufs: -14.0,
+        true_peak_dbtp: -6.0,
+    };
+
+    /// Şarkıları (boşluksuz sırayla, en çok iki) `device_rate` hızındaki stereo akışa çözer ve
+    /// halka tamponu sonuna kadar boşaltır; dalga biçimi dokunuşu dolmuş ortak durumu döndürür.
+    fn decode_all(songs: &[&Path], device_rate: u32) -> Arc<SharedState> {
+        let decoder = Decoder::open(songs[0]).unwrap();
+        let info = decoder.info().clone();
+        let converter = Converter::new(info.sample_rate, info.channels, device_rate, 2).unwrap();
+        let spec = OutputSpec {
+            sample_rate: device_rate,
+            channels: 2,
+            mode: OutputMode::Shared,
+        };
+        let (producer, mut consumer) = RingBuffer::<Sample>::new(4_096);
+        let shared = Arc::new(SharedState::new(
+            false,
+            test_segment(),
+            RenderControls::default(),
+        ));
+        shared.set_next(songs.get(1).map(|p| p.to_path_buf()));
+        let thread_shared = Arc::clone(&shared);
+        let handle = std::thread::spawn(move || {
+            decode_loop(decoder, converter, spec, producer, &thread_shared, None)
+        });
+        while !(shared.decode_done.load(Ordering::Acquire) && consumer.is_empty()) {
+            if consumer.pop().is_err() {
+                std::thread::yield_now();
+            }
+        }
+        handle.join().unwrap();
+        shared
+    }
+
+    /// Bir pencerenin sol kanalı.
+    fn left(bytes: &[u8]) -> &[u8] {
+        &bytes[WINDOW..2 * WINDOW]
+    }
+
+    #[test]
+    fn dalga_bicimi_sinusun_periyodunu_ve_kare_kare_surekliligini_korur() {
+        // 48 kHz aygıt, 441 Hz sinüs: 44,1 kHz'te periyot tam 100 örnek.
+        let wave = |frame: usize, amp: f64| {
+            amp * (2.0 * std::f64::consts::PI * 441.0 * frame as f64 / 48_000.0).sin()
+        };
+        let path = temp_path("dalga-sinus.wav");
+        write_wav(&path, 48_000, 2, 48_000, |f, ch| {
+            wave(f, if ch == 0 { 0.5 } else { 0.25 })
+        });
+        let shared = decode_all(&[&path], 48_000);
+        shared.controls.levels.set_loudness(0, Some(NEUTRAL));
+
+        // 0,5. saniye (48 kHz'te 24000. kare = 44,1 kHz'te 22050. örnek): pencere o anla biter.
+        let first = shared.waveform_at(24_000, 0.0).unwrap();
+        assert_eq!(first.len(), WAVEFORM_BYTES);
+        let start = 22_050 - (WINDOW - 1);
+        for k in 0..WINDOW {
+            let t = (start + k) as f64 / 44_100.0;
+            let value = (2.0 * std::f64::consts::PI * 441.0 * t).sin();
+            let expect = [0.375 * value, 0.5 * value, 0.25 * value].map(to_byte);
+            for (channel, want) in expect.iter().enumerate() {
+                let got = first[channel * WINDOW + k];
+                assert!(
+                    got.abs_diff(*want) <= 1,
+                    "kanal {channel}, örnek {k}: {got} != {want}"
+                );
+            }
+        }
+        // Periyot 100 örnek.
+        let l = left(&first);
+        for k in 0..WINDOW - 100 {
+            assert!(l[k].abs_diff(l[k + 100]) <= 1, "örnek {k}");
+        }
+        // Bir sonraki ekran karesi (1/60 sn = 48 kHz'te 800 kare, 44,1 kHz'te 735 örnek):
+        // pencere tam o kadar kayar, örtüşen kısım bayt bayt aynı (faz sürekli).
+        let next = shared.waveform_at(24_800, 0.0).unwrap();
+        for channel in 0..3 {
+            let a = &first[channel * WINDOW..(channel + 1) * WINDOW];
+            let b = &next[channel * WINDOW..(channel + 1) * WINDOW];
+            assert_eq!(&b[..WINDOW - 735], &a[735..], "kanal {channel}");
+        }
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn dalga_bicimi_sessizlikte_hep_128() {
+        let path = temp_path("dalga-sessiz.wav");
+        write_wav(&path, 44_100, 2, 20_000, |_, _| 0.0);
+        let shared = decode_all(&[&path], 48_000);
+        // Ölçülmemiş şarkı (varsayılan kazanç) da sessizliği değiştirmez; şarkı sonundan
+        // sonrası da sessizlik.
+        for heard in [0, 10_000, 21_000, 40_000] {
+            let bytes = shared.waveform_at(heard, 0.0).unwrap();
+            assert!(bytes.iter().all(|&b| b == 128), "{heard}");
+        }
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn dalga_bicimi_bosluksuz_geciste_tam_sinirda_degisir() {
+        // A: +0,25 (3000 kare), B: −0,25 (2000 kare); 44,1 kHz aygıt. B'nin eşitleme kazancı
+        // +6 dB: hem dalga hem kazanç akışın 3000. karesinde değişmeli.
+        let a = temp_path("dalga-gecis-a.wav");
+        let b = temp_path("dalga-gecis-b.wav");
+        write_wav(&a, 44_100, 2, 3_000, |_, _| 0.25);
+        write_wav(&b, 44_100, 2, 2_000, |_, _| -0.25);
+        let shared = decode_all(&[&a, &b], 44_100);
+        assert_eq!(shared.segments.lock().unwrap()[1].first_output_frame, 3_000);
+        let levels = &shared.controls.levels;
+        levels.set_loudness(0, Some(NEUTRAL));
+        levels.set_loudness(
+            1,
+            Some(Loudness {
+                integrated_lufs: -20.0,
+                true_peak_dbtp: -10.0,
+            }),
+        );
+        let quantized = 8_192.0 / 32_767.0;
+        let gain = 10f64.powf(6.0 / 20.0);
+        let bytes = shared.waveform_at(3_500, 0.0).unwrap();
+        let first = 3_500 - (WINDOW - 1);
+        let boundary = 3_000 - first;
+        let l = left(&bytes);
+        assert!(l[..boundary].iter().all(|&v| v == to_byte(quantized)));
+        assert!(l[boundary..]
+            .iter()
+            .all(|&v| v == to_byte(-quantized * gain)));
+        std::fs::remove_file(a).ok();
+        std::fs::remove_file(b).ok();
+    }
+
+    #[test]
+    fn dalga_bicimi_ses_gecikmesi_kadar_geriden_okunur() {
+        let path = temp_path("dalga-gecikme.wav");
+        write_wav(&path, 48_000, 2, 48_000, |f, _| {
+            0.5 * (2.0 * std::f64::consts::PI * 441.0 * f as f64 / 48_000.0).sin()
+        });
+        let shared = decode_all(&[&path], 48_000);
+        shared.controls.levels.set_loudness(0, Some(NEUTRAL));
+        // 100 ms ses gecikmesi: pencere duyulandan 100 ms (48 kHz'te 4800 kare) önce biter.
+        let heard = 24_080;
+        let delayed = shared.waveform_at(heard, visual_offset_secs(100)).unwrap();
+        let earlier = shared
+            .waveform_at(heard - 4_800, visual_offset_secs(0))
+            .unwrap();
+        assert_eq!(delayed, earlier);
+        let undelayed = shared.waveform_at(heard, visual_offset_secs(0)).unwrap();
+        assert_ne!(delayed, undelayed);
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn dalga_dokunusu_yeterince_uzun() {
+        // Okunan pencerenin en eski örneği (ses gecikmesi + 1024 örnek geride) ile yazılan uç
+        // (halka tampon + aygıt arabelleği ~100 ms + ekran gecikmesi ileride) arası payla sığmalı.
+        let span_secs = RING_SECONDS as f64
+            + 0.1
+            + f64::from(MAX_AUDIO_DELAY_MS) / 1000.0
+            + DISPLAY_LEAD_SECONDS;
+        let needed = span_secs * 44_100.0 + WINDOW as f64;
+        assert!(
+            TAP_FRAMES as f64 >= 1.25 * needed,
+            "{TAP_FRAMES} < {needed}"
+        );
+    }
+
+    /// 8 kHz mono, 30 sn: ilk 10 sn −0,5, sonrası +0,5 (dalganın işareti konumu söyler).
+    fn split_song(name: &str) -> PathBuf {
+        let path = temp_path(name);
+        write_wav(&path, 8_000, 1, 240_000, |frame, _| {
+            if frame < 80_000 {
+                -0.5
+            } else {
+                0.5
+            }
+        });
+        path
+    }
+
+    #[test]
+    fn dalga_bicimi_sarinca_eski_konumu_hic_gostermez() {
+        let path = split_song("dalga-sarma.wav");
+        let mut player = Player::new();
+        assert_eq!(player.visual_waveform(), None, "şarkı yokken boş");
+        player.load(&path, true).unwrap();
+        // Başta yalnızca eksi örnekler (eşitleme kazancı işareti değiştirmez).
+        assert!(wait_until(|| player
+            .visual_waveform()
+            .is_some_and(|w| w.iter().any(|&b| b < 128))));
+        player.seek(10.05).unwrap();
+        // Sarmadan sonra hiçbir pencerede sarmadan önceki (eksi) örnek yok; yeni konumun artı
+        // örnekleri hemen görünür.
+        let mut seen_new = false;
+        for _ in 0..50 {
+            let Some(bytes) = player.visual_waveform() else {
+                continue;
+            };
+            assert!(bytes.iter().all(|&b| b >= 128), "eski konumdan örnek");
+            seen_new |= bytes.iter().any(|&b| b > 128);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(seen_new);
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn dalga_bicimi_cok_geriden_okununca_da_delik_yok() {
+        // En büyük ses gecikmesinde (400 ms) çalarken okunan pencere tamamen dolu: halka
+        // tampon önden giderken dokunuş eski örnekleri silmemiş olmalı.
+        let path = split_song("dalga-delik.wav");
+        let mut player = Player::new();
+        player.set_audio_delay_ms(MAX_AUDIO_DELAY_MS);
+        player.load(&path, true).unwrap();
+        assert!(wait_until(|| player.status().position_secs >= 1.0));
+        let bytes = player.visual_waveform().unwrap();
+        assert!(bytes.iter().all(|&b| b < 128), "pencerede boşluk");
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn dalga_bicimi_duraklatinca_ve_sarki_bitince_sessiz() {
+        let path = ramp_song("dalga-durum.wav");
+        let mut player = Player::new();
+        player.load(&path, false).unwrap();
+        assert_eq!(player.visual_waveform(), Some(vec![128; WAVEFORM_BYTES]));
+        player.play().unwrap();
+        assert!(wait_until(|| player.state() == PlaybackState::Ended));
+        assert_eq!(player.visual_waveform(), Some(vec![128; WAVEFORM_BYTES]));
         std::fs::remove_file(path).ok();
     }
 }

@@ -122,6 +122,7 @@ pub fn run() {
             commands::seek_playback,
             commands::playback_status,
             commands::visual_frame,
+            commands::visual_waveform,
             commands::library_status,
             commands::library_add_folder,
             commands::library_add_dropped,

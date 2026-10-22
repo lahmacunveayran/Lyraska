@@ -314,6 +314,22 @@ export function getVisualFrame(): Promise<VisualFrame | null> {
   return invoke<VisualFrame | null>("visual_frame");
 }
 
+/** Dalga biçimi yanıtının uzunluğu: karışım, sol, sağ (her biri 1024 örnek). */
+export const WAVEFORM_BYTES = 3 * 1024;
+
+/**
+ * Şu an duyulan anın ham dalga biçimi (MilkDrop sahnesi): 3 × 1024 bayt — karışım, sol, sağ;
+ * 44,1 kHz; 0..255, 128 = sessizlik (WebAudio `getByteTimeDomainData` biçimi). Görsel karelerle
+ * aynı an (gecikme telafili). Duraklatılmışsa ya da şarkı bittiyse hepsi 128; çalan şarkı yoksa
+ * ya da tarayıcı önizlemesinde `null`. Çekirdek ham bayt döndürür (JSON değil).
+ */
+export async function getVisualWaveform(): Promise<Uint8Array | null> {
+  if (!isTauri()) return null;
+  const bytes = await invoke<ArrayBuffer | number[]>("visual_waveform");
+  const array = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : Uint8Array.from(bytes);
+  return array.length === WAVEFORM_BYTES ? array : null;
+}
+
 export function getPlaybackStatus(): Promise<PlaybackStatus> {
   return invoke<PlaybackStatus>("playback_status");
 }

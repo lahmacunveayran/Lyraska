@@ -72,7 +72,9 @@ lyraska/
 │   │                         # (flash.ts), WebGL2 çizimi (gl.ts ortak; skyRenderer.ts, highwayRenderer.ts; galeri: shaderScene.ts,
 │   │                         # shaderSources.ts gölgelendiriciler, shaderRenderer.ts, sceneLook.ts hız ve palet,
 │   │                         # scenePreset.ts hazır ayarlar),
-│   │                         # WebGL2 açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts)
+│   │                         # WebGL2 açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts), parlaklık freni: güvenilmeyen
+│   │                         # sahnelerin (MilkDrop) son geçişi, bölge parlaklığı karede ≤ r·dt (flashGuard.ts; saf hesap ve
+│   │                         # kanıt flashGuardMath.ts; flashGuardCheck.ts yalnızca check:scenes'in parlayan deseni, programa girmez)
 │   └── styles/               # CSS; renkler :root değişkenlerinde
 ├── src-tauri/                # Rust çekirdeği
 │   ├── src/
@@ -97,6 +99,8 @@ lyraska/
 │   │   │   │                 #   (paylaşımlı; ayarla özel mod = bit-perfect), output/simulated.rs = testlerde
 │   │   │   │                 #   aygıtsız sanal çıkış
 │   │   │   ├── abx.rs        #   kör dinleme testi: iki sürümü hizalama, ses yüksekliği eşitleme, işlemsiz A/B/X
+│   │   │   ├── waveform.rs   #   görseller (MilkDrop) için ham dalga: çözme iş parçacığının yazdığı 44,1 kHz kopya,
+│   │   │   │                 #   önceden ayrılmış 4 sn halka; komut iş parçacığı duyulan ana kadarki 1024 örneği okur
 │   │   │   └── player.rs     #   oturumlar, iş parçacıkları, halka tampon (rtrb), boşluksuz geçiş
 │   │   ├── library/          # Müzik kütüphanesi (SQLite, uygulama veri klasöründe)
 │   │   │   ├── db.rs         #   kaynak (klasör ya da tek şarkı) ve şarkı tabloları, Türkçe arama, BPM
