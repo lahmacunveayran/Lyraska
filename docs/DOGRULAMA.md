@@ -409,6 +409,18 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
   toplanıp drop'ta açılır; hiçbirinde ani parlama yok. Tam ekranda akıcı mı (takılma, ısınma)?
 - Bildirin: beğendiğiniz ve beğenmediğiniz sahneler; takılan sahne varsa bilgisayarın ekran kartı.
 
+**E9. Galeride görünüm ve hazır ayarlar (0.0.58)**
+
+- Nasıl: bir şarkı çalarken **Galeri**'den bir sahne seçin (ör. **Gece denizi**) ve **Galeri**'yi yeniden açın.
+  Listenin altında **Görünüm** var: **Hız** kaydırıcısını sağa sola çekin, renk düğmelerinden birini seçin
+  (**Bölüm teması**, **Buz**, **Kor**, **Orman**, **Gül**). Sonra **Hazır ayarlar**'dan birine tıklayın (ör.
+  **Sakin deniz**, **Kor ateşi**). Beğendiğiniz bir görünümde **Kaydet**'e basın, bir ad yazıp yine **Kaydet**;
+  kendi ayarınız listede belirir, yanındaki **×** ile silinir. Programı kapatıp açın.
+- Neye bakılır: hız yalnızca hareketi hızlandırır ya da yavaşlatır, ışık parlamaz ve sönmez; renk değişince renkler
+  bir saniyede yumuşakça geçer (ani renk değişimi yok). Hazır ayar sahneyi ve görünümü birlikte değiştirir. Kapatıp
+  açınca her sahnenin son görünümü ve kaydettiğiniz ayarlar yerinde.
+- Bildirin: beğenmediğiniz paletler ya da hız aralığı (çok yavaş/çok hızlı); kaydettiğiniz ayar kaybolduysa.
+
 ## F. Hata günlüğü
 
 **F1. Hata günlüğü açılıyor**

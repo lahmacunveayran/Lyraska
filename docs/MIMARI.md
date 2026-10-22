@@ -180,6 +180,17 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
     (`stepSky`) paylaşır: bölüm teması renkleri, gerilim ve açılım biçimi, vuruşlar akışı sürer. Sahnenin kodu
     yalnızca biçimi çizer; parlaklık ortak gövdedeki tek çarpandan gelir (`sceneLevel`: perde parlaklığının hız
     sınırlı, tekdüze dönüşümü; müzik ışığı en fazla %28 güçlendirir). Gölgelendiriciye anlık vuruş seviyesi gitmez.
+  - Galeri görünümü ve hazır ayarlar (`sceneLook.ts`, `scenePreset.ts`, `useScenePresets`, galeri panosu
+    `SceneGallery`): **hız** (0,5–2×) yalnızca hareketi ölçekler. Gölgelendiriciye akış saati yerine sahnenin kendi
+    saati gider: her karede akış saatinin artışının (sarılmada modüloyla) hız katı kadar ilerler ve `foldTime` ile
+    katlanır; `stepSky`'a giden süre ölçeklenmez (parlaklığın hız sınırı aynı kalır), kırpışma saati de bilerek
+    ölçeklenmez (küçük ışıkların parlaklık değişimi hızlanmasın). **Palet**: bölüm teması ya da sabit özgün palet
+    (`--scene-palette-<id>-low/high`); değişince görünen renklerden 1 saniyede doğrusal karışır (renk kanalı
+    saniyede en fazla tam ölçek). Sabit paletlerin parlaklığı temalarınkini aşmaz (`sceneLook.test.ts`), sahne
+    denetimi iki sahneyi en parlak palette ve 2× hızda da ölçer. Parlaklık parametresi yoktur: parlaklık yalnızca
+    `sceneLevel`'dan gelir. Hazır ayarlar ve her sahnenin son görünümü tarayıcı deposunda (`lyraska.scenePresets`,
+    `lyraska.sceneLooks`; sürümlü JSON); okunurken doğrulanır (hız sınırlanır, bilinmeyen sahne/palet atlanır,
+    en fazla 50 kayıt, ad en fazla 40 karakter).
   - Parlaklığı değiştiren her değer hız sınırlıdır (güvenli modda yarı hız); her sahnenin kendi parlama testi var.
 
 ## Arayüz yapısı
@@ -198,6 +209,7 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
   - `useDrawer`: çekmece ve Esc.
   - `useScene`: sahne seçimi; 1–9 ve 0 tuşları, PageDown/PageUp sıradaki/önceki sahne (`SceneGallery`: üst
     çubuktaki galeri listesi).
+  - `useScenePresets`: galeri sahnelerinin görünümü (hız, palet) ve hazır ayarlar.
   - `useDropToLibrary`: sürükle-bırak.
   - `useIdle`: sinema görünümü.
   - `useSongMap`: çalan şarkının haritası.

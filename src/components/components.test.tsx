@@ -1389,6 +1389,120 @@ describe("sahneler", () => {
     expect(window.localStorage.getItem("lyraska.scene")).toBe("highway");
   });
 
+  it("galeri: görünüm (hız, palet) ve hazır ayarlar; kullanıcı ayarı kaydedilir ve silinir", async () => {
+    const { unmount } = render(<App />);
+    await act(async () => fireEvent.keyDown(window, { key: "6" }));
+    const sea = () => screen.getByRole("img", { name: /Gece denizi/ });
+    // jsdom'da WebGL yok: görünüm tuvalin veri özniteliklerinden okunur.
+    expect(sea()).toHaveAttribute("data-speed", "1");
+    expect(sea()).toHaveAttribute("data-palette", "theme");
+
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /Gece denizi/ })));
+    const look = screen.getByRole("group", { name: "Görünüm: Gece denizi" });
+    const palettes = within(look).getByRole("group", { name: "Renk paleti" });
+    expect(within(palettes).getAllByRole("button")).toHaveLength(5);
+    expect(within(palettes).getByRole("button", { name: "Bölüm teması" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await act(async () => fireEvent.click(within(palettes).getByRole("button", { name: "Kor" })));
+    expect(sea()).toHaveAttribute("data-palette", "ember");
+    expect(within(palettes).getByRole("button", { name: "Kor" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    const speed = within(look).getByRole("slider", { name: "Hareket hızı" });
+    expect(speed).toHaveAttribute("aria-valuetext", "1×");
+    await act(async () => fireEvent.change(speed, { target: { value: "1.5" } }));
+    expect(sea()).toHaveAttribute("data-speed", "1.5");
+    expect(speed).toHaveAttribute("aria-valuetext", "1,5×");
+    // Görünüm değişince liste açık kalır; sahnenin görünümü hatırlanır.
+    expect(screen.getByRole("group", { name: "Galeri" })).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem("lyraska.sceneLooks") ?? "{}").looks.sea).toEqual(
+      {
+        speed: 1.5,
+        palette: "ember",
+      },
+    );
+
+    // Hazır ayar: sahne ve görünüm tek tıkla.
+    const presets = screen.getByRole("group", { name: "Hazır ayarlar" });
+    await act(async () =>
+      fireEvent.click(within(presets).getByRole("button", { name: /^Kor ateşi/ })),
+    );
+    const nebula = screen.getByRole("img", { name: /Bulutsu/ });
+    expect(nebula).toHaveAttribute("data-speed", "0.8");
+    expect(nebula).toHaveAttribute("data-palette", "ember");
+    expect(within(presets).getByRole("button", { name: /^Kor ateşi/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(window.localStorage.getItem("lyraska.scene")).toBe("nebula");
+    // Programla gelen hazır ayar silinemez.
+    expect(within(presets).queryByRole("button", { name: /hazır ayarını sil/ })).toBeNull();
+
+    // Kaydet: ad girilir; Esc yalnızca ad girmeyi bırakır.
+    await act(async () => fireEvent.click(within(presets).getByRole("button", { name: "Kaydet" })));
+    let name = within(presets).getByRole("textbox", { name: "Hazır ayarın adı" });
+    expect(name).toHaveValue("Bulutsu · Kor · 0,8×");
+    await act(async () => fireEvent.keyDown(name, { key: "Escape" }));
+    expect(within(presets).queryByRole("textbox")).toBeNull();
+    expect(screen.getByRole("group", { name: "Galeri" })).toBeInTheDocument();
+    await act(async () => fireEvent.click(within(presets).getByRole("button", { name: "Kaydet" })));
+    name = within(presets).getByRole("textbox", { name: "Hazır ayarın adı" });
+    await act(async () => fireEvent.change(name, { target: { value: "  Benim   bulutum " } }));
+    await act(async () => fireEvent.click(within(presets).getByRole("button", { name: "Kaydet" })));
+    expect(within(presets).getByRole("status")).toHaveTextContent('"Benim bulutum" kaydedildi.');
+    const stored = JSON.parse(window.localStorage.getItem("lyraska.scenePresets") ?? "{}");
+    expect(stored.presets).toEqual([
+      expect.objectContaining({
+        name: "Benim bulutum",
+        scene: "nebula",
+        speed: 0.8,
+        palette: "ember",
+      }),
+    ]);
+
+    // Başka bir hazır ayardan sonra kullanıcınınki yine aynı görünümü kurar.
+    await act(async () =>
+      fireEvent.click(within(presets).getByRole("button", { name: /^Sakin deniz/ })),
+    );
+    expect(sea()).toHaveAttribute("data-speed", "0.6");
+    expect(sea()).toHaveAttribute("data-palette", "ice");
+    await act(async () =>
+      fireEvent.click(within(presets).getByRole("button", { name: /^Benim bulutum/ })),
+    );
+    expect(screen.getByRole("img", { name: /Bulutsu/ })).toHaveAttribute("data-palette", "ember");
+
+    // Kapatıp yeniden açınca görünümler ve hazır ayarlar hatırlanır.
+    unmount();
+    render(<App />);
+    expect(screen.getByRole("img", { name: /Bulutsu/ })).toHaveAttribute("data-speed", "0.8");
+    await act(async () => fireEvent.keyDown(window, { key: "6" }));
+    expect(sea()).toHaveAttribute("data-palette", "ice");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /Gece denizi/ })));
+    const again = screen.getByRole("group", { name: "Hazır ayarlar" });
+    await act(async () =>
+      fireEvent.click(
+        within(again).getByRole("button", { name: '"Benim bulutum" hazır ayarını sil' }),
+      ),
+    );
+    expect(within(again).queryByRole("button", { name: /^Benim bulutum/ })).toBeNull();
+    expect(within(again).getByRole("status")).toHaveTextContent('"Benim bulutum" silindi.');
+    expect(JSON.parse(window.localStorage.getItem("lyraska.scenePresets") ?? "{}").presets).toEqual(
+      [],
+    );
+    // Klasik sahnede görünüm bölümü ve "Kaydet" yok, hazır ayarlar var.
+    await act(async () =>
+      fireEvent.keyDown(screen.getByRole("group", { name: "Galeri" }), { key: "Escape" }),
+    );
+    await act(async () => fireEvent.keyDown(window, { key: "1" }));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /Galeri/ })));
+    expect(screen.queryByRole("group", { name: /Görünüm/ })).toBeNull();
+    expect(screen.getByRole("group", { name: "Hazır ayarlar" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Kaydet" })).toBeNull();
+  });
+
   it("1–5 tuşları sahne seçer; arama kutusuna yazarken seçmez", async () => {
     render(<App />);
     await act(async () => fireEvent.keyDown(window, { key: "3" }));

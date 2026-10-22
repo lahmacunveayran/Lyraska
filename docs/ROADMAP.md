@@ -189,7 +189,11 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       Windows-1254 (eski Türkçe `.lrc` dosyaları). Kelime zamanı yoksa hece sayısıyla tahmin. Sahnede söylenen satır
       kelime kelime belirir (parlaklık değişmez, "animasyonları azalt"ta hareket yok), sıradaki satır soluk; ses
       aygıtının gecikmesi düşülür. Ayarlar > Şarkı sözleri: aç/kapa
-- [ ] Preset sistemi
+- [x] Preset sistemi (0.0.58): galerinin her sahnesinde **Görünüm**: hız (0,5–2×; yalnızca hareket, parlaklık
+      değişmez) ve renk paleti (bölüm teması ya da özgün Buz, Kor, Orman, Gül paletleri; geçiş 1 saniyede karışarak,
+      parlaklıkları temalardan yüksek değil). **Hazır ayarlar**: sahne ve görünümü tek tıkla kurar; altı hazır ayar
+      programla gelir (ör. "Sakin deniz"), kullanıcı kendi ayarını adıyla kaydedip siler (en fazla 50; tarayıcı
+      deposunda, okunurken doğrulanır). Her sahnenin son görünümü hatırlanır
 - [ ] Kod imzalama (Windows "bilinmeyen yayımcı" uyarısının kalkması)
 - [x] **Açık şarkı haritası formatı** (0.0.55; plan, 9 Ekim 2026): Lyraska'nın şarkı haritası (vuruşlar, ölçü
       başları, bölümler, droplar ve güvenleri, enerji, ton) belgelenmiş, sürümlü bir JSON biçiminde dışa ve içe

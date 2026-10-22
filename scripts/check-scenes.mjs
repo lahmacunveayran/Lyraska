@@ -7,7 +7,8 @@
 // - Gece göğünde sağ üstteki Lyra takımyıldızının yıldızları görünüyor mu?
 // - Parlama sınırı: sessizden tam sese geçişte ekrandaki en büyük parlaklık farkı. Gece göğünün
 //   her manzarası (göl, korona, karlı vadi) ölçülür; renkleri bölüm temasına göre değişen
-//   sahneler her temada (göğün varsayılan dışındaki manzaraları en parlak iki temada).
+//   sahneler her temada (göğün varsayılan dışındaki manzaraları en parlak iki temada). Galerinin
+//   iki sahnesi ayrıca en parlak sabit palette ve en yüksek hızda (hazır ayarlar).
 //
 // CI'da Windows'ta Microsoft Edge ile çalışır: programın kullandığı WebView2 de Edge
 // motorudur ve gölgelendiriciler Windows'ta (ANGLE → Direct3D) Linux'takinden farklı
@@ -86,10 +87,18 @@ const fakeCore = (level = null, theme = 1) => `
   }};
 `;
 
-/** Sayfa açılmadan çalışan betik: sahne ve gök manzarası seçili, sahte çekirdek kurulu. */
-const initScript = (sceneId, { look = null, level = null, theme = 1 } = {}) =>
+/**
+ * Sayfa açılmadan çalışan betik: sahne ve gök manzarası seçili, sahte çekirdek kurulu.
+ * `sceneLook`: galeri sahnesinin görünümü (`{ speed, palette }`, src/lib/sceneLook.ts).
+ */
+const initScript = (sceneId, { look = null, sceneLook = null, level = null, theme = 1 } = {}) =>
   `try { localStorage.setItem("lyraska.scene", "${sceneId}");` +
   (look ? ` localStorage.setItem("lyraska.skyLook", "${look}");` : "") +
+  (sceneLook
+    ? ` localStorage.setItem("lyraska.sceneLooks", ${JSON.stringify(
+        JSON.stringify({ version: 1, looks: { [sceneId]: sceneLook } }),
+      )});`
+    : "") +
   ` } catch {}\n${fakeCore(level, theme)}`;
 
 /** Tuvalin görüntüsünü çözüp parlaklık ölçer (bağıl parlaklık, 0..1). */
@@ -328,7 +337,12 @@ async function checkFlashBound(browser, scene, variant, theme) {
     const errors = [];
     page.on("pageerror", (e) => errors.push(`sayfa hatası: ${e}`));
     await page.addInitScript(
-      initScript(scene.id, { look: variant.look, level, theme: theme ?? 1 }),
+      initScript(scene.id, {
+        look: variant.look,
+        sceneLook: variant.sceneLook,
+        level,
+        theme: theme ?? 1,
+      }),
     );
     // Hız sınırlı değerler yerine otursun: enerjiler ~1,2 sn'de, renk teması 2 sn'de.
     await startPlaying(page, 2500);
@@ -374,20 +388,47 @@ const SCENES = [
   // Ön camdan aynı yol; torpidonun ışığı ve teyp de temada.
   { id: "drive", name: "Gece sürüşü", extra: () => null, themed: true },
   // Galerinin gölgelendirici sahneleri (src/lib/shaderScene.ts). Renkleri gece göğünün temaları;
-  // parlama sınırı en parlak iki temada ölçülür (denetim süresi).
+  // parlama sınırı en parlak iki temada ölçülür (denetim süresi). Renk alanı geniş iki sahne
+  // ayrıca en parlak sabit palette ve en yüksek hızda (hazır ayarlar, src/lib/sceneLook.ts).
   ...[
     ["sea", "Gece denizi"],
-    ["nebula", "Bulutsu"],
+    ["nebula", "Bulutsu", true],
     ["tunnel", "Işık tüneli"],
     ["fireflies", "Ateşböcekleri"],
-    ["kaleido", "Kaleydoskop"],
+    ["kaleido", "Kaleydoskop", true],
     ["ribbons", "İpek şeritler"],
     ["galaxy", "Sarmal gökada"],
     ["dunes", "Kum tepeleri"],
     ["rain", "Yağmurlu cam"],
     ["crystal", "Kristal ağ"],
-  ].map(([id, name]) => ({ id, name, extra: () => null, themed: true, brightOnly: true })),
+  ].map(([id, name, palette = false]) => ({
+    id,
+    name,
+    extra: () => null,
+    themed: true,
+    brightOnly: true,
+    palette,
+  })),
 ];
+
+/** Galeri sahnelerinin sabit paletlerinin adları (`SCENE_PALETTES`, src/lib/sceneLook.ts). */
+const PALETTE_NAMES = { ice: "Buz", ember: "Kor", forest: "Orman", rose: "Gül" };
+
+/** Alt rengi (`--scene-palette-<id>-low`) en parlak sabit palet, src/styles/global.css'ten. */
+function brightestPalette() {
+  const css = readFileSync(new URL("../src/styles/global.css", import.meta.url), "utf8");
+  const found = [...css.matchAll(/--scene-palette-(\w+)-low:\s*#([0-9a-f]{6})/gi)].map(
+    ([, id, hex]) => ({ id, luminance: hexLuminance(hex) }),
+  );
+  if (found.length === 0) throw new Error("--scene-palette-*-low okunamadı");
+  return found.sort((a, b) => b.luminance - a.luminance)[0].id;
+}
+
+function hexLuminance(hex) {
+  const lin = (v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const [r, g, b] = [0, 2, 4].map((i) => lin(parseInt(hex.slice(i, i + 2), 16) / 255));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
 
 /**
  * Bölüm renk temaları (`SKY_THEMES`, src/lib/sky.ts). Temaya göre renklenen sahnelerin parlama
@@ -401,21 +442,34 @@ const THEMES = [0, 1, 2, 3];
  */
 function brightestThemes(count) {
   const css = readFileSync(new URL("../src/styles/global.css", import.meta.url), "utf8");
-  const lin = (v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
   const luminance = (theme) => {
     const hex = css.match(new RegExp(`--sky-theme-${theme}-low:\\s*#([0-9a-f]{6})`, "i"))?.[1];
     if (!hex) throw new Error(`--sky-theme-${theme}-low okunamadı`);
-    const [r, g, b] = [0, 2, 4].map((i) => lin(parseInt(hex.slice(i, i + 2), 16) / 255));
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return hexLuminance(hex);
   };
   return [...THEMES].sort((a, b) => luminance(b) - luminance(a)).slice(0, count);
 }
 
-/** Sahnenin denetlenen biçimleri: gece göğünde her manzara, diğerlerinde tek. */
+/**
+ * Sahnenin denetlenen biçimleri: gece göğünde her manzara, diğerlerinde tek; `palette` işaretli
+ * galeri sahnelerinde ayrıca en parlak sabit palet ve en yüksek hız (temadan bağımsız).
+ */
 function variants(scene) {
-  return scene.looks
-    ? scene.looks.map((look) => ({ label: `${scene.name} · ${look.name}`, look: look.id }))
-    : [{ label: scene.name, look: null }];
+  if (scene.looks) {
+    return scene.looks.map((look) => ({ label: `${scene.name} · ${look.name}`, look: look.id }));
+  }
+  const plain = [{ label: scene.name, look: null }];
+  if (!scene.palette) return plain;
+  const palette = brightestPalette();
+  return [
+    ...plain,
+    {
+      label: `${scene.name} · ${PALETTE_NAMES[palette] ?? palette} paleti, 2×`,
+      look: null,
+      sceneLook: { speed: 2, palette },
+      fixedPalette: true,
+    },
+  ];
 }
 
 /** Parlama sınırı ölçülen sahneler (hepsi). */
@@ -439,7 +493,9 @@ async function checkScene(browser, scene, variant) {
     if (m.type() === "error" && !expected) problems.push(`konsol: ${m.text()}`);
   });
   page.on("pageerror", (e) => problems.push(`sayfa hatası: ${e}`));
-  await page.addInitScript(initScript(scene.id, { look: variant.look }));
+  await page.addInitScript(
+    initScript(scene.id, { look: variant.look, sceneLook: variant.sceneLook }),
+  );
   await startPlaying(page, 1500);
   await hideChrome(page);
 
@@ -509,7 +565,12 @@ try {
     const bright = brightestThemes(2);
     for (const scene of ALL_SCENES.filter(selected)) {
       for (const [i, variant] of variants(scene).entries()) {
-        const themes = !scene.themed ? [null] : i === 0 && !scene.brightOnly ? THEMES : bright;
+        const themes =
+          !scene.themed || variant.fixedPalette
+            ? [null]
+            : i === 0 && !scene.brightOnly
+              ? THEMES
+              : bright;
         for (const theme of themes) {
           problems = problems.concat(await checkFlashBound(browser, scene, variant, theme));
         }
