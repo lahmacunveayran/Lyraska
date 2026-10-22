@@ -21,6 +21,8 @@ import type { EqState } from "./bindings/EqState";
 import type { HeadphoneFilter } from "./bindings/HeadphoneFilter";
 import type { HeadphoneProfile } from "./bindings/HeadphoneProfile";
 import type { HeadphoneState } from "./bindings/HeadphoneState";
+import type { ImportedMapStatus } from "./bindings/ImportedMapStatus";
+import type { MapSource } from "./bindings/MapSource";
 import type { FilterKind } from "./bindings/FilterKind";
 import type { ParametricBand } from "./bindings/ParametricBand";
 import type { ParametricSettings } from "./bindings/ParametricSettings";
@@ -64,6 +66,8 @@ export type {
   HeadphoneFilter,
   HeadphoneProfile,
   HeadphoneState,
+  ImportedMapStatus,
+  MapSource,
   FilterKind,
   ParametricBand,
   ParametricSettings,
@@ -510,6 +514,51 @@ export async function getCrossfeed(): Promise<CrossfeedState | null> {
 export async function setCrossfeed(settings: CrossfeedSettings): Promise<CrossfeedState | null> {
   if (!isTauri()) return null;
   return invoke<CrossfeedState>("crossfeed_set", { settings });
+}
+
+/**
+ * Şarkı haritasını dosyaya yazar (açık biçim; ses içermez). İşaretlenmiş vuruş, drop ve ton
+ * analizinkinin yerine geçer.
+ */
+export async function exportSongMap(path: string, target: string): Promise<void> {
+  return invoke<void>("song_map_export", { path, target });
+}
+
+/** Şarkı haritası dosyasını şarkıya uygular; ses parmak izi tutmazsa hata verir. */
+export async function importSongMap(path: string, file: string): Promise<ImportedMapStatus> {
+  return invoke<ImportedMapStatus>("song_map_import", { path, file });
+}
+
+/** Şarkıya içe aktarılmış ve uygulanan harita; yoksa ya da tarayıcı önizlemesinde `null`. */
+export async function getImportedSongMap(path: string): Promise<ImportedMapStatus | null> {
+  if (!isTauri()) return null;
+  return invoke<ImportedMapStatus | null>("song_map_imported", { path });
+}
+
+/** İçe aktarılan haritayı kaldırır: programın analizi geri gelir. */
+export async function removeSongMap(path: string): Promise<void> {
+  return invoke<void>("song_map_remove", { path });
+}
+
+/** Şarkı haritası dosyası seçme penceresi. */
+export async function pickSongMapFile(): Promise<string | null> {
+  const selected = await open({
+    title: "Lyraska şarkı haritası seçin",
+    multiple: false,
+    directory: false,
+    filters: [{ name: "Lyraska şarkı haritası", extensions: ["json"] }],
+  });
+  return typeof selected === "string" ? selected : null;
+}
+
+/** Şarkı haritasını kaydetme penceresi; seçilen yol ya da `null`. */
+export async function pickSongMapSavePath(defaultName: string): Promise<string | null> {
+  const path = await save({
+    title: "Şarkı haritasını kaydet",
+    defaultPath: defaultName,
+    filters: [{ name: "Lyraska şarkı haritası", extensions: ["json"] }],
+  });
+  return path ?? null;
 }
 
 /** Pencereye dosya sürükleme olaylarını dinleyen işlevler. */

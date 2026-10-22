@@ -380,6 +380,17 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
   "4/4" kalmalı. Ölçüsü belirsiz bir şarkıda ölçü hiç yazmaz; bu bilerek yapıldı.
 - Bildirin: aksak olduğunu bildiğiniz şarkıda programın yazdığı ölçü (ya da hiç yazmaması) ve şarkının adı.
 
+**E6. Şarkı haritası dosyası (0.0.55)**
+
+- Nasıl: Analizi bitmiş bir şarkıda **İşaretle** panelinin altındaki **Şarkı haritası dosyası → Haritayı dışa
+  aktar**. Aynı şarkının başka bir dosyasını (ör. FLAC'ının yanında MP3'ünü) açın ve **Harita içe aktar** ile o
+  dosyayı seçin. Sonra başka bir şarkıya aynı haritayı içe aktarmayı deneyin.
+- Neye bakılır: aynı şarkının öteki dosyasında "İçe aktarılan harita kullanılıyor · benzerlik %…" yazar; başka
+  şarkıda "Bu harita bu şarkıya ait değil" der ve hiçbir şey değişmez. Bir şarkıyı işaretleyip (vuruş, drop, ton)
+  dışa aktarırsanız dosyada sizin işaretleriniz olur. **Kaldır** programın kendi analizine döner.
+- Bildirin: benzerlik yüzdeleri (aynı şarkının MP3/FLAC'ında ve başka şarkıda) ve yanlış eşleşme olursa iki şarkının
+  adı.
+
 ## F. Hata günlüğü
 
 **F1. Hata günlüğü açılıyor**

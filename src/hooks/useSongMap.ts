@@ -8,8 +8,9 @@ const MAX_TRIES = 120;
 /**
  * Çalan şarkının haritası (bölümler, droplar, enerji). Analiz bitince gelir: hazır
  * olana kadar ara ara sorulur. Şarkı değişince önceki şarkının haritası hemen bırakılır.
+ * `revision` artınca (harita içe aktarıldı ya da kaldırıldı) yeniden sorulur.
  */
-export function useSongMap(trackPath: string | null): SongMap | null {
+export function useSongMap(trackPath: string | null, revision = 0): SongMap | null {
   const [loaded, setLoaded] = useState<{ path: string; map: SongMap } | null>(null);
 
   useEffect(() => {
@@ -33,7 +34,7 @@ export function useSongMap(trackPath: string | null): SongMap | null {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [trackPath]);
+  }, [trackPath, revision]);
 
   return loaded && loaded.path === trackPath ? loaded.map : null;
 }

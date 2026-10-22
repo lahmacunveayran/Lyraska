@@ -151,6 +151,12 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
   oylamasıyla seçilir (ton değiştiren şarkıda iki tonun ortasındaki komşu ton çıkmasın), bölümlerin tonu ayrıca
   hesaplanır. Güveni düşük ton gösterilmez. Arayüz `song_key` ile alır; kütüphane listesi Camelot kodunu
   önbellekteki `camelot` sütunundan okur.
+- Açık şarkı haritası (`analysis/map_file.rs`, biçim belgesi `SARKI-HARITASI.md`): harita JSON olarak dışa ve içe
+  aktarılır; ses içermez. Eşleşme ses parmak iziyle (`analysis/fingerprint.rs`): analiz karelerinden Haitsma–Kalker
+  bant bitleri (15 kare/sn, 24 bit) ve kromadan armoni bitleri (saniyede 12 bit); şarkı yeniden çözülmez. İçe
+  aktarılan harita `Spectrogram::set_imported` ile analizin vuruşlarının, yapısının, koreografisinin ve tonunun önüne
+  geçer (`beat_grid()`, `song_map()`, `choreography()`); önbelleğe programın analizi yazılır (`saved()`
+  `analysis_*` okur). Şarkı açılınca `haritalar/` deposunda dosya damgası tutan harita varsa hemen uygulanır.
 - Arayüz her ekran karesinde `visual_frame` ister; `visual_bridge` çalma konumuna (ekran ve aygıt
   gecikmesi telafi edilerek) karşılık gelen kareyi verir. Görseller ses yolundan veri çekmez.
 - Her sahne yönetmen notunun üç katmanını kullanır:
@@ -197,11 +203,12 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
 | Şarkı etiketlerinin okunuşu     | aynı dosya, `tracks.tags_version`       | `TAGS_VERSION` (okuma kuralı değişince; şu an 1)                                    |
 | Ayarlar                         | `settings.json`                         | Eksik alan varsayılanla dolar; bozuk dosyada varsayılanlar                          |
 | İşaretler                       | `isaretler/*.json`                      | Dosyada `format` alanı                                                              |
+| İçe aktarılan şarkı haritaları  | `haritalar/*.json`                      | Biçim sürümü (`map_file::VERSION`); şarkı dosyası değişince uygulanmaz              |
 | Hata günlüğü                    | `logs/lyraska.log` (yerel veri klasörü) | 1 MB'ta bir yedeklenir                                                              |
 
-Windows'ta iki veri klasörü vardır: gezici `%APPDATA%\com.lyraska.app` (ayarlar, işaretler: küçük, kullanıcıya ait)
-ve makineye özgü `%LOCALAPPDATA%\com.lyraska.app` (kütüphane + analiz önbelleği, günlükler: büyük, yeniden
-üretilebilir). Eski sürümlerin gezici klasöre yazdığı kütüphane ilk açılışta bir kez taşınır (`data_dirs.rs`);
+Windows'ta iki veri klasörü vardır: gezici `%APPDATA%\com.lyraska.app` (ayarlar, işaretler, haritalar: küçük,
+kullanıcıya ait) ve makineye özgü `%LOCALAPPDATA%\com.lyraska.app` (kütüphane + analiz önbelleği, günlükler: büyük,
+yeniden üretilebilir). Eski sürümlerin gezici klasöre yazdığı kütüphane ilk açılışta bir kez taşınır (`data_dirs.rs`);
 taşınamazsa eski yer kullanılır.
 
 ## Kurallar ve onları denetleyenler
@@ -245,6 +252,9 @@ Her kural ya bir testle ya da CI'daki bir adımla denetlenir. Elle hatırlanmas�
 | Parametrik EQ'nun yükseltmesi korumaya bildirilir, ses yolunda ikinci kez kısılmaz | `audio::peq` testi `bildirilen_yukseltme_…`                                                          |
 | Crossfeed'de orta ses bit bit aynı, yan kanal hiçbir frekansta yükselmez           | `audio::crossfeed` testleri                                                                          |
 | Crossfeed ses yolunda; ortadaki ses bütün yoldan aynen, bit-perfect'te yok         | `audio::render` testi `crossfeed_ses_yolunda_…`                                                      |
+| Parmak izi aynı kaydı tanır (kayıplı, kaymış, 22 kHz), başka şarkıyı ayırır        | `analysis::fingerprint` testleri; gerçek kodlayıcılarla `gercek_kodlayicilarla_olcum` (elle, ffmpeg) |
+| Şarkı haritası dosyası doğrulanır; kötü niyetli dosya reddedilir; alanlar sabit    | `analysis::map_file` testleri `bozuk_ve_…`, `bicim_alanlari_sabit`                                   |
+| İçe aktarılan harita analizin önüne geçer, önbelleğe yazılmaz, kalıcı              | `spectrogram` testi `ice_aktarilan_…`, `player` testi `sarki_haritasi_…`                             |
 | Kör test bitince önceki şarkı kaldığı yerde geri gelir, ekranda görünür            | `audio::player` testi `kor_test_sarkiyi_durdurur_…`, bileşen testi "kör test"                        |
 | Kör test kurulamazsa çalan şarkı kesilmez                                          | `audio::player` testi `kor_test_kurulamazsa_calan_sarki_durmaz`                                      |
 | Analiz hesabı değişince eski sonuçlar kullanılmaz                                  | `cache::VERSIONS` ve önbellek testleri                                                               |

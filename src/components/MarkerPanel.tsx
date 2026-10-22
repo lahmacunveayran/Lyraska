@@ -1,6 +1,8 @@
+import type { MapFileControls } from "../hooks/useMapFile";
 import type { MarkerControls } from "../hooks/useMarker";
 import { openAnnotationFolder } from "../lib/backend";
 import { formatTime } from "../lib/format";
+import { importedSummary } from "../lib/mapFile";
 import { tapBpm } from "../lib/marks";
 import {
   KEY_CONFIDENCE_MIN,
@@ -16,6 +18,8 @@ import { timelineLayout } from "../lib/timeline";
 
 export interface MarkerPanelProps {
   marker: MarkerControls;
+  /** Şarkı haritası dosyası: dışa aktarma, içe aktarma (verilmezse bölüm gösterilmez). */
+  mapFile?: MapFileControls;
   /** Çalan şarkının adı; şarkı yoksa `null`. */
   trackTitle: string | null;
   playing: boolean;
@@ -100,7 +104,69 @@ function bpmText(bpm: number | null): string {
  * Sonuç şarkı başına bir dosyaya kendiliğinden kaydedilir (ses içermez) ve
  * programın analiziyle karşılaştırılabilir.
  */
-export function MarkerPanel({ marker, trackTitle, playing, durationSecs }: MarkerPanelProps) {
+/**
+ * Şarkı haritası dosyası: haritayı (işaretlerinizle düzeltilmiş hâliyle) paylaşmak ve başkasının
+ * haritasını aynı şarkının kendi dosyanıza uygulamak. Dosyada ses yoktur.
+ */
+function MapFileStrip({ mapFile, hasTrack }: { mapFile: MapFileControls; hasTrack: boolean }) {
+  const { imported, busy } = mapFile;
+  return (
+    <div className="mapfile" role="group" aria-label="Şarkı haritası dosyası">
+      <div className="mapfile__head">
+        <span className="hp__title">Şarkı haritası dosyası</span>
+        <span className="mapfile__actions">
+          <button
+            type="button"
+            className="chip chip--button"
+            disabled={!hasTrack || busy}
+            onClick={() => void mapFile.exportMap()}
+            title="Vuruşlar, ölçü, bölümler, droplar, enerji ve ton; işaretledikleriniz analizin yerine geçer."
+          >
+            Haritayı dışa aktar
+          </button>
+          <button
+            type="button"
+            className="chip chip--button"
+            disabled={!hasTrack || busy}
+            onClick={() => void mapFile.importMap()}
+          >
+            Harita içe aktar
+          </button>
+        </span>
+      </div>
+      {imported ? (
+        <p className="mapfile__status">
+          <strong>İçe aktarılan harita kullanılıyor:</strong> {imported.sourceName} ·{" "}
+          {importedSummary(imported)}{" "}
+          <button
+            type="button"
+            className="chip chip--button"
+            disabled={busy}
+            onClick={() => void mapFile.removeMap()}
+          >
+            Kaldır
+          </button>
+        </p>
+      ) : (
+        <p className="hp__hint mapfile__hint">
+          Dosyada ses yoktur, yalnızca zamanlar ve sayılar. Başkası aynı şarkının kendi dosyasına
+          (MP3 ya da FLAC fark etmez) uygulayabilir: harita dosya adına değil, sesin parmak izine
+          göre eşleşir; başka bir kayda (canlı, remaster) uygulanmaz.
+        </p>
+      )}
+      {mapFile.message && <p className="mapfile__message">{mapFile.message}</p>}
+      {mapFile.error && <p className="library__notice library__problem">{mapFile.error}</p>}
+    </div>
+  );
+}
+
+export function MarkerPanel({
+  marker,
+  mapFile,
+  trackTitle,
+  playing,
+  durationSecs,
+}: MarkerPanelProps) {
   const { marks, recording, evaluation } = marker;
   const bpm = tapBpm(marks.beats);
   const lastBeats = marks.beats.slice(-6);
@@ -238,6 +304,8 @@ export function MarkerPanel({ marker, trackTitle, playing, durationSecs }: Marke
                   : ""}
           </span>
         </div>
+
+        {mapFile && <MapFileStrip mapFile={mapFile} hasTrack={trackTitle !== null} />}
 
         {evaluation && (
           <dl className="marker__result" aria-label="Doğruluk sonucu">

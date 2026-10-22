@@ -182,19 +182,24 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
 - [ ] Kinetik şarkı sözleri
 - [ ] Preset sistemi
 - [ ] Kod imzalama (Windows "bilinmeyen yayımcı" uyarısının kalkması)
-- [ ] **Açık şarkı haritası formatı** (plan, 9 Ekim 2026): Lyraska'nın şarkı haritası (vuruşlar, ölçü başları,
-      bölümler, droplar ve güvenleri, enerji, ton) belgelenmiş, sürümlü bir JSON biçiminde dışa ve içe aktarılır.
+- [x] **Açık şarkı haritası formatı** (0.0.55; plan, 9 Ekim 2026): Lyraska'nın şarkı haritası (vuruşlar, ölçü
+      başları, bölümler, droplar ve güvenleri, enerji, ton) belgelenmiş, sürümlü bir JSON biçiminde dışa ve içe
+      aktarılır. Biçim belgesi: [SARKI-HARITASI.md](SARKI-HARITASI.md). İşaretleme panelinde **Şarkı haritası
+      dosyası**: dışa aktar, içe aktar (benzerlik ve kayma yazılır), kaldır.
   - **Ses ve şarkı sözü içermez** (telif): yalnızca zamanlar ve sayılar. İşaretleme dosyaları gibi.
   - **Ses parmak iziyle eşleşir:** dosya adı ya da etiket değil, sesin kendisinden çıkarılan kısa bir parmak izi.
     Aynı kaydın farklı biçimleri (MP3/FLAC) ve farklı adları eşleşir; farklı kayıtlar (canlı, remaster) eşleşmez.
-    Parmak izi programda, çevrimdışı hesaplanır. Yöntem eklenmeden önce lisansı doğrulanır (Chromaprint
-    LGPL-2.1; başka bir uygulama da olabilir).
+    Parmak izi programda, çevrimdışı hesaplanır. **Kendi yöntemimiz, dış kütüphane yok** (lisans sorunu yok):
+    analiz karelerinden Haitsma–Kalker bant bitleri + kromadan armoni bitleri; şarkı yeniden çözülmez. Ölçülen:
+    MP3 64 kbps'te bile bit hata oranı 0,044 (eşik 0,30); aynı davul ve tempoda başka şarkıyı kroma ayırır.
   - **Topluluk paylaşır:** insanların düzelttiği haritalar (ör. işaretleme aracıyla) dosya olarak paylaşılır; içe
     aktarılan harita programın analizinin önüne geçer. İsteğe bağlı bir topluluk deposu ileride düşünülebilir;
     program **hiçbir zaman internete bağlanmak zorunda değildir**, telemetri yoktur. Paylaşılan harita ses
     içermediği için kayıt sahibinin hakkına dokunmaz.
-  - Biçim belgesi (`docs/`) ve şema sürümü; eski sürümün dosyaları okunur. Kötü niyetli dosyaya karşı sınırlar
-    (boyut, değer aralıkları) ve testler.
+  - Biçim belgesi (`docs/SARKI-HARITASI.md`) ve şema sürümü; daha yeni sürümün dosyası anlaşılır hatayla
+    reddedilir. Kötü niyetli dosyaya karşı sınırlar (boyut, sayılar, değer aralıkları, sıra) ve testler.
+  - İçe aktarılan harita analiz önbelleğine yazılmaz; kaldırılınca programın analizi geri gelir; şarkı dosyası
+    değişirse uygulanmaz. Bulunan kayma (başka baskının başına eklenmiş sessizlik) zamanlara uygulanır.
 
 ## Faz 5 — Büyüme (v1.0 sonrası)
 
