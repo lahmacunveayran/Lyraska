@@ -73,7 +73,8 @@ for (const file of [...walk(join(ROOT, "src")), join(ROOT, "index.html")]) {
   if (!/\.(ts|tsx|css|html)$/.test(file) || /\.test\./.test(file)) continue;
   const lines = readFileSync(file, "utf8").split("\n");
   lines.forEach((line, i) => {
-    const code = line.replace(/\/\/.*$/, "").replace(/^\s*\*.*$/, "");
+    // Yorumlar atlanır; `https://` içindeki `//` yorum değildir (önünde `:` olan `//` kalır).
+    const code = line.replace(/(^|[^:])\/\/.*$/, "$1").replace(/^\s*\*.*$/, "");
     if (/https?:\/\//.test(code)) {
       problems.push(`${relative(ROOT, file)}:${i + 1}: uzak adres (program internete bağlanmaz)`);
     }
@@ -90,6 +91,18 @@ for (const unsafe of ["'unsafe-eval'", "'unsafe-inline'", "*", "https:", "http:"
 }
 for (const required of ["object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'"]) {
   if (!csp.includes(required)) problems.push(`tauri.conf.json CSP: "${required}" eksik`);
+}
+// Arayüz programın kendi dosyalarını `fetch` ile okuyorsa (ör. Ayarlar > Lisanslar) CSP buna izin
+// vermeli: `connect-src` `default-src`'ye geri düşmez; 'self' yoksa sürümde metin açılmaz.
+const usesFetch = [...walk(join(ROOT, "src"))].some(
+  (file) =>
+    /\.(ts|tsx)$/.test(file) &&
+    !/\.test\./.test(file) &&
+    /\bfetch\(/.test(readFileSync(file, "utf8")),
+);
+const connectSrc = /connect-src([^;]*)/.exec(csp)?.[1] ?? "";
+if (usesFetch && !connectSrc.split(/\s+/).includes("'self'")) {
+  problems.push("tauri.conf.json CSP: arayüz fetch kullanıyor ama connect-src'de 'self' yok");
 }
 
 // İzinler en dar hâlinde: yeni bir Tauri izni (ör. dosya sistemi, kabuk, http) bilinçli eklenir.

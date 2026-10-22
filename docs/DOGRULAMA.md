@@ -16,7 +16,8 @@ düzeltilir.
    - madde numarası ve **✅ oldu** ya da **❌ olmadı**,
    - olmadıysa ne gördüğünüzü bir cümleyle (ekran görüntüsü varsa çok iyi).
 4. Bir şey ters giderse **Ayarlar → Hata günlüğü** düğmesine basın; açılan klasördeki `lyraska.log` dosyasını
-   gönderin. Kişisel bilgi içermez (yalnızca program olayları ve dosya adları).
+   gönderin. Şarkıların kendisini içermez; ama program olaylarının yanında şarkı dosyalarının adı ve klasör yolu
+   (Windows kullanıcı adınız dahil) geçebilir. İsterseniz göndermeden önce Not Defteri ile açıp bakın.
 
 Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce onları deneyin.
 

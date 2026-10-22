@@ -1,5 +1,5 @@
 // Programla dağıtılan üçüncü taraf kodun lisans bildirimlerini üretir:
-// public/lisanslar/UCUNCU-TARAF.txt (programın içine paketlenir, Ayarlar > Program'dan açılır).
+// public/lisanslar/UCUNCU-TARAF.txt (programın içine paketlenir, Ayarlar > Lisanslar'dan açılır).
 //
 // Kaynaklar:
 // - Rust: Windows hedefinde çalıştırılabilir dosyaya giren crate'ler (`cargo tree`, yalnızca normal

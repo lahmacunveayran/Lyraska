@@ -4,7 +4,8 @@
 > a playing program, the Visual Director and professional audio — are implemented; Phase 4 (the
 > visual library and 1.0) is in progress. Lyraska plays local audio files on Windows (MP3, FLAC,
 > WAV, AIFF, OGG Vorbis, AAC/ALAC), keeps a library, analyses every track (beats, bars, sections,
-> drops, key) and drives five scenes from that analysis. Test builds are published continuously;
+> drops, key) and drives 16 scenes from that analysis (five classic scenes, a gallery of ten and MilkDrop with
+> your own `.milk` presets). Test builds are published continuously;
 > see **Download**.
 
 An offline music player for Windows whose visuals **know the song before it plays**.
@@ -21,7 +22,7 @@ profiles, EBU R128 loudness normalisation, crossfeed and a bit-perfect output mo
 ## Highlights
 
 - **Fully offline** — no accounts, no telemetry, no network required.
-- **Song-aware visuals** — scenes (three of them WebGL2) driven by pre-computed analysis, with
+- **Song-aware visuals** — WebGL2 scenes driven by pre-computed analysis, with
   latency compensation targeting ±20 ms audio/visual sync; time-synced lyrics from your own `.lrc`
   or embedded lyrics.
 - **Nostalgia modes** — original designs inspired by classic car-stereo displays and VU meters.

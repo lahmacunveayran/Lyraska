@@ -51,8 +51,10 @@ jobs:
         run: npm run check:licenses
       - name: Depoda ses dosyası yok (telif; bütün geçmiş)
         run: npm run check:audio -- --history
-      - name: Belgeler ve kurallar kodla uyumlu mu
+      - name: Belgeler kodla uyumlu mu
         run: npm run check:docs
+      - name: Kurallar (unsafe, atlanan test, uzak adres, CSP, izinler)
+        run: npm run check:rules
       - name: Komut sözleşmesi (arayüz ↔ çekirdek)
         run: npm run check:commands
       - name: Derleme
@@ -160,7 +162,8 @@ jobs:
     # açılır: gölgelendiriciler Windows'ta (ANGLE → Direct3D 11) derlenir mi, görüntü
     # çiziliyor mu, Lyra yıldızları görünüyor mu? Ayrıntı: scripts/check-scenes.mjs
     runs-on: windows-latest
-    timeout-minutes: 30
+    # Galeri ve MilkDrop'un kare kare parlama ölçümleri uzun sürer; 30 dk'nın dibindeydi.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:

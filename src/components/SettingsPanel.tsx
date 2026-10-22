@@ -21,7 +21,8 @@ export interface SettingsPanelProps {
 const SHORTCUTS: [string, string][] = [
   ["Boşluk", "Çal / duraklat"],
   ["← →", "5 saniye geri / ileri"],
-  ["1 – 5", "Sahne seç"],
+  ["1 – 9, 0", "Sahne seç"],
+  ["PageDown / PageUp", "Sonraki / önceki sahne"],
   ["Ctrl + O", "Dosya aç"],
   ["Esc", "Paneli kapat"],
 ];
@@ -207,7 +208,8 @@ export function SettingsPanel({
         <h2 className="settings__title">Lisanslar</h2>
         <p className="settings__text">
           Lyraska özgür yazılımdır: GNU Genel Kamu Lisansı sürüm 3 (yalnızca bu sürüm, GPL-3.0-only)
-          ile dağıtılır ve hiçbir garanti verilmez. © 2026 Lyraska katkıcıları. Kaynak kodu:
+          ile dağıtılır ve hiçbir garanti verilmez. Bu lisansın koşullarıyla kopyalayabilir,
+          değiştirebilir ve dağıtabilirsiniz. © 2026 Lyraska katkıcıları. Kaynak kodu:
           github.com/lahmacunveayran/Lyraska
         </p>
         <p className="settings__hint">

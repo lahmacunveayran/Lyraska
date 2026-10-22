@@ -187,24 +187,25 @@ Kurallar:
 
 Hepsi depo kökünde çalıştırılır.
 
-| İş                             | Komut                                                                                                  |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| Bağımlılıkları kur             | `npm ci`                                                                                               |
-| Programı geliştirme modunda aç | `npm run tauri dev`                                                                                    |
-| Yalnızca arayüz (tarayıcıda)   | `npm run dev`                                                                                          |
-| Arayüz testleri                | `npm test`                                                                                             |
-| Arayüz lint / tür / biçim      | `npm run lint`, `npm run typecheck`, `npm run format:check`                                            |
-| Biçimlendir                    | `npm run format` ve `cd src-tauri && cargo fmt`                                                        |
-| Rust testleri                  | `cd src-tauri && cargo test` (arayüz veri tiplerini de `src/lib/bindings/`'e üretir)                   |
-| Komut sözleşmesi               | `npm run check:commands` (arayüzün çağrıları ↔ çekirdeğin komutları)                                   |
-| Rust lint                      | `cd src-tauri && cargo clippy --all-targets -- -D warnings`                                            |
-| Lisans denetimi                | `npm run check:licenses` ve `cd src-tauri && cargo deny check licenses bans sources`                   |
-| Depoda ses dosyası yok mu      | `npm run check:audio` (telif: yalnızca `src-tauri/tests/data/` sentetik sesleri)                       |
-| Lisans bildirimleri            | `npm run notices` üretir (`public/lisanslar/UCUNCU-TARAF.txt`), `npm run check:notices` CI'da denetler |
-| Sahneler gerçek tarayıcıda     | `npm run check:scenes` (önce `npm run build`; CI'da Windows Edge)                                      |
-| Windows'a özel kodu denetle    | `cd src-tauri && cargo clippy --target x86_64-pc-windows-gnu --all-targets -- -D warnings` (bkz. not)  |
-| Gerçek ses aygıtıyla deneme    | `cd src-tauri && cargo run --example ses_denemesi`                                                     |
-| Kurulum dosyası (Windows)      | `npm run tauri build`                                                                                  |
+| İş                             | Komut                                                                                                                                  |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Bağımlılıkları kur             | `npm ci`                                                                                                                               |
+| Programı geliştirme modunda aç | `npm run tauri dev`                                                                                                                    |
+| Yalnızca arayüz (tarayıcıda)   | `npm run dev`                                                                                                                          |
+| Arayüz testleri                | `npm test`                                                                                                                             |
+| Arayüz lint / tür / biçim      | `npm run lint`, `npm run typecheck`, `npm run format:check`                                                                            |
+| Biçimlendir                    | `npm run format` ve `cd src-tauri && cargo fmt`                                                                                        |
+| Rust testleri                  | `cd src-tauri && cargo test` (arayüz veri tiplerini de `src/lib/bindings/`'e üretir)                                                   |
+| Komut sözleşmesi               | `npm run check:commands` (arayüzün çağrıları ↔ çekirdeğin komutları)                                                                   |
+| Belgeler ve kurallar           | `npm run check:docs` (CLAUDE.md ağacı, klasör adları, linkler), `npm run check:rules` (unsafe, atlanan test, uzak adres, CSP, izinler) |
+| Rust lint                      | `cd src-tauri && cargo clippy --all-targets -- -D warnings`                                                                            |
+| Lisans denetimi                | `npm run check:licenses` ve `cd src-tauri && cargo deny check licenses bans sources`                                                   |
+| Depoda ses dosyası yok mu      | `npm run check:audio` (telif: yalnızca `src-tauri/tests/data/` sentetik sesleri)                                                       |
+| Lisans bildirimleri            | `npm run notices` üretir (`public/lisanslar/UCUNCU-TARAF.txt`), `npm run check:notices` CI'da denetler                                 |
+| Sahneler gerçek tarayıcıda     | `npm run check:scenes` (önce `npm run build`; CI'da Windows Edge)                                                                      |
+| Windows'a özel kodu denetle    | `cd src-tauri && cargo clippy --target x86_64-pc-windows-gnu --all-targets -- -D warnings` (bkz. not)                                  |
+| Gerçek ses aygıtıyla deneme    | `cd src-tauri && cargo run --example ses_denemesi`                                                                                     |
+| Kurulum dosyası (Windows)      | `npm run tauri build`                                                                                                                  |
 
 Not: Rust derlemesi için önce `npm run build` ile `dist/` oluşturulmuş olmalıdır.
 Windows'a özel kodun (WASAPI) Linux'tan denetimi için bir kez `rustup target add x86_64-pc-windows-gnu` ve
@@ -253,7 +254,8 @@ Görsel güvenlik (zorunlu):
 - TypeScript: Vitest + Testing Library; dosya adı `*.test.ts(x)`.
 - Kalite hedefleri ölçülebilir testlere bağlanır: beat F-ölçüsü ≥ 0,80; senkron ±20 ms;
   1080p dahili GPU'da 60 fps; 1 saat çalmada sıfır takılma.
-- Push'tan önce yerelde şunlar temiz olmalı: biçim, lint, tür denetimi, testler, lisans denetimi.
+- Push'tan önce yerelde şunlar temiz olmalı: biçim, lint, tür denetimi, testler, lisans denetimi ve `check:*`
+  kapıları (README'deki "Checks" listesi CI'nın çalıştırdığının aynısıdır).
 
 ## Lisans kuralları
 

@@ -58,6 +58,24 @@ for (const { path, name } of expected) {
   }
 }
 
+// 1b. Ters yön: ağaçta adı geçen her dosya gerçekten var (silinen ya da adı değişen dosya ağaçta kalmaz).
+const treeBlock = /## Mimari\s+```([\s\S]*?)```/.exec(claude)?.[1] ?? "";
+const allFiles = new Set(
+  ["src", "src-tauri/src", "src-tauri/examples", "src-tauri/tests", "scripts", "docs", ".github"]
+    .flatMap((dir) => [...walk(dir)])
+    .map((p) => basename(p)),
+);
+/** Programın çalışırken yazdığı dosyalar (depoda olmaz). */
+const RUNTIME_FILES = new Set(["settings.json", "lyraska.log", "library.sqlite3"]);
+const ROOT_FILES = new Set(["Cargo.toml", "tauri.conf.json", "deny.toml"]);
+for (const m of treeBlock.matchAll(
+  /(?<![\w.-])([\w-][\w.-]*\.(?:rs|ts|tsx|mjs|md|toml|json))\b/g,
+)) {
+  if (!allFiles.has(m[1]) && !ROOT_FILES.has(m[1]) && !RUNTIME_FILES.has(m[1])) {
+    problems.push(`CLAUDE.md: mimari ağacında "${m[1]}" geçiyor ama böyle bir dosya yok`);
+  }
+}
+
 // 2. Veri klasörü adları
 const identifier = JSON.parse(read("src-tauri/tauri.conf.json")).identifier;
 for (const doc of [...LIVE_DOCS, "src-tauri/src/library/mod.rs"]) {
