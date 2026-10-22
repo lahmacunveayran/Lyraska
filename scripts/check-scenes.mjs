@@ -20,10 +20,14 @@
 //   SCENE_BROWSER_ARGS     ek tarayıcı argümanları (boşlukla ayrılmış)
 //   SCENE_EXPECT           "webgl" (varsayılan) ya da "fallback": WebGL kapalı bir
 //                          tarayıcıda gece göğünün 2D yedek çizimle (Lyra dahil) göründüğü denetlenir
+//
+// Ayrıca parlaklık freni (src/lib/flashGuard.ts) zamana bağlı ölçülür (`SCENE_ONLY=flash-guard`):
+// bilerek parlayan bir desen frenden geçirilir, ekrandaki parlamalar kare kare sayılır.
 
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
-import { preview } from "vite";
+import { build, preview } from "vite";
 
 const PORT = 4179;
 const EXPECT_FALLBACK = process.env.SCENE_EXPECT === "fallback";
@@ -553,6 +557,82 @@ async function checkScene(browser, scene, variant) {
   return problems.map((p) => `${variant.label}: ${p}`);
 }
 
+/**
+ * Parlaklık freninin denetim paketi: `src/lib/flashGuardCheck.ts` (parlayan desen ve ölçüm)
+ * ayrı derlenir, programın paketine (`dist/`) girmez. Sayfada `LyraskaFlashGuardCheck` olarak
+ * açılır.
+ */
+async function flashGuardBundle() {
+  const result = await build({
+    logLevel: "warn",
+    build: {
+      write: false,
+      emptyOutDir: false,
+      copyPublicDir: false,
+      minify: false,
+      lib: {
+        entry: fileURLToPath(new URL("../src/lib/flashGuardCheck.ts", import.meta.url)),
+        formats: ["iife"],
+        name: "LyraskaFlashGuardCheck",
+        fileName: () => "flash-guard-check.js",
+      },
+    },
+  });
+  const outputs = Array.isArray(result) ? result : [result];
+  const chunk = outputs.flatMap((o) => o.output ?? []).find((c) => c.type === "chunk");
+  if (!chunk) throw new Error("parlaklık freni denetim paketi derlenemedi");
+  return chunk.code;
+}
+
+/**
+ * Zamana bağlı parlama ölçümü: bilerek parlayan desen (saniyede 10 ve 1 kez siyah ↔ beyaz, tam
+ * ekran ve tek bölge) frenden geçirilir; her karede ekran okunur, en kötü WCAG penceresinin
+ * parlaklık dizisi `countFlashes` ile sayılır. Frenli her durum saniyede ≤ 3 (güvenli modda ≤ 1)
+ * parlamalı; frensiz denetim parlamayı görmeli (ölçümün çalıştığının kanıtı).
+ */
+async function checkFlashGuard(browser) {
+  const code = await flashGuardBundle();
+  const page = await browser.newPage({ viewport: { width: 400, height: 300 } });
+  page.setDefaultTimeout(SLOW);
+  const problems = [];
+  page.on("pageerror", (e) => problems.push(`parlaklık freni: sayfa hatası: ${e}`));
+  page.on("console", (m) => {
+    if (m.type() === "error") problems.push(`parlaklık freni: konsol: ${m.text()}`);
+  });
+  await page.setContent("<!doctype html><html><body></body></html>");
+  await page.addScriptTag({ content: code });
+  const started = Date.now();
+  const results = await page.evaluate(() => window.LyraskaFlashGuardCheck.runFlashGuardCheck());
+  const cases = await page.evaluate(() => window.LyraskaFlashGuardCheck.FLASH_CHECK_CASES);
+  await page.close();
+  for (const r of results) {
+    const c = cases.find((x) => x.id === r.id);
+    const name = `Parlaklık freni · ${r.label}`;
+    if (r.error) {
+      problems.push(`${name}: ${r.error}`);
+      continue;
+    }
+    console.log(
+      `${name}: saniyede ${r.flashesPerSecond.toFixed(2)} parlama · karede en büyük değişim ` +
+        `${r.maxStep.toFixed(4)} · ${r.storage ? `saklama ${r.storage} · ` : ""}` +
+        `kare ${r.frameMs.toFixed(1)} ms`,
+    );
+    if (c.maxPerSecond !== undefined && r.flashesPerSecond > c.maxPerSecond) {
+      problems.push(
+        `${name}: saniyede ${r.flashesPerSecond.toFixed(2)} parlama > ${c.maxPerSecond}`,
+      );
+    }
+    if (c.minPerSecond !== undefined && r.flashesPerSecond < c.minPerSecond) {
+      problems.push(
+        `${name}: frensiz desen parlama olarak ölçülmedi (${r.flashesPerSecond.toFixed(2)} < ` +
+          `${c.minPerSecond}): ölçüm çalışmıyor`,
+      );
+    }
+  }
+  console.log(`Parlaklık freni denetimi ${((Date.now() - started) / 1000).toFixed(1)} sn sürdü.`);
+  return problems;
+}
+
 const server = await preview({ preview: { port: PORT, strictPort: true }, logLevel: "warn" });
 const channel = process.env.SCENE_BROWSER_CHANNEL;
 const executablePath = channel ? undefined : process.env.SCENE_BROWSER_PATH;
@@ -570,6 +650,9 @@ try {
       for (const variant of variants(scene)) {
         problems = problems.concat(await checkScene(browser, scene, variant));
       }
+    }
+    if (!ONLY || ONLY.includes("flash-guard")) {
+      problems = problems.concat(await checkFlashGuard(browser));
     }
     const bright = brightestThemes(2);
     for (const scene of ALL_SCENES.filter(selected)) {

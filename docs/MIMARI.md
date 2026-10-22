@@ -218,6 +218,46 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
     en fazla 50 kayıt, ad en fazla 40 karakter).
   - Parlaklığı değiştiren her değer hız sınırlıdır (güvenli modda yarı hız); her sahnenin kendi parlama testi var.
 
+## Epilepsi güvenliği
+
+Kural: hiçbir sahne saniyede 3'ten fazla parlamaz (WCAG 2.3.1: bağıl parlaklıkta ≥ 0,1'lik iki zıt değişim, görüş
+alanının ~%25'i büyüklüğünde bir alanda; `lib/flash.ts` sayar). Güvenli modda hedef saniyede ≤ 1.
+
+- **Kendi sahnelerimiz**: parlaklık hız sınırlı tek çarpandan gelir (yukarıda); sessiz → tam ses farkı parlama
+  eşiğinin altında kalır (`check:scenes` her temada ölçer).
+- **Güvenilmeyen sahneler için parlaklık freni** (`lib/flashGuard.ts`, saf hesap ve kanıt `lib/flashGuardMath.ts`):
+  MilkDrop presetleri (butterchurn) gibi parlaklığı müzikten bağımsız sıçrayabilen, CI'da denenemeyen (kullanıcının
+  kendi dosyaları) görüntüler için WebGL2 son geçişi. Sahne kendi görünmez tuvaline/dokusuna çizer; görünür tuvale
+  yalnızca fren çizer. Görüntü 32×18 hücreye, hücre 8×8 bloğa bölünür; her karede:
+  - Ölçüm ekran kartında: girdinin blok ortalamaları (doğrusal RGB), önceki gösterilen görüntünün blok ortalamaları
+    (ping-pong durum), hücre başına köşe ağırlıklı parlaklık farkları.
+  - Gösterilen piksel `O = H_b + a(b)·(X − H_b)`: önceki gösterilen blok rengiyle yeni görüntünün karışımı. Pay
+    `a`, hücre köşelerinde seçilir (köşeye dokunan hücrelerin en küçüğü) ve blok içinde çift doğrusal karışır; fren
+    devrede değilken `a = 1`, görüntü bit bit aynı geçer. Parlaklaşmada da ani kararmada da aynı formül.
+  - **Sınır (kesin)**: her hücrenin gösterilen ortalama parlaklığı bir karede en çok `r·dt` değişir; hücrelerden
+    oluşan her pencerenin ortalaması hücrelerin ağırlıklı ortalaması olduğundan o da. 0,1'lik bir değişim en az
+    `0,1/r` sn sürer: saniyede ≤ `r/0,2` parlama; ekranın 8 bit yuvarlaması dahil ≤ `r / (2·(0,1 − 2·0,0045))`.
+    Normal mod r = 0,3/sn → ≤ 1,65; güvenli mod r = 0,18/sn → ≤ 0,99. `dt` en çok 0,1 sn sayılır.
+  - Saklama: `EXT_color_buffer_float` varsa R32F; yoksa RGBA8'de 24 bit sabit nokta (aynı sınır). Kurulum bir öz
+    denetimle biter (beyaz kare siyahtan ancak `r·dt` açılmalı). Kurulamazsa `createFlashGuard` `{ ok: false }`
+    döndürür: güvenilmeyen sahne hiç gösterilmez; fren kapatılamaz, sessizce atlanamaz.
+  - İlk karede (ya da `reset`) gösterilen siyahtır: sahne en çok `r` hızla belirir (beyaz ekran ~3,3 sn).
+  - Bilinen sınırlar: (1) hücre kenarlarına hizasız bir pencerede, kenar hücrelerinin içindeki dağılım bir terim
+    ekler; tekdüze ve hücreden büyük ölçekli değişimlerde sıfırdır, köşe ağırlıkları birinci dereceden dağılımı da
+    görür; ancak hücre içinde ortalaması ve köşe ağırlıklı toplamları sıfır olan, belirli bir pencerenin kenarına göre
+    kurgulanmış ince desenler kesin sınırın dışındadır. (2) Aynı parlaklıkta kırmızı ↔ başka renk titreşimi
+    (WCAG "red flash") parlaklık frenine görünmez; doymuş kırmızı ↔ karanlık geçişleri sınırlıdır. Gerekirse bir
+    "kırmızılık" kanalı aynı yöntemle sınırlanır. (3) Fren hızlı ve büyük ölçekli hareketi de yavaşlatır (iz
+    bırakır): sınır parlamayı değil parlaklık değişim hızını keser.
+  - Butterchurn kendi WebGL2 bağlamında çizer; çıktısı her karede `processSource` ile dokuya yüklenir
+    (`texImage2D`). Bağlamlar arası kopya sürücüye göre işlemciden geçebilir; gerçek cihazda ölçülmeli.
+- **Denetim**: `flashGuardMath` testleri (işlemcideki kaynak uygulamayla kötü niyetli girdiler: 0,5–30 Hz kare
+  dalgalar, gürültü, tek bölge, kırmızı, hücre yarılarının titreşimi; yavaş görüntü ve gece göğünün parlaklık eğrisi
+  değişmeden geçer) ve `check:scenes`'teki zamana bağlı ölçüm: `flashGuardCheck.ts` (yalnızca denetim paketinde,
+  programa girmez) bilerek parlayan deseni gerçek tarayıcıda frenden geçirir, her kare ekranı okur, 4 piksel adımlı
+  bütün WCAG pencerelerinde `countFlashes` ile sayar. Frensiz denetim saniyede ~10 parlama görmeli (ölçüm
+  çalışıyor), frenli her durum ≤ 3 (güvenli mod ≤ 1).
+
 ## Arayüz yapısı
 
 - `PlayerScreen` yalnızca parçaları birleştirir:
@@ -320,6 +360,8 @@ Her kural ya bir testle ya da CI'daki bir adımla denetlenir. Elle hatırlanmas�
 | Ölçü belirsizse ölçü başı vurgulanmaz (yönetmen, otoyol, bilgi kartı)              | `structure` testi `olcu_basi_tutarsiz_…`, `director`, highway, bileşen testi                         |
 | Hiçbir sahne saniyede 3'ten fazla parlamaz                                         | Sahne testleri (`sky`, `highway`, `stageLight`) + `npm run check:scenes` (CI)                        |
 | Parlama sınırı her renk temasında ve her gök manzarasında                          | `npm run check:scenes` (temaya göre renklenen sahneler, CI)                                          |
+| Parlaklık freni: hücre ortalaması bir karede ≤ r·dt, saniyede ≤ 1,65 (güvenli ≤ 1) | `flashGuardMath` testleri + `check:scenes` zamana bağlı ölçüm (frenli ve frensiz desen, CI)          |
+| Parlayan denetim deseni programa girmez                                            | `sceneCheck` testi "programa girmez"                                                                 |
 | Yasaklı lisans yok                                                                 | `npm run check:licenses`, `cargo deny` (CI)                                                          |
 | Üçüncü taraf lisans bildirimleri pakette ve güncel                                 | `npm run check:notices` (CI; `npm run notices` üretir)                                               |
 | Depoda ses dosyası yok                                                             | `npm run check:audio` (CI)                                                                           |
