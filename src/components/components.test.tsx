@@ -1322,7 +1322,7 @@ describe("sahneler", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     await act(async () => fireEvent.click(toggle));
     const list = screen.getByRole("group", { name: "Galeri" });
-    expect(within(list).getAllByRole("button")).toHaveLength(5);
+    expect(within(list).getAllByRole("button")).toHaveLength(10);
     // Esc listeyi kapatır, çekmeceye dokunmaz.
     await act(async () => fireEvent.keyDown(list, { key: "Escape" }));
     expect(screen.queryByRole("group", { name: "Galeri" })).not.toBeInTheDocument();
@@ -1341,13 +1341,19 @@ describe("sahneler", () => {
 
     await act(async () => fireEvent.keyDown(window, { key: "0" }));
     expect(screen.getByRole("img", { name: /Kaleydoskop/ })).toBeInTheDocument();
+    // Tuşu olmayan sahnelere PageDown/PageUp ile; sonda başa döner.
+    await act(async () => fireEvent.keyDown(window, { key: "PageDown" }));
+    expect(screen.getByRole("img", { name: /İpek şeritler/ })).toBeInTheDocument();
+    await act(async () => fireEvent.keyDown(window, { key: "PageUp" }));
+    expect(screen.getByRole("img", { name: /Kaleydoskop/ })).toBeInTheDocument();
+    await act(async () => fireEvent.keyDown(window, { key: "1" }));
+    await act(async () => fireEvent.keyDown(window, { key: "PageUp" }));
+    expect(screen.getByRole("img", { name: /Kristal ağ/ })).toBeInTheDocument();
     await act(async () => fireEvent.keyDown(window, { key: "PageDown" }));
     expect(screen.getByRole("button", { name: "Gece göğü" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    await act(async () => fireEvent.keyDown(window, { key: "PageUp" }));
-    expect(screen.getByRole("img", { name: /Kaleydoskop/ })).toBeInTheDocument();
     await act(async () => fireEvent.keyDown(window, { key: "6" }));
     expect(screen.getByRole("img", { name: /Gece denizi/ })).toBeInTheDocument();
     // Klasik sahneye dönünce galeri düğmesi yeniden "Galeri".

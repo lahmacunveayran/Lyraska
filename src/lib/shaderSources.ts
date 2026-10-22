@@ -251,6 +251,172 @@ vec3 scene(vec2 uv, vec2 p) {
   col += mix(uHigh, vec3(1.0), 0.3) * 0.14 * exp(-r * 6.0);
   return col;
 }`,
+
+  // Altı ışık şeridi: alttakiler bası, ortadakiler ortayı, üsttekiler tizi izler (dalga boyu,
+  // parlaklık değil). Gerilimde şeritler birbirine yaklaşır, açılımda dalgalar büyür.
+  ribbons: `
+vec3 scene(vec2 uv, vec2 p) {
+  vec3 col = uHigh * 0.04 * (1.0 - abs(p.y));
+  for (int i = 0; i < 6; i++) {
+    float fi = float(i);
+    float k = fi / 5.0;
+    float band = k < 0.3 ? uEnergy.x : (k < 0.7 ? uEnergy.y : uEnergy.z);
+    float amp = 0.05 + 0.05 * band + 0.04 * uBloom;
+    float y = (k - 0.5) * 0.55 * (1.0 - 0.45 * uTension)
+      + amp * sin(p.x * (2.2 + fi * 0.41) + uTime * (0.55 + 0.12 * fi) + fi * 1.7)
+      + 0.05 * (noise(vec2(p.x * 1.3 + fi * 3.1, uTime * 0.15)) - 0.5);
+    float d = abs(p.y - y);
+    float w = 0.006 + 0.004 * band;
+    vec3 tint = mix(uLow, uHigh, k);
+    col += tint * (0.55 * exp(-d * d / (w * w)) + 0.1 * exp(-d * 30.0));
+  }
+  return col;
+}`,
+
+  // İki kollu sarmal gökada, eğik açıdan. Kollar ve toz birlikte döner; açılımda gökada büyür,
+  // gerilimde çekirdeğe toplanır. Yıldızlar kollarda sıklaşır.
+  galaxy: `
+vec3 scene(vec2 uv, vec2 p) {
+  vec2 q = rot(0.45) * p;
+  q.y *= 2.1;
+  q *= 0.7 / (1.0 + 0.2 * uBloom - 0.15 * uTension);
+  float spin = uTime * 0.12;
+  vec2 s = rot(spin) * q;
+  float r = length(s);
+  float a = atan(s.y, s.x);
+  float arm = pow(0.5 + 0.5 * cos(2.0 * a - 5.0 * log(r + 0.02)), 2.5);
+  float dust = fbm(s * 5.0 + 3.0);
+  float disc = exp(-r * 2.6);
+  float body = disc * (0.25 + 0.75 * arm) * (0.5 + 0.5 * dust);
+  vec3 tint = mix(uHigh, uLow, clamp(r * 1.6, 0.0, 1.0));
+  vec3 col = tint * 0.8 * body;
+  col += mix(uHigh, vec3(1.0), 0.6) * 0.6 * exp(-r * 12.0);
+  vec2 g = s * 55.0;
+  vec2 cell = floor(g);
+  float h = hash12(cell);
+  float d = length(fract(g) - (hash22(cell + 5.0) * 0.6 + 0.2));
+  col += mix(uLow, vec3(1.0), 0.6) * step(1.0 - 0.12 * arm * disc * 3.0, h)
+    * smoothstep(0.12, 0.0, d) * 0.5;
+  col += vec3(0.75, 0.8, 1.0) * stars(p + 9.0, 80.0) * (1.0 - disc);
+  return col;
+}`,
+
+  // Ay ışığında kum tepeleri: arkadan öne dört katman. Sırta yakın yüzler ay ışığını alır,
+  // aşağısı gölgede. Rüzgâr sırtlardan ince kum savurur (bas rüzgârı güçlendirir; yalnızca biçim).
+  dunes: `
+float dune(float x, float seed) {
+  float n = fbm(vec2(x * 0.9 + seed, seed * 1.7));
+  float c = 2.0 * noise(vec2(x * 1.6 + seed * 3.0, seed)) - 1.0;
+  float ridge = 1.0 - sqrt(c * c + 0.004);
+  return 0.6 * n + 0.4 * ridge * ridge;
+}
+
+vec3 scene(vec2 uv, vec2 p) {
+  vec2 moon = vec2(-0.45, 0.3);
+  float dm = length(p - moon);
+  vec3 col = uHigh * 0.08 * smoothstep(0.5, -0.2, p.y);
+  col += vec3(0.95, 0.93, 0.85) * smoothstep(0.05, 0.045, dm) + uHigh * 0.06 * exp(-dm * 5.0);
+  col += vec3(0.8, 0.85, 1.0) * stars(p, 75.0) * smoothstep(-0.1, 0.3, p.y);
+  float wind = 0.5 + 0.5 * uEnergy.x;
+  for (int i = 0; i < 4; i++) {
+    float fi = float(i);
+    float scale = 1.0 + fi * 0.6;
+    float x = p.x * scale + uTime * 0.01 * (fi + 1.0);
+    float h = -0.02 - fi * 0.12 + 0.16 * dune(x, fi * 7.3) / scale;
+    if (p.y < h) {
+      float e = 0.002;
+      float slope = (dune(x + e, fi * 7.3) - dune(x - e, fi * 7.3)) / (2.0 * e);
+      float below = h - p.y;
+      // Yandan bakışta yüzeyin eğimi belirsiz: ışık sırta yakın yerde güçlü, aşağı indikçe söner;
+      // eğim yalnızca hafif bir ton farkı verir (sert eğim ışığı dikey şeritlere bölerdi).
+      float lit = 0.22 + 0.4 * exp(-below * 14.0) + 0.08 * clamp(-slope * 0.25, -1.0, 1.0);
+      lit *= 0.9 + 0.1 * noise(vec2(x * 30.0 + p.y * 80.0, p.y * 10.0));
+      float haze = 1.0 - fi * 0.2;
+      vec3 sand = mix(vec3(0.03, 0.03, 0.045), mix(uLow, vec3(0.9, 0.8, 0.65), 0.6) * 0.32, lit);
+      col = sand * haze + uHigh * 0.02 * (1.0 - haze);
+      float crest = exp(-below * 60.0);
+      float drift = smoothstep(0.55, 0.9, noise(vec2(x * 40.0 - uTime * 2.0 * wind, p.y * 120.0)));
+      col += mix(uLow, vec3(1.0), 0.5) * 0.12 * crest * drift * wind;
+    }
+  }
+  return col;
+}`,
+
+  // Yağmurlu bir camın ardında bulanık şehir ışıkları (iki katman). Camda duran damlalar
+  // ardındaki ışığı ters çevirir; ara sıra bir damla süzülür. Işıklar vuruşlarla değil, akış
+  // saatiyle yavaşça kayar.
+  rain: `
+vec3 bokeh(vec2 p) {
+  vec3 col = vec3(0.0);
+  for (int layer = 0; layer < 2; layer++) {
+    float scale = 4.0 + 3.0 * float(layer);
+    vec2 g = p * scale + vec2(uTime * 0.05 * (1.0 + float(layer)), float(layer) * 7.0);
+    vec2 cell = floor(g);
+    for (int y = -1; y <= 1; y++) {
+      for (int x = -1; x <= 1; x++) {
+        vec2 c = cell + vec2(float(x), float(y));
+        vec2 h = hash22(c + float(layer) * 13.0);
+        if (h.y > 0.55) continue;
+        float d = length(g - c - h);
+        float radius = 0.28 + 0.2 * hash12(c + 3.0);
+        float disc = smoothstep(radius, radius - 0.06, d);
+        vec3 tint = mix(uLow, uHigh, hash12(c + 9.0));
+        col += tint * disc * (0.16 + 0.2 * hash12(c + 21.0));
+      }
+    }
+  }
+  return col * smoothstep(0.6, -0.4, p.y);
+}
+
+vec3 scene(vec2 uv, vec2 p) {
+  vec3 col = bokeh(p) + uHigh * 0.04;
+  vec2 g = p * vec2(18.0, 12.0);
+  vec2 cell = floor(g);
+  vec2 h = hash22(cell + 41.0);
+  float fall = fract(uTime * 0.04 * (0.5 + h.x) + h.y);
+  vec2 at = vec2(h.x * 0.6 + 0.2, mix(0.85, 0.15, h.y > 0.85 ? fall : 0.5) + (h.y - 0.5) * 0.3);
+  vec2 off = (fract(g) - at) * vec2(1.0, 1.5);
+  float d = length(off);
+  float drop = smoothstep(0.2, 0.17, d) * step(0.35, h.y);
+  vec3 seen = bokeh(p - off * 0.12) * 1.3 + uHigh * 0.05;
+  col = mix(col, seen, drop);
+  col += vec3(0.9) * 0.25 * drop * smoothstep(0.08, 0.0, length(off - vec2(-0.06, 0.07)));
+  col *= 1.0 - 0.35 * drop * smoothstep(0.12, 0.2, d);
+  return col;
+}`,
+
+  // Kristal ağ: hücre çekirdekleri yavaşça kıpırdar; hücre kenarları ince, iki hücrenin uzaklık
+  // farkından (F2 − F1) hesaplanır. Ölçü başında kenar boyunca bir kıpırtı geçer (biçim).
+  crystal: `
+vec3 scene(vec2 uv, vec2 p) {
+  vec2 g = p * (5.0 + 0.8 * uTension - 0.6 * uBloom);
+  vec2 cell = floor(g);
+  float f1 = 9.0;
+  float f2 = 9.0;
+  float id = 0.0;
+  for (int y = -1; y <= 1; y++) {
+    for (int x = -1; x <= 1; x++) {
+      vec2 c = cell + vec2(float(x), float(y));
+      vec2 h = hash22(c);
+      vec2 at = c + 0.5 + 0.4 * sin(uTime * 0.25 + 6.2831 * h);
+      float d = length(g - at);
+      if (d < f1) {
+        f2 = f1;
+        f1 = d;
+        id = hash12(c + 2.0);
+      } else if (d < f2) {
+        f2 = d;
+      }
+    }
+  }
+  float edge = f2 - f1;
+  float ripple = 1.0 + 0.4 * exp(-uRipple * 2.0) * sin(f1 * 9.0 - uRipple * 8.0);
+  float line = exp(-edge * edge * 260.0 / ripple);
+  vec3 tint = mix(uLow, uHigh, id);
+  vec3 col = tint * (0.06 + 0.07 * (1.0 - f1)) + mix(tint, vec3(1.0), 0.3) * 0.38 * line;
+  col *= 0.75 + 0.25 * fbm(p * 2.0 + uTime * 0.03);
+  return col;
+}`,
 };
 
 const MAIN = `

@@ -30,9 +30,14 @@ describe("sahneler", () => {
       "Işık tüneli",
       "Ateşböcekleri",
       "Kaleydoskop",
+      "İpek şeritler",
+      "Sarmal gökada",
+      "Kum tepeleri",
+      "Yağmurlu cam",
+      "Kristal ağ",
     ]);
-    expect(SCENES).toHaveLength(10);
-    expect(new Set(SCENES.map((s) => s.id)).size).toBe(10);
+    expect(SCENES).toHaveLength(15);
+    expect(new Set(SCENES.map((s) => s.id)).size).toBe(15);
     expect(["1", "2", "3", "4", "5", "6", "0"].map(sceneForKey)).toEqual([
       "sky",
       "highway",
@@ -42,8 +47,9 @@ describe("sahneler", () => {
       "sea",
       "kaleido",
     ]);
-    // Her sahnenin tuşu, o tuşun seçtiği sahneyle aynı.
-    for (const { id } of SCENES) expect(sceneForKey(sceneKey(id)!)).toBe(id);
+    // İlk on sahnenin tuşu var ve o tuş o sahneyi seçer; gerisi PageDown/PageUp ile.
+    for (const { id } of SCENES.slice(0, 10)) expect(sceneForKey(sceneKey(id)!)).toBe(id);
+    for (const { id } of SCENES.slice(10)) expect(sceneKey(id)).toBeNull();
     expect(sceneForKey("a")).toBeNull();
     expect(sceneForKey("12")).toBeNull();
     expect(sceneForKey("")).toBeNull();
@@ -52,8 +58,9 @@ describe("sahneler", () => {
   it("sıradaki ve önceki sahne uçlarda başa ve sona döner", () => {
     expect(nextScene("sky", 1)).toBe("highway");
     expect(nextScene("drive", 1)).toBe("sea");
-    expect(nextScene("kaleido", 1)).toBe("sky");
-    expect(nextScene("sky", -1)).toBe("kaleido");
+    expect(nextScene("kaleido", 1)).toBe("ribbons");
+    expect(nextScene("crystal", 1)).toBe("sky");
+    expect(nextScene("sky", -1)).toBe("crystal");
     // Bütün sahneleri bir kez dolaşıp başa döner.
     let scene = SCENES[0]!.id;
     const seen = new Set([scene]);

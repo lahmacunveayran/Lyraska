@@ -176,7 +176,7 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
     teybin VU ibreleri ve spektrumu tek görsel veri akışından. Kasetin makaraları çalarken döner ("animasyonları
     azalt"ta durur). Çerçeve açıkken teyp geri planda (kısık), sinema görünümünde yavaşça belirir.
   - Galeri (`shaderScene.ts`, `shaderSources.ts`, `shaderRenderer.ts`, `ShaderScene`): gece denizi, bulutsu, ışık
-    tüneli, ateşböcekleri, kaleydoskop. Her biri tek bir parça gölgelendiricisidir ve gece göğünün saf hesabını
+    tüneli, ateşböcekleri, kaleydoskop, ipek şeritler, sarmal gökada, kum tepeleri, yağmurlu cam, kristal ağ. Her biri tek bir parça gölgelendiricisidir ve gece göğünün saf hesabını
     (`stepSky`) paylaşır: bölüm teması renkleri, gerilim ve açılım biçimi, vuruşlar akışı sürer. Sahnenin kodu
     yalnızca biçimi çizer; parlaklık ortak gövdedeki tek çarpandan gelir (`sceneLevel`: perde parlaklığının hız
     sınırlı, tekdüze dönüşümü; müzik ışığı en fazla %28 güçlendirir). Gölgelendiriciye anlık vuruş seviyesi gitmez.

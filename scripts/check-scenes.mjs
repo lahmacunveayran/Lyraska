@@ -381,6 +381,11 @@ const SCENES = [
     ["tunnel", "Işık tüneli"],
     ["fireflies", "Ateşböcekleri"],
     ["kaleido", "Kaleydoskop"],
+    ["ribbons", "İpek şeritler"],
+    ["galaxy", "Sarmal gökada"],
+    ["dunes", "Kum tepeleri"],
+    ["rain", "Yağmurlu cam"],
+    ["crystal", "Kristal ağ"],
   ].map(([id, name]) => ({ id, name, extra: () => null, themed: true, brightOnly: true })),
 ];
 

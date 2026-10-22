@@ -177,8 +177,9 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
 
 ## Faz 4 — Görsel kütüphane ve v1.0 (18 Ocak – 28 Şubat 2027; lansman Mart 2027 başı)
 
-- [ ] 15+ özgün sahne — 10/15 (0.0.57): beş klasik sahneye galeri eklendi: gece denizi, bulutsu, ışık tüneli,
-      ateşböcekleri, kaleydoskop. Ortak gölgelendirici çatısı: sahne yalnızca biçimi çizer, parlaklık gece göğünün
+- [x] 15+ özgün sahne (0.0.57): beş klasik sahneye on sahnelik galeri eklendi: gece denizi, bulutsu, ışık tüneli,
+      ateşböcekleri, kaleydoskop, ipek şeritler, sarmal gökada, kum tepeleri, yağmurlu cam, kristal ağ. Ortak
+      gölgelendirici çatısı: sahne yalnızca biçimi çizer, parlaklık gece göğünün
       hız sınırlı hesabından tek çarpanla gelir; her sahne gerçek tarayıcıda parlama sınırıyla denetlenir.
       Klavye: 1–9, 0; PageDown/PageUp
 - [ ] Butterchurn / MilkDrop desteği

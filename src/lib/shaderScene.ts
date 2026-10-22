@@ -8,7 +8,17 @@ import { AURORA_MAX_LUMINANCE, auroraLuminance, type SkyState } from "./sky";
  * parlaklığı tek bir çarpandan ([`sceneLevel`]) alır.
  */
 
-export type ShaderSceneId = "sea" | "nebula" | "tunnel" | "fireflies" | "kaleido";
+export type ShaderSceneId =
+  | "sea"
+  | "nebula"
+  | "tunnel"
+  | "fireflies"
+  | "kaleido"
+  | "ribbons"
+  | "galaxy"
+  | "dunes"
+  | "rain"
+  | "crystal";
 
 export interface ShaderSceneInfo {
   id: ShaderSceneId;
@@ -50,6 +60,36 @@ export const SHADER_SCENES: ShaderSceneInfo[] = [
     name: "Kaleydoskop",
     hint: "Altı aynalı, yavaşça dönen renk deseni.",
     label: "Kaleydoskop: altı aynada yansıyan, müziğe göre akan renk deseni",
+  },
+  {
+    id: "ribbons",
+    name: "İpek şeritler",
+    hint: "Bas, orta ve tizin ayrı ayrı dalgalandırdığı ışık şeritleri.",
+    label: "İpek şeritler: bas, orta ve tize göre dalgalanan ışık şeritleri",
+  },
+  {
+    id: "galaxy",
+    name: "Sarmal gökada",
+    hint: "Yavaşça dönen kollar; drop'ta gökada açılır.",
+    label: "Sarmal gökada: müziğe göre dönen yıldız kolları",
+  },
+  {
+    id: "dunes",
+    name: "Kum tepeleri",
+    hint: "Ay ışığında çöl; rüzgâr sırtlardan kum savurur.",
+    label: "Kum tepeleri: ay ışığında, rüzgârın kum savurduğu çöl",
+  },
+  {
+    id: "rain",
+    name: "Yağmurlu cam",
+    hint: "Camdaki damlaların ardında bulanık şehir ışıkları.",
+    label: "Yağmurlu cam: damlaların ardında müziğe göre süzülen şehir ışıkları",
+  },
+  {
+    id: "crystal",
+    name: "Kristal ağ",
+    hint: "Nefes alır gibi kıpırdayan, ışıyan kristal hücreler.",
+    label: "Kristal ağ: müziğe göre kıpırdayan ışıklı hücreler",
   },
 ];
 
