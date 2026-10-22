@@ -193,17 +193,37 @@ fn startup_failure_dialog(message: &str) {
          Hata kaydı açarken bu dosyayı ekleyin. Microsoft Edge WebView2 kurulu değilse ya da \
          bozulduysa Lyraska'yı yeniden kurmak onu da kurar."
     );
+    notice_dialog(&text, true);
+}
+
+/// Pencere olmadan kullanıcıya ileti kutusu (Windows): açılışta çökme ya da ikinci kopya.
+/// Windows'un kendi PowerShell'i ileti kutusunu gösterir; metin komut satırına değil ortam
+/// değişkenine konur (içindeki tırnak ya da işaretler komut olarak yorumlanamaz). `unsafe` ve
+/// ek bağımlılık gerekmez; tek bedeli kutunun bir saniye kadar geç açılması. Kutu kapanana kadar
+/// beklenir.
+pub fn notice_dialog(text: &str, error: bool) {
     #[cfg(windows)]
     {
-        let _ = rfd::MessageDialog::new()
-            .set_level(rfd::MessageLevel::Error)
-            .set_title("Lyraska")
-            .set_description(text)
-            .set_buttons(rfd::MessageButtons::Ok)
-            .show();
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        let script = "Add-Type -AssemblyName System.Windows.Forms; \
+            [void][System.Windows.Forms.MessageBox]::Show($env:LYRASKA_NOTICE, 'Lyraska', 'OK', \
+            $env:LYRASKA_NOTICE_ICON)";
+        let _ = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", script])
+            .env("LYRASKA_NOTICE", text)
+            .env(
+                "LYRASKA_NOTICE_ICON",
+                if error { "Error" } else { "Information" },
+            )
+            .creation_flags(CREATE_NO_WINDOW)
+            .status();
     }
     #[cfg(not(windows))]
-    eprintln!("{text}");
+    {
+        let _ = error;
+        eprintln!("{text}");
+    }
 }
 
 /// "2026-10-08 06:45:12 UTC" (saat dilimi kütüphanesi kullanmadan).

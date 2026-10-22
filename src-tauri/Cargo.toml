@@ -65,9 +65,6 @@ wasapi = "0.25"
 # Ses iş parçacığına MMCSS "Pro Audio" önceliği (yalnızca output/wasapi.rs; wasapi zaten bu
 # crate'i kullanır, yeni paket gelmez).
 windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Threading"] }
-# Açılışta çöken programın uyarı kutusu (diagnostics.rs). Dosya penceresi eklentisi zaten bu
-# crate'i kullanır (yeni paket gelmez).
-rfd = { version = "0.16", default-features = false, features = ["common-controls-v6"] }
 
 [dev-dependencies]
 allocation-counter = "0.8.1"

@@ -243,15 +243,8 @@ pub fn run() {
 
 /// Program zaten açıkken ikinci kez başlatılınca: kullanıcıya kısa bir not (Windows).
 fn already_running_notice() {
-    #[cfg(windows)]
-    {
-        let _ = rfd::MessageDialog::new()
-            .set_level(rfd::MessageLevel::Info)
-            .set_title("Lyraska")
-            .set_description("Lyraska zaten açık. Görev çubuğundaki Lyraska penceresine geçin.")
-            .set_buttons(rfd::MessageButtons::Ok)
-            .show();
-    }
-    #[cfg(not(windows))]
-    eprintln!("Lyraska zaten açık.");
+    diagnostics::notice_dialog(
+        "Lyraska zaten açık. Görev çubuğundaki Lyraska penceresine geçin.",
+        false,
+    );
 }
