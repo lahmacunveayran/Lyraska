@@ -138,6 +138,8 @@ pub fn run() {
             commands::parametric_compare,
             commands::parametric_import,
             commands::parametric_export,
+            commands::crossfeed_get,
+            commands::crossfeed_set,
             commands::visual_safe_get,
             commands::visual_safe_set,
             commands::playback_options_get,

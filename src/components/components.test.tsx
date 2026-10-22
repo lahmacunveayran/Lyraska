@@ -63,6 +63,9 @@ const backend = vi.hoisted(() => ({
   parametricCompare: vi.fn(),
   parametricImport: vi.fn(),
   parametricExport: vi.fn(),
+  /** Crossfeed: çekirdekteki ayar ve çekirdeğe gidenler. */
+  crossfeed: null as import("../lib/backend").CrossfeedSettings | null,
+  setCrossfeed: vi.fn(),
 }));
 
 // Bilgi yığını istenirse çizimde hata verir: hata sınırlarının yeri sınanır (ARA-04).
@@ -254,6 +257,18 @@ vi.mock("../lib/backend", async (importOriginal) => {
     pickParametricSavePath: async () => "C:/eq/Lyraska ParametricEQ.txt",
     exportParametric: async (path: string) => {
       backend.parametricExport(path);
+    },
+    getCrossfeed: async () => {
+      const { DEFAULT_CROSSFEED, previewCrossfeedState } = await import("../lib/crossfeed");
+      return previewCrossfeedState(backend.crossfeed ?? DEFAULT_CROSSFEED);
+    },
+    setCrossfeed: async (settings: import("../lib/backend").CrossfeedSettings) => {
+      backend.setCrossfeed(settings);
+      const { previewCrossfeedState } = await import("../lib/crossfeed");
+      // Çekirdek gibi: sınırlara çekip saklar.
+      const state = previewCrossfeedState(settings);
+      backend.crossfeed = state.settings;
+      return state;
     },
     getHeadphone: async () => backend.headphone ?? actual.NO_HEADPHONE,
     pickHeadphoneProfile: async () => backend.pickProfile(),
@@ -1888,6 +1903,102 @@ describe("kulaklık düzeltmesi", () => {
     backend.pickProfile.mockResolvedValue("C:\\bozuk.txt");
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Profil yükle" })));
     expect(screen.getByText(/kulaklık düzeltmesi bulunamadı/)).toBeInTheDocument();
+  });
+});
+
+describe("crossfeed", () => {
+  afterEach(() => {
+    backend.crossfeed = null;
+    backend.setCrossfeed.mockReset();
+  });
+  const lastSent = () =>
+    backend.setCrossfeed.mock.calls.at(-1)?.[0] as
+      import("../lib/backend").CrossfeedSettings | undefined;
+  const openStrip = async () => {
+    render(<App />);
+    await act(async () => fireEvent.click(screen.getByRole("tab", { name: /Ekolayzer/ })));
+    return screen.getByRole("group", { name: "Crossfeed" });
+  };
+
+  it("kayıtlı ayarla açılır; hazır ayar açar ve uygular, EQ ışığı yanar", async () => {
+    backend.crossfeed = { enabled: false, cutoffHz: 650, levelDb: 9.5 };
+    const strip = await openStrip();
+    const toggle = within(strip).getByRole("switch", { name: "Crossfeed" });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(
+      within(strip).getByText(/Hafif · kulaklar arası zaman farkı 245 µs/),
+    ).toBeInTheDocument();
+    expect(within(strip).getByText(/Hoparlörle dinlerken kapalı tutun/)).toBeInTheDocument();
+    // Kapalıyken hiçbir hazır ayar seçili görünmez.
+    expect(within(strip).getByRole("button", { name: "Hafif" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+
+    await act(async () =>
+      fireEvent.click(within(strip).getByRole("button", { name: "Hoparlör gibi" })),
+    );
+    expect(lastSent()).toEqual({ enabled: true, cutoffHz: 570, levelDb: 1 });
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    expect(within(strip).getByRole("button", { name: "Hoparlör gibi" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(strip).getByText(/279 µs/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: /Ekolayzer/ }).querySelector(".led.is-on"),
+    ).not.toBeNull();
+
+    await act(async () => fireEvent.click(toggle));
+    expect(lastSent()).toEqual({ enabled: false, cutoffHz: 570, levelDb: 1 });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("gelişmiş ayarda kesim ve seviye sürgüyle değişir; ok tuşları şarkıyı sarmaz", async () => {
+    backend.status = playing;
+    const strip = await openStrip();
+    expect(within(strip).queryByRole("slider", { name: "Kesim" })).not.toBeInTheDocument();
+    await act(async () => fireEvent.click(within(strip).getByRole("button", { name: "Gelişmiş" })));
+    const cutoff = within(strip).getByRole("slider", { name: "Kesim" });
+    await act(async () => fireEvent.change(cutoff, { target: { value: "900" } }));
+    expect(lastSent()).toEqual({ enabled: false, cutoffHz: 900, levelDb: 6 });
+    const level = within(strip).getByRole("slider", { name: "Seviye" });
+    await act(async () => fireEvent.change(level, { target: { value: "3.5" } }));
+    expect(lastSent()).toEqual({ enabled: false, cutoffHz: 900, levelDb: 3.5 });
+    expect(within(strip).getByText("−3,5 dB")).toBeInTheDocument();
+    expect(
+      within(strip).getByText(/Özel ayar · kulaklar arası zaman farkı 177 µs/),
+    ).toBeInTheDocument();
+    await act(async () => fireEvent.keyDown(level, { key: "ArrowLeft" }));
+    expect(backend.seek).not.toHaveBeenCalled();
+  });
+
+  it("parametrik görünümde de var; bit-perfect çalarken devre dışı görünür", async () => {
+    backend.crossfeed = { enabled: true, cutoffHz: 700, levelDb: 6 };
+    backend.desktop = true;
+    backend.status = {
+      ...playing,
+      state: "paused",
+      output: {
+        deviceName: "Kulaklık (USB DAC)",
+        sampleRate: 44100,
+        channels: 2,
+        resampled: false,
+        normalizationDb: null,
+        bitPerfect: true,
+        bitDepth: 24,
+        notice: null,
+      },
+    };
+    render(<App />);
+    await act(async () => fireEvent.keyDown(window, { code: "Space", key: " " }));
+    await act(async () => fireEvent.click(screen.getByRole("tab", { name: /Ekolayzer/ })));
+    await waitFor(() =>
+      expect(screen.getByRole("group", { name: "Crossfeed" })).toHaveClass("is-off"),
+    );
+    expect(screen.getByText(/kulaklık düzeltmesi ve crossfeed/)).toBeInTheDocument();
+    await act(async () => fireEvent.click(screen.getByRole("tab", { name: /Parametrik/ })));
+    expect(screen.getByRole("group", { name: "Crossfeed" })).toBeInTheDocument();
   });
 });
 

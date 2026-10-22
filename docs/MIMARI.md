@@ -40,7 +40,7 @@ PlayerScreen ── usePlayback ── invoke ──▶ commands.rs (ince) ─�
 ```
 dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rubato (aygıt hızına) ─▶ halka tampon
       ─▶ [ses çıkışı] kulaklık düzeltmesi ─▶ parametrik ekolayzer ─▶ grafik ekolayzer ─▶ bas
-      ─▶ eşitleme × ekolayzer koruması
+      ─▶ crossfeed ─▶ eşitleme × ekolayzer koruması
       ─▶ geçiş (fade) ─▶ taşma koruması (sınırlayıcı) ─▶ f32 ─▶ WASAPI
 ```
 
@@ -60,11 +60,18 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
   Karşılaştırma (A/B): filtreler atlanır, ses ekolayzerin pembe gürültüde ve BS.1770 K ağırlığında ölçülen ses
   yüksekliği farkı kadar değiştirilir; iki taraf eşit yükseklikte ve aynı korumayla dinlenir. Equalizer APO
   biçiminde içe/dışa aktarılır. Görseller (spektrum) parametrik ekolayzeri de yansıtır.
-- **Crossfeed** (`audio/crossfeed.rs`; çekirdek hazır, ses yoluna ve arayüze henüz bağlanmadı): orta/yan biçimi;
-  orta (mono) bileşen bit bit aynı, yan bileşen G(s) = (s + ωc(1 − r0))/(s + ωc(1 + r0)) süzgecinden geçer. Bu,
-  sola kaydırılmış seste kulaklar arası oranı tam ρ = r0/(1 + s/ωc) yapar (alçak frekansta seviye farkı
-  −20·log₁₀ r0, zaman farkı 1/ωc) ve |G| ≤ 1'dir: hiçbir frekans yükselmez. Hazır ayarlar bs2b'nin değerleri ve
-  küresel baş modeline (Brown–Duda, ±30°) uyum.
+- **Crossfeed** (`audio/crossfeed.rs`, 0.0.54; arayüz `CrossfeedStrip.tsx`, Ekolayzer panelinde kulaklık
+  düzeltmesinin altında): orta/yan biçimi; orta (mono) bileşen bit bit aynı, yan bileşen
+  G(s) = (s + ωc(1 − r0))/(s + ωc(1 + r0)) süzgecinden geçer. Bu, sola kaydırılmış seste kulaklar arası oranı tam
+  ρ = r0/(1 + s/ωc) yapar (alçak frekansta seviye farkı −20·log₁₀ r0, zaman farkı 1/ωc) ve |G| ≤ 1'dir: hiçbir
+  frekans yükselmez. Hazır ayarlar bs2b'nin değerleri ve küresel baş modeline (Brown–Duda, ±30°) uyum.
+  - Ses yolunda bastan sonra, eşitlemeden önce; kilitsiz kanal (`CrossfeedControl`), ayar değişince 30 ms çapraz
+    geçiş. Yalnız stereo; bit-perfect'te atlanır. Kapalıyken ses bit bit aynı.
+  - Korumaya pay bildirilmez (frekansta yükseltme yok). Örnek tepesinin kesin sınırı ‖g‖₁ = 2·b0 − G(1) < 2:
+    yalnız ters fazlı tam ölçekli kare dalga yaklaşır (Orta +4 dB), sola kaydırılmış davulda aşma yok, tam ölçekli
+    geniş gürültüde ~1,6 dB. Bu seyrek aşmaları sınırlayıcı yakalar (`crossfeed::tests::ornek_tepesi_siniri_dogru`).
+  - Ekrandaki eğri (aynı kulak / karşı kulak) çekirdeğin 96 kHz'teki sayısal süzgecinden; sürgü sürüklenirken arayüz
+    aynı analog formülle anında çizer (`lib/crossfeed.ts`: yakın kulak 1/(1 + ρ), karşı kulak ρ/(1 + ρ)).
 - **Kulaklık profili okuma** (`audio/peq.rs`): Equalizer APO biçimi, APO'nun kaynak kodundaki anlamlarla: LSC/HSC
   orta frekanslı, LS/HS köşe frekanslı raf; eğim ("6 dB" → S = 0,5) ya da Q'suz rafta S = 0,9; tepe süzgecinde
   "BW Oct"; LP/HP/BP'de Q yoksa 0,707, çentikte 30.
@@ -237,6 +244,7 @@ Her kural ya bir testle ya da CI'daki bir adımla denetlenir. Elle hatırlanmas�
 | Parametrik EQ Equalizer APO dosyasıyla gidip gelir                                 | `audio::peq` testi `parametrik_apo_ile_gidip_gelir`                                                  |
 | Parametrik EQ'nun yükseltmesi korumaya bildirilir, ses yolunda ikinci kez kısılmaz | `audio::peq` testi `bildirilen_yukseltme_…`                                                          |
 | Crossfeed'de orta ses bit bit aynı, yan kanal hiçbir frekansta yükselmez           | `audio::crossfeed` testleri                                                                          |
+| Crossfeed ses yolunda; ortadaki ses bütün yoldan aynen, bit-perfect'te yok         | `audio::render` testi `crossfeed_ses_yolunda_…`                                                      |
 | Kör test bitince önceki şarkı kaldığı yerde geri gelir, ekranda görünür            | `audio::player` testi `kor_test_sarkiyi_durdurur_…`, bileşen testi "kör test"                        |
 | Kör test kurulamazsa çalan şarkı kesilmez                                          | `audio::player` testi `kor_test_kurulamazsa_calan_sarki_durmaz`                                      |
 | Analiz hesabı değişince eski sonuçlar kullanılmaz                                  | `cache::VERSIONS` ve önbellek testleri                                                               |

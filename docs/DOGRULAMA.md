@@ -248,6 +248,19 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
   - Programı kapatıp açınca ayarlar yerinde.
 - Bildirin: kullanması rahat mı, eksik bir şey var mı?
 
+**C6. Crossfeed (0.0.54)**
+
+- Nasıl: kulaklıkla dinleyin. **Ekolayzer** panelinde kulaklık düzeltmesinin altındaki **Crossfeed**'i açın; dört
+  hazır ayarı (Hafif, Orta, Güçlü, Hoparlör gibi) sırayla deneyin. Sesleri sola-sağa sert ayrılmış eski bir kayıt
+  (ör. 60'ların stereo kayıtları) farkı en iyi gösterir.
+- Neye bakılır:
+  - Ses "kafanın içinden" önünüze, hoparlörden dinler gibi çıkmalı; yalnız bir kulakta çalan çalgılar artık
+    öbür kulakta da hafifçe duyulmalı.
+  - **Vokal ve bas aynı kalmalı** (ne inceltmeli ne şişirmeli); açıp kapatınca ortadaki ses değişmemeli.
+  - Açıp kapatırken ve hazır ayar değiştirirken tık olmamalı.
+  - Hoparlörle dinlerken kapalı tutun (hoparlör zaten bunu yapar).
+- Bildirin: hangi hazır ayar size en doğal geldi, varsayılan o olsun mu?
+
 ## D. Görseller
 
 **D1. Kuzey ışıklarının manzaraları (#30, 0.0.30)**

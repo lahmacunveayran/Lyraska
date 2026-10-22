@@ -2,8 +2,9 @@
 
 **Durum:** araştırma ve ölçüm tamamlandı. R1 (bölüm 7): klasik yol kapıdan geçmedi. R2 (bölüm 8): öğrenmeli önsel de
 kapıdan geçmedi ve nedeni ölçüldü (bit akışı deliklerin ince yapısını taşımıyor). **MP3 kolu kapandı.** Programda
-Veritas kodu yok. Kör dinleme aracı (ABX) 0.0.40'ta programa girdi (çekmecede **Kör test**); sıradaki karar proje
-sahibinin (bkz. [ROADMAP.md](ROADMAP.md), Faz 3, "Retriever").
+Veritas kodu yok. Kör dinleme aracı (ABX) 0.0.40'ta programa girdi (çekmecede **Kör test**). Yol haritasındaki
+Retriever maddesi 22 Ekim 2026'da "araştırıldı, MP3 için kapıdan geçmedi" diye kapandı (bkz. [ROADMAP.md](ROADMAP.md),
+Faz 3).
 
 Bu belge üç şeyi bir arada tutar:
 
@@ -662,8 +663,8 @@ MOS; parantez içinde SNR farkı. Kutu dışı oranı her satırda 0 (ölçüld�
   1. **Kör dinleme aracı (ABX)** artık programda (0.0.40, çekmecede **Kör test**): ses mühendisiyle tartışmayı kulakla
      bitirir ve bu belgenin "MOS modeldir" sınırını da kapatır. İsteyen, bu araştırmanın örneklerini de onunla
      dinleyebilir (`r2_degerlendir.py` çıktıları WAV olarak yazdırılabilir; bu sürümde yazdırılmadı).
-  2. Yol haritasındaki Retriever maddesi "araştırıldı, kapıdan geçmedi" diye işaretlenir; AAC (F4) için aynı deney
-     tekrarlanmadan karar verilmez ama MP3 sonucu beklentiyi düşürür.
+  2. Yol haritasındaki Retriever maddesi "araştırıldı, kapıdan geçmedi" diye işaretlenir (yapıldı, 22 Ekim 2026); AAC
+     (F4) için aynı deney tekrarlanmadan karar verilmez ama MP3 sonucu beklentiyi düşürür.
   3. Proje sahibinin kendi kayıpsız arşiviyle tek bir doğrulama (kendi bilgisayarında): bu belgenin sentetik müzik
      sınırını kapatır. Beklenti: aynı sonuç.
 

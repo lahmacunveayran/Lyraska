@@ -10,6 +10,7 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
+use crate::audio::crossfeed::CrossfeedSettings;
 use crate::audio::eq::EqSettings;
 use crate::audio::peq::{HeadphoneSettings, ParametricSettings};
 use crate::audio::PlaybackOptions;
@@ -23,6 +24,8 @@ pub struct Settings {
     pub headphone: HeadphoneSettings,
     /// Elle parametrik ekolayzer.
     pub parametric: ParametricSettings,
+    /// Crossfeed (kulaklıkta hoparlörden dinler gibi).
+    pub crossfeed: CrossfeedSettings,
     /// Epilepsi güvenli modu: görseller daha seyrek nabız atar, parlaklık yarı hızla değişir.
     pub visual_safe: bool,
     /// Ses aygıtının ek gecikmesi (ms; ör. Bluetooth): görseller bu kadar geriden okunur.
@@ -64,6 +67,7 @@ impl SettingsStore {
                 equalizer: settings.equalizer.sanitized(),
                 headphone: settings.headphone.sanitized(),
                 parametric: settings.parametric.sanitized(),
+                crossfeed: settings.crossfeed.sanitized(),
                 visual_safe: settings.visual_safe,
                 audio_delay_ms: crate::visual_bridge::clamp_audio_delay_ms(settings.audio_delay_ms),
                 playback: settings.playback,
@@ -138,6 +142,7 @@ fn parse_lenient(text: &str, path: &Path) -> Settings {
         equalizer: field(&value, "equalizer"),
         headphone: field(&value, "headphone"),
         parametric: field(&value, "parametric"),
+        crossfeed: field(&value, "crossfeed"),
         visual_safe: field(&value, "visualSafe"),
         audio_delay_ms: field(&value, "audioDelayMs"),
         playback: field(&value, "playback"),
@@ -177,6 +182,8 @@ mod tests {
                 s.equalizer.gains_db[0] = 4.5;
                 s.equalizer.enabled = false;
                 s.parametric.bands[2].gain_db = -3.5;
+                s.crossfeed.enabled = true;
+                s.crossfeed.level_db = 4.5;
             })
             .unwrap();
         let reopened = SettingsStore::open(&path);
@@ -184,6 +191,8 @@ mod tests {
         assert!(!reopened.get().equalizer.enabled);
         // Parametrik ekolayzer de kalıcı (alan alan okumada da).
         assert_eq!(reopened.get().parametric.bands[2].gain_db, -3.5);
+        assert!(reopened.get().crossfeed.enabled);
+        assert_eq!(reopened.get().crossfeed.level_db, 4.5);
         assert!(!path.with_extension("json.tmp").exists());
     }
 
@@ -224,6 +233,36 @@ mod tests {
             settings.audio_delay_ms, 0,
             "yalnızca bozuk alan varsayılana döner"
         );
+    }
+
+    #[test]
+    fn crossfeed_alani_bozuksa_digerleri_korunur_sinir_disi_kirpilir() {
+        // Eski sürümün dosyasında crossfeed yok: kapalı başlar.
+        let path = temp_path("crossfeed-ayarlar.json");
+        std::fs::write(&path, r#"{"visualSafe":true}"#).unwrap();
+        assert_eq!(
+            SettingsStore::open(&path).get().crossfeed,
+            CrossfeedSettings::default()
+        );
+        // Yanlış türde crossfeed alanı: yalnızca o varsayılana döner.
+        std::fs::write(
+            &path,
+            r#"{"visualSafe":true,"crossfeed":{"enabled":"evet"}}"#,
+        )
+        .unwrap();
+        let settings = SettingsStore::open(&path).get();
+        assert!(settings.visual_safe);
+        assert_eq!(settings.crossfeed, CrossfeedSettings::default());
+        // Sınır dışı değerler okurken sınıra çekilir.
+        std::fs::write(
+            &path,
+            r#"{"crossfeed":{"enabled":true,"cutoffHz":50000,"levelDb":-3}}"#,
+        )
+        .unwrap();
+        let crossfeed = SettingsStore::open(&path).get().crossfeed;
+        assert!(crossfeed.enabled);
+        assert_eq!(crossfeed.cutoff_hz, crate::audio::crossfeed::MAX_CUTOFF_HZ);
+        assert_eq!(crossfeed.level_db, crate::audio::crossfeed::MIN_LEVEL_DB);
     }
 
     #[test]

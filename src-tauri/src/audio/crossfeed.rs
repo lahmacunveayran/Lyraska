@@ -19,7 +19,16 @@
 //! - alçak frekansta kulaklar arası seviye farkı −20·log₁₀(r0) dB,
 //! - zaman farkı (grup gecikmesi) 1/ωc (700 Hz'te ~0,23 ms; baş modelinde ±30° için ~0,28 ms),
 //! - fazı hiçbir frekansta 90°'yi geçmez, yani Re ρ ≥ 0. Bu, |G| ≤ 1 demektir: yan bileşen
-//!   hiçbir frekansta yükselmez, tepe ya da rezonans oluşmaz, ses taşmaz.
+//!   hiçbir frekansta yükselmez, tepe ya da rezonans oluşmaz, ses yüksekliği artmaz.
+//!
+//! **Örnek tepesi.** |G| ≤ 1 frekans içindir; zamanda tek tek örnekler yine de biraz aşabilir.
+//! Kesin sınır dürtü yanıtının mutlak toplamıdır: ‖g‖₁ = b0 + (b0 − G(1)) = 2·b0 − G(1) < 2
+//! (dürtü yanıtı b0 ve ardından işareti hep aynı, azalan bir kuyruk). |L|, |R| ≤ 1 iken çıkış
+//! |M| + ‖g‖₁·|S| ≤ max(1, ‖g‖₁). Bu sınıra yalnızca tam ölçekli ters fazlı kare dalga yaklaşır
+//! (Orta: +4 dB); tamamen sola kaydırılmış davul vuruşunda aşma yok, tam ölçekli geniş gürültüde
+//! ~1,6 dB. Böyle seyrek aşmaları ses yolunun sonundaki taşma koruması (sınırlayıcı) yakalar;
+//! eşitleme açıkken (varsayılan) boşluk zaten yeter. Bu yüzden korumaya pay bildirilmez: her
+//! şarkıyı en kötü duruma göre kısmak gereksiz yere sessizleştirirdi.
 //!
 //! Yerine koyunca G(s) = (s + ωc·(1 − r0)) / (s + ωc·(1 + r0)): tek kutuplu bir raf. DC'de
 //! (1 − r0)/(1 + r0) (yan bileşenin bası kısılır: bas iki kulağa da gider), yüksek frekansta 1
@@ -509,6 +518,59 @@ mod tests {
         assert!(peak_l <= 1.0 && peak_r <= 1.0);
     }
 
+    /// Örnek tepesinin kesin sınırı: dürtü yanıtının mutlak toplamı 2·b0 − G(1) < 2 ve ters fazlı
+    /// tam ölçekli kare dalga ona ulaşır (belgedeki sayılar). Sola kaydırılmış davul vuruşu aşmaz.
+    #[test]
+    fn ornek_tepesi_siniri_dogru() {
+        for rate in [44_100u32, 48_000, 192_000] {
+            for (name, cutoff, level) in PRESETS {
+                let settings = on(cutoff, level);
+                let g = SideFilter::design(&settings, f64::from(rate));
+                let (dc, _) = g.response(0.0);
+                let bound = 2.0 * g.b0 - dc;
+                let mut state = 0.0;
+                let mut l1 = 0.0;
+                for i in 0..rate * 4 {
+                    l1 += g.process(&mut state, if i == 0 { 1.0 } else { 0.0 }).abs();
+                }
+                assert!((l1 - bound).abs() < 1e-9, "{name}: {l1} != {bound}");
+                assert!(bound < 2.0);
+                // Ters fazlı kare dalga (yalnız yan bileşen) sınıra yaklaşır.
+                let mut p = processor(settings, rate);
+                let period = rate as usize / 100;
+                let mut peak = 0.0f64;
+                for i in 0..rate as usize {
+                    let x = if (i / (period / 2)) % 2 == 0 {
+                        1.0
+                    } else {
+                        -1.0
+                    };
+                    let mut frame = [x, -x];
+                    p.process_frame(&mut frame);
+                    peak = peak.max(frame[0].abs()).max(frame[1].abs());
+                }
+                assert!(
+                    peak <= bound + 1e-12 && peak > bound - 0.01,
+                    "{name}: {peak} / {bound}"
+                );
+            }
+        }
+        // Tamamen sola kaydırılmış, tam ölçekli bas davul: hiçbir hazır ayarda aşma yok.
+        for (name, cutoff, level) in PRESETS {
+            let rate = 48_000u32;
+            let mut p = processor(on(cutoff, level), rate);
+            let mut peak = 0.0f64;
+            for i in 0..rate {
+                let t = f64::from(i) / f64::from(rate);
+                let x = (2.0 * PI * 55.0 * t).sin() * (-t / 0.15).exp();
+                let mut frame = [x, 0.0];
+                p.process_frame(&mut frame);
+                peak = peak.max(frame[0].abs()).max(frame[1].abs());
+            }
+            assert!(peak <= 1.0, "{name}: {peak}");
+        }
+    }
+
     #[test]
     fn ayar_degisirken_ani_sicrama_olmaz() {
         let rate = 48_000u32;
@@ -538,6 +600,33 @@ mod tests {
         // 150 Hz, 0,5 genlikli sinüsün örnekler arası en büyük adımı ~0,0098.
         assert!(biggest < 0.015, "{biggest}");
         assert!(p.is_bypass(), "kapatınca geçiş bitti");
+    }
+
+    /// Ekrandaki eğri (96 kHz sayısal) arayüzün analog önizlemesiyle (`lib/crossfeed.ts`: yakın
+    /// kulak 1/(1 + ρ), karşı kulak ρ/(1 + ρ)) uyuşur: sürüklerken eğri zıplamaz.
+    #[test]
+    fn durum_egrisi_analog_formulle_uyusur() {
+        for (name, cutoff, level) in PRESETS.into_iter().chain([
+            ("uç 1", MIN_CUTOFF_HZ, MIN_LEVEL_DB),
+            ("uç 2", MAX_CUTOFF_HZ, MAX_LEVEL_DB),
+        ]) {
+            let settings = on(cutoff, level);
+            let state = CrossfeedState::new(settings);
+            let r0 = settings.ratio();
+            for (i, &hz) in state.curve_hz.iter().enumerate() {
+                let x = hz / cutoff;
+                // ρ = r0 (1 − jx)/(1 + x²); |1 + ρ|² ve |ρ|².
+                let (re, im) = (r0 / (1.0 + x * x), -r0 * x / (1.0 + x * x));
+                let denominator = (1.0 + re).powi(2) + im * im;
+                let near = -10.0 * denominator.log10();
+                let far = 10.0 * ((re * re + im * im) / denominator).log10();
+                let limit = if hz < 5000.0 { 0.07 } else { 1.4 };
+                let error = (state.near_db[i] - near)
+                    .abs()
+                    .max((state.far_db[i] - far).abs());
+                assert!(error <= limit, "{name}, {hz:.0} Hz: {error:.3} dB");
+            }
+        }
     }
 
     #[test]

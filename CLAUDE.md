@@ -74,9 +74,10 @@ lyraska/
 │   │                         # (sahne, 1–5), useDropToLibrary (sürükle-bırak), useIdle (sinema görünümü),
 │   │                         # useVisualSafe (epilepsi güvenli modu), usePlaybackOptions (ses yüksekliği eşitleme),
 │   │                         # useSkyLook (gece göğünün manzarası: göl, korona, karlı vadi), useCover (kapak),
-│   │                         # useAbx (kör test), useSongKey (çalan şarkının tonu), useParametric (elle parametrik EQ)
+│   │                         # useAbx (kör test), useSongKey (çalan şarkının tonu), useParametric (elle
+│   │                         # parametrik EQ), useCrossfeed (crossfeed)
 │   ├── lib/                  # Saf yardımcılar (format, meter, dotFont, vu, sky, highway, queue, sync, songMap,
-│   │                         # timeline, cover, abx, stageLight, musicalKey, parametric), Rust köprüsü (backend.ts; veri tipleri bindings/ altında
+│   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed), Rust köprüsü (backend.ts; veri tipleri bindings/ altında
 │   │                         # Rust'tan üretilir, elle düzenlenmez), arayüz hatalarını günlüğe yazma (errorReporting.ts), parlama sayacı
 │   │                         # (flash.ts), WebGL2 çizimi (gl.ts ortak; skyRenderer.ts, highwayRenderer.ts),
 │   │                         # WebGL2 açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts)
@@ -92,13 +93,13 @@ lyraska/
 │   │   │   ├── bass.rs       #   bas düğmesi (raf, 0–18 dB), derinlik (alt oktav), küçük hoparlör bası, bas tepesi ölçümü
 │   │   │   ├── punch.rs      #   vuruş: davulun ilk anını güçlendiren dinamik bas rafı (sürekli bas aynen kalır)
 │   │   │   ├── biquad.rs     #   ikinci dereceden süzgeçler: sekiz tür; RBJ ve analog eğriye eşlenmiş tasarım
-│   │   │   ├── crossfeed.rs  #   crossfeed: orta/yan biçimi, orta ses bit bit aynı (çekirdek; ses yoluna bağlanacak)
+│   │   │   ├── crossfeed.rs  #   crossfeed: orta/yan biçimi, orta ses bit bit aynı, yan ses hiçbir frekansta yükselmez
 │   │   │   ├── loudness.rs   #   EBU R128 ses yüksekliği (LUFS) ve gerçek tepe (dBTP) ölçümü
 │   │   │   ├── normalize.rs  #   çalarken eşitleme (−14 LUFS) ve ekolayzerin boşluğa göre taşma koruması
 │   │   │   ├── peq.rs        #   kulaklık düzeltmesi (AutoEq/Equalizer APO) ve elle parametrik EQ; A/B eşit yükseklikte
 │   │   │   ├── resample.rs   #   şarkıyı aygıtın hızına çevirme (rubato FFT, yüksek kalite), mono → stereo
 │   │   │   ├── limiter.rs    #   taşma koruması: ileriye bakan gerçek tepe sınırlayıcı (−1 dBTP, 8× ara değer)
-│   │   │   ├── render.rs     #   gerçek zamanlı doldurma, ekolayzer, eşitleme, taşma koruması, duraklatma geçişi
+│   │   │   ├── render.rs     #   gerçek zamanlı doldurma, ekolayzer, bas, crossfeed, eşitleme, taşma koruması, duraklatma geçişi
 │   │   │   ├── output.rs     #   çıkış soyutlaması, özel mod tamsayı biçimi; output/wasapi.rs = Windows WASAPI
 │   │   │   │                 #   (paylaşımlı; ayarla özel mod = bit-perfect), output/simulated.rs = testlerde
 │   │   │   │                 #   aygıtsız sanal çıkış
@@ -110,7 +111,7 @@ lyraska/
 │   │   │   └── service.rs    #   arka plan taraması; komutların kullandığı katman
 │   │   ├── storage.rs        # library.sqlite3 şeması ve sıralı göçleri (kütüphane + analiz önbelleği)
 │   │   ├── diagnostics.rs    # Yerel hata ve çökme günlüğü (logs/lyraska.log; gerçek zamanlı yoldan çağrılmaz)
-│   │   ├── settings.rs       # Kalıcı ayarlar (settings.json; ekolayzer, kulaklık, eşitleme, güvenli mod, ses gecikmesi)
+│   │   ├── settings.rs       # Kalıcı ayarlar (settings.json; ekolayzer, kulaklık, parametrik EQ, crossfeed, eşitleme, güvenli mod, ses gecikmesi)
 │   │   ├── analysis/         # Şarkı haritası: beat, ölçü, bölüm, drop, enerji, ton
 │   │   │   ├── spectrogram.rs #  şarkı açılınca arka planda spektrum (60 kare/sn, 32 bant), seviyeler, LUFS, bas tepeleri
 │   │   │   ├── levels.rs     #   sol/sağ RMS ve tepe; şarkıya göre 0 VU referansı
