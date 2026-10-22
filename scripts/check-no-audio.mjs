@@ -54,11 +54,14 @@ for (const file of files) {
 // Bütün geçmiş: her blob'un içeriği ve geçmişteki bütün yollar.
 let blobCount = 0;
 if (history) {
+  // Aynı içerik geçmişte birden çok yolda durmuş olabilir: hepsi tutulur.
   const paths = new Map();
   for (const line of git(["rev-list", "--objects", "--all"]).split("\n")) {
+    if (!line) continue;
     const space = line.indexOf(" ");
-    if (space > 0) paths.set(line.slice(0, space), line.slice(space + 1));
-    else if (line) paths.set(line, "");
+    const sha = space > 0 ? line.slice(0, space) : line;
+    if (!paths.has(sha)) paths.set(sha, []);
+    if (space > 0) paths.get(sha).push(line.slice(space + 1));
   }
   // Yalnızca bir dala ya da etikete ulaşılabilen nesneler (yerelde artakalan sahipsiz nesneler değil).
   const blobs = git(
@@ -79,12 +82,20 @@ if (history) {
     const start = headerEnd + 1;
     const content = output.subarray(start, start + Number(size));
     at = start + Number(size) + 1;
-    const path = paths.get(sha) ?? "(yolu bilinmeyen blob)";
     const format = sniffAudio(content);
-    if ((format || hasAudioExtension(path)) && !path.startsWith(ALLOWED_DIR)) {
-      problems.push(
-        `geçmişte ${path} (${sha.slice(0, 7)}): ses dosyası${format ? ` (${format})` : ""}`,
-      );
+    const known = paths.get(sha) ?? [];
+    for (const path of known.length > 0 ? known : ["(yolu bilinmeyen blob)"]) {
+      if (!format && !hasAudioExtension(path)) continue;
+      if (!path.startsWith(ALLOWED_DIR)) {
+        problems.push(
+          `geçmişte ${path} (${sha.slice(0, 7)}): ses dosyası${format ? ` (${format})` : ""}`,
+        );
+      } else if (content.length > MAX_TEST_AUDIO_BYTES) {
+        // İzinli klasöre konup sonra silinen gerçek bir şarkı da geçmişte kalır.
+        problems.push(
+          `geçmişte ${path} (${sha.slice(0, 7)}): ${content.length} bayt; test sesi en fazla ${MAX_TEST_AUDIO_BYTES} bayt olabilir`,
+        );
+      }
     }
   }
 }

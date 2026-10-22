@@ -114,3 +114,16 @@ export function checkLicense(field, allowed) {
   }
   return satisfies(tree, allowed) ? null : `izin listesinde değil: ${expression}`;
 }
+
+/**
+ * CLAUDE.md'deki kesin yasak: AGPL ve ticari kullanımı yasaklayan lisanslar hiçbir izin listesine
+ * giremez (deny.toml'a eklemek yeterli olmasın). `BSL-1.0` (Boost) izinlidir; `BUSL` (Business
+ * Source) değildir.
+ */
+const FORBIDDEN =
+  /AGPL|SSPL|BUSL|Business-Source|Commons-Clause|Elastic|PolyForm|NonCommercial|(^|[-.])NC([-.]|$)|CC-BY-NC|Parity|Prosperity|Confluent|Server-Side-Public/i;
+
+/** İzin listesindeki yasaklı lisanslar. */
+export function forbiddenLicenses(ids) {
+  return [...ids].filter((id) => FORBIDDEN.test(id));
+}

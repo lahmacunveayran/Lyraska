@@ -7,6 +7,16 @@ const bytes = (...parts) =>
     parts.flatMap((p) => (typeof p === "string" ? [...p].map((c) => c.charCodeAt(0)) : p)),
   );
 
+/** Tek girdili, sıkıştırmasız zip (yalnızca yerel dosya başlığı). */
+const zip = (name, content) =>
+  bytes(
+    "PK",
+    [3, 4, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [content.length, 0, 0, 0, content.length, 0, 0, 0, name.length, 0, 0, 0],
+    name,
+    content,
+  );
+
 describe("ses dosyası imzası", () => {
   it("yaygın biçimleri içerikten tanır", () => {
     const cases = [
@@ -20,6 +30,10 @@ describe("ses dosyası imzası", () => {
       [bytes([0x30, 0x26, 0xb2, 0x75]), "WMA/ASF"],
       [bytes([0x1a, 0x45, 0xdf, 0xa3]), "Matroska/WebM"],
       [bytes("MThd"), "MIDI"],
+      [bytes([0xff, 0xf1, 0x50, 0x40]), "AAC (ADTS)"],
+      [bytes(new Array(512).fill(0), [0xff, 0xfb, 0x90, 0x64]), "MPEG ses, başında 512 bayt dolgu"],
+      [zip("notlar.txt", "merhaba"), null],
+      [zip("sarki.MP3", "ses"), "zip içinde sarki.MP3"],
     ];
     for (const [data, format] of cases) expect(sniffAudio(data)).toBe(format);
   });

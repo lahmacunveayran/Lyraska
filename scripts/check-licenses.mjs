@@ -15,7 +15,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { allowedFromDenyToml, checkLicense } from "./lib/licenses.mjs";
+import { allowedFromDenyToml, checkLicense, forbiddenLicenses } from "./lib/licenses.mjs";
 
 const ROOT = resolve(import.meta.dirname, "..");
 
@@ -29,7 +29,10 @@ const allowed = allowedFromDenyToml(readFileSync(join(ROOT, "src-tauri", "deny.t
 const allowedDev = new Set([...allowed, ...DEV_ONLY]);
 const lock = JSON.parse(readFileSync(join(ROOT, "package-lock.json"), "utf8"));
 
-const problems = [];
+const problems = forbiddenLicenses(allowedDev).map(
+  (id) =>
+    `izin listesinde yasaklı lisans: ${id} (AGPL ve ticari kullanımı yasaklayan lisanslar giremez)`,
+);
 let count = 0;
 let shipped = 0;
 for (const [key, entry] of Object.entries(lock.packages ?? {})) {

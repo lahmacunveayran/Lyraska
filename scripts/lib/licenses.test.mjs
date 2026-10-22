@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { allowedFromDenyToml, checkLicense, parseSpdx } from "./licenses.mjs";
+import { allowedFromDenyToml, checkLicense, forbiddenLicenses, parseSpdx } from "./licenses.mjs";
 
 const allowed = new Set([
   "MIT",
@@ -82,5 +83,36 @@ allow = [
 allow = ["yanlis"]
 `;
     expect([...allowedFromDenyToml(toml)]).toEqual(["MIT", "OFL-1.1"]);
+  });
+});
+
+describe("yasaklı lisanslar", () => {
+  it("AGPL ve ticari kullanımı yasaklayanlar izin listesine giremez; Boost (BSL-1.0) girebilir", () => {
+    expect(
+      forbiddenLicenses([
+        "MIT",
+        "BSL-1.0",
+        "AGPL-3.0-only",
+        "SSPL-1.0",
+        "BUSL-1.1",
+        "CC-BY-NC-4.0",
+        "PolyForm-Noncommercial-1.0.0",
+        "Elastic-2.0",
+        "Apache-2.0 WITH Commons-Clause",
+      ]),
+    ).toEqual([
+      "AGPL-3.0-only",
+      "SSPL-1.0",
+      "BUSL-1.1",
+      "CC-BY-NC-4.0",
+      "PolyForm-Noncommercial-1.0.0",
+      "Elastic-2.0",
+      "Apache-2.0 WITH Commons-Clause",
+    ]);
+  });
+
+  it("depodaki deny.toml yasaklı lisans içermez", () => {
+    const allowed = allowedFromDenyToml(readFileSync("src-tauri/deny.toml", "utf8"));
+    expect(forbiddenLicenses(allowed)).toEqual([]);
   });
 });

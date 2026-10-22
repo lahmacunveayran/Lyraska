@@ -68,6 +68,15 @@ const ascii = (bytes, from, text) =>
 
 /** İçeriğin ilk baytlarından ses biçimi adı; ses değilse `null`. */
 export function sniffAudio(bytes) {
+  // Başına sıfır dolgu eklenmiş ses (ör. 512 bayt boşluk + MP3) de yakalansın: baştaki sıfırlar atlanır.
+  let zeros = 0;
+  while (zeros < bytes.length && zeros < 4096 && bytes[zeros] === 0) zeros += 1;
+  if (zeros >= 16 && zeros < bytes.length) {
+    const inner = sniffAudio(bytes.subarray(zeros));
+    if (inner) return `${inner}, başında ${zeros} bayt dolgu`;
+  }
+  const archived = archivedAudio(bytes);
+  if (archived) return `zip içinde ${archived}`;
   if (ascii(bytes, 0, "ID3")) return "MP3 (ID3)";
   if (ascii(bytes, 0, "fLaC")) return "FLAC";
   if (ascii(bytes, 0, "OggS")) return "Ogg";
@@ -95,6 +104,10 @@ export function sniffAudio(bytes) {
     const brand = String.fromCharCode(...bytes.slice(8, 12));
     return /^(avif|avis|heic|heix|mif1|msf1)$/.test(brand) ? null : `MP4 (${brand.trim()})`;
   }
+  // AAC (ADTS): 12 bit eşitleme, katman bitleri 00; örnekleme hızı dizini 0–12.
+  if (bytes.length >= 4 && bytes[0] === 0xff && (bytes[1] & 0xf6) === 0xf0) {
+    if (((bytes[2] >> 2) & 0x0f) <= 12) return "AAC (ADTS)";
+  }
   // Etiketsiz MPEG ses çerçevesi: 11 bit eşitleme, geçerli katman ve bit hızı.
   if (bytes.length >= 3 && bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0) {
     const layer = (bytes[1] >> 1) & 0x03;
@@ -102,6 +115,27 @@ export function sniffAudio(bytes) {
     const bitrate = bytes[2] >> 4;
     const rate = (bytes[2] >> 2) & 0x03;
     if (layer !== 0 && version !== 1 && bitrate !== 0x0f && rate !== 0x03) return "MPEG ses";
+  }
+  return null;
+}
+
+/**
+ * Zip arşivindeki (yerel dosya başlıkları) ses uzantılı ilk girdinin adı. Arşive konmuş bir şarkı
+ * da depoya girmez.
+ */
+function archivedAudio(bytes) {
+  if (!ascii(bytes, 0, "PK\x03\x04")) return null;
+  for (let at = 0; at + 30 <= bytes.length;) {
+    if (!ascii(bytes, at, "PK\x03\x04")) return null;
+    const compressed =
+      bytes[at + 18] | (bytes[at + 19] << 8) | (bytes[at + 20] << 16) | (bytes[at + 21] << 24);
+    const nameLength = bytes[at + 26] | (bytes[at + 27] << 8);
+    const extraLength = bytes[at + 28] | (bytes[at + 29] << 8);
+    const name = String.fromCharCode(...bytes.subarray(at + 30, at + 30 + nameLength));
+    if (hasAudioExtension(name)) return name;
+    // Boyutu sonradan yazılan (veri tanımlayıcılı) girdide sonraki başlık bulunamaz; ilk ad yeter.
+    if (bytes[at + 6] & 0x08) return null;
+    at += 30 + nameLength + extraLength + (compressed >>> 0);
   }
   return null;
 }
