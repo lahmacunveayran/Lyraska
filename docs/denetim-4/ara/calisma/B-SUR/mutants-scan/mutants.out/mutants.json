@@ -1,0 +1,1186 @@
+[
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace ScanState::progress -> ScanProgress with Default::default()\n@@ -66,22 +66,17 @@\n     pub unreadable: usize,\n     /// Kök okunabildiği halde bilinen şarkıların **hiçbiri** bulunamadı (çıkarılmış disk, bağlanmamış\n     /// ağ paylaşımı, boş görünen sürücü): bunlar silinmiş sayılmaz, kütüphanede kalır.\n     pub suspicious: usize,\n }\n \n impl ScanState {\n     pub fn progress(&self) -> ScanProgress {\n-        ScanProgress {\n-            scanning: self.scanning.load(Ordering::Acquire),\n-            found: self.found.load(Ordering::Relaxed),\n-            processed: self.processed.load(Ordering::Relaxed),\n-            current: self.current.lock().ok().and_then(|c| c.clone()),\n-        }\n+        Default::default() /* ~ changed by cargo-mutants ~ */\n     }\n \n     pub fn is_scanning(&self) -> bool {\n         self.scanning.load(Ordering::Acquire)\n     }\n \n     /// Süren taramayı durdurur (program kapanırken).\n     pub fn cancel(&self) {\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "ScanState::progress",
+      "return_type": "-> ScanProgress",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 80
+        },
+        "start": {
+          "column": 5,
+          "line": 73
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/library/scan.rs:74:9: replace ScanState::progress -> ScanProgress with Default::default()",
+    "package": "lyraska",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 79
+      },
+      "start": {
+        "column": 9,
+        "line": 74
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace ScanState::is_scanning -> bool with true\n@@ -75,17 +75,17 @@\n             scanning: self.scanning.load(Ordering::Acquire),\n             found: self.found.load(Ordering::Relaxed),\n             processed: self.processed.load(Ordering::Relaxed),\n             current: self.current.lock().ok().and_then(|c| c.clone()),\n         }\n     }\n \n     pub fn is_scanning(&self) -> bool {\n-        self.scanning.load(Ordering::Acquire)\n+        true /* ~ changed by cargo-mutants ~ */\n     }\n \n     /// Süren taramayı durdurur (program kapanırken).\n     pub fn cancel(&self) {\n         self.cancel.store(true, Ordering::Release);\n     }\n \n     fn cancel_folder(&self) {\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "ScanState::is_scanning",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 84
+        },
+        "start": {
+          "column": 5,
+          "line": 82
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/library/scan.rs:83:9: replace ScanState::is_scanning -> bool with true",
+    "package": "lyraska",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 46,
+        "line": 83
+      },
+      "start": {
+        "column": 9,
+        "line": 83
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace ScanState::is_scanning -> bool with false\n@@ -75,17 +75,17 @@\n             scanning: self.scanning.load(Ordering::Acquire),\n             found: self.found.load(Ordering::Relaxed),\n             processed: self.processed.load(Ordering::Relaxed),\n             current: self.current.lock().ok().and_then(|c| c.clone()),\n         }\n     }\n \n     pub fn is_scanning(&self) -> bool {\n-        self.scanning.load(Ordering::Acquire)\n+        false /* ~ changed by cargo-mutants ~ */\n     }\n \n     /// Süren taramayı durdurur (program kapanırken).\n     pub fn cancel(&self) {\n         self.cancel.store(true, Ordering::Release);\n     }\n \n     fn cancel_folder(&self) {\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "ScanState::is_scanning",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 84
+        },
+        "start": {
+          "column": 5,
+          "line": 82
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/library/scan.rs:83:9: replace ScanState::is_scanning -> bool with false",
+    "package": "lyraska",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 46,
+        "line": 83
+      },
+      "start": {
+        "column": 9,
+        "line": 83
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace ScanState::cancel with ()\n@@ -80,17 +80,17 @@\n     }\n \n     pub fn is_scanning(&self) -> bool {\n         self.scanning.load(Ordering::Acquire)\n     }\n \n     /// Süren taramayı durdurur (program kapanırken).\n     pub fn cancel(&self) {\n-        self.cancel.store(true, Ordering::Release);\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n     fn cancel_folder(&self) {\n         self.cancel_folder.store(true, Ordering::Release);\n     }\n \n     fn begin(&self, folder: &str) {\n         self.found.store(0, Ordering::Relaxed);\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "ScanState::cancel",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 89
+        },
+        "start": {
+          "column": 5,
+          "line": 86
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/library/scan.rs:88:9: replace ScanState::cancel with ()",
+    "package": "lyraska",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 52,
+        "line": 88
+      },
+      "start": {
+        "column": 9,
+        "line": 88
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace ScanState::cancel_folder with ()\n@@ -84,17 +84,17 @@\n     }\n \n     /// Süren taramayı durdurur (program kapanırken).\n     pub fn cancel(&self) {\n         self.cancel.store(true, Ordering::Release);\n     }\n \n     fn cancel_folder(&self) {\n-        self.cancel_folder.store(true, Ordering::Release);\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n     fn begin(&self, folder: &str) {\n         self.found.store(0, Ordering::Relaxed);\n         self.processed.store(0, Ordering::Relaxed);\n         self.cancel_folder.store(false, Ordering::Release);\n         if let Ok(mut current) = self.current.lock() {\n             *current = Some(folder.to_owned());\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "ScanState::cancel_folder",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 93
+        },
+        "start": {
+          "column": 5,
+          "line": 91
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/library/scan.rs:92:9: replace ScanState::cancel_folder with ()",
+    "package": "lyraska",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 59,
+        "line": 92
+      },
+      "start": {
+        "column": 9,
+        "line": 92
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace ScanState::begin with ()\n@@ -88,22 +88,17 @@\n         self.cancel.store(true, Ordering::Release);\n     }\n \n     fn cancel_folder(&self) {\n         self.cancel_folder.store(true, Ordering::Release);\n     }\n \n     fn begin(&self, folder: &str) {\n-        self.found.store(0, Ordering::Relaxed);\n-        self.processed.store(0, Ordering::Relaxed);\n-        self.cancel_folder.store(false, Ordering::Release);\n-        if let Ok(mut current) = self.current.lock() {\n-            *current = Some(folder.to_owned());\n-        }\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n     pub(super) fn set_scanning(&self, scanning: bool) {\n         self.scanning.store(scanning, Ordering::Release);\n         if !scanning {\n             if let Ok(mut current) = self.current.lock() {\n                 *current = None;\n             }\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "ScanState::begin",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 102
+        },
+        "start": {
+          "column": 5,
+          "line": 95
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/library/scan.rs:96:9: replace ScanState::begin with ()",
+    "package": "lyraska",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 101
+      },
+      "start": {
+        "column": 9,
+        "line": 96
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace ScanState::set_scanning with ()\n@@ -97,22 +97,17 @@\n         self.processed.store(0, Ordering::Relaxed);\n         self.cancel_folder.store(false, Ordering::Release);\n         if let Ok(mut current) = self.current.lock() {\n             *current = Some(folder.to_owned());\n         }\n     }\n \n     pub(super) fn set_scanning(&self, scanning: bool) {\n-        self.scanning.store(scanning, Ordering::Release);\n-        if !scanning {\n-            if let Ok(mut current) = self.current.lock() {\n-                *current = None;\n-            }\n-        }\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n /// Verilen klasörleri sırayla tarar. Tarama süresince `state.scanning` açıktır.\n pub fn scan_folders(\n     library: &Mutex<Library>,\n     folders: &[FolderRow],\n     state: &ScanState,\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "ScanState::set_scanning",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 111
+        },
+        "start": {
+          "column": 5,
+          "line": 104
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/library/scan.rs:105:9: replace ScanState::set_scanning with ()",
+    "package": "lyraska",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 110
+      },
+      "start": {
+        "column": 9,
+        "line": 105
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ delete ! in ScanState::set_scanning\n@@ -98,17 +98,17 @@\n         self.cancel_folder.store(false, Ordering::Release);\n         if let Ok(mut current) = self.current.lock() {\n             *current = Some(folder.to_owned());\n         }\n     }\n \n     pub(super) fn set_scanning(&self, scanning: bool) {\n         self.scanning.store(scanning, Ordering::Release);\n-        if !scanning {\n+        if  /* ~ changed by cargo-mutants ~ */scanning {\n             if let Ok(mut current) = self.current.lock() {\n                 *current = None;\n             }\n         }\n     }\n }\n \n /// Verilen klasörleri sırayla tarar. Tarama süresince `state.scanning` açıktır.\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "ScanState::set_scanning",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 111
+        },
+        "start": {
+          "column": 5,
+          "line": 104
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "src/library/scan.rs:106:12: delete ! in ScanState::set_scanning",
+    "package": "lyraska",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 13,
+        "line": 106
+      },
+      "start": {
+        "column": 12,
+        "line": 106
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace scan_folders -> Result<ScanSummary, LibraryError> with Ok(Default::default())\n@@ -112,31 +112,17 @@\n }\n \n /// Verilen klasörleri sırayla tarar. Tarama süresince `state.scanning` açıktır.\n pub fn scan_folders(\n     library: &Mutex<Library>,\n     folders: &[FolderRow],\n     state: &ScanState,\n ) -> Result<ScanSummary, LibraryError> {\n-    state.set_scanning(true);\n-    let mut total = ScanSummary::default();\n-    let result = folders.iter().try_for_each(|folder| {\n-        let summary = scan_folder(library, folder, state)?;\n-        total.found += summary.found;\n-        total.updated += summary.updated;\n-        total.unchanged += summary.unchanged;\n-        total.failed += summary.failed;\n-        total.removed += summary.removed;\n-        total.unreadable += summary.unreadable;\n-        total.suspicious += summary.suspicious;\n-        Ok(())\n-    });\n-    state.set_scanning(false);\n-    result.map(|()| total)\n+    Ok(Default::default()) /* ~ changed by cargo-mutants ~ */\n }\n \n /// Tek bir kaynağı (klasör ya da tek şarkı) tarar ve kütüphaneyi günceller.\n pub fn scan_folder(\n     library: &Mutex<Library>,\n     folder: &FolderRow,\n     state: &ScanState,\n ) -> Result<ScanSummary, LibraryError> {\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folders",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 135
+        },
+        "start": {
+          "column": 1,
+          "line": 114
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/library/scan.rs:120:5: replace scan_folders -> Result<ScanSummary, LibraryError> with Ok(Default::default())",
+    "package": "lyraska",
+    "replacement": "Ok(Default::default())",
+    "span": {
+      "end": {
+        "column": 27,
+        "line": 134
+      },
+      "start": {
+        "column": 5,
+        "line": 120
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace += with -= in scan_folders\n@@ -116,17 +116,17 @@\n     library: &Mutex<Library>,\n     folders: &[FolderRow],\n     state: &ScanState,\n ) -> Result<ScanSummary, LibraryError> {\n     state.set_scanning(true);\n     let mut total = ScanSummary::default();\n     let result = folders.iter().try_for_each(|folder| {\n         let summary = scan_folder(library, folder, state)?;\n-        total.found += summary.found;\n+        total.found -= /* ~ changed by cargo-mutants ~ */ summary.found;\n         total.updated += summary.updated;\n         total.unchanged += summary.unchanged;\n         total.failed += summary.failed;\n         total.removed += summary.removed;\n         total.unreadable += summary.unreadable;\n         total.suspicious += summary.suspicious;\n         Ok(())\n     });\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folders",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 135
+        },
+        "start": {
+          "column": 1,
+          "line": 114
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:124:21: replace += with -= in scan_folders",
+    "package": "lyraska",
+    "replacement": "-=",
+    "span": {
+      "end": {
+        "column": 23,
+        "line": 124
+      },
+      "start": {
+        "column": 21,
+        "line": 124
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace += with *= in scan_folders\n@@ -116,17 +116,17 @@\n     library: &Mutex<Library>,\n     folders: &[FolderRow],\n     state: &ScanState,\n ) -> Result<ScanSummary, LibraryError> {\n     state.set_scanning(true);\n     let mut total = ScanSummary::default();\n     let result = folders.iter().try_for_each(|folder| {\n         let summary = scan_folder(library, folder, state)?;\n-        total.found += summary.found;\n+        total.found *= /* ~ changed by cargo-mutants ~ */ summary.found;\n         total.updated += summary.updated;\n         total.unchanged += summary.unchanged;\n         total.failed += summary.failed;\n         total.removed += summary.removed;\n         total.unreadable += summary.unreadable;\n         total.suspicious += summary.suspicious;\n         Ok(())\n     });\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folders",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 135
+        },
+        "start": {
+          "column": 1,
+          "line": 114
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:124:21: replace += with *= in scan_folders",
+    "package": "lyraska",
+    "replacement": "*=",
+    "span": {
+      "end": {
+        "column": 23,
+        "line": 124
+      },
+      "start": {
+        "column": 21,
+        "line": 124
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace += with -= in scan_folders\n@@ -117,17 +117,17 @@\n     folders: &[FolderRow],\n     state: &ScanState,\n ) -> Result<ScanSummary, LibraryError> {\n     state.set_scanning(true);\n     let mut total = ScanSummary::default();\n     let result = folders.iter().try_for_each(|folder| {\n         let summary = scan_folder(library, folder, state)?;\n         total.found += summary.found;\n-        total.updated += summary.updated;\n+        total.updated -= /* ~ changed by cargo-mutants ~ */ summary.updated;\n         total.unchanged += summary.unchanged;\n         total.failed += summary.failed;\n         total.removed += summary.removed;\n         total.unreadable += summary.unreadable;\n         total.suspicious += summary.suspicious;\n         Ok(())\n     });\n     state.set_scanning(false);\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folders",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 135
+        },
+        "start": {
+          "column": 1,
+          "line": 114
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:125:23: replace += with -= in scan_folders",
+    "package": "lyraska",
+    "replacement": "-=",
+    "span": {
+      "end": {
+        "column": 25,
+        "line": 125
+      },
+      "start": {
+        "column": 23,
+        "line": 125
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace += with *= in scan_folders\n@@ -117,17 +117,17 @@\n     folders: &[FolderRow],\n     state: &ScanState,\n ) -> Result<ScanSummary, LibraryError> {\n     state.set_scanning(true);\n     let mut total = ScanSummary::default();\n     let result = folders.iter().try_for_each(|folder| {\n         let summary = scan_folder(library, folder, state)?;\n         total.found += summary.found;\n-        total.updated += summary.updated;\n+        total.updated *= /* ~ changed by cargo-mutants ~ */ summary.updated;\n         total.unchanged += summary.unchanged;\n         total.failed += summary.failed;\n         total.removed += summary.removed;\n         total.unreadable += summary.unreadable;\n         total.suspicious += summary.suspicious;\n         Ok(())\n     });\n     state.set_scanning(false);\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folders",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 135
+        },
+        "start": {
+          "column": 1,
+          "line": 114
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:125:23: replace += with *= in scan_folders",
+    "package": "lyraska",
+    "replacement": "*=",
+    "span": {
+      "end": {
+        "column": 25,
+        "line": 125
+      },
+      "start": {
+        "column": 23,
+        "line": 125
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace += with -= in scan_folders\n@@ -118,17 +118,17 @@\n     state: &ScanState,\n ) -> Result<ScanSummary, LibraryError> {\n     state.set_scanning(true);\n     let mut total = ScanSummary::default();\n     let result = folders.iter().try_for_each(|folder| {\n         let summary = scan_folder(library, folder, state)?;\n         total.found += summary.found;\n         total.updated += summary.updated;\n-        total.unchanged += summary.unchanged;\n+        total.unchanged -= /* ~ changed by cargo-mutants ~ */ summary.unchanged;\n         total.failed += summary.failed;\n         total.removed += summary.removed;\n         total.unreadable += summary.unreadable;\n         total.suspicious += summary.suspicious;\n         Ok(())\n     });\n     state.set_scanning(false);\n     result.map(|()| total)\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folders",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 135
+        },
+        "start": {
+          "column": 1,
+          "line": 114
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:126:25: replace += with -= in scan_folders",
+    "package": "lyraska",
+    "replacement": "-=",
+    "span": {
+      "end": {
+        "column": 27,
+        "line": 126
+      },
+      "start": {
+        "column": 25,
+        "line": 126
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace += with *= in scan_folders\n@@ -118,17 +118,17 @@\n     state: &ScanState,\n ) -> Result<ScanSummary, LibraryError> {\n     state.set_scanning(true);\n     let mut total = ScanSummary::default();\n     let result = folders.iter().try_for_each(|folder| {\n         let summary = scan_folder(library, folder, state)?;\n         total.found += summary.found;\n         total.updated += summary.updated;\n-        total.unchanged += summary.unchanged;\n+        total.unchanged *= /* ~ changed by cargo-mutants ~ */ summary.unchanged;\n         total.failed += summary.failed;\n         total.removed += summary.removed;\n         total.unreadable += summary.unreadable;\n         total.suspicious += summary.suspicious;\n         Ok(())\n     });\n     state.set_scanning(false);\n     result.map(|()| total)\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folders",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 135
+        },
+        "start": {
+          "column": 1,
+          "line": 114
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:126:25: replace += with *= in scan_folders",
+    "package": "lyraska",
+    "replacement": "*=",
+    "span": {
+      "end": {
+        "column": 27,
+        "line": 126
+      },
+      "start": {
+        "column": 25,
+        "line": 126
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace += with -= in scan_folders\n@@ -119,17 +119,17 @@\n ) -> Result<ScanSummary, LibraryError> {\n     state.set_scanning(true);\n     let mut total = ScanSummary::default();\n     let result = folders.iter().try_for_each(|folder| {\n         let summary = scan_folder(library, folder, state)?;\n         total.found += summary.found;\n         total.updated += summary.updated;\n         total.unchanged += summary.unchanged;\n-        total.failed += summary.failed;\n+        total.failed -= /* ~ changed by cargo-mutants ~ */ summary.failed;\n         total.removed += summary.removed;\n         total.unreadable += summary.unreadable;\n         total.suspicious += summary.suspicious;\n         Ok(())\n     });\n     state.set_scanning(false);\n     result.map(|()| total)\n }\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folders",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 135
+        },
+        "start": {
+          "column": 1,
+          "line": 114
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:127:22: replace += with -= in scan_folders",
+    "package": "lyraska",
+    "replacement": "-=",
+    "span": {
+      "end": {
+        "column": 24,
+        "line": 127
+      },
+      "start": {
+        "column": 22,
+        "line": 127
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace += with *= in scan_folders\n@@ -119,17 +119,17 @@\n ) -> Result<ScanSummary, LibraryError> {\n     state.set_scanning(true);\n     let mut total = ScanSummary::default();\n     let result = folders.iter().try_for_each(|folder| {\n         let summary = scan_folder(library, folder, state)?;\n         total.found += summary.found;\n         total.updated += summary.updated;\n         total.unchanged += summary.unchanged;\n-        total.failed += summary.failed;\n+        total.failed *= /* ~ changed by cargo-mutants ~ */ summary.failed;\n         total.removed += summary.removed;\n         total.unreadable += summary.unreadable;\n         total.suspicious += summary.suspicious;\n         Ok(())\n     });\n     state.set_scanning(false);\n     result.map(|()| total)\n }\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folders",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 135
+        },
+        "start": {
+          "column": 1,
+          "line": 114
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:127:22: replace += with *= in scan_folders",
+    "package": "lyraska",
+    "replacement": "*=",
+    "span": {
+      "end": {
+        "column": 24,
+        "line": 127
+      },
+      "start": {
+        "column": 22,
+        "line": 127
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace += with -= in scan_folders\n@@ -120,17 +120,17 @@\n     state.set_scanning(true);\n     let mut total = ScanSummary::default();\n     let result = folders.iter().try_for_each(|folder| {\n         let summary = scan_folder(library, folder, state)?;\n         total.found += summary.found;\n         total.updated += summary.updated;\n         total.unchanged += summary.unchanged;\n         total.failed += summary.failed;\n-        total.removed += summary.removed;\n+        total.removed -= /* ~ changed by cargo-mutants ~ */ summary.removed;\n         total.unreadable += summary.unreadable;\n         total.suspicious += summary.suspicious;\n         Ok(())\n     });\n     state.set_scanning(false);\n     result.map(|()| total)\n }\n \n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folders",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 135
+        },
+        "start": {
+          "column": 1,
+          "line": 114
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:128:23: replace += with -= in scan_folders",
+    "package": "lyraska",
+    "replacement": "-=",
+    "span": {
+      "end": {
+        "column": 25,
+        "line": 128
+      },
+      "start": {
+        "column": 23,
+        "line": 128
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace += with *= in scan_folders\n@@ -120,17 +120,17 @@\n     state.set_scanning(true);\n     let mut total = ScanSummary::default();\n     let result = folders.iter().try_for_each(|folder| {\n         let summary = scan_folder(library, folder, state)?;\n         total.found += summary.found;\n         total.updated += summary.updated;\n         total.unchanged += summary.unchanged;\n         total.failed += summary.failed;\n-        total.removed += summary.removed;\n+        total.removed *= /* ~ changed by cargo-mutants ~ */ summary.removed;\n         total.unreadable += summary.unreadable;\n         total.suspicious += summary.suspicious;\n         Ok(())\n     });\n     state.set_scanning(false);\n     result.map(|()| total)\n }\n \n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folders",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 135
+        },
+        "start": {
+          "column": 1,
+          "line": 114
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:128:23: replace += with *= in scan_folders",
+    "package": "lyraska",
+    "replacement": "*=",
+    "span": {
+      "end": {
+        "column": 25,
+        "line": 128
+      },
+      "start": {
+        "column": 23,
+        "line": 128
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace += with -= in scan_folders\n@@ -121,17 +121,17 @@\n     let mut total = ScanSummary::default();\n     let result = folders.iter().try_for_each(|folder| {\n         let summary = scan_folder(library, folder, state)?;\n         total.found += summary.found;\n         total.updated += summary.updated;\n         total.unchanged += summary.unchanged;\n         total.failed += summary.failed;\n         total.removed += summary.removed;\n-        total.unreadable += summary.unreadable;\n+        total.unreadable -= /* ~ changed by cargo-mutants ~ */ summary.unreadable;\n         total.suspicious += summary.suspicious;\n         Ok(())\n     });\n     state.set_scanning(false);\n     result.map(|()| total)\n }\n \n /// Tek bir kaynağı (klasör ya da tek şarkı) tarar ve kütüphaneyi günceller.\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folders",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 135
+        },
+        "start": {
+          "column": 1,
+          "line": 114
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:129:26: replace += with -= in scan_folders",
+    "package": "lyraska",
+    "replacement": "-=",
+    "span": {
+      "end": {
+        "column": 28,
+        "line": 129
+      },
+      "start": {
+        "column": 26,
+        "line": 129
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace += with *= in scan_folders\n@@ -121,17 +121,17 @@\n     let mut total = ScanSummary::default();\n     let result = folders.iter().try_for_each(|folder| {\n         let summary = scan_folder(library, folder, state)?;\n         total.found += summary.found;\n         total.updated += summary.updated;\n         total.unchanged += summary.unchanged;\n         total.failed += summary.failed;\n         total.removed += summary.removed;\n-        total.unreadable += summary.unreadable;\n+        total.unreadable *= /* ~ changed by cargo-mutants ~ */ summary.unreadable;\n         total.suspicious += summary.suspicious;\n         Ok(())\n     });\n     state.set_scanning(false);\n     result.map(|()| total)\n }\n \n /// Tek bir kaynağı (klasör ya da tek şarkı) tarar ve kütüphaneyi günceller.\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folders",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 135
+        },
+        "start": {
+          "column": 1,
+          "line": 114
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:129:26: replace += with *= in scan_folders",
+    "package": "lyraska",
+    "replacement": "*=",
+    "span": {
+      "end": {
+        "column": 28,
+        "line": 129
+      },
+      "start": {
+        "column": 26,
+        "line": 129
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace += with -= in scan_folders\n@@ -122,17 +122,17 @@\n     let result = folders.iter().try_for_each(|folder| {\n         let summary = scan_folder(library, folder, state)?;\n         total.found += summary.found;\n         total.updated += summary.updated;\n         total.unchanged += summary.unchanged;\n         total.failed += summary.failed;\n         total.removed += summary.removed;\n         total.unreadable += summary.unreadable;\n-        total.suspicious += summary.suspicious;\n+        total.suspicious -= /* ~ changed by cargo-mutants ~ */ summary.suspicious;\n         Ok(())\n     });\n     state.set_scanning(false);\n     result.map(|()| total)\n }\n \n /// Tek bir kaynağı (klasör ya da tek şarkı) tarar ve kütüphaneyi günceller.\n pub fn scan_folder(\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folders",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 135
+        },
+        "start": {
+          "column": 1,
+          "line": 114
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:130:26: replace += with -= in scan_folders",
+    "package": "lyraska",
+    "replacement": "-=",
+    "span": {
+      "end": {
+        "column": 28,
+        "line": 130
+      },
+      "start": {
+        "column": 26,
+        "line": 130
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace += with *= in scan_folders\n@@ -122,17 +122,17 @@\n     let result = folders.iter().try_for_each(|folder| {\n         let summary = scan_folder(library, folder, state)?;\n         total.found += summary.found;\n         total.updated += summary.updated;\n         total.unchanged += summary.unchanged;\n         total.failed += summary.failed;\n         total.removed += summary.removed;\n         total.unreadable += summary.unreadable;\n-        total.suspicious += summary.suspicious;\n+        total.suspicious *= /* ~ changed by cargo-mutants ~ */ summary.suspicious;\n         Ok(())\n     });\n     state.set_scanning(false);\n     result.map(|()| total)\n }\n \n /// Tek bir kaynağı (klasör ya da tek şarkı) tarar ve kütüphaneyi günceller.\n pub fn scan_folder(\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folders",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 135
+        },
+        "start": {
+          "column": 1,
+          "line": 114
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:130:26: replace += with *= in scan_folders",
+    "package": "lyraska",
+    "replacement": "*=",
+    "span": {
+      "end": {
+        "column": 28,
+        "line": 130
+      },
+      "start": {
+        "column": 26,
+        "line": 130
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace scan_folder -> Result<ScanSummary, LibraryError> with Ok(Default::default())\n@@ -135,119 +135,17 @@\n }\n \n /// Tek bir kaynağı (klasör ya da tek şarkı) tarar ve kütüphaneyi günceller.\n pub fn scan_folder(\n     library: &Mutex<Library>,\n     folder: &FolderRow,\n     state: &ScanState,\n ) -> Result<ScanSummary, LibraryError> {\n-    state.begin(&folder.path);\n-    let root = Path::new(&folder.path);\n-    if !(root.is_dir() || root.is_file() && is_audio(root)) {\n-        return Err(LibraryError::FolderMissing(folder.path.clone()));\n-    }\n-\n-    let (files, unreadable, skipped) = find_audio_files(root);\n-    state.found.store(files.len(), Ordering::Relaxed);\n-    let known = lock(library)?.known_files(folder.id)?;\n-\n-    let on_disk: HashSet<String> = files\n-        .iter()\n-        .map(|(p, _)| p.to_string_lossy().into_owned())\n-        .collect();\n-    // Atlanan klasörlerin (geri dönüşüm kutusu vb.) altındaki eski kayıtlar da silinmez.\n-    let untouched: Vec<PathBuf> = unreadable.iter().chain(skipped.iter()).cloned().collect();\n-    let mut removed = removal_candidates(known.keys(), &on_disk, &untouched);\n-    // Kütüphanede şarkı vardı ama diskte hiçbiri yok: büyük olasılıkla disk takılı ya da ağ\n-    // paylaşımı bağlı değil. Hepsini silmek, geri gelince bütün kütüphaneyi (analizleriyle)\n-    // baştan kurdurur; onun yerine hiçbirine dokunulmaz ve kullanıcıya söylenir.\n-    let suspicious = if !known.is_empty() && removed.len() == known.len() {\n-        std::mem::take(&mut removed).len()\n-    } else {\n-        0\n-    };\n-    let to_read: Vec<(PathBuf, FileStamp)> = files\n-        .into_iter()\n-        .filter(|(path, stamp)| {\n-            known\n-                .get(path.to_string_lossy().as_ref())\n-                .copied()\n-                .flatten()\n-                != Some(*stamp)\n-        })\n-        .collect();\n-\n-    let mut summary = ScanSummary {\n-        found: on_disk.len(),\n-        unchanged: on_disk.len().saturating_sub(to_read.len()),\n-        removed: removed.len(),\n-        unreadable: unreadable.len(),\n-        suspicious,\n-        ..ScanSummary::default()\n-    };\n-    state.processed.store(summary.unchanged, Ordering::Relaxed);\n-\n-    // Etiketleri paralel oku; sonuçları tek bir yazıcı toplu halde veritabanına yazar.\n-    let workers = std::thread::available_parallelism()\n-        .map_or(1, |n| n.get())\n-        .clamp(1, MAX_WORKERS);\n-    let next = AtomicUsize::new(0);\n-    let (tx, rx) = mpsc::channel::<Option<(TrackInfo, FileStamp)>>();\n-    let write_result = std::thread::scope(|scope| {\n-        for _ in 0..workers {\n-            let tx = tx.clone();\n-            let (next, to_read) = (&next, &to_read);\n-            scope.spawn(move || loop {\n-                if state.cancel.load(Ordering::Acquire)\n-                    || state.cancel_folder.load(Ordering::Acquire)\n-                {\n-                    break;\n-                }\n-                let i = next.fetch_add(1, Ordering::Relaxed);\n-                let Some((path, stamp)) = to_read.get(i) else {\n-                    break;\n-                };\n-                let info = Decoder::open(path).ok().map(|d| (d.info().clone(), *stamp));\n-                if tx.send(info).is_err() {\n-                    break;\n-                }\n-            });\n-        }\n-        drop(tx);\n-\n-        let mut batch = Vec::with_capacity(BATCH);\n-        for result in rx {\n-            state.processed.fetch_add(1, Ordering::Relaxed);\n-            match result {\n-                Some(item) => batch.push(item),\n-                None => summary.failed += 1,\n-            }\n-            if batch.len() >= BATCH {\n-                // Kaynak bu arada kütüphaneden çıkarıldıysa yazılmaz (yabancı anahtar\n-                // hatası yerine sessizce biter) ve kalan etiketler okunmaz.\n-                let mut lib = lock(library)?;\n-                if lib.folder(folder.id)?.is_none() {\n-                    state.cancel_folder();\n-                    return Ok(());\n-                }\n-                summary.updated += batch.len();\n-                lib.apply_changes(folder.id, &batch, &[])?;\n-                batch.clear();\n-            }\n-        }\n-        let mut lib = lock(library)?;\n-        if lib.folder(folder.id)?.is_none() {\n-            return Ok(());\n-        }\n-        summary.updated += batch.len();\n-        lib.apply_changes(folder.id, &batch, &removed)\n-    });\n-    write_result?;\n-    Ok(summary)\n+    Ok(Default::default()) /* ~ changed by cargo-mutants ~ */\n }\n \n /// Kütüphaneden çıkarılacak yollar: bilinen ama diskte bulunmayanlar. Okunamayan bir klasörün\n /// (ya da dosyanın) altındakiler bulunmamış sayılmaz: orası okunamadı, silinmedi.\n fn removal_candidates<'a>(\n     known: impl Iterator<Item = &'a String>,\n     on_disk: &HashSet<String>,\n     unreadable: &[PathBuf],\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folder",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 246
+        },
+        "start": {
+          "column": 1,
+          "line": 137
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/library/scan.rs:143:5: replace scan_folder -> Result<ScanSummary, LibraryError> with Ok(Default::default())",
+    "package": "lyraska",
+    "replacement": "Ok(Default::default())",
+    "span": {
+      "end": {
+        "column": 16,
+        "line": 245
+      },
+      "start": {
+        "column": 5,
+        "line": 143
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ delete ! in scan_folder\n@@ -137,17 +137,17 @@\n /// Tek bir kaynağı (klasör ya da tek şarkı) tarar ve kütüphaneyi günceller.\n pub fn scan_folder(\n     library: &Mutex<Library>,\n     folder: &FolderRow,\n     state: &ScanState,\n ) -> Result<ScanSummary, LibraryError> {\n     state.begin(&folder.path);\n     let root = Path::new(&folder.path);\n-    if !(root.is_dir() || root.is_file() && is_audio(root)) {\n+    if  /* ~ changed by cargo-mutants ~ */(root.is_dir() || root.is_file() && is_audio(root)) {\n         return Err(LibraryError::FolderMissing(folder.path.clone()));\n     }\n \n     let (files, unreadable, skipped) = find_audio_files(root);\n     state.found.store(files.len(), Ordering::Relaxed);\n     let known = lock(library)?.known_files(folder.id)?;\n \n     let on_disk: HashSet<String> = files\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folder",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 246
+        },
+        "start": {
+          "column": 1,
+          "line": 137
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "src/library/scan.rs:145:8: delete ! in scan_folder",
+    "package": "lyraska",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 9,
+        "line": 145
+      },
+      "start": {
+        "column": 8,
+        "line": 145
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace || with && in scan_folder\n@@ -137,17 +137,17 @@\n /// Tek bir kaynağı (klasör ya da tek şarkı) tarar ve kütüphaneyi günceller.\n pub fn scan_folder(\n     library: &Mutex<Library>,\n     folder: &FolderRow,\n     state: &ScanState,\n ) -> Result<ScanSummary, LibraryError> {\n     state.begin(&folder.path);\n     let root = Path::new(&folder.path);\n-    if !(root.is_dir() || root.is_file() && is_audio(root)) {\n+    if !(root.is_dir() && /* ~ changed by cargo-mutants ~ */ root.is_file() && is_audio(root)) {\n         return Err(LibraryError::FolderMissing(folder.path.clone()));\n     }\n \n     let (files, unreadable, skipped) = find_audio_files(root);\n     state.found.store(files.len(), Ordering::Relaxed);\n     let known = lock(library)?.known_files(folder.id)?;\n \n     let on_disk: HashSet<String> = files\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folder",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 246
+        },
+        "start": {
+          "column": 1,
+          "line": 137
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:145:24: replace || with && in scan_folder",
+    "package": "lyraska",
+    "replacement": "&&",
+    "span": {
+      "end": {
+        "column": 26,
+        "line": 145
+      },
+      "start": {
+        "column": 24,
+        "line": 145
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace && with || in scan_folder\n@@ -137,17 +137,17 @@\n /// Tek bir kaynağı (klasör ya da tek şarkı) tarar ve kütüphaneyi günceller.\n pub fn scan_folder(\n     library: &Mutex<Library>,\n     folder: &FolderRow,\n     state: &ScanState,\n ) -> Result<ScanSummary, LibraryError> {\n     state.begin(&folder.path);\n     let root = Path::new(&folder.path);\n-    if !(root.is_dir() || root.is_file() && is_audio(root)) {\n+    if !(root.is_dir() || root.is_file() || /* ~ changed by cargo-mutants ~ */ is_audio(root)) {\n         return Err(LibraryError::FolderMissing(folder.path.clone()));\n     }\n \n     let (files, unreadable, skipped) = find_audio_files(root);\n     state.found.store(files.len(), Ordering::Relaxed);\n     let known = lock(library)?.known_files(folder.id)?;\n \n     let on_disk: HashSet<String> = files\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folder",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 246
+        },
+        "start": {
+          "column": 1,
+          "line": 137
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:145:42: replace && with || in scan_folder",
+    "package": "lyraska",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 44,
+        "line": 145
+      },
+      "start": {
+        "column": 42,
+        "line": 145
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace && with || in scan_folder\n@@ -155,17 +155,17 @@\n         .map(|(p, _)| p.to_string_lossy().into_owned())\n         .collect();\n     // Atlanan klasörlerin (geri dönüşüm kutusu vb.) altındaki eski kayıtlar da silinmez.\n     let untouched: Vec<PathBuf> = unreadable.iter().chain(skipped.iter()).cloned().collect();\n     let mut removed = removal_candidates(known.keys(), &on_disk, &untouched);\n     // Kütüphanede şarkı vardı ama diskte hiçbiri yok: büyük olasılıkla disk takılı ya da ağ\n     // paylaşımı bağlı değil. Hepsini silmek, geri gelince bütün kütüphaneyi (analizleriyle)\n     // baştan kurdurur; onun yerine hiçbirine dokunulmaz ve kullanıcıya söylenir.\n-    let suspicious = if !known.is_empty() && removed.len() == known.len() {\n+    let suspicious = if !known.is_empty() || /* ~ changed by cargo-mutants ~ */ removed.len() == known.len() {\n         std::mem::take(&mut removed).len()\n     } else {\n         0\n     };\n     let to_read: Vec<(PathBuf, FileStamp)> = files\n         .into_iter()\n         .filter(|(path, stamp)| {\n             known\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folder",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 246
+        },
+        "start": {
+          "column": 1,
+          "line": 137
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:163:43: replace && with || in scan_folder",
+    "package": "lyraska",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 45,
+        "line": 163
+      },
+      "start": {
+        "column": 43,
+        "line": 163
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ delete ! in scan_folder\n@@ -155,17 +155,17 @@\n         .map(|(p, _)| p.to_string_lossy().into_owned())\n         .collect();\n     // Atlanan klasörlerin (geri dönüşüm kutusu vb.) altındaki eski kayıtlar da silinmez.\n     let untouched: Vec<PathBuf> = unreadable.iter().chain(skipped.iter()).cloned().collect();\n     let mut removed = removal_candidates(known.keys(), &on_disk, &untouched);\n     // Kütüphanede şarkı vardı ama diskte hiçbiri yok: büyük olasılıkla disk takılı ya da ağ\n     // paylaşımı bağlı değil. Hepsini silmek, geri gelince bütün kütüphaneyi (analizleriyle)\n     // baştan kurdurur; onun yerine hiçbirine dokunulmaz ve kullanıcıya söylenir.\n-    let suspicious = if !known.is_empty() && removed.len() == known.len() {\n+    let suspicious = if  /* ~ changed by cargo-mutants ~ */known.is_empty() && removed.len() == known.len() {\n         std::mem::take(&mut removed).len()\n     } else {\n         0\n     };\n     let to_read: Vec<(PathBuf, FileStamp)> = files\n         .into_iter()\n         .filter(|(path, stamp)| {\n             known\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folder",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 246
+        },
+        "start": {
+          "column": 1,
+          "line": 137
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "src/library/scan.rs:163:25: delete ! in scan_folder",
+    "package": "lyraska",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 26,
+        "line": 163
+      },
+      "start": {
+        "column": 25,
+        "line": 163
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace == with != in scan_folder\n@@ -155,17 +155,17 @@\n         .map(|(p, _)| p.to_string_lossy().into_owned())\n         .collect();\n     // Atlanan klasörlerin (geri dönüşüm kutusu vb.) altındaki eski kayıtlar da silinmez.\n     let untouched: Vec<PathBuf> = unreadable.iter().chain(skipped.iter()).cloned().collect();\n     let mut removed = removal_candidates(known.keys(), &on_disk, &untouched);\n     // Kütüphanede şarkı vardı ama diskte hiçbiri yok: büyük olasılıkla disk takılı ya da ağ\n     // paylaşımı bağlı değil. Hepsini silmek, geri gelince bütün kütüphaneyi (analizleriyle)\n     // baştan kurdurur; onun yerine hiçbirine dokunulmaz ve kullanıcıya söylenir.\n-    let suspicious = if !known.is_empty() && removed.len() == known.len() {\n+    let suspicious = if !known.is_empty() && removed.len() != /* ~ changed by cargo-mutants ~ */ known.len() {\n         std::mem::take(&mut removed).len()\n     } else {\n         0\n     };\n     let to_read: Vec<(PathBuf, FileStamp)> = files\n         .into_iter()\n         .filter(|(path, stamp)| {\n             known\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folder",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 246
+        },
+        "start": {
+          "column": 1,
+          "line": 137
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:163:60: replace == with != in scan_folder",
+    "package": "lyraska",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 62,
+        "line": 163
+      },
+      "start": {
+        "column": 60,
+        "line": 163
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace != with == in scan_folder\n@@ -167,17 +167,17 @@\n     };\n     let to_read: Vec<(PathBuf, FileStamp)> = files\n         .into_iter()\n         .filter(|(path, stamp)| {\n             known\n                 .get(path.to_string_lossy().as_ref())\n                 .copied()\n                 .flatten()\n-                != Some(*stamp)\n+                == /* ~ changed by cargo-mutants ~ */ Some(*stamp)\n         })\n         .collect();\n \n     let mut summary = ScanSummary {\n         found: on_disk.len(),\n         unchanged: on_disk.len().saturating_sub(to_read.len()),\n         removed: removed.len(),\n         unreadable: unreadable.len(),\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folder",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 246
+        },
+        "start": {
+          "column": 1,
+          "line": 137
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:175:17: replace != with == in scan_folder",
+    "package": "lyraska",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 19,
+        "line": 175
+      },
+      "start": {
+        "column": 17,
+        "line": 175
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ delete field found from struct ScanSummary expression in scan_folder\n@@ -172,17 +172,17 @@\n                 .get(path.to_string_lossy().as_ref())\n                 .copied()\n                 .flatten()\n                 != Some(*stamp)\n         })\n         .collect();\n \n     let mut summary = ScanSummary {\n-        found: on_disk.len(),\n+         /* ~ changed by cargo-mutants ~ */\n         unchanged: on_disk.len().saturating_sub(to_read.len()),\n         removed: removed.len(),\n         unreadable: unreadable.len(),\n         suspicious,\n         ..ScanSummary::default()\n     };\n     state.processed.store(summary.unchanged, Ordering::Relaxed);\n \n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folder",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 246
+        },
+        "start": {
+          "column": 1,
+          "line": 137
+        }
+      }
+    },
+    "genre": "StructField",
+    "name": "src/library/scan.rs:180:9: delete field found from struct ScanSummary expression in scan_folder",
+    "package": "lyraska",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 30,
+        "line": 180
+      },
+      "start": {
+        "column": 9,
+        "line": 180
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ delete field unchanged from struct ScanSummary expression in scan_folder\n@@ -173,17 +173,17 @@\n                 .copied()\n                 .flatten()\n                 != Some(*stamp)\n         })\n         .collect();\n \n     let mut summary = ScanSummary {\n         found: on_disk.len(),\n-        unchanged: on_disk.len().saturating_sub(to_read.len()),\n+         /* ~ changed by cargo-mutants ~ */\n         removed: removed.len(),\n         unreadable: unreadable.len(),\n         suspicious,\n         ..ScanSummary::default()\n     };\n     state.processed.store(summary.unchanged, Ordering::Relaxed);\n \n     // Etiketleri paralel oku; sonuçları tek bir yazıcı toplu halde veritabanına yazar.\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folder",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 246
+        },
+        "start": {
+          "column": 1,
+          "line": 137
+        }
+      }
+    },
+    "genre": "StructField",
+    "name": "src/library/scan.rs:181:9: delete field unchanged from struct ScanSummary expression in scan_folder",
+    "package": "lyraska",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 64,
+        "line": 181
+      },
+      "start": {
+        "column": 9,
+        "line": 181
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ delete field removed from struct ScanSummary expression in scan_folder\n@@ -174,17 +174,17 @@\n                 .flatten()\n                 != Some(*stamp)\n         })\n         .collect();\n \n     let mut summary = ScanSummary {\n         found: on_disk.len(),\n         unchanged: on_disk.len().saturating_sub(to_read.len()),\n-        removed: removed.len(),\n+         /* ~ changed by cargo-mutants ~ */\n         unreadable: unreadable.len(),\n         suspicious,\n         ..ScanSummary::default()\n     };\n     state.processed.store(summary.unchanged, Ordering::Relaxed);\n \n     // Etiketleri paralel oku; sonuçları tek bir yazıcı toplu halde veritabanına yazar.\n     let workers = std::thread::available_parallelism()\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folder",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 246
+        },
+        "start": {
+          "column": 1,
+          "line": 137
+        }
+      }
+    },
+    "genre": "StructField",
+    "name": "src/library/scan.rs:182:9: delete field removed from struct ScanSummary expression in scan_folder",
+    "package": "lyraska",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 32,
+        "line": 182
+      },
+      "start": {
+        "column": 9,
+        "line": 182
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ delete field unreadable from struct ScanSummary expression in scan_folder\n@@ -175,17 +175,17 @@\n                 != Some(*stamp)\n         })\n         .collect();\n \n     let mut summary = ScanSummary {\n         found: on_disk.len(),\n         unchanged: on_disk.len().saturating_sub(to_read.len()),\n         removed: removed.len(),\n-        unreadable: unreadable.len(),\n+         /* ~ changed by cargo-mutants ~ */\n         suspicious,\n         ..ScanSummary::default()\n     };\n     state.processed.store(summary.unchanged, Ordering::Relaxed);\n \n     // Etiketleri paralel oku; sonuçları tek bir yazıcı toplu halde veritabanına yazar.\n     let workers = std::thread::available_parallelism()\n         .map_or(1, |n| n.get())\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folder",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 246
+        },
+        "start": {
+          "column": 1,
+          "line": 137
+        }
+      }
+    },
+    "genre": "StructField",
+    "name": "src/library/scan.rs:183:9: delete field unreadable from struct ScanSummary expression in scan_folder",
+    "package": "lyraska",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 38,
+        "line": 183
+      },
+      "start": {
+        "column": 9,
+        "line": 183
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ delete field suspicious from struct ScanSummary expression in scan_folder\n@@ -176,17 +176,17 @@\n         })\n         .collect();\n \n     let mut summary = ScanSummary {\n         found: on_disk.len(),\n         unchanged: on_disk.len().saturating_sub(to_read.len()),\n         removed: removed.len(),\n         unreadable: unreadable.len(),\n-        suspicious,\n+         /* ~ changed by cargo-mutants ~ */\n         ..ScanSummary::default()\n     };\n     state.processed.store(summary.unchanged, Ordering::Relaxed);\n \n     // Etiketleri paralel oku; sonuçları tek bir yazıcı toplu halde veritabanına yazar.\n     let workers = std::thread::available_parallelism()\n         .map_or(1, |n| n.get())\n         .clamp(1, MAX_WORKERS);\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folder",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 246
+        },
+        "start": {
+          "column": 1,
+          "line": 137
+        }
+      }
+    },
+    "genre": "StructField",
+    "name": "src/library/scan.rs:184:9: delete field suspicious from struct ScanSummary expression in scan_folder",
+    "package": "lyraska",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 20,
+        "line": 184
+      },
+      "start": {
+        "column": 9,
+        "line": 184
+      }
+    }
+  },
+  {
+    "diff": "--- src/library/scan.rs\n+++ replace || with && in scan_folder\n@@ -193,17 +193,17 @@\n     let next = AtomicUsize::new(0);\n     let (tx, rx) = mpsc::channel::<Option<(TrackInfo, FileStamp)>>();\n     let write_result = std::thread::scope(|scope| {\n         for _ in 0..workers {\n             let tx = tx.clone();\n             let (next, to_read) = (&next, &to_read);\n             scope.spawn(move || loop {\n                 if state.cancel.load(Ordering::Acquire)\n-                    || state.cancel_folder.load(Ordering::Acquire)\n+                    && /* ~ changed by cargo-mutants ~ */ state.cancel_folder.load(Ordering::Acquire)\n                 {\n                     break;\n                 }\n                 let i = next.fetch_add(1, Ordering::Relaxed);\n                 let Some((path, stamp)) = to_read.get(i) else {\n                     break;\n                 };\n                 let info = Decoder::open(path).ok().map(|d| (d.info().clone(), *stamp));\n",
+    "file": "src/library/scan.rs",
+    "function": {
+      "function_name": "scan_folder",
+      "return_type": "-> Result<ScanSummary, LibraryError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 246
+        },
+        "start": {
+          "column": 1,
+          "line": 137
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/library/scan.rs:201:21: replace || with && in scan_folder",
+    "package": "lyraska",
+    "replacement": "&&",
+    "span": {
+      "end": {
+        "column": 23,
+        "line": 201
+      },
+      "start": {
+        "column": 21,
+        "line": 201
+      }
+    }
+  }
+]

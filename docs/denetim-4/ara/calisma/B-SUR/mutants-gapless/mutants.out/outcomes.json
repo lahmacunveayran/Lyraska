@@ -1,0 +1,52 @@
+{
+  "outcomes": [
+    {
+      "scenario": "Baseline",
+      "summary": "Timeout",
+      "log_path": "log/baseline.log",
+      "diff_path": null,
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 878.557982952,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.56"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 300.015811828,
+          "process_status": "Timeout",
+          "argv": [
+            "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.56",
+            "--lib",
+            "--test",
+            "formats",
+            "--",
+            "gapless",
+            "decode",
+            "bosluksuz",
+            "her_bicim"
+          ]
+        }
+      ]
+    }
+  ],
+  "total_mutants": 0,
+  "missed": 0,
+  "caught": 0,
+  "timeout": 0,
+  "unviable": 0,
+  "success": 0,
+  "start_time": "2026-10-23T08:25:00.567155894Z",
+  "end_time": "2026-10-23T08:44:39.179668038Z",
+  "cargo_mutants_version": "27.1.0"
+}

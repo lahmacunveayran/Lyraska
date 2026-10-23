@@ -1,0 +1,319 @@
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/src-tauri/examples/b_guv_fuzz.rs B-GUV/kopya/src-tauri/examples/b_guv_fuzz.rs
+--- /home/user/denetim-bagimsiz/kaynak/src-tauri/examples/b_guv_fuzz.rs	1970-01-01 00:00:00.000000000 +0000
++++ B-GUV/kopya/src-tauri/examples/b_guv_fuzz.rs	2026-10-22 22:32:19.688221118 +0000
+@@ -0,0 +1,259 @@
++//! B-GUV bulanıklaştırma koşumu: kütüphanenin herkese açık ayrıştırıcılarını güvenilmeyen
++//! dosyalarla çağırır; panik, zaman aşımı ve aşırı bellek isteğini raporlar.
++//!
++//! Kullanım: `b_guv_fuzz <kip> <dosya...>`; kip: audio | lrc | peq | map | settings | analyze
++//! Her dosya için `BEGIN <yol>` sonra `OK ...` / `PANIC ...` / `TIMEOUT ...` yazar.
++#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, unsafe_code)]
++
++use std::alloc::{GlobalAlloc, Layout, System};
++use std::io::Write;
++use std::path::{Path, PathBuf};
++use std::sync::atomic::{AtomicUsize, Ordering};
++use std::time::{Duration, Instant};
++
++use lyraska_lib::analysis::map_file::MapFile;
++use lyraska_lib::analysis::spectrogram::{analyze, Spectrogram};
++use lyraska_lib::audio::decode::{read_cover, read_lyrics, Decoder};
++use lyraska_lib::audio::gapless::mp4_trim;
++use lyraska_lib::audio::lyrics::{self, LyricsSource};
++use lyraska_lib::audio::peq::HeadphoneProfile;
++use lyraska_lib::settings::SettingsStore;
++
++/// Tek bir istekte bu kadardan fazla bellek istenirse: "HUGE" (dev alan isteği).
++const HUGE_REQUEST: usize = 1 << 30; // 1 GiB
++
++struct Counting;
++static CURRENT: AtomicUsize = AtomicUsize::new(0);
++static PEAK: AtomicUsize = AtomicUsize::new(0);
++static HUGE: AtomicUsize = AtomicUsize::new(0);
++
++unsafe impl GlobalAlloc for Counting {
++    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
++        if layout.size() >= HUGE_REQUEST {
++            HUGE.fetch_max(layout.size(), Ordering::Relaxed);
++            return std::ptr::null_mut();
++        }
++        let p = System.alloc(layout);
++        if !p.is_null() {
++            let c = CURRENT.fetch_add(layout.size(), Ordering::Relaxed) + layout.size();
++            PEAK.fetch_max(c, Ordering::Relaxed);
++        }
++        p
++    }
++    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
++        CURRENT.fetch_sub(layout.size(), Ordering::Relaxed);
++        System.dealloc(ptr, layout)
++    }
++    unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
++        if new_size >= HUGE_REQUEST {
++            HUGE.fetch_max(new_size, Ordering::Relaxed);
++            return std::ptr::null_mut();
++        }
++        let p = System.realloc(ptr, layout, new_size);
++        if !p.is_null() {
++            let c = CURRENT.fetch_add(new_size, Ordering::Relaxed) + new_size;
++            CURRENT.fetch_sub(layout.size(), Ordering::Relaxed);
++            PEAK.fetch_max(c, Ordering::Relaxed);
++        }
++        p
++    }
++}
++
++#[global_allocator]
++static GLOBAL: Counting = Counting;
++
++/// Çözülen en çok örnek sayısı (sonsuz akış korkusuyla).
++const MAX_SAMPLES: usize = 50_000_000;
++const TIMEOUT: Duration = Duration::from_secs(40);
++
++fn audio(path: &Path) -> String {
++    let mut notes = Vec::new();
++    match read_cover(path) {
++        Ok(Some(c)) => notes.push(format!("cover={}B", c.data.len())),
++        Ok(None) => {}
++        Err(e) => notes.push(format!("cover_err={}", short(&e.to_string()))),
++    }
++    match read_lyrics(path) {
++        Ok(Some(t)) => {
++            notes.push(format!("lyrics={}B", t.len()));
++            let l = lyrics::parse(&t, LyricsSource::Embedded, Some(100.0));
++            notes.push(format!("lines={}", l.lines.len()));
++        }
++        Ok(None) => {}
++        Err(e) => notes.push(format!("lyrics_err={}", short(&e.to_string()))),
++    }
++    if let Some(t) = mp4_trim(path, 44_100) {
++        notes.push(format!("trim={t:?}"));
++    }
++    let mut decoder = match Decoder::open(path) {
++        Ok(d) => d,
++        Err(e) => {
++            notes.push(format!("open_err={}", short(&e.to_string())));
++            return notes.join(" ");
++        }
++    };
++    let info = decoder.info().clone();
++    notes.push(format!(
++        "codec={} rate={} ch={} dur={:?}",
++        info.codec, info.sample_rate, info.channels, info.duration_secs
++    ));
++    let mut total = 0usize;
++    let mut chunks = 0usize;
++    loop {
++        match decoder.next_chunk() {
++            Ok(Some(c)) => {
++                total += c.len();
++                chunks += 1;
++                if total > MAX_SAMPLES {
++                    notes.push("CAP".into());
++                    break;
++                }
++            }
++            Ok(None) => break,
++            Err(e) => {
++                notes.push(format!("decode_err={}", short(&e.to_string())));
++                break;
++            }
++        }
++    }
++    notes.push(format!("samples={total} chunks={chunks}"));
++    // Sarma: ortaya, sona, negatife, sonsuza.
++    for target in [0.7, 1e9, -3.0, f64::NAN, f64::INFINITY] {
++        match decoder.seek(target) {
++            Ok(frame) => {
++                let mut n = 0usize;
++                for _ in 0..4 {
++                    match decoder.next_chunk() {
++                        Ok(Some(c)) => n += c.len(),
++                        _ => break,
++                    }
++                }
++                notes.push(format!("seek({target})={frame}+{n}"));
++            }
++            Err(e) => notes.push(format!("seek({target})_err={}", short(&e.to_string()))),
++        }
++    }
++    notes.join(" ")
++}
++
++fn analyze_file(path: &Path) -> String {
++    let decoder = match Decoder::open(path) {
++        Ok(d) => d,
++        Err(e) => return format!("open_err={}", short(&e.to_string())),
++    };
++    let target = Spectrogram::new();
++    analyze(decoder, &target);
++    format!(
++        "frames={:?} done={} beats={:?}",
++        target.saved().map(|s| s.frames()),
++        target.is_done(),
++        target.beat_grid().map(|g| g.beats.len())
++    )
++}
++
++fn lrc(path: &Path) -> String {
++    let bytes = std::fs::read(path).unwrap_or_default();
++    let text = lyrics::decode_text(&bytes);
++    let l = lyrics::parse(&text, LyricsSource::File, Some(300.0));
++    let words: usize = l.lines.iter().map(|x| x.words.len()).sum();
++    format!("synced={} lines={} words={}", l.synced, l.lines.len(), words)
++}
++
++fn peq(path: &Path) -> String {
++    let text = std::fs::read_to_string(path).unwrap_or_default();
++    match HeadphoneProfile::parse(&text, "fuzz") {
++        Ok(p) => format!("filters={} preamp={}", p.filters.len(), p.preamp_db),
++        Err(e) => format!("err={}", short(&e.to_string())),
++    }
++}
++
++fn map(path: &Path) -> String {
++    match MapFile::read(path) {
++        Ok(m) => format!("beats={} sections={}", m.beats.len(), m.sections.len()),
++        Err(e) => format!("err={}", short(&e.to_string())),
++    }
++}
++
++fn settings(path: &Path) -> String {
++    let store = SettingsStore::open(path);
++    let s = store.get();
++    format!(
++        "eq={} delay={} pb={:?}",
++        s.equalizer.enabled, s.audio_delay_ms, s.playback
++    )
++}
++
++fn short(s: &str) -> String {
++    s.chars().take(60).collect::<String>().replace('\n', " ")
++}
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let mode = args.get(1).cloned().unwrap_or_default();
++    let files: Vec<PathBuf> = args[2..].iter().map(PathBuf::from).collect();
++    // Panik mesajı stderr'e tek satır olarak yazılsın.
++    std::panic::set_hook(Box::new(|info| {
++        let location = info
++            .location()
++            .map(|l| format!("{}:{}", l.file(), l.line()))
++            .unwrap_or_default();
++        let message = info
++            .payload()
++            .downcast_ref::<&str>()
++            .map(|s| (*s).to_owned())
++            .or_else(|| info.payload().downcast_ref::<String>().cloned())
++            .unwrap_or_else(|| "?".to_owned());
++        eprintln!("PANIC_AT {location} :: {}", short(&message));
++    }));
++    let stdout = std::io::stdout();
++    for file in files {
++        {
++            let mut out = stdout.lock();
++            writeln!(out, "BEGIN {}", file.display()).unwrap();
++            out.flush().unwrap();
++        }
++        PEAK.store(CURRENT.load(Ordering::Relaxed), Ordering::Relaxed);
++        HUGE.store(0, Ordering::Relaxed);
++        let start = Instant::now();
++        let mode2 = mode.clone();
++        let file2 = file.clone();
++        let (tx, rx) = std::sync::mpsc::channel();
++        std::thread::spawn(move || {
++            let result = std::panic::catch_unwind(|| match mode2.as_str() {
++                "audio" => audio(&file2),
++                "analyze" => analyze_file(&file2),
++                "lrc" => lrc(&file2),
++                "peq" => peq(&file2),
++                "map" => map(&file2),
++                "settings" => settings(&file2),
++                _ => panic!("bilinmeyen kip"),
++            });
++            let _ = tx.send(result);
++        });
++        let result = rx.recv_timeout(TIMEOUT);
++        let ms = start.elapsed().as_millis();
++        let peak_mb = PEAK.load(Ordering::Relaxed) / (1024 * 1024);
++        let huge = HUGE.load(Ordering::Relaxed);
++        let mut out = stdout.lock();
++        match result {
++            Ok(Ok(note)) => writeln!(
++                out,
++                "OK {} ms={ms} peak={peak_mb}MB huge={huge} :: {note}",
++                file.display()
++            )
++            .unwrap(),
++            Ok(Err(_)) => writeln!(
++                out,
++                "PANIC {} ms={ms} peak={peak_mb}MB huge={huge}",
++                file.display()
++            )
++            .unwrap(),
++            Err(_) => {
++                writeln!(out, "TIMEOUT {} ms={ms} peak={peak_mb}MB", file.display()).unwrap();
++                out.flush().unwrap();
++                std::process::exit(124);
++            }
++        }
++        out.flush().unwrap();
++    }
++}
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/src-tauri/src/audio/decode.rs B-GUV/kopya/src-tauri/src/audio/decode.rs
+--- /home/user/denetim-bagimsiz/kaynak/src-tauri/src/audio/decode.rs	2026-10-22 12:39:10.000000000 +0000
++++ B-GUV/kopya/src-tauri/src/audio/decode.rs	2026-10-23 08:37:27.268838371 +0000
+@@ -262,6 +262,17 @@
+                         self.skip_until = None;
+                     }
+                     let channels = self.info.channels;
++                    // GÜVENLİK (B-GUV): tampon çözücünün gerçek kanal sayısına göre boyutlanır
++                    // (`samples_interleaved`), ama dilim `info.channels` (açılıştaki konteyner
++                    // başlığı) ile alınıyordu. Bozuk dosyada çözücünün kanalı başlığınkinden farklı
++                    // olabilir; o zaman `to * channels` tampon sınırını aşıp panikti (sürümde
++                    // abort = program kapanır). `to`, tamponda gerçekten var olan kareyle sınırlanır.
++                    let available_frames = self.buffer.len() / channels.max(1);
++                    let to = to.min(available_frames);
++                    let from = from.min(to);
++                    if from >= to {
++                        continue;
++                    }
+                     return Ok(Some(&self.buffer[from * channels..to * channels]));
+                 }
+                 Err(SymphoniaError::DecodeError(_)) => continue,
+@@ -549,6 +560,34 @@
+         std::fs::write(path, bytes).unwrap();
+     }
+ 
++
++    /// B-GUV: Matroska başlığında kanal sayısı 130, Vorbis paketleri 2 kanal. `next_chunk`
++    /// tamponu çözücünün verdiği 2 kanala göre boyutlar ama `info.channels` (130) ile dilimler:
++    /// sınır aşımı paniği (sürüm derlemesinde abort = program kapanır). Dosya: tohum `t.mka`
++    /// (ffmpeg, Vorbis) + 2 bayt mutasyon (bulanıklaştırma ile bulundu).
++    #[test]
++    fn b_guv_kanal_sayisi_uyusmayan_dosya_panik_yapmaz() {
++        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/b-guv-kanal.mka");
++        let mut decoder = Decoder::open(&path).unwrap();
++        let channels = decoder.info().channels;
++        let mut total = 0usize;
++        // Panik olmamalı: ya örnekler gelir ya anlaşılır bir hata döner.
++        loop {
++            match decoder.next_chunk() {
++                Ok(Some(chunk)) => {
++                    assert_eq!(chunk.len() % channels, 0, "dilim kanal sayısına bölünmeli");
++                    total += chunk.len();
++                }
++                Ok(None) => break,
++                Err(e) => {
++                    eprintln!("hata ile bitti (kabul): {e}");
++                    break;
++                }
++            }
++        }
++        eprintln!("bildirilen kanal={channels}, çözülen örnek={total}");
++    }
++
+     #[test]
+     fn bozuk_sayilar_sessizlige_cevrilir() {
+         // Bozuk bir kayıt: araya NaN ve sonsuz değerler karışmış.

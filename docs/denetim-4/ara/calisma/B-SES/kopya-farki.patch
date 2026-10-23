@@ -1,0 +1,467 @@
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/src-tauri/examples/denetim_coz.rs B-SES/kopya/src-tauri/examples/denetim_coz.rs
+--- /home/user/denetim-bagimsiz/kaynak/src-tauri/examples/denetim_coz.rs	1970-01-01 00:00:00.000000000 +0000
++++ B-SES/kopya/src-tauri/examples/denetim_coz.rs	2026-10-22 13:10:21.514364023 +0000
+@@ -0,0 +1,68 @@
++//! Denetim aracı (B-SES): bir dosyayı Lyraska'nın çözücüsüyle çözer, örnekleri f64 LE olarak yazar.
++//!
++//! Kullanım: denetim_coz <dosya> <çıktı.f64> [sarma_saniye]
++//! stdout'a tek satır JSON: hız, kanal, süre, sarmada inilen kare, yazılan kare sayısı.
++#![allow(clippy::unwrap_used, clippy::expect_used)]
++
++use std::io::Write;
++use std::path::Path;
++
++use lyraska_lib::audio::decode::Decoder;
++
++fn main() {
++    let args: Vec<String> = std::env::args().collect();
++    let input = Path::new(&args[1]);
++    let output = &args[2];
++    let seek: Option<f64> = args.get(3).map(|s| s.parse().unwrap());
++    let mut decoder = match Decoder::open(input) {
++        Ok(d) => d,
++        Err(e) => {
++            println!("{{\"error\":\"{e}\"}}");
++            return;
++        }
++    };
++    let info = decoder.info().clone();
++    let landed = match seek {
++        Some(secs) => match decoder.seek(secs) {
++            Ok(frame) => frame as i64,
++            Err(e) => {
++                println!(
++                    "{{\"error\":\"sarma: {e}\",\"sampleRate\":{},\"channels\":{},\"duration\":{}}}",
++                    info.sample_rate,
++                    info.channels,
++                    info.duration_secs.unwrap_or(-1.0)
++                );
++                return;
++            }
++        },
++        None => -1,
++    };
++    let mut file = std::io::BufWriter::new(std::fs::File::create(output).unwrap());
++    let mut frames = 0u64;
++    let mut chunks = 0u64;
++    loop {
++        match decoder.next_chunk() {
++            Ok(Some(chunk)) => {
++                for s in chunk {
++                    file.write_all(&s.to_le_bytes()).unwrap();
++                }
++                frames += (chunk.len() / info.channels) as u64;
++                chunks += 1;
++            }
++            Ok(None) => break,
++            Err(e) => {
++                println!("{{\"error\":\"çözme: {e}\"}}");
++                return;
++            }
++        }
++    }
++    file.flush().unwrap();
++    println!(
++        "{{\"sampleRate\":{},\"channels\":{},\"duration\":{},\"landed\":{landed},\"frames\":{frames},\"chunks\":{chunks},\"codec\":\"{}\",\"sourceBits\":{}}}",
++        info.sample_rate,
++        info.channels,
++        info.duration_secs.unwrap_or(-1.0),
++        info.codec,
++        decoder.source_bits().map_or(-1, |b| b as i64)
++    );
++}
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/src-tauri/src/audio/denetim_fuzz.rs B-SES/kopya/src-tauri/src/audio/denetim_fuzz.rs
+--- /home/user/denetim-bagimsiz/kaynak/src-tauri/src/audio/denetim_fuzz.rs	1970-01-01 00:00:00.000000000 +0000
++++ B-SES/kopya/src-tauri/src/audio/denetim_fuzz.rs	2026-10-23 08:47:43.945569593 +0000
+@@ -0,0 +1,363 @@
++//! Denetim (B-SES): oynatıcı durum makinesine sanal çıkışla rastgele işlem dizileri uygulayan
++//! stres testi. Tutarsız durum, kilitlenme, panik ve takılma arar.
++#![allow(clippy::unwrap_used, clippy::expect_used)]
++
++use std::path::PathBuf;
++use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++use std::sync::Arc;
++use std::time::{Duration, Instant};
++
++use super::output;
++use super::player::{PlaybackState, Player};
++use super::test_util::{temp_path, write_wav};
++
++/// Basit, tekrarlanabilir rastgele sayı üreteci (LCG).
++struct Rng(u64);
++impl Rng {
++    fn next(&mut self) -> u64 {
++        self.0 = self
++            .0
++            .wrapping_mul(6_364_136_223_846_793_005)
++            .wrapping_add(1_442_695_040_888_963_407);
++        self.0 >> 33
++    }
++    fn below(&mut self, n: u64) -> u64 {
++        self.next() % n
++    }
++    fn f64(&mut self) -> f64 {
++        (self.next() as f64) / ((1u64 << 31) as f64)
++    }
++}
++
++const RATE: u32 = 8_000;
++const DURATION: f64 = 3.0;
++
++fn song(name: &str) -> PathBuf {
++    let path = temp_path(name);
++    let frames = (f64::from(RATE) * DURATION) as usize;
++    write_wav(&path, RATE, 1, frames, |frame, _| {
++        0.5 * (2.0 * std::f64::consts::PI * 220.0 * frame as f64 / f64::from(RATE)).sin()
++    });
++    path
++}
++
++#[derive(Debug, Clone)]
++enum Op {
++    Load(usize, bool),
++    Play,
++    Pause,
++    Toggle,
++    Seek(f64),
++    Stop,
++    SetNext(Option<usize>),
++    DeviceChanged,
++    DeviceLost,
++    Sleep(u64),
++    Status,
++    Visual,
++    BitPerfect(bool),
++    DeviceRate(Option<u32>),
++}
++
++fn run_seed(seed: u64, ops: usize, log: &mut Vec<String>) {
++    let songs = [song("fuzz-a.wav"), song("fuzz-b.wav"), song("fuzz-c.wav")];
++    let mut rng = Rng(seed);
++    let mut player = Player::new();
++    // Bekçi: bir işlem 20 saniyeden uzun sürerse kilitlenme sayılır.
++    let watchdog_at = Arc::new(AtomicU64::new(0));
++    let watchdog_stop = Arc::new(AtomicBool::new(false));
++    let start = Instant::now();
++    {
++        let at = Arc::clone(&watchdog_at);
++        let stop = Arc::clone(&watchdog_stop);
++        std::thread::spawn(move || {
++            while !stop.load(Ordering::Relaxed) {
++                std::thread::sleep(Duration::from_millis(200));
++                let began = at.load(Ordering::Relaxed);
++                if began != 0 && (start.elapsed().as_millis() as u64).saturating_sub(began) > 20_000 {
++                    eprintln!("KİLİTLENME: işlem 20 sn'den uzun sürdü (tohum {seed})");
++                    std::process::abort();
++                }
++            }
++        });
++    }
++    let mut last_track: Option<PathBuf> = None;
++    let mut last_pos = 0.0;
++    let mut monotonic_ok = true;
++    let mut max_underruns = 0u64;
++    for i in 0..ops {
++        let op = match rng.below(100) {
++            0..=9 => Op::Load(rng.below(3) as usize, rng.below(2) == 0),
++            10..=19 => Op::Play,
++            20..=29 => Op::Pause,
++            30..=35 => Op::Toggle,
++            36..=55 => Op::Seek(rng.f64() * (DURATION + 1.0) - 0.5),
++            56..=60 => Op::Stop,
++            61..=68 => Op::SetNext(if rng.below(4) == 0 {
++                None
++            } else {
++                Some(rng.below(3) as usize)
++            }),
++            69..=72 => Op::DeviceChanged,
++            73..=75 => Op::DeviceLost,
++            76..=85 => Op::Sleep(rng.below(60)),
++            86..=92 => Op::Status,
++            93..=96 => Op::Visual,
++            97 => Op::BitPerfect(rng.below(2) == 0),
++            _ => Op::DeviceRate([None, Some(48_000), Some(44_100)][rng.below(3) as usize]),
++        };
++        watchdog_at.store(start.elapsed().as_millis() as u64 + 1, Ordering::Relaxed);
++        let t0 = Instant::now();
++        match &op {
++            Op::Load(n, autoplay) => {
++                player.load(&songs[*n], *autoplay).unwrap();
++                monotonic_ok = false;
++            }
++            Op::Play => {
++                let before = player.state();
++                player.play().unwrap();
++                if before == PlaybackState::Ended || before == PlaybackState::Error {
++                    monotonic_ok = false;
++                }
++                let after = player.state();
++                assert!(
++                    matches!(
++                        after,
++                        PlaybackState::Playing | PlaybackState::Ended | PlaybackState::Idle
++                    ),
++                    "tohum {seed} adım {i}: çal'dan sonra durum {after:?} (öncesi {before:?})"
++                );
++            }
++            Op::Pause => {
++                player.pause();
++                let after = player.state();
++                assert!(
++                    !matches!(after, PlaybackState::Playing),
++                    "tohum {seed} adım {i}: duraklat'tan sonra durum {after:?}"
++                );
++            }
++            Op::Toggle => {
++                let before = player.state();
++                player.toggle().unwrap();
++                if before == PlaybackState::Ended || before == PlaybackState::Error {
++                    monotonic_ok = false;
++                }
++            }
++            Op::Seek(secs) => {
++                let before = player.state();
++                let result = player.seek(*secs);
++                monotonic_ok = false;
++                if before != PlaybackState::Idle {
++                    assert!(
++                        result.is_ok(),
++                        "tohum {seed} adım {i}: sarma {secs:.3} hata: {result:?}"
++                    );
++                    let status = player.status();
++                    let expected = secs.clamp(0.0, DURATION - 1.0 / f64::from(RATE));
++                    assert!(
++                        status.position_secs + 0.5 / f64::from(RATE) >= expected
++                            || status.state == PlaybackState::Ended,
++                        "tohum {seed} adım {i}: sarma {secs:.3} → konum {:.4} (beklenen ≥ {expected:.4}), durum {:?}",
++                        status.position_secs,
++                        status.state
++                    );
++                    if before == PlaybackState::Paused {
++                        assert_eq!(
++                            status.state,
++                            PlaybackState::Paused,
++                            "tohum {seed} adım {i}: duraklatılmışken sarınca durum değişti"
++                        );
++                    }
++                }
++            }
++            Op::Stop => {
++                player.stop().unwrap();
++                monotonic_ok = false;
++                let status = player.status();
++                if status.track.is_some() {
++                    assert_eq!(
++                        status.state,
++                        PlaybackState::Paused,
++                        "tohum {seed} adım {i}: durdur'dan sonra durum {:?}",
++                        status.state
++                    );
++                    assert!(
++                        status.position_secs.abs() < 1e-9,
++                        "tohum {seed} adım {i}: durdur'dan sonra konum {}",
++                        status.position_secs
++                    );
++                }
++            }
++            Op::SetNext(n) => player.set_next(n.map(|n| songs[n].clone())),
++            Op::DeviceChanged => {
++                if let Some(shared) = player.session_shared_for_test() {
++                    shared.device_changed.store(true, Ordering::Release);
++                }
++                monotonic_ok = false;
++            }
++            Op::DeviceLost => {
++                if let Some(shared) = player.session_shared_for_test() {
++                    shared.fail("Ses aygıtına yazılamadı".to_owned());
++                    shared.device_changed.store(true, Ordering::Release);
++                }
++                monotonic_ok = false;
++            }
++            Op::Sleep(ms) => std::thread::sleep(Duration::from_millis(*ms)),
++            Op::Status => {
++                let _ = player.status();
++            }
++            Op::Visual => {
++                let _ = player.visual_now();
++            }
++            Op::BitPerfect(on) => {
++                let _ = player.set_playback_options(super::PlaybackOptions {
++                    normalize: true,
++                    bit_perfect: *on,
++                });
++                monotonic_ok = false;
++            }
++            Op::DeviceRate(rate) => output::simulated::set_device_rate(*rate),
++        }
++        // Her işlemden sonra genel değişmezler.
++        let status = player.status();
++        if let Some(track) = &status.track {
++            let duration = track.duration_secs.unwrap_or(DURATION);
++            assert!(
++                status.position_secs >= -1e-9 && status.position_secs <= duration + 1e-9,
++                "tohum {seed} adım {i} ({op:?}): konum {:.4} sınır dışı",
++                status.position_secs
++            );
++            if monotonic_ok && last_track.as_ref() == Some(&track.path) {
++                assert!(
++                    status.position_secs + 1e-9 >= last_pos,
++                    "tohum {seed} adım {i} ({op:?}): konum geri gitti {last_pos:.4} → {:.4}",
++                    status.position_secs
++                );
++            }
++            last_track = Some(track.path.clone());
++            last_pos = status.position_secs;
++            monotonic_ok = true;
++        } else {
++            last_track = None;
++            monotonic_ok = false;
++        }
++        if status.state == PlaybackState::Ended {
++            // Bitmiş şarkının konumu süresine eşit olmalı.
++            if let Some(track) = &status.track {
++                if let Some(duration) = track.duration_secs {
++                    assert!(
++                        (status.position_secs - duration).abs() < 1e-6,
++                        "tohum {seed} adım {i}: bitti ama konum {:.4} ≠ süre {duration:.4}",
++                        status.position_secs
++                    );
++                }
++            }
++        }
++        max_underruns = max_underruns.max(status.underruns);
++        let took = t0.elapsed();
++        if took > Duration::from_millis(500) {
++            log.push(format!(
++                "tohum {seed} adım {i}: {op:?} {} ms sürdü (durum {:?})",
++                took.as_millis(),
++                status.state
++            ));
++        }
++    }
++    watchdog_at.store(0, Ordering::Relaxed);
++    watchdog_stop.store(true, Ordering::Relaxed);
++    if max_underruns > 0 {
++        log.push(format!("tohum {seed}: en çok {max_underruns} takılma sayıldı"));
++    }
++    output::simulated::set_device_rate(None);
++    drop(player);
++    for s in songs {
++        std::fs::remove_file(s).ok();
++    }
++}
++
++#[test]
++fn oynatici_rastgele_islem_dizilerinde_tutarli_kalir() {
++    let mut log = Vec::new();
++    let seeds: Vec<u64> = std::env::var("FUZZ_SEEDS")
++        .ok()
++        .map(|s| s.split(',').map(|x| x.parse().unwrap()).collect())
++        .unwrap_or_else(|| (1..=6).collect());
++    let ops: usize = std::env::var("FUZZ_OPS")
++        .ok()
++        .and_then(|s| s.parse().ok())
++        .unwrap_or(150);
++    for seed in seeds {
++        run_seed(seed, ops, &mut log);
++        eprintln!("tohum {seed}: {ops} işlem tamam");
++    }
++    for line in &log {
++        eprintln!("NOT: {line}");
++    }
++}
++
++/// Depodaki test dosyası (22 050 Hz mono, 3 sn üç ton).
++fn fixture(ext: &str) -> PathBuf {
++    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
++        .join("tests/data")
++        .join(format!("uc-uc-ton.{ext}"))
++}
++
++/// B-SES-01 kanıtı: Vorbis'te sona yakın sarma `out-of-range` hatası verir; oynatıcı yeni oturumu
++/// kuramaz, eski oturum zaten kapatılmıştır → şarkı kesilir, durum "Hata".
++#[test]
++fn vorbis_sona_yakin_sarma_oynaticiyi_hata_durumuna_dusurur() {
++    let path = fixture("ogg");
++    let mut player = Player::new();
++    let info = player.load(&path, false).unwrap();
++    let duration = info.duration_secs.unwrap();
++    eprintln!("bildirilen süre: {duration}");
++    // Kullanıcı ilerleme çubuğunu sona sürükledi (süre − 3 ms).
++    let result = player.seek(duration - 0.003);
++    eprintln!("sarma sonucu: {result:?}; durum {:?}", player.state());
++    assert!(result.is_err(), "sarma hata vermeli (hata burada)");
++    assert_eq!(player.state(), PlaybackState::Error);
++    assert!(player.status().track.is_none(), "oturum gitti, şarkı yok");
++    // FLAC'ta aynı konum sorunsuz.
++    let mut player = Player::new();
++    let info = player.load(&fixture("flac"), false).unwrap();
++    assert!(player.seek(info.duration_secs.unwrap() - 0.003).is_ok());
++}
++
++/// B-SES-02 kanıtı: MP3/AAC'de sarma sonrası ilk ~20 ms, aynı yerin kesintisiz çözümünden çok farklı
++/// (ön-sarma yok: ilk paket önceki paketin bit deposu / örtüşmesi olmadan çözülüyor).
++#[test]
++fn kayipli_kodekte_sarma_sonrasi_ilk_ornekler_bozuk() {
++    use super::decode::Decoder;
++    for ext in ["mp3", "m4a", "flac"] {
++        let path = fixture(ext);
++        let mut full = Vec::new();
++        let mut decoder = Decoder::open(&path).unwrap();
++        while let Some(chunk) = decoder.next_chunk().unwrap() {
++            full.extend_from_slice(chunk);
++        }
++        let mut decoder = Decoder::open(&path).unwrap();
++        let landed = decoder.seek(1.5).unwrap() as usize;
++        let mut after = Vec::new();
++        while after.len() < 4000 {
++            match decoder.next_chunk().unwrap() {
++                Some(chunk) => after.extend_from_slice(chunk),
++                None => break,
++            }
++        }
++        let rms = |a: &[f64], b: &[f64]| {
++            (a.iter().zip(b).map(|(x, y)| (x - y).powi(2)).sum::<f64>() / a.len() as f64).sqrt()
++        };
++        let first = rms(&full[landed..landed + 600], &after[..600]);
++        let later = rms(&full[landed + 2000..landed + 4000], &after[2000..4000]);
++        let signal = rms(&full[landed..landed + 600], &vec![0.0; 600]);
++        eprintln!(
++            "{ext}: sarma 1,5 sn → ilk 600 örnek RMS hata {first:.3} (sinyal RMS {signal:.3}), 2000+ örnek RMS hata {later:.2e}"
++        );
++        if ext == "flac" {
++            assert!(first < 1e-9);
++        } else {
++            assert!(first > 0.1 * signal, "{ext}: hata artık küçük (düzeltilmiş olabilir)");
++            assert!(later < 1e-3, "{ext}: sonrası kesintisiz çözümle aynı");
++        }
++    }
++}
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/src-tauri/src/audio/mod.rs B-SES/kopya/src-tauri/src/audio/mod.rs
+--- /home/user/denetim-bagimsiz/kaynak/src-tauri/src/audio/mod.rs	2026-10-22 12:39:10.000000000 +0000
++++ B-SES/kopya/src-tauri/src/audio/mod.rs	2026-10-22 13:11:15.541245251 +0000
+@@ -116,6 +116,8 @@
+ 
+ #[cfg(test)]
+ pub(crate) mod test_util;
++#[cfg(test)]
++mod denetim_fuzz;
+ 
+ #[cfg(test)]
+ mod tests {
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/src-tauri/src/audio/player.rs B-SES/kopya/src-tauri/src/audio/player.rs
+--- /home/user/denetim-bagimsiz/kaynak/src-tauri/src/audio/player.rs	2026-10-22 12:39:10.000000000 +0000
++++ B-SES/kopya/src-tauri/src/audio/player.rs	2026-10-22 13:11:15.550367235 +0000
+@@ -741,6 +741,12 @@
+         Self::default()
+     }
+ 
++    /// Denetim testi (B-SES): çalan oturumun paylaşılan durumu.
++    #[cfg(test)]
++    pub(crate) fn session_shared_for_test(&self) -> Option<Arc<SharedState>> {
++        self.session.as_ref().map(|s| Arc::clone(&s.shared))
++    }
++
+     /// Şarkıyı açar. `autoplay` ise hemen çalmaya başlar, değilse başında duraklatılmış bekler.
+     /// Kilit altında bloklar; arayüz komutu bunun yerine [`Self::begin_transition`] →
+     /// [`Self::prepare`] → [`Self::install`] üçlüsünü kullanır.

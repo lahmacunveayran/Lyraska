@@ -1,0 +1,58 @@
+{
+ "equalizer": {
+  "enabled": true,
+  "gainsDb": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10
+  ],
+  "bassDb": 3.0
+ },
+ "headphone": {
+  "enabled": true,
+  "profile": {
+   "name": "X",
+   "preampDb": -3.0,
+   "filters": [
+    {
+     "kind": "peaking",
+     "freqHz": 1000.0,
+     "gainDb": 3.0,
+     "q": 1.0
+    }
+   ],
+   "design": "rbj"
+  }
+ },
+ "parametric": {
+  "enabled": true,
+  "bands": [
+   {
+    "kind": "lowShelf",
+    "freqHz": 105.0,
+    "gainDb": 2.0,
+    "q": 0.7,
+    "enabled": true
+   }
+  ],
+  "design": "matched"
+ },
+ "crossfeed": {
+  "enabled": true,
+  "cutoffHz": 700.0,
+  "levelDb": -6.0
+ },
+ "visualSafe": false,
+ "audioDelayMs": 120,
+ "playback": {
+  "normalize": true,
+  "bitPerfect": false
+ }
+}

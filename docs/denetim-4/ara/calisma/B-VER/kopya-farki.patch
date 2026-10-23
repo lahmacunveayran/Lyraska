@@ -1,0 +1,693 @@
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/src-tauri/src/bver_denetim.rs B-VER/kopya/src-tauri/src/bver_denetim.rs
+--- /home/user/denetim-bagimsiz/kaynak/src-tauri/src/bver_denetim.rs	1970-01-01 00:00:00.000000000 +0000
++++ B-VER/kopya/src-tauri/src/bver_denetim.rs	2026-10-23 08:37:45.003960942 +0000
+@@ -0,0 +1,679 @@
++//! B-VER bağımsız denetimi: veri bütünlüğü, kütüphane ve kalıcılık deneyleri.
++//! Yalnızca denetçinin kopyasında vardır; kaynağa dokunulmaz.
++
++use std::path::{Path, PathBuf};
++use std::sync::{Arc, Mutex};
++use std::time::{Duration, Instant};
++
++use crate::analysis::cache::{AnalysisCache, FileStamp};
++use crate::analysis::spectrogram::{self, SavedAnalysis, Spectrogram};
++use crate::audio::decode::Decoder;
++use crate::audio::test_util::{temp_path, track_info};
++use crate::library::scan::{scan_folder, ScanState};
++use crate::library::{search_key, Library};
++
++const CALISMA: &str = "/home/user/denetim-bagimsiz/calisma/B-VER";
++
++fn ses(name: &str) -> PathBuf {
++    Path::new(CALISMA).join("ses").join(name)
++}
++
++fn dir_with(files: &[(&str, &str)]) -> PathBuf {
++    let dir = temp_path("bver").with_extension("");
++    std::fs::create_dir_all(&dir).unwrap();
++    for (src, dst) in files {
++        let dst = dir.join(dst);
++        std::fs::create_dir_all(dst.parent().unwrap()).unwrap();
++        std::fs::copy(ses(src), dst).unwrap();
++    }
++    dir
++}
++
++fn count(conn: &rusqlite::Connection, sql: &str) -> i64 {
++    conn.query_row(sql, [], |r| r.get(0)).unwrap()
++}
++
++/// Kısa bir dosyayı gerçekten analiz edip saklanacak hâlini verir (stres ve boyut testleri).
++fn analyze_file(path: &Path) -> SavedAnalysis {
++    let target = Spectrogram::new();
++    spectrogram::analyze(Decoder::open(path).unwrap(), &target);
++    target.saved().unwrap()
++}
++
++// ---------------------------------------------------------------- 1. Göç denetimi
++
++#[test]
++fn bver_goc_her_eski_surum_verisini_korur() {
++    for name in ["v1", "v2", "v3", "v4", "v5", "v6", "v7", "yarim"] {
++        let src = Path::new(CALISMA).join("goc").join(format!("{name}.sqlite3"));
++        let db = temp_path("library.sqlite3");
++        std::fs::copy(&src, &db).unwrap();
++        for suffix in ["-wal", "-shm"] {
++            let side = PathBuf::from(format!("{}{suffix}", src.display()));
++            if side.exists() {
++                std::fs::copy(&side, format!("{}{suffix}", db.display())).unwrap();
++            }
++        }
++        // Programın açılışı: önce kütüphane, sonra önbellek (lib.rs sırası).
++        let library = Library::open(&db).unwrap_or_else(|e| panic!("{name}: {e}"));
++        let cache = AnalysisCache::open(&db).unwrap_or_else(|e| panic!("{name}: {e}"));
++        let tracks = library.search("", 100).unwrap();
++        let titles: Vec<_> = tracks.iter().map(|t| t.title.as_str()).collect();
++        let conn = cache.lock_for_test();
++        let version = count(&conn, "PRAGMA user_version");
++        let analyses = count(&conn, "SELECT COUNT(*) FROM analyses");
++        let frames_ok = count(
++            &conn,
++            "SELECT COUNT(*) FROM analyses WHERE frames IN (600,601,602) AND bpm IN (120,121,122) \
++             AND length(levels) = 100 AND beats = '{\"bpm\":120}'",
++        );
++        let valid_spectrum = count(&conn, "SELECT COUNT(*) FROM analyses WHERE spectrum_version >= 1");
++        let stale_tags: Vec<String> = {
++            let mut s = conn
++                .prepare("SELECT file_name FROM tracks WHERE tags_version = 0 ORDER BY path")
++                .unwrap();
++            s.query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
++        };
++        let recovery = library.recovery_notice().map(str::to_owned);
++        drop(conn);
++        let pending = cache.pending_library_tracks(100).unwrap().len();
++        let bpm_shown = tracks.iter().filter(|t| t.bpm.is_some()).count();
++        println!(
++            "GÖÇ {name:5} → şema {version}: klasör {} şarkı {} analiz {} (içerik sağlam {frames_ok}, \
++             kareleri geçerli {valid_spectrum}) | listede BPM gösterilen {bpm_shown}, analiz bekleyen \
++             {pending}, etiketi yeniden okunacak {stale_tags:?} | kurtarma: {recovery:?}",
++            library.folders().unwrap().len(),
++            tracks.len(),
++            analyses,
++        );
++        assert_eq!(version, crate::storage::SCHEMA_VERSION, "{name}");
++        assert_eq!(tracks.len(), 5, "{name}");
++        assert!(titles.contains(&"Mayın Tarlası") && titles.iter().any(|t| t.contains("adsiz")), "{name}: {titles:?}");
++        assert_eq!(analyses, 3, "{name}: analizler silinmemeli");
++        assert_eq!(frames_ok, 3, "{name}: analiz içeriği bozulmamalı");
++        assert!(recovery.is_none(), "{name}");
++    }
++}
++
++// ---------------------------------------------------------------- 3. Tarama doğruluğu
++
++#[test]
++fn bver_yeniden_adlandirilan_dosyanin_analizi_silinir_ve_bastan_hesaplanir() {
++    let dir = dir_with(&[("gece-a.mp3", "Gece A.mp3"), ("isik.flac", "Işık.flac")]);
++    let db = temp_path("library.sqlite3");
++    let library = Mutex::new(Library::open(&db).unwrap());
++    let folder = library.lock().unwrap().add_folder(&dir.to_string_lossy()).unwrap();
++    let state = ScanState::default();
++    scan_folder(&library, &folder, &state).unwrap();
++    let cache = AnalysisCache::open(&db).unwrap();
++    let saved = analyze_file(&ses("isik.flac"));
++    for name in ["Gece A.mp3", "Işık.flac"] {
++        let p = dir.join(name);
++        cache.store(&p, FileStamp::of(&p).unwrap(), &saved).unwrap();
++    }
++    assert_eq!(cache.pending_library_tracks(10).unwrap().len(), 0, "ikisi de analizli");
++
++    // Kullanıcı dosyayı yeniden adlandırdı (içerik aynı).
++    std::fs::rename(dir.join("Gece A.mp3"), dir.join("01 - Gece A.mp3")).unwrap();
++    let summary = scan_folder(&library, &folder, &state).unwrap();
++    let analyses = count(&cache.lock_for_test(), "SELECT COUNT(*) FROM analyses");
++    let pending = cache.pending_library_tracks(10).unwrap();
++    println!(
++        "YENİDEN ADLANDIRMA: removed={} updated={} | analiz kaydı {analyses} (2 idi) | yeniden analiz \
++         bekleyen: {:?}",
++        summary.removed,
++        summary.updated,
++        pending.iter().map(|(p, _)| p.file_name().unwrap().to_string_lossy().into_owned()).collect::<Vec<_>>()
++    );
++    assert_eq!(summary.removed, 1);
++    assert_eq!(analyses, 1, "eski yolun analizi tetikleyiciyle silindi");
++    assert_eq!(pending.len(), 1, "aynı içerik baştan analiz edilecek");
++}
++
++#[test]
++fn bver_ayni_boyut_ayni_zaman_farkli_etiket_fark_edilmez() {
++    let dir = dir_with(&[("gece-a.mp3", "gece.mp3")]);
++    let db = temp_path("library.sqlite3");
++    let library = Mutex::new(Library::open(&db).unwrap());
++    let folder = library.lock().unwrap().add_folder(&dir.to_string_lossy()).unwrap();
++    let state = ScanState::default();
++    scan_folder(&library, &folder, &state).unwrap();
++    assert_eq!(library.lock().unwrap().search("", 10).unwrap()[0].title, "Gece A");
++
++    // Etiket düzenleyici (Mp3tag "değişiklik zamanını koru" seçeneği) başlığı aynı uzunlukta
++    // değiştirdi: boyut ve değişme zamanı aynı kaldı.
++    let target = dir.join("gece.mp3");
++    let modified = std::fs::metadata(&target).unwrap().modified().unwrap();
++    std::fs::copy(ses("gece-b.mp3"), &target).unwrap();
++    std::fs::File::options().write(true).open(&target).unwrap().set_modified(modified).unwrap();
++    let summary = scan_folder(&library, &folder, &state).unwrap();
++    let title = library.lock().unwrap().search("", 10).unwrap()[0].title.clone();
++    println!(
++        "AYNI DAMGA: diskteki başlık 'Gece B', tarama unchanged={} updated={}, kütüphanedeki başlık '{title}'",
++        summary.unchanged, summary.updated
++    );
++    assert_eq!(summary.unchanged, 1);
++    assert_eq!(title, "Gece A", "değişiklik görülmez (tasarım: boyut + zaman damgası)");
++}
++
++#[test]
++fn bver_tek_sarkili_kaynakta_silinen_sarki_hayalet_kalir() {
++    let dir = dir_with(&[("gece-a.mp3", "gece.mp3")]);
++    let db = temp_path("library.sqlite3");
++    let library = Mutex::new(Library::open(&db).unwrap());
++    let folder = library.lock().unwrap().add_folder(&dir.to_string_lossy()).unwrap();
++    let state = ScanState::default();
++    scan_folder(&library, &folder, &state).unwrap();
++    std::fs::remove_file(dir.join("gece.mp3")).unwrap();
++    let mut summaries = Vec::new();
++    for _ in 0..3 {
++        summaries.push(scan_folder(&library, &folder, &state).unwrap());
++    }
++    let left = library.lock().unwrap().track_count().unwrap();
++    println!(
++        "TEK ŞARKI SİLİNDİ: üç taramada removed={:?} suspicious={:?}; kütüphanede kalan {left}",
++        summaries.iter().map(|s| s.removed).collect::<Vec<_>>(),
++        summaries.iter().map(|s| s.suspicious).collect::<Vec<_>>()
++    );
++    assert_eq!(left, 1, "silinen şarkı hiçbir taramada çıkarılmıyor");
++}
++
++#[test]
++fn bver_klasor_icerigi_tamamen_degisince_hayaletler_ve_yanlis_mesaj() {
++    let dir = dir_with(&[("gece-a.mp3", "a.mp3"), ("isik.flac", "b.flac")]);
++    let db = temp_path("library.sqlite3");
++    let library = Mutex::new(Library::open(&db).unwrap());
++    let folder = library.lock().unwrap().add_folder(&dir.to_string_lossy()).unwrap();
++    let state = ScanState::default();
++    scan_folder(&library, &folder, &state).unwrap();
++    // Albüm yeniden ripplendi: eski iki dosya gitti, yeni adlı iki dosya geldi.
++    std::fs::remove_file(dir.join("a.mp3")).unwrap();
++    std::fs::remove_file(dir.join("b.flac")).unwrap();
++    std::fs::copy(ses("gece-a.mp3"), dir.join("01 Gece.mp3")).unwrap();
++    std::fs::copy(ses("isik.flac"), dir.join("02 Işık.flac")).unwrap();
++    let first = scan_folder(&library, &folder, &state).unwrap();
++    let after_first = library.lock().unwrap().track_count().unwrap();
++    let second = scan_folder(&library, &folder, &state).unwrap();
++    let after_second = library.lock().unwrap().track_count().unwrap();
++    println!(
++        "İÇERİK DEĞİŞTİ: 1. tarama found={} updated={} removed={} suspicious={} → listede {after_first} şarkı \
++         (2'si hayalet); 2. tarama removed={} → {after_second}",
++        first.found, first.updated, first.removed, first.suspicious, second.removed
++    );
++    assert_eq!(after_first, 4, "bir sonraki taramaya kadar iki hayalet kayıt");
++    assert_eq!(first.suspicious, 2, "\"hiçbiri bulunamadı\" denir, oysa 2 yeni dosya bulundu");
++    assert_eq!(after_second, 2);
++}
++
++#[test]
++fn bver_sembolik_baglar() {
++    let real = dir_with(&[("gece-a.mp3", "a.mp3"), ("isik.flac", "alt/b.flac")]);
++    let other = dir_with(&[("isik.flac", "c.flac")]);
++    let link_root = real.parent().unwrap().join("kok-bag");
++    std::os::unix::fs::symlink(&real, &link_root).unwrap();
++    std::os::unix::fs::symlink(&other, real.join("baska-disk")).unwrap();
++    std::os::unix::fs::symlink(other.join("c.flac"), real.join("c-bag.flac")).unwrap();
++    let db = temp_path("library.sqlite3");
++    let library = Mutex::new(Library::open(&db).unwrap());
++    let folder = library.lock().unwrap().add_folder(&link_root.to_string_lossy()).unwrap();
++    let state = ScanState::default();
++    let summary = scan_folder(&library, &folder, &state).unwrap();
++    let paths: Vec<String> = library
++        .lock()
++        .unwrap()
++        .search("", 10)
++        .unwrap()
++        .into_iter()
++        .map(|t| t.path.replace(&*real.parent().unwrap().to_string_lossy(), "…"))
++        .collect();
++    println!(
++        "SEMBOLİK BAĞ: kök bağ üzerinden found={} unreadable={} updated={} → {paths:?} (bağlı alt klasör ve \
++         bağlı dosya sessizce atlandı)",
++        summary.found, summary.unreadable, summary.updated
++    );
++    assert_eq!(summary.found, 2, "kök bağ izlenir; alt klasör bağı ve dosya bağı izlenmez");
++    assert_eq!(summary.unreadable, 0, "atlanan bağ kullanıcıya bildirilmez");
++}
++
++#[test]
++fn bver_okunamayan_alt_klasor_ve_kok() {
++    // Yalnızca ayrıcalıksız kullanıcıyla anlamlı (root her şeyi okur): setpriv ile çalıştırılır.
++    let dir = dir_with(&[("gece-a.mp3", "a.mp3"), ("isik.flac", "gizli/b.flac")]);
++    let db = temp_path("library.sqlite3");
++    let library = Mutex::new(Library::open(&db).unwrap());
++    let folder = library.lock().unwrap().add_folder(&dir.to_string_lossy()).unwrap();
++    let state = ScanState::default();
++    scan_folder(&library, &folder, &state).unwrap();
++    assert_eq!(library.lock().unwrap().track_count().unwrap(), 2);
++    use std::os::unix::fs::PermissionsExt;
++    std::fs::set_permissions(dir.join("gizli"), std::fs::Permissions::from_mode(0o000)).unwrap();
++    let readable = std::fs::read_dir(dir.join("gizli")).is_ok();
++    let summary = scan_folder(&library, &folder, &state).unwrap();
++    let left = library.lock().unwrap().track_count().unwrap();
++    println!(
++        "OKUNAMAYAN ALT KLASÖR (root olarak mı: {readable}): unreadable={} removed={} → kalan {left}",
++        summary.unreadable, summary.removed
++    );
++    std::fs::set_permissions(dir.join("gizli"), std::fs::Permissions::from_mode(0o755)).unwrap();
++    if !readable {
++        assert_eq!(summary.unreadable, 1);
++        assert_eq!(left, 2, "okunamayan klasörün şarkısı silinmez");
++    }
++}
++
++#[test]
++fn bver_kok_gecici_yokken_sonra_geri_gelince() {
++    let dir = dir_with(&[("gece-a.mp3", "a.mp3"), ("isik.flac", "b.flac")]);
++    let db = temp_path("library.sqlite3");
++    let library = Mutex::new(Library::open(&db).unwrap());
++    let folder = library.lock().unwrap().add_folder(&dir.to_string_lossy()).unwrap();
++    let state = ScanState::default();
++    scan_folder(&library, &folder, &state).unwrap();
++    let aside = dir.with_extension("aside");
++    std::fs::rename(&dir, &aside).unwrap();
++    let gone = scan_folder(&library, &folder, &state);
++    let during = library.lock().unwrap().track_count().unwrap();
++    std::fs::rename(&aside, &dir).unwrap();
++    let back = scan_folder(&library, &folder, &state).unwrap();
++    println!(
++        "KÖK YOK: sonuç {:?}; şarkılar kaldı {during}; geri gelince unchanged={} updated={}",
++        gone.as_ref().map(|_| ()).map_err(|e| e.to_string()),
++        back.unchanged,
++        back.updated
++    );
++    assert!(gone.is_err());
++    assert_eq!(during, 2);
++    assert_eq!(back.unchanged, 2);
++}
++
++#[test]
++fn bver_nfd_adli_dosya_ve_etiket_aranamaz() {
++    // macOS'tan (ya da exFAT/SMB üzerinden) gelen NFD (ayrışık) adlar ve etiketler.
++    let dir = dir_with(&[("isik.flac", "S\u{327}arkı Adı.flac"), ("nfd.mp3", "nfd.mp3")]);
++    let db = temp_path("library.sqlite3");
++    let library = Mutex::new(Library::open(&db).unwrap());
++    let folder = library.lock().unwrap().add_folder(&dir.to_string_lossy()).unwrap();
++    scan_folder(&library, &folder, &ScanState::default()).unwrap();
++    let lib = library.lock().unwrap();
++    let all = lib.search("", 10).unwrap();
++    println!("NFD: kütüphanedeki başlıklar {:?}", all.iter().map(|t| t.title.clone()).collect::<Vec<_>>());
++    for (query, expected, note) in [
++        ("şarkı", 1, "NFD dosya adı 'Şarkı Adı.flac'"),
++        ("sarki", 1, "NFD dosya adı, sade yazım"),
++        ("şebnem", 1, "NFD etiket 'Şebnem'"),
++        ("istanbul", 1, "NFD etiket 'İstanbul'"),
++        ("dağ", 1, "NFD sanatçı 'Dağ'"),
++        ("ruya", 1, "NFD sanatçı 'Rüya'"),
++        ("S\u{327}ebnem", 1, "sorgu da NFD"),
++    ] {
++        let got = lib.search(query, 10).unwrap().len();
++        println!("  arama {query:12} ({note}): beklenen {expected}, bulunan {got}");
++    }
++    assert_eq!(lib.search("şebnem", 10).unwrap().len(), 0, "hata: NFD etiket bulunmaz");
++    assert_eq!(lib.search("şarkı", 10).unwrap().len(), 0, "hata: NFD dosya adı bulunmaz");
++}
++
++// ---------------------------------------------------------------- 4. Türkçe arama tablosu
++
++#[test]
++fn bver_turkce_arama_tablosu() {
++    let mut lib = Library::open_in_memory().unwrap();
++    let folder = lib.add_folder("/muzik").unwrap();
++    let stamp = FileStamp { size: 1, modified: 1 };
++    let rows: Vec<(&str, &str, &str, &str)> = vec![
++        ("/muzik/1.flac", "Işık", "Şebnem Ferah", "Kelimeler"),
++        ("/muzik/2.flac", "İstanbul", "Sezen Aksu", "Gülümse"),
++        ("/muzik/3.flac", "Çağrı", "Ömür Göksel", "Düş"),
++        ("/muzik/4.flac", "100% Aşk", "Yıldız", "a_b"),
++        ("/muzik/5.flac", "back\\slash", "Zülfü", "Ğ harfi"),
++        ("/muzik/6.flac", "S\u{327}ebnem (NFD)", "I\u{307}stanbul (NFD)", "Dag\u{306}"),
++        ("/muzik/7.flac", "ILIK", "ılık", "IŞIL"),
++        ("/muzik/8.flac", "Straße", "Þórður", "Æbleskiver"),
++    ];
++    let upserts: Vec<_> = rows
++        .iter()
++        .map(|(p, t, a, al)| {
++            let mut info = track_info(p);
++            info.title = Some((*t).to_owned());
++            info.artist = Some((*a).to_owned());
++            info.album = Some((*al).to_owned());
++            (info, stamp)
++        })
++        .collect();
++    lib.apply_changes(folder.id, &upserts, &[]).unwrap();
++    println!("TÜRKÇE ARAMA TABLOSU (satırlar: {} şarkı)", rows.len());
++    println!("| sorgu | search_key | beklenen | bulunan | sonuç |");
++    let cases: Vec<(&str, usize, &str)> = vec![
++        ("ışık", 1, "Işık"),
++        ("isik", 1, "Işık (sade)"),
++        ("IŞIK", 1, "büyük harf"),
++        ("ISIK", 1, "ASCII büyük"),
++        ("işik", 1, "karışık ı/i"),
++        ("İstanbul", 1, "noktalı İ"),
++        ("istanbul", 1, ""),
++        ("ISTANBUL", 1, ""),
++        ("ilik", 1, "ILIK ve ılık aynı kayıtta (I→i, ı→i)"),
++        ("ışıl", 1, "IŞIL"),
++        ("şebnem", 1, "NFC"),
++        ("sebnem", 1, "sade"),
++        ("ŞEBNEM", 1, ""),
++        ("çağrı", 1, ""),
++        ("cagri", 1, ""),
++        ("CAGRI", 1, ""),
++        ("ömür", 1, ""),
++        ("omur", 1, ""),
++        ("gülümse", 1, ""),
++        ("gulumse", 1, ""),
++        ("ğ harfi", 1, "boşluklu, iki kelime"),
++        ("harfi ğ", 1, "kelime sırası önemsiz"),
++        ("zülfü ğ", 1, "farklı alanlardan kelimeler"),
++        ("100%", 1, "LIKE % kaçırılır"),
++        ("%", 1, "yalnız %: yalnızca % içeren"),
++        ("_", 1, "yalnız _: yalnızca a_b"),
++        ("a_b", 1, ""),
++        ("a b", 6, "boşluk: 'a' ve 'b' ayrı, her biri alt dizge (6 kayıtta ikisi de geçer)"),
++        ("\\", 1, "ters bölü"),
++        ("back\\slash", 1, ""),
++        ("s\u{327}ebnem", 1, "NFD sorgu yalnızca NFD kaydı bulur (NFC Şebnem bulunmaz)"),
++        ("şebnem (nfd)", 0, "NFD kayıt NFC sorguyla"),
++        ("dağ", 1, "NFD albüm 'Dağ': g + U+0306; alt dizge olarak rastlantıyla bulunur"),
++        ("strasse", 0, "ß sadeleşmez"),
++        ("straße", 1, ""),
++        ("thordur", 0, "Þ sadeleşmez"),
++        ("sezen gülümse", 1, "sanatçı + albüm"),
++        ("  işık   ", 1, "baş/son boşluk"),
++        ("", 8, "boş: hepsi"),
++        ("'; DROP TABLE tracks; --", 0, "SQL enjeksiyonu yok"),
++    ];
++    let mut failures = Vec::new();
++    for (query, expected, note) in cases {
++        let got = lib.search(query, 100).unwrap().len();
++        let ok = got == expected;
++        if !ok {
++            failures.push(query);
++        }
++        println!(
++            "| `{query}` | `{}` | {expected} | {got} | {} {note} |",
++            search_key(query),
++            if ok { "✓" } else { "✗" }
++        );
++    }
++    assert_eq!(lib.track_count().unwrap(), 8, "enjeksiyon tabloyu silmedi");
++    println!("beklentiden sapan sorgular: {failures:?}");
++}
++
++// ---------------------------------------------------------------- 5. Ölçek
++
++#[test]
++fn bver_olcek_50k_liste_ve_json() {
++    let src = Path::new(CALISMA).join("olcek-50000-200.sqlite3");
++    if !src.exists() {
++        println!("ÖLÇEK: {} yok, atlandı", src.display());
++        return;
++    }
++    let db = temp_path("library.sqlite3");
++    std::fs::copy(&src, &db).unwrap();
++    let t = Instant::now();
++    let lib = Library::open(&db).unwrap();
++    let open_ms = t.elapsed().as_millis();
++    let t = Instant::now();
++    let all = lib.search("", 50_000).unwrap();
++    let search_ms = t.elapsed().as_millis();
++    let t = Instant::now();
++    let json = serde_json::to_string(&all).unwrap();
++    let json_ms = t.elapsed().as_millis();
++    let t = Instant::now();
++    let found = lib.search("gece yarisi", 50_000).unwrap().len();
++    let word_ms = t.elapsed().as_millis();
++    let t = Instant::now();
++    let analyzed = lib.analyzed_count().unwrap();
++    let analyzed_ms = t.elapsed().as_millis();
++    println!(
++        "ÖLÇEK 50k: açılış {open_ms} ms | search('') {} satır {search_ms} ms + JSON {:.1} MB {json_ms} ms | \
++         search('gece yarisi') {found} satır {word_ms} ms | analyzed_count={analyzed} {analyzed_ms} ms",
++        all.len(),
++        json.len() as f64 / 1e6
++    );
++}
++
++/// Gerçek bir analiz kaydının boyutu (4 dakikalık pembe gürültü; müzik için yaklaşık üst sınır).
++#[test]
++fn bver_analiz_kaydi_boyutu() {
++    let path = ses("dort-dakika.flac");
++    let t = Instant::now();
++    let saved = analyze_file(&path);
++    let analyze_s = t.elapsed().as_secs_f64();
++    let db = temp_path("library.sqlite3");
++    let cache = AnalysisCache::open(&db).unwrap();
++    cache.store(&path, FileStamp::of(&path).unwrap(), &saved).unwrap();
++    let conn = cache.lock_for_test();
++    let (levels, meters, onset, chroma, beats, map): (i64, i64, i64, i64, i64, i64) = conn
++        .query_row(
++            "SELECT length(levels), length(meters), length(onset), coalesce(length(chroma),0), \
++             coalesce(length(beats),0), coalesce(length(song_map),0) FROM analyses",
++            [],
++            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
++        )
++        .unwrap();
++    conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE)").unwrap();
++    drop(conn);
++    let total = levels + meters + onset + chroma + beats + map;
++    println!(
++        "ANALİZ KAYDI (240 sn, {} kare): levels {levels} meters {meters} onset {onset} chroma {chroma} beats \
++         {beats} song_map {map} → toplam {:.0} KB/şarkı; ham kareler {:.0} KB; analiz {analyze_s:.1} sn; \
++         dosya {:.0} KB",
++        saved.frames(),
++        total as f64 / 1024.0,
++        (saved.levels.len() + saved.meters.len() + saved.onset.len() * 4) as f64 / 1024.0,
++        std::fs::metadata(&db).unwrap().len() as f64 / 1024.0
++    );
++}
++
++// ---------------------------------------------------------------- 6. Eşzamanlılık
++
++#[test]
++fn bver_eszamanlilik_stresi() {
++    let db = temp_path("library.sqlite3");
++    let library = Arc::new(Mutex::new(Library::open(&db).unwrap()));
++    let folder = library.lock().unwrap().add_folder("/muzik").unwrap();
++    let cache = Arc::new(AnalysisCache::open(&db).unwrap());
++    let saved = Arc::new(analyze_file(&ses("isik.flac")));
++    let stamp = FileStamp { size: 1, modified: 1 };
++    let deadline = Instant::now() + Duration::from_secs(8);
++    let errors = Arc::new(Mutex::new(Vec::<String>::new()));
++    let mut handles = Vec::new();
++
++    // Tarama yazıcısı: 200'lük toplu yazmalar + silmeler (scan.rs'in yaptığı gibi).
++    {
++        let (library, errors) = (Arc::clone(&library), Arc::clone(&errors));
++        handles.push(std::thread::spawn(move || {
++            let (mut batches, mut max_ms) = (0usize, 0u128);
++            let mut n = 0usize;
++            while Instant::now() < deadline {
++                let upserts: Vec<_> = (0..200)
++                    .map(|i| {
++                        let mut info = track_info(&format!("/muzik/{}.flac", n + i));
++                        info.title = Some(format!("Gece {}", n + i));
++                        (info, stamp)
++                    })
++                    .collect();
++                let removed: Vec<String> = (0..20).map(|i| format!("/muzik/{}.flac", n / 2 + i)).collect();
++                n += 200;
++                let t = Instant::now();
++                let r = library.lock().unwrap().apply_changes(folder.id, &upserts, &removed);
++                max_ms = max_ms.max(t.elapsed().as_millis());
++                if let Err(e) = r {
++                    errors.lock().unwrap().push(format!("tarama: {e}"));
++                }
++                batches += 1;
++            }
++            ("tarama yazıcısı", batches, max_ms)
++        }));
++    }
++    // Analiz yazıcısı (çalan + arka plan): sürekli cache.store.
++    for name in ["analiz yazıcısı A", "analiz yazıcısı B"] {
++        let (cache, errors, saved) = (Arc::clone(&cache), Arc::clone(&errors), Arc::clone(&saved));
++        handles.push(std::thread::spawn(move || {
++            let (mut stores, mut max_ms) = (0usize, 0u128);
++            while Instant::now() < deadline {
++                let t = Instant::now();
++                let r = cache.store(Path::new(&format!("/muzik/{}.flac", stores % 3000)), stamp, &saved);
++                max_ms = max_ms.max(t.elapsed().as_millis());
++                if let Err(e) = r {
++                    errors.lock().unwrap().push(format!("{name}: {e}"));
++                }
++                stores += 1;
++            }
++            (name, stores, max_ms)
++        }));
++    }
++    // Arayüz: arama + durum (status) döngüsü.
++    {
++        let (library, errors) = (Arc::clone(&library), Arc::clone(&errors));
++        handles.push(std::thread::spawn(move || {
++            let (mut reads, mut max_ms) = (0usize, 0u128);
++            while Instant::now() < deadline {
++                let t = Instant::now();
++                let lib = library.lock().unwrap();
++                let r = lib
++                    .search("gece", 50_000)
++                    .and_then(|_| lib.analyzed_count())
++                    .and_then(|_| lib.track_count());
++                drop(lib);
++                max_ms = max_ms.max(t.elapsed().as_millis());
++                if let Err(e) = r {
++                    errors.lock().unwrap().push(format!("arayüz: {e}"));
++                }
++                reads += 1;
++                std::thread::sleep(Duration::from_millis(5));
++            }
++            ("arayüz okuyucu (kilit dahil)", reads, max_ms)
++        }));
++    }
++    // Arka plan analizi: bekleyenleri sorar.
++    {
++        let (cache, errors) = (Arc::clone(&cache), Arc::clone(&errors));
++        handles.push(std::thread::spawn(move || {
++            let (mut reads, mut max_ms) = (0usize, 0u128);
++            while Instant::now() < deadline {
++                let t = Instant::now();
++                if let Err(e) = cache.pending_library_tracks(16) {
++                    errors.lock().unwrap().push(format!("arka plan: {e}"));
++                }
++                max_ms = max_ms.max(t.elapsed().as_millis());
++                reads += 1;
++            }
++            ("arka plan bekleyen sorgusu", reads, max_ms)
++        }));
++    }
++    for h in handles {
++        let (name, n, max_ms) = h.join().unwrap();
++        println!("EŞZAMANLILIK: {name:30} {n:6} işlem, en uzun {max_ms} ms");
++    }
++    let errors = errors.lock().unwrap();
++    println!("EŞZAMANLILIK: hata sayısı {} {:?}", errors.len(), errors.iter().take(3).collect::<Vec<_>>());
++    let lib = library.lock().unwrap();
++    let tracks = lib.track_count().unwrap();
++    let analyses = count(&cache.lock_for_test(), "SELECT COUNT(*) FROM analyses");
++    let integrity: String = cache
++        .lock_for_test()
++        .query_row("PRAGMA integrity_check", [], |r| r.get(0))
++        .unwrap();
++    println!("EŞZAMANLILIK: sonunda tracks={tracks} analyses={analyses} integrity={integrity}");
++    assert!(errors.is_empty());
++}
++
++// ---------------------------------------------------------------- 2. Çökme tutarlılığı: içten bozuk dosya
++
++/// Başlığı sağlam ama iç sayfaları bozuk dosya (yarım yazılmış sayfa, bozuk sektör): "bozuk
++/// dosya kenara alınır" vaadi yalnızca `PRAGMA journal_mode` aşamasında yakalanan hataları kapsar.
++#[test]
++fn bver_icten_bozuk_dosya_kenara_alinmaz() {
++    let db = temp_path("library.sqlite3");
++    {
++        let mut lib = Library::open(&db).unwrap();
++        let folder = lib.add_folder("/muzik").unwrap();
++        let stamp = FileStamp { size: 1, modified: 1 };
++        let upserts: Vec<_> = (0..3000)
++            .map(|i| {
++                let mut info = track_info(&format!("/muzik/{i}.flac"));
++                info.title = Some(format!("Şarkı {i}"));
++                (info, stamp)
++            })
++            .collect();
++        lib.apply_changes(folder.id, &upserts, &[]).unwrap();
++        lib.execute_for_test("PRAGMA wal_checkpoint(TRUNCATE)");
++    }
++    let _ = std::fs::remove_file(format!("{}-wal", db.display()));
++    let _ = std::fs::remove_file(format!("{}-shm", db.display()));
++    // Dosyanın ortasındaki sayfalar (tracks B-ağacı) çöple dolduruldu; başlık ve sqlite_master sağlam.
++    let size = std::fs::metadata(&db).unwrap().len();
++    {
++        use std::io::{Seek, SeekFrom, Write};
++        let mut f = std::fs::File::options().write(true).open(&db).unwrap();
++        f.seek(SeekFrom::Start(size / 3)).unwrap();
++        f.write_all(&vec![0xA5u8; (size / 3) as usize]).unwrap();
++    }
++    let opened = Library::open(&db);
++    let names: Vec<String> = std::fs::read_dir(db.parent().unwrap())
++        .unwrap()
++        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
++        .collect();
++    match &opened {
++        Ok(lib) => {
++            let status = lib.track_count().map(|n| n.to_string()).unwrap_or_else(|e| e.to_string());
++            let search = lib.search("", 10).map(|t| t.len().to_string()).unwrap_or_else(|e| e.to_string());
++            let search_w = lib.search("şarkı", 10).map(|t| t.len().to_string()).unwrap_or_else(|e| e.to_string());
++            println!(
++                "İÇTEN BOZUK: open OK, kurtarma notu {:?}; track_count → {status}; search('') → {search}; \
++                 search('şarkı') → {search_w}; klasördeki dosyalar {names:?}",
++                lib.recovery_notice()
++            );
++            assert!(lib.recovery_notice().is_none(), "kenara alınmadı");
++        }
++        Err(e) => println!("İÇTEN BOZUK: open HATA {e}; klasördeki dosyalar {names:?}"),
++    }
++    // İkinci açılış da aynı: program her açılışta aynı hatayı verir.
++    let again = Library::open(&db);
++    println!(
++        "İÇTEN BOZUK: ikinci açılış {:?}",
++        again.as_ref().map(|l| l.search("", 10).map(|t| t.len()).map_err(|e| e.to_string())).map_err(|e| e.to_string())
++    );
++    assert!(!names.iter().any(|n| n.contains(".bozuk-")), "bozuk dosya kenara alınmadı: {names:?}");
++}
++
++/// Dosyanın şema sayfası (sqlite_master/1. sayfa sonrası) bozuksa: hata göç içinde çıkar ve
++/// `LibraryError::Schema` olarak sarılır; `is_corruption` yalnızca `LibraryError::Database`'e bakar.
++#[test]
++fn bver_goc_icinde_yakalanan_bozulma_kenara_alinmaz() {
++    let db = temp_path("library.sqlite3");
++    {
++        let mut lib = Library::open(&db).unwrap();
++        let folder = lib.add_folder("/muzik").unwrap();
++        let stamp = FileStamp { size: 1, modified: 1 };
++        let upserts: Vec<_> = (0..300)
++            .map(|i| (track_info(&format!("/muzik/{i}.flac")), stamp))
++            .collect();
++        lib.apply_changes(folder.id, &upserts, &[]).unwrap();
++        lib.execute_for_test("PRAGMA wal_checkpoint(TRUNCATE)");
++    }
++    let _ = std::fs::remove_file(format!("{}-wal", db.display()));
++    let _ = std::fs::remove_file(format!("{}-shm", db.display()));
++    // 1. sayfanın 100 baytlık başlığı korunur, sayfanın geri kalanı (sqlite_master hücreleri) bozulur.
++    {
++        use std::io::{Seek, SeekFrom, Write};
++        let mut f = std::fs::File::options().write(true).open(&db).unwrap();
++        f.seek(SeekFrom::Start(100)).unwrap();
++        f.write_all(&vec![0xFFu8; 4096 - 100]).unwrap();
++    }
++    let opened = Library::open(&db);
++    let names: Vec<String> = std::fs::read_dir(db.parent().unwrap())
++        .unwrap()
++        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
++        .collect();
++    println!(
++        "ŞEMA SAYFASI BOZUK: open → {:?}; kenara alındı mı: {}",
++        opened.as_ref().map(|l| l.recovery_notice().map(str::to_owned)).map_err(|e| e.to_string()),
++        names.iter().any(|n| n.contains(".bozuk-"))
++    );
++}
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/src-tauri/src/lib.rs B-VER/kopya/src-tauri/src/lib.rs
+--- /home/user/denetim-bagimsiz/kaynak/src-tauri/src/lib.rs	2026-10-22 12:39:10.000000000 +0000
++++ B-VER/kopya/src-tauri/src/lib.rs	2026-10-22 22:39:24.414170805 +0000
+@@ -187,3 +187,6 @@
+         }
+     });
+ }
++
++#[cfg(test)]
++mod bver_denetim;

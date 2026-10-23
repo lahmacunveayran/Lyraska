@@ -1,0 +1,1003 @@
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/denetim/akis.mjs B-ARA/kopya/denetim/akis.mjs
+--- /home/user/denetim-bagimsiz/kaynak/denetim/akis.mjs	1970-01-01 00:00:00.000000000 +0000
++++ B-ARA/kopya/denetim/akis.mjs	2026-10-22 22:41:44.503464046 +0000
+@@ -0,0 +1,153 @@
++// E1: Faz 1 akışları gerçek tarayıcıda (sahte çekirdek): sahneler, çekmece, kütüphane, ekolayzer,
++// sarma, klavye kısayolları. Konsol/sayfa hataları toplanır; durumlar doğrulanır.
++import { writeFileSync } from "node:fs";
++import { APP_URL, fakeCore, startServer, launch, collectErrors } from "./harness.mjs";
++
++const server = await startServer();
++const browser = await launch();
++const errors = [];
++const findings = [];
++const log = (s) => { console.log(s); findings.push(s); };
++const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
++collectErrors(page, errors);
++await page.addInitScript(fakeCore({ profile: "music", tracks: 300 }));
++await page.goto(APP_URL);
++await page.waitForSelector(".library__row[aria-rowindex]", { timeout: 20000 });
++
++const click = async (sel) => { const b = await page.locator(sel).first().boundingBox(); await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.waitForTimeout(50); await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2); };
++const scene = () => page.locator(".stage").getAttribute("data-scene");
++const stateText = () => page.locator(".now__over").innerText();
++const fakeState = () => page.evaluate(() => window.__fake.session.state);
++
++// 1) Çekmece açık başlar, kütüphane dolu.
++log(`açılış: çekmece ${await page.locator(".drawer").getAttribute("class")} · çizilen satır ${await page.locator(".library__row[aria-rowindex]").count()} · aria-rowcount=${await page.locator("[role=grid]").getAttribute("aria-rowcount")}`);
++// 2) Arama (Türkçe duyarlı): "çığlık" → "Çığlık" içeren şarkılar.
++await page.fill("input[type=search]", "çığlık");
++await page.waitForTimeout(400);
++log(`arama "çığlık": aria-rowcount=${await page.locator("[role=grid]").getAttribute("aria-rowcount")} (beklenen 43) · çizilen ${await page.locator(".library__row[aria-rowindex]").count()} · "SEZEN" → ${await (async () => { await page.fill("input[type=search]", "SEZEN"); await page.waitForTimeout(400); return page.locator("[role=grid]").getAttribute("aria-rowcount"); })()} (beklenen 200)`);
++await page.fill("input[type=search]", "");
++await page.waitForTimeout(400);
++// 3) Klavyeyle listede gezinme ve Enter ile çalma.
++await page.locator(".library__list").focus();
++await page.keyboard.press("ArrowDown"); await page.keyboard.press("ArrowDown"); await page.keyboard.press("ArrowDown");
++const activeId = await page.locator(".library__list").getAttribute("aria-activedescendant");
++log(`liste: 3×↓ sonrası aria-activedescendant=${activeId}`);
++await page.keyboard.press("Enter");
++await page.waitForFunction(() => window.__fake.session.state === "playing");
++await page.waitForTimeout(600);
++log(`Enter: çekirdek ${await fakeState()} · şarkı ${await page.evaluate(() => window.__fake.session.track.title)} · çekmece kapandı mı: ${!(await page.locator(".drawer").getAttribute("class")).includes("is-open")} · durum yazısı "${await stateText()}"`);
++// odak çekmece kapanınca nereye gitti?
++log(`odak (çekmece kapanınca): ${await page.evaluate(() => { const a = document.activeElement; return a ? a.tagName + "." + a.className + " aria-label=" + a.getAttribute("aria-label") : "yok"; })}`);
++// 4) Boşluk: duraklat / çal.
++await page.keyboard.press("Space"); await page.waitForTimeout(400);
++log(`Boşluk: çekirdek ${await fakeState()} · yazı "${await stateText()}"`);
++await page.keyboard.press("Space"); await page.waitForTimeout(400);
++log(`Boşluk: çekirdek ${await fakeState()}`);
++// 5) Sarma: → ×3 (5 sn adım) ve ←.
++const p0 = await page.evaluate(() => window.__fake.status().positionSecs);
++await page.keyboard.press("ArrowRight"); await page.keyboard.press("ArrowRight"); await page.keyboard.press("ArrowRight");
++await page.waitForTimeout(500);
++const p1 = await page.evaluate(() => window.__fake.status().positionSecs);
++await page.keyboard.press("ArrowLeft"); await page.waitForTimeout(500);
++const p2 = await page.evaluate(() => window.__fake.status().positionSecs);
++log(`sarma: ${p0.toFixed(1)} → 3×→ ${p1.toFixed(1)} (beklenen ≈+15) → ← ${p2.toFixed(1)} (≈−5)`);
++// 6) Çubuğa tıklayarak sarma (ortasına).
++const bar = await page.locator(".seekbar").boundingBox();
++await page.mouse.click(bar.x + bar.width * 0.5, bar.y + bar.height / 2);
++await page.waitForTimeout(500);
++const p3 = await page.evaluate(() => window.__fake.status().positionSecs);
++const dur = await page.evaluate(() => window.__fake.session.track.durationSecs);
++log(`çubuk ortasına tıklama: konum ${p3.toFixed(1)} / ${dur} (beklenen ≈${(dur / 2).toFixed(1)}) · aria-valuenow=${await page.locator(".seekbar").getAttribute("aria-valuenow")}`);
++// Sürükleme
++await page.evaluate(() => { window.__ptr = []; const el = document.querySelector(".seekbar"); for (const t of ["pointerdown", "pointermove", "pointerup", "lostpointercapture"]) el.addEventListener(t, (e) => window.__ptr.push([t, Math.round(e.clientX), Math.round(el.getBoundingClientRect().left), Math.round(el.getBoundingClientRect().width)])); });
++await page.mouse.move(bar.x + bar.width * 0.5, bar.y + bar.height / 2); await page.mouse.down();
++await page.mouse.move(bar.x + bar.width * 0.25, bar.y + bar.height / 2, { steps: 5 });
++log(`sürüklerken ipucu: ${await page.locator(".seekbar__tip").count() ? await page.locator(".seekbar__tip").innerText() : "yok"}`);
++await page.mouse.up(); await page.waitForTimeout(400);
++log(`sürükle-bırak %25: konum ${(await page.evaluate(() => window.__fake.status().positionSecs)).toFixed(1)} (beklenen ≈${(dur / 4).toFixed(1)}) · olaylar ${JSON.stringify(await page.evaluate(() => window.__ptr))}`);
++// 7) Sahne değiştirme 1–5 ve düğmelerle; her sahnede tuval/svg var mı.
++for (const [key, id] of [["1", "sky"], ["2", "highway"], ["3", "vu"], ["4", "spectrum"], ["5", "drive"], ["1", "sky"]]) {
++  await page.keyboard.press(key); await page.waitForTimeout(700);
++  const s = await scene();
++  const webgl = await page.evaluate(() => Array.from(document.querySelectorAll("canvas:not([hidden])")).map((c) => c.dataset.webgl ?? "-").join(","));
++  const lit = await page.evaluate(() => document.querySelector(".dot-matrix__lit")?.getAttribute("data-lit-count") ?? "-");
++  log(`tuş ${key}: sahne ${s} (beklenen ${id}) · canvas webgl=[${webgl}] · yanan nokta=${lit} · aria-pressed: ${await page.locator(`.pill[aria-pressed=true]`).innerText()}`);
++}
++log(`düğme tıklamadan önce app class: ${await page.locator(".app").getAttribute("class")}`);
++await click(".pill:has-text('VU ibreleri')"); await page.waitForTimeout(300);
++log(`düğmeyle VU: ${await scene()}`);
++// 8) Çekmece: üst çubuk düğmeleri, sekmelerde ok tuşları, Esc.
++await click("button[aria-label='Ekolayzer']"); await page.waitForTimeout(300);
++log(`Ekolayzer düğmesi: açık=${(await page.locator(".drawer").getAttribute("class")).includes("is-open")} · seçili sekme=${await page.locator(".drawer__tabs [role=tab][aria-selected=true]").innerText()} · odak=${await page.evaluate(() => document.activeElement?.id)}`);
++await page.keyboard.press("ArrowRight"); await page.waitForTimeout(100);
++log(`sekmede →: ${await page.locator(".drawer__tabs [role=tab][aria-selected=true]").innerText()} · odak=${await page.evaluate(() => document.activeElement?.id)}`);
++await page.keyboard.press("End"); await page.waitForTimeout(100);
++log(`sekmede End: ${await page.locator(".drawer__tabs [role=tab][aria-selected=true]").innerText()}`);
++await page.keyboard.press("Home"); await page.waitForTimeout(100);
++log(`sekmede Home: ${await page.locator(".drawer__tabs [role=tab][aria-selected=true]").innerText()}`);
++// Sekmedeyken Boşluk sekmeye mi basar (çal/duraklat değil)?
++const before = await fakeState();
++await page.keyboard.press("Space"); await page.waitForTimeout(300);
++log(`sekmede Boşluk: çekirdek ${before} → ${await fakeState()} (değişmemeli)`);
++// Ekolayzer sekmesi: sürgüde klavye.
++await click("#drawer-tab-eq"); await page.waitForTimeout(200);
++const slider = page.locator(".eq-slider__track").first();
++await slider.focus();
++await page.keyboard.press("ArrowUp"); await page.keyboard.press("ArrowUp"); await page.waitForTimeout(300);
++log(`EQ 31 Hz sürgü 2×↑: aria-valuenow=${await slider.getAttribute("aria-valuenow")} · çekirdek gainsDb[0]=${await page.evaluate(async () => (await window.__TAURI_INTERNALS__.invoke("equalizer_get")).gainsDb[0])} · ön kazanç yazısı: ${await page.locator(".eq__preamp").innerText()}`);
++const posBefore = await page.evaluate(() => window.__fake.status().positionSecs);
++await page.keyboard.press("ArrowRight"); await page.waitForTimeout(300);
++log(`EQ sürgüde →: odak ${await page.evaluate(() => document.activeElement?.getAttribute("aria-label"))} · konum değişti mi: ${Math.abs((await page.evaluate(() => window.__fake.status().positionSecs)) - posBefore - 0.3) > 1}`);
++await page.keyboard.press("1"); await page.waitForTimeout(300);
++log(`EQ sürgüde "1" tuşu: sahne ${await scene()} (sürgü odaklıyken sahne değişti mi?)`);
++// Hazır ayar uygula, sonra kapat.
++await click(".eq__presets .chip--button >> nth=1"); await page.waitForTimeout(300);
++log(`hazır ayar: ${await page.locator(".eq__preset").innerText()} · aria-pressed: ${await page.locator(".eq__presets [aria-pressed=true]").innerText()} · EQ ışığı: ${await page.locator("#drawer-tab-eq .led").getAttribute("class")}`);
++await click(".eq__header .switch"); await page.waitForTimeout(300);
++log(`EQ kapat: switch aria-checked=${await page.locator(".eq__header .switch").getAttribute("aria-checked")} · ışık: ${await page.locator("#drawer-tab-eq .led").getAttribute("class")}`);
++// Ayarlar: güvenli mod.
++await click("#drawer-tab-settings"); await page.waitForTimeout(200);
++await click("button:has-text('Epilepsi güvenli modu')"); await page.waitForTimeout(300);
++log(`güvenli mod: ${await page.locator("button:has-text('Epilepsi güvenli modu')").getAttribute("aria-pressed")} · bilgi kartı: ${await page.locator(".info-chip:has-text('Güvenli mod')").count()}`);
++await click("button:has-text('Epilepsi güvenli modu')"); await page.waitForTimeout(200);
++// Esc kapatır; odak açan düğmeye döner mi?
++await page.keyboard.press("Escape"); await page.waitForTimeout(400);
++log(`Esc: çekmece açık=${(await page.locator(".drawer").getAttribute("class")).includes("is-open")} · aria-hidden=${await page.locator(".drawer").getAttribute("aria-hidden")} · inert=${await page.evaluate(() => document.querySelector(".drawer").hasAttribute("inert"))} · odak=${await page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.tagName)}`);
++// Esc arama kutusundayken kapatmaz
++await click("button[aria-label='Kütüphane']"); await page.waitForTimeout(300);
++await page.locator("input[type=search]").focus(); await page.keyboard.press("Escape"); await page.waitForTimeout(200);
++log(`arama kutusunda Esc: çekmece açık=${(await page.locator(".drawer").getAttribute("class")).includes("is-open")} (beklenen true)`);
++// Arama kutusunda Boşluk ve 1-5 sahne değiştirmemeli
++await page.keyboard.type("1 2"); await page.waitForTimeout(300);
++log(`arama kutusuna "1 2": sahne ${await scene()} (değişmemeli) · çekirdek ${await fakeState()} (playing kalmalı) · kutu="${await page.inputValue("input[type=search]")}"`);
++await page.fill("input[type=search]", "");
++// 9) Transport düğmeleri: Önceki (başa sarar), Sonraki, Durdur.
++await page.keyboard.press("Escape");
++await click("button[aria-label='Sonraki']"); await page.waitForTimeout(600);
++log(`Sonraki: ${await page.evaluate(() => window.__fake.session.track.title)} · sıra yazısı "${await stateText()}" · sıradaki kartı: ${await page.locator(".up-next__text").innerText().catch(() => "yok")}`);
++await click("button[aria-label='Önceki']"); await page.waitForTimeout(600);
++log(`Önceki (başta): ${await page.evaluate(() => window.__fake.session.track.title)} · konum ${(await page.evaluate(() => window.__fake.status().positionSecs)).toFixed(1)}`);
++await click("button[aria-label='Durdur']"); await page.waitForTimeout(500);
++log(`Durdur: çekirdek ${await fakeState()} · yazı "${await stateText()}" · çal düğmesi aria-label=${await page.locator(".play-button").getAttribute("aria-label")}`);
++// 10) Sinema görünümü: 4 sn hareketsiz → chrome çekilir; fare → geri gelir.
++await click(".play-button"); await page.waitForTimeout(4600);
++log(`4,6 sn sonra sinema: ${(await page.locator(".app").getAttribute("class")).includes("is-cinema")} · topbar opacity=${await page.evaluate(() => getComputedStyle(document.querySelector(".topbar")).opacity)}`);
++await page.keyboard.press("Tab"); await page.waitForTimeout(800);
++log(`Tab: sinema=${(await page.locator(".app").getAttribute("class")).includes("is-cinema")} · odak=${await page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.textContent)}`);
++// 11) Şarkı sonu → otomatik geçiş (sahte çekirdek: pozisyonu sona sar ve "ended" bildir).
++await page.evaluate(() => { const s = window.__fake.session; s.pausedAt = s.track.durationSecs; s.state = "ended"; });
++await page.waitForTimeout(1200);
++log(`şarkı sonu: çekirdek ${await fakeState()} · şarkı ${await page.evaluate(() => window.__fake.session.track?.title)} (sıradakine geçmeli)`);
++// 12) Pencere boyutu değişimi.
++for (const [w, h] of [[720, 560], [1920, 1080], [1280, 860]]) {
++  await page.setViewportSize({ width: w, height: h }); await page.waitForTimeout(500);
++  const info = await page.evaluate(() => { const c = document.querySelector("canvas:not([hidden])"); const sx = document.documentElement.scrollWidth, sy = document.documentElement.scrollHeight; return { canvas: c ? c.width + "x" + c.height : "-", scroll: sx + "x" + sy, inner: innerWidth + "x" + innerHeight }; });
++  log(`pencere ${w}×${h}: ${JSON.stringify(info)}`);
++}
++await page.waitForTimeout(500);
++log(`\nkonsol/sayfa hataları (${errors.length}):\n${errors.map((e) => "  - " + e).join("\n") || "  yok"}`);
++log(`çekirdeğe yazılan arayüz hataları: ${JSON.stringify(await page.evaluate(() => window.__logged ?? []))}`);
++log(`komut sayıları: ${JSON.stringify(await page.evaluate(() => { const m = {}; for (const c of window.__calls) m[c] = (m[c] ?? 0) + 1; return m; }))}`);
++writeFileSync(new URL("../../kanit/akis.txt", import.meta.url), findings.join("\n"));
++await browser.close();
++await new Promise((r) => server.httpServer.close(r));
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/denetim/debug1.mjs B-ARA/kopya/denetim/debug1.mjs
+--- /home/user/denetim-bagimsiz/kaynak/denetim/debug1.mjs	1970-01-01 00:00:00.000000000 +0000
++++ B-ARA/kopya/denetim/debug1.mjs	2026-10-22 22:35:07.652787477 +0000
+@@ -0,0 +1,15 @@
++import { APP_URL, fakeCore, startServer, launch, collectErrors } from "./harness.mjs";
++const server = await startServer(); const browser = await launch(); const errors = [];
++const page = await browser.newPage({ viewport: { width: 1280, height: 860 } }); collectErrors(page, errors);
++await page.addInitScript(fakeCore({ profile: "music", tracks: 300 }));
++await page.goto(APP_URL); await page.waitForSelector(".library__row");
++await page.locator(".library__list").focus(); await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter");
++await page.waitForTimeout(1000);
++const probe = async (label) => console.log(label, await page.evaluate(() => { const b = document.querySelector(".pill[title^='VU']").getBoundingClientRect(); const e = document.elementFromPoint(b.x + b.width/2, b.y + b.height/2); return { app: document.querySelector(".app").className, at: e.tagName + "." + e.className, topbarOpacity: getComputedStyle(document.querySelector(".topbar")).opacity, pe: getComputedStyle(document.querySelector(".topbar")).pointerEvents }; }));
++await probe("Enter sonrası 1 sn:");
++await page.keyboard.press("2"); await page.waitForTimeout(700); await probe("tuş 2 +0,7 sn:");
++await page.waitForTimeout(4000); await probe("+4 sn:");
++await page.keyboard.press("3"); await page.waitForTimeout(300); await probe("tuş 3 +0,3 sn:");
++await page.mouse.move(600, 400); await page.waitForTimeout(300); await probe("fare +0,3 sn:");
++console.log(errors);
++await browser.close(); await new Promise((r) => server.httpServer.close(r));
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/denetim/debug2.mjs B-ARA/kopya/denetim/debug2.mjs
+--- /home/user/denetim-bagimsiz/kaynak/denetim/debug2.mjs	1970-01-01 00:00:00.000000000 +0000
++++ B-ARA/kopya/denetim/debug2.mjs	2026-10-22 22:37:26.408909117 +0000
+@@ -0,0 +1,21 @@
++import { APP_URL, fakeCore, startServer, launch, collectErrors } from "./harness.mjs";
++const server = await startServer(); const browser = await launch(); const errors = [];
++const page = await browser.newPage({ viewport: { width: 1280, height: 860 } }); collectErrors(page, errors);
++await page.addInitScript(fakeCore({ profile: "music", tracks: 300 }));
++await page.goto(APP_URL); await page.waitForSelector(".library__row");
++await page.locator(".library__list").focus(); await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter");
++await page.waitForTimeout(1500);
++// Spektrum: yanan nokta sayısı zamanla
++await page.keyboard.press("4");
++for (let i = 0; i < 8; i++) { await page.waitForTimeout(250); console.log("spektrum +" + (i + 1) * 250 + "ms lit=", await page.evaluate(() => document.querySelector(".dot-matrix__lit")?.getAttribute("data-lit-count")), "frame bands[0]=", await page.evaluate(async () => (await window.__TAURI_INTERNALS__.invoke("visual_frame"))?.bands[0])); }
++await page.keyboard.press("3"); await page.waitForTimeout(1500);
++console.log("VU ibre açıları:", await page.evaluate(() => Array.from(document.querySelectorAll(".vu-meter__needle")).map((n) => n.getAttribute("d"))));
++// Sürükleme teşhisi
++const bar = await page.locator(".seekbar").boundingBox(); console.log("seekbar box", bar, "track box", await page.locator(".seekbar__track").boundingBox());
++await page.evaluate(() => { window.__ptr = []; const el = document.querySelector(".seekbar"); for (const t of ["pointerdown", "pointermove", "pointerup", "lostpointercapture"]) el.addEventListener(t, (e) => window.__ptr.push([t, e.clientX, el.getBoundingClientRect().left, el.getBoundingClientRect().width, e.target.className])); });
++await page.mouse.move(bar.x + bar.width * 0.5, bar.y + bar.height / 2); await page.mouse.down();
++for (const r of [0.45, 0.4, 0.35, 0.3, 0.25]) { await page.mouse.move(bar.x + bar.width * r, bar.y + bar.height / 2); await page.waitForTimeout(60); console.log("r=" + r, "tip=", await page.locator(".seekbar__tip").innerText().catch(() => "yok"), "thumb left=", await page.evaluate(() => document.querySelector(".seekbar__thumb")?.style.left)); }
++await page.mouse.up(); await page.waitForTimeout(400);
++console.log("konum", await page.evaluate(() => window.__fake.status().positionSecs), "olaylar", JSON.stringify(await page.evaluate(() => window.__ptr)));
++console.log(errors);
++await browser.close(); await new Promise((r) => server.httpServer.close(r));
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/denetim/debug3.mjs B-ARA/kopya/denetim/debug3.mjs
+--- /home/user/denetim-bagimsiz/kaynak/denetim/debug3.mjs	1970-01-01 00:00:00.000000000 +0000
++++ B-ARA/kopya/denetim/debug3.mjs	2026-10-22 22:38:46.925049358 +0000
+@@ -0,0 +1,35 @@
++import { APP_URL, fakeCore, startServer, launch, collectErrors } from "./harness.mjs";
++const server = await startServer(); const browser = await launch(); const errors = [];
++const page = await browser.newPage({ viewport: { width: 1280, height: 860 } }); collectErrors(page, errors);
++await page.addInitScript(fakeCore({ profile: "music", tracks: 300 }));
++await page.goto(APP_URL); await page.waitForSelector(".library__row");
++await page.locator(".library__list").focus(); await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter");
++await page.waitForTimeout(1500);
++await page.keyboard.press("4"); await page.waitForTimeout(1500);
++const n0 = await page.evaluate(() => window.__calls.filter((c) => c === "visual_frame").length);
++await page.waitForTimeout(1000);
++const n1 = await page.evaluate(() => window.__calls.filter((c) => c === "visual_frame").length);
++console.log("visual_frame/sn:", n1 - n0);
++console.log(await page.evaluate(() => {
++  const dm = document.querySelectorAll(".dot-matrix");
++  const frame = document.querySelector(".vfd-frame");
++  return { matrices: dm.length, parents: Array.from(dm).map((d) => d.parentElement.className + "|" + d.getAttribute("aria-label")), glow: frame?.style.getPropertyValue("--stage-glow"), litD: document.querySelector(".dot-matrix__lit")?.getAttribute("d")?.length, ghostD: document.querySelector(".dot-matrix__ghost")?.getAttribute("d")?.length, hasTrack: !!window.__fake.session.track, state: window.__fake.session.state, viewBox: dm[0]?.getAttribute("viewBox") };
++}));
++// gerçek zamanlı: 1 sn boyunca lit sayısı örnekle
++const samples = [];
++for (let i = 0; i < 10; i++) { await page.waitForTimeout(100); samples.push(await page.evaluate(() => document.querySelector(".dot-matrix__lit")?.getAttribute("data-lit-count"))); }
++console.log("lit örnekleri:", samples.join(","));
++// Çalmayı durdurup tekrar başlat
++await page.keyboard.press("Space"); await page.waitForTimeout(500); await page.keyboard.press("Space"); await page.waitForTimeout(1500);
++console.log("duraklat/çal sonrası lit:", await page.evaluate(() => document.querySelector(".dot-matrix__lit")?.getAttribute("data-lit-count")));
++// Sahne değiştirip geri gel
++await page.keyboard.press("3"); await page.waitForTimeout(800); await page.keyboard.press("4"); await page.waitForTimeout(1500);
++console.log("3→4 sonrası lit:", await page.evaluate(() => document.querySelector(".dot-matrix__lit")?.getAttribute("data-lit-count")));
++// Sayfayı spektrumla açıp sonra çal
++await page.evaluate(() => localStorage.setItem("lyraska.scene", "spectrum"));
++await page.reload(); await page.waitForSelector(".library__row"); await page.waitForTimeout(500);
++console.log("yeniden açılış (şarkı yok): matris", await page.evaluate(() => document.querySelector(".dot-matrix__lit")?.getAttribute("data-lit-count")));
++await page.locator(".library__list").focus(); await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter"); await page.waitForTimeout(2000);
++console.log("spektrumda açılıp çalınca lit:", await page.evaluate(() => document.querySelector(".dot-matrix__lit")?.getAttribute("data-lit-count")), "glow", await page.evaluate(() => document.querySelector(".vfd-frame")?.style.getPropertyValue("--stage-glow")));
++console.log(errors);
++await browser.close(); await new Promise((r) => server.httpServer.close(r));
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/denetim/debug4.mjs B-ARA/kopya/denetim/debug4.mjs
+--- /home/user/denetim-bagimsiz/kaynak/denetim/debug4.mjs	1970-01-01 00:00:00.000000000 +0000
++++ B-ARA/kopya/denetim/debug4.mjs	2026-10-22 22:39:35.818170544 +0000
+@@ -0,0 +1,17 @@
++import { APP_URL, fakeCore, startServer, launch, collectErrors } from "./harness.mjs";
++const server = await startServer(); const browser = await launch(); const errors = [];
++const page = await browser.newPage({ viewport: { width: 1280, height: 860 } }); collectErrors(page, errors);
++await page.addInitScript(fakeCore({ profile: "music", tracks: 300 }));
++await page.goto(APP_URL); await page.waitForSelector(".library__row[aria-rowindex]");
++await page.locator(".library__list").focus(); await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter");
++await page.waitForFunction(() => window.__fake.session.state === "playing"); await page.waitForTimeout(1500);
++const sample = async (label) => { const rows = []; for (let i = 0; i < 6; i++) { await page.waitForTimeout(500); rows.push(await page.evaluate(() => ({ lit: document.querySelector(".dot-matrix__lit")?.getAttribute("data-lit-count"), glow: document.querySelector(".vfd-frame")?.style.getPropertyValue("--stage-glow"), vf: window.__calls.filter((c) => c === "visual_frame").length }))); } console.log(label, JSON.stringify(rows)); };
++await page.keyboard.press("4"); await sample("sky→spektrum (çalarken):");
++await page.keyboard.press("3"); await page.waitForTimeout(800); await page.keyboard.press("4"); await sample("vu→spektrum:");
++await page.keyboard.press("Space"); await page.waitForTimeout(300); await page.keyboard.press("Space"); await sample("duraklat/çal:");
++await page.evaluate(() => localStorage.setItem("lyraska.scene", "spectrum")); await page.reload(); await page.waitForSelector(".library__row[aria-rowindex]");
++await page.locator(".library__list").focus(); await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter"); await page.waitForFunction(() => window.__fake.session.state === "playing");
++await sample("spektrumda açılış → çal:");
++await page.keyboard.press("1"); await page.waitForTimeout(800); await page.keyboard.press("4"); await sample("sky→spektrum (ikinci):");
++console.log(errors);
++await browser.close(); await new Promise((r) => server.httpServer.close(r));
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/denetim/debug5.mjs B-ARA/kopya/denetim/debug5.mjs
+--- /home/user/denetim-bagimsiz/kaynak/denetim/debug5.mjs	1970-01-01 00:00:00.000000000 +0000
++++ B-ARA/kopya/denetim/debug5.mjs	2026-10-22 22:46:24.922161187 +0000
+@@ -0,0 +1,29 @@
++import { APP_URL, fakeCore, startServer, launch, collectErrors } from "./harness.mjs";
++const server = await startServer(); const browser = await launch(); const errors = [];
++const page = await browser.newPage({ viewport: { width: 1280, height: 860 } }); collectErrors(page, errors);
++await page.addInitScript(fakeCore({ profile: "music", tracks: 30 }));
++await page.goto(APP_URL); await page.waitForSelector(".library__row[aria-rowindex]");
++await page.locator(".library__list").focus(); await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter");
++await page.waitForFunction(() => window.__fake.session.state === "playing"); await page.waitForTimeout(800);
++const b = await page.locator("button[aria-label='Ekolayzer']").boundingBox(); await page.mouse.move(b.x + 5, b.y + 5); await page.mouse.click(b.x + 5, b.y + 5); await page.waitForTimeout(500);
++const sw = page.locator(".eq__header .switch");
++const box = await sw.boundingBox();
++console.log("switch box", box, "elementFromPoint:", await page.evaluate(([x, y]) => { const e = document.elementFromPoint(x, y); return e ? e.tagName + "." + e.className + " <- " + e.parentElement.className : null; }, [box.x + box.width / 2, box.y + box.height / 2]));
++await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); await page.waitForTimeout(400);
++console.log("mouse.click sonrası aria-checked:", await sw.getAttribute("aria-checked"), "eq set sayısı", await page.evaluate(() => window.__calls.filter((c) => c === "equalizer_set").length));
++await sw.click(); await page.waitForTimeout(400);
++console.log("locator.click sonrası aria-checked:", await sw.getAttribute("aria-checked"), "eq set sayısı", await page.evaluate(() => window.__calls.filter((c) => c === "equalizer_set").length));
++await sw.focus(); await page.keyboard.press("Space"); await page.waitForTimeout(400);
++console.log("odakta Boşluk sonrası aria-checked:", await sw.getAttribute("aria-checked"), "çekirdek:", await page.evaluate(() => window.__fake.session.state), "eq set sayısı", await page.evaluate(() => window.__calls.filter((c) => c === "equalizer_set").length));
++// Bas sürgüsü (range) klavye: → sarma yapmamalı
++await page.locator("#eq-bass").focus(); const p0 = await page.evaluate(() => window.__fake.status().positionSecs); await page.keyboard.press("ArrowRight"); await page.waitForTimeout(300);
++console.log("bas sürgüsünde →: bas=", await page.locator("#eq-bass").inputValue(), "konum farkı", (await page.evaluate(() => window.__fake.status().positionSecs)) - p0);
++// Çift tıklama ile sıfırlama
++const sl = page.locator(".eq-slider__track").nth(2); await sl.focus(); await page.keyboard.press("ArrowUp"); await page.keyboard.press("ArrowUp"); await page.keyboard.press("ArrowUp");
++console.log("125 Hz 3×↑:", await sl.getAttribute("aria-valuenow")); await sl.dblclick(); await page.waitForTimeout(300); console.log("çift tık:", await sl.getAttribute("aria-valuenow"));
++// Hızlı sürgü hareketi: son değer çekirdeğe ulaşıyor mu?
++for (let i = 0; i < 12; i++) await page.keyboard.press("ArrowUp");
++await page.waitForTimeout(600);
++console.log("12×↑ sonra arayüz:", await sl.getAttribute("aria-valuenow"), "çekirdek gainsDb[2]:", await page.evaluate(async () => (await window.__TAURI_INTERNALS__.invoke("equalizer_get")).gainsDb[2]), "set sayısı", await page.evaluate(() => window.__calls.filter((c) => c === "equalizer_set").length));
++console.log(errors);
++await browser.close(); await new Promise((r) => server.httpServer.close(r));
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/denetim/debug6.mjs B-ARA/kopya/denetim/debug6.mjs
+--- /home/user/denetim-bagimsiz/kaynak/denetim/debug6.mjs	1970-01-01 00:00:00.000000000 +0000
++++ B-ARA/kopya/denetim/debug6.mjs	2026-10-22 22:47:26.689085892 +0000
+@@ -0,0 +1,27 @@
++import { APP_URL, fakeCore, startServer, launch, collectErrors } from "./harness.mjs";
++const server = await startServer(); const browser = await launch(); const errors = [];
++const page = await browser.newPage({ viewport: { width: 1280, height: 860 } }); collectErrors(page, errors);
++await page.addInitScript(fakeCore({ profile: "music", tracks: 30 }));
++await page.goto(APP_URL); await page.waitForSelector(".library__row[aria-rowindex]");
++await page.locator(".library__list").focus(); await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter");
++await page.waitForFunction(() => window.__fake.session.state === "playing"); await page.waitForTimeout(800);
++const b = await page.locator("button[aria-label='Kütüphane']").boundingBox(); await page.mouse.move(b.x + 5, b.y + 5); await page.mouse.click(b.x + 5, b.y + 5); await page.waitForTimeout(400);
++await page.locator(".library__list").focus();
++const pos = () => page.evaluate(() => window.__fake.status().positionSecs);
++let p0 = await pos(); await page.keyboard.press("ArrowRight"); await page.waitForTimeout(300); let p1 = await pos();
++console.log(`kütüphane listesinde → : konum ${p0.toFixed(1)} → ${p1.toFixed(1)} (seek_playback çağrısı: ${await page.evaluate(() => window.__calls.filter((c) => c === "seek_playback").length)})`);
++await page.keyboard.press("ArrowDown"); console.log("liste ↓ sonrası seçili:", await page.locator(".library__list").getAttribute("aria-activedescendant"));
++// Sekme (role=tab) odaklıyken → : sarma olmamalı
++await page.locator("#drawer-tab-library").focus(); p0 = await pos(); await page.keyboard.press("ArrowRight"); await page.waitForTimeout(300); p1 = await pos();
++console.log(`sekmede →: seek sayısı ${await page.evaluate(() => window.__calls.filter((c) => c === "seek_playback").length)} · seçili sekme ${await page.locator(".drawer__tabs [aria-selected=true]").innerText()}`);
++// Seekbar odaklı: Home/End/PageUp
++await page.keyboard.press("Escape"); await page.waitForTimeout(300); await page.locator(".seekbar").focus();
++for (const k of ["Home", "End", "PageUp", "ArrowRight"]) { p0 = await pos(); await page.keyboard.press(k); await page.waitForTimeout(300); p1 = await pos(); console.log(`seekbar ${k}: ${p0.toFixed(1)} → ${p1.toFixed(1)}`); }
++// Sahne düğmesi odaklıyken Boşluk: düğmeye basmalı, çal/duraklat değil
++await page.locator(".pill").nth(2).focus(); const s0 = await page.evaluate(() => window.__fake.session.state); await page.keyboard.press("Space"); await page.waitForTimeout(300);
++console.log(`pill odaklı Boşluk: çekirdek ${s0} → ${await page.evaluate(() => window.__fake.session.state)} · sahne ${await page.locator(".stage").getAttribute("data-scene")}`);
++// Ctrl+O tarayıcıda: dialog çağrısı (plugin yok) hata üretir mi?
++await page.keyboard.press("Control+o"); await page.waitForTimeout(500);
++console.log("Ctrl+O sonrası hata metni:", await page.locator(".now__error").innerText().catch(() => "yok"));
++console.log(errors);
++await browser.close(); await new Promise((r) => server.httpServer.close(r));
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/denetim/erisilebilirlik.mjs B-ARA/kopya/denetim/erisilebilirlik.mjs
+--- /home/user/denetim-bagimsiz/kaynak/denetim/erisilebilirlik.mjs	1970-01-01 00:00:00.000000000 +0000
++++ B-ARA/kopya/denetim/erisilebilirlik.mjs	2026-10-22 22:46:06.303435324 +0000
+@@ -0,0 +1,132 @@
++// E3: axe-core taraması (her panel ve çalma durumu), klavye ulaşılabilirliği (Tab sırası, odak görünürlüğü),
++// hedef boyutu (WCAG 2.5.8: 24×24), kontrast (axe + elle örnekleme).
++import { readFileSync, writeFileSync } from "node:fs";
++import { APP_URL, fakeCore, startServer, launch, collectErrors } from "./harness.mjs";
++
++const AXE = readFileSync(new URL("../node_modules/axe-core/axe.min.js", import.meta.url), "utf8");
++const server = await startServer();
++const browser = await launch();
++const errors = [];
++const out = [];
++const log = (s) => { console.log(s); out.push(s); };
++const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
++collectErrors(page, errors);
++await page.addInitScript(fakeCore({ profile: "music", tracks: 300 }));
++await page.goto(APP_URL);
++await page.waitForSelector(".library__row[aria-rowindex]");
++await page.addScriptTag({ content: AXE });
++
++const axeRun = async (label, context = "main") => {
++  const result = await page.evaluate(async (ctx) => {
++    const r = await window.axe.run(ctx, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"] }, resultTypes: ["violations", "incomplete"] });
++    const pick = (list) => list.map((v) => ({ id: v.id, impact: v.impact, help: v.help, nodes: v.nodes.slice(0, 6).map((n) => ({ target: n.target.join(" "), summary: (n.failureSummary ?? "").split("\n").slice(0, 3).join(" | ").slice(0, 300), html: n.html.slice(0, 160) })), count: v.nodes.length }));
++    return { violations: pick(r.violations), incomplete: pick(r.incomplete) };
++  }, context).catch((e) => ({ violations: [], incomplete: [], failed: String(e) }));
++  if (result.failed) log(`\n### axe — ${label}: ÇALIŞMADI: ${result.failed} · main var mı: ${await page.locator("main").count()} · app-error: ${await page.locator(".app-error").count()}`);
++  log(`\n### axe — ${label}: ${result.violations.length} ihlal, ${result.incomplete.length} belirsiz`);
++  for (const v of result.violations) {
++    log(`- [${v.impact}] ${v.id}: ${v.help} (${v.count} öğe)`);
++    for (const n of v.nodes) log(`    · ${n.target} — ${n.html}\n      ${n.summary}`);
++  }
++  for (const v of result.incomplete) log(`  ? ${v.id} (${v.count} öğe): ${v.nodes.map((n) => n.target).slice(0, 4).join(" ; ")}`);
++  return result;
++};
++
++const click = async (sel) => { const b = await page.locator(sel).first().boundingBox(); await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2); };
++
++// Açılış: kütüphane açık, şarkı yok.
++await axeRun("açılış (kütüphane, şarkı yok)");
++// Çal, sonra her panel.
++await page.locator(".library__list").focus(); await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter");
++await page.waitForFunction(() => window.__fake.session.state === "playing"); await page.waitForTimeout(1200);
++await page.mouse.move(10, 10);
++await axeRun("çalarken, çekmece kapalı (sahne + cam katmanlar)");
++await click("button[aria-label='Kütüphane']"); await page.waitForTimeout(300);
++await axeRun("kütüphane paneli (çalarken)");
++for (const [id, label] of [["eq", "ekolayzer"], ["marker", "işaretleme"], ["sync", "senkron"], ["abx", "kör test"], ["settings", "ayarlar"]]) {
++  await click(`#drawer-tab-${id}`); await page.waitForTimeout(300);
++  await axeRun(`${label} paneli`);
++}
++await click("#drawer-tab-library"); await page.waitForTimeout(200);
++
++// Klavye: Tab ile ulaşılabilen öğeler (çekmece açıkken) ve odak görünürlüğü.
++const describe = () => page.evaluate(() => {
++  const a = document.activeElement; if (!a || a === document.body) return "BODY";
++  const cs = getComputedStyle(a); const r = a.getBoundingClientRect();
++  const visibleRing = (cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) > 0) || (cs.boxShadow !== "none");
++  return `${a.tagName.toLowerCase()}${a.id ? "#" + a.id : ""}${a.className ? "." + String(a.className).split(" ").slice(0, 2).join(".") : ""} [${a.getAttribute("role") ?? ""}] "${(a.getAttribute("aria-label") ?? a.textContent ?? "").trim().slice(0, 28)}" ${Math.round(r.width)}×${Math.round(r.height)} halka=${visibleRing ? "var" : "YOK"} (outline=${cs.outlineStyle} ${cs.outlineWidth}, shadow=${cs.boxShadow === "none" ? "yok" : "var"})`;
++});
++await page.mouse.move(5, 5); await page.mouse.click(5, 5);
++await page.evaluate(() => document.body.focus());
++const seen = []; let repeats = 0;
++log("\n### Tab sırası (çekmece açık, çalarken)");
++for (let i = 0; i < 80; i++) {
++  await page.keyboard.press("Tab"); await page.waitForTimeout(30);
++  const d = await describe();
++  if (seen.includes(d)) { if (++repeats > 2) break; } else repeats = 0;
++  seen.push(d); log(`${i + 1}. ${d}`);
++}
++// Çekmece kapalıyken: çekmece içi odaklanabilir mi (inert)?
++await page.keyboard.press("Escape"); await page.waitForTimeout(400);
++await page.evaluate(() => document.body.focus());
++const closedSeen = [];
++for (let i = 0; i < 40; i++) { await page.keyboard.press("Tab"); await page.waitForTimeout(20); const d = await describe(); if (closedSeen.includes(d)) break; closedSeen.push(d); }
++log(`\n### Tab sırası (çekmece kapalı): ${closedSeen.length} öğe\n${closedSeen.map((d, i) => `${i + 1}. ${d}`).join("\n")}`);
++log(`çekmece içine odak gitti mi: ${closedSeen.some((d) => d.includes("drawer") || d.includes("library"))}`);
++
++// Hedef boyutu (2.5.8): bütün görünür etkileşimli öğeler; 24×24 altındakiler.
++await click("button[aria-label='Kütüphane']"); await page.waitForTimeout(300);
++const small = await page.evaluate(() => {
++  const els = Array.from(document.querySelectorAll("button, [role=button], [role=slider], input, a, [tabindex='0'], [role=tab], summary"));
++  const out = [];
++  for (const e of els) {
++    const r = e.getBoundingClientRect(); if (r.width === 0 || r.height === 0) continue;
++    const cs = getComputedStyle(e); if (cs.visibility === "hidden" || cs.display === "none") continue;
++    if (r.width < 24 || r.height < 24) out.push(`${e.tagName.toLowerCase()}.${String(e.className).split(" ")[0]} "${(e.getAttribute("aria-label") ?? e.textContent ?? "").trim().slice(0, 30)}" ${Math.round(r.width)}×${Math.round(r.height)}`);
++  }
++  return out;
++});
++log(`\n### 24×24 altındaki hedefler (kütüphane paneli açık): ${small.length}\n${small.map((s) => "  - " + s).join("\n")}`);
++await click("#drawer-tab-eq"); await page.waitForTimeout(300);
++const smallEq = await page.evaluate(() => {
++  const els = Array.from(document.querySelectorAll(".drawer button, .drawer [role=slider], .drawer input"));
++  const out = [];
++  for (const e of els) { const r = e.getBoundingClientRect(); if (r.width === 0 || r.height === 0) continue; if (r.width < 24 || r.height < 24) out.push(`${e.tagName.toLowerCase()}.${String(e.className).split(" ")[0]} "${(e.getAttribute("aria-label") ?? e.textContent ?? "").trim().slice(0, 30)}" ${Math.round(r.width)}×${Math.round(r.height)}`); }
++  return out;
++});
++log(`### 24×24 altındaki hedefler (ekolayzer): ${smallEq.length}\n${smallEq.map((s) => "  - " + s).join("\n")}`);
++
++// Kontrast: belirli metinlerin hesaplanmış rengi ve arka planı (ekran görüntüsünden örnekleme: metnin kutusunda
++// en açık ve en koyu pikseller) — cam katman + sahne üstünde gerçek sonuç.
++await click("#drawer-tab-library"); await page.waitForTimeout(300);
++const contrastTargets = [".library__row--head span", ".drawer__tab:not(.is-selected)", ".library__muted", ".now__over", ".settings__hint", ".info-chip", ".pill:not(.is-on)", ".library__count", ".chip", ".dock__time", ".library__notice", ".eq__preamp"];
++const lum = ([r, g, b]) => { const f = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
++const ratio = (a, b) => { const [h, l] = [Math.max(a, b), Math.min(a, b)]; return (h + 0.05) / (l + 0.05); };
++log("\n### Kontrast (ekran görüntüsü örneklemesi: metin rengi = CSS color; arka plan = kutudaki en sık piksel)");
++for (const sel of contrastTargets) {
++  const loc = page.locator(sel).first();
++  if (!(await loc.count())) { log(`- ${sel}: yok`); continue; }
++  const box = await loc.boundingBox(); if (!box || box.width < 2) { log(`- ${sel}: görünmüyor`); continue; }
++  const info = await loc.evaluate((e) => { const cs = getComputedStyle(e); return { color: cs.color, size: cs.fontSize, weight: cs.fontWeight, text: (e.textContent ?? "").trim().slice(0, 24) }; });
++  const shot = (await page.screenshot({ clip: box })).toString("base64");
++  const bg = await page.evaluate(async (data) => {
++    const img = new Image(); img.src = "data:image/png;base64," + data; await img.decode();
++    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const g = c.getContext("2d"); g.drawImage(img, 0, 0);
++    const d = g.getImageData(0, 0, c.width, c.height).data; const hist = new Map();
++    for (let i = 0; i < d.length; i += 4) { const k = (d[i] >> 3) + "," + (d[i + 1] >> 3) + "," + (d[i + 2] >> 3); hist.set(k, (hist.get(k) ?? 0) + 1); }
++    const top = [...hist.entries()].sort((a, b) => b[1] - a[1])[0][0].split(",").map((v) => v * 8 + 4);
++    return top;
++  }, shot);
++  const fg = info.color.match(/[\d.]+/g).map(Number);
++  // rgba metin: arka planla karıştır
++  const alpha = fg.length > 3 ? fg[3] : 1;
++  const mixed = [0, 1, 2].map((i) => Math.round(fg[i] * alpha + bg[i] * (1 - alpha)));
++  const r = ratio(lum(mixed), lum(bg));
++  const px = parseFloat(info.size); const bold = parseInt(info.weight) >= 700;
++  const large = px >= 24 || (px >= 18.66 && bold);
++  log(`- ${sel} "${info.text}" ${info.size}/${info.weight} renk=${info.color} → arka plan rgb(${bg}) · oran ${r.toFixed(2)}:1 ${r >= (large ? 3 : 4.5) ? "GEÇTİ" : "KALDI"} (eşik ${large ? 3 : 4.5})`);
++}
++log(`\nkonsol/sayfa hataları: ${errors.length}\n${errors.join("\n")}`);
++writeFileSync(new URL("../../kanit/erisilebilirlik.txt", import.meta.url), out.join("\n"));
++await browser.close();
++await new Promise((r) => server.httpServer.close(r));
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/denetim/harness.mjs B-ARA/kopya/denetim/harness.mjs
+--- /home/user/denetim-bagimsiz/kaynak/denetim/harness.mjs	1970-01-01 00:00:00.000000000 +0000
++++ B-ARA/kopya/denetim/harness.mjs	2026-10-22 22:46:06.299506510 +0000
+@@ -0,0 +1,181 @@
++// B-ARA denetim harness'ı: check-scenes.mjs'in düzeni yeniden kullanılır (sahte çekirdek +
++// Playwright/Chromium), ama çekirdek DURUMLUdur (aç/çal/duraklat/sar/kütüphane) ve görsel veri
++// profilleri seçilebilir (müzik, en kötü kare dalgası, drop). Zaman gerçek ya da sanal.
++import { chromium } from "playwright-core";
++import { preview } from "vite";
++
++export const PORT = Number(process.env.PORT ?? 4190);
++export const APP_URL = `http://localhost:${PORT}`;
++export const CHROMIUM = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
++
++/**
++ * Sahte çekirdek (tarayıcıda çalışır). opts: { profile: "music"|"square"|"drop"|"silent"|"level0"|"level1",
++ * hz: kare dalgası frekansı, safe: güvenli mod, tracks: kütüphanedeki şarkı sayısı, virtual: sanal saat }.
++ */
++export const fakeCore = (opts = {}) => `
++(() => {
++  const OPTS = ${JSON.stringify({ profile: "music", hz: 4, safe: false, tracks: 300, virtual: false, autoplay: false, ...opts })};
++  window.isTauri = true;
++  window.__calls = [];
++  const clock = () => (OPTS.virtual && window.__sceneTime ? window.__sceneTime.now : performance.now());
++  const started = clock();
++  const mk = (i) => ({ id: i + 1, path: "C:/Müzik/" + (i + 1) + ".flac", fileName: (i + 1) + ".flac",
++    title: "Şarkı " + (i + 1) + (i % 7 === 0 ? " Çığlık" : ""), artist: i % 3 === 0 ? "İlhan İrem" : "Sezen Aksu",
++    album: "Albüm " + (1 + Math.floor(i / 10)), trackNumber: (i % 12) + 1, durationSecs: 180 + (i % 60),
++    bpm: 120 + (i % 20), analyzed: true, key: null, camelot: null, codec: "flac", sampleRate: 44100, channels: 2,
++    folderId: 1, modified: 0, size: 1000 });
++  const TRACKS = Array.from({ length: OPTS.tracks }, (_, i) => mk(i));
++  const lower = (s) => (s ?? "").toLocaleLowerCase("tr");
++  const session = { state: "idle", track: null, startedAt: 0, pausedAt: 0, underruns: 0, error: null, next: null };
++  const trackFor = (path) => {
++    const t = TRACKS.find((x) => x.path === path);
++    return { path, fileName: path.split("/").pop(), title: t ? t.title : "Deneme", artist: t ? t.artist : "Lyraska",
++      album: t ? t.album : null, codec: "flac", sampleRate: 44100, channels: 2, bitsPerSample: 16, durationSecs: t ? t.durationSecs : 240 };
++  };
++  const position = () => {
++    if (!session.track) return 0;
++    const base = session.state === "playing" ? (clock() - session.startedAt) / 1000 : session.pausedAt;
++    return Math.min(session.track.durationSecs, Math.max(0, base));
++  };
++  const status = () => ({ state: session.state, track: session.track, positionSecs: position(), underruns: session.underruns,
++    error: session.error, bpm: session.track ? 128 : null, output: session.track ? { device: "Sanal", sampleRate: 44100, bitPerfect: false, notice: null, path: "Sanal" } : null });
++  const eq = { enabled: true, gainsDb: Array(10).fill(0), bassDb: 0, smallSpeaker: false, bassDepth: 0, bassPunch: 0 };
++  const eqState = () => ({ ...eq, maxBassDb: 18, bandsHz: [31.25, 62.5, 125, 250, 500, 1000, 2000, 4000, 8000, 16000], maxGainDb: 12,
++    preampDb: -Math.max(0, ...eq.gainsDb, eq.bassDb), curveHz: [20, 20000], curveDb: [0, 0] });
++  let safe = OPTS.safe;
++  // Görsel veri profilleri.
++  const frame = () => {
++    const t = (clock() - started) / 1000;
++    const beats = t * 128 / 60;
++    const sq = (Math.floor(t * OPTS.hz) % 2) === 0 ? 1 : 0; // kare dalgası
++    const dropPhase = (t % 4) / 4; // her 4 sn'de bir drop: 3 sn gerilim, sonra açılım
++    let bands, rms, mood = 0.9, release = 0.4, anticipation = 0, accent = 0.2, pulse = 0.5, theme = 1;
++    switch (OPTS.profile) {
++      case "square":
++        bands = Array(32).fill(sq); rms = sq ? [0, 0] : [-60, -60]; mood = sq; release = sq; anticipation = 1 - sq; accent = sq; pulse = sq; theme = sq ? 2 : 0;
++        break;
++      case "drop":
++        anticipation = dropPhase < 0.75 ? dropPhase / 0.75 : 0;
++        release = dropPhase >= 0.75 ? 1 - (dropPhase - 0.75) / 0.25 : 0;
++        accent = (beats % 4) < 0.1 ? 1 : 0;
++        pulse = Math.max(0, 1 - (beats % 1) * 3);
++        bands = Array.from({ length: 32 }, (_, i) => Math.max(0, Math.min(1, (dropPhase >= 0.75 ? 1 : 0.4) * (0.9 - i * 0.012) * (0.6 + 0.4 * pulse))));
++        rms = dropPhase >= 0.75 ? [-2, -2] : [-14, -14];
++        mood = dropPhase >= 0.75 ? 1 : 0.5; theme = dropPhase >= 0.75 ? 2 : 1;
++        break;
++      case "silent": bands = Array(32).fill(0); rms = [-60, -60]; mood = 0; release = 0; pulse = 0; break;
++      case "level0": bands = Array(32).fill(0); rms = [-60, -60]; break;
++      case "level1": bands = Array(32).fill(1); rms = [0, 0]; break;
++      default: // music (check-scenes ile aynı)
++        bands = Array.from({ length: 32 }, (_, i) => Math.max(0, 0.85 - i * 0.015 + 0.12 * Math.sin(i + t * 4)));
++        rms = [-12 + 6 * Math.sin(beats * Math.PI), -12 + 6 * Math.sin(beats * Math.PI)];
++        pulse = Math.max(0, 1 - (beats % 1) * 3); accent = (beats % 4) < 0.1 ? 1 : 0;
++    }
++    return { positionSecs: position(), bands, rmsDb: rms, peakDb: rms.map((d) => d + 3), vuReferenceDb: -14, energy: 0.8, section: 1,
++      beat: { bpm: 128, index: Math.floor(beats), phase: beats % 1, barBeat: 1 + (Math.floor(beats) % 4), meter: 4 },
++      director: { atmosphere: { section: 1, theme, mood, warmth: 0.6 },
++        rhythm: { pulse, accent, beatPhase: beats % 1, barPhase: (beats / 4) % 1, anticipation, release, barsConfident: true },
++        texture: { detail: 0.6, motion: 0.6 } } };
++  };
++  window.__TAURI_INTERNALS__ = { transformCallback: () => 0, invoke: async (cmd, args) => {
++    window.__calls.push(cmd);
++    switch (cmd) {
++      case "app_info": return { name: "Lyraska", version: "denetim", commit: "deadbeef", phase: "Faz 1", audioEngine: "sanal", analysis: "sanal",
++        visualBridge: "sanal", supportedExtensions: ["flac", "mp3"] };
++      case "library_status": return { folders: [{ id: 1, path: "C:/Müzik" }], trackCount: TRACKS.length, analyzed: TRACKS.length,
++        scan: { scanning: false, found: TRACKS.length, processed: TRACKS.length, current: null }, problems: [] };
++      case "library_search": { const q = lower(args && args.query); return TRACKS.filter((t) => !q || lower(t.title).includes(q) || lower(t.artist).includes(q) || lower(t.album).includes(q)); }
++      case "library_add_folder": case "library_rescan": case "library_remove_folder": return await window.__TAURI_INTERNALS__.invoke("library_status");
++      case "library_add_dropped": return { tracks: args.paths, folders: [], problems: [] };
++      case "equalizer_get": return eqState();
++      case "equalizer_set": Object.assign(eq, args.settings); return eqState();
++      case "headphone_get": return { enabled: false, profile: null, curveHz: [], curveDb: [] };
++      case "parametric_get": return { settings: { enabled: true, bands: [], design: "matched" }, comparing: false, curveHz: [], curveDb: [], bandCurvesDb: [], boostDb: 0, loudnessDb: 0, maxBands: 20, maxGainDb: 24, minQ: 0.1, maxQ: 30 };
++      case "crossfeed_get": return { settings: { enabled: false, cutoffHz: 700, levelDb: 6 }, presets: [], delayUs: 227, curveHz: [], nearDb: [], farDb: [] };
++      case "visual_safe_get": return safe;
++      case "visual_safe_set": safe = !!args.enabled; return safe;
++      case "playback_options_get": return { normalize: true, bitPerfect: false };
++      case "playback_options_set": return args.options;
++      case "audio_delay_get": return 0;
++      case "audio_delay_set": return args.ms;
++      case "song_map": return session.track ? { meter: 4, downbeatPhase: 0, grouping: [], meterConfidence: 1, downbeats: [], drops: [60, 120], dropConfidence: [1, 1],
++        energy: [], sections: [{ start: 0, end: 60, energy: 0.5, label: 0 }, { start: 60, end: 120, energy: 0.9, label: 2 }, { start: 120, end: 240, energy: 0.7, label: 1 }] } : null;
++      case "annotation_get": case "song_key": case "track_lyrics": case "song_map_imported": case "track_cover": return null;
++      case "abx_status": return { active: false, aName: "", bName: "", startSecs: 0, clipSecs: 0, positionSecs: 0, playing: null, answered: 0, total: 0, result: null, levelDiffDb: 0, offsetMs: 0, similarity: 0, sampleRate: 0, error: null };
++      case "visual_frame": return session.track && session.state === "playing" ? frame() : null;
++      case "open_track": { session.track = trackFor(args.path); session.state = "playing"; session.startedAt = clock(); session.error = null; return session.track; }
++      case "toggle_playback": {
++        if (!session.track) return status();
++        if (session.state === "playing") { session.pausedAt = position(); session.state = "paused"; }
++        else { session.startedAt = clock() - session.pausedAt * 1000; session.state = "playing"; }
++        return status(); }
++      case "stop_playback": { if (session.track) { session.state = "paused"; session.pausedAt = 0; } return status(); }
++      case "seek_playback": { if (session.track) { session.pausedAt = args.seconds; session.startedAt = clock() - args.seconds * 1000; } return status(); }
++      case "set_next_track": session.next = args.path; return null;
++      case "playback_status": return status();
++      case "log_frontend_error": (window.__logged = window.__logged || []).push(args.message); return null;
++      case "open_log": return null;
++      default: return status();
++    }
++  }};
++  window.__fake = { session, status, TRACKS };
++})();
++`;
++
++/** Sanal zaman (check-scenes.mjs ile aynı düzen): her rAF karesi en fazla STEP_MS ilerler, izin verildiği kadar. */
++export const virtualTime = (stepMs) => `
++  (() => {
++    const realFrame = window.requestAnimationFrame.bind(window);
++    const time = { allowed: 0, done: 0, now: 0, lastFrame: -1, step: ${stepMs} };
++    window.__sceneTime = time;
++    window.requestAnimationFrame = (callback) =>
++      realFrame((frame) => {
++        if (frame !== time.lastFrame) {
++          time.lastFrame = frame;
++          if (time.done < time.allowed) { time.done += 1; time.now += time.step; }
++        }
++        callback(time.now);
++      });
++  })();
++`;
++
++export async function advance(page, frames) {
++  await page.evaluate((n) => { window.__sceneTime.allowed += n; }, frames);
++  await page.waitForFunction(() => window.__sceneTime.done >= window.__sceneTime.allowed, null, { polling: 10, timeout: 120000 });
++}
++
++export async function startServer() {
++  return preview({ preview: { port: PORT, strictPort: true }, logLevel: "warn" });
++}
++
++export async function launch(extraArgs = []) {
++  return chromium.launch({ executablePath: CHROMIUM, args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--enable-precise-memory-info", "--js-flags=--expose-gc", ...extraArgs] });
++}
++
++/** Konsol hatalarını ve sayfa hatalarını toplar. */
++export function collectErrors(page, sink) {
++  page.on("console", (m) => { if (m.type() === "error" || m.type() === "warning") sink.push(`konsol[${m.type()}]: ${m.text()}`); });
++  page.on("pageerror", (e) => sink.push(`sayfa hatası: ${e}`));
++}
++
++/** Ekran görüntüsünü (base64 PNG) tarayıcıda çözüp `block` piksellik bloklarda ortalama bağıl parlaklık ve sRGB ortalaması döndürür. */
++export async function blockLuminance(page, png, block) {
++  return page.evaluate(async ([data, B]) => {
++    const img = new Image(); img.src = "data:image/png;base64," + data; await img.decode();
++    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
++    const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(img, 0, 0);
++    const d = g.getImageData(0, 0, c.width, c.height).data;
++    const lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
++    const W = c.width, H = c.height, bw = Math.floor(W / B), bh = Math.floor(H / B);
++    const lum = new Float32Array(bw * bh), r = new Float32Array(bw * bh), gg = new Float32Array(bw * bh), b = new Float32Array(bw * bh);
++    for (let by = 0; by < bh; by++) for (let bx = 0; bx < bw; bx++) {
++      let s = 0, sr = 0, sg = 0, sb = 0;
++      for (let y = by * B; y < (by + 1) * B; y++) for (let x = bx * B; x < (bx + 1) * B; x++) {
++        const i = (y * W + x) * 4; const R = lin(d[i]), G = lin(d[i + 1]), Bl = lin(d[i + 2]);
++        s += 0.2126 * R + 0.7152 * G + 0.0722 * Bl; sr += R; sg += G; sb += Bl;
++      }
++      const n = B * B; lum[by * bw + bx] = s / n; r[by * bw + bx] = sr / n; gg[by * bw + bx] = sg / n; b[by * bw + bx] = sb / n;
++    }
++    return { bw, bh, W, H, lum: Array.from(lum), r: Array.from(r), g: Array.from(gg), b: Array.from(b) };
++  }, [png, block]);
++}
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/denetim/parlama.mjs B-ARA/kopya/denetim/parlama.mjs
+--- /home/user/denetim-bagimsiz/kaynak/denetim/parlama.mjs	1970-01-01 00:00:00.000000000 +0000
++++ B-ARA/kopya/denetim/parlama.mjs	2026-10-23 08:22:50.572384936 +0000
+@@ -0,0 +1,139 @@
++// E2: Işığa duyarlı epilepsi ölçümü. Her sahne sanal zamanda (STEP_MS başına bir kare) sürülür, her karede
++// sahnenin ekran görüntüsü alınır ve 8×8 piksellik bloklarda bağıl parlaklık hesaplanır. Sonra WCAG 2.3.1 /
++// ITU-R BT.1702 ölçütleri uygulanır:
++//   - genel parlama: bir blokta bağıl parlaklıkta ≥ %10 (0,1) zıt değişim çifti, koyu tarafı < 0,80;
++//   - alan: aynı anda (±1 kare) geçiş yapan blokların payı, 341×256 CSS px'lik (1024×768'de 10°) her pencerede ≥ %25;
++//   - sıklık: herhangi bir 1 sn'de > 3 parlama (6 geçiş) ise ihlal;
++//   - kırmızı parlama: doymuş kırmızıya (R/(R+G+B) ≥ 0,8) giren/çıkan geçişler.
++// Ayrıca check-scenes.mjs'in ölçütü (pencere ortalama parlaklığında kareden kareye en büyük fark) da hesaplanır.
++import { writeFileSync } from "node:fs";
++import { APP_URL, fakeCore, virtualTime, advance, startServer, launch, collectErrors, blockLuminance } from "./harness.mjs";
++
++const FPS = Number(process.env.FPS ?? 30);
++const STEP_MS = 1000 / FPS;
++const SECONDS = Number(process.env.SECONDS ?? 3);
++const FRAMES = Math.round(SECONDS * FPS);
++const SCALE = 0.5;
++const BLOCK = 8; // cihaz pikseli (= 16 CSS px)
++const WIN_W = Math.round((341 * SCALE) / BLOCK); // 21 blok
++const WIN_H = Math.round((256 * SCALE) / BLOCK); // 16 blok
++const only = process.env.ONLY ? process.env.ONLY.split(",") : null;
++
++const scenarios = [];
++const LITE = process.env.LITE === "1";
++const P1 = [["spectrum", null], ["vu", null], ["sky", "lake"], ["sky", "corona"], ["sky", "snow"]];
++const P2 = [["highway", null], ["drive", null]];
++for (const [scene, look] of LITE ? P1.slice(0, 3) : [...P1, ...P2]) {
++  scenarios.push({ scene, look, profile: "square", hz: 4, safe: false, reduced: false });
++  scenarios.push({ scene, look, profile: "drop", hz: 0, safe: false, reduced: false });
++}
++for (const [scene, look] of [["spectrum", null], ["vu", null], ["sky", "lake"]]) {
++  if (!LITE) scenarios.push({ scene, look, profile: "music", hz: 0, safe: false, reduced: false });
++  scenarios.push({ scene, look, profile: "square", hz: 4, safe: true, reduced: false });
++  scenarios.push({ scene, look, profile: "square", hz: 4, safe: false, reduced: true });
++  if (!LITE) scenarios.push({ scene, look, profile: "square", hz: 2, safe: false, reduced: false });
++}
++
++const server = await startServer();
++const browser = await launch();
++const results = [];
++const lines = [];
++const log = (s) => { console.log(s); lines.push(s); };
++log(`Kare hızı ${FPS}/sn · ${SECONDS} sn · blok ${BLOCK}px · pencere ${WIN_W}×${WIN_H} blok · ölçek ${SCALE}`);
++
++/** Bir blok dizisindeki geçişler (WCAG: koyu taraf < 0,80 ve fark ≥ 0,1). */
++function transitions(series) {
++  let min = series[0], max = series[0], dir = 0; const out = [];
++  for (let t = 0; t < series.length; t++) {
++    const l = series[t];
++    min = dir > 0 ? min : Math.min(min, l); max = dir < 0 ? max : Math.max(max, l);
++    if (dir >= 0 && max - l >= 0.1 && l < 0.8) { dir = -1; out.push([t, -1]); min = l; }
++    else if (dir <= 0 && l - min >= 0.1 && min < 0.8) { dir = 1; out.push([t, 1]); max = l; }
++  }
++  return out;
++}
++
++function analyse(frames, bw, bh) {
++  const T = frames.length; const N = bw * bh;
++  // blok → geçiş kareleri
++  const trans = new Array(N);
++  let blockMaxPerSec = 0;
++  for (let i = 0; i < N; i++) {
++    const s = new Float32Array(T); for (let t = 0; t < T; t++) s[t] = frames[t].lum[i];
++    trans[i] = transitions(s);
++    for (let a = 0; a < trans[i].length; a++) { let c = 0; for (let b = a; b < trans[i].length && trans[i][b][0] - trans[i][a][0] < FPS; b++) c++; blockMaxPerSec = Math.max(blockMaxPerSec, c / 2); }
++  }
++  // kare başına geçiş yapan blok işareti (±1 kare)
++  const mark = new Uint8Array(T * N);
++  for (let i = 0; i < N; i++) for (const [t] of trans[i]) for (let d = -1; d <= 1; d++) { const tt = t + d; if (tt >= 0 && tt < T) mark[tt * N + i] = 1; }
++  let maxArea = 0, maxFlashesPerSec = 0, maxMeanDelta = 0, maxMeanFlashesPerSec = 0, worst = null;
++  const blocksTransitioning = new Array(T).fill(0);
++  for (let t = 0; t < T; t++) for (let i = 0; i < N; i++) blocksTransitioning[t] += mark[t * N + i];
++  for (let y0 = 0; y0 + WIN_H <= bh; y0 += 2) for (let x0 = 0; x0 + WIN_W <= bw; x0 += 2) {
++    const area = WIN_W * WIN_H; const screenT = [];
++    const mean = new Float32Array(T);
++    for (let t = 0; t < T; t++) {
++      let m = 0, sum = 0;
++      for (let y = y0; y < y0 + WIN_H; y++) for (let x = x0; x < x0 + WIN_W; x++) { const i = y * bw + x; m += mark[t * N + i]; sum += frames[t].lum[i]; }
++      const frac = m / area; mean[t] = sum / area;
++      if (frac > maxArea) { maxArea = frac; worst = { x: x0 * BLOCK / SCALE, y: y0 * BLOCK / SCALE, t }; }
++      if (frac >= 0.25 && (screenT.length === 0 || t - screenT[screenT.length - 1] > 1)) screenT.push(t);
++      if (t > 0) maxMeanDelta = Math.max(maxMeanDelta, Math.abs(mean[t] - mean[t - 1]));
++    }
++    for (let a = 0; a < screenT.length; a++) { let c = 0; for (let b = a; b < screenT.length && screenT[b] - screenT[a] < FPS; b++) c++; maxFlashesPerSec = Math.max(maxFlashesPerSec, c / 2); }
++    const mt = transitions(mean);
++    for (let a = 0; a < mt.length; a++) { let c = 0; for (let b = a; b < mt.length && mt[b][0] - mt[a][0] < FPS; b++) c++; maxMeanFlashesPerSec = Math.max(maxMeanFlashesPerSec, c / 2); }
++  }
++  // kırmızı parlama: doymuş kırmızı bloklar
++  let redTrans = 0, redArea = 0;
++  for (let i = 0; i < N; i++) {
++    let prev = false; const times = [];
++    for (let t = 0; t < T; t++) { const f = frames[t]; const r = f.r[i], g = f.g[i], b = f.b[i]; const sat = r > 0.2 && r / (r + g + b + 1e-6) >= 0.8; if (sat !== prev) { times.push(t); prev = sat; } }
++    redTrans += times.length; if (times.length > 0) redArea++;
++  }
++  // parlaklık aralığı
++  let lo = 1, hi = 0, meanAll = 0;
++  for (const f of frames) for (const l of f.lum) { lo = Math.min(lo, l); hi = Math.max(hi, l); meanAll += l; }
++  meanAll /= T * N;
++  return { blockMaxPerSec, maxArea, worst, maxFlashesPerSec, maxMeanDelta, maxMeanFlashesPerSec, redTrans, redArea: redArea / N, lo, hi, meanAll, maxBlocksTransitioning: Math.max(...blocksTransitioning) / N };
++}
++
++for (const sc of scenarios) {
++  const name = `${sc.scene}${sc.look ? "·" + sc.look : ""} · ${sc.profile}${sc.hz ? " " + sc.hz + "Hz" : ""}${sc.safe ? " · güvenli mod" : ""}${sc.reduced ? " · animasyonları azalt" : ""}`;
++  if (only && !only.some((o) => name.includes(o))) continue;
++  const page = await browser.newPage({ viewport: { width: 1280, height: 860 }, deviceScaleFactor: SCALE, reducedMotion: sc.reduced ? "reduce" : "no-preference" });
++  const errors = []; collectErrors(page, errors);
++  await page.addInitScript(virtualTime(STEP_MS));
++  await page.addInitScript(`try { localStorage.setItem("lyraska.scene", "${sc.scene}"); ${sc.look ? `localStorage.setItem("lyraska.skyLook", "${sc.look}");` : ""} } catch {}`);
++  await page.addInitScript(fakeCore({ profile: sc.profile, hz: sc.hz, safe: sc.safe, tracks: 5, virtual: true }));
++  await page.goto(APP_URL);
++  await page.waitForSelector(".library__row[aria-rowindex]", { timeout: 60000 });
++  await advance(page, 2);
++  await page.locator(".library__list").focus(); await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter");
++  await page.waitForFunction(() => window.__fake.session.state === "playing");
++  await page.addStyleTag({ content: ".chrome, .drawer, .stage__shade, .drop-notice { visibility: hidden !important; } .stage > * { animation: none !important; }" });
++  await page.mouse.move(2, 2);
++  // Isınma: 2 sn sanal (hız sınırlı değerler otursun; tema geçişi gerçek zamanlı CSS)
++  await advance(page, Math.round(2 * FPS));
++  await page.waitForTimeout(1500);
++  const stage = await page.locator(".stage").boundingBox();
++  const frames = []; const t0 = Date.now();
++  let bw = 0, bh = 0;
++  for (let f = 0; f < FRAMES; f++) {
++    await advance(page, 1);
++    const png = (await page.screenshot({ clip: stage, animations: "allow" })).toString("base64");
++    const b = await blockLuminance(page, png, BLOCK);
++    bw = b.bw; bh = b.bh; frames.push(b);
++    if (f === 0 || f === Math.floor(FRAMES / 2)) writeFileSync(new URL(`../../kanit/kare-${name.replace(/[^a-z0-9]+/gi, "_")}-${f}.png`, import.meta.url), Buffer.from(png, "base64"));
++  }
++  const a = analyse(frames, bw, bh);
++  const verdict = a.maxFlashesPerSec > 3 ? "İHLAL" : a.blockMaxPerSec > 3 ? "blok düzeyinde >3/sn (alan <%25)" : "geçti";
++  log(`${name}: parlama/sn (≥%25 alan) ${a.maxFlashesPerSec} · en büyük geçiş alanı %${(a.maxArea * 100).toFixed(1)} · blok düzeyi en çok ${a.blockMaxPerSec}/sn · pencere-ortalama Δ en çok ${a.maxMeanDelta.toFixed(4)} (parlama/sn ${a.maxMeanFlashesPerSec}) · kırmızı geçiş ${a.redTrans} (alan %${(a.redArea * 100).toFixed(1)}) · parlaklık ${a.lo.toFixed(3)}–${a.hi.toFixed(3)} ort ${a.meanAll.toFixed(3)} · ${((Date.now() - t0) / 1000).toFixed(0)} sn · hata ${errors.length} → ${verdict}`);
++  if (errors.length) log("   hatalar: " + errors.slice(0, 3).join(" | "));
++  results.push({ name, ...sc, ...a, errors });
++  await page.close();
++}
++writeFileSync(new URL("../../kanit/parlama.json", import.meta.url), JSON.stringify(results, null, 1));
++writeFileSync(new URL("../../kanit/parlama.txt", import.meta.url), lines.join("\n"));
++await browser.close();
++await new Promise((r) => server.httpServer.close(r));
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/denetim/sizinti.mjs B-ARA/kopya/denetim/sizinti.mjs
+--- /home/user/denetim-bagimsiz/kaynak/denetim/sizinti.mjs	1970-01-01 00:00:00.000000000 +0000
++++ B-ARA/kopya/denetim/sizinti.mjs	2026-10-22 22:44:53.370163281 +0000
+@@ -0,0 +1,107 @@
++// E4: kaynak sızıntısı ve dayanıklılık — 50 sahne geçişi (WebGL bağlam sayısı, rAF döngüleri, pencere dinleyicileri,
++// JS yığını), WEBGL_lose_context ile bağlam kaybı/geri gelişi, pencere boyutu değişimi, kare süresi (yazılımsal GL'de
++// yalnızca göreli).
++import { writeFileSync } from "node:fs";
++import { APP_URL, fakeCore, startServer, launch, collectErrors } from "./harness.mjs";
++
++const INSTRUMENT = `
++(() => {
++  const S = window.__stats = { contexts: { webgl2: 0, "2d": 0, other: 0 }, lost: 0, restored: 0, canvases: [], rafScheduled: 0, listeners: {} };
++  const orig = HTMLCanvasElement.prototype.getContext;
++  const seen = new WeakSet();
++  HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
++    const ctx = orig.call(this, type, ...rest);
++    if (ctx && !seen.has(ctx)) { seen.add(ctx); S.contexts[type === "webgl2" ? "webgl2" : type === "2d" ? "2d" : "other"]++; S.canvases.push(new WeakRef(this));
++      this.addEventListener("webglcontextlost", () => S.lost++); this.addEventListener("webglcontextrestored", () => S.restored++); }
++    return ctx;
++  };
++  const add = window.addEventListener.bind(window), rem = window.removeEventListener.bind(window);
++  window.addEventListener = (t, f, o) => { S.listeners[t] = (S.listeners[t] ?? 0) + 1; return add(t, f, o); };
++  window.removeEventListener = (t, f, o) => { S.listeners[t] = (S.listeners[t] ?? 0) - 1; return rem(t, f, o); };
++  const raf = window.requestAnimationFrame.bind(window);
++  window.requestAnimationFrame = (cb) => { S.rafScheduled++; return raf(cb); };
++})();`;
++
++const server = await startServer();
++const browser = await launch();
++const errors = [];
++const out = [];
++const log = (s) => { console.log(s); out.push(s); };
++const page = await browser.newPage({ viewport: { width: 1280, height: 860 }, deviceScaleFactor: 0.5 });
++collectErrors(page, errors);
++page.on("console", (m) => { if (/WebGL|context/i.test(m.text())) out.push("konsol: " + m.text()); });
++await page.addInitScript(INSTRUMENT);
++await page.addInitScript(fakeCore({ profile: "music", tracks: 20 }));
++await page.goto(APP_URL);
++await page.waitForSelector(".library__row[aria-rowindex]");
++await page.locator(".library__list").focus(); await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter");
++await page.waitForFunction(() => window.__fake.session.state === "playing");
++await page.waitForTimeout(1000);
++
++const stats = async () => page.evaluate(async () => {
++  if (window.gc) window.gc();
++  await new Promise((r) => setTimeout(r, 200));
++  const S = window.__stats;
++  const alive = S.canvases.filter((w) => w.deref()).length;
++  const inDom = document.querySelectorAll("canvas").length;
++  // bir karede kaç rAF geri çağrısı planlanıyor: 1 sn boyunca say / kare sayısı
++  const before = S.rafScheduled; const t0 = performance.now(); let frames = 0;
++  await new Promise((r) => { const tick = () => { frames++; if (performance.now() - t0 < 1500 && frames < 20) requestAnimationFrame(tick); else r(); }; requestAnimationFrame(tick); });
++  const perFrame = (S.rafScheduled - before - frames) / frames;
++  const listeners = Object.fromEntries(Object.entries(S.listeners).filter(([, v]) => v !== 0));
++  const heap = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576 * 10) / 10 : null;
++  return { contexts: S.contexts, lost: S.lost, restored: S.restored, canvasAlive: alive, canvasInDom: inDom, rafPerFrame: Math.round(perFrame * 100) / 100, listeners, heapMB: heap, frames, ms: Math.round(performance.now() - t0) };
++});
++
++log("başlangıç (gece göğü, çalarken): " + JSON.stringify(await stats()));
++const cycle = async (keys, rounds, label) => {
++  for (let i = 0; i < rounds; i++) for (const k of keys) { await page.keyboard.press(k); await page.waitForTimeout(120); }
++  await page.waitForTimeout(500);
++  log(`${label}: ` + JSON.stringify(await stats()));
++};
++await cycle(["3", "4", "1"], 10, "10 tur gök→VU→spektrum→gök");
++await cycle(["3", "4", "1"], 40, "+40 tur (toplam 50)");
++await cycle(["2", "5", "1"], 25, "25 tur gök→otoyol→sürüş→gök (75 WebGL tuvali)");
++await cycle(["2", "5", "1"], 25, "+25 tur (toplam 50; 150 WebGL tuvali)");
++// Duraklat / çal döngüsü: rAF döngüsü birikiyor mu?
++for (let i = 0; i < 20; i++) { await page.keyboard.press("Space"); await page.waitForTimeout(80); }
++await page.keyboard.press("Space"); await page.waitForFunction(() => window.__fake.session.state === "playing");
++log("20× duraklat/çal sonrası: " + JSON.stringify(await stats()));
++// Çekmece aç/kapat 30×
++for (let i = 0; i < 30; i++) { await page.keyboard.press("Escape"); await page.waitForTimeout(40); await page.mouse.move(1200, 40); await page.mouse.click(1200, 40); await page.waitForTimeout(40); }
++await page.keyboard.press("Escape");
++log("30× çekmece aç/kapat sonrası: " + JSON.stringify(await stats()));
++
++// WEBGL_lose_context: gece göğünde bağlamı kaybet / geri getir.
++await page.keyboard.press("1"); await page.waitForTimeout(800);
++const pixelStats = async () => { const box = await page.locator("canvas:not([hidden])").first().boundingBox(); const png = (await page.screenshot({ clip: box })).toString("base64"); return page.evaluate(async (d) => { const img = new Image(); img.src = "data:image/png;base64," + d; await img.decode(); const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const g = c.getContext("2d"); g.drawImage(img, 0, 0); const px = g.getImageData(0, 0, c.width, c.height).data; let s = 0, sq = 0; for (let i = 0; i < px.length; i += 4) { const l = (px[i] + px[i + 1] + px[i + 2]) / 765; s += l; sq += l * l; } const n = px.length / 4; const m = s / n; return { mean: +m.toFixed(4), spread: +Math.sqrt(Math.max(0, sq / n - m * m)).toFixed(4) }; }, png); };
++log("bağlam kaybından önce: " + JSON.stringify(await pixelStats()));
++const lostInfo = await page.evaluate(() => { const c = document.querySelector("canvas:not([hidden])"); const gl = c.getContext("webgl2"); const ext = gl.getExtension("WEBGL_lose_context"); if (!ext) return "WEBGL_lose_context yok"; window.__ext = ext; ext.loseContext(); return "kaybedildi"; });
++await page.waitForTimeout(1500);
++log(`loseContext(): ${lostInfo} · ${JSON.stringify(await pixelStats())} · dataset: ${JSON.stringify(await page.evaluate(() => ({ ...document.querySelector("canvas:not([hidden])").dataset })))} · isContextLost=${await page.evaluate(() => document.querySelector("canvas:not([hidden])").getContext("webgl2").isContextLost())}`);
++await page.evaluate(() => window.__ext.restoreContext());
++await page.waitForTimeout(2500);
++const after1 = await pixelStats(); await page.waitForTimeout(1000); const after2 = await pixelStats();
++log(`restoreContext(): ${JSON.stringify(after1)} → ${JSON.stringify(after2)} · dataset: ${JSON.stringify(await page.evaluate(() => ({ ...document.querySelector("canvas:not([hidden])").dataset })))} · lost/restored sayaçları: ${JSON.stringify(await page.evaluate(() => [window.__stats.lost, window.__stats.restored]))}`);
++log("günlüğe yazılan arayüz hataları: " + JSON.stringify(await page.evaluate(() => window.__logged ?? [])));
++// Bağlam kaybı sırasında sahne değiştirme (dispose + isContextLost yolu)
++await page.evaluate(() => { const c = document.querySelector("canvas:not([hidden])"); c.getContext("webgl2").getExtension("WEBGL_lose_context").loseContext(); });
++await page.waitForTimeout(300); await page.keyboard.press("3"); await page.waitForTimeout(500); await page.keyboard.press("1"); await page.waitForTimeout(1500);
++log(`kayıpken sahne değiştirip dönünce: ${JSON.stringify(await pixelStats())} · webgl=${await page.evaluate(() => document.querySelector("canvas:not([hidden])").dataset.webgl)} · hata ${errors.length}`);
++
++// Pencere boyutu
++for (const [w, h] of [[720, 560], [2560, 1440], [1280, 860]]) {
++  await page.setViewportSize({ width: w, height: h }); await page.waitForTimeout(900);
++  log(`pencere ${w}×${h}: ` + JSON.stringify(await page.evaluate(() => { const c = document.querySelector("canvas:not([hidden])"); return { canvas: c.width + "×" + c.height, css: Math.round(c.clientWidth) + "×" + Math.round(c.clientHeight), scroll: document.documentElement.scrollWidth + "×" + document.documentElement.scrollHeight, dpr: devicePixelRatio }; })));
++}
++// Kare süresi (göreli; yazılımsal GL): her sahnede 2 sn boyunca rAF aralıkları
++for (const [k, name] of [["1", "gök"], ["3", "VU"], ["4", "spektrum"], ["2", "otoyol"]]) {
++  await page.keyboard.press(k); await page.waitForTimeout(600);
++  const r = await page.evaluate(() => new Promise((res) => { const t = []; let last = performance.now(); const start = last; const tick = (now) => { t.push(now - last); last = now; if (now - start < 2000) requestAnimationFrame(tick); else res(t); }; requestAnimationFrame(tick); }));
++  const sorted = [...r].sort((a, b) => a - b);
++  log(`kare aralığı ${name}: n=${r.length} ortanca ${sorted[Math.floor(r.length / 2)].toFixed(0)} ms · en kötü ${sorted[r.length - 1].toFixed(0)} ms`);
++}
++log(`\nkonsol/sayfa hataları (${errors.length}):\n${errors.map((e) => "  - " + e).join("\n") || "  yok"}`);
++writeFileSync(new URL("../../kanit/sizinti.txt", import.meta.url), out.join("\n"));
++await browser.close();
++await new Promise((r) => server.httpServer.close(r));
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/denetim/sizinti2.mjs B-ARA/kopya/denetim/sizinti2.mjs
+--- /home/user/denetim-bagimsiz/kaynak/denetim/sizinti2.mjs	1970-01-01 00:00:00.000000000 +0000
++++ B-ARA/kopya/denetim/sizinti2.mjs	2026-10-23 08:22:50.576806237 +0000
+@@ -0,0 +1,35 @@
++// E4b: bağlam kaybı/geri geliş, pencere boyutu, kare aralığı (50 geçiş ölçümü sizinti.txt'de).
++import { writeFileSync } from "node:fs";
++import { APP_URL, fakeCore, startServer, launch, collectErrors } from "./harness.mjs";
++const server = await startServer(); const browser = await launch(); const errors = []; const out = [];
++const log = (s) => { console.log(s); out.push(s); };
++const page = await browser.newPage({ viewport: { width: 1280, height: 860 }, deviceScaleFactor: 0.5 });
++collectErrors(page, errors);
++await page.addInitScript(fakeCore({ profile: "music", tracks: 20 }));
++await page.goto(APP_URL); await page.waitForSelector(".library__row[aria-rowindex]");
++await page.locator(".library__list").focus(); await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter");
++await page.waitForFunction(() => window.__fake.session.state === "playing"); await page.waitForTimeout(1500);
++const pixelStats = async () => { const box = await page.locator("canvas:not([hidden])").first().boundingBox(); const png = (await page.screenshot({ clip: box })).toString("base64"); return page.evaluate(async (d) => { const img = new Image(); img.src = "data:image/png;base64," + d; await img.decode(); const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const g = c.getContext("2d"); g.drawImage(img, 0, 0); const px = g.getImageData(0, 0, c.width, c.height).data; let s = 0, sq = 0; for (let i = 0; i < px.length; i += 4) { const l = (px[i] + px[i + 1] + px[i + 2]) / 765; s += l; sq += l * l; } const n = px.length / 4; const m = s / n; return { mean: +m.toFixed(4), spread: +Math.sqrt(Math.max(0, sq / n - m * m)).toFixed(4) }; }, png); };
++log("bağlam kaybından önce: " + JSON.stringify(await pixelStats()));
++const lostInfo = await page.evaluate(() => { const c = document.querySelector("canvas:not([hidden])"); const gl = c.getContext("webgl2"); const ext = gl.getExtension("WEBGL_lose_context"); if (!ext) return "WEBGL_lose_context yok"; window.__ext = ext; ext.loseContext(); return "kaybedildi"; });
++await page.waitForTimeout(2000);
++log(`loseContext(): ${lostInfo} · ${JSON.stringify(await pixelStats())} · isContextLost=${await page.evaluate(() => document.querySelector("canvas:not([hidden])").getContext("webgl2").isContextLost())} · hata ${errors.length}`);
++await page.evaluate(() => window.__ext.restoreContext()); await page.waitForTimeout(3000);
++const a1 = await pixelStats(); await page.waitForTimeout(1500); const a2 = await pixelStats();
++log(`restoreContext(): ${JSON.stringify(a1)} → ${JSON.stringify(a2)} · dataset ${JSON.stringify(await page.evaluate(() => ({ ...document.querySelector("canvas:not([hidden])").dataset })))} · günlük: ${JSON.stringify(await page.evaluate(() => window.__logged ?? []))}`);
++await page.evaluate(() => { document.querySelector("canvas:not([hidden])").getContext("webgl2").getExtension("WEBGL_lose_context").loseContext(); });
++await page.waitForTimeout(300); await page.keyboard.press("3"); await page.waitForTimeout(800); await page.keyboard.press("1"); await page.waitForTimeout(2500);
++log(`kayıpken sahne değiştirip dönünce: ${JSON.stringify(await pixelStats())} · webgl=${await page.evaluate(() => document.querySelector("canvas:not([hidden])").dataset.webgl)} · hata ${errors.length}`);
++for (const [w, h] of [[720, 560], [2560, 1440], [1280, 860]]) {
++  await page.setViewportSize({ width: w, height: h }); await page.waitForTimeout(2500);
++  log(`pencere ${w}×${h}: ` + JSON.stringify(await page.evaluate(() => { const c = document.querySelector("canvas:not([hidden])"); return { canvas: c.width + "×" + c.height, css: Math.round(c.clientWidth) + "×" + Math.round(c.clientHeight), scroll: document.documentElement.scrollWidth + "×" + document.documentElement.scrollHeight, dpr: devicePixelRatio }; })));
++}
++for (const [k, name] of [["1", "gök"], ["3", "VU"], ["4", "spektrum"]]) {
++  await page.keyboard.press(k); await page.waitForTimeout(800);
++  const r = await page.evaluate(() => new Promise((res) => { const t = []; let last = performance.now(); const start = last; const tick = (now) => { t.push(now - last); last = now; if (now - start < 2000) requestAnimationFrame(tick); else res(t); }; requestAnimationFrame(tick); }));
++  const sorted = [...r].sort((a, b) => a - b);
++  log(`kare aralığı ${name} (yazılımsal GL, yalnızca göreli): n=${r.length} ortanca ${sorted[Math.floor(r.length / 2)].toFixed(0)} ms · en kötü ${sorted[r.length - 1].toFixed(0)} ms`);
++}
++log(`konsol/sayfa hataları (${errors.length}): ${errors.join(" | ") || "yok"}`);
++writeFileSync(new URL("../../kanit/sizinti2.txt", import.meta.url), out.join("\n"));
++await browser.close(); await new Promise((r) => server.httpServer.close(r));
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/denetim/smoke.mjs B-ARA/kopya/denetim/smoke.mjs
+--- /home/user/denetim-bagimsiz/kaynak/denetim/smoke.mjs	1970-01-01 00:00:00.000000000 +0000
++++ B-ARA/kopya/denetim/smoke.mjs	2026-10-22 13:08:57.530174211 +0000
+@@ -0,0 +1,6 @@
++import { chromium } from "playwright-core";
++const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", args: ["--use-gl=angle","--use-angle=swiftshader","--enable-unsafe-swiftshader"] });
++const page = await browser.newPage();
++await page.setContent("<canvas id=c></canvas>");
++const r = await page.evaluate(() => { const c = document.getElementById("c"); const gl = c.getContext("webgl2", {failIfMajorPerformanceCaveat:true}); const sw = c.getContext("webgl2"); const info = sw && sw.getExtension("WEBGL_debug_renderer_info"); return { hw: !!gl, sw: !!sw, renderer: sw ? sw.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : sw.RENDERER) : null, ua: navigator.userAgent }; });
++console.log(JSON.stringify(r)); await browser.close();
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/src/hooks/B-ARA.denetim.test.ts B-ARA/kopya/src/hooks/B-ARA.denetim.test.ts
+--- /home/user/denetim-bagimsiz/kaynak/src/hooks/B-ARA.denetim.test.ts	1970-01-01 00:00:00.000000000 +0000
++++ B-ARA/kopya/src/hooks/B-ARA.denetim.test.ts	2026-10-22 22:49:18.775588007 +0000
+@@ -0,0 +1,50 @@
++// B-ARA denetim kanıtı: ok tuşları kütüphane listesindeyken (role=grid içindeki odaklanabilir div) de şarkıyı sarar.
++import { act, renderHook } from "@testing-library/react";
++import { describe, expect, it, vi } from "vitest";
++import type { PlaybackStatus } from "../lib/backend";
++import { usePlayer } from "./usePlayer";
++
++const seeks = vi.hoisted(() => [] as number[]);
++const playing: PlaybackStatus = {
++  state: "playing",
++  track: { path: "C:/Müzik/gece.flac", fileName: "gece", title: "Gece", artist: null, album: null, albumArtist: null,
++    trackNumber: null, discNumber: null, codec: "flac", sampleRate: 44100, channels: 2, durationSecs: 200 },
++  positionSecs: 10, underruns: 0, error: null, bpm: null, output: null,
++};
++vi.mock("../lib/backend", async (importOriginal) => {
++  const actual = await importOriginal<typeof import("../lib/backend")>();
++  return { ...actual, isDesktop: () => true, openTrack: async () => playing.track,
++    getPlaybackStatus: async () => playing,
++    seekPlayback: async (s: number) => { seeks.push(s); return { ...playing, positionSecs: s }; } };
++});
++
++function pressOn(target: Element, key: string) {
++  const event = new KeyboardEvent("keydown", { key, code: key, bubbles: true, cancelable: true });
++  target.dispatchEvent(event);
++  return event.defaultPrevented;
++}
++
++describe("B-ARA: ok tuşları ve odak", () => {
++  it("odak kütüphane listesindeyken (tabindex'li div) → tuşu şarkıyı 5 sn sarar", async () => {
++    const { result } = renderHook(() => usePlayer(["flac"]));
++    await act(async () => { await result.current.openPath("C:/Müzik/gece.flac"); });
++    const list = document.createElement("div");
++    list.tabIndex = 0; list.setAttribute("aria-label", "Şarkılar");
++    const grid = document.createElement("div"); grid.setAttribute("role", "grid"); grid.appendChild(list);
++    document.body.appendChild(grid);
++    list.focus();
++    seeks.length = 0;
++    await act(async () => { pressOn(list, "ArrowRight"); });
++    // Beklenen (ızgara örüntüsü): listede ←/→ sütun gezer ya da yok sayılır; sarma yapmaz.
++    expect(seeks).toHaveLength(1);
++    expect(seeks[0]).toBeCloseTo(15, 0);
++  });
++  it("odak bir düğmedeyken → tuşu sarmaz (karşılaştırma)", async () => {
++    const { result } = renderHook(() => usePlayer(["flac"]));
++    await act(async () => { await result.current.openPath("C:/Müzik/gece.flac"); });
++    const button = document.createElement("button"); document.body.appendChild(button); button.focus();
++    seeks.length = 0;
++    await act(async () => { pressOn(button, "ArrowRight"); });
++    expect(seeks).toEqual([]);
++  });
++});

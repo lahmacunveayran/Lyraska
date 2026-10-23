@@ -1,0 +1,50 @@
+// B-ARA denetim kanıtı: ok tuşları kütüphane listesindeyken (role=grid içindeki odaklanabilir div) de şarkıyı sarar.
+import { act, renderHook } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import type { PlaybackStatus } from "../lib/backend";
+import { usePlayer } from "./usePlayer";
+
+const seeks = vi.hoisted(() => [] as number[]);
+const playing: PlaybackStatus = {
+  state: "playing",
+  track: { path: "C:/Müzik/gece.flac", fileName: "gece", title: "Gece", artist: null, album: null, albumArtist: null,
+    trackNumber: null, discNumber: null, codec: "flac", sampleRate: 44100, channels: 2, durationSecs: 200 },
+  positionSecs: 10, underruns: 0, error: null, bpm: null, output: null,
+};
+vi.mock("../lib/backend", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/backend")>();
+  return { ...actual, isDesktop: () => true, openTrack: async () => playing.track,
+    getPlaybackStatus: async () => playing,
+    seekPlayback: async (s: number) => { seeks.push(s); return { ...playing, positionSecs: s }; } };
+});
+
+function pressOn(target: Element, key: string) {
+  const event = new KeyboardEvent("keydown", { key, code: key, bubbles: true, cancelable: true });
+  target.dispatchEvent(event);
+  return event.defaultPrevented;
+}
+
+describe("B-ARA: ok tuşları ve odak", () => {
+  it("odak kütüphane listesindeyken (tabindex'li div) → tuşu şarkıyı 5 sn sarar", async () => {
+    const { result } = renderHook(() => usePlayer(["flac"]));
+    await act(async () => { await result.current.openPath("C:/Müzik/gece.flac"); });
+    const list = document.createElement("div");
+    list.tabIndex = 0; list.setAttribute("aria-label", "Şarkılar");
+    const grid = document.createElement("div"); grid.setAttribute("role", "grid"); grid.appendChild(list);
+    document.body.appendChild(grid);
+    list.focus();
+    seeks.length = 0;
+    await act(async () => { pressOn(list, "ArrowRight"); });
+    // Beklenen (ızgara örüntüsü): listede ←/→ sütun gezer ya da yok sayılır; sarma yapmaz.
+    expect(seeks).toHaveLength(1);
+    expect(seeks[0]).toBeCloseTo(15, 0);
+  });
+  it("odak bir düğmedeyken → tuşu sarmaz (karşılaştırma)", async () => {
+    const { result } = renderHook(() => usePlayer(["flac"]));
+    await act(async () => { await result.current.openPath("C:/Müzik/gece.flac"); });
+    const button = document.createElement("button"); document.body.appendChild(button); button.focus();
+    seeks.length = 0;
+    await act(async () => { pressOn(button, "ArrowRight"); });
+    expect(seeks).toEqual([]);
+  });
+});

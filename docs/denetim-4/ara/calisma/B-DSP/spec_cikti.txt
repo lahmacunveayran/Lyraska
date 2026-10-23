@@ -1,0 +1,147 @@
+=== Bant sınırları (kodun band_edges'i) ===
+22050: 30.0 Hz … 10474 Hz, oran/bant 1.2008 (3.17 yarım ton); FFT kutusu 10.77 Hz; kutudan dar bant sayısı 4 (ilk 4 bant); Hann ana lob ±2 kutu = ±22 Hz
+44100: 30.0 Hz … 16000 Hz, oran/bant 1.2168 (3.40 yarım ton); FFT kutusu 21.53 Hz; kutudan dar bant sayısı 7 (ilk 7 bant); Hann ana lob ±2 kutu = ±43 Hz
+48000: 30.0 Hz … 16000 Hz, oran/bant 1.2168 (3.40 yarım ton); FFT kutusu 23.44 Hz; kutudan dar bant sayısı 7 (ilk 7 bant); Hann ana lob ±2 kutu = ±47 Hz
+96000: 30.0 Hz … 16000 Hz, oran/bant 1.2168 (3.40 yarım ton); FFT kutusu 23.44 Hz; kutudan dar bant sayısı 7 (ilk 7 bant); Hann ana lob ±2 kutu = ±47 Hz
+
+=== Tarama: ton → en parlak bant, beklenen bant; komşu bantlara sızma ===
+22050: 151 ton, en parlak bant yanlış: 14
+   ton     60.3 Hz: beklenen bant 3 (0.529), bulunan 4 (0.557)
+   ton     70.7 Hz: beklenen bant 4 (0.541), bulunan 5 (0.569)
+   ton     73.5 Hz: beklenen bant 4 (0.506), bulunan 5 (0.584)
+   ton     82.7 Hz: beklenen bant 5 (0.541), bulunan 6 (0.588)
+   ton     86.1 Hz: beklenen bant 5 (0.486), bulunan 6 (0.600)
+   ton     89.5 Hz: beklenen bant 5 (0.400), bulunan 6 (0.588)
+   ton    104.8 Hz: beklenen bant 6 (0.545), bulunan 7 (0.608)
+   ton    127.7 Hz: beklenen bant 7 (0.541), bulunan 8 (0.624)
+   ton    149.5 Hz: beklenen bant 8 (0.549), bulunan 9 (0.639)
+   ton    155.5 Hz: beklenen bant 8 (0.392), bulunan 9 (0.620)
+   ton    182.1 Hz: beklenen bant 9 (0.557), bulunan 10 (0.651)
+   ton    221.8 Hz: beklenen bant 10 (0.620), bulunan 11 (0.651)
+   ±3 bant dışına sızma (dB, tona göre), frekansa göre örnekler: 31Hz:-31, 58Hz:-32, 109Hz:-37, 205Hz:-39, 385Hz:-38, 724Hz:-44, 1361Hz:-46, 2558Hz:-49, 4809Hz:-52, 9039Hz:-55
+   ton 39 Hz: 6 dB içinde yanan bantlar [np.int64(0), np.int64(1), np.int64(2)] (sayı 3), tepe 0.514
+   ton 41 Hz: 6 dB içinde yanan bantlar [np.int64(0), np.int64(1), np.int64(2)] (sayı 3), tepe 0.514
+   ton 58 Hz: 6 dB içinde yanan bantlar [np.int64(2), np.int64(3), np.int64(4)] (sayı 3), tepe 0.541
+   ton 60 Hz: 6 dB içinde yanan bantlar [np.int64(3), np.int64(4)] (sayı 2), tepe 0.557
+   ton 63 Hz: 6 dB içinde yanan bantlar [np.int64(3), np.int64(4)] (sayı 2), tepe 0.569
+   ton 123 Hz: 6 dB içinde yanan bantlar [np.int64(7), np.int64(8)] (sayı 2), tepe 0.596
+   ton 954 Hz: 6 dB içinde yanan bantlar [np.int64(18)] (sayı 1), tepe 0.745
+   ton 993 Hz: 6 dB içinde yanan bantlar [np.int64(19)] (sayı 1), tepe 0.769
+   ton 1033 Hz: 6 dB içinde yanan bantlar [np.int64(19)] (sayı 1), tepe 0.769
+   ton 1000 Hz: 6 dB içinde yanan bantlar [np.int64(19)] (sayı 1), tepe 0.769
+44100: 147 ton, en parlak bant yanlış: 9
+   ton     35.2 Hz: beklenen bant 0 (0.498), bulunan 1 (0.522)
+   ton    141.3 Hz: beklenen bant 7 (0.588), bulunan 8 (0.616)
+   ton    168.1 Hz: beklenen bant 8 (0.569), bulunan 9 (0.643)
+   ton    208.9 Hz: beklenen bant 9 (0.600), bulunan 10 (0.655)
+   ton    259.6 Hz: beklenen bant 10 (0.549), bulunan 11 (0.675)
+   ton    383.8 Hz: beklenen bant 12 (0.624), bulunan 13 (0.702)
+   ton    567.4 Hz: beklenen bant 14 (0.522), bulunan 15 (0.722)
+   ton    838.8 Hz: beklenen bant 16 (0.655), bulunan 17 (0.761)
+   ton   1240.2 Hz: beklenen bant 18 (0.741), bulunan 19 (0.773)
+   ±3 bant dışına sızma (dB, tona göre), frekansa göre örnekler: 31Hz:-16, 62Hz:-33, 124Hz:-37, 249Hz:-38, 498Hz:-43, 998Hz:-45, 2000Hz:-49, 4008Hz:-52, 8032Hz:-55, 1000Hz:-44
+   ton 38 Hz: 6 dB içinde yanan bantlar [np.int64(0), np.int64(1), np.int64(2), np.int64(3)] (sayı 4), tepe 0.525
+   ton 40 Hz: 6 dB içinde yanan bantlar [np.int64(0), np.int64(1), np.int64(2), np.int64(3)] (sayı 4), tepe 0.525
+   ton 42 Hz: 6 dB içinde yanan bantlar [np.int64(0), np.int64(1), np.int64(2), np.int64(3)] (sayı 4), tepe 0.525
+   ton 59 Hz: 6 dB içinde yanan bantlar [np.int64(1), np.int64(2), np.int64(3), np.int64(4)] (sayı 4), tepe 0.549
+   ton 62 Hz: 6 dB içinde yanan bantlar [np.int64(2), np.int64(3), np.int64(4)] (sayı 3), tepe 0.549
+   ton 119 Hz: 6 dB içinde yanan bantlar [np.int64(6), np.int64(7)] (sayı 2), tepe 0.596
+   ton 124 Hz: 6 dB içinde yanan bantlar [np.int64(6), np.int64(7)] (sayı 2), tepe 0.616
+   ton 956 Hz: 6 dB içinde yanan bantlar [np.int64(17)] (sayı 1), tepe 0.749
+   ton 998 Hz: 6 dB içinde yanan bantlar [np.int64(17)] (sayı 1), tepe 0.749
+   ton 1042 Hz: 6 dB içinde yanan bantlar [np.int64(18)] (sayı 1), tepe 0.761
+   ton 1000 Hz: 6 dB içinde yanan bantlar [np.int64(17)] (sayı 1), tepe 0.741
+48000: 147 ton, en parlak bant yanlış: 19
+   ton     64.6 Hz: beklenen bant 3 (0.537), bulunan 4 (0.561)
+   ton    108.9 Hz: beklenen bant 6 (0.584), bulunan 7 (0.608)
+   ton    113.7 Hz: beklenen bant 6 (0.580), bulunan 7 (0.620)
+   ton    135.3 Hz: beklenen bant 7 (0.561), bulunan 8 (0.627)
+   ton    141.3 Hz: beklenen bant 7 (0.514), bulunan 8 (0.635)
+   ton    154.1 Hz: beklenen bant 8 (0.604), bulunan 9 (0.631)
+   ton    160.9 Hz: beklenen bant 8 (0.561), bulunan 9 (0.647)
+   ton    168.1 Hz: beklenen bant 8 (0.490), bulunan 9 (0.647)
+   ton    200.0 Hz: beklenen bant 9 (0.620), bulunan 10 (0.643)
+   ton    208.9 Hz: beklenen bant 9 (0.565), bulunan 10 (0.663)
+   ton    248.5 Hz: beklenen bant 10 (0.627), bulunan 11 (0.663)
+   ton    259.6 Hz: beklenen bant 10 (0.545), bulunan 11 (0.675)
+   ±3 bant dışına sızma (dB, tona göre), frekansa göre örnekler: 31Hz:-17, 62Hz:-27, 124Hz:-37, 249Hz:-38, 498Hz:-43, 998Hz:-45, 2000Hz:-48, 4008Hz:-52, 8032Hz:-54, 1000Hz:-45
+   ton 38 Hz: 6 dB içinde yanan bantlar [np.int64(0), np.int64(1), np.int64(2), np.int64(3)] (sayı 4), tepe 0.525
+   ton 40 Hz: 6 dB içinde yanan bantlar [np.int64(0), np.int64(1), np.int64(2), np.int64(3)] (sayı 4), tepe 0.533
+   ton 42 Hz: 6 dB içinde yanan bantlar [np.int64(0), np.int64(1), np.int64(2), np.int64(3)] (sayı 4), tepe 0.537
+   ton 59 Hz: 6 dB içinde yanan bantlar [np.int64(1), np.int64(2), np.int64(3), np.int64(4)] (sayı 4), tepe 0.545
+   ton 62 Hz: 6 dB içinde yanan bantlar [np.int64(1), np.int64(2), np.int64(3), np.int64(4), np.int64(5)] (sayı 5), tepe 0.553
+   ton 119 Hz: 6 dB içinde yanan bantlar [np.int64(6), np.int64(7), np.int64(8)] (sayı 3), tepe 0.620
+   ton 124 Hz: 6 dB içinde yanan bantlar [np.int64(6), np.int64(7), np.int64(8)] (sayı 3), tepe 0.612
+   ton 956 Hz: 6 dB içinde yanan bantlar [np.int64(17)] (sayı 1), tepe 0.757
+   ton 998 Hz: 6 dB içinde yanan bantlar [np.int64(17)] (sayı 1), tepe 0.745
+   ton 1042 Hz: 6 dB içinde yanan bantlar [np.int64(18)] (sayı 1), tepe 0.753
+   ton 1000 Hz: 6 dB içinde yanan bantlar [np.int64(17)] (sayı 1), tepe 0.749
+96000: 147 ton, en parlak bant yanlış: 19
+   ton     64.6 Hz: beklenen bant 3 (0.537), bulunan 4 (0.561)
+   ton    108.9 Hz: beklenen bant 6 (0.584), bulunan 7 (0.608)
+   ton    113.7 Hz: beklenen bant 6 (0.580), bulunan 7 (0.620)
+   ton    135.3 Hz: beklenen bant 7 (0.561), bulunan 8 (0.627)
+   ton    141.3 Hz: beklenen bant 7 (0.514), bulunan 8 (0.635)
+   ton    154.1 Hz: beklenen bant 8 (0.604), bulunan 9 (0.631)
+   ton    160.9 Hz: beklenen bant 8 (0.561), bulunan 9 (0.647)
+   ton    168.1 Hz: beklenen bant 8 (0.490), bulunan 9 (0.647)
+   ton    200.0 Hz: beklenen bant 9 (0.620), bulunan 10 (0.643)
+   ton    208.9 Hz: beklenen bant 9 (0.565), bulunan 10 (0.663)
+   ton    248.5 Hz: beklenen bant 10 (0.627), bulunan 11 (0.663)
+   ton    259.6 Hz: beklenen bant 10 (0.545), bulunan 11 (0.675)
+   ±3 bant dışına sızma (dB, tona göre), frekansa göre örnekler: 31Hz:-17, 62Hz:-27, 124Hz:-37, 249Hz:-38, 498Hz:-43, 998Hz:-45, 2000Hz:-48, 4008Hz:-52, 8032Hz:-54, 1000Hz:-45
+   ton 38 Hz: 6 dB içinde yanan bantlar [np.int64(0), np.int64(1), np.int64(2), np.int64(3)] (sayı 4), tepe 0.525
+   ton 40 Hz: 6 dB içinde yanan bantlar [np.int64(0), np.int64(1), np.int64(2), np.int64(3)] (sayı 4), tepe 0.533
+   ton 42 Hz: 6 dB içinde yanan bantlar [np.int64(0), np.int64(1), np.int64(2), np.int64(3)] (sayı 4), tepe 0.537
+   ton 59 Hz: 6 dB içinde yanan bantlar [np.int64(1), np.int64(2), np.int64(3), np.int64(4)] (sayı 4), tepe 0.545
+   ton 62 Hz: 6 dB içinde yanan bantlar [np.int64(1), np.int64(2), np.int64(3), np.int64(4), np.int64(5)] (sayı 5), tepe 0.553
+   ton 119 Hz: 6 dB içinde yanan bantlar [np.int64(6), np.int64(7), np.int64(8)] (sayı 3), tepe 0.620
+   ton 124 Hz: 6 dB içinde yanan bantlar [np.int64(6), np.int64(7), np.int64(8)] (sayı 3), tepe 0.612
+   ton 956 Hz: 6 dB içinde yanan bantlar [np.int64(17)] (sayı 1), tepe 0.757
+   ton 998 Hz: 6 dB içinde yanan bantlar [np.int64(17)] (sayı 1), tepe 0.745
+   ton 1042 Hz: 6 dB içinde yanan bantlar [np.int64(18)] (sayı 1), tepe 0.753
+   ton 1000 Hz: 6 dB içinde yanan bantlar [np.int64(17)] (sayı 1), tepe 0.749
+
+=== dB ölçeği: 1 kHz tonlar (beklenen seviye = (dBFS + 66)/60, 1 kHz'te eğim 0) ===
+  22050   1000 Hz    -6 dBFS: bant 19 seviye 1.000 (beklenen 1.000, fark +0.00 dB; argmax bant 19)
+  22050   1000 Hz   -12 dBFS: bant 19 seviye 0.902 (beklenen 0.904, fark -0.15 dB; argmax bant 19)
+  22050   1000 Hz   -40 dBFS: bant 19 seviye 0.435 (beklenen 0.438, fark -0.15 dB; argmax bant 19)
+  22050   1000 Hz   -60 dBFS: bant 19 seviye 0.102 (beklenen 0.104, fark -0.15 dB; argmax bant 19)
+  22050   1000 Hz   -66 dBFS: bant 19 seviye 0.004 (beklenen 0.004, fark -0.03 dB; argmax bant 19)
+  22050    100 Hz   -20 dBFS: bant 6 seviye 0.592 (beklenen 0.600, fark -0.44 dB; argmax bant 6)
+  22050  10000 Hz   -20 dBFS: bant 31 seviye 0.925 (beklenen 0.930, fark -0.24 dB; argmax bant 31)
+  44100   1000 Hz    -6 dBFS: bant 17 seviye 0.976 (beklenen 0.995, fark -1.10 dB; argmax bant 17)
+  44100   1000 Hz   -12 dBFS: bant 17 seviye 0.875 (beklenen 0.895, fark -1.21 dB; argmax bant 17)
+  44100   1000 Hz   -40 dBFS: bant 17 seviye 0.408 (beklenen 0.428, fark -1.21 dB; argmax bant 17)
+  44100   1000 Hz   -60 dBFS: bant 17 seviye 0.075 (beklenen 0.095, fark -1.21 dB; argmax bant 17)
+  44100   1000 Hz   -66 dBFS: bant 17 seviye 0.000 (beklenen 0.000, fark +0.00 dB; argmax bant 0)
+  44100    100 Hz   -20 dBFS: bant 6 seviye 0.592 (beklenen 0.606, fark -0.81 dB; argmax bant 6)
+  44100  10000 Hz   -20 dBFS: bant 29 seviye 0.918 (beklenen 0.931, fark -0.82 dB; argmax bant 29)
+  48000   1000 Hz    -6 dBFS: bant 17 seviye 0.984 (beklenen 0.995, fark -0.63 dB; argmax bant 17)
+  48000   1000 Hz   -12 dBFS: bant 17 seviye 0.882 (beklenen 0.895, fark -0.74 dB; argmax bant 17)
+  48000   1000 Hz   -40 dBFS: bant 17 seviye 0.416 (beklenen 0.428, fark -0.74 dB; argmax bant 17)
+  48000   1000 Hz   -60 dBFS: bant 17 seviye 0.082 (beklenen 0.095, fark -0.74 dB; argmax bant 17)
+  48000   1000 Hz   -66 dBFS: bant 17 seviye 0.000 (beklenen 0.000, fark +0.00 dB; argmax bant 0)
+  48000    100 Hz   -20 dBFS: bant 6 seviye 0.573 (beklenen 0.606, fark -1.99 dB; argmax bant 6)
+  48000  10000 Hz   -20 dBFS: bant 29 seviye 0.922 (beklenen 0.931, fark -0.58 dB; argmax bant 29)
+  96000   1000 Hz    -6 dBFS: bant 17 seviye 0.984 (beklenen 0.995, fark -0.63 dB; argmax bant 17)
+  96000   1000 Hz   -12 dBFS: bant 17 seviye 0.882 (beklenen 0.895, fark -0.74 dB; argmax bant 17)
+  96000   1000 Hz   -40 dBFS: bant 17 seviye 0.416 (beklenen 0.428, fark -0.74 dB; argmax bant 17)
+  96000   1000 Hz   -60 dBFS: bant 17 seviye 0.082 (beklenen 0.095, fark -0.74 dB; argmax bant 17)
+  96000   1000 Hz   -66 dBFS: bant 17 seviye 0.000 (beklenen 0.000, fark +0.00 dB; argmax bant 0)
+  96000    100 Hz   -20 dBFS: bant 6 seviye 0.573 (beklenen 0.606, fark -1.99 dB; argmax bant 6)
+  96000  10000 Hz   -20 dBFS: bant 29 seviye 0.922 (beklenen 0.931, fark -0.58 dB; argmax bant 29)
+
+=== Zamanlama: 1 kHz 50 ms patlama t = 2,000–2,050 s; VU basamakları 3,0 s'den ===
+22050: spektrum patlamayı görür: t = 1.962…2.095 s (gerçek 2,000–2,050; pencere 92.9 ms); tepe seviye 1.000; VU (meters_at) görür: 2.001…2.050 s
+   VU basamakları (sol rms / sağ rms, sol tepe, dBFS): -30→rms -33.00/-39.00 tepe -30.00; -20→rms -23.00/-29.00 tepe -20.00; -12→rms -15.00/-21.00 tepe -12.00; -6→rms -9.00/-15.00 tepe -6.00; -3→rms -6.00/-12.00 tepe -3.00; -40→rms -43.00/-49.00 tepe -40.00; -8→rms -11.00/-17.00 tepe -8.00; -60→rms -60.00/-60.00 tepe -60.00
+44100: spektrum patlamayı görür: t = 1.986…2.068 s (gerçek 2,000–2,050; pencere 46.4 ms); tepe seviye 0.984; VU (meters_at) görür: 2.001…2.050 s
+   VU basamakları (sol rms / sağ rms, sol tepe, dBFS): -30→rms -33.00/-39.00 tepe -30.00; -20→rms -23.00/-29.00 tepe -20.00; -12→rms -15.00/-21.00 tepe -12.00; -6→rms -9.00/-15.00 tepe -6.00; -3→rms -6.00/-12.00 tepe -3.00; -40→rms -43.00/-49.00 tepe -40.00; -8→rms -11.00/-17.00 tepe -8.00; -60→rms -60.00/-60.00 tepe -60.00
+48000: spektrum patlamayı görür: t = 1.988…2.070 s (gerçek 2,000–2,050; pencere 42.7 ms); tepe seviye 0.992; VU (meters_at) görür: 2.001…2.050 s
+   VU basamakları (sol rms / sağ rms, sol tepe, dBFS): -30→rms -33.00/-39.00 tepe -30.00; -20→rms -23.00/-29.00 tepe -20.00; -12→rms -15.00/-21.00 tepe -12.00; -6→rms -9.00/-15.00 tepe -6.00; -3→rms -6.00/-12.00 tepe -3.00; -40→rms -43.00/-49.00 tepe -40.00; -8→rms -11.00/-17.00 tepe -8.00; -60→rms -60.00/-60.00 tepe -60.00
+96000: spektrum patlamayı görür: t = 1.988…2.070 s (gerçek 2,000–2,050; pencere 42.7 ms); tepe seviye 0.992; VU (meters_at) görür: 2.001…2.050 s
+   VU basamakları (sol rms / sağ rms, sol tepe, dBFS): -30→rms -33.00/-39.00 tepe -30.00; -20→rms -23.00/-29.00 tepe -20.00; -12→rms -15.00/-21.00 tepe -12.00; -6→rms -9.00/-15.00 tepe -6.00; -3→rms -6.00/-12.00 tepe -3.00; -40→rms -43.00/-49.00 tepe -40.00; -8→rms -11.00/-17.00 tepe -8.00; -60→rms -60.00/-60.00 tepe -60.00
+
+=== VU referansı: kod ↔ python (300 ms kayan güç ortalaması, −50 dB kapı, %95) ===
+  kod: -7.923 dBFS; python (saklanan karelerden) -7.923; python (ham sinyalden) -7.890
+  sentetik zamanlama sinyalinin referansı (kod), hızlara göre: 44100: -6.79, 48000: -6.79, 96000: -6.79, 22050: -6.79

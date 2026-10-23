@@ -1,0 +1,2254 @@
+[
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace * with +\n@@ -21,17 +21,17 @@\n pub struct Trim {\n     /// Baştan atılacak kare sayısı.\n     pub delay: u64,\n     /// Gerçek ses uzunluğu (kare); bilinmiyorsa `None` (sona kadar).\n     pub frames: Option<u64>,\n }\n \n /// Okunacak kutunun en büyük boyutu (bozuk dosyada belleği şişirmesin).\n-const MAX_BOX_READ: u64 = 16 * 1024 * 1024;\n+const MAX_BOX_READ: u64 = 16 * 1024 + /* ~ changed by cargo-mutants ~ */ 1024;\n \n /// MP4/M4A dosyasındaki dolgu bilgisi. MP4 değilse ya da bilgi yoksa `None`.\n pub fn mp4_trim(path: &Path, sample_rate: u32) -> Option<Trim> {\n     let mut file = File::open(path).ok()?;\n     let len = file.metadata().ok()?.len();\n     let moov = find_top_level(&mut file, len, *b\"moov\")?;\n     let mut info = Mp4Info::default();\n     walk(&moov, &mut info, 0);\n",
+    "file": "src/audio/gapless.rs",
+    "function": null,
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:29:37: replace * with +",
+    "package": "lyraska",
+    "replacement": "+",
+    "span": {
+      "end": {
+        "column": 38,
+        "line": 29
+      },
+      "start": {
+        "column": 37,
+        "line": 29
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace * with /\n@@ -21,17 +21,17 @@\n pub struct Trim {\n     /// Baştan atılacak kare sayısı.\n     pub delay: u64,\n     /// Gerçek ses uzunluğu (kare); bilinmiyorsa `None` (sona kadar).\n     pub frames: Option<u64>,\n }\n \n /// Okunacak kutunun en büyük boyutu (bozuk dosyada belleği şişirmesin).\n-const MAX_BOX_READ: u64 = 16 * 1024 * 1024;\n+const MAX_BOX_READ: u64 = 16 * 1024 / /* ~ changed by cargo-mutants ~ */ 1024;\n \n /// MP4/M4A dosyasındaki dolgu bilgisi. MP4 değilse ya da bilgi yoksa `None`.\n pub fn mp4_trim(path: &Path, sample_rate: u32) -> Option<Trim> {\n     let mut file = File::open(path).ok()?;\n     let len = file.metadata().ok()?.len();\n     let moov = find_top_level(&mut file, len, *b\"moov\")?;\n     let mut info = Mp4Info::default();\n     walk(&moov, &mut info, 0);\n",
+    "file": "src/audio/gapless.rs",
+    "function": null,
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:29:37: replace * with /",
+    "package": "lyraska",
+    "replacement": "/",
+    "span": {
+      "end": {
+        "column": 38,
+        "line": 29
+      },
+      "start": {
+        "column": 37,
+        "line": 29
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace * with +\n@@ -21,17 +21,17 @@\n pub struct Trim {\n     /// Baştan atılacak kare sayısı.\n     pub delay: u64,\n     /// Gerçek ses uzunluğu (kare); bilinmiyorsa `None` (sona kadar).\n     pub frames: Option<u64>,\n }\n \n /// Okunacak kutunun en büyük boyutu (bozuk dosyada belleği şişirmesin).\n-const MAX_BOX_READ: u64 = 16 * 1024 * 1024;\n+const MAX_BOX_READ: u64 = 16 + /* ~ changed by cargo-mutants ~ */ 1024 * 1024;\n \n /// MP4/M4A dosyasındaki dolgu bilgisi. MP4 değilse ya da bilgi yoksa `None`.\n pub fn mp4_trim(path: &Path, sample_rate: u32) -> Option<Trim> {\n     let mut file = File::open(path).ok()?;\n     let len = file.metadata().ok()?.len();\n     let moov = find_top_level(&mut file, len, *b\"moov\")?;\n     let mut info = Mp4Info::default();\n     walk(&moov, &mut info, 0);\n",
+    "file": "src/audio/gapless.rs",
+    "function": null,
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:29:30: replace * with +",
+    "package": "lyraska",
+    "replacement": "+",
+    "span": {
+      "end": {
+        "column": 31,
+        "line": 29
+      },
+      "start": {
+        "column": 30,
+        "line": 29
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace * with /\n@@ -21,17 +21,17 @@\n pub struct Trim {\n     /// Baştan atılacak kare sayısı.\n     pub delay: u64,\n     /// Gerçek ses uzunluğu (kare); bilinmiyorsa `None` (sona kadar).\n     pub frames: Option<u64>,\n }\n \n /// Okunacak kutunun en büyük boyutu (bozuk dosyada belleği şişirmesin).\n-const MAX_BOX_READ: u64 = 16 * 1024 * 1024;\n+const MAX_BOX_READ: u64 = 16 / /* ~ changed by cargo-mutants ~ */ 1024 * 1024;\n \n /// MP4/M4A dosyasındaki dolgu bilgisi. MP4 değilse ya da bilgi yoksa `None`.\n pub fn mp4_trim(path: &Path, sample_rate: u32) -> Option<Trim> {\n     let mut file = File::open(path).ok()?;\n     let len = file.metadata().ok()?.len();\n     let moov = find_top_level(&mut file, len, *b\"moov\")?;\n     let mut info = Mp4Info::default();\n     walk(&moov, &mut info, 0);\n",
+    "file": "src/audio/gapless.rs",
+    "function": null,
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:29:30: replace * with /",
+    "package": "lyraska",
+    "replacement": "/",
+    "span": {
+      "end": {
+        "column": 31,
+        "line": 29
+      },
+      "start": {
+        "column": 30,
+        "line": 29
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace mp4_trim -> Option<Trim> with None\n@@ -25,36 +25,17 @@\n     pub frames: Option<u64>,\n }\n \n /// Okunacak kutunun en büyük boyutu (bozuk dosyada belleği şişirmesin).\n const MAX_BOX_READ: u64 = 16 * 1024 * 1024;\n \n /// MP4/M4A dosyasındaki dolgu bilgisi. MP4 değilse ya da bilgi yoksa `None`.\n pub fn mp4_trim(path: &Path, sample_rate: u32) -> Option<Trim> {\n-    let mut file = File::open(path).ok()?;\n-    let len = file.metadata().ok()?.len();\n-    let moov = find_top_level(&mut file, len, *b\"moov\")?;\n-    let mut info = Mp4Info::default();\n-    walk(&moov, &mut info, 0);\n-    if let Some((delay, frames)) = info.itunsmpb {\n-        return Some(Trim {\n-            delay,\n-            frames: (frames > 0).then_some(frames),\n-        });\n-    }\n-    let (media_time, segment) = info.audio_edit?;\n-    let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n-    let rate = u64::from(sample_rate);\n-    let delay = media_time * rate / media_scale;\n-    let frames = info\n-        .movie_timescale\n-        .filter(|&t| t > 0 && segment > 0)\n-        .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n-    (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n+    None /* ~ changed by cargo-mutants ~ */\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n     let fields: Vec<u64> = text\n         .split_whitespace()\n         .take(4)\n         .map(|w| u64::from_str_radix(w, 16).ok())\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/audio/gapless.rs:33:5: replace mp4_trim -> Option<Trim> with None",
+    "package": "lyraska",
+    "replacement": "None",
+    "span": {
+      "end": {
+        "column": 70,
+        "line": 52
+      },
+      "start": {
+        "column": 5,
+        "line": 33
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace mp4_trim -> Option<Trim> with Some(Default::default())\n@@ -25,36 +25,17 @@\n     pub frames: Option<u64>,\n }\n \n /// Okunacak kutunun en büyük boyutu (bozuk dosyada belleği şişirmesin).\n const MAX_BOX_READ: u64 = 16 * 1024 * 1024;\n \n /// MP4/M4A dosyasındaki dolgu bilgisi. MP4 değilse ya da bilgi yoksa `None`.\n pub fn mp4_trim(path: &Path, sample_rate: u32) -> Option<Trim> {\n-    let mut file = File::open(path).ok()?;\n-    let len = file.metadata().ok()?.len();\n-    let moov = find_top_level(&mut file, len, *b\"moov\")?;\n-    let mut info = Mp4Info::default();\n-    walk(&moov, &mut info, 0);\n-    if let Some((delay, frames)) = info.itunsmpb {\n-        return Some(Trim {\n-            delay,\n-            frames: (frames > 0).then_some(frames),\n-        });\n-    }\n-    let (media_time, segment) = info.audio_edit?;\n-    let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n-    let rate = u64::from(sample_rate);\n-    let delay = media_time * rate / media_scale;\n-    let frames = info\n-        .movie_timescale\n-        .filter(|&t| t > 0 && segment > 0)\n-        .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n-    (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n+    Some(Default::default()) /* ~ changed by cargo-mutants ~ */\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n     let fields: Vec<u64> = text\n         .split_whitespace()\n         .take(4)\n         .map(|w| u64::from_str_radix(w, 16).ok())\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/audio/gapless.rs:33:5: replace mp4_trim -> Option<Trim> with Some(Default::default())",
+    "package": "lyraska",
+    "replacement": "Some(Default::default())",
+    "span": {
+      "end": {
+        "column": 70,
+        "line": 52
+      },
+      "start": {
+        "column": 5,
+        "line": 33
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with == in mp4_trim\n@@ -33,17 +33,17 @@\n     let mut file = File::open(path).ok()?;\n     let len = file.metadata().ok()?.len();\n     let moov = find_top_level(&mut file, len, *b\"moov\")?;\n     let mut info = Mp4Info::default();\n     walk(&moov, &mut info, 0);\n     if let Some((delay, frames)) = info.itunsmpb {\n         return Some(Trim {\n             delay,\n-            frames: (frames > 0).then_some(frames),\n+            frames: (frames == /* ~ changed by cargo-mutants ~ */ 0).then_some(frames),\n         });\n     }\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:41:29: replace > with == in mp4_trim",
+    "package": "lyraska",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 30,
+        "line": 41
+      },
+      "start": {
+        "column": 29,
+        "line": 41
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with < in mp4_trim\n@@ -33,17 +33,17 @@\n     let mut file = File::open(path).ok()?;\n     let len = file.metadata().ok()?.len();\n     let moov = find_top_level(&mut file, len, *b\"moov\")?;\n     let mut info = Mp4Info::default();\n     walk(&moov, &mut info, 0);\n     if let Some((delay, frames)) = info.itunsmpb {\n         return Some(Trim {\n             delay,\n-            frames: (frames > 0).then_some(frames),\n+            frames: (frames < /* ~ changed by cargo-mutants ~ */ 0).then_some(frames),\n         });\n     }\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:41:29: replace > with < in mp4_trim",
+    "package": "lyraska",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 30,
+        "line": 41
+      },
+      "start": {
+        "column": 29,
+        "line": 41
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with >= in mp4_trim\n@@ -33,17 +33,17 @@\n     let mut file = File::open(path).ok()?;\n     let len = file.metadata().ok()?.len();\n     let moov = find_top_level(&mut file, len, *b\"moov\")?;\n     let mut info = Mp4Info::default();\n     walk(&moov, &mut info, 0);\n     if let Some((delay, frames)) = info.itunsmpb {\n         return Some(Trim {\n             delay,\n-            frames: (frames > 0).then_some(frames),\n+            frames: (frames >= /* ~ changed by cargo-mutants ~ */ 0).then_some(frames),\n         });\n     }\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:41:29: replace > with >= in mp4_trim",
+    "package": "lyraska",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 30,
+        "line": 41
+      },
+      "start": {
+        "column": 29,
+        "line": 41
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with == in mp4_trim\n@@ -37,17 +37,17 @@\n     walk(&moov, &mut info, 0);\n     if let Some((delay, frames)) = info.itunsmpb {\n         return Some(Trim {\n             delay,\n             frames: (frames > 0).then_some(frames),\n         });\n     }\n     let (media_time, segment) = info.audio_edit?;\n-    let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n+    let media_scale = info.audio_timescale.filter(|&t| t == /* ~ changed by cargo-mutants ~ */ 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:45:58: replace > with == in mp4_trim",
+    "package": "lyraska",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 59,
+        "line": 45
+      },
+      "start": {
+        "column": 58,
+        "line": 45
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with < in mp4_trim\n@@ -37,17 +37,17 @@\n     walk(&moov, &mut info, 0);\n     if let Some((delay, frames)) = info.itunsmpb {\n         return Some(Trim {\n             delay,\n             frames: (frames > 0).then_some(frames),\n         });\n     }\n     let (media_time, segment) = info.audio_edit?;\n-    let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n+    let media_scale = info.audio_timescale.filter(|&t| t < /* ~ changed by cargo-mutants ~ */ 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:45:58: replace > with < in mp4_trim",
+    "package": "lyraska",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 59,
+        "line": 45
+      },
+      "start": {
+        "column": 58,
+        "line": 45
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with >= in mp4_trim\n@@ -37,17 +37,17 @@\n     walk(&moov, &mut info, 0);\n     if let Some((delay, frames)) = info.itunsmpb {\n         return Some(Trim {\n             delay,\n             frames: (frames > 0).then_some(frames),\n         });\n     }\n     let (media_time, segment) = info.audio_edit?;\n-    let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n+    let media_scale = info.audio_timescale.filter(|&t| t >= /* ~ changed by cargo-mutants ~ */ 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:45:58: replace > with >= in mp4_trim",
+    "package": "lyraska",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 59,
+        "line": 45
+      },
+      "start": {
+        "column": 58,
+        "line": 45
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace / with % in mp4_trim\n@@ -39,17 +39,17 @@\n         return Some(Trim {\n             delay,\n             frames: (frames > 0).then_some(frames),\n         });\n     }\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n-    let delay = media_time * rate / media_scale;\n+    let delay = media_time * rate % /* ~ changed by cargo-mutants ~ */ media_scale;\n     let frames = info\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:47:35: replace / with % in mp4_trim",
+    "package": "lyraska",
+    "replacement": "%",
+    "span": {
+      "end": {
+        "column": 36,
+        "line": 47
+      },
+      "start": {
+        "column": 35,
+        "line": 47
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace / with * in mp4_trim\n@@ -39,17 +39,17 @@\n         return Some(Trim {\n             delay,\n             frames: (frames > 0).then_some(frames),\n         });\n     }\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n-    let delay = media_time * rate / media_scale;\n+    let delay = media_time * rate * /* ~ changed by cargo-mutants ~ */ media_scale;\n     let frames = info\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:47:35: replace / with * in mp4_trim",
+    "package": "lyraska",
+    "replacement": "*",
+    "span": {
+      "end": {
+        "column": 36,
+        "line": 47
+      },
+      "start": {
+        "column": 35,
+        "line": 47
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace * with + in mp4_trim\n@@ -39,17 +39,17 @@\n         return Some(Trim {\n             delay,\n             frames: (frames > 0).then_some(frames),\n         });\n     }\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n-    let delay = media_time * rate / media_scale;\n+    let delay = media_time + /* ~ changed by cargo-mutants ~ */ rate / media_scale;\n     let frames = info\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:47:28: replace * with + in mp4_trim",
+    "package": "lyraska",
+    "replacement": "+",
+    "span": {
+      "end": {
+        "column": 29,
+        "line": 47
+      },
+      "start": {
+        "column": 28,
+        "line": 47
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace * with / in mp4_trim\n@@ -39,17 +39,17 @@\n         return Some(Trim {\n             delay,\n             frames: (frames > 0).then_some(frames),\n         });\n     }\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n-    let delay = media_time * rate / media_scale;\n+    let delay = media_time / /* ~ changed by cargo-mutants ~ */ rate / media_scale;\n     let frames = info\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:47:28: replace * with / in mp4_trim",
+    "package": "lyraska",
+    "replacement": "/",
+    "span": {
+      "end": {
+        "column": 29,
+        "line": 47
+      },
+      "start": {
+        "column": 28,
+        "line": 47
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace && with || in mp4_trim\n@@ -42,17 +42,17 @@\n         });\n     }\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n-        .filter(|&t| t > 0 && segment > 0)\n+        .filter(|&t| t > 0 || /* ~ changed by cargo-mutants ~ */ segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n     let fields: Vec<u64> = text\n         .split_whitespace()\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:50:28: replace && with || in mp4_trim",
+    "package": "lyraska",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 30,
+        "line": 50
+      },
+      "start": {
+        "column": 28,
+        "line": 50
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with == in mp4_trim\n@@ -42,17 +42,17 @@\n         });\n     }\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n-        .filter(|&t| t > 0 && segment > 0)\n+        .filter(|&t| t == /* ~ changed by cargo-mutants ~ */ 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n     let fields: Vec<u64> = text\n         .split_whitespace()\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:50:24: replace > with == in mp4_trim",
+    "package": "lyraska",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 25,
+        "line": 50
+      },
+      "start": {
+        "column": 24,
+        "line": 50
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with < in mp4_trim\n@@ -42,17 +42,17 @@\n         });\n     }\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n-        .filter(|&t| t > 0 && segment > 0)\n+        .filter(|&t| t < /* ~ changed by cargo-mutants ~ */ 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n     let fields: Vec<u64> = text\n         .split_whitespace()\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:50:24: replace > with < in mp4_trim",
+    "package": "lyraska",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 25,
+        "line": 50
+      },
+      "start": {
+        "column": 24,
+        "line": 50
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with >= in mp4_trim\n@@ -42,17 +42,17 @@\n         });\n     }\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n-        .filter(|&t| t > 0 && segment > 0)\n+        .filter(|&t| t >= /* ~ changed by cargo-mutants ~ */ 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n     let fields: Vec<u64> = text\n         .split_whitespace()\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:50:24: replace > with >= in mp4_trim",
+    "package": "lyraska",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 25,
+        "line": 50
+      },
+      "start": {
+        "column": 24,
+        "line": 50
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with == in mp4_trim\n@@ -42,17 +42,17 @@\n         });\n     }\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n-        .filter(|&t| t > 0 && segment > 0)\n+        .filter(|&t| t > 0 && segment == /* ~ changed by cargo-mutants ~ */ 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n     let fields: Vec<u64> = text\n         .split_whitespace()\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:50:39: replace > with == in mp4_trim",
+    "package": "lyraska",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 40,
+        "line": 50
+      },
+      "start": {
+        "column": 39,
+        "line": 50
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with < in mp4_trim\n@@ -42,17 +42,17 @@\n         });\n     }\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n-        .filter(|&t| t > 0 && segment > 0)\n+        .filter(|&t| t > 0 && segment < /* ~ changed by cargo-mutants ~ */ 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n     let fields: Vec<u64> = text\n         .split_whitespace()\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:50:39: replace > with < in mp4_trim",
+    "package": "lyraska",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 40,
+        "line": 50
+      },
+      "start": {
+        "column": 39,
+        "line": 50
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with >= in mp4_trim\n@@ -42,17 +42,17 @@\n         });\n     }\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n-        .filter(|&t| t > 0 && segment > 0)\n+        .filter(|&t| t > 0 && segment >= /* ~ changed by cargo-mutants ~ */ 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n     let fields: Vec<u64> = text\n         .split_whitespace()\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:50:39: replace > with >= in mp4_trim",
+    "package": "lyraska",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 40,
+        "line": 50
+      },
+      "start": {
+        "column": 39,
+        "line": 50
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace / with % in mp4_trim\n@@ -43,17 +43,17 @@\n     }\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n-        .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n+        .map(|t| (u128::from(segment) * u128::from(rate) % /* ~ changed by cargo-mutants ~ */ u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n     let fields: Vec<u64> = text\n         .split_whitespace()\n         .take(4)\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:51:58: replace / with % in mp4_trim",
+    "package": "lyraska",
+    "replacement": "%",
+    "span": {
+      "end": {
+        "column": 59,
+        "line": 51
+      },
+      "start": {
+        "column": 58,
+        "line": 51
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace / with * in mp4_trim\n@@ -43,17 +43,17 @@\n     }\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n-        .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n+        .map(|t| (u128::from(segment) * u128::from(rate) * /* ~ changed by cargo-mutants ~ */ u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n     let fields: Vec<u64> = text\n         .split_whitespace()\n         .take(4)\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:51:58: replace / with * in mp4_trim",
+    "package": "lyraska",
+    "replacement": "*",
+    "span": {
+      "end": {
+        "column": 59,
+        "line": 51
+      },
+      "start": {
+        "column": 58,
+        "line": 51
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace * with + in mp4_trim\n@@ -43,17 +43,17 @@\n     }\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n-        .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n+        .map(|t| (u128::from(segment) + /* ~ changed by cargo-mutants ~ */ u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n     let fields: Vec<u64> = text\n         .split_whitespace()\n         .take(4)\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:51:39: replace * with + in mp4_trim",
+    "package": "lyraska",
+    "replacement": "+",
+    "span": {
+      "end": {
+        "column": 40,
+        "line": 51
+      },
+      "start": {
+        "column": 39,
+        "line": 51
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace * with / in mp4_trim\n@@ -43,17 +43,17 @@\n     }\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n-        .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n+        .map(|t| (u128::from(segment) / /* ~ changed by cargo-mutants ~ */ u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n     let fields: Vec<u64> = text\n         .split_whitespace()\n         .take(4)\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:51:39: replace * with / in mp4_trim",
+    "package": "lyraska",
+    "replacement": "/",
+    "span": {
+      "end": {
+        "column": 40,
+        "line": 51
+      },
+      "start": {
+        "column": 39,
+        "line": 51
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace || with && in mp4_trim\n@@ -44,17 +44,17 @@\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n-    (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n+    (delay > 0 && /* ~ changed by cargo-mutants ~ */ frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n     let fields: Vec<u64> = text\n         .split_whitespace()\n         .take(4)\n         .map(|w| u64::from_str_radix(w, 16).ok())\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:52:16: replace || with && in mp4_trim",
+    "package": "lyraska",
+    "replacement": "&&",
+    "span": {
+      "end": {
+        "column": 18,
+        "line": 52
+      },
+      "start": {
+        "column": 16,
+        "line": 52
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with == in mp4_trim\n@@ -44,17 +44,17 @@\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n-    (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n+    (delay == /* ~ changed by cargo-mutants ~ */ 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n     let fields: Vec<u64> = text\n         .split_whitespace()\n         .take(4)\n         .map(|w| u64::from_str_radix(w, 16).ok())\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:52:12: replace > with == in mp4_trim",
+    "package": "lyraska",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 13,
+        "line": 52
+      },
+      "start": {
+        "column": 12,
+        "line": 52
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with < in mp4_trim\n@@ -44,17 +44,17 @@\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n-    (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n+    (delay < /* ~ changed by cargo-mutants ~ */ 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n     let fields: Vec<u64> = text\n         .split_whitespace()\n         .take(4)\n         .map(|w| u64::from_str_radix(w, 16).ok())\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:52:12: replace > with < in mp4_trim",
+    "package": "lyraska",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 13,
+        "line": 52
+      },
+      "start": {
+        "column": 12,
+        "line": 52
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with >= in mp4_trim\n@@ -44,17 +44,17 @@\n     let (media_time, segment) = info.audio_edit?;\n     let media_scale = info.audio_timescale.filter(|&t| t > 0)?;\n     let rate = u64::from(sample_rate);\n     let delay = media_time * rate / media_scale;\n     let frames = info\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n-    (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n+    (delay >= /* ~ changed by cargo-mutants ~ */ 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n     let fields: Vec<u64> = text\n         .split_whitespace()\n         .take(4)\n         .map(|w| u64::from_str_radix(w, 16).ok())\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "mp4_trim",
+      "return_type": "-> Option<Trim>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 53
+        },
+        "start": {
+          "column": 1,
+          "line": 31
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:52:12: replace > with >= in mp4_trim",
+    "package": "lyraska",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 13,
+        "line": 52
+      },
+      "start": {
+        "column": 12,
+        "line": 52
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace parse_itunsmpb -> Option<(u64, u64)> with None\n@@ -49,25 +49,17 @@\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n-    let fields: Vec<u64> = text\n-        .split_whitespace()\n-        .take(4)\n-        .map(|w| u64::from_str_radix(w, 16).ok())\n-        .collect::<Option<_>>()?;\n-    match fields[..] {\n-        [_, delay, _, frames] => Some((delay, frames)),\n-        _ => None,\n-    }\n+    None /* ~ changed by cargo-mutants ~ */\n }\n \n #[derive(Default)]\n struct Mp4Info {\n     movie_timescale: Option<u64>,\n     /// Ses izinin zaman ölçeği ve düzenleme listesi (son okunan ses izi).\n     audio_timescale: Option<u64>,\n     audio_edit: Option<(u64, u64)>,\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "parse_itunsmpb",
+      "return_type": "-> Option<(u64, u64)>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 66
+        },
+        "start": {
+          "column": 1,
+          "line": 55
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/audio/gapless.rs:57:5: replace parse_itunsmpb -> Option<(u64, u64)> with None",
+    "package": "lyraska",
+    "replacement": "None",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 65
+      },
+      "start": {
+        "column": 5,
+        "line": 57
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace parse_itunsmpb -> Option<(u64, u64)> with Some((0, 0))\n@@ -49,25 +49,17 @@\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n-    let fields: Vec<u64> = text\n-        .split_whitespace()\n-        .take(4)\n-        .map(|w| u64::from_str_radix(w, 16).ok())\n-        .collect::<Option<_>>()?;\n-    match fields[..] {\n-        [_, delay, _, frames] => Some((delay, frames)),\n-        _ => None,\n-    }\n+    Some((0, 0)) /* ~ changed by cargo-mutants ~ */\n }\n \n #[derive(Default)]\n struct Mp4Info {\n     movie_timescale: Option<u64>,\n     /// Ses izinin zaman ölçeği ve düzenleme listesi (son okunan ses izi).\n     audio_timescale: Option<u64>,\n     audio_edit: Option<(u64, u64)>,\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "parse_itunsmpb",
+      "return_type": "-> Option<(u64, u64)>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 66
+        },
+        "start": {
+          "column": 1,
+          "line": 55
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/audio/gapless.rs:57:5: replace parse_itunsmpb -> Option<(u64, u64)> with Some((0, 0))",
+    "package": "lyraska",
+    "replacement": "Some((0, 0))",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 65
+      },
+      "start": {
+        "column": 5,
+        "line": 57
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace parse_itunsmpb -> Option<(u64, u64)> with Some((0, 1))\n@@ -49,25 +49,17 @@\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n-    let fields: Vec<u64> = text\n-        .split_whitespace()\n-        .take(4)\n-        .map(|w| u64::from_str_radix(w, 16).ok())\n-        .collect::<Option<_>>()?;\n-    match fields[..] {\n-        [_, delay, _, frames] => Some((delay, frames)),\n-        _ => None,\n-    }\n+    Some((0, 1)) /* ~ changed by cargo-mutants ~ */\n }\n \n #[derive(Default)]\n struct Mp4Info {\n     movie_timescale: Option<u64>,\n     /// Ses izinin zaman ölçeği ve düzenleme listesi (son okunan ses izi).\n     audio_timescale: Option<u64>,\n     audio_edit: Option<(u64, u64)>,\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "parse_itunsmpb",
+      "return_type": "-> Option<(u64, u64)>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 66
+        },
+        "start": {
+          "column": 1,
+          "line": 55
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/audio/gapless.rs:57:5: replace parse_itunsmpb -> Option<(u64, u64)> with Some((0, 1))",
+    "package": "lyraska",
+    "replacement": "Some((0, 1))",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 65
+      },
+      "start": {
+        "column": 5,
+        "line": 57
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace parse_itunsmpb -> Option<(u64, u64)> with Some((1, 0))\n@@ -49,25 +49,17 @@\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n-    let fields: Vec<u64> = text\n-        .split_whitespace()\n-        .take(4)\n-        .map(|w| u64::from_str_radix(w, 16).ok())\n-        .collect::<Option<_>>()?;\n-    match fields[..] {\n-        [_, delay, _, frames] => Some((delay, frames)),\n-        _ => None,\n-    }\n+    Some((1, 0)) /* ~ changed by cargo-mutants ~ */\n }\n \n #[derive(Default)]\n struct Mp4Info {\n     movie_timescale: Option<u64>,\n     /// Ses izinin zaman ölçeği ve düzenleme listesi (son okunan ses izi).\n     audio_timescale: Option<u64>,\n     audio_edit: Option<(u64, u64)>,\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "parse_itunsmpb",
+      "return_type": "-> Option<(u64, u64)>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 66
+        },
+        "start": {
+          "column": 1,
+          "line": 55
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/audio/gapless.rs:57:5: replace parse_itunsmpb -> Option<(u64, u64)> with Some((1, 0))",
+    "package": "lyraska",
+    "replacement": "Some((1, 0))",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 65
+      },
+      "start": {
+        "column": 5,
+        "line": 57
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace parse_itunsmpb -> Option<(u64, u64)> with Some((1, 1))\n@@ -49,25 +49,17 @@\n         .movie_timescale\n         .filter(|&t| t > 0 && segment > 0)\n         .map(|t| (u128::from(segment) * u128::from(rate) / u128::from(t)) as u64);\n     (delay > 0 || frames.is_some()).then_some(Trim { delay, frames })\n }\n \n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n-    let fields: Vec<u64> = text\n-        .split_whitespace()\n-        .take(4)\n-        .map(|w| u64::from_str_radix(w, 16).ok())\n-        .collect::<Option<_>>()?;\n-    match fields[..] {\n-        [_, delay, _, frames] => Some((delay, frames)),\n-        _ => None,\n-    }\n+    Some((1, 1)) /* ~ changed by cargo-mutants ~ */\n }\n \n #[derive(Default)]\n struct Mp4Info {\n     movie_timescale: Option<u64>,\n     /// Ses izinin zaman ölçeği ve düzenleme listesi (son okunan ses izi).\n     audio_timescale: Option<u64>,\n     audio_edit: Option<(u64, u64)>,\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "parse_itunsmpb",
+      "return_type": "-> Option<(u64, u64)>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 66
+        },
+        "start": {
+          "column": 1,
+          "line": 55
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/audio/gapless.rs:57:5: replace parse_itunsmpb -> Option<(u64, u64)> with Some((1, 1))",
+    "package": "lyraska",
+    "replacement": "Some((1, 1))",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 65
+      },
+      "start": {
+        "column": 5,
+        "line": 57
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ delete match arm [_, delay, _, frames] in parse_itunsmpb\n@@ -55,17 +55,17 @@\n /// `iTunSMPB` metnini okur: (başlangıç dolgusu, gerçek örnek sayısı).\n pub fn parse_itunsmpb(text: &str) -> Option<(u64, u64)> {\n     let fields: Vec<u64> = text\n         .split_whitespace()\n         .take(4)\n         .map(|w| u64::from_str_radix(w, 16).ok())\n         .collect::<Option<_>>()?;\n     match fields[..] {\n-        [_, delay, _, frames] => Some((delay, frames)),\n+         /* ~ changed by cargo-mutants ~ */\n         _ => None,\n     }\n }\n \n #[derive(Default)]\n struct Mp4Info {\n     movie_timescale: Option<u64>,\n     /// Ses izinin zaman ölçeği ve düzenleme listesi (son okunan ses izi).\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "parse_itunsmpb",
+      "return_type": "-> Option<(u64, u64)>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 66
+        },
+        "start": {
+          "column": 1,
+          "line": 55
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "src/audio/gapless.rs:63:9: delete match arm [_, delay, _, frames] in parse_itunsmpb",
+    "package": "lyraska",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 56,
+        "line": 63
+      },
+      "start": {
+        "column": 9,
+        "line": 63
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace find_top_level -> Option<Vec<u8>> with None\n@@ -71,45 +71,17 @@\n     /// Ses izinin zaman ölçeği ve düzenleme listesi (son okunan ses izi).\n     audio_timescale: Option<u64>,\n     audio_edit: Option<(u64, u64)>,\n     itunsmpb: Option<(u64, u64)>,\n }\n \n /// Üst düzey kutular arasında `kind` olanı bulup içeriğini okur (mdat atlanır).\n fn find_top_level(file: &mut File, len: u64, kind: [u8; 4]) -> Option<Vec<u8>> {\n-    let mut offset = 0u64;\n-    while offset + 8 <= len {\n-        file.seek(SeekFrom::Start(offset)).ok()?;\n-        let mut header = [0u8; 16];\n-        file.read_exact(&mut header[..8]).ok()?;\n-        let mut size = u64::from(u32::from_be_bytes(header[..4].try_into().ok()?));\n-        let mut header_len = 8;\n-        if size == 1 {\n-            file.read_exact(&mut header[8..16]).ok()?;\n-            size = u64::from_be_bytes(header[8..16].try_into().ok()?);\n-            header_len = 16;\n-        } else if size == 0 {\n-            size = len - offset;\n-        }\n-        if size < header_len {\n-            return None;\n-        }\n-        if header[4..8] == kind {\n-            let body = size - header_len;\n-            if body > MAX_BOX_READ {\n-                return None;\n-            }\n-            let mut data = vec![0u8; body as usize];\n-            file.read_exact(&mut data).ok()?;\n-            return Some(data);\n-        }\n-        offset = offset.checked_add(size)?;\n-    }\n-    None\n+    None /* ~ changed by cargo-mutants ~ */\n }\n \n /// Bellekteki kutuları dolaşır.\n fn walk(data: &[u8], info: &mut Mp4Info, depth: usize) {\n     if depth > 8 {\n         return;\n     }\n     let mut offset = 0usize;\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/audio/gapless.rs:79:5: replace find_top_level -> Option<Vec<u8>> with None",
+    "package": "lyraska",
+    "replacement": "None",
+    "span": {
+      "end": {
+        "column": 9,
+        "line": 107
+      },
+      "start": {
+        "column": 5,
+        "line": 79
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace find_top_level -> Option<Vec<u8>> with Some(vec![])\n@@ -71,45 +71,17 @@\n     /// Ses izinin zaman ölçeği ve düzenleme listesi (son okunan ses izi).\n     audio_timescale: Option<u64>,\n     audio_edit: Option<(u64, u64)>,\n     itunsmpb: Option<(u64, u64)>,\n }\n \n /// Üst düzey kutular arasında `kind` olanı bulup içeriğini okur (mdat atlanır).\n fn find_top_level(file: &mut File, len: u64, kind: [u8; 4]) -> Option<Vec<u8>> {\n-    let mut offset = 0u64;\n-    while offset + 8 <= len {\n-        file.seek(SeekFrom::Start(offset)).ok()?;\n-        let mut header = [0u8; 16];\n-        file.read_exact(&mut header[..8]).ok()?;\n-        let mut size = u64::from(u32::from_be_bytes(header[..4].try_into().ok()?));\n-        let mut header_len = 8;\n-        if size == 1 {\n-            file.read_exact(&mut header[8..16]).ok()?;\n-            size = u64::from_be_bytes(header[8..16].try_into().ok()?);\n-            header_len = 16;\n-        } else if size == 0 {\n-            size = len - offset;\n-        }\n-        if size < header_len {\n-            return None;\n-        }\n-        if header[4..8] == kind {\n-            let body = size - header_len;\n-            if body > MAX_BOX_READ {\n-                return None;\n-            }\n-            let mut data = vec![0u8; body as usize];\n-            file.read_exact(&mut data).ok()?;\n-            return Some(data);\n-        }\n-        offset = offset.checked_add(size)?;\n-    }\n-    None\n+    Some(vec![]) /* ~ changed by cargo-mutants ~ */\n }\n \n /// Bellekteki kutuları dolaşır.\n fn walk(data: &[u8], info: &mut Mp4Info, depth: usize) {\n     if depth > 8 {\n         return;\n     }\n     let mut offset = 0usize;\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/audio/gapless.rs:79:5: replace find_top_level -> Option<Vec<u8>> with Some(vec![])",
+    "package": "lyraska",
+    "replacement": "Some(vec![])",
+    "span": {
+      "end": {
+        "column": 9,
+        "line": 107
+      },
+      "start": {
+        "column": 5,
+        "line": 79
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace find_top_level -> Option<Vec<u8>> with Some(vec![0])\n@@ -71,45 +71,17 @@\n     /// Ses izinin zaman ölçeği ve düzenleme listesi (son okunan ses izi).\n     audio_timescale: Option<u64>,\n     audio_edit: Option<(u64, u64)>,\n     itunsmpb: Option<(u64, u64)>,\n }\n \n /// Üst düzey kutular arasında `kind` olanı bulup içeriğini okur (mdat atlanır).\n fn find_top_level(file: &mut File, len: u64, kind: [u8; 4]) -> Option<Vec<u8>> {\n-    let mut offset = 0u64;\n-    while offset + 8 <= len {\n-        file.seek(SeekFrom::Start(offset)).ok()?;\n-        let mut header = [0u8; 16];\n-        file.read_exact(&mut header[..8]).ok()?;\n-        let mut size = u64::from(u32::from_be_bytes(header[..4].try_into().ok()?));\n-        let mut header_len = 8;\n-        if size == 1 {\n-            file.read_exact(&mut header[8..16]).ok()?;\n-            size = u64::from_be_bytes(header[8..16].try_into().ok()?);\n-            header_len = 16;\n-        } else if size == 0 {\n-            size = len - offset;\n-        }\n-        if size < header_len {\n-            return None;\n-        }\n-        if header[4..8] == kind {\n-            let body = size - header_len;\n-            if body > MAX_BOX_READ {\n-                return None;\n-            }\n-            let mut data = vec![0u8; body as usize];\n-            file.read_exact(&mut data).ok()?;\n-            return Some(data);\n-        }\n-        offset = offset.checked_add(size)?;\n-    }\n-    None\n+    Some(vec![0]) /* ~ changed by cargo-mutants ~ */\n }\n \n /// Bellekteki kutuları dolaşır.\n fn walk(data: &[u8], info: &mut Mp4Info, depth: usize) {\n     if depth > 8 {\n         return;\n     }\n     let mut offset = 0usize;\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/audio/gapless.rs:79:5: replace find_top_level -> Option<Vec<u8>> with Some(vec![0])",
+    "package": "lyraska",
+    "replacement": "Some(vec![0])",
+    "span": {
+      "end": {
+        "column": 9,
+        "line": 107
+      },
+      "start": {
+        "column": 5,
+        "line": 79
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace find_top_level -> Option<Vec<u8>> with Some(vec![1])\n@@ -71,45 +71,17 @@\n     /// Ses izinin zaman ölçeği ve düzenleme listesi (son okunan ses izi).\n     audio_timescale: Option<u64>,\n     audio_edit: Option<(u64, u64)>,\n     itunsmpb: Option<(u64, u64)>,\n }\n \n /// Üst düzey kutular arasında `kind` olanı bulup içeriğini okur (mdat atlanır).\n fn find_top_level(file: &mut File, len: u64, kind: [u8; 4]) -> Option<Vec<u8>> {\n-    let mut offset = 0u64;\n-    while offset + 8 <= len {\n-        file.seek(SeekFrom::Start(offset)).ok()?;\n-        let mut header = [0u8; 16];\n-        file.read_exact(&mut header[..8]).ok()?;\n-        let mut size = u64::from(u32::from_be_bytes(header[..4].try_into().ok()?));\n-        let mut header_len = 8;\n-        if size == 1 {\n-            file.read_exact(&mut header[8..16]).ok()?;\n-            size = u64::from_be_bytes(header[8..16].try_into().ok()?);\n-            header_len = 16;\n-        } else if size == 0 {\n-            size = len - offset;\n-        }\n-        if size < header_len {\n-            return None;\n-        }\n-        if header[4..8] == kind {\n-            let body = size - header_len;\n-            if body > MAX_BOX_READ {\n-                return None;\n-            }\n-            let mut data = vec![0u8; body as usize];\n-            file.read_exact(&mut data).ok()?;\n-            return Some(data);\n-        }\n-        offset = offset.checked_add(size)?;\n-    }\n-    None\n+    Some(vec![1]) /* ~ changed by cargo-mutants ~ */\n }\n \n /// Bellekteki kutuları dolaşır.\n fn walk(data: &[u8], info: &mut Mp4Info, depth: usize) {\n     if depth > 8 {\n         return;\n     }\n     let mut offset = 0usize;\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/audio/gapless.rs:79:5: replace find_top_level -> Option<Vec<u8>> with Some(vec![1])",
+    "package": "lyraska",
+    "replacement": "Some(vec![1])",
+    "span": {
+      "end": {
+        "column": 9,
+        "line": 107
+      },
+      "start": {
+        "column": 5,
+        "line": 79
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace <= with > in find_top_level\n@@ -72,17 +72,17 @@\n     audio_timescale: Option<u64>,\n     audio_edit: Option<(u64, u64)>,\n     itunsmpb: Option<(u64, u64)>,\n }\n \n /// Üst düzey kutular arasında `kind` olanı bulup içeriğini okur (mdat atlanır).\n fn find_top_level(file: &mut File, len: u64, kind: [u8; 4]) -> Option<Vec<u8>> {\n     let mut offset = 0u64;\n-    while offset + 8 <= len {\n+    while offset + 8 > /* ~ changed by cargo-mutants ~ */ len {\n         file.seek(SeekFrom::Start(offset)).ok()?;\n         let mut header = [0u8; 16];\n         file.read_exact(&mut header[..8]).ok()?;\n         let mut size = u64::from(u32::from_be_bytes(header[..4].try_into().ok()?));\n         let mut header_len = 8;\n         if size == 1 {\n             file.read_exact(&mut header[8..16]).ok()?;\n             size = u64::from_be_bytes(header[8..16].try_into().ok()?);\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:80:22: replace <= with > in find_top_level",
+    "package": "lyraska",
+    "replacement": ">",
+    "span": {
+      "end": {
+        "column": 24,
+        "line": 80
+      },
+      "start": {
+        "column": 22,
+        "line": 80
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace + with - in find_top_level\n@@ -72,17 +72,17 @@\n     audio_timescale: Option<u64>,\n     audio_edit: Option<(u64, u64)>,\n     itunsmpb: Option<(u64, u64)>,\n }\n \n /// Üst düzey kutular arasında `kind` olanı bulup içeriğini okur (mdat atlanır).\n fn find_top_level(file: &mut File, len: u64, kind: [u8; 4]) -> Option<Vec<u8>> {\n     let mut offset = 0u64;\n-    while offset + 8 <= len {\n+    while offset - /* ~ changed by cargo-mutants ~ */ 8 <= len {\n         file.seek(SeekFrom::Start(offset)).ok()?;\n         let mut header = [0u8; 16];\n         file.read_exact(&mut header[..8]).ok()?;\n         let mut size = u64::from(u32::from_be_bytes(header[..4].try_into().ok()?));\n         let mut header_len = 8;\n         if size == 1 {\n             file.read_exact(&mut header[8..16]).ok()?;\n             size = u64::from_be_bytes(header[8..16].try_into().ok()?);\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:80:18: replace + with - in find_top_level",
+    "package": "lyraska",
+    "replacement": "-",
+    "span": {
+      "end": {
+        "column": 19,
+        "line": 80
+      },
+      "start": {
+        "column": 18,
+        "line": 80
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace + with * in find_top_level\n@@ -72,17 +72,17 @@\n     audio_timescale: Option<u64>,\n     audio_edit: Option<(u64, u64)>,\n     itunsmpb: Option<(u64, u64)>,\n }\n \n /// Üst düzey kutular arasında `kind` olanı bulup içeriğini okur (mdat atlanır).\n fn find_top_level(file: &mut File, len: u64, kind: [u8; 4]) -> Option<Vec<u8>> {\n     let mut offset = 0u64;\n-    while offset + 8 <= len {\n+    while offset * /* ~ changed by cargo-mutants ~ */ 8 <= len {\n         file.seek(SeekFrom::Start(offset)).ok()?;\n         let mut header = [0u8; 16];\n         file.read_exact(&mut header[..8]).ok()?;\n         let mut size = u64::from(u32::from_be_bytes(header[..4].try_into().ok()?));\n         let mut header_len = 8;\n         if size == 1 {\n             file.read_exact(&mut header[8..16]).ok()?;\n             size = u64::from_be_bytes(header[8..16].try_into().ok()?);\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:80:18: replace + with * in find_top_level",
+    "package": "lyraska",
+    "replacement": "*",
+    "span": {
+      "end": {
+        "column": 19,
+        "line": 80
+      },
+      "start": {
+        "column": 18,
+        "line": 80
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace == with != in find_top_level\n@@ -78,17 +78,17 @@\n fn find_top_level(file: &mut File, len: u64, kind: [u8; 4]) -> Option<Vec<u8>> {\n     let mut offset = 0u64;\n     while offset + 8 <= len {\n         file.seek(SeekFrom::Start(offset)).ok()?;\n         let mut header = [0u8; 16];\n         file.read_exact(&mut header[..8]).ok()?;\n         let mut size = u64::from(u32::from_be_bytes(header[..4].try_into().ok()?));\n         let mut header_len = 8;\n-        if size == 1 {\n+        if size != /* ~ changed by cargo-mutants ~ */ 1 {\n             file.read_exact(&mut header[8..16]).ok()?;\n             size = u64::from_be_bytes(header[8..16].try_into().ok()?);\n             header_len = 16;\n         } else if size == 0 {\n             size = len - offset;\n         }\n         if size < header_len {\n             return None;\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:86:17: replace == with != in find_top_level",
+    "package": "lyraska",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 19,
+        "line": 86
+      },
+      "start": {
+        "column": 17,
+        "line": 86
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace == with != in find_top_level\n@@ -82,17 +82,17 @@\n         let mut header = [0u8; 16];\n         file.read_exact(&mut header[..8]).ok()?;\n         let mut size = u64::from(u32::from_be_bytes(header[..4].try_into().ok()?));\n         let mut header_len = 8;\n         if size == 1 {\n             file.read_exact(&mut header[8..16]).ok()?;\n             size = u64::from_be_bytes(header[8..16].try_into().ok()?);\n             header_len = 16;\n-        } else if size == 0 {\n+        } else if size != /* ~ changed by cargo-mutants ~ */ 0 {\n             size = len - offset;\n         }\n         if size < header_len {\n             return None;\n         }\n         if header[4..8] == kind {\n             let body = size - header_len;\n             if body > MAX_BOX_READ {\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:90:24: replace == with != in find_top_level",
+    "package": "lyraska",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 26,
+        "line": 90
+      },
+      "start": {
+        "column": 24,
+        "line": 90
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace - with + in find_top_level\n@@ -83,17 +83,17 @@\n         file.read_exact(&mut header[..8]).ok()?;\n         let mut size = u64::from(u32::from_be_bytes(header[..4].try_into().ok()?));\n         let mut header_len = 8;\n         if size == 1 {\n             file.read_exact(&mut header[8..16]).ok()?;\n             size = u64::from_be_bytes(header[8..16].try_into().ok()?);\n             header_len = 16;\n         } else if size == 0 {\n-            size = len - offset;\n+            size = len + /* ~ changed by cargo-mutants ~ */ offset;\n         }\n         if size < header_len {\n             return None;\n         }\n         if header[4..8] == kind {\n             let body = size - header_len;\n             if body > MAX_BOX_READ {\n                 return None;\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:91:24: replace - with + in find_top_level",
+    "package": "lyraska",
+    "replacement": "+",
+    "span": {
+      "end": {
+        "column": 25,
+        "line": 91
+      },
+      "start": {
+        "column": 24,
+        "line": 91
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace - with / in find_top_level\n@@ -83,17 +83,17 @@\n         file.read_exact(&mut header[..8]).ok()?;\n         let mut size = u64::from(u32::from_be_bytes(header[..4].try_into().ok()?));\n         let mut header_len = 8;\n         if size == 1 {\n             file.read_exact(&mut header[8..16]).ok()?;\n             size = u64::from_be_bytes(header[8..16].try_into().ok()?);\n             header_len = 16;\n         } else if size == 0 {\n-            size = len - offset;\n+            size = len / /* ~ changed by cargo-mutants ~ */ offset;\n         }\n         if size < header_len {\n             return None;\n         }\n         if header[4..8] == kind {\n             let body = size - header_len;\n             if body > MAX_BOX_READ {\n                 return None;\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:91:24: replace - with / in find_top_level",
+    "package": "lyraska",
+    "replacement": "/",
+    "span": {
+      "end": {
+        "column": 25,
+        "line": 91
+      },
+      "start": {
+        "column": 24,
+        "line": 91
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace < with == in find_top_level\n@@ -85,17 +85,17 @@\n         let mut header_len = 8;\n         if size == 1 {\n             file.read_exact(&mut header[8..16]).ok()?;\n             size = u64::from_be_bytes(header[8..16].try_into().ok()?);\n             header_len = 16;\n         } else if size == 0 {\n             size = len - offset;\n         }\n-        if size < header_len {\n+        if size == /* ~ changed by cargo-mutants ~ */ header_len {\n             return None;\n         }\n         if header[4..8] == kind {\n             let body = size - header_len;\n             if body > MAX_BOX_READ {\n                 return None;\n             }\n             let mut data = vec![0u8; body as usize];\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:93:17: replace < with == in find_top_level",
+    "package": "lyraska",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 18,
+        "line": 93
+      },
+      "start": {
+        "column": 17,
+        "line": 93
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace < with > in find_top_level\n@@ -85,17 +85,17 @@\n         let mut header_len = 8;\n         if size == 1 {\n             file.read_exact(&mut header[8..16]).ok()?;\n             size = u64::from_be_bytes(header[8..16].try_into().ok()?);\n             header_len = 16;\n         } else if size == 0 {\n             size = len - offset;\n         }\n-        if size < header_len {\n+        if size > /* ~ changed by cargo-mutants ~ */ header_len {\n             return None;\n         }\n         if header[4..8] == kind {\n             let body = size - header_len;\n             if body > MAX_BOX_READ {\n                 return None;\n             }\n             let mut data = vec![0u8; body as usize];\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:93:17: replace < with > in find_top_level",
+    "package": "lyraska",
+    "replacement": ">",
+    "span": {
+      "end": {
+        "column": 18,
+        "line": 93
+      },
+      "start": {
+        "column": 17,
+        "line": 93
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace < with <= in find_top_level\n@@ -85,17 +85,17 @@\n         let mut header_len = 8;\n         if size == 1 {\n             file.read_exact(&mut header[8..16]).ok()?;\n             size = u64::from_be_bytes(header[8..16].try_into().ok()?);\n             header_len = 16;\n         } else if size == 0 {\n             size = len - offset;\n         }\n-        if size < header_len {\n+        if size <= /* ~ changed by cargo-mutants ~ */ header_len {\n             return None;\n         }\n         if header[4..8] == kind {\n             let body = size - header_len;\n             if body > MAX_BOX_READ {\n                 return None;\n             }\n             let mut data = vec![0u8; body as usize];\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:93:17: replace < with <= in find_top_level",
+    "package": "lyraska",
+    "replacement": "<=",
+    "span": {
+      "end": {
+        "column": 18,
+        "line": 93
+      },
+      "start": {
+        "column": 17,
+        "line": 93
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace == with != in find_top_level\n@@ -88,17 +88,17 @@\n             size = u64::from_be_bytes(header[8..16].try_into().ok()?);\n             header_len = 16;\n         } else if size == 0 {\n             size = len - offset;\n         }\n         if size < header_len {\n             return None;\n         }\n-        if header[4..8] == kind {\n+        if header[4..8] != /* ~ changed by cargo-mutants ~ */ kind {\n             let body = size - header_len;\n             if body > MAX_BOX_READ {\n                 return None;\n             }\n             let mut data = vec![0u8; body as usize];\n             file.read_exact(&mut data).ok()?;\n             return Some(data);\n         }\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:96:25: replace == with != in find_top_level",
+    "package": "lyraska",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 27,
+        "line": 96
+      },
+      "start": {
+        "column": 25,
+        "line": 96
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace - with + in find_top_level\n@@ -89,17 +89,17 @@\n             header_len = 16;\n         } else if size == 0 {\n             size = len - offset;\n         }\n         if size < header_len {\n             return None;\n         }\n         if header[4..8] == kind {\n-            let body = size - header_len;\n+            let body = size + /* ~ changed by cargo-mutants ~ */ header_len;\n             if body > MAX_BOX_READ {\n                 return None;\n             }\n             let mut data = vec![0u8; body as usize];\n             file.read_exact(&mut data).ok()?;\n             return Some(data);\n         }\n         offset = offset.checked_add(size)?;\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:97:29: replace - with + in find_top_level",
+    "package": "lyraska",
+    "replacement": "+",
+    "span": {
+      "end": {
+        "column": 30,
+        "line": 97
+      },
+      "start": {
+        "column": 29,
+        "line": 97
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace - with / in find_top_level\n@@ -89,17 +89,17 @@\n             header_len = 16;\n         } else if size == 0 {\n             size = len - offset;\n         }\n         if size < header_len {\n             return None;\n         }\n         if header[4..8] == kind {\n-            let body = size - header_len;\n+            let body = size / /* ~ changed by cargo-mutants ~ */ header_len;\n             if body > MAX_BOX_READ {\n                 return None;\n             }\n             let mut data = vec![0u8; body as usize];\n             file.read_exact(&mut data).ok()?;\n             return Some(data);\n         }\n         offset = offset.checked_add(size)?;\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:97:29: replace - with / in find_top_level",
+    "package": "lyraska",
+    "replacement": "/",
+    "span": {
+      "end": {
+        "column": 30,
+        "line": 97
+      },
+      "start": {
+        "column": 29,
+        "line": 97
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with == in find_top_level\n@@ -90,17 +90,17 @@\n         } else if size == 0 {\n             size = len - offset;\n         }\n         if size < header_len {\n             return None;\n         }\n         if header[4..8] == kind {\n             let body = size - header_len;\n-            if body > MAX_BOX_READ {\n+            if body == /* ~ changed by cargo-mutants ~ */ MAX_BOX_READ {\n                 return None;\n             }\n             let mut data = vec![0u8; body as usize];\n             file.read_exact(&mut data).ok()?;\n             return Some(data);\n         }\n         offset = offset.checked_add(size)?;\n     }\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:98:21: replace > with == in find_top_level",
+    "package": "lyraska",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 22,
+        "line": 98
+      },
+      "start": {
+        "column": 21,
+        "line": 98
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with < in find_top_level\n@@ -90,17 +90,17 @@\n         } else if size == 0 {\n             size = len - offset;\n         }\n         if size < header_len {\n             return None;\n         }\n         if header[4..8] == kind {\n             let body = size - header_len;\n-            if body > MAX_BOX_READ {\n+            if body < /* ~ changed by cargo-mutants ~ */ MAX_BOX_READ {\n                 return None;\n             }\n             let mut data = vec![0u8; body as usize];\n             file.read_exact(&mut data).ok()?;\n             return Some(data);\n         }\n         offset = offset.checked_add(size)?;\n     }\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:98:21: replace > with < in find_top_level",
+    "package": "lyraska",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 22,
+        "line": 98
+      },
+      "start": {
+        "column": 21,
+        "line": 98
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with >= in find_top_level\n@@ -90,17 +90,17 @@\n         } else if size == 0 {\n             size = len - offset;\n         }\n         if size < header_len {\n             return None;\n         }\n         if header[4..8] == kind {\n             let body = size - header_len;\n-            if body > MAX_BOX_READ {\n+            if body >= /* ~ changed by cargo-mutants ~ */ MAX_BOX_READ {\n                 return None;\n             }\n             let mut data = vec![0u8; body as usize];\n             file.read_exact(&mut data).ok()?;\n             return Some(data);\n         }\n         offset = offset.checked_add(size)?;\n     }\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "find_top_level",
+      "return_type": "-> Option<Vec<u8>>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 108
+        },
+        "start": {
+          "column": 1,
+          "line": 77
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:98:21: replace > with >= in find_top_level",
+    "package": "lyraska",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 22,
+        "line": 98
+      },
+      "start": {
+        "column": 21,
+        "line": 98
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace walk with ()\n@@ -104,44 +104,17 @@\n         }\n         offset = offset.checked_add(size)?;\n     }\n     None\n }\n \n /// Bellekteki kutuları dolaşır.\n fn walk(data: &[u8], info: &mut Mp4Info, depth: usize) {\n-    if depth > 8 {\n-        return;\n-    }\n-    let mut offset = 0usize;\n-    // Bir `trak` içindeki bilgiler yalnızca ses iziyse alınır.\n-    while let Some((kind, body, next)) = next_box(data, offset) {\n-        match &kind {\n-            b\"trak\" => {\n-                let mut track = Mp4Info::default();\n-                let mut is_audio = false;\n-                walk_track(body, &mut track, &mut is_audio, depth + 1);\n-                if is_audio && info.audio_timescale.is_none() {\n-                    info.audio_timescale = track.audio_timescale;\n-                    info.audio_edit = track.audio_edit;\n-                }\n-            }\n-            b\"mvhd\" => info.movie_timescale = header_timescale(body),\n-            b\"udta\" | b\"ilst\" => walk(body, info, depth + 1),\n-            b\"meta\" => walk(body.get(4..).unwrap_or_default(), info, depth + 1),\n-            b\"----\" => {\n-                if let Some(value) = itunes_freeform(body, \"iTunSMPB\") {\n-                    info.itunsmpb = parse_itunsmpb(&value);\n-                }\n-            }\n-            _ => {}\n-        }\n-        offset = next;\n-    }\n+    () /* ~ changed by cargo-mutants ~ */\n }\n \n fn walk_track(data: &[u8], track: &mut Mp4Info, is_audio: &mut bool, depth: usize) {\n     if depth > 8 {\n         return;\n     }\n     let mut offset = 0usize;\n     while let Some((kind, body, next)) = next_box(data, offset) {\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "walk",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 140
+        },
+        "start": {
+          "column": 1,
+          "line": 110
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "src/audio/gapless.rs:112:5: replace walk with ()",
+    "package": "lyraska",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 139
+      },
+      "start": {
+        "column": 5,
+        "line": 112
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with == in walk\n@@ -104,17 +104,17 @@\n         }\n         offset = offset.checked_add(size)?;\n     }\n     None\n }\n \n /// Bellekteki kutuları dolaşır.\n fn walk(data: &[u8], info: &mut Mp4Info, depth: usize) {\n-    if depth > 8 {\n+    if depth == /* ~ changed by cargo-mutants ~ */ 8 {\n         return;\n     }\n     let mut offset = 0usize;\n     // Bir `trak` içindeki bilgiler yalnızca ses iziyse alınır.\n     while let Some((kind, body, next)) = next_box(data, offset) {\n         match &kind {\n             b\"trak\" => {\n                 let mut track = Mp4Info::default();\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "walk",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 140
+        },
+        "start": {
+          "column": 1,
+          "line": 110
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:112:14: replace > with == in walk",
+    "package": "lyraska",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 15,
+        "line": 112
+      },
+      "start": {
+        "column": 14,
+        "line": 112
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with < in walk\n@@ -104,17 +104,17 @@\n         }\n         offset = offset.checked_add(size)?;\n     }\n     None\n }\n \n /// Bellekteki kutuları dolaşır.\n fn walk(data: &[u8], info: &mut Mp4Info, depth: usize) {\n-    if depth > 8 {\n+    if depth < /* ~ changed by cargo-mutants ~ */ 8 {\n         return;\n     }\n     let mut offset = 0usize;\n     // Bir `trak` içindeki bilgiler yalnızca ses iziyse alınır.\n     while let Some((kind, body, next)) = next_box(data, offset) {\n         match &kind {\n             b\"trak\" => {\n                 let mut track = Mp4Info::default();\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "walk",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 140
+        },
+        "start": {
+          "column": 1,
+          "line": 110
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:112:14: replace > with < in walk",
+    "package": "lyraska",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 15,
+        "line": 112
+      },
+      "start": {
+        "column": 14,
+        "line": 112
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace > with >= in walk\n@@ -104,17 +104,17 @@\n         }\n         offset = offset.checked_add(size)?;\n     }\n     None\n }\n \n /// Bellekteki kutuları dolaşır.\n fn walk(data: &[u8], info: &mut Mp4Info, depth: usize) {\n-    if depth > 8 {\n+    if depth >= /* ~ changed by cargo-mutants ~ */ 8 {\n         return;\n     }\n     let mut offset = 0usize;\n     // Bir `trak` içindeki bilgiler yalnızca ses iziyse alınır.\n     while let Some((kind, body, next)) = next_box(data, offset) {\n         match &kind {\n             b\"trak\" => {\n                 let mut track = Mp4Info::default();\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "walk",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 140
+        },
+        "start": {
+          "column": 1,
+          "line": 110
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:112:14: replace > with >= in walk",
+    "package": "lyraska",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 15,
+        "line": 112
+      },
+      "start": {
+        "column": 14,
+        "line": 112
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ delete match arm b\"trak\" in walk\n@@ -111,25 +111,17 @@\n fn walk(data: &[u8], info: &mut Mp4Info, depth: usize) {\n     if depth > 8 {\n         return;\n     }\n     let mut offset = 0usize;\n     // Bir `trak` içindeki bilgiler yalnızca ses iziyse alınır.\n     while let Some((kind, body, next)) = next_box(data, offset) {\n         match &kind {\n-            b\"trak\" => {\n-                let mut track = Mp4Info::default();\n-                let mut is_audio = false;\n-                walk_track(body, &mut track, &mut is_audio, depth + 1);\n-                if is_audio && info.audio_timescale.is_none() {\n-                    info.audio_timescale = track.audio_timescale;\n-                    info.audio_edit = track.audio_edit;\n-                }\n-            }\n+             /* ~ changed by cargo-mutants ~ */\n             b\"mvhd\" => info.movie_timescale = header_timescale(body),\n             b\"udta\" | b\"ilst\" => walk(body, info, depth + 1),\n             b\"meta\" => walk(body.get(4..).unwrap_or_default(), info, depth + 1),\n             b\"----\" => {\n                 if let Some(value) = itunes_freeform(body, \"iTunSMPB\") {\n                     info.itunsmpb = parse_itunsmpb(&value);\n                 }\n             }\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "walk",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 140
+        },
+        "start": {
+          "column": 1,
+          "line": 110
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "src/audio/gapless.rs:119:13: delete match arm b\"trak\" in walk",
+    "package": "lyraska",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 14,
+        "line": 127
+      },
+      "start": {
+        "column": 13,
+        "line": 119
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ delete match arm b\"mvhd\" in walk\n@@ -120,17 +120,17 @@\n                 let mut track = Mp4Info::default();\n                 let mut is_audio = false;\n                 walk_track(body, &mut track, &mut is_audio, depth + 1);\n                 if is_audio && info.audio_timescale.is_none() {\n                     info.audio_timescale = track.audio_timescale;\n                     info.audio_edit = track.audio_edit;\n                 }\n             }\n-            b\"mvhd\" => info.movie_timescale = header_timescale(body),\n+             /* ~ changed by cargo-mutants ~ */\n             b\"udta\" | b\"ilst\" => walk(body, info, depth + 1),\n             b\"meta\" => walk(body.get(4..).unwrap_or_default(), info, depth + 1),\n             b\"----\" => {\n                 if let Some(value) = itunes_freeform(body, \"iTunSMPB\") {\n                     info.itunsmpb = parse_itunsmpb(&value);\n                 }\n             }\n             _ => {}\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "walk",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 140
+        },
+        "start": {
+          "column": 1,
+          "line": 110
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "src/audio/gapless.rs:128:13: delete match arm b\"mvhd\" in walk",
+    "package": "lyraska",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 70,
+        "line": 128
+      },
+      "start": {
+        "column": 13,
+        "line": 128
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ delete match arm b\"udta\" | b\"ilst\" in walk\n@@ -121,17 +121,17 @@\n                 let mut is_audio = false;\n                 walk_track(body, &mut track, &mut is_audio, depth + 1);\n                 if is_audio && info.audio_timescale.is_none() {\n                     info.audio_timescale = track.audio_timescale;\n                     info.audio_edit = track.audio_edit;\n                 }\n             }\n             b\"mvhd\" => info.movie_timescale = header_timescale(body),\n-            b\"udta\" | b\"ilst\" => walk(body, info, depth + 1),\n+             /* ~ changed by cargo-mutants ~ */\n             b\"meta\" => walk(body.get(4..).unwrap_or_default(), info, depth + 1),\n             b\"----\" => {\n                 if let Some(value) = itunes_freeform(body, \"iTunSMPB\") {\n                     info.itunsmpb = parse_itunsmpb(&value);\n                 }\n             }\n             _ => {}\n         }\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "walk",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 140
+        },
+        "start": {
+          "column": 1,
+          "line": 110
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "src/audio/gapless.rs:129:13: delete match arm b\"udta\" | b\"ilst\" in walk",
+    "package": "lyraska",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 62,
+        "line": 129
+      },
+      "start": {
+        "column": 13,
+        "line": 129
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ delete match arm b\"meta\" in walk\n@@ -122,17 +122,17 @@\n                 walk_track(body, &mut track, &mut is_audio, depth + 1);\n                 if is_audio && info.audio_timescale.is_none() {\n                     info.audio_timescale = track.audio_timescale;\n                     info.audio_edit = track.audio_edit;\n                 }\n             }\n             b\"mvhd\" => info.movie_timescale = header_timescale(body),\n             b\"udta\" | b\"ilst\" => walk(body, info, depth + 1),\n-            b\"meta\" => walk(body.get(4..).unwrap_or_default(), info, depth + 1),\n+             /* ~ changed by cargo-mutants ~ */\n             b\"----\" => {\n                 if let Some(value) = itunes_freeform(body, \"iTunSMPB\") {\n                     info.itunsmpb = parse_itunsmpb(&value);\n                 }\n             }\n             _ => {}\n         }\n         offset = next;\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "walk",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 140
+        },
+        "start": {
+          "column": 1,
+          "line": 110
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "src/audio/gapless.rs:130:13: delete match arm b\"meta\" in walk",
+    "package": "lyraska",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 81,
+        "line": 130
+      },
+      "start": {
+        "column": 13,
+        "line": 130
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ delete match arm b\"----\" in walk\n@@ -123,21 +123,17 @@\n                 if is_audio && info.audio_timescale.is_none() {\n                     info.audio_timescale = track.audio_timescale;\n                     info.audio_edit = track.audio_edit;\n                 }\n             }\n             b\"mvhd\" => info.movie_timescale = header_timescale(body),\n             b\"udta\" | b\"ilst\" => walk(body, info, depth + 1),\n             b\"meta\" => walk(body.get(4..).unwrap_or_default(), info, depth + 1),\n-            b\"----\" => {\n-                if let Some(value) = itunes_freeform(body, \"iTunSMPB\") {\n-                    info.itunsmpb = parse_itunsmpb(&value);\n-                }\n-            }\n+             /* ~ changed by cargo-mutants ~ */\n             _ => {}\n         }\n         offset = next;\n     }\n }\n \n fn walk_track(data: &[u8], track: &mut Mp4Info, is_audio: &mut bool, depth: usize) {\n     if depth > 8 {\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "walk",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 140
+        },
+        "start": {
+          "column": 1,
+          "line": 110
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "src/audio/gapless.rs:131:13: delete match arm b\"----\" in walk",
+    "package": "lyraska",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 14,
+        "line": 135
+      },
+      "start": {
+        "column": 13,
+        "line": 131
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace + with - in walk\n@@ -114,17 +114,17 @@\n     }\n     let mut offset = 0usize;\n     // Bir `trak` içindeki bilgiler yalnızca ses iziyse alınır.\n     while let Some((kind, body, next)) = next_box(data, offset) {\n         match &kind {\n             b\"trak\" => {\n                 let mut track = Mp4Info::default();\n                 let mut is_audio = false;\n-                walk_track(body, &mut track, &mut is_audio, depth + 1);\n+                walk_track(body, &mut track, &mut is_audio, depth - /* ~ changed by cargo-mutants ~ */ 1);\n                 if is_audio && info.audio_timescale.is_none() {\n                     info.audio_timescale = track.audio_timescale;\n                     info.audio_edit = track.audio_edit;\n                 }\n             }\n             b\"mvhd\" => info.movie_timescale = header_timescale(body),\n             b\"udta\" | b\"ilst\" => walk(body, info, depth + 1),\n             b\"meta\" => walk(body.get(4..).unwrap_or_default(), info, depth + 1),\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "walk",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 140
+        },
+        "start": {
+          "column": 1,
+          "line": 110
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:122:67: replace + with - in walk",
+    "package": "lyraska",
+    "replacement": "-",
+    "span": {
+      "end": {
+        "column": 68,
+        "line": 122
+      },
+      "start": {
+        "column": 67,
+        "line": 122
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace + with * in walk\n@@ -114,17 +114,17 @@\n     }\n     let mut offset = 0usize;\n     // Bir `trak` içindeki bilgiler yalnızca ses iziyse alınır.\n     while let Some((kind, body, next)) = next_box(data, offset) {\n         match &kind {\n             b\"trak\" => {\n                 let mut track = Mp4Info::default();\n                 let mut is_audio = false;\n-                walk_track(body, &mut track, &mut is_audio, depth + 1);\n+                walk_track(body, &mut track, &mut is_audio, depth * /* ~ changed by cargo-mutants ~ */ 1);\n                 if is_audio && info.audio_timescale.is_none() {\n                     info.audio_timescale = track.audio_timescale;\n                     info.audio_edit = track.audio_edit;\n                 }\n             }\n             b\"mvhd\" => info.movie_timescale = header_timescale(body),\n             b\"udta\" | b\"ilst\" => walk(body, info, depth + 1),\n             b\"meta\" => walk(body.get(4..).unwrap_or_default(), info, depth + 1),\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "walk",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 140
+        },
+        "start": {
+          "column": 1,
+          "line": 110
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:122:67: replace + with * in walk",
+    "package": "lyraska",
+    "replacement": "*",
+    "span": {
+      "end": {
+        "column": 68,
+        "line": 122
+      },
+      "start": {
+        "column": 67,
+        "line": 122
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace && with || in walk\n@@ -115,17 +115,17 @@\n     let mut offset = 0usize;\n     // Bir `trak` içindeki bilgiler yalnızca ses iziyse alınır.\n     while let Some((kind, body, next)) = next_box(data, offset) {\n         match &kind {\n             b\"trak\" => {\n                 let mut track = Mp4Info::default();\n                 let mut is_audio = false;\n                 walk_track(body, &mut track, &mut is_audio, depth + 1);\n-                if is_audio && info.audio_timescale.is_none() {\n+                if is_audio || /* ~ changed by cargo-mutants ~ */ info.audio_timescale.is_none() {\n                     info.audio_timescale = track.audio_timescale;\n                     info.audio_edit = track.audio_edit;\n                 }\n             }\n             b\"mvhd\" => info.movie_timescale = header_timescale(body),\n             b\"udta\" | b\"ilst\" => walk(body, info, depth + 1),\n             b\"meta\" => walk(body.get(4..).unwrap_or_default(), info, depth + 1),\n             b\"----\" => {\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "walk",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 140
+        },
+        "start": {
+          "column": 1,
+          "line": 110
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:123:29: replace && with || in walk",
+    "package": "lyraska",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 31,
+        "line": 123
+      },
+      "start": {
+        "column": 29,
+        "line": 123
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace + with - in walk\n@@ -121,17 +121,17 @@\n                 let mut is_audio = false;\n                 walk_track(body, &mut track, &mut is_audio, depth + 1);\n                 if is_audio && info.audio_timescale.is_none() {\n                     info.audio_timescale = track.audio_timescale;\n                     info.audio_edit = track.audio_edit;\n                 }\n             }\n             b\"mvhd\" => info.movie_timescale = header_timescale(body),\n-            b\"udta\" | b\"ilst\" => walk(body, info, depth + 1),\n+            b\"udta\" | b\"ilst\" => walk(body, info, depth - /* ~ changed by cargo-mutants ~ */ 1),\n             b\"meta\" => walk(body.get(4..).unwrap_or_default(), info, depth + 1),\n             b\"----\" => {\n                 if let Some(value) = itunes_freeform(body, \"iTunSMPB\") {\n                     info.itunsmpb = parse_itunsmpb(&value);\n                 }\n             }\n             _ => {}\n         }\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "walk",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 140
+        },
+        "start": {
+          "column": 1,
+          "line": 110
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:129:57: replace + with - in walk",
+    "package": "lyraska",
+    "replacement": "-",
+    "span": {
+      "end": {
+        "column": 58,
+        "line": 129
+      },
+      "start": {
+        "column": 57,
+        "line": 129
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace + with * in walk\n@@ -121,17 +121,17 @@\n                 let mut is_audio = false;\n                 walk_track(body, &mut track, &mut is_audio, depth + 1);\n                 if is_audio && info.audio_timescale.is_none() {\n                     info.audio_timescale = track.audio_timescale;\n                     info.audio_edit = track.audio_edit;\n                 }\n             }\n             b\"mvhd\" => info.movie_timescale = header_timescale(body),\n-            b\"udta\" | b\"ilst\" => walk(body, info, depth + 1),\n+            b\"udta\" | b\"ilst\" => walk(body, info, depth * /* ~ changed by cargo-mutants ~ */ 1),\n             b\"meta\" => walk(body.get(4..).unwrap_or_default(), info, depth + 1),\n             b\"----\" => {\n                 if let Some(value) = itunes_freeform(body, \"iTunSMPB\") {\n                     info.itunsmpb = parse_itunsmpb(&value);\n                 }\n             }\n             _ => {}\n         }\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "walk",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 140
+        },
+        "start": {
+          "column": 1,
+          "line": 110
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:129:57: replace + with * in walk",
+    "package": "lyraska",
+    "replacement": "*",
+    "span": {
+      "end": {
+        "column": 58,
+        "line": 129
+      },
+      "start": {
+        "column": 57,
+        "line": 129
+      }
+    }
+  },
+  {
+    "diff": "--- src/audio/gapless.rs\n+++ replace + with - in walk\n@@ -122,17 +122,17 @@\n                 walk_track(body, &mut track, &mut is_audio, depth + 1);\n                 if is_audio && info.audio_timescale.is_none() {\n                     info.audio_timescale = track.audio_timescale;\n                     info.audio_edit = track.audio_edit;\n                 }\n             }\n             b\"mvhd\" => info.movie_timescale = header_timescale(body),\n             b\"udta\" | b\"ilst\" => walk(body, info, depth + 1),\n-            b\"meta\" => walk(body.get(4..).unwrap_or_default(), info, depth + 1),\n+            b\"meta\" => walk(body.get(4..).unwrap_or_default(), info, depth - /* ~ changed by cargo-mutants ~ */ 1),\n             b\"----\" => {\n                 if let Some(value) = itunes_freeform(body, \"iTunSMPB\") {\n                     info.itunsmpb = parse_itunsmpb(&value);\n                 }\n             }\n             _ => {}\n         }\n         offset = next;\n",
+    "file": "src/audio/gapless.rs",
+    "function": {
+      "function_name": "walk",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 140
+        },
+        "start": {
+          "column": 1,
+          "line": 110
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "src/audio/gapless.rs:130:76: replace + with - in walk",
+    "package": "lyraska",
+    "replacement": "-",
+    "span": {
+      "end": {
+        "column": 77,
+        "line": 130
+      },
+      "start": {
+        "column": 76,
+        "line": 130
+      }
+    }
+  }
+]

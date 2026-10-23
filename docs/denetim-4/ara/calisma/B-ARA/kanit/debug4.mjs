@@ -1,0 +1,17 @@
+import { APP_URL, fakeCore, startServer, launch, collectErrors } from "./harness.mjs";
+const server = await startServer(); const browser = await launch(); const errors = [];
+const page = await browser.newPage({ viewport: { width: 1280, height: 860 } }); collectErrors(page, errors);
+await page.addInitScript(fakeCore({ profile: "music", tracks: 300 }));
+await page.goto(APP_URL); await page.waitForSelector(".library__row[aria-rowindex]");
+await page.locator(".library__list").focus(); await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter");
+await page.waitForFunction(() => window.__fake.session.state === "playing"); await page.waitForTimeout(1500);
+const sample = async (label) => { const rows = []; for (let i = 0; i < 6; i++) { await page.waitForTimeout(500); rows.push(await page.evaluate(() => ({ lit: document.querySelector(".dot-matrix__lit")?.getAttribute("data-lit-count"), glow: document.querySelector(".vfd-frame")?.style.getPropertyValue("--stage-glow"), vf: window.__calls.filter((c) => c === "visual_frame").length }))); } console.log(label, JSON.stringify(rows)); };
+await page.keyboard.press("4"); await sample("sky→spektrum (çalarken):");
+await page.keyboard.press("3"); await page.waitForTimeout(800); await page.keyboard.press("4"); await sample("vu→spektrum:");
+await page.keyboard.press("Space"); await page.waitForTimeout(300); await page.keyboard.press("Space"); await sample("duraklat/çal:");
+await page.evaluate(() => localStorage.setItem("lyraska.scene", "spectrum")); await page.reload(); await page.waitForSelector(".library__row[aria-rowindex]");
+await page.locator(".library__list").focus(); await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter"); await page.waitForFunction(() => window.__fake.session.state === "playing");
+await sample("spektrumda açılış → çal:");
+await page.keyboard.press("1"); await page.waitForTimeout(800); await page.keyboard.press("4"); await sample("sky→spektrum (ikinci):");
+console.log(errors);
+await browser.close(); await new Promise((r) => server.httpServer.close(r));

@@ -1,0 +1,32 @@
+kuruldu: 50000 şarkı, 50000 analiz (levels 200 bayt), dosya 49.3 MB, 3.6 sn
+
+--- db.rs sorguları ---
+search('') [bütün liste, analizle]                       641.3 ms  (50000 satır)
+      plan: SCAN t USING INDEX tracks_sort
+      plan: SEARCH a USING INDEX sqlite_autoindex_analyses_1 (path=?) LEFT-JOIN
+search('') [analizsiz yedek]                             347.8 ms  (50000 satır)
+search('sebnem')                                         118.7 ms  (2500 satır)
+      plan: SCAN t USING INDEX tracks_sort
+      plan: SEARCH a USING INDEX sqlite_autoindex_analyses_1 (path=?) LEFT-JOIN
+search('gece yarisi sebnem')                             133.5 ms  (54 satır)
+search('zzz') [sonuçsuz]                                 118.5 ms  (0 satır)
+track_count                                                0.0 ms  (1 satır)
+analyzed_count (status() her 600 ms/3 sn)                117.3 ms  (1 satır)
+      plan: SCAN a
+      plan: SEARCH t USING INDEX sqlite_autoindex_tracks_1 (path=?)
+known_files(folder)                                      104.7 ms  (50000 satır)
+      plan: SEARCH tracks USING INDEX tracks_folder (folder_id=?)
+folders()                                                  0.0 ms  (1 satır)
+
+--- cache.rs sorguları ---
+cache.load(path)                                           0.0 ms  (1 satır)
+      plan: SEARCH analyses USING INDEX sqlite_autoindex_analyses_1 (path=?)
+pending_library_tracks(16) [arka plan, her 16 şarkıda]     132.5 ms  (0 satır)
+      plan: SCAN t
+      plan: SEARCH a USING INDEX sqlite_autoindex_analyses_1 (path=?) LEFT-JOIN
+      plan: USE TEMP B-TREE FOR ORDER BY
+
+--- yazma ---
+tek şarkı silme (tetikleyici: analyses WHERE path=)        9.2 ms
+klasörü çıkarma (CASCADE 50k + tetikleyici)             1723.8 ms
+indeksler: ['sqlite_autoindex_folders_1', 'sqlite_autoindex_tracks_1', 'tracks_folder', 'tracks_sort', 'sqlite_autoindex_analyses_1']

@@ -1,0 +1,79 @@
+=== EBU Tech 3341 bütünleşik yükseklik ve kapılar ===
+3341_case1_48000         beklenen  -23.0 ±0.1  kod  -22.993  fark +0.007  GEÇTİ
+3341_case2_48000         beklenen  -33.0 ±0.1  kod  -32.993  fark +0.007  GEÇTİ
+3341_case1_44100         beklenen  -23.0 ±0.1  kod  -22.991  fark +0.009  GEÇTİ
+3341_case2_44100         beklenen  -33.0 ±0.1  kod  -32.991  fark +0.009  GEÇTİ
+3341_case1_96000         beklenen  -23.0 ±0.1  kod  -23.011  fark -0.011  GEÇTİ
+3341_case2_96000         beklenen  -33.0 ±0.1  kod  -33.011  fark -0.011  GEÇTİ
+3341_case3_48000         beklenen  -23.0 ±0.1  kod  -23.014  fark -0.014  GEÇTİ
+3341_case4_48000         beklenen  -23.0 ±0.1  kod  -23.014  fark -0.014  GEÇTİ
+3341_case5_48000         beklenen  -23.0 ±0.1  kod  -22.979  fark +0.021  GEÇTİ
+3341_case6_48000         beklenen  -23.0 ±0.1  kod  -23.016  fark -0.016  GEÇTİ
+gate_abs_-69_48000       beklenen  -69.0 ±0.1  kod  -68.993  fark +0.007  GEÇTİ
+gate_abs_-71_48000       beklenen: ölçüm yok (sessiz)   kod:     NONE  GEÇTİ
+gate_rel_48000           beklenen  -23.0 ±0.1  kod  -24.111  fark -1.111  KALDI
+short_300ms_48000        beklenen  -23.0 ±0.5  kod  -22.994  fark +0.006  GEÇTİ
+
+=== K-ağırlık eğrisi: −23 dBFS stereo sinüs → beklenen LUFS = −23 + K(f) − K(1 kHz) ===
+(1 kHz'te K ≈ +0,691 dB olduğundan standart ofset −0,691 ile −23,0 verir)
+   48000 Hz       40 Hz: K(f) = -5.610 dB → beklenen  -29.301  kod  -29.259  fark +0.0424
+   48000 Hz      100 Hz: K(f) = -1.177 dB → beklenen  -24.868  kod  -24.825  fark +0.0429
+   48000 Hz      300 Hz: K(f) = -0.135 dB → beklenen  -23.826  kod  -23.780  fark +0.0455
+   48000 Hz     1000 Hz: K(f) = +0.438 dB → beklenen  -23.253  kod  -22.993  fark +0.2595
+   48000 Hz     2000 Hz: K(f) = +2.659 dB → beklenen  -21.032  kod  -20.620  fark +0.4124
+   48000 Hz     3000 Hz: K(f) = +3.641 dB → beklenen  -20.050  kod  -19.883  fark +0.1665
+   48000 Hz     6000 Hz: K(f) = +3.979 dB → beklenen  -19.712  kod  -19.661  fark +0.0508
+   48000 Hz    10000 Hz: K(f) = +3.998 dB → beklenen  -19.693  kod  -19.649  fark +0.0439
+   48000 Hz    16000 Hz: K(f) = +4.000 dB → beklenen  -19.691  kod  -19.648  fark +0.0433
+   48000 Hz    20000 Hz: K(f) = +4.000 dB → beklenen  -19.691  kod  -19.648  fark +0.0433
+   44100 Hz       40 Hz: K(f) = -5.610 dB → beklenen  -29.301  kod  -29.255  fark +0.0462
+   44100 Hz      100 Hz: K(f) = -1.177 dB → beklenen  -24.868  kod  -24.821  fark +0.0467
+   44100 Hz      300 Hz: K(f) = -0.135 dB → beklenen  -23.826  kod  -23.776  fark +0.0493
+   44100 Hz     1000 Hz: K(f) = +0.437 dB → beklenen  -23.254  kod  -22.991  fark +0.2631
+   44100 Hz     2000 Hz: K(f) = +2.660 dB → beklenen  -21.031  kod  -20.615  fark +0.4161
+   44100 Hz     3000 Hz: K(f) = +3.643 dB → beklenen  -20.048  kod  -19.878  fark +0.1696
+   44100 Hz     6000 Hz: K(f) = +3.979 dB → beklenen  -19.712  kod  -19.657  fark +0.0544
+   44100 Hz    10000 Hz: K(f) = +3.998 dB → beklenen  -19.693  kod  -19.645  fark +0.0476
+   44100 Hz    16000 Hz: K(f) = +4.000 dB → beklenen  -19.691  kod  -19.644  fark +0.0471
+   44100 Hz    20000 Hz: K(f) = +4.000 dB → beklenen  -19.691  kod  -19.644  fark +0.0471
+   96000 Hz       40 Hz: K(f) = -5.610 dB → beklenen  -29.301  kod  -29.280  fark +0.0208
+   96000 Hz      100 Hz: K(f) = -1.177 dB → beklenen  -24.868  kod  -24.847  fark +0.0213
+   96000 Hz      300 Hz: K(f) = -0.135 dB → beklenen  -23.826  kod  -23.802  fark +0.0239
+   96000 Hz     1000 Hz: K(f) = +0.441 dB → beklenen  -23.250  kod  -23.011  fark +0.2391
+   96000 Hz     2000 Hz: K(f) = +2.654 dB → beklenen  -21.037  kod  -20.645  fark +0.3916
+   96000 Hz     3000 Hz: K(f) = +3.632 dB → beklenen  -20.059  kod  -19.911  fark +0.1477
+   96000 Hz     6000 Hz: K(f) = +3.975 dB → beklenen  -19.716  kod  -19.685  fark +0.0304
+   96000 Hz    10000 Hz: K(f) = +3.997 dB → beklenen  -19.694  kod  -19.671  fark +0.0227
+   96000 Hz    16000 Hz: K(f) = +3.999 dB → beklenen  -19.692  kod  -19.670  fark +0.0218
+   96000 Hz    20000 Hz: K(f) = +4.000 dB → beklenen  -19.691  kod  -19.670  fark +0.0217
+
+=== Gerçek tepe: kodun 4×/12 katsayılı ölçeri ↔ 32× referans (python) ===
+  tp_997_-6_48000        örnek tepe  -6.00  referans 32×  -6.00  kod  -6.00  kaçırma -0.001 dB (belge: -6.0 ±0.2)
+  tp_fs4_45deg_48000     örnek tepe   0.00  referans 32×   3.01  kod   2.93  kaçırma -0.078 dB (belge: 3.01 ±0.4)
+  tp_045fs_48000         örnek tepe  -0.00  referans 32×  -0.00  kod  -0.00  kaçırma -0.001 dB (belge: 0.0 ±0.3)
+  tp_clip02fs_48000      örnek tepe   0.00  referans 32×   2.20  kod   2.13  kaçırma -0.074 dB 
+  tp_clipnoise_48000     örnek tepe   0.00  referans 32×   6.70  kod   4.17  kaçırma -2.532 dB 
+  tp_997_-6_44100        örnek tepe  -6.00  referans 32×  -6.00  kod  -6.00  kaçırma -0.000 dB (belge: -6.0 ±0.2)
+  tp_fs4_45deg_44100     örnek tepe   0.00  referans 32×   3.01  kod   2.93  kaçırma -0.078 dB (belge: 3.01 ±0.4)
+  tp_045fs_44100         örnek tepe  -0.00  referans 32×  -0.00  kod  -0.00  kaçırma -0.001 dB (belge: 0.0 ±0.3)
+  tp_clip02fs_44100      örnek tepe   0.00  referans 32×   2.20  kod   2.13  kaçırma -0.074 dB 
+  tp_clipnoise_44100     örnek tepe   0.00  referans 32×   6.68  kod   4.17  kaçırma -2.512 dB 
+  tp_997_-6_96000        örnek tepe  -6.00  referans 32×  -6.00  kod  -6.00  kaçırma -0.000 dB (belge: -6.0 ±0.2)
+  tp_fs4_45deg_96000     örnek tepe   0.00  referans 32×   3.01  kod   2.40  kaçırma -0.606 dB (belge: 3.01 ±0.4)
+  tp_045fs_96000         örnek tepe  -0.00  referans 32×  -0.00  kod  -0.00  kaçırma -0.001 dB (belge: 0.0 ±0.3)
+  tp_clip02fs_96000      örnek tepe   0.00  referans 32×   2.20  kod   1.66  kaçırma -0.539 dB 
+  tp_clipnoise_96000     örnek tepe   0.00  referans 32×   6.91  kod   3.58  kaçırma -3.336 dB 
+
+=== Eşitleme kazancı (Loudness::gain_db, hedef −14 LUFS, tavan −1 dBTP) ===
+    -8.0 LUFS,   0.0 dBTP → kod -6.00 dB, beklenen -6.00 dB  OK
+    -8.0 LUFS,  -3.0 dBTP → kod -6.00 dB, beklenen -6.00 dB  OK
+   -14.0 LUFS,  -1.0 dBTP → kod +0.00 dB, beklenen +0.00 dB  OK
+   -14.0 LUFS,   0.5 dBTP → kod +0.00 dB, beklenen +0.00 dB  OK
+   -20.0 LUFS, -12.0 dBTP → kod +6.00 dB, beklenen +6.00 dB  OK
+   -20.0 LUFS,  -3.0 dBTP → kod +2.00 dB, beklenen +2.00 dB  OK
+   -20.0 LUFS,  -1.0 dBTP → kod +0.00 dB, beklenen +0.00 dB  OK
+   -20.0 LUFS,   0.0 dBTP → kod +0.00 dB, beklenen +0.00 dB  OK
+   -16.0 LUFS,   0.5 dBTP → kod +0.00 dB, beklenen +0.00 dB  OK
+   -30.0 LUFS, -20.0 dBTP → kod +16.00 dB, beklenen +16.00 dB  OK
+   -30.0 LUFS, -14.0 dBTP → kod +13.00 dB, beklenen +13.00 dB  OK
+    -6.0 LUFS,   2.0 dBTP → kod -8.00 dB, beklenen -8.00 dB  OK

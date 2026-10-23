@@ -1,0 +1,129 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 11m 30s
+     Running unittests src/lib.rs (/home/user/denetim-bagimsiz/target/debug/deps/lyraska_lib-dcbfbc8dca01c689)
+
+running 15 tests
+AYNI DAMGA: diskteki başlık 'Gece B', tarama unchanged=1 updated=0, kütüphanedeki başlık 'Gece A'
+test bver_denetim::bver_ayni_boyut_ayni_zaman_farkli_etiket_fark_edilmez ... ok
+EŞZAMANLILIK: tarama yazıcısı                   154 işlem, en uzun 478 ms
+EŞZAMANLILIK: analiz yazıcısı A                1380 işlem, en uzun 532 ms
+EŞZAMANLILIK: analiz yazıcısı B                1274 işlem, en uzun 595 ms
+EŞZAMANLILIK: arayüz okuyucu (kilit dahil)       56 işlem, en uzun 489 ms
+EŞZAMANLILIK: arka plan bekleyen sorgusu        179 işlem, en uzun 341 ms
+EŞZAMANLILIK: hata sayısı 0 []
+
+thread 'bver_denetim::bver_analiz_kaydi_boyutu' (27903) panicked at src/bver_denetim.rs:457:10:
+called `Result::unwrap()` on an `Err` value: InvalidColumnType(4, "length(beats)", Null)
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: core::result::unwrap_failed
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/result.rs:1867:5
+   3: <core::result::Result<(i64, i64, i64, i64, i64, i64), rusqlite::error::Error>>::unwrap
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/result.rs:1233:23
+   4: lyraska_lib::bver_denetim::bver_analiz_kaydi_boyutu
+             at ./src/bver_denetim.rs:457:10
+   5: lyraska_lib::bver_denetim::bver_analiz_kaydi_boyutu::{closure#0}
+             at ./src/bver_denetim.rs:441:30
+   6: <lyraska_lib::bver_denetim::bver_analiz_kaydi_boyutu::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   7: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test bver_denetim::bver_analiz_kaydi_boyutu ... FAILED
+GÖÇ v1    → şema 7: klasör 1 şarkı 5 analiz 3 (içerik sağlam 3, kareleri geçerli 3) | listede BPM gösterilen 0, analiz bekleyen 5, etiketi yeniden okunacak ["C:\\Müzik\\etiketsiz\\IÞIK.mp3"] | kurtarma: None
+
+thread 'bver_denetim::bver_goc_her_eski_surum_verisini_korur' (28078) panicked at src/bver_denetim.rs:91:9:
+v1: ["Gülümse", "C:\\Müzik\\etiketsiz\\adsiz.flac", "IÞIK", "Bir Kedi Gördüm", "Mayın Tarlası"]
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/panicking.rs:80:14
+   2: lyraska_lib::bver_denetim::bver_goc_her_eski_surum_verisini_korur
+   3: lyraska_lib::bver_denetim::bver_goc_her_eski_surum_verisini_korur::{closure#0}
+             at ./src/bver_denetim.rs:46:44
+   4: <lyraska_lib::bver_denetim::bver_goc_her_eski_surum_verisini_korur::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+   5: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/2d8144b7880597b6e6d3dfd63a9a9efae3f533d3/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+test bver_denetim::bver_goc_her_eski_surum_verisini_korur ... FAILED
+ŞEMA SAYFASI BOZUK: open → Ok(Some("Kütüphane dosyası bozulmuştu; \"/tmp/lyraska-test-27902/5/library.sqlite3.bozuk-20261023-083359\" adıyla kenara alındı ve kütüphane boş olarak yeniden kuruldu. Klasörlerinizi yeniden ekleyin; analizler yeniden yapılır.")); kenara alındı mı: true
+test bver_denetim::bver_goc_icinde_yakalanan_bozulma_kenara_alinmaz ... ok
+İÇTEN BOZUK: open OK, kurtarma notu None; track_count → Kütüphane veritabanı hatası: database disk image is malformed; search('') → Kütüphane veritabanı hatası: database disk image is malformed; search('şarkı') → Kütüphane veritabanı hatası: database disk image is malformed; klasördeki dosyalar ["library.sqlite3-wal", "library.sqlite3", "library.sqlite3-shm"]
+İÇTEN BOZUK: ikinci açılış Ok(Err("Kütüphane veritabanı hatası: database disk image is malformed"))
+test bver_denetim::bver_icten_bozuk_dosya_kenara_alinmaz ... ok
+İÇERİK DEĞİŞTİ: 1. tarama found=2 updated=2 removed=0 suspicious=2 → listede 4 şarkı (2'si hayalet); 2. tarama removed=2 → 2
+test bver_denetim::bver_klasor_icerigi_tamamen_degisince_hayaletler_ve_yanlis_mesaj ... ok
+KÖK YOK: sonuç Err("Bulunamadı (taşınmış ya da silinmiş olabilir): /tmp/lyraska-test-27902/9/bver"); şarkılar kaldı 2; geri gelince unchanged=2 updated=0
+test bver_denetim::bver_kok_gecici_yokken_sonra_geri_gelince ... ok
+NFD: kütüphanedeki başlıklar ["Işık", "S\u{327}ebnem I\u{307}stanbul"]
+  arama şarkı        (NFD dosya adı 'Şarkı Adı.flac'): beklenen 1, bulunan 0
+  arama sarki        (NFD dosya adı, sade yazım): beklenen 1, bulunan 0
+  arama şebnem       (NFD etiket 'Şebnem'): beklenen 1, bulunan 0
+  arama istanbul     (NFD etiket 'İstanbul'): beklenen 1, bulunan 0
+  arama dağ          (NFD sanatçı 'Dağ'): beklenen 1, bulunan 1
+  arama ruya         (NFD sanatçı 'Rüya'): beklenen 1, bulunan 0
+  arama Şebnem      (sorgu da NFD): beklenen 1, bulunan 1
+test bver_denetim::bver_nfd_adli_dosya_ve_etiket_aranamaz ... ok
+OKUNAMAYAN ALT KLASÖR (root olarak mı: true): unreadable=0 removed=0 → kalan 2
+test bver_denetim::bver_okunamayan_alt_klasor_ve_kok ... ok
+ÖLÇEK 50k: açılış 8 ms | search('') 0 satır 0 ms + JSON 0.0 MB 0 ms | search('gece yarisi') 0 satır 0 ms | analyzed_count=0 0 ms
+test bver_denetim::bver_olcek_50k_liste_ve_json ... ok
+SEMBOLİK BAĞ: kök bağ üzerinden found=2 unreadable=0 updated=2 → ["…/kok-bag/alt/b.flac", "…/kok-bag/a.mp3"] (bağlı alt klasör ve bağlı dosya sessizce atlandı)
+test bver_denetim::bver_sembolik_baglar ... ok
+TEK ŞARKI SİLİNDİ: üç taramada removed=[0, 0, 0] suspicious=[1, 1, 1]; kütüphanede kalan 1
+test bver_denetim::bver_tek_sarkili_kaynakta_silinen_sarki_hayalet_kalir ... ok
+TÜRKÇE ARAMA TABLOSU (satırlar: 8 şarkı)
+| sorgu | search_key | beklenen | bulunan | sonuç |
+| `ışık` | `isik` | 1 | 1 | ✓ Işık |
+| `isik` | `isik` | 1 | 1 | ✓ Işık (sade) |
+| `IŞIK` | `isik` | 1 | 1 | ✓ büyük harf |
+| `ISIK` | `isik` | 1 | 1 | ✓ ASCII büyük |
+| `işik` | `isik` | 1 | 1 | ✓ karışık ı/i |
+| `İstanbul` | `istanbul` | 1 | 1 | ✓ noktalı İ |
+| `istanbul` | `istanbul` | 1 | 1 | ✓  |
+| `ISTANBUL` | `istanbul` | 1 | 1 | ✓  |
+| `ilik` | `ilik` | 2 | 1 | ✗ ILIK ve ılık aynı (I→i, ı→i) |
+| `ışıl` | `isil` | 1 | 1 | ✓ IŞIL |
+| `şebnem` | `sebnem` | 1 | 1 | ✓ NFC |
+| `sebnem` | `sebnem` | 1 | 1 | ✓ sade |
+| `ŞEBNEM` | `sebnem` | 1 | 1 | ✓  |
+| `çağrı` | `cagri` | 1 | 1 | ✓  |
+| `cagri` | `cagri` | 1 | 1 | ✓  |
+| `CAGRI` | `cagri` | 1 | 1 | ✓  |
+| `ömür` | `omur` | 1 | 1 | ✓  |
+| `omur` | `omur` | 1 | 1 | ✓  |
+| `gülümse` | `gulumse` | 1 | 1 | ✓  |
+| `gulumse` | `gulumse` | 1 | 1 | ✓  |
+| `ğ harfi` | `g harfi` | 1 | 1 | ✓ boşluklu, iki kelime |
+| `harfi ğ` | `harfi g` | 1 | 1 | ✓ kelime sırası önemsiz |
+| `zülfü ğ` | `zulfu g` | 1 | 1 | ✓ farklı alanlardan kelimeler |
+| `100%` | `100%` | 1 | 1 | ✓ LIKE % kaçırılır |
+| `%` | `%` | 1 | 1 | ✓ yalnız %: yalnızca % içeren |
+| `_` | `_` | 1 | 1 | ✓ yalnız _: yalnızca a_b |
+| `a_b` | `a_b` | 1 | 1 | ✓  |
+| `a b` | `a b` | 2 | 6 | ✗ boşluk: 'a' ve 'b' ayrı kelime (100% Aşk a_b; back\slash Ğ harfi?) |
+| `\` | `\` | 1 | 1 | ✓ ters bölü |
+| `back\slash` | `back\slash` | 1 | 1 | ✓  |
+| `şebnem` | `şebnem` | 0 | 1 | ✗ NFD sorgu: s + birleşik sedil (NFC kayıt bulunmaz, NFD kayıt bulunur mu?) |
+| `şebnem (nfd)` | `sebnem (nfd)` | 0 | 0 | ✓ NFD kayıt NFC sorguyla |
+| `dağ` | `dag` | 0 | 1 | ✗ NFD albüm 'Dağ' |
+| `strasse` | `strasse` | 0 | 0 | ✓ ß sadeleşmez |
+| `straße` | `straße` | 1 | 1 | ✓  |
+| `thordur` | `thordur` | 0 | 0 | ✓ Þ sadeleşmez |
+| `sezen gülümse` | `sezen gulumse` | 1 | 1 | ✓ sanatçı + albüm |
+| `  işık   ` | `  isik   ` | 1 | 1 | ✓ baş/son boşluk |
+| `` | `` | 8 | 8 | ✓ boş: hepsi |
+| `'; DROP TABLE tracks; --` | `'; drop table tracks; --` | 0 | 0 | ✓ SQL enjeksiyonu yok |
+beklentiden sapan sorgular: ["ilik", "a b", "s\u{327}ebnem", "dağ"]
+test bver_denetim::bver_turkce_arama_tablosu ... ok
+YENİDEN ADLANDIRMA: removed=1 updated=1 | analiz kaydı 1 (2 idi) | yeniden analiz bekleyen: ["01 - Gece A.mp3"]
+test bver_denetim::bver_yeniden_adlandirilan_dosyanin_analizi_silinir_ve_bastan_hesaplanir ... ok
+test bver_denetim::bver_eszamanlilik_stresi has been running for over 60 seconds
+error: test failed, to rerun pass `--lib`
+
+Caused by:
+  process didn't exit successfully: `/home/user/denetim-bagimsiz/target/debug/deps/lyraska_lib-dcbfbc8dca01c689 bver_ --nocapture --test-threads=2` (signal: 15, SIGTERM: termination signal)

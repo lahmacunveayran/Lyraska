@@ -1,0 +1,15 @@
+import { APP_URL, fakeCore, startServer, launch, collectErrors } from "./harness.mjs";
+const server = await startServer(); const browser = await launch(); const errors = [];
+const page = await browser.newPage({ viewport: { width: 1280, height: 860 } }); collectErrors(page, errors);
+await page.addInitScript(fakeCore({ profile: "music", tracks: 300 }));
+await page.goto(APP_URL); await page.waitForSelector(".library__row");
+await page.locator(".library__list").focus(); await page.keyboard.press("ArrowDown"); await page.keyboard.press("Enter");
+await page.waitForTimeout(1000);
+const probe = async (label) => console.log(label, await page.evaluate(() => { const b = document.querySelector(".pill[title^='VU']").getBoundingClientRect(); const e = document.elementFromPoint(b.x + b.width/2, b.y + b.height/2); return { app: document.querySelector(".app").className, at: e.tagName + "." + e.className, topbarOpacity: getComputedStyle(document.querySelector(".topbar")).opacity, pe: getComputedStyle(document.querySelector(".topbar")).pointerEvents }; }));
+await probe("Enter sonrası 1 sn:");
+await page.keyboard.press("2"); await page.waitForTimeout(700); await probe("tuş 2 +0,7 sn:");
+await page.waitForTimeout(4000); await probe("+4 sn:");
+await page.keyboard.press("3"); await page.waitForTimeout(300); await probe("tuş 3 +0,3 sn:");
+await page.mouse.move(600, 400); await page.waitForTimeout(300); await probe("fare +0,3 sn:");
+console.log(errors);
+await browser.close(); await new Promise((r) => server.httpServer.close(r));

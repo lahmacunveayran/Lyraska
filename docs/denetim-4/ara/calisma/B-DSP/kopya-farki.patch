@@ -1,0 +1,916 @@
+diff -ruN -x node_modules -x target -x dist -x gen -x .git -x coverage -x '*.mka' /home/user/denetim-bagimsiz/kaynak/src-tauri/tests/dsp_olcum.rs B-DSP/kopya/src-tauri/tests/dsp_olcum.rs
+--- /home/user/denetim-bagimsiz/kaynak/src-tauri/tests/dsp_olcum.rs	1970-01-01 00:00:00.000000000 +0000
++++ B-DSP/kopya/src-tauri/tests/dsp_olcum.rs	2026-10-22 13:14:01.886377123 +0000
+@@ -0,0 +1,912 @@
++//! B-DSP bağımsız denetim ölçüm koşumu.
++//!
++//! Gerçek Rust kodunu (ekolayzer, sınırlayıcı, yeniden örnekleyici, ses yüksekliği ölçeri,
++//! spektrum analizi, ses yolu) sentetik sinyallerle çağırır ve ham çıktıları (little-endian
++//! f64) ile CSV sonuçlarını `DSP_OUT` klasörüne yazar. Ölçümün kendisi Python'da, kodun dışında
++//! yapılır (`olc_*.py`). Burada hiçbir `assert` yoktur: koşum yalnızca veri üretir.
++#![allow(clippy::unwrap_used, clippy::expect_used, clippy::cast_precision_loss)]
++
++use std::f64::consts::PI;
++use std::fs;
++use std::io::Write;
++use std::path::PathBuf;
++use std::sync::Arc;
++
++use lyraska_lib::analysis::levels::{self, LevelAccumulator};
++use lyraska_lib::analysis::spectrogram::{
++    analyze_source, band_centers, band_edges, fft_size, ChunkSource, Spectrogram, BANDS,
++};
++use lyraska_lib::audio::decode::TrackInfo;
++use lyraska_lib::audio::eq::{Design, EqControl, EqProcessor, EqSettings, BANDS as EQ_BANDS};
++use lyraska_lib::audio::limiter::Limiter;
++use lyraska_lib::audio::loudness::{Loudness, LoudnessMeter, TARGET_LUFS};
++use lyraska_lib::audio::normalize::{LoudnessControl, TrackLevels};
++use lyraska_lib::audio::render::{RenderControls, Renderer};
++use lyraska_lib::audio::resample::Converter;
++use lyraska_lib::audio::{AudioError, Sample};
++use rtrb::RingBuffer;
++
++fn out_dir() -> PathBuf {
++    let dir = std::env::var("DSP_OUT")
++        .unwrap_or_else(|_| "/home/user/denetim-bagimsiz/calisma/B-DSP/olcum".to_owned());
++    let dir = PathBuf::from(dir);
++    fs::create_dir_all(&dir).unwrap();
++    dir
++}
++
++fn in_dir() -> PathBuf {
++    PathBuf::from(
++        std::env::var("DSP_IN")
++            .unwrap_or_else(|_| "/home/user/denetim-bagimsiz/calisma/B-DSP/girdi".to_owned()),
++    )
++}
++
++fn write_f64(name: &str, data: &[f64]) {
++    let mut bytes = Vec::with_capacity(data.len() * 8);
++    for &x in data {
++        bytes.extend_from_slice(&x.to_le_bytes());
++    }
++    fs::write(out_dir().join(name), bytes).unwrap();
++}
++
++fn read_f64(path: &PathBuf) -> Vec<f64> {
++    let bytes = fs::read(path).unwrap();
++    bytes
++        .chunks_exact(8)
++        .map(|c| f64::from_le_bytes(c.try_into().unwrap()))
++        .collect()
++}
++
++fn csv(name: &str) -> fs::File {
++    fs::File::create(out_dir().join(name)).unwrap()
++}
++
++fn sine(freq: f64, rate: f64, n: usize, amp: f64, phase: f64) -> Vec<f64> {
++    (0..n)
++        .map(|i| amp * (2.0 * PI * freq * i as f64 / rate + phase).sin())
++        .collect()
++}
++
++// ------------------------------------------------------------------------------------------
++// 1. Ekolayzer: dürtü yanıtları (her ayar × her hız), tasarım eğrisi, zipper, gürültü tabanı
++// ------------------------------------------------------------------------------------------
++
++fn eq_settings_list() -> Vec<(String, [f64; EQ_BANDS])> {
++    let mut list: Vec<(String, [f64; EQ_BANDS])> = vec![
++        ("all+12".into(), [12.0; EQ_BANDS]),
++        ("all-12".into(), [-12.0; EQ_BANDS]),
++        ("all+6".into(), [6.0; EQ_BANDS]),
++        (
++            "zigzag".into(),
++            [12.0, -12.0, 12.0, -12.0, 12.0, -12.0, 12.0, -12.0, 12.0, -12.0],
++        ),
++        (
++            "zigzag2".into(),
++            [-12.0, 12.0, -12.0, 12.0, -12.0, 12.0, -12.0, 12.0, -12.0, 12.0],
++        ),
++        (
++            "step".into(),
++            [12.0, 12.0, 12.0, 12.0, 12.0, -12.0, -12.0, -12.0, -12.0, -12.0],
++        ),
++        // Arayüzdeki hazır ayarlar (src/lib/eq.ts).
++        ("preset_bas".into(), [0.0, 4.0, 3.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
++        ("preset_tiz".into(), [0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 2.0, 4.0, 5.5, 6.0]),
++        ("preset_vokal".into(), [-2.0, -2.0, -1.0, 0.5, 2.0, 3.5, 3.5, 2.0, 0.0, -1.0]),
++        ("preset_akustik".into(), [3.0, 3.0, 2.0, 1.0, 1.0, 1.0, 2.0, 2.5, 3.0, 2.0]),
++        ("preset_elektronik".into(), [3.0, 3.0, 2.0, 0.0, -1.5, 0.0, 1.0, 2.0, 4.0, 4.5]),
++        ("preset_rock".into(), [4.0, 4.5, 2.5, 0.0, -1.0, -1.0, 1.0, 2.5, 3.5, 4.0]),
++        ("preset_gece".into(), [4.5, 4.0, 2.0, 0.0, -0.5, 0.0, 0.0, 1.0, 2.5, 3.0]),
++        ("preset_konusma".into(), [-6.0, -4.0, -1.5, 1.0, 3.0, 4.0, 3.0, 1.5, 0.0, -2.0]),
++        ("preset_kulup".into(), [0.0, 2.0, 1.0, 0.0, -1.0, 0.0, 0.0, 1.0, 2.0, 2.0]),
++        ("preset_kucuk".into(), [0.0, 0.0, 3.0, 3.0, 1.5, 0.0, 0.0, 1.0, 1.5, 0.0]),
++        ("tiny+0.5".into(), [0.5; EQ_BANDS]),
++        ("tiny-0.5".into(), [-0.5; EQ_BANDS]),
++    ];
++    for b in 0..EQ_BANDS {
++        let mut g = [0.0; EQ_BANDS];
++        g[b] = 12.0;
++        list.push((format!("single{b}+12"), g));
++        g[b] = -12.0;
++        list.push((format!("single{b}-12"), g));
++        g[b] = 3.0;
++        list.push((format!("single{b}+3"), g));
++    }
++    // Deterministik rastgele ayarlar (kendi LCG'miz).
++    let mut s: u64 = 0x9E37_79B9_7F4A_7C15;
++    for i in 0..40 {
++        let mut g = [0.0; EQ_BANDS];
++        for v in &mut g {
++            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++            let u = (s >> 11) as f64 / (1u64 << 53) as f64;
++            *v = ((u * 2.0 - 1.0) * 12.0 * 2.0).round() / 2.0; // 0,5 dB adım (arayüz gibi)
++        }
++        list.push((format!("rand{i}"), g));
++    }
++    list
++}
++
++#[test]
++fn eq_durtu_yaniti() {
++    let rates = [22_050u32, 44_100, 48_000, 96_000, 192_000];
++    let mut manifest = csv("eq_manifest.csv");
++    writeln!(manifest, "file,rate,name,gains,preamp_db,ir_len").unwrap();
++    let mut curves = csv("eq_design_curve.csv");
++    writeln!(curves, "rate,name,hz,design_db").unwrap();
++    for &rate in &rates {
++        let ir_len = if rate >= 96_000 { 1 << 18 } else { 1 << 17 };
++        for (name, gains) in eq_settings_list() {
++            let control = Arc::new(EqControl::new(EqSettings {
++                enabled: true,
++                gains_db: gains,
++                ..EqSettings::default()
++            }));
++            let mut p = EqProcessor::new(control, 1, rate);
++            p.begin_block();
++            let mut ir = Vec::with_capacity(ir_len);
++            for i in 0..ir_len {
++                p.advance_frame();
++                ir.push(p.process(0, if i == 0 { 1.0 } else { 0.0 }));
++            }
++            let file = format!("eq_ir_{rate}_{name}.f64");
++            write_f64(&file, &ir);
++            let design = Design::new(&gains, f64::from(rate));
++            let gains_txt: Vec<String> = gains.iter().map(|g| format!("{g}")).collect();
++            writeln!(
++                manifest,
++                "{file},{rate},{name},{},{},{ir_len}",
++                gains_txt.join(";"),
++                design.preamp_db
++            )
++            .unwrap();
++            // Tasarımın kendi iddia ettiği eğri (arayüzde çizilen): 400 log nokta.
++            for k in 0..400 {
++                let hz = 10.0 * (f64::from(rate) / 2.0 / 10.0).powf(k as f64 / 399.0);
++                writeln!(curves, "{rate},{name},{hz},{}", design.response_db(hz, f64::from(rate)))
++                    .unwrap();
++            }
++        }
++    }
++}
++
++/// Ayar değişirken tık/zipper: 100 Hz sinüs çalarken uzak bantlar (2 kHz −12, 8 kHz +12) ve
++/// aç/kapa anahtarı değişir. Ayrıca 1 kHz bandı 0 → +12 → 0.
++#[test]
++fn eq_zipper() {
++    let rate = 48_000u32;
++    let n = 4 * rate as usize;
++    let control = Arc::new(EqControl::new(EqSettings::default()));
++    let mut p = EqProcessor::new(Arc::clone(&control), 1, rate);
++    let input = sine(100.0, f64::from(rate), n, 0.5, 0.0);
++    let mut out = Vec::with_capacity(n);
++    let far = {
++        let mut g = [0.0; EQ_BANDS];
++        g[6] = -12.0;
++        g[8] = 12.0;
++        g
++    };
++    let block = 480;
++    for b in 0..n / block {
++        let t = b * block;
++        if t == rate as usize / 2 {
++            control.set(EqSettings {
++                enabled: true,
++                gains_db: far,
++                ..EqSettings::default()
++            });
++        }
++        if t == rate as usize * 3 / 2 {
++            control.set(EqSettings {
++                enabled: false,
++                gains_db: far,
++                ..EqSettings::default()
++            });
++        }
++        if t == rate as usize * 2 {
++            control.set(EqSettings {
++                enabled: true,
++                gains_db: far,
++                ..EqSettings::default()
++            });
++        }
++        if t == rate as usize * 5 / 2 {
++            control.set(EqSettings {
++                enabled: true,
++                gains_db: [0.0; EQ_BANDS],
++                ..EqSettings::default()
++            });
++        }
++        p.begin_block();
++        for i in t..t + block {
++            p.advance_frame();
++            out.push(p.process(0, input[i]));
++        }
++    }
++    write_f64("eq_zipper_in.f64", &input);
++    write_f64("eq_zipper_out.f64", &out);
++
++    // Kendi bandı değişirken: 1 kHz sinüs, 1 kHz bandı 0 → +12 (0,5 s) → −12 (1,5 s) → 0 (2,5 s).
++    let control = Arc::new(EqControl::new(EqSettings::default()));
++    let mut p = EqProcessor::new(Arc::clone(&control), 1, rate);
++    let input = sine(1000.0, f64::from(rate), n, 0.2, 0.0);
++    let mut out = Vec::with_capacity(n);
++    for b in 0..n / block {
++        let t = b * block;
++        let mut g = [0.0; EQ_BANDS];
++        if t == rate as usize / 2 {
++            g[5] = 12.0;
++            control.set(EqSettings {
++                enabled: true,
++                gains_db: g,
++                ..EqSettings::default()
++            });
++        }
++        if t == rate as usize * 3 / 2 {
++            g[5] = -12.0;
++            control.set(EqSettings {
++                enabled: true,
++                gains_db: g,
++                ..EqSettings::default()
++            });
++        }
++        if t == rate as usize * 5 / 2 {
++            control.set(EqSettings::default());
++        }
++        p.begin_block();
++        for i in t..t + block {
++            p.advance_frame();
++            out.push(p.process(0, input[i]));
++        }
++    }
++    write_f64("eq_zipper2_in.f64", &input);
++    write_f64("eq_zipper2_out.f64", &out);
++}
++
++/// Sayısal gürültü tabanı: −60 dBFS 1 kHz sinüs, "Rock" ayarı, 48 kHz; ayrıca uzun sessizlikten
++/// sonra (denormal) davranış.
++#[test]
++fn eq_gurultu_tabani() {
++    let rate = 48_000u32;
++    let gains = [4.0, 4.5, 2.5, 0.0, -1.0, -1.0, 1.0, 2.5, 3.5, 4.0];
++    let control = Arc::new(EqControl::new(EqSettings {
++        enabled: true,
++        gains_db: gains,
++        ..EqSettings::default()
++    }));
++    let mut p = EqProcessor::new(control, 1, rate);
++    let n = 2 * rate as usize;
++    let input = sine(1000.0, f64::from(rate), n, 1e-3, 0.0);
++    let mut out = Vec::with_capacity(n);
++    p.begin_block();
++    for &x in &input {
++        p.advance_frame();
++        out.push(p.process(0, x));
++    }
++    write_f64("eq_noise_in.f64", &input);
++    write_f64("eq_noise_out.f64", &out);
++}
++
++// ------------------------------------------------------------------------------------------
++// 2. Sınırlayıcı
++// ------------------------------------------------------------------------------------------
++
++fn run_limiter(rate: u32, channels: usize, input: &[f64]) -> (Vec<f64>, Vec<f64>, usize) {
++    let mut limiter = Limiter::new(channels, rate);
++    let mut out = input.to_vec();
++    let mut gains = Vec::with_capacity(input.len() / channels);
++    for frame in out.chunks_exact_mut(channels) {
++        limiter.process_frame(frame);
++        gains.push(limiter.gain());
++    }
++    (out, gains, limiter.latency_frames())
++}
++
++#[test]
++fn sinirlayici() {
++    let mut manifest = csv("lim_manifest.csv");
++    writeln!(manifest, "name,rate,channels,latency").unwrap();
++    for &rate in &[44_100u32, 48_000, 96_000] {
++        let r = f64::from(rate);
++        let n = 3 * rate as usize;
++        let mut cases: Vec<(String, Vec<f64>)> = Vec::new();
++        // fs/4, 45°, genlik 1,4 (gerçek tepe +2,9 dBTP; örnekler ±0,99).
++        cases.push((
++            "fs4_45deg_1.4".into(),
++            (0..n).map(|i| 1.4 * (PI / 2.0 * i as f64 + PI / 4.0).sin()).collect(),
++        ));
++        // Sert kırpılmış 0,2·fs (44,1'de 8,8 kHz).
++        cases.push((
++            "clip_0.2fs".into(),
++            (0..n)
++                .map(|i| (1.6 * (2.0 * PI * 0.2 * i as f64).sin()).clamp(-1.0, 1.0))
++                .collect(),
++        ));
++        // Nyquist'e yakın: 0,45·fs, genlik 1,2.
++        cases.push((
++            "sine_0.45fs_1.2".into(),
++            (0..n).map(|i| 1.2 * (2.0 * PI * 0.45 * i as f64 + 0.3).sin()).collect(),
++        ));
++        // 0,48·fs genlik 1,0 (kısa ara değerleyicinin en zorlandığı yer).
++        cases.push((
++            "sine_0.48fs_1.0".into(),
++            (0..n).map(|i| 1.0 * (2.0 * PI * 0.48 * i as f64 + 0.1).sin()).collect(),
++        ));
++        // 1 kHz 0 dBFS (sınırı 1 dB aşar): kararlı durumda bozulma.
++        cases.push(("sine_1k_0dBFS".into(), sine(1000.0, r, n, 1.0, 0.0)));
++        // Tam ölçekli kırpılmış Gauss gürültü.
++        let mut s: u64 = 42;
++        let mut noise = Vec::with_capacity(n);
++        for _ in 0..n {
++            // Box-Muller
++            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++            let u1 = ((s >> 11) as f64 / (1u64 << 53) as f64).max(1e-300);
++            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++            let u2 = (s >> 11) as f64 / (1u64 << 53) as f64;
++            let g = (-2.0 * u1.ln()).sqrt() * (2.0 * PI * u2).cos();
++            noise.push((0.7 * g).clamp(-1.0, 1.0));
++        }
++        cases.push(("clipnoise".into(), noise));
++        // Kare dalga 0,1·fs genlik 1,0 (ani geçişler) ve darbeler.
++        cases.push((
++            "square_0.1fs".into(),
++            (0..n)
++                .map(|i| if (i / 5) % 2 == 0 { 1.0 } else { -1.0 })
++                .collect(),
++        ));
++        cases.push((
++            "spikes_in_sine".into(),
++            (0..n)
++                .map(|i| {
++                    let x = 0.85 * (2.0 * PI * 220.0 * i as f64 / r).sin();
++                    if i % 7000 == 100 {
++                        1.9
++                    } else {
++                        x
++                    }
++                })
++                .collect(),
++        ));
++        // Pompalama: 100 Hz −6 dB taşıyıcı + her 500 ms'de 10 ms'lik 1,3 genlikli 2 kHz patlama.
++        cases.push((
++            "pumping".into(),
++            (0..n)
++                .map(|i| {
++                    let t = i as f64 / r;
++                    let carrier = 0.5 * (2.0 * PI * 100.0 * t).sin();
++                    let burst_phase = t % 0.5;
++                    if burst_phase < 0.01 {
++                        carrier + 1.3 * (2.0 * PI * 2000.0 * t).sin()
++                    } else {
++                        carrier
++                    }
++                })
++                .collect(),
++        ));
++        // Gecikme: tek darbe.
++        let mut impulse = vec![0.0; n];
++        impulse[rate as usize] = 0.5;
++        cases.push(("impulse".into(), impulse));
++        // "Modern master" taklidi: −0,3 dBFS'e kırpılmış 3 kHz'e kadar gürültü + 60 Hz bas.
++        let mut master = Vec::with_capacity(n);
++        let mut lp = 0.0;
++        let mut s2: u64 = 99;
++        for i in 0..n {
++            s2 = s2.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++            let u = (s2 >> 11) as f64 / (1u64 << 53) as f64 * 2.0 - 1.0;
++            lp += 0.15 * (u - lp);
++            let x = 0.6 * (2.0 * PI * 60.0 * i as f64 / r).sin() + 2.5 * lp;
++            master.push(x.clamp(-0.966, 0.966));
++        }
++        cases.push(("master_-0.3dBFS".into(), master));
++        // Aynısı −1,5 dBFS: sınırlayıcı hiç dokunmamalı.
++        let quiet: Vec<f64> = cases.last().unwrap().1.iter().map(|x| x * 0.87).collect();
++        cases.push(("master_-1.5dBFS".into(), quiet));
++
++        for (name, input) in cases {
++            let (out, gains, latency) = run_limiter(rate, 1, &input);
++            write_f64(&format!("lim_{rate}_{name}_in.f64"), &input);
++            write_f64(&format!("lim_{rate}_{name}_out.f64"), &out);
++            write_f64(&format!("lim_{rate}_{name}_gain.f64"), &gains);
++            writeln!(manifest, "{name},{rate},1,{latency}").unwrap();
++        }
++    }
++    // Stereo: tek kanalda taşma öteki kanalı da kısıyor mu (bağlı kazanç)?
++    let rate = 48_000u32;
++    let n = 2 * rate as usize;
++    let mut st = Vec::with_capacity(2 * n);
++    for i in 0..n {
++        st.push(1.4 * (PI / 2.0 * i as f64 + PI / 4.0).sin());
++        st.push(0.3 * (2.0 * PI * 440.0 * i as f64 / 48_000.0).sin());
++    }
++    let (out, gains, latency) = run_limiter(rate, 2, &st);
++    write_f64("lim_48000_stereo_in.f64", &st);
++    write_f64("lim_48000_stereo_out.f64", &out);
++    write_f64("lim_48000_stereo_gain.f64", &gains);
++    writeln!(manifest, "stereo,48000,2,{latency}").unwrap();
++}
++
++// ------------------------------------------------------------------------------------------
++// 3. Yeniden örnekleme
++// ------------------------------------------------------------------------------------------
++
++fn convert_all(c: &mut Converter, input: &[f64], chunk: usize) -> Vec<f64> {
++    let mut out = Vec::new();
++    for piece in input.chunks(chunk) {
++        out.extend_from_slice(c.process(piece).unwrap());
++    }
++    out.extend_from_slice(c.finish().unwrap());
++    out
++}
++
++#[test]
++fn yeniden_ornekleme() {
++    let pairs = [
++        (44_100u32, 48_000u32),
++        (48_000, 44_100),
++        (96_000, 48_000),
++        (44_100, 96_000),
++        (22_050, 48_000),
++        (192_000, 48_000),
++    ];
++    let mut manifest = csv("rs_manifest.csv");
++    writeln!(manifest, "kind,from,to,freq,in_len,out_len,file").unwrap();
++    for &(from, to) in &pairs {
++        // Dürtü yanıtı (gecikme, hizalama ve frekans yanıtı): 2 s, darbe 1. saniyede.
++        let n = 2 * from as usize;
++        let mut imp = vec![0.0; n];
++        imp[from as usize] = 1.0;
++        let mut c = Converter::new(from, 1, to, 1).unwrap();
++        let out = convert_all(&mut c, &imp, 1000);
++        let file = format!("rs_{from}_{to}_impulse.f64");
++        write_f64(&file, &out);
++        writeln!(manifest, "impulse,{from},{to},0,{n},{},{file}", out.len()).unwrap();
++        // Dürtü, farklı parça boyutuyla (parça sınırı bağımsızlığı).
++        let mut c = Converter::new(from, 1, to, 1).unwrap();
++        let out2 = convert_all(&mut c, &imp, 777);
++        let file = format!("rs_{from}_{to}_impulse777.f64");
++        write_f64(&file, &out2);
++        writeln!(manifest, "impulse777,{from},{to},0,{n},{},{file}", out2.len()).unwrap();
++        // Basamaklı sinüsler: 20 Hz – 0,499·fs_in, her biri 1 s, genlik 0,5.
++        let top = f64::from(from) * 0.499;
++        for k in 0..48 {
++            let f = 20.0 * (top / 20.0).powf(k as f64 / 47.0);
++            let n = from as usize;
++            let input = sine(f, f64::from(from), n, 0.5, 0.0);
++            let mut c = Converter::new(from, 1, to, 1).unwrap();
++            let out = convert_all(&mut c, &input, 1000);
++            let file = format!("rs_{from}_{to}_tone{k}.f64");
++            write_f64(&file, &out);
++            writeln!(manifest, "tone,{from},{to},{f},{n},{},{file}", out.len()).unwrap();
++        }
++        // Uzunluk: tuhaf sayıda kare (1 000 001) ve çok kısa (10 kare) giriş.
++        for &len in &[1_000_001usize, 10, 2048, 2049] {
++            let input = sine(440.0, f64::from(from), len, 0.5, 0.0);
++            let mut c = Converter::new(from, 2, to, 2).unwrap();
++            let st: Vec<f64> = input.iter().flat_map(|&x| [x, -x]).collect();
++            let out = convert_all(&mut c, &st, 4096);
++            writeln!(manifest, "length,{from},{to},440,{len},{},-", out.len() / 2).unwrap();
++        }
++    }
++}
++
++// ------------------------------------------------------------------------------------------
++// 4. Ses yüksekliği (EBU R128) ve eşitleme kazancı
++// ------------------------------------------------------------------------------------------
++
++#[test]
++fn ses_yuksekligi() {
++    let manifest = fs::read_to_string(in_dir().join("manifest.csv")).unwrap();
++    let mut results = csv("loud_results.csv");
++    writeln!(results, "name,rate,channels,lufs,dbtp").unwrap();
++    for line in manifest.lines().skip(1) {
++        let cols: Vec<&str> = line.split(',').collect();
++        let (name, rate, channels) = (
++            cols[0],
++            cols[1].parse::<u32>().unwrap(),
++            cols[2].parse::<usize>().unwrap(),
++        );
++        let data = read_f64(&in_dir().join(format!("{name}.f64")));
++        let mut meter = LoudnessMeter::new(rate, channels);
++        for frame in data.chunks_exact(channels) {
++            meter.add(frame);
++        }
++        match meter.finish() {
++            Some(l) => writeln!(
++                results,
++                "{name},{rate},{channels},{},{}",
++                l.integrated_lufs, l.true_peak_dbtp
++            )
++            .unwrap(),
++            None => writeln!(results, "{name},{rate},{channels},NONE,NONE").unwrap(),
++        }
++    }
++    // Eşitleme kazancı tablosu.
++    let mut gains = csv("loud_gain.csv");
++    writeln!(gains, "lufs,dbtp,gain_db").unwrap();
++    for &(lufs, tp) in &[
++        (-8.0, 0.0),
++        (-8.0, -3.0),
++        (-14.0, -1.0),
++        (-14.0, 0.5),
++        (-20.0, -12.0),
++        (-20.0, -3.0),
++        (-20.0, -1.0),
++        (-20.0, 0.0),
++        (-16.0, 0.5),
++        (-30.0, -20.0),
++        (-30.0, -14.0),
++        (-6.0, 2.0),
++    ] {
++        let l = Loudness {
++            integrated_lufs: lufs,
++            true_peak_dbtp: tp,
++        };
++        writeln!(gains, "{lufs},{tp},{}", l.gain_db(TARGET_LUFS)).unwrap();
++    }
++}
++
++// ------------------------------------------------------------------------------------------
++// 5. Spektrum ve VU
++// ------------------------------------------------------------------------------------------
++
++struct Synth {
++    info: TrackInfo,
++    data: Vec<f64>,
++    pos: usize,
++    buf: Vec<f64>,
++}
++
++impl Synth {
++    fn new(rate: u32, channels: usize, data: Vec<f64>) -> Self {
++        Self {
++            info: TrackInfo {
++                path: PathBuf::from("sentetik"),
++                file_name: "sentetik".into(),
++                title: None,
++                artist: None,
++                album: None,
++                album_artist: None,
++                track_number: None,
++                disc_number: None,
++                codec: "pcm".into(),
++                sample_rate: rate,
++                channels,
++                duration_secs: None,
++            },
++            data,
++            pos: 0,
++            buf: Vec::new(),
++        }
++    }
++}
++
++impl ChunkSource for Synth {
++    fn info(&self) -> &TrackInfo {
++        &self.info
++    }
++    fn next_chunk(&mut self) -> Result<Option<&[Sample]>, AudioError> {
++        if self.pos >= self.data.len() {
++            return Ok(None);
++        }
++        let end = (self.pos + 4096 * self.info.channels).min(self.data.len());
++        self.buf.clear();
++        self.buf.extend_from_slice(&self.data[self.pos..end]);
++        self.pos = end;
++        Ok(Some(&self.buf))
++    }
++}
++
++fn analyze_mono(rate: u32, mono: &[f64]) -> Arc<Spectrogram> {
++    let st: Vec<f64> = mono.iter().flat_map(|&x| [x, x]).collect();
++    let mut src = Synth::new(rate, 2, st);
++    let s = Spectrogram::new();
++    analyze_source(&mut src, &s, &mut || {});
++    s
++}
++
++#[test]
++fn spektrum_bantlar() {
++    let mut edges_csv = csv("spec_edges.csv");
++    writeln!(edges_csv, "rate,fft,i,edge_hz,center_hz").unwrap();
++    let mut sweep = csv("spec_sweep.csv");
++    write!(sweep, "rate,tone_hz,amp_db").unwrap();
++    for b in 0..BANDS {
++        write!(sweep, ",b{b}").unwrap();
++    }
++    writeln!(sweep).unwrap();
++    for &rate in &[44_100u32, 48_000, 96_000, 22_050] {
++        let r = f64::from(rate);
++        let edges = band_edges(BANDS, r);
++        let centers = band_centers(r);
++        for i in 0..=BANDS {
++            let c = if i < BANDS { centers[i] } else { f64::NAN };
++            writeln!(edges_csv, "{rate},{},{i},{},{c}", fft_size(rate), edges[i]).unwrap();
++        }
++        // Tarama: 160 log aralıklı ton 20 Hz – 0,48·fs, her biri 0,4 s, −20 dBFS; aralarda 0,1 s sessizlik.
++        let seg = (0.4 * r) as usize;
++        let gap = (0.1 * r) as usize;
++        let top = (r * 0.48).min(20_000.0);
++        let tones: Vec<f64> = (0..160)
++            .map(|k| 20.0 * (top / 20.0).powf(k as f64 / 159.0))
++            .collect();
++        let mut signal = Vec::new();
++        for &f in &tones {
++            let mut s = sine(f, r, seg, 0.1, 0.0);
++            // Kenar tıkları analize karışmasın: 5 ms rampa.
++            let ramp = (0.005 * r) as usize;
++            for i in 0..ramp {
++                let g = i as f64 / ramp as f64;
++                s[i] *= g;
++                s[seg - 1 - i] *= g;
++            }
++            signal.extend(s);
++            signal.extend(std::iter::repeat(0.0).take(gap));
++        }
++        let spec = analyze_mono(rate, &signal);
++        for (k, &f) in tones.iter().enumerate() {
++            let t_mid = (k as f64 * (seg + gap) as f64 + seg as f64 / 2.0) / r;
++            let frame = spec.frame_at(t_mid).unwrap();
++            write!(sweep, "{rate},{f},-20").unwrap();
++            for v in frame {
++                write!(sweep, ",{v}").unwrap();
++            }
++            writeln!(sweep).unwrap();
++        }
++        // Seviye ölçeği: 1 kHz tonlar −6, −12, −20, −40, −60, −66 dBFS (0,5 s her biri) ve 100 Hz / 10 kHz −20.
++        let mut signal = Vec::new();
++        let levels_db = [-6.0, -12.0, -20.0, -40.0, -60.0, -66.0];
++        for &db in &levels_db {
++            signal.extend(sine(1000.0, r, (0.5 * r) as usize, 10f64.powf(db / 20.0), 0.0));
++        }
++        signal.extend(sine(100.0, r, (0.5 * r) as usize, 0.1, 0.0));
++        signal.extend(sine(10_000.0, r, (0.5 * r) as usize, 0.1, 0.0));
++        let spec = analyze_mono(rate, &signal);
++        for (k, label) in levels_db
++            .iter()
++            .map(|d| format!("1000@{d}"))
++            .chain(["100@-20".to_owned(), "10000@-20".to_owned()])
++            .enumerate()
++        {
++            let t_mid = (k as f64 + 0.5) * 0.5;
++            let frame = spec.frame_at(t_mid).unwrap();
++            let (f_txt, db_txt) = label.split_once('@').unwrap();
++            write!(sweep, "{rate},{f_txt},{db_txt}").unwrap();
++            for v in frame {
++                write!(sweep, ",{v}").unwrap();
++            }
++            writeln!(sweep).unwrap();
++        }
++    }
++}
++
++#[test]
++fn spektrum_zamanlama_ve_vu() {
++    let mut timing = csv("spec_timing.csv");
++    writeln!(timing, "rate,t,band_level,rms_l_db,rms_r_db,peak_l_db,peak_r_db").unwrap();
++    let mut vu = csv("spec_vu.csv");
++    writeln!(vu, "rate,vu_reference_db,python_check").unwrap();
++    for &rate in &[44_100u32, 48_000, 96_000, 22_050] {
++        let r = f64::from(rate);
++        // 2,000 s sessizlik, 50 ms 1 kHz −6 dBFS patlama, sonra 1 s sessizlik; sonra VU için
++        // 0,3 s basamaklar: −30, −20, −12, −6, −3 dBFS 1 kHz (sol), sağ 6 dB daha kısık.
++        let n_total = (6.0 * r) as usize;
++        let mut st = vec![0.0; 2 * n_total];
++        let burst_start = (2.0 * r) as usize;
++        let burst_len = (0.05 * r) as usize;
++        for i in 0..burst_len {
++            let x = 0.5 * (2.0 * PI * 1000.0 * i as f64 / r).sin();
++            st[2 * (burst_start + i)] = x;
++            st[2 * (burst_start + i) + 1] = x;
++        }
++        let steps = [-30.0, -20.0, -12.0, -6.0, -3.0, -40.0, -8.0, -60.0];
++        let step_len = (0.3 * r) as usize;
++        let steps_start = (3.0 * r) as usize;
++        for (k, &db) in steps.iter().enumerate() {
++            let a = 10f64.powf(db / 20.0);
++            for i in 0..step_len {
++                let idx = steps_start + k * step_len + i;
++                let x = a * (2.0 * PI * 1000.0 * i as f64 / r).sin();
++                st[2 * idx] = x;
++                st[2 * idx + 1] = x * 0.5;
++            }
++        }
++        write_f64(&format!("spec_timing_{rate}_in.f64"), &st);
++        let mut src = Synth::new(rate, 2, st.clone());
++        let spec = Spectrogram::new();
++        analyze_source(&mut src, &spec, &mut || {});
++        // 1 kHz bandı: band_edges ile bul.
++        let edges = band_edges(BANDS, r);
++        let band_1k = (0..BANDS)
++            .find(|&i| edges[i] <= 1000.0 && 1000.0 < edges[i + 1])
++            .unwrap();
++        let mut t = 0.0;
++        while t < 6.0 {
++            let lvl = spec.frame_at(t).map_or(-1.0, |f| f64::from(f[band_1k]));
++            let m = spec.meters_at(t);
++            let (rl, rr, pl, pr) = m.map_or((f64::NAN, f64::NAN, f64::NAN, f64::NAN), |m| {
++                (
++                    f64::from(m.rms_db[0]),
++                    f64::from(m.rms_db[1]),
++                    f64::from(m.peak_db[0]),
++                    f64::from(m.peak_db[1]),
++                )
++            });
++            writeln!(timing, "{rate},{t:.4},{lvl},{rl},{rr},{pl},{pr}").unwrap();
++            t += 0.001;
++        }
++        writeln!(
++            vu,
++            "{rate},{},",
++            spec.vu_reference_db().map_or(f64::NAN, f64::from)
++        )
++        .unwrap();
++    }
++    // VU referansı: doğrudan levels::vu_reference_db ile, python'da yeniden hesaplanabilir
++    // bir kare dizisi (dekode edilmiş rms değerleri de yazılır).
++    let rate = 48_000u32;
++    let r = f64::from(rate);
++    let frames_per_sec = 60.0;
++    let mut acc = LevelAccumulator::default();
++    let mut stored = Vec::new();
++    let mut rms_csv = csv("vu_frames.csv");
++    writeln!(rms_csv, "frame,rms_l_db,rms_r_db,peak_l_db,peak_r_db").unwrap();
++    // 20 s: rastgele genlikli 1 kHz, her 100 ms'de bir genlik değişir (log-düzgün −40..0 dB),
++    // ilk 2 s sessiz.
++    let mut s: u64 = 5;
++    let n = 20 * rate as usize;
++    let mut amp = 0.0;
++    let mut next_change = 0;
++    let mut next_frame_end = ((r * 1.0 * 2.0 + frames_per_sec) / (2.0 * frames_per_sec)) as usize;
++    let mut frame_index = 0u64;
++    let mut sig = Vec::with_capacity(n);
++    for i in 0..n {
++        if i == next_change {
++            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++            let u = (s >> 11) as f64 / (1u64 << 53) as f64;
++            amp = if i < 2 * rate as usize {
++                0.0
++            } else {
++                10f64.powf((-40.0 + 40.0 * u) / 20.0)
++            };
++            next_change += rate as usize / 10;
++        }
++        let x = amp * (2.0 * PI * 1000.0 * i as f64 / r).sin();
++        sig.push(x);
++        acc.add(&[x, 0.5 * x]);
++        if i + 1 == next_frame_end {
++            let f = acc.finish();
++            let d = levels::decode_frame(&f).unwrap();
++            writeln!(
++                rms_csv,
++                "{frame_index},{},{},{},{}",
++                d.rms_db[0], d.rms_db[1], d.peak_db[0], d.peak_db[1]
++            )
++            .unwrap();
++            stored.extend_from_slice(&f);
++            frame_index += 1;
++            next_frame_end = (((frame_index + 1) as f64 * r * 2.0 + frames_per_sec)
++                / (2.0 * frames_per_sec)) as usize;
++        }
++    }
++    write_f64("vu_signal.f64", &sig);
++    let reference = levels::vu_reference_db(&stored, frames_per_sec);
++    writeln!(vu, "48000_direct,{},", reference.map_or(f64::NAN, f64::from)).unwrap();
++}
++
++// ------------------------------------------------------------------------------------------
++// 6. Uçtan uca ses yolu
++// ------------------------------------------------------------------------------------------
++
++fn render_all(renderer: &mut Renderer, input: &[f64], channels: usize, block: usize,
++              paused_at: &dyn Fn(usize) -> bool) -> Vec<f64> {
++    let (mut producer, mut consumer) = RingBuffer::new(input.len().max(1));
++    for &s in input {
++        producer.push(s).unwrap();
++    }
++    let total_frames = input.len() / channels;
++    let mut out = Vec::new();
++    let mut buf = vec![0.0; block * channels];
++    let mut frame = 0usize;
++    // Girişten daha uzun çalıştır (gecikme hattı boşalsın); duraklatma deseni bloğa göre.
++    let extra = 4000;
++    while frame < total_frames + extra {
++        renderer.render(&mut consumer, &mut buf, paused_at(frame));
++        out.extend_from_slice(&buf);
++        frame += block;
++    }
++    out
++}
++
++/// 16 bitlik "müzik" taklidi: 60 Hz + 440 Hz + 3 kHz + süzülmüş gürültü, tepe `peak`'e ölçekli,
++/// 16 bite yuvarlanmış.
++fn music16(rate: u32, seconds: f64, peak: f64) -> Vec<f64> {
++    let r = f64::from(rate);
++    let n = (seconds * r) as usize;
++    let mut s: u64 = 1234;
++    let mut lp = 0.0;
++    let mut raw = Vec::with_capacity(n);
++    for i in 0..n {
++        s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
++        let u = (s >> 11) as f64 / (1u64 << 53) as f64 * 2.0 - 1.0;
++        lp += 0.2 * (u - lp);
++        let t = i as f64 / r;
++        let env = 0.6 + 0.4 * (2.0 * PI * 0.5 * t).sin();
++        raw.push(
++            env * (0.5 * (2.0 * PI * 60.0 * t).sin()
++                + 0.3 * (2.0 * PI * 440.0 * t).sin()
++                + 0.15 * (2.0 * PI * 3000.0 * t).sin()
++                + 0.8 * lp),
++        );
++    }
++    let max = raw.iter().fold(0.0f64, |m, x| m.max(x.abs()));
++    raw.iter()
++        .map(|x| ((x / max * peak) * 32768.0).round().clamp(-32768.0, 32767.0) / 32768.0)
++        .collect()
++}
++
++#[test]
++fn uctan_uca() {
++    let mut manifest = csv("e2e_manifest.csv");
++    writeln!(manifest, "name,rate,channels,latency,block").unwrap();
++    for &rate in &[44_100u32, 48_000, 96_000] {
++        let channels = 2;
++        let block = 480;
++        for &(name, peak, bit_perfect, normalize, eq_enabled) in &[
++            ("flat_-1.5dBFS", 0.84, false, false, false),
++            ("flat_-0.3dBFS", 0.966, false, false, false),
++            ("flat_eqon_zero_-1.5dBFS", 0.84, false, false, true),
++            ("bitperfect_-0.1dBFS", 0.989, true, false, false),
++            ("normalize_silent_track_-1.5dBFS", 0.84, false, true, false),
++            ("normalize_measured_-9lufs_-1.5dBFS", 0.84, false, true, false),
++        ] {
++            let mono = music16(rate, 2.0, peak);
++            let input: Vec<f64> = mono.iter().flat_map(|&x| [x, 0.7 * x]).collect();
++            let levels = Arc::new(TrackLevels::new());
++            if name.contains("silent_track") {
++                levels.set_loudness(0, None);
++            }
++            if name.contains("measured") {
++                levels.set_loudness(
++                    0,
++                    Some(Loudness {
++                        integrated_lufs: -9.0,
++                        true_peak_dbtp: -1.5,
++                    }),
++                );
++            }
++            let eq = Arc::new(EqControl::new(EqSettings {
++                enabled: eq_enabled,
++                ..EqSettings::default()
++            }));
++            let controls = RenderControls {
++                eq,
++                loudness: Arc::new(LoudnessControl::new(normalize)),
++                levels,
++                bit_perfect,
++                ..RenderControls::default()
++            };
++            let mut renderer = Renderer::new(channels, rate, controls);
++            let latency = renderer.latency_frames();
++            let out = render_all(&mut renderer, &input, channels, block, &|_| false);
++            write_f64(&format!("e2e_{rate}_{name}_in.f64"), &input);
++            write_f64(&format!("e2e_{rate}_{name}_out.f64"), &out);
++            writeln!(manifest, "{name},{rate},{channels},{latency},{block}").unwrap();
++        }
++        // Duraklat/devam: 440 Hz −6 dB sinüs; 1,0 s'de duraklat, 1,5 s'de devam, 2,0 s'de
++        // tekrar duraklat (geçiş ortasında devam: 2,004 s).
++        let r = f64::from(rate);
++        let n = (3.0 * r) as usize;
++        let mono = sine(440.0, r, n, 0.5, 0.0);
++        let input: Vec<f64> = mono.iter().flat_map(|&x| [x, x]).collect();
++        let mut renderer = Renderer::new(channels, rate, RenderControls::default());
++        let latency = renderer.latency_frames();
++        let block = 48;
++        let pause = move |frame: usize| {
++            let t = frame as f64 / r;
++            (1.0..1.5).contains(&t) || (2.0..2.004).contains(&t)
++        };
++        let out = render_all(&mut renderer, &input, channels, block, &pause);
++        write_f64(&format!("e2e_{rate}_pause_in.f64"), &input);
++        write_f64(&format!("e2e_{rate}_pause_out.f64"), &out);
++        writeln!(manifest, "pause,{rate},{channels},{latency},{block}").unwrap();
++    }
++}
