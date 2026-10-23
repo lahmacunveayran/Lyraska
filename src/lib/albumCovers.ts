@@ -102,7 +102,8 @@ async function printed(request: AlbumCoverRequest): Promise<string> {
   colors ??= readPrintColors();
   const c = canvas();
   const mono = getComputedStyle(document.documentElement).getPropertyValue("--font-figures").trim();
-  drawPrintCover(c, request, colors, { mono: mono || "monospace" });
+  // Çizilemeyen tuvalde (2D bağlamı yok) boş kalır; kart düz zeminle görünür.
+  if (!drawPrintCover(c, request, colors, { mono: mono || "monospace" })) return "";
   return c.toDataURL("image/jpeg", 0.88);
 }
 

@@ -322,7 +322,7 @@ export function LibraryPanel({
               : `${NUMBER.format(status.trackCount)} şarkı`}
           </span>
         </h2>
-        <div className="library__views" role="group" aria-label="Görünüm">
+        <div className="library__views" role="group" aria-label="Kütüphane görünümü">
           {(
             [
               ["songs", "Şarkılar"],
