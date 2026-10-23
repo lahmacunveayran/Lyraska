@@ -47,6 +47,7 @@ function rustPackages() {
     ],
     { cwd: join(ROOT, "src-tauri"), encoding: "utf8", maxBuffer: 64 << 20 },
   );
+  const authors = rustAuthors();
   const seen = new Map();
   for (const raw of out.split("\n")) {
     // CI `CARGO_TERM_COLOR=always` verse bile renk kodları ve "(*)" tekrar işareti temizlenir.
@@ -61,11 +62,38 @@ function rustPackages() {
     if (!match) throw new Error(`cargo tree satırı anlaşılamadı: ${line}`);
     const [, name, version, path] = match;
     if (name === "lyraska" || path) continue; // kendi kodumuz (yol bağımlılığı)
-    seen.set(`${name} ${version}`, { name, version, license: license || "BİLİNMİYOR", repository });
+    seen.set(`${name} ${version}`, {
+      name,
+      version,
+      license: license || "BİLİNMİYOR",
+      repository,
+      authors: authors.get(`${name} ${version}`) ?? [],
+    });
   }
   return [...seen.values()].sort(
     (a, b) => byCodePoint(a.name, b.name) || byCodePoint(a.version, b.version),
   );
+}
+
+/** Crate'lerin `authors` alanı (ad + sürüm → yazarlar): lisans metninde telif satırı yoksa yazılır. */
+function rustAuthors() {
+  const metadata = JSON.parse(
+    execFileSync("cargo", ["metadata", "--locked", "--format-version", "1"], {
+      cwd: join(ROOT, "src-tauri"),
+      encoding: "utf8",
+      maxBuffer: 256 << 20,
+    }),
+  );
+  return new Map(metadata.packages.map((p) => [`${p.name} ${p.version}`, p.authors ?? []]));
+}
+
+/** "Ad <e-posta> (adres)" → "Ad": bildirimde yalnızca ad yazılır. */
+function authorName(author) {
+  const text = typeof author === "string" ? author : (author?.name ?? "");
+  return text
+    .replace(/<[^>]*>/g, "")
+    .replace(/\([^)]*\)/g, "")
+    .trim();
 }
 
 /**
@@ -145,6 +173,7 @@ function npmPackages() {
       license,
       repository,
       texts,
+      authors: [pkg.author, ...(pkg.contributors ?? [])].filter(Boolean),
     });
   }
   return found.sort((a, b) => byCodePoint(a.name, b.name) || byCodePoint(a.version, b.version));
@@ -217,6 +246,16 @@ function build() {
         refs.push(`${file} → metin ${addText(text, `${p.name} ${p.version}`)}`);
       }
       for (const c of copyrights) lines.push(`  ${c}`);
+      // Lisans metninde telif satırı yoksa (ör. "Apache-2.0" metninin kendisi) paketin yazarları:
+      // MIT/BSD bildiriminin "copyright notice" kısmı boş kalmasın.
+      const authors = [...new Set((p.authors ?? []).map(authorName).filter(Boolean))];
+      if (copyrights.size === 0) {
+        lines.push(
+          authors.length > 0
+            ? `  Yazarlar: ${authors.join(", ")}`
+            : "  Telif: paketin yazarları (yazar bilgisi yok; kaynak deposundaki katkıcılar)",
+        );
+      }
       if (refs.length === 0) {
         // Paket lisans dosyası taşımıyor (çoğu zaman aynı deponun başka paketinde): oraya yollanır.
         const sibling = packages.find(

@@ -106,6 +106,10 @@ jobs:
         env:
           LYRASKA_COMMIT: ${{ steps.kaynak.outputs.sha }}
         run: npm run tauri build -- --ci -- --locked
+      # Kuruluma gömülen ve karmasız indirilen Microsoft dosyası: imzası doğrulanmadan yayımlanmaz.
+      - name: WebView2 önyükleyicisi Microsoft imzalı mı
+        shell: pwsh
+        run: ./scripts/webview2-imzasi.ps1
       - name: Kurulum dosyasını sabit ada kopyala
         shell: pwsh
         env:
