@@ -14,6 +14,7 @@ import { fitCanvas, getWebGl2, gpuName, reportSceneProblem } from "../lib/gl";
 import {
   SCHEDULE_START,
   audioLevels,
+  blameContextLoss,
   restartSchedule,
   stepSchedule,
   writePending,
@@ -110,6 +111,11 @@ interface Engine {
   /** Çalan görselin yolu ve isteğinin sırası (donma işareti ve hata bildirimi için). */
   currentPath: string | null;
   currentSerial: number;
+  /**
+   * Açılan ya da yeni açılmış görsel ve anı (`performance.now`): bu arada bağlam kaybolursa
+   * (ekran kartı sıfırlandı) görsel suçlanır.
+   */
+  suspect: { serial: number; path: string; since: number } | null;
   lost: boolean;
 }
 
@@ -178,8 +184,23 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
     const guard = setup.guard;
     canvas.dataset.guard = guard.storage;
 
+    // Görsel açılırken ya da yeni açılmışken bağlam kaybolduysa (ekran kartı sıfırlandı; ör.
+    // gölgelendiricideki uzun döngü) görsel kalıcı atlanır: yeniden kurulum onu bir daha açmaz.
+    const blame = () => {
+      const suspect = created?.suspect;
+      if (!created || !suspect) return;
+      created.suspect = null;
+      if (blameContextLoss(suspect.since, performance.now())) {
+        controlsRef.current.failed(
+          suspect.serial,
+          "ekran kartı bu görseli çizerken durdu (bağlam kayboldu); atlananlara eklendi",
+          suspect.path,
+        );
+      }
+    };
     const onLost = (event: Event) => {
       event.preventDefault();
+      blame();
       if (created) created.lost = true;
     };
     const onRestored = () => {
@@ -197,6 +218,7 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
     let internal: HTMLCanvasElement | OffscreenCanvas | null = null;
     const onInternalLost = (event: Event) => {
       event.preventDefault();
+      blame();
       if (created) created.lost = true;
       // Butterchurn'ün durumu geri gelmez: kısa bir süre sonra baştan kurulur.
       window.setTimeout(onRestored, 1000);
@@ -233,6 +255,7 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
           waveInFlight: false,
           currentPath: null,
           currentSerial: 0,
+          suspect: null,
           lost: false,
         };
         engine.current = created;
@@ -273,7 +296,9 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
     if (!request || ready === 0) return;
     const run = async () => {
       const current = engine.current;
-      if (!current || controlsRef.current.request?.serial !== request.serial) return;
+      if (!current || current.lost || controlsRef.current.request?.serial !== request.serial) {
+        return;
+      }
       let preset: MilkdropPreset;
       try {
         preset = await loadMilkdropPreset(request.entry.path);
@@ -281,6 +306,11 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
         // Donma işareti: bu görsel çalarken (ya da açılırken) program zorla kapanırsa bir sonraki
         // açılışta atlanır. İşaret görsel çaldığı sürece durur.
         writePending(request.entry.path);
+        current.suspect = {
+          serial: request.serial,
+          path: request.entry.path,
+          since: performance.now(),
+        };
         await current.visualizer.loadPreset(
           preset.preset,
           current.hasPreset ? request.blendSeconds : 0,
@@ -288,8 +318,10 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
       } catch (error) {
         // Açılamadı: işaret hâlâ çalan görsele döner.
         writePending(current.hasPreset ? current.currentPath : null);
-        // Sahne bu arada yeniden kurulduysa (bağlam kaybı) görsel suçlu değil: yeni kurulum açar.
-        if (engine.current === current) {
+        // Sahne bu arada yeniden kurulduysa ya da bağlam kaybolduysa açılamaması görselin suçu
+        // değil (kayıp ayrıca değerlendirildi); yeni kurulum açar.
+        if (engine.current === current && !current.lost) {
+          current.suspect = null;
           controlsRef.current.failed(request.serial, describeError(error));
         }
         return;
@@ -306,9 +338,16 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
           ? `${broken.map((s) => (s === "warp" ? "bükme" : "birleştirme")).join(", ")}: ` +
             "ekran kartında derlenemedi"
           : null);
+      if (current.lost) return;
       current.hasPreset = true;
       current.currentPath = request.entry.path;
       current.currentSerial = request.serial;
+      // Süre açılış bitince yeniden başlar: ilk kareler de gölgelendiriciyi çalıştırır.
+      current.suspect = {
+        serial: request.serial,
+        path: request.entry.path,
+        since: performance.now(),
+      };
       schedule.current = restartSchedule(schedule.current);
       if (canvasRef.current) {
         canvasRef.current.dataset.preset = preset.name;

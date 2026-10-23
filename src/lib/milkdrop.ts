@@ -14,6 +14,11 @@
  * görsele temiz geçişte, sahneden çıkınca ve sayfa kapanırken silinir. Program bir görsel çalarken
  * kapanmak zorunda kalırsa (ör. denklem programı dondurdu) işaret kalır; bir sonraki açılışta o
  * görsel kalıcı "atlananlar" listesine girer ([`addSkipped`]) ve kendiliğinden hiç seçilmez.
+ *
+ * Ekran kartı donması: bir gölgelendirici ekran kartını uzun süre meşgul ederse Windows sürücüyü
+ * sıfırlar (TDR) ve WebGL bağlamları kaybolur; program kapanmaz, sahne yeniden kurulur. Görsel
+ * açılırken ya da açıldıktan sonraki [`GPU_HANG_SECONDS`] içinde bağlam kaybolursa görsel suçlanır
+ * ([`blameContextLoss`]): kalıcı atlananlara girer, yeniden kurulum onu bir daha açmaz.
  */
 
 import type { VisualFrame } from "./backend";
@@ -202,6 +207,17 @@ export function historyPrevious(
 
 function clamp01(value: number): number {
   return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
+}
+
+/** Görsel açıldıktan sonra bu süre içinde bağlam kaybolursa görsel suçlanır (saniye). */
+export const GPU_HANG_SECONDS = 10;
+
+/**
+ * Bağlam kaybı çalan görselin suçu mu: görsel `since` anında açılmaya başladı ya da açıldı (ms,
+ * `performance.now`), kayıp `now`'da. Görsel yoksa (`null`) ya da süre geçtiyse değil.
+ */
+export function blameContextLoss(since: number | null, now: number): boolean {
+  return since !== null && now >= since && now - since <= GPU_HANG_SECONDS * 1000;
 }
 
 const PENDING_KEY = "lyraska.milkdrop.pending";

@@ -379,8 +379,66 @@ describe("MilkDrop sahnesi", () => {
     vi.restoreAllMocks();
   });
 
+  it("görsel açıldıktan sonraki 10 sn içinde bağlam kaybolursa görsel kalıcı atlanır", async () => {
+    fake.folder = FOLDER;
+    let clock = 1000;
+    vi.spyOn(performance, "now").mockImplementation(() => clock);
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    render(<Harness gallery />);
+    const canvas = await waitFor(() => {
+      const found = document.querySelector<HTMLCanvasElement>(".milkdrop-scene__canvas");
+      expect(found).not.toBeNull();
+      return found!;
+    });
+    await waitFor(() => expect(fake.visualizers[0]?.loadPreset).toHaveBeenCalledTimes(1));
+    const first = fake.loads[0]!;
+    act(() => fake.tick?.(null, 1 / 60));
+    // 4 sn sonra ekran kartı sıfırlandı (ör. gölgelendiricideki uzun döngü: Windows TDR).
+    clock += 4000;
+    act(() => {
+      canvas.dispatchEvent(new Event("webglcontextlost"));
+      canvas.dispatchEvent(new Event("webglcontextrestored"));
+    });
+    // Yeniden kurulumda aynı görsel değil, sonraki açılır; suçlanan görsel kalıcı atlanır.
+    await waitFor(() => expect(fake.visualizers[1]?.loadPreset).toHaveBeenCalled());
+    expect(fake.loads[fake.loads.length - 1]).not.toBe(first);
+    expect(JSON.parse(window.localStorage.getItem(SKIP_KEY)!)).toEqual([first]);
+    fireEvent.click(screen.getByRole("button", { name: /MilkDrop/ }));
+    expect(await screen.findByRole("group", { name: "MilkDrop görselleri" })).toHaveTextContent(
+      "ekran kartı",
+    );
+    // İç tuvalin (Butterchurn) kaybı da sayılır; 10 sn'den sonraki kayıp görseli suçlamaz.
+    const second = fake.loads[fake.loads.length - 1]!;
+    act(() => fake.tick?.(null, 1 / 60));
+    clock += 11_000;
+    act(() => {
+      canvas.dispatchEvent(new Event("webglcontextlost"));
+      canvas.dispatchEvent(new Event("webglcontextrestored"));
+    });
+    await waitFor(() => expect(fake.visualizers[2]?.loadPreset).toHaveBeenCalled());
+    expect(fake.loads[fake.loads.length - 1]).toBe(second);
+    expect(JSON.parse(window.localStorage.getItem(SKIP_KEY)!)).toEqual([first]);
+    vi.restoreAllMocks();
+  });
+
+  it("açılırken Butterchurn'ün tuvali kaybolursa görsel atlanır", async () => {
+    fake.folder = FOLDER;
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    render(<Harness />);
+    await waitFor(() => expect(fake.visualizers[0]?.loadPreset).toHaveBeenCalledTimes(1));
+    const first = fake.loads[0]!;
+    act(() => {
+      fake.visualizers[0]!.internalCanvas.dispatchEvent(new Event("webglcontextlost"));
+    });
+    expect(JSON.parse(window.localStorage.getItem(SKIP_KEY)!)).toEqual([first]);
+    vi.restoreAllMocks();
+  });
+
   it("bağlam kaybında en çok üç kez yeniden kurulur; temiz bir kare sayacı sıfırlar", async () => {
     fake.folder = FOLDER;
+    // Görsel suçlanmasın: her kayıp açılıştan 10 sn'den sonra.
+    let clock = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => (clock += 20_000));
     render(<Harness />);
     const canvas = await waitFor(() => {
       const found = document.querySelector<HTMLCanvasElement>(".milkdrop-scene__canvas");
@@ -410,6 +468,9 @@ describe("MilkDrop sahnesi", () => {
       canvas.dispatchEvent(new Event("webglcontextrestored"));
     });
     expect(await screen.findByText(/çizmeyi bıraktı/)).toBeInTheDocument();
+    // Hiçbir görsel suçlanmadı.
+    expect(window.localStorage.getItem(SKIP_KEY)).toBeNull();
+    vi.restoreAllMocks();
   });
 
   it("WebGL2 açılamazsa sahne yerine açıklama görünür", async () => {

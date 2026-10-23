@@ -56,9 +56,12 @@ export interface MilkdropControls {
   previous: () => void;
   /** Sahne: müzikte uygun an geldi. */
   advance: () => void;
-  /** Sahne: istenen görsel açıldı / açılamadı ya da çizerken hata verdi. */
+  /**
+   * Sahne: istenen görsel açıldı / açılamadı ya da çizerken hata verdi. `skipPath` verilirse o
+   * görsel kalıcı atlananlara da girer (ör. ekran kartını dondurdu); istek eskimiş olsa bile.
+   */
   loaded: (serial: number, name: string, simplified: boolean, shaderNote?: string | null) => void;
-  failed: (serial: number, message: string) => void;
+  failed: (serial: number, message: string, skipPath?: string) => void;
 }
 
 const AUTO_KEY = "lyraska.milkdrop.auto";
@@ -221,8 +224,19 @@ export function useMilkdrop(active: boolean): MilkdropControls {
   );
 
   const failed = useCallback(
-    (done: number, message: string) => {
-      if (done !== serial.current) return;
+    (done: number, message: string, skipPath?: string) => {
+      if (skipPath !== undefined) {
+        addSkipped(skipPath);
+        bad.current.add(skipPath);
+        const list = loadSkipList();
+        // Depo yazılamadıysa da bu oturumda atlanır.
+        skippedRef.current = list.includes(skipPath) ? list : [...list, skipPath];
+        setSkipped(skippedRef.current);
+      }
+      if (done !== serial.current) {
+        if (skipPath !== undefined) setNotice(`Görsel atlandı: ${message}`);
+        return;
+      }
       // Bu oturumda bir daha denenmez.
       if (requested.current) bad.current.add(requested.current.path);
       failures.current += 1;

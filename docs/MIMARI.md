@@ -357,6 +357,12 @@ MilkDropScene ─ loadPreset(json, harmanlama) ─▶ Butterchurn (eel-wasm: EEL
   ya da çizerken hata veren (ör. WebAssembly tuzağı) görsel de oturum boyunca atlanır; çizim hatasında sonraki görsel
   harmanlamadan gelir. Seçilebilecek görsel kalmadıysa hiçbiri açılmaz, neden yazılır. Galerideki "Atlananları
   yeniden dene" listeyi boşaltır (kullanıcının açık seçimi).
+- **Ekran kartı donması**: bir gölgelendirici ekran kartını uzun süre meşgul ederse Windows sürücüyü sıfırlar
+  (TDR), WebGL bağlamları kaybolur ve sahne yeniden kurulur; yeniden kurulum aynı görseli bir daha açsaydı döngü
+  sürerdi (temiz kareler kayıp sayacını sıfırlar). Bu yüzden görsel açılırken ya da açıldıktan sonraki 10 sn içinde
+  (`GPU_HANG_SECONDS`) görünen tuvalin ya da Butterchurn'ün tuvalinin bağlamı kaybolursa görsel suçlanır: kalıcı
+  atlananlara girer (donma işaretiyle aynı liste), galeride nedeni yazılır, yeniden kurulum sonrakini açar. 10 sn'den
+  sonraki kayıp (ör. sürücü güncellemesi, uyku) görseli suçlamaz.
 - "Animasyonları azalt" açıksa sahne çalışmaz, açıklama görünür. Güvenli modda fren r = 0,18/sn.
 - Bağlam kaybı: görünen ya da görünmeyen tuvalin bağlamı kaybolursa sahne baştan kurulur, görsel yeniden açılır; arada
   temiz bir kare çizilmeden art arda 3 kezden fazla kaybolursa sahne bırakılır (temiz kare sayacı sıfırlar).
@@ -480,6 +486,7 @@ Her kural ya bir testle ya da CI'daki bir adımla denetlenir. Elle hatırlanmas�
 | Çevrilen gölgelendirici gerçek tarayıcıda derlenir ve frenden geçer                | `check:scenes` gölgelendirici denemesi (`data-shaders="ok"`, frenli ve frensiz parlama, CI)          |
 | `hlslparser.wasm` depodaki kaynağın ta kendisi                                     | CI "HLSL çevirici": wasi-sdk 30.0 ile yeniden derleyip baytı baytına karşılaştırır                   |
 | Çalarken program kapanan görsel bir daha kendiliğinden seçilmez                    | `src/lib/milkdrop.test.ts`, bileşen testleri (işaret, atlananlar, pagehide)                          |
+| Açıldıktan sonraki 10 sn içinde ekran kartını sıfırlatan görsel kalıcı atlanır     | `src/lib/milkdrop.test.ts` (`blameContextLoss`), bileşen testleri (bağlam kaybı, iç tuval)           |
 | MilkDrop geçişleri 15 sn'den sık değil, bölüm başında (erken geleni ertelenir)     | `src/lib/milkdrop.test.ts`                                                                           |
 | Yasaklı lisans yok                                                                 | `npm run check:licenses`, `cargo deny` (CI)                                                          |
 | Üçüncü taraf lisans bildirimleri pakette ve güncel                                 | `npm run check:notices` (CI; `npm run notices` üretir)                                               |
