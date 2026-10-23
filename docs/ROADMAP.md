@@ -196,9 +196,14 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
   - [x] MilkDrop 2 gölgelendiricilerinin (HLSL) GLSL'e çevrilmesi (0.0.61): projectM'in hlslparser'ı (MIT)
         WebAssembly'ye derlendi ve Rust'ta `wasmi` kum havuzunda çalışır (yakıt ve bellek sınırı, `unsafe` ve
         `eval` yok); hazırlık ve Butterchurn biçimi `milkdrop/shader.rs`'te. projectM'in 9 603 presetlik "Cream of
-        the Crop" setinde (yalnızca yerel ölçüm, depoya girmez) gölgelendiricilerin ~%99'u çevriliyor; çevrilemeyen
-        ya da ekran kartında derlenemeyen gölgelendirici atılır, görsel "sade hâliyle" çalar. CI ikili dosyanın
-        kaynağından baytı baytına aynı derlendiğini denetler
+        the Crop" setinde (yalnızca yerel ölçüm, depoya girmez) 15 524 gölgelendiricinin 15 442'si (%99,5)
+        çevriliyor, 15 317'si (%98,7) gerçek tarayıcıda (Chromium) derleniyor; çevrilemeyen ya da ekran kartında
+        derlenemeyen gölgelendirici atılır, görsel "sade hâliyle" çalar. CI ikili dosyanın kaynağından baytı baytına
+        aynı derlendiğini denetler
+  - [ ] Kalan gölgelendirici farkları (yerel ölçümde ~%1,3): HLSL `all()`/`any()`, `bool` üzerinde `saturate`,
+        `tex3D`'nin iki bileşenli koordinatı; çevrilen ama derlenmeyenlerde dizi ilk değeri eksik öğeli,
+        gölgelendiricinin uniform'a (`texsize`, `rand_preset`, `time`) ya da `uv_orig`'e yazması, GLSL'de ayrılmış
+        adlar (`sample`)
   - [ ] İsteğe bağlı: lisansı tek tek doğrulanmış birkaç preset programla gelsin (ör. MIT lisanslı küçük setler;
         her biri parlama testinden geçerek) — proje sahibinin kararı
 - [x] Kinetik şarkı sözleri (0.0.56): sözler yalnızca kullanıcının kendi dosyalarından (şarkının yanındaki `.lrc` ya
