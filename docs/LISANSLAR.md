@@ -49,6 +49,23 @@ kuralları). Kod bağımlılıklarının lisanslarını CI denetler (`npm run ch
   denetlendi. Ayrılmış yazı tipi adı (Reserved Font Name) yok; dosyalar değiştirilmeden kullanılır.
 - **Lisans metni:** `public/lisanslar/BricolageGrotesque-OFL-1.1.txt`, `public/lisanslar/JetBrainsMono-OFL-1.1.txt`.
 
+## Yıldız atlası: HYG kataloğu ve Stellarium takımyıldız çizgileri
+
+- **Ne için:** Sanatçılar görünümünde her sanatçının "basılı yıldız atlası levhası" (adı gökyüzünde sabit bir yere
+  düşer; o yerin gerçek yıldızları ve takımyıldız çizgileri çizilir).
+- **Kaynaklar:**
+  - **HYG yıldız kataloğu v4.0**, David Nash (astronexus), <https://github.com/astronexus/HYG-Database>
+    (`hyg/CURRENT/hygdata_v40.csv.gz`; SHA-256 `80152c79…0ad3c69`).
+  - **Stellarium "modern" gök kültürü** (IAU takımyıldızlarının çizgileri), Stellarium geliştiricileri,
+    <https://github.com/Stellarium/stellarium> (`skycultures/modern/index.json`, 23 Ekim 2026'da indirildi;
+    SHA-256 `1f2f5ffd…09f6b0fe1e`). Yalnızca çizgiler (HIP numaraları) alınır; çizimler (Free Art License) alınmaz.
+- **Lisans:** ikisi de **CC BY-SA 4.0** (HYG deposunun `LICENSE`'ı; Stellarium'da `description.md`: "Text and data:
+  CC BY-SA 4.0"). CC BY-SA 4.0 GPL-3.0 ile tek yönlü uyumludur. Proje sahibi atıfla kullanımı onayladı (23 Ekim 2026).
+- **Lyraska'daki hali:** `src/lib/starAtlas.json`, `scripts/build-star-atlas.mjs` ile üretilir: çıplak göze görünen
+  8 920 yıldız (V ≤ 6,5; konum, kadir, HIP) ve 88 takımyıldızın çizgileri. Bu türetilmiş veri de **CC BY-SA 4.0**
+  altındadır; ham dosyalar depoya girmez.
+- **Lisans metni:** `public/lisanslar/CC-BY-SA-4.0.txt` (SPDX lisans listesindeki metin).
+
 ## MilkDrop sahnesi: Butterchurn ve kullanıcının kendi görselleri
 
 - **Ne için:** galerideki MilkDrop sahnesi kullanıcının kendi `.milk` dosyalarını (MilkDrop görselleri,
