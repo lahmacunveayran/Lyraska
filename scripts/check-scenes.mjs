@@ -691,7 +691,9 @@ async function flashGuardBundle() {
  * Zamana bağlı parlama ölçümü: bilerek parlayan desen (saniyede 10 ve 1 kez siyah ↔ beyaz, tam
  * ekran ve tek bölge) frenden geçirilir; her karede ekran okunur, en kötü WCAG penceresinin
  * parlaklık dizisi `countFlashes` ile sayılır. Frenli her durum saniyede ≤ 3 (güvenli modda ≤ 1)
- * parlamalı; frensiz denetim parlamayı görmeli (ölçümün çalıştığının kanıtı).
+ * parlamalı; frensiz denetim parlamayı görmeli (ölçümün çalıştığının kanıtı). İnce desen (1
+ * piksellik şerit ve dama, blok ortalaması sabit) piksel başına `countChanges` ile sayılır: en
+ * kötü blokta saniyede ≤ 3 (güvenli modda ≤ 1,05) tersine dönme; frensiz denetim görmeli.
  */
 async function checkFlashGuard(browser, code) {
   const page = await browser.newPage({ viewport: { width: 400, height: 300 } });
@@ -715,7 +717,8 @@ async function checkFlashGuard(browser, code) {
       continue;
     }
     console.log(
-      `${name}: saniyede ${r.flashesPerSecond.toFixed(2)} parlama · karede en büyük değişim ` +
+      `${name}: saniyede ${r.flashesPerSecond.toFixed(2)} parlama · ` +
+        `${r.reversalsPerSecond.toFixed(2)} desen dönüşü · karede en büyük değişim ` +
         `${r.maxStep.toFixed(4)} · ${r.storage ? `saklama ${r.storage} · ` : ""}` +
         `kare ${r.frameMs.toFixed(1)} ms`,
     );
@@ -728,6 +731,17 @@ async function checkFlashGuard(browser, code) {
       problems.push(
         `${name}: frensiz desen parlama olarak ölçülmedi (${r.flashesPerSecond.toFixed(2)} < ` +
           `${c.minPerSecond}): ölçüm çalışmıyor`,
+      );
+    }
+    if (c.maxReversals !== undefined && r.reversalsPerSecond > c.maxReversals) {
+      problems.push(
+        `${name}: saniyede ${r.reversalsPerSecond.toFixed(2)} desen dönüşü > ${c.maxReversals}`,
+      );
+    }
+    if (c.minReversals !== undefined && r.reversalsPerSecond < c.minReversals) {
+      problems.push(
+        `${name}: frensiz desen dönüşü ölçülmedi (${r.reversalsPerSecond.toFixed(2)} < ` +
+          `${c.minReversals}): ölçüm çalışmıyor`,
       );
     }
   }

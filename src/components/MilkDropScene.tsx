@@ -40,8 +40,10 @@ export interface MilkDropSceneProps {
  * Güvenlik:
  * - Butterchurn kendi, **görünmeyen** tuvaline çizer (OffscreenCanvas; DOM'da değil). Görünen
  *   tuvale yalnızca parlaklık freni (`flashGuard.ts`) çizer: görüntünün her bölgesinin parlaklığı
- *   saniyede en çok 0,3 (güvenli modda 0,18) değişir; preset ne yaparsa yapsın saniyede 3'ten
- *   (güvenli modda 1'den) az parlama. Fren kurulamazsa sahne hiç gösterilmez.
+ *   saniyede en çok 0,3 (güvenli modda 0,18), her küçük bloğun piksellerinin parlaklığı ortalama
+ *   0,27 (güvenli 0,095) değişir; preset ne yaparsa yapsın saniyede 3'ten (güvenli modda 1'den) az
+ *   parlama, ince desenler (şerit, dama) saniyede ≤ 3 (güvenli ~1) tersine döner. Fren kurulamazsa
+ *   sahne hiç gösterilmez.
  * - Preset denklemleri yalnızca WebAssembly'ye derlenir (`onlyUseWASM`); JavaScript olarak
  *   çalıştırılmaz (CSP'de `'unsafe-eval'` yok). Gölgelendiricileri çekirdek GLSL'e çevirir;
  *   ekran kartında derlenemeyen olursa varsayılanla değiştirilir (`milkdropShaders.ts`).

@@ -187,8 +187,8 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       yazarları lisans vermemiş). Klasör seçilir ve hatırlanır; `.milk` Rust'ta Butterchurn biçimine çevrilir
       (MilkDrop 1 ve 2 anahtarları, dalgalar, şekiller, denklemler; Türkçe/Batı Windows kodlaması; boyut ve satır
       sınırı). Denklemler yalnızca WebAssembly'ye derlenir (CSP'de yalnızca `'wasm-unsafe-eval'`, `'unsafe-eval'`
-      yok). Her kare **parlaklık freninden** geçer (saniyede ≤ 1,65 parlama, güvenli modda ≤ 1; gerçek sahnede kare
-      kare ölçülür); "animasyonları azalt"ta sahne çalışmaz. Görsel değişimi bölüm başında ya da drop'ta, en sık
+      yok). Her kare **parlaklık freninden** geçer (saniyede ≤ 1,65 parlama, güvenli modda ≤ 1; ince desen
+      saniyede ≤ 2,96 kez tersine döner, güvenli modda ≤ 1,04; gerçek sahnede kare kare ölçülür); "animasyonları azalt"ta sahne çalışmaz. Görsel değişimi bölüm başında ya da drop'ta, en sık
       15 sn'de bir, en az 3 sn harmanlanarak; Önceki/Sonraki elle. **Donma koruması**: `loop` MilkDrop'un sınırına
       (1 048 576 tur) kırpılır, iç içe ya da piksel başına döngülü görsel açılmaz; çalarken program kapanan görsel
       kalıcı olarak atlanır. Temeli (0.0.59): Rust'ta ham dalga biçimi (`visual_waveform`) ve parlaklık freni

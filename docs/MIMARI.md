@@ -229,35 +229,63 @@ alanının ~%25'i büyüklüğünde bir alanda; `lib/flash.ts` sayar). Güvenli 
 - **Güvenilmeyen sahneler için parlaklık freni** (`lib/flashGuard.ts`, saf hesap ve kanıt `lib/flashGuardMath.ts`):
   MilkDrop presetleri (butterchurn) gibi parlaklığı müzikten bağımsız sıçrayabilen, CI'da denenemeyen (kullanıcının
   kendi dosyaları) görüntüler için WebGL2 son geçişi. Sahne kendi görünmez tuvaline/dokusuna çizer; görünür tuvale
-  yalnızca fren çizer. Görüntü 32×18 hücreye, hücre 8×8 bloğa bölünür; her karede:
-  - Ölçüm ekran kartında: girdinin blok ortalamaları (doğrusal RGB), önceki gösterilen görüntünün blok ortalamaları
-    (ping-pong durum), hücre başına köşe ağırlıklı parlaklık farkları.
-  - Gösterilen piksel `O = H_b + a(b)·(X − H_b)`: önceki gösterilen blok rengiyle yeni görüntünün karışımı. Pay
-    `a`, hücre köşelerinde seçilir (köşeye dokunan hücrelerin en küçüğü) ve blok içinde çift doğrusal karışır; fren
-    devrede değilken `a = 1`, görüntü bit bit aynı geçer. Parlaklaşmada da ani kararmada da aynı formül.
-  - **Sınır (kesin)**: her hücrenin gösterilen ortalama parlaklığı bir karede en çok `r·dt` değişir; hücrelerden
-    oluşan her pencerenin ortalaması hücrelerin ağırlıklı ortalaması olduğundan o da. 0,1'lik bir değişim en az
-    `0,1/r` sn sürer: saniyede ≤ `r/0,2` parlama; ekranın 8 bit yuvarlaması dahil ≤ `r / (2·(0,1 − 2·0,0045))`.
-    Normal mod r = 0,3/sn → ≤ 1,65; güvenli mod r = 0,18/sn → ≤ 0,99. `dt` en çok 0,1 sn sayılır.
-  - Saklama: `EXT_color_buffer_float` varsa R32F; yoksa RGBA8'de 24 bit sabit nokta (aynı sınır). Kurulum bir öz
-    denetimle biter (beyaz kare siyahtan ancak `r·dt` açılmalı). Kurulamazsa `createFlashGuard` `{ ok: false }`
-    döndürür: güvenilmeyen sahne hiç gösterilmez; fren kapatılamaz, sessizce atlanamaz.
-  - İlk karede (ya da `reset`) gösterilen siyahtır: sahne en çok `r` hızla belirir (beyaz ekran ~3,3 sn).
-  - Bilinen sınırlar: (1) hücre kenarlarına hizasız bir pencerede, kenar hücrelerinin içindeki dağılım bir terim
-    ekler; tekdüze ve hücreden büyük ölçekli değişimlerde sıfırdır, köşe ağırlıkları birinci dereceden dağılımı da
-    görür; ancak hücre içinde ortalaması ve köşe ağırlıklı toplamları sıfır olan, belirli bir pencerenin kenarına göre
-    kurgulanmış ince desenler kesin sınırın dışındadır. (2) Aynı parlaklıkta kırmızı ↔ başka renk titreşimi
-    (WCAG "red flash") parlaklık frenine görünmez; doymuş kırmızı ↔ karanlık geçişleri sınırlıdır. Gerekirse bir
-    "kırmızılık" kanalı aynı yöntemle sınırlanır. (3) Fren hızlı ve büyük ölçekli hareketi de yavaşlatır (iz
-    bırakır): sınır parlamayı değil parlaklık değişim hızını keser.
+  yalnızca fren çizer. Görüntü 32×18 hücreye, hücre 8×8 bloğa (256×144; 1080p'de ~7,5 px) bölünür. Durum, bir
+  önceki gösterilen görüntünün kendisidir: **tam çözünürlükte**, doğrusal RGB, kanal başına 16 bit (RGBA16UI,
+  ping-pong; 1080p'de 2 × 16,6 MB). Her karede:
+  - Ölçüm ekran kartında: her blokta girdiyle durumun piksel piksel parlaklık farkının ortalaması `ΔY_b` ve mutlak
+    değerinin ortalaması `D_b` (her karede saklanan durumdan yeniden: yuvarlama birikmez).
+  - Gösterilen piksel `O = P + a(b)·(X − P)`: önceki gösterilen pikselle yeni pikselin karışımı (sahnede olmayan
+    renk üretilmez). Pay `a`, hücre köşelerinde seçilir (köşeye dokunan hücrelerin en küçüğü) ve blok içinde çift
+    doğrusal karışır; fren devrede değilken `a = 1`, görüntü aynı geçer (8 bit renk 16 bit durumdan bit bit aynı
+    döner). Parlaklaşmada da ani kararmada da aynı formül. Hücrenin payı iki payın küçüğüdür:
+  - **Ortalama sınırı (parlama, kesin)**: köşe ağırlıklı `ΔY`'lerden `α_c`; her hücrenin gösterilen ortalama
+    parlaklığı bir karede en çok `r·dt` değişir; hücrelerden oluşan her pencerenin ortalaması hücrelerin ağırlıklı
+    ortalaması olduğundan o da. 0,1'lik bir değişim en az `0,1/r` sn sürer: saniyede ≤ `r/0,2` parlama; ekranın 8 bit
+    yuvarlaması dahil ≤ `r / (2·(0,1 − 2·0,0045))`. Normal mod r = 0,3/sn → ≤ 1,65; güvenli mod r = 0,18/sn → ≤ 0,99.
+  - **Desen sınırı (kesin)**: en kötü bloğun `D_b`'sinden `β_c`; her bloğun piksellerinin ortalama mutlak
+    parlaklık değişimi bir karede en çok `r_p·dt`. Ortalaması hiç değişmeyen ince desenler (1 piksellik şerit ya da
+    dama, saniyede 30 kez tersine) yalnızca ortalamayı sınırlayan frenden olduğu gibi geçerdi; dönüştürülen
+    gölgelendiricilerle bu kolayca üretilebilir. Bir pikselin 0,1'lik her dönüşü ("tersine dönme") en az
+    `0,1 − 2·0,0045` yol ister: her blokta piksel başına saniyede ≤ `r_p / (0,1 − 2·0,0045)` tersine dönme. Hız seçimi:
+    ITU-R BT.1702 / Ofcom'a göre zararlı desen belirgin (koyu şeritler 160 cd/m²'nin altında, açıklarla farkı
+    ≥ 20 cd/m², yani ~200 cd/m²'lik ekranda ≥ 0,1 bağıl parlaklık), çok şeritli ve titreyen/tersine dönendir (Harding:
+    ~3 Hz ve üstü). Normal mod r_p = 0,27/sn → ≤ 2,96 tersine dönme/sn (çift olarak ≤ 1,48); güvenli mod
+    r_p = 0,095/sn → ≤ 1,04/sn (kontrast ≥ 0,105 ise ≤ 1). Güvenli hız gece göğünün en hızlı parlaklık eğrisinin
+    (0,0913/sn) altına indirilmedi: kendi sahnelerimizin eğrileri frenden değişmeden geçer. r_p ≤ r olduğundan desen
+    sınırı ortalamanınkini de sağlar (bloğun ortalaması en çok mutlak değişimi kadar değişir); ikisi de ayrı denetlenir.
+  - Sınır yereldir (her blok): BT.1702 ancak ekranın %25'ini aşan deseni yasaklar, fren ekranın küçük bir yerindekini
+    de sınırlar (güvenli taraf). `dt` en çok 0,1 sn sayılır; her kare `10⁻⁵` pay düşülür (16 bit durumun yarım adımı
+    7,6·10⁻⁶ ve ara değerlerin yuvarlaması).
+  - Saklama: ara değerler (`ΔY_b`, `D_b`, paylar) `EXT_color_buffer_float` varsa R32F; yoksa RGBA8'de 24 bit sabit
+    nokta. Durum her iki yolda RGBA16UI (WebGL2'de her zaman çizilebilir; aynı sınır). Boy değişince durum en yakın
+    komşuyla yeni boya taşınır. Kurulum bir öz denetimle biter (beyaz kare siyahtan ancak `min(r, r_p)·dt` açılmalı:
+    desen payı çalışmıyorsa iki katı açılır). Kurulamazsa `createFlashGuard` `{ ok: false }` döndürür: güvenilmeyen
+    sahne hiç gösterilmez; fren kapatılamaz, sessizce atlanamaz.
+  - İlk karede (ya da `reset`) gösterilen siyahtır: sahne en çok `r_p` hızla belirir (beyaz ekran ~3,7 sn).
+  - Ekran kartı maliyeti: beş geçiş (blok ölçümü girdiyi ve durumu bir kez okur; hücreler; köşeler; yeni durum; gösterim).
+    `check:scenes`'te (SwiftShader, yazılımsal) yükleme + fren + okuma 320×180'de 8–10 ms, 512×288'de ~19 ms; önceki
+    (yalnızca ortalamayı sınırlayan, blok durumlu) frenle aynı ölçümde 11 ms ve 19 ms.
+  - Hizasız pencereler (önceki bilinen boşluk kapandı): her pencerenin ortalaması en çok piksellerinin mutlak
+    değişimi kadar değişir, o da pencereye dokunan blokların toplamıyla sınırlıdır:
+    `|Δμ_W| ≤ r_p·dt·N⁺_W/N_W` (N⁺_W: pencereye dokunan blokların piksel sayısı). WCAG penceresinde 1080p'de
+    `N⁺/N ≤ 1,06`: hücrelere hizasız her pencerede saniyede ≤ 1,57 parlama (güvenli ≤ 0,55).
+  - Bilinen sınırlar: (1) Aynı parlaklıkta kırmızı ↔ başka renk titreşimi (WCAG "red flash") parlaklık frenine
+    görünmez; doymuş kırmızı ↔ karanlık geçişleri sınırlıdır. Gerekirse bir "kırmızılık" kanalı aynı yöntemle
+    sınırlanır. (2) Fren hızlı hareketi de yavaşlatır (iz bırakır): desen sınırı piksel başına çalıştığı için ince
+    ve hızlı ayrıntı (keskin dalga çizgileri, ince doku) da yavaşlar; yavaş ya da yumuşak değişim (piksel başına
+    saniyede `r_p`'den yavaş) değişmeden geçer. Gerçek presetlerdeki etkisi gerçek cihazda değerlendirilmeli.
   - Butterchurn kendi WebGL2 bağlamında çizer; çıktısı her karede `processSource` ile dokuya yüklenir
     (`texImage2D`). Bağlamlar arası kopya sürücüye göre işlemciden geçebilir; gerçek cihazda ölçülmeli.
 - **Denetim**: `flashGuardMath` testleri (işlemcideki kaynak uygulamayla kötü niyetli girdiler: 0,5–30 Hz kare
-  dalgalar, gürültü, tek bölge, kırmızı, hücre yarılarının titreşimi; yavaş görüntü ve gece göğünün parlaklık eğrisi
+  dalgalar, gürültü, tek bölge, kırmızı, hücre yarılarının titreşimi; bloktan ince şerit ve damanın 3–60/sn tersine
+  dönmesi, hareket eden keskin doku; yavaş görüntü, yavaş kayan yumuşak doku ve gece göğünün parlaklık eğrisi
   değişmeden geçer) ve `check:scenes`'teki zamana bağlı ölçüm: `flashGuardCheck.ts` (yalnızca denetim paketinde,
-  programa girmez) bilerek parlayan deseni gerçek tarayıcıda frenden geçirir, her kare ekranı okur, 4 piksel adımlı
-  bütün WCAG pencerelerinde `countFlashes` ile sayar. Frensiz denetim saniyede ~10 parlama görmeli (ölçüm
-  çalışıyor), frenli her durum ≤ 3 (güvenli mod ≤ 1).
+  programa girmez) bilerek parlayan deseni ve bilerek tersine dönen ince deseni (512×288'de 1 piksellik şerit ve dama;
+  blok 2×2 px, blok ortalaması sabit) gerçek tarayıcıda frenden geçirir, her kare ekranı okur, 4 piksel adımlı bütün
+  WCAG pencerelerinde `countFlashes` ile parlamaları, her pikselde `countChanges` ile tersine dönmeleri sayar. Frensiz
+  denetim saniyede ~10 parlama ve ~56 desen dönüşü görmeli (ölçüm çalışıyor), frenli her durum ≤ 3 parlama ve ≤ 3
+  desen dönüşü (güvenli mod ≤ 1 ve ≤ 1,05). Yalnızca ortalamayı sınırlayan eski fren bu ölçümde ince şeridi saniyede
+  ~35 kez tersine çevirdi.
 
 ## MilkDrop sahnesi
 
@@ -363,7 +391,7 @@ MilkDropScene ─ loadPreset(json, harmanlama) ─▶ Butterchurn (eel-wasm: EEL
   (`GPU_HANG_SECONDS`) görünen tuvalin ya da Butterchurn'ün tuvalinin bağlamı kaybolursa görsel suçlanır: kalıcı
   atlananlara girer (donma işaretiyle aynı liste), galeride nedeni yazılır, yeniden kurulum sonrakini açar. 10 sn'den
   sonraki kayıp (ör. sürücü güncellemesi, uyku) görseli suçlamaz.
-- "Animasyonları azalt" açıksa sahne çalışmaz, açıklama görünür. Güvenli modda fren r = 0,18/sn.
+- "Animasyonları azalt" açıksa sahne çalışmaz, açıklama görünür. Güvenli modda fren r = 0,18/sn, r_p = 0,095/sn.
 - Bağlam kaybı: görünen ya da görünmeyen tuvalin bağlamı kaybolursa sahne baştan kurulur, görsel yeniden açılır; arada
   temiz bir kare çizilmeden art arda 3 kezden fazla kaybolursa sahne bırakılır (temiz kare sayacı sıfırlar).
 
@@ -417,87 +445,88 @@ taşınamazsa eski yer kullanılır.
 
 Her kural ya bir testle ya da CI'daki bir adımla denetlenir. Elle hatırlanması gereken kural yoktur.
 
-| Kural                                                                              | Denetleyen                                                                                           |
-| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Ses çıkışında bellek ayırma yok                                                    | `audio::render` testi `ses_yolu_bellek_ayirmaz`                                                      |
-| Ses yüksekliği ölçümü EBU R128'e uyar                                              | `audio::loudness` testleri (EBU Tech 3341 durumları 1–5)                                             |
-| Eşitleme ve ekolayzer kapalıyken ses bit bit aynı                                  | `audio::render` ve `audio::normalize` testleri                                                       |
-| Bit-perfect'te dosyadaki tamsayılar aygıta aynen gider                             | `audio::player` testi `bit_perfect_zinciri_…`, `output` testleri                                     |
-| Ses yolu ≤ −140 dB bozulma + gürültü ekler                                         | `audio::render` testi `ses_yolu_bozulma_ve_gurultu_eklemez`                                          |
-| Bas düğmesi bası yükseltir, ortaya dokunmaz, tık yok                               | `audio::bass` testleri                                                                               |
-| Bas motorunun korumaya bildirdiği pay tepeleri karşılar                            | `audio::bass` testi `yukseltme_payi_tepeleri_karsilar`                                               |
-| Ölçülen bas tepeleri gerçek artışı karşılar, gereksiz kısmaz                       | `audio::bass` testi `olculen_bas_tepeleri_…`                                                         |
-| Vuruş ilk anı güçlendirir; sürekli basa ve ortaya dokunmaz                         | `audio::punch` testleri, `audio::bass` testi `vurus_…`                                               |
-| Boşluksuz geçişte yeniden örneklenen dalga sınırda kopmaz                          | `audio::player` testi `bosluksuz_geciste_yeniden_…`                                                  |
-| Görsel dalga biçimi duyulan anla biter, sarmada eski veri yok                      | `audio::player` testleri `dalga_bicimi_…`, `audio::waveform` testleri                                |
-| Şarkı sınırında yeni şarkı ilk karesinden kendi seviyesinde                        | `audio::normalize` testi `sessizden_yuksege_…`                                                       |
-| Ekolayzer koruması kazançtan önce kalkmaz, ilk kare korumalı                       | `audio::normalize` testi `esitleme_acilinca_…`                                                       |
-| Sahne denetiminin sahte çekirdeği arayüzün tipleriyle aynı                         | `src/lib/sceneCheck.test.ts` (üretilen tipe bağlı)                                                   |
-| Bir panelin ya da sahnenin hatası pencereyi karartmaz                              | `ErrorBoundary` testleri, bileşen testi "hata sınırları"                                             |
-| Yeniden örneklemede Nyquist üstü ≥ 140 dB bastırılır                               | `audio::resample` testleri                                                                           |
-| Windows'a özel kod (WASAPI) temiz                                                  | Clippy, `--target x86_64-pc-windows-gnu` (yerel) ve Windows CI                                       |
-| Gerçek ses aygıtıyla uçtan uca çalma                                               | `examples/ses_denemesi` (CI makinesinde aygıt yok: "ATLANDI" + uyarı; gerçek deneme proje sahibinde) |
-| Kütüphane kodunda `unwrap`/`expect`/`panic!` yok                                   | Clippy (`Cargo.toml` `[lints.clippy]`), CI'da `-D warnings`                                          |
-| `unsafe` yok (tek istisna: `output/wasapi.rs` MMCSS, `// GÜVENLİK:` gerekçeli)     | `unsafe_code = "deny"`; istisna fonksiyon düzeyinde `#[allow]` ve belgeli                            |
-| Rust ↔ arayüz veri tipleri aynı                                                    | ts-rs ile üretilir; CI "Arayüz tipleri güncel mi" adımı                                              |
-| Arayüzün çağırdığı komut ve argümanlar çekirdekte var                              | `npm run check:commands` (CI)                                                                        |
-| Veritabanı yapısı değişince eski dosyalar güncellenir                              | `storage.rs` testleri (göç, eski dosya, yeni sürüm dosyası)                                          |
-| Her eski sürümün dosyası yeni kurulumla aynı şemaya ulaşır                         | `storage.rs` testleri `her_eski_dosya_…`, `surum_0_0_19_…`                                           |
-| Analiz önbelleği bozuksa kütüphane açılır, şarkılar kalır                          | `storage.rs` `analiz_tablosu_…`, `kutuphane_tablosunda_…`                                            |
-| Kütüphane açılamazsa ekranda uyarı çıkar (günlükte kalmaz)                         | Bileşen testi "kütüphane açılamazsa …"                                                               |
-| Kör testte iki bölüm örnek düzeyinde hizalı ve eşit yükseklikte                    | `audio::abx` testi `hazirlik_hizalar_ve_ses_yuksekligini_esitler`                                    |
-| Kör testte A/B/X geçişi aynı konumda, tıksız; başa dönüş yumuşak                   | `audio::abx` testleri `gecis_…`, `bolum_basa_donerken_…`                                             |
-| Kör test farklı kayıtları karşılaştırmaz                                           | `audio::abx` testi `farkli_kayitlar_reddedilir`                                                      |
-| Eşlenmiş süzgeç kararlı, en küçük fazlı, hiçbir ayarda RBJ'den uzak değil          | `audio::biquad` testleri `eslenmis_…`, `tipik_ayarlarda_…`                                           |
-| Kulaklık profili Equalizer APO'nun anlamlarıyla okunur                             | `audio::peq` testleri `apo_…`                                                                        |
-| Parametrik EQ karşılaştırması filtresiz ve eşit yükseklikte                        | `audio::peq` testleri `karsilastirma_…`, `ses_yuksekligi_telafisi_…`                                 |
-| Parametrik EQ Equalizer APO dosyasıyla gidip gelir                                 | `audio::peq` testi `parametrik_apo_ile_gidip_gelir`                                                  |
-| Parametrik EQ'nun yükseltmesi korumaya bildirilir, ses yolunda ikinci kez kısılmaz | `audio::peq` testi `bildirilen_yukseltme_…`                                                          |
-| Crossfeed'de orta ses bit bit aynı, yan kanal hiçbir frekansta yükselmez           | `audio::crossfeed` testleri                                                                          |
-| Crossfeed ses yolunda; ortadaki ses bütün yoldan aynen, bit-perfect'te yok         | `audio::render` testi `crossfeed_ses_yolunda_…`                                                      |
-| Sözler LRC'nin bütün biçimleriyle ve Türkçe kodlamalarla okunur; gömülü sözler     | `audio::lyrics` testleri (`kodlamalar_…`, `gomulu_sozler_okunur`)                                    |
-| Sözlerin görünürlüğü sıçramaz; satır sıradakine boşluksuz geçer                    | `src/lib/lyrics.test.ts`                                                                             |
-| Parmak izi aynı kaydı tanır (kayıplı, kaymış, 22 kHz), başka şarkıyı ayırır        | `analysis::fingerprint` testleri; gerçek kodlayıcılarla `gercek_kodlayicilarla_olcum` (elle, ffmpeg) |
-| Şarkı haritası dosyası doğrulanır; kötü niyetli dosya reddedilir; alanlar sabit    | `analysis::map_file` testleri `bozuk_ve_…`, `bicim_alanlari_sabit`                                   |
-| İçe aktarılan harita analizin önüne geçer, önbelleğe yazılmaz, kalıcı              | `spectrogram` testi `ice_aktarilan_…`, `player` testi `sarki_haritasi_…`                             |
-| Kör test bitince önceki şarkı kaldığı yerde geri gelir, ekranda görünür            | `audio::player` testi `kor_test_sarkiyi_durdurur_…`, bileşen testi "kör test"                        |
-| Kör test kurulamazsa çalan şarkı kesilmez                                          | `audio::player` testi `kor_test_kurulamazsa_calan_sarki_durmaz`                                      |
-| Analiz hesabı değişince eski sonuçlar kullanılmaz                                  | `cache::VERSIONS` ve önbellek testleri                                                               |
-| Ritim yenilenirken şarkı çözülmez, sonuç tam analizle aynı                         | `analysis::spectrogram` testi `eskiyen_ritim_…`                                                      |
-| Tonsuz eski kayıtta yalnızca ton hesaplanır, geri kalanı aynı kalır                | `analysis::background` testi `tonsuz_eski_kayitlarda_…`, spektrum testleri                           |
-| Ton 24 tonun hepsinde, akort kaymasında ve davul gürültüsünde bulunur              | `analysis::key` testleri (sentetik akor dizileri)                                                    |
-| Güveni düşük ton hiçbir yerde gösterilmez (kütüphane, bilgi kartı)                 | `analysis::key` testleri, `library::db` testi `bpm_ve_ton_…`                                         |
-| Eski tek sürümlü kayıtlar göçte yeniden analiz ettirmez                            | `storage.rs` testi `eski_analiz_kayitlari_…` (göç 5)                                                 |
-| Güveni düşük drop hiçbir yerde drop sayılmaz (tek eşik)                            | `analysis::structure`, `director` testleri, bileşen testleri                                         |
-| Aksak ölçüde vuruşlar grup başları, ölçü başları doğru (9/8, 7/8, 5/8)             | `analysis::meter` testleri, `analysis::structure` testi `aksak_…`                                    |
-| Düzenli ölçüler aksak sayılmaz                                                     | `analysis::meter` testi `duzenli_olculer_aksak_sayilmaz`                                             |
-| Ölçü belirsizse ölçü başı vurgulanmaz (yönetmen, otoyol, bilgi kartı)              | `structure` testi `olcu_basi_tutarsiz_…`, `director`, highway, bileşen testi                         |
-| Hiçbir sahne saniyede 3'ten fazla parlamaz                                         | Sahne testleri (`sky`, `highway`, `stageLight`) + `npm run check:scenes` (CI)                        |
-| Parlama sınırı her renk temasında ve her gök manzarasında                          | `npm run check:scenes` (temaya göre renklenen sahneler, CI)                                          |
-| Parlaklık freni: hücre ortalaması bir karede ≤ r·dt, saniyede ≤ 1,65 (güvenli ≤ 1) | `flashGuardMath` testleri + `check:scenes` zamana bağlı ölçüm (frenli ve frensiz desen, CI)          |
-| Parlayan denetim deseni programa girmez                                            | `sceneCheck` testi "programa girmez"                                                                 |
-| MilkDrop sahnesi saniyede ≤ 3 (güvenli ≤ 1) parlar, preset ne olursa olsun         | `check:scenes` gerçek sahnede kare kare (frenli ve frensiz deneme preseti, CI); bileşen testleri     |
-| MilkDrop denklemleri yalnızca WebAssembly'ye derlenir, CSP'de `'unsafe-eval'` yok  | Bileşen testi (`onlyUseWASM`), `check:scenes` (programın CSP'siyle, eval engelli)                    |
-| `.milk` her bölümüyle çevrilir; bozuk dosya panik yaptırmaz; sınırlar              | `milkdrop::parse` ve `milkdrop` testleri; sahne denetimindeki JSON ayrıştırıcının çıktısıyla aynı    |
-| Yalnızca seçilen klasördeki `.milk` dosyaları açılır (bağlantı yok, ≤ 1 alt düzey) | `milkdrop` testleri `yalnizca_secilen_…`, `baglanti_ve_derin_dosyalar_acilmaz`, Windows yolu testi   |
-| MilkDrop denklemleri programı donduramaz (döngü kırpılır, iç içe/piksel başı yok)  | `milkdrop::eel` ve `parse` testleri; `check:scenes` döngü denemesi (gerçek tarayıcı)                 |
-| Gölgelendirici çevirici programı çökertemez/donduramaz (yakıt, bellek, boyut)      | `milkdrop::shader` testleri (sonsuz makro, derin ifade, büyük ve bozuk girdi)                        |
-| Çevrilen gölgelendirici ekran kartını donduramaz (sabit, kısa döngüler; while yok) | `milkdrop::shader_loops` testleri, `shader` testi `sinirsiz_ya_da_cok_uzun_dongu_reddedilir`         |
-| Çevrilen gölgelendirici gerçek tarayıcıda derlenir ve frenden geçer                | `check:scenes` gölgelendirici denemesi (`data-shaders="ok"`, frenli ve frensiz parlama, CI)          |
-| `hlslparser.wasm` depodaki kaynağın ta kendisi                                     | CI "HLSL çevirici": wasi-sdk 30.0 ile yeniden derleyip baytı baytına karşılaştırır                   |
-| Çalarken program kapanan görsel bir daha kendiliğinden seçilmez                    | `src/lib/milkdrop.test.ts`, bileşen testleri (işaret, atlananlar, pagehide)                          |
-| Açıldıktan sonraki 10 sn içinde ekran kartını sıfırlatan görsel kalıcı atlanır     | `src/lib/milkdrop.test.ts` (`blameContextLoss`), bileşen testleri (bağlam kaybı, iç tuval)           |
-| MilkDrop geçişleri 15 sn'den sık değil, bölüm başında (erken geleni ertelenir)     | `src/lib/milkdrop.test.ts`                                                                           |
-| Yasaklı lisans yok                                                                 | `npm run check:licenses`, `cargo deny` (CI)                                                          |
-| Üçüncü taraf lisans bildirimleri pakette ve güncel                                 | `npm run check:notices` (CI; `npm run notices` üretir)                                               |
-| Depoda ses dosyası yok                                                             | `npm run check:audio` (CI)                                                                           |
-| Biçim ve lint temiz, tür hatası yok                                                | Prettier, ESLint, `tsc`, `cargo fmt`, Clippy (CI)                                                    |
-| Çalarken paneller her karede yeniden çizilmez                                      | Bileşen testi "çizim yükü" (kütüphane panelinin çizim sayısı)                                        |
-| Durum sorguları birikmez (yanıt gelmeden yenisi gitmez)                            | `src/hooks/usePlayer.test.ts`, kör test paneli testleri                                              |
-| İşaretler ses aygıtının gecikmesi düşülerek kaydedilir                             | `src/hooks/useMarker.test.ts`                                                                        |
-| Sahne saatleri saatlerce çalınca sıçramaz (katlanır)                               | `src/lib/sceneClock.test.ts`, sky ve highway testleri                                                |
-| "Önceki" ve açılırken yapılan seçim çalma sırasını bozmaz                          | `src/hooks/usePlayback.test.ts`                                                                      |
-| Etiket okuma kuralı değişince eski kayıtlar yeniden okunur                         | `library::db` `TAGS_VERSION`, göç 4 ve tarama testleri                                               |
+| Kural                                                                                               | Denetleyen                                                                                           |
+| --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Ses çıkışında bellek ayırma yok                                                                     | `audio::render` testi `ses_yolu_bellek_ayirmaz`                                                      |
+| Ses yüksekliği ölçümü EBU R128'e uyar                                                               | `audio::loudness` testleri (EBU Tech 3341 durumları 1–5)                                             |
+| Eşitleme ve ekolayzer kapalıyken ses bit bit aynı                                                   | `audio::render` ve `audio::normalize` testleri                                                       |
+| Bit-perfect'te dosyadaki tamsayılar aygıta aynen gider                                              | `audio::player` testi `bit_perfect_zinciri_…`, `output` testleri                                     |
+| Ses yolu ≤ −140 dB bozulma + gürültü ekler                                                          | `audio::render` testi `ses_yolu_bozulma_ve_gurultu_eklemez`                                          |
+| Bas düğmesi bası yükseltir, ortaya dokunmaz, tık yok                                                | `audio::bass` testleri                                                                               |
+| Bas motorunun korumaya bildirdiği pay tepeleri karşılar                                             | `audio::bass` testi `yukseltme_payi_tepeleri_karsilar`                                               |
+| Ölçülen bas tepeleri gerçek artışı karşılar, gereksiz kısmaz                                        | `audio::bass` testi `olculen_bas_tepeleri_…`                                                         |
+| Vuruş ilk anı güçlendirir; sürekli basa ve ortaya dokunmaz                                          | `audio::punch` testleri, `audio::bass` testi `vurus_…`                                               |
+| Boşluksuz geçişte yeniden örneklenen dalga sınırda kopmaz                                           | `audio::player` testi `bosluksuz_geciste_yeniden_…`                                                  |
+| Görsel dalga biçimi duyulan anla biter, sarmada eski veri yok                                       | `audio::player` testleri `dalga_bicimi_…`, `audio::waveform` testleri                                |
+| Şarkı sınırında yeni şarkı ilk karesinden kendi seviyesinde                                         | `audio::normalize` testi `sessizden_yuksege_…`                                                       |
+| Ekolayzer koruması kazançtan önce kalkmaz, ilk kare korumalı                                        | `audio::normalize` testi `esitleme_acilinca_…`                                                       |
+| Sahne denetiminin sahte çekirdeği arayüzün tipleriyle aynı                                          | `src/lib/sceneCheck.test.ts` (üretilen tipe bağlı)                                                   |
+| Bir panelin ya da sahnenin hatası pencereyi karartmaz                                               | `ErrorBoundary` testleri, bileşen testi "hata sınırları"                                             |
+| Yeniden örneklemede Nyquist üstü ≥ 140 dB bastırılır                                                | `audio::resample` testleri                                                                           |
+| Windows'a özel kod (WASAPI) temiz                                                                   | Clippy, `--target x86_64-pc-windows-gnu` (yerel) ve Windows CI                                       |
+| Gerçek ses aygıtıyla uçtan uca çalma                                                                | `examples/ses_denemesi` (CI makinesinde aygıt yok: "ATLANDI" + uyarı; gerçek deneme proje sahibinde) |
+| Kütüphane kodunda `unwrap`/`expect`/`panic!` yok                                                    | Clippy (`Cargo.toml` `[lints.clippy]`), CI'da `-D warnings`                                          |
+| `unsafe` yok (tek istisna: `output/wasapi.rs` MMCSS, `// GÜVENLİK:` gerekçeli)                      | `unsafe_code = "deny"`; istisna fonksiyon düzeyinde `#[allow]` ve belgeli                            |
+| Rust ↔ arayüz veri tipleri aynı                                                                     | ts-rs ile üretilir; CI "Arayüz tipleri güncel mi" adımı                                              |
+| Arayüzün çağırdığı komut ve argümanlar çekirdekte var                                               | `npm run check:commands` (CI)                                                                        |
+| Veritabanı yapısı değişince eski dosyalar güncellenir                                               | `storage.rs` testleri (göç, eski dosya, yeni sürüm dosyası)                                          |
+| Her eski sürümün dosyası yeni kurulumla aynı şemaya ulaşır                                          | `storage.rs` testleri `her_eski_dosya_…`, `surum_0_0_19_…`                                           |
+| Analiz önbelleği bozuksa kütüphane açılır, şarkılar kalır                                           | `storage.rs` `analiz_tablosu_…`, `kutuphane_tablosunda_…`                                            |
+| Kütüphane açılamazsa ekranda uyarı çıkar (günlükte kalmaz)                                          | Bileşen testi "kütüphane açılamazsa …"                                                               |
+| Kör testte iki bölüm örnek düzeyinde hizalı ve eşit yükseklikte                                     | `audio::abx` testi `hazirlik_hizalar_ve_ses_yuksekligini_esitler`                                    |
+| Kör testte A/B/X geçişi aynı konumda, tıksız; başa dönüş yumuşak                                    | `audio::abx` testleri `gecis_…`, `bolum_basa_donerken_…`                                             |
+| Kör test farklı kayıtları karşılaştırmaz                                                            | `audio::abx` testi `farkli_kayitlar_reddedilir`                                                      |
+| Eşlenmiş süzgeç kararlı, en küçük fazlı, hiçbir ayarda RBJ'den uzak değil                           | `audio::biquad` testleri `eslenmis_…`, `tipik_ayarlarda_…`                                           |
+| Kulaklık profili Equalizer APO'nun anlamlarıyla okunur                                              | `audio::peq` testleri `apo_…`                                                                        |
+| Parametrik EQ karşılaştırması filtresiz ve eşit yükseklikte                                         | `audio::peq` testleri `karsilastirma_…`, `ses_yuksekligi_telafisi_…`                                 |
+| Parametrik EQ Equalizer APO dosyasıyla gidip gelir                                                  | `audio::peq` testi `parametrik_apo_ile_gidip_gelir`                                                  |
+| Parametrik EQ'nun yükseltmesi korumaya bildirilir, ses yolunda ikinci kez kısılmaz                  | `audio::peq` testi `bildirilen_yukseltme_…`                                                          |
+| Crossfeed'de orta ses bit bit aynı, yan kanal hiçbir frekansta yükselmez                            | `audio::crossfeed` testleri                                                                          |
+| Crossfeed ses yolunda; ortadaki ses bütün yoldan aynen, bit-perfect'te yok                          | `audio::render` testi `crossfeed_ses_yolunda_…`                                                      |
+| Sözler LRC'nin bütün biçimleriyle ve Türkçe kodlamalarla okunur; gömülü sözler                      | `audio::lyrics` testleri (`kodlamalar_…`, `gomulu_sozler_okunur`)                                    |
+| Sözlerin görünürlüğü sıçramaz; satır sıradakine boşluksuz geçer                                     | `src/lib/lyrics.test.ts`                                                                             |
+| Parmak izi aynı kaydı tanır (kayıplı, kaymış, 22 kHz), başka şarkıyı ayırır                         | `analysis::fingerprint` testleri; gerçek kodlayıcılarla `gercek_kodlayicilarla_olcum` (elle, ffmpeg) |
+| Şarkı haritası dosyası doğrulanır; kötü niyetli dosya reddedilir; alanlar sabit                     | `analysis::map_file` testleri `bozuk_ve_…`, `bicim_alanlari_sabit`                                   |
+| İçe aktarılan harita analizin önüne geçer, önbelleğe yazılmaz, kalıcı                               | `spectrogram` testi `ice_aktarilan_…`, `player` testi `sarki_haritasi_…`                             |
+| Kör test bitince önceki şarkı kaldığı yerde geri gelir, ekranda görünür                             | `audio::player` testi `kor_test_sarkiyi_durdurur_…`, bileşen testi "kör test"                        |
+| Kör test kurulamazsa çalan şarkı kesilmez                                                           | `audio::player` testi `kor_test_kurulamazsa_calan_sarki_durmaz`                                      |
+| Analiz hesabı değişince eski sonuçlar kullanılmaz                                                   | `cache::VERSIONS` ve önbellek testleri                                                               |
+| Ritim yenilenirken şarkı çözülmez, sonuç tam analizle aynı                                          | `analysis::spectrogram` testi `eskiyen_ritim_…`                                                      |
+| Tonsuz eski kayıtta yalnızca ton hesaplanır, geri kalanı aynı kalır                                 | `analysis::background` testi `tonsuz_eski_kayitlarda_…`, spektrum testleri                           |
+| Ton 24 tonun hepsinde, akort kaymasında ve davul gürültüsünde bulunur                               | `analysis::key` testleri (sentetik akor dizileri)                                                    |
+| Güveni düşük ton hiçbir yerde gösterilmez (kütüphane, bilgi kartı)                                  | `analysis::key` testleri, `library::db` testi `bpm_ve_ton_…`                                         |
+| Eski tek sürümlü kayıtlar göçte yeniden analiz ettirmez                                             | `storage.rs` testi `eski_analiz_kayitlari_…` (göç 5)                                                 |
+| Güveni düşük drop hiçbir yerde drop sayılmaz (tek eşik)                                             | `analysis::structure`, `director` testleri, bileşen testleri                                         |
+| Aksak ölçüde vuruşlar grup başları, ölçü başları doğru (9/8, 7/8, 5/8)                              | `analysis::meter` testleri, `analysis::structure` testi `aksak_…`                                    |
+| Düzenli ölçüler aksak sayılmaz                                                                      | `analysis::meter` testi `duzenli_olculer_aksak_sayilmaz`                                             |
+| Ölçü belirsizse ölçü başı vurgulanmaz (yönetmen, otoyol, bilgi kartı)                               | `structure` testi `olcu_basi_tutarsiz_…`, `director`, highway, bileşen testi                         |
+| Hiçbir sahne saniyede 3'ten fazla parlamaz                                                          | Sahne testleri (`sky`, `highway`, `stageLight`) + `npm run check:scenes` (CI)                        |
+| Parlama sınırı her renk temasında ve her gök manzarasında                                           | `npm run check:scenes` (temaya göre renklenen sahneler, CI)                                          |
+| Parlaklık freni: hücre ortalaması bir karede ≤ r·dt, saniyede ≤ 1,65 (güvenli ≤ 1)                  | `flashGuardMath` testleri + `check:scenes` zamana bağlı ölçüm (frenli ve frensiz desen, CI)          |
+| Parlaklık freni: ince desen (şerit, dama) blokta saniyede ≤ 2,96 (güvenli ≤ 1,04) kez tersine döner | `flashGuardMath` testleri + `check:scenes` ince desen ölçümü (frenli ve frensiz, CI)                 |
+| Parlayan denetim deseni programa girmez                                                             | `sceneCheck` testi "programa girmez"                                                                 |
+| MilkDrop sahnesi saniyede ≤ 3 (güvenli ≤ 1) parlar, preset ne olursa olsun                          | `check:scenes` gerçek sahnede kare kare (frenli ve frensiz deneme preseti, CI); bileşen testleri     |
+| MilkDrop denklemleri yalnızca WebAssembly'ye derlenir, CSP'de `'unsafe-eval'` yok                   | Bileşen testi (`onlyUseWASM`), `check:scenes` (programın CSP'siyle, eval engelli)                    |
+| `.milk` her bölümüyle çevrilir; bozuk dosya panik yaptırmaz; sınırlar                               | `milkdrop::parse` ve `milkdrop` testleri; sahne denetimindeki JSON ayrıştırıcının çıktısıyla aynı    |
+| Yalnızca seçilen klasördeki `.milk` dosyaları açılır (bağlantı yok, ≤ 1 alt düzey)                  | `milkdrop` testleri `yalnizca_secilen_…`, `baglanti_ve_derin_dosyalar_acilmaz`, Windows yolu testi   |
+| MilkDrop denklemleri programı donduramaz (döngü kırpılır, iç içe/piksel başı yok)                   | `milkdrop::eel` ve `parse` testleri; `check:scenes` döngü denemesi (gerçek tarayıcı)                 |
+| Gölgelendirici çevirici programı çökertemez/donduramaz (yakıt, bellek, boyut)                       | `milkdrop::shader` testleri (sonsuz makro, derin ifade, büyük ve bozuk girdi)                        |
+| Çevrilen gölgelendirici ekran kartını donduramaz (sabit, kısa döngüler; while yok)                  | `milkdrop::shader_loops` testleri, `shader` testi `sinirsiz_ya_da_cok_uzun_dongu_reddedilir`         |
+| Çevrilen gölgelendirici gerçek tarayıcıda derlenir ve frenden geçer                                 | `check:scenes` gölgelendirici denemesi (`data-shaders="ok"`, frenli ve frensiz parlama, CI)          |
+| `hlslparser.wasm` depodaki kaynağın ta kendisi                                                      | CI "HLSL çevirici": wasi-sdk 30.0 ile yeniden derleyip baytı baytına karşılaştırır                   |
+| Çalarken program kapanan görsel bir daha kendiliğinden seçilmez                                     | `src/lib/milkdrop.test.ts`, bileşen testleri (işaret, atlananlar, pagehide)                          |
+| Açıldıktan sonraki 10 sn içinde ekran kartını sıfırlatan görsel kalıcı atlanır                      | `src/lib/milkdrop.test.ts` (`blameContextLoss`), bileşen testleri (bağlam kaybı, iç tuval)           |
+| MilkDrop geçişleri 15 sn'den sık değil, bölüm başında (erken geleni ertelenir)                      | `src/lib/milkdrop.test.ts`                                                                           |
+| Yasaklı lisans yok                                                                                  | `npm run check:licenses`, `cargo deny` (CI)                                                          |
+| Üçüncü taraf lisans bildirimleri pakette ve güncel                                                  | `npm run check:notices` (CI; `npm run notices` üretir)                                               |
+| Depoda ses dosyası yok                                                                              | `npm run check:audio` (CI)                                                                           |
+| Biçim ve lint temiz, tür hatası yok                                                                 | Prettier, ESLint, `tsc`, `cargo fmt`, Clippy (CI)                                                    |
+| Çalarken paneller her karede yeniden çizilmez                                                       | Bileşen testi "çizim yükü" (kütüphane panelinin çizim sayısı)                                        |
+| Durum sorguları birikmez (yanıt gelmeden yenisi gitmez)                                             | `src/hooks/usePlayer.test.ts`, kör test paneli testleri                                              |
+| İşaretler ses aygıtının gecikmesi düşülerek kaydedilir                                              | `src/hooks/useMarker.test.ts`                                                                        |
+| Sahne saatleri saatlerce çalınca sıçramaz (katlanır)                                                | `src/lib/sceneClock.test.ts`, sky ve highway testleri                                                |
+| "Önceki" ve açılırken yapılan seçim çalma sırasını bozmaz                                           | `src/hooks/usePlayback.test.ts`                                                                      |
+| Etiket okuma kuralı değişince eski kayıtlar yeniden okunur                                          | `library::db` `TAGS_VERSION`, göç 4 ve tarama testleri                                               |
 
 ## Nasıl eklenir?
 
