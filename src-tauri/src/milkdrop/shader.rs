@@ -31,9 +31,11 @@
 //! kartını dondururdu. Gölgelendiricinin ürettiği görüntü yine parlaklık freninden geçer
 //! (`flashGuard.ts`).
 //!
-//! Sonuçlar bellekte saklanır (aynı metin bir daha çevrilmez); en çok [`CACHE_ENTRIES`].
+//! Sonuçlar bellekte saklanır (aynı metin bir daha çevrilmez); en çok [`CACHE_ENTRIES`] kayıt ve
+//! [`CACHE_BYTES`] bayt.
 
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::sync::{Mutex, OnceLock};
 
 use wasmi::{
@@ -57,6 +59,8 @@ pub const MAX_MEMORY_BYTES: usize = 64 * 1024 * 1024;
 pub const FUEL: u64 = 1_000_000_000;
 /// Bellekte saklanan en fazla çeviri.
 const CACHE_ENTRIES: usize = 256;
+/// Bellekteki çevirilerin (metin ve sonuç) en büyük toplam boyutu.
+const CACHE_BYTES: usize = 16 * 1024 * 1024;
 /// Hata iletisinin en büyük uzunluğu (karakter).
 const MAX_MESSAGE_CHARS: usize = 200;
 /// Çeviricinin giriş noktası (`shim.cpp` ile aynı).
@@ -91,17 +95,81 @@ pub enum ShaderError {
     Loop(&'static str),
 }
 
-/// Bellekteki çeviriler: (tür, `.milk`'teki metin) → sonuç (hatalar da saklanır).
-type CacheKey = (ShaderKind, String);
 type Converted = Result<String, ShaderError>;
+/// Önbellek anahtarı: (tür, metnin uzunluğu, metnin özeti).
+type CacheKey = (ShaderKind, usize, u64);
+
+/// Bellekteki çeviriler (hatalar da saklanır; sınırı aşan metin hiç saklanmaz). Anahtar (tür,
+/// uzunluk, metnin 64 bitlik özeti); aynı anahtarlı kayıtlarda metin ayrıca karşılaştırılır (özet
+/// çakışması yanlış sonuç vermez). En çok [`CACHE_ENTRIES`] kayıt ve [`CACHE_BYTES`] bayt (metin ve
+/// sonuç); dolunca boşaltılır.
+#[derive(Default)]
+struct Cache {
+    entries: HashMap<CacheKey, Vec<(Box<str>, Converted)>>,
+    count: usize,
+    bytes: usize,
+}
+
+impl Cache {
+    fn digest(source: &str) -> u64 {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        source.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    /// Bir kaydın bellekte tuttuğu yaklaşık bayt (metin, sonuç ve sabit pay).
+    fn size(source: &str, result: &Converted) -> usize {
+        let result = match result {
+            Ok(text) => text.len(),
+            Err(error) => error.to_string().len(),
+        };
+        source.len() + result + 64
+    }
+
+    fn get(&self, kind: ShaderKind, source: &str, digest: u64) -> Option<&Converted> {
+        self.entries
+            .get(&(kind, source.len(), digest))?
+            .iter()
+            .find(|(text, _)| **text == *source)
+            .map(|(_, result)| result)
+    }
+
+    fn insert(&mut self, kind: ShaderKind, source: &str, digest: u64, result: Converted) {
+        let size = Self::size(source, &result);
+        if size > CACHE_BYTES {
+            return;
+        }
+        if self.count >= CACHE_ENTRIES || self.bytes + size > CACHE_BYTES {
+            *self = Self::default();
+        }
+        let bucket = self
+            .entries
+            .entry((kind, source.len(), digest))
+            .or_default();
+        if bucket.iter().any(|(text, _)| **text == *source) {
+            return;
+        }
+        bucket.push((source.into(), result));
+        self.count += 1;
+        self.bytes += size;
+    }
+}
+
+static CACHE: Mutex<Option<Cache>> = Mutex::new(None);
 
 /// `.milk`'teki bir gölgelendiriciyi Butterchurn biçimine çevirir (önce bellekteki sonuçlara
 /// bakılır). Hiçbir girdide panik yapmaz.
 pub fn convert(source: &str, kind: ShaderKind) -> Result<String, ShaderError> {
-    static CACHE: Mutex<Option<HashMap<CacheKey, Converted>>> = Mutex::new(None);
-    let key = (kind, source.to_owned());
+    // Boyut önce denetlenir: sınırı aşan metin anahtar olarak da bellekte tutulmaz.
+    if source.len() > MAX_SOURCE_BYTES {
+        return Err(ShaderError::TooLarge);
+    }
+    let digest = Cache::digest(source);
     if let Ok(mut cache) = CACHE.lock() {
-        if let Some(hit) = cache.get_or_insert_with(HashMap::new).get(&key) {
+        if let Some(hit) = cache
+            .get_or_insert_with(Cache::default)
+            .get(kind, source, digest)
+        {
             return hit.clone();
         }
     }
@@ -109,14 +177,20 @@ pub fn convert(source: &str, kind: ShaderKind) -> Result<String, ShaderError> {
     // Başlatma hatası kalıcı değildir (ör. bellek yetmedi): saklanmaz.
     if !matches!(result, Err(ShaderError::Engine(_))) {
         if let Ok(mut cache) = CACHE.lock() {
-            let cache = cache.get_or_insert_with(HashMap::new);
-            if cache.len() >= CACHE_ENTRIES {
-                cache.clear();
-            }
-            cache.insert(key, result.clone());
+            cache
+                .get_or_insert_with(Cache::default)
+                .insert(kind, source, digest, result.clone());
         }
     }
     result
+}
+
+#[cfg(test)]
+fn cache_holds(source: &str, kind: ShaderKind) -> bool {
+    CACHE.lock().ok().is_some_and(|c| {
+        c.as_ref()
+            .is_some_and(|c| c.get(kind, source, Cache::digest(source)).is_some())
+    })
 }
 
 fn convert_uncached(source: &str, kind: ShaderKind) -> Result<String, ShaderError> {
@@ -1136,6 +1210,8 @@ shader_body
             "ret = 1;".repeat(MAX_SOURCE_BYTES / 4)
         );
         assert_eq!(convert(&big, ShaderKind::Warp), Err(ShaderError::TooLarge));
+        // Sınırı aşan metin anahtar olarak da saklanmaz (bellek sınırı).
+        assert!(!cache_holds(&big, ShaderKind::Warp));
     }
 
     #[test]
@@ -1155,6 +1231,42 @@ shader_body
             ),
             "{error:?}"
         );
+    }
+
+    #[test]
+    fn bellek_kayit_sayisi_ve_bayt_ile_sinirli_ozet_cakismasi_yanlis_sonuc_vermez() {
+        let mut cache = Cache::default();
+        // Büyük sonuçlar: kayıt sayısı sınırın çok altındayken bayt sınırı devreye girer.
+        let big = "x".repeat(MAX_OUTPUT_BYTES);
+        for i in 0..100 {
+            cache.insert(ShaderKind::Comp, &format!("kaynak {i}"), i, Ok(big.clone()));
+            assert!(cache.bytes <= CACHE_BYTES && cache.count <= CACHE_ENTRIES);
+        }
+        assert!(cache.count < 40, "{}", cache.count);
+        let mut cache = Cache::default();
+        for i in 0..1000 {
+            cache.insert(
+                ShaderKind::Warp,
+                &format!("k{i}"),
+                i,
+                Err(ShaderError::NoBody),
+            );
+            assert!(cache.count <= CACHE_ENTRIES);
+        }
+        // Aynı özet ve uzunluk, başka metin: karşılaştırma ayırır.
+        let mut cache = Cache::default();
+        cache.insert(ShaderKind::Warp, "aaaa", 7, Ok("bir".into()));
+        cache.insert(ShaderKind::Warp, "bbbb", 7, Ok("iki".into()));
+        assert_eq!(
+            cache.get(ShaderKind::Warp, "aaaa", 7),
+            Some(&Ok("bir".into()))
+        );
+        assert_eq!(
+            cache.get(ShaderKind::Warp, "bbbb", 7),
+            Some(&Ok("iki".into()))
+        );
+        assert_eq!(cache.get(ShaderKind::Warp, "cccc", 7), None);
+        assert_eq!(cache.get(ShaderKind::Comp, "aaaa", 7), None);
     }
 
     #[test]

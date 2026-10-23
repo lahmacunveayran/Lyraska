@@ -299,7 +299,7 @@ MilkDropScene ─ loadPreset(json, harmanlama) ─▶ Butterchurn (eel-wasm: EEL
     değil); gerekirse aşağıdaki donma koruması devreye girer. `check:scenes` gerçek tarayıcıda `loop(2000000000, …)`
     içeren deneme presetiyle 60 kare çizer (kırpılmamış hâli zaman aşımına uğrar; elle denendi).
 - **Gölgelendiriciler** (`milkdrop/shader.rs`): MilkDrop 2'nin HLSL bükme (`warp_N`) ve birleştirme (`comp_N`)
-  gölgelendiricileri görsel açılırken bir kez GLSL ES 3.00'a çevrilir (sonuç bellekte saklanır):
+  gölgelendiricileri görsel açılırken bir kez GLSL ES 3.00'a çevrilir (sonuç bellekte saklanır: en çok 256 kayıt ve 16 MB; 64 KB sınırını aşan metin hiç saklanmaz, anahtar tür + uzunluk + özet, eşleşmede metin ayrıca karşılaştırılır):
   1. **Hazırlık**: MilkDrop'un sarmalaması (örnekleyiciler, `q1`…`q32`, `time`, `texsize` …, `GetBlur1`/`GetPixel`/
      `lum`/`tex2d` makroları; gövde `float4 lyraska_main(float2 uv)` işlevi). `milkdrop-preset-utils`'in
      `prepareShader`'ından (MIT) uyarlandı; `sampler_state` blokları, `sampler sampler_x;` kısa yazımı, takma adlı
