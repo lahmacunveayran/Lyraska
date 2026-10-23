@@ -1,50 +1,81 @@
+<div align="center">
+
 # Lyraska
 
-> **Early development (towards 1.0, March 2027).** Phases 1–3 of the [roadmap](docs/ROADMAP.md) —
-> a playing program, the Visual Director and professional audio — are implemented; Phase 4 (the
-> visual library and 1.0) is in progress. Lyraska plays local audio files on Windows (MP3, FLAC,
-> WAV, AIFF, OGG Vorbis, AAC/ALAC), keeps a library, analyses every track (beats, bars, sections,
-> drops, key) and drives 16 scenes from that analysis (five classic scenes, a gallery of ten and MilkDrop with
-> your own `.milk` presets). Test builds are published continuously;
-> see **Download**.
+**Şarkıyı çalmadan önce tanıyan, tamamen çevrimdışı bir Windows müzik çalar.**
 
-An offline music player for Windows whose visuals **know the song before it plays**.
+Adını lir çalgısından (_lyre_) ve Lyra takımyıldızından alır.
 
-The name comes from the _lyre_ and the _Lyra_ constellation.
+[**⬇ Windows için indir (test sürümü)**](https://github.com/lahmacunveayran/Lyraska/releases/download/test-surumu/Lyraska-Kurulum.exe)
+· [Yol haritası](docs/ROADMAP.md) · [Hata bildir](https://github.com/lahmacunveayran/Lyraska/issues/new/choose)
 
-Every track is analysed ahead of time — beats, bars, sections, drops and energy — producing a
-_song map_. A **Visual Director** then choreographs the visuals in three layers (**atmosphere**,
-**rhythm** and **texture**) so that scenes anticipate the music instead of merely reacting to it.
+![Lyraska: gece göğü sahnesi](docs/gorsel/gece-gogu.jpg)
 
-Alongside the visuals, Lyraska is a serious audio player: parametric EQ, AutoEq headphone
-profiles, EBU R128 loudness normalisation, crossfeed and a bit-perfect output mode.
+</div>
 
-## Highlights
+> **Erken geliştirme (1.0 hedefi: Mart 2027).** [Yol haritasının](docs/ROADMAP.md) 1–3. fazları (çalan
+> program, Görsel Yönetmen, profesyonel ses) tamam; 4. faz (görsel kütüphane ve 1.0) sürüyor. Test sürümleri
+> sürekli yayımlanır; bkz. **İndir**.
 
-- **Fully offline** — no accounts, no telemetry, no network required.
-- **Song-aware visuals** — WebGL2 scenes driven by pre-computed analysis, with
-  latency compensation targeting ±20 ms audio/visual sync; time-synced lyrics from your own `.lrc`
-  or embedded lyrics.
-- **Nostalgia modes** — original designs inspired by classic car-stereo displays and VU meters.
-  No third-party brand names or assets are used.
-- **Photosensitivity-safe** — no scene pulses more than three times per second; a safe mode lowers
-  that to one per second, and the app honours the system "reduce motion" preference.
-- **Pro audio** — 64-bit internal processing, WASAPI output, parametric EQ, AutoEq, loudness,
-  crossfeed, bit-perfect mode and a blind ABX test.
+## Nasıl çalışır?
 
-See the [roadmap](docs/ROADMAP.md) (in Turkish) for phases and dates. Version 1.0 is planned for
-early March 2027.
+Çoğu müzik görselleştiricisi sese **o anda** tepki verir. Lyraska ise her şarkıyı çalmadan önce dinler: vuruşları,
+ölçüleri, bölümleri, drop'ları, enerjiyi ve tonu çıkarıp bir **şarkı haritası** hazırlar. **Görsel Yönetmen** bu
+haritayla görselleri üç katmanda koreografe eder (**atmosfer**, **ritim**, **doku**). Böylece sahneler müziğin
+peşinden koşmaz, drop gelmeden onu bekler.
 
-## Download
+```mermaid
+flowchart LR
+    A["🎵 Şarkı<br/>MP3, FLAC, WAV, AAC…"] --> B["Analiz<br/>vuruş · ölçü · bölüm<br/>drop · enerji · ton"]
+    B --> C[("Şarkı haritası<br/>önbellekte saklanır")]
+    C --> D["Görsel Yönetmen<br/>atmosfer · ritim · doku"]
+    D --> E["🌌 Sahneler<br/>WebGL2"]
+    A --> F["Ses motoru<br/>64-bit işleme"]
+    F --> G["🔊 Hoparlör / kulaklık<br/>WASAPI"]
+    F -. "çalma konumu" .-> D
+```
 
-The latest test build of the Windows installer is always available at the same link:
+## Sahneler
+
+Beş klasik sahne, on sahnelik bir galeri ve kendi `.milk` dosyalarınızla MilkDrop. Sahneler arasında **1–9, 0**
+ve **PageUp / PageDown** tuşlarıyla geçilir.
+
+|                                                   |                                                       |
+| :-----------------------------------------------: | :---------------------------------------------------: |
+|    ![VU ibreleri](docs/gorsel/vu-ibreleri.jpg)    |      ![Gece sürüşü](docs/gorsel/gece-surusu.jpg)      |
+| **VU ibreleri:** özgün tasarım analog göstergeler | **Gece sürüşü:** eski araba teybi havası, özgün çizim |
+|       ![Spektrum](docs/gorsel/spektrum.jpg)       |          ![Bulutsu](docs/gorsel/bulutsu.jpg)          |
+|   **Spektrum:** nokta vuruşlu frekans çubukları   |                 **Bulutsu** (galeri)                  |
+|  ![Sarmal gökada](docs/gorsel/sarmal-gokada.jpg)  |      ![Işık tüneli](docs/gorsel/isik-tuneli.jpg)      |
+|            **Sarmal gökada** (galeri)             |               **Işık tüneli** (galeri)                |
+|  ![İpek şeritler](docs/gorsel/ipek-seritler.jpg)  |       ![Kristal ağ](docs/gorsel/kristal-ag.jpg)       |
+|            **İpek şeritler** (galeri)             |                **Kristal ağ** (galeri)                |
+
+<sub>Görüntüler arayüzün tarayıcı önizlemesinden, şarkı çalmazken alındı. Gerçek programda sahneler müzikle
+birlikte hareket eder.</sub>
+
+## Öne çıkanlar
+
+- 🔒 **Tamamen çevrimdışı:** hesap yok, telemetri yok, internet gerekmez.
+- 🎬 **Şarkıyı bilen görseller:** önceden yapılan analizle yönetilen WebGL2 sahneleri; ses ile görüntü arasında
+  ±20 ms hedefli gecikme telafisi; kendi `.lrc` dosyanızdan ya da şarkıya gömülü sözlerden zamanlı şarkı sözleri.
+- 📻 **Nostalji modları:** eski araba teyplerinden ve VU göstergelerinden esinlenen **özgün** tasarımlar. Hiçbir
+  markanın adı ya da varlığı kullanılmaz.
+- 🛡️ **Işığa duyarlılık için güvenli:** hiçbir sahne saniyede üç kereden fazla parlamaz; güvenli mod bunu saniyede
+  bire indirir; Windows'taki "animasyonları azalt" tercihine uyulur.
+- 🎧 **Profesyonel ses:** 64-bit iç işleme, WASAPI çıkışı, parametrik EQ, AutoEq kulaklık profilleri, EBU R128 ses
+  yüksekliği eşitleme, crossfeed, bit-perfect mod ve kör dinleme testi (ABX).
+
+## İndir
+
+Windows kurulum dosyasının en son test sürümü hep aynı adreste:
 
 **<https://github.com/lahmacunveayran/Lyraska/releases/download/test-surumu/Lyraska-Kurulum.exe>**
 
-It is rebuilt automatically every time `main` changes and CI passes. Builds are not code-signed
-yet, so Windows SmartScreen will show an "unknown publisher" warning: click **More info → Run
-anyway**. Every build carries a GitHub build provenance attestation, so you can check that the file
-was built from this repository:
+`main` her değiştiğinde ve CI geçtiğinde kendiliğinden yeniden derlenir. Kurulum dosyası kod imzalı değildir; bu
+yüzden Windows SmartScreen "tanınmayan yayımcı" uyarısı gösterir: **Ek bilgi → Yine de çalıştır**'a basın. Her
+sürüm bir GitHub derleme kaynağı belgesi (build provenance attestation) taşır; dosyanın bu depodan derlendiğini
+şöyle denetleyebilirsiniz:
 
 ```sh
 gh attestation verify Lyraska-Kurulum.exe --repo lahmacunveayran/Lyraska \
@@ -52,78 +83,76 @@ gh attestation verify Lyraska-Kurulum.exe --repo lahmacunveayran/Lyraska \
   --source-ref refs/heads/main
 ```
 
-The app needs Microsoft Edge WebView2, which Windows 10/11 already ships. If it is missing, the
-installer downloads it once; the player itself never connects to the internet.
+Program, Windows 10/11'de zaten bulunan Microsoft Edge WebView2'ye ihtiyaç duyar. Yoksa kurulum dosyası onu bir
+kez indirir; oynatıcının kendisi hiçbir zaman internete bağlanmaz.
 
-Data lives in two folders named after the app identifier (it keeps the project's original account
-name so that existing data is never lost):
+Veriler, program kimliğiyle adlandırılmış iki klasörde durur (var olan veriler kaybolmasın diye kimlik projenin
+eski hesap adını korur):
 
-- `%APPDATA%\io.github.gozlemesevdalisi.lyraska` — settings, your beat/drop annotations and imported
-  song maps. Small, and **not reproducible**: deleting it loses your annotations.
-- `%LOCALAPPDATA%\io.github.gozlemesevdalisi.lyraska` — library database with the analysis cache,
-  and logs. Deleting it is safe but you will have to add your music folders again, and every track
-  is re-analysed.
+- `%APPDATA%\io.github.gozlemesevdalisi.lyraska`: ayarlar, vuruş/drop işaretleriniz ve içe aktarılan şarkı
+  haritaları. Küçüktür ve **yeniden üretilemez**: silinirse işaretleriniz kaybolur.
+- `%LOCALAPPDATA%\io.github.gozlemesevdalisi.lyraska`: analiz önbelleğiyle birlikte kütüphane veritabanı ve
+  günlükler. Silmek güvenlidir, ama müzik klasörlerinizi yeniden eklemeniz gerekir ve her şarkı yeniden analiz
+  edilir.
 
-## Tech stack
+## Teknoloji
 
-| Area     | Technology                                                   |
-| -------- | ------------------------------------------------------------ |
-| Shell    | [Tauri 2](https://tauri.app)                                 |
-| Audio    | Rust — `symphonia` (decoding), `wasapi` (output), 64-bit DSP |
-| Analysis | Rust                                                         |
-| UI       | React + TypeScript + Vite                                    |
-| Visuals  | WebGL2                                                       |
-| Storage  | SQLite                                                       |
+| Alan      | Teknoloji                                               |
+| --------- | ------------------------------------------------------- |
+| Uygulama  | [Tauri 2](https://tauri.app)                            |
+| Ses       | Rust: `symphonia` (çözme), `wasapi` (çıkış), 64-bit DSP |
+| Analiz    | Rust                                                    |
+| Arayüz    | React + TypeScript + Vite                               |
+| Görseller | WebGL2                                                  |
+| Veri      | SQLite                                                  |
 
-Windows comes first; macOS and Linux are planned after 1.0.
+Önce Windows; macOS ve Linux 1.0'dan sonra planlanıyor.
 
-## Building from source
+## Kaynaktan derleme
 
-Requirements: [Node.js 22](https://nodejs.org) (`.nvmrc`), [rustup](https://rustup.rs) (the Rust
-version is pinned in `rust-toolchain.toml` and installed automatically) and the
-[Tauri prerequisites](https://tauri.app/start/prerequisites/) for your platform.
+Gerekenler: [Node.js 22](https://nodejs.org) (`.nvmrc`), [rustup](https://rustup.rs) (Rust sürümü
+`rust-toolchain.toml` içinde sabittir ve kendiliğinden kurulur) ve platformunuz için
+[Tauri ön koşulları](https://tauri.app/start/prerequisites/).
 
 ```sh
 npm ci
-npm run tauri dev     # run the app in development mode
-npm run tauri build   # build the installer
+npm run tauri dev     # programı geliştirme modunda aç
+npm run tauri build   # kurulum dosyasını derle
 ```
 
-Checks (the same ones CI runs, from the repository root):
+Denetimler (CI'nın çalıştırdıklarının aynısı, depo kökünden):
 
 ```sh
-npm ci && npm run build   # the Rust build embeds dist/
-npm run check             # format, lint, types, tests, check:commands/licenses/rules/docs/audio
+npm ci && npm run build   # Rust derlemesi dist/ klasörünü gömer
+npm run check             # biçim, lint, tür, testler, check:commands/licenses/rules/docs/audio
 npm audit --audit-level=high
 (cd src-tauri && cargo fmt --check && cargo clippy --all-targets --locked -- -D warnings)
-(cd src-tauri && cargo test --locked)   # also regenerates src/lib/bindings (must be unchanged)
+(cd src-tauri && cargo test --locked)   # src/lib/bindings'i de üretir (değişmemeli)
 (cd src-tauri && cargo deny check licenses bans sources advisories)
 (cd src-tauri && cargo fetch --locked --target x86_64-pc-windows-msvc) && npm run check:notices
 ```
 
-CI additionally runs Clippy and the tests on Windows, audits the workflows with
-[zizmor](https://github.com/zizmorcore/zizmor) and [actionlint](https://github.com/rhysd/actionlint),
-and renders the WebGL2 scenes in Microsoft Edge (`npm run check:scenes`).
+CI ayrıca Clippy'yi ve testleri Windows'ta çalıştırır, iş akışlarını
+[zizmor](https://github.com/zizmorcore/zizmor) ve [actionlint](https://github.com/rhysd/actionlint) ile denetler ve
+WebGL2 sahnelerini Microsoft Edge'de çizdirip ölçer (`npm run check:scenes`).
 
-## Project layout
+## Proje yapısı
 
 ```
-src/          React + TypeScript UI
-src-tauri/    Rust core: audio engine, analysis, Visual Director, visual bridge, library
-scripts/      Quality gates (licences, audio files, command contract, docs, rules, notices, scenes)
-docs/         Roadmap, architecture, audits and development log (Turkish)
+src/          React + TypeScript arayüz
+src-tauri/    Rust çekirdeği: ses motoru, analiz, Görsel Yönetmen, görsel köprü, kütüphane
+scripts/      Kalite kapıları (lisanslar, ses dosyaları, komut sözleşmesi, belgeler, kurallar, bildirimler, sahneler)
+docs/         Yol haritası, mimari, denetimler ve geliştirme günlüğü
 ```
 
-## Contributing & bug reports
+## Katkı ve hata bildirimi
 
-Bug reports are welcome via the issue form (in Turkish). Security issues: please report them
-privately, see [SECURITY.md](SECURITY.md). The primary language of the project is Turkish; code
-identifiers are in English.
+Hata bildirimlerini hata kaydı formuyla gönderebilirsiniz. Güvenlik sorunlarını lütfen gizli olarak bildirin, bkz.
+[SECURITY.md](SECURITY.md). Projenin ana dili Türkçedir; kod tanımlayıcıları İngilizcedir.
 
-## License
+## Lisans
 
-[GPL-3.0-only](LICENSE). Dependencies licensed under the AGPL or under terms that forbid
-commercial use are not accepted: only the licences allowed in `src-tauri/deny.toml` are, for both
-Rust crates and npm packages, and this is enforced in CI. Third-party notices for everything
-shipped in the installer are generated into `public/lisanslar/UCUNCU-TARAF.txt`; they and the full
-GPL text are shown under **Settings → Licenses** in the app.
+[GPL-3.0-only](LICENSE). AGPL lisanslı ya da ticari kullanımı yasaklayan bağımlılıklar kabul edilmez: hem Rust
+crate'leri hem npm paketleri için yalnızca `src-tauri/deny.toml` içinde izin verilen lisanslar geçerlidir ve bu CI'da
+denetlenir. Kurulum dosyasına giren her şeyin üçüncü taraf bildirimleri `public/lisanslar/UCUNCU-TARAF.txt`
+dosyasına üretilir; bunlar ve GPL'nin tam metni programda **Ayarlar → Lisanslar** altında görünür.
