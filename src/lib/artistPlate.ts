@@ -146,13 +146,15 @@ function project(atlas: StarAtlas, ra0: number, dec0: number): PlateStar[] {
   const minCos = Math.cos(HALF_FIELD_DEG * DEG * Math.SQRT2);
   const out: PlateStar[] = [];
   for (const [raMilli, decCenti, magCenti, hip] of atlas.stars) {
-    const ra = (((raMilli ?? 0) / 1000) * 15) * DEG;
+    const ra = ((raMilli ?? 0) / 1000) * 15 * DEG;
     const dec = ((decCenti ?? 0) / 100) * DEG;
     const c = Math.sin(dec0) * Math.sin(dec) + Math.cos(dec0) * Math.cos(dec) * Math.cos(ra - ra0);
     if (c < minCos) continue;
     const x = (Math.cos(dec) * Math.sin(ra - ra0)) / c / t;
     const y =
-      (Math.cos(dec0) * Math.sin(dec) - Math.sin(dec0) * Math.cos(dec) * Math.cos(ra - ra0)) / c / t;
+      (Math.cos(dec0) * Math.sin(dec) - Math.sin(dec0) * Math.cos(dec) * Math.cos(ra - ra0)) /
+      c /
+      t;
     if (Math.abs(x) > 1 || Math.abs(y) > 1) continue;
     out.push({ x, y, mag: (magCenti ?? 0) / 100, hip: hip ?? 0 });
   }
@@ -271,7 +273,10 @@ export function drawArtistPlate(
     ...pts.map((p) => Math.abs(p.y - my)),
   );
   const scale = (W * 0.36) / span;
-  const at = (s: PlateStar): [number, number] => [W / 2 - (s.x - mx) * scale, W / 2 - (s.y - my) * scale];
+  const at = (s: PlateStar): [number, number] => [
+    W / 2 - (s.x - mx) * scale,
+    W / 2 - (s.y - my) * scale,
+  ];
 
   // Izgara ve levha çerçevesi.
   ctx.strokeStyle = colors.ink;
@@ -326,7 +331,11 @@ export function drawArtistPlate(
   for (const s of field.stars) {
     const [x, y] = at(s);
     if (x < 0 || y < 0 || x > W || y > W) continue;
-    const size = Math.min(W * 0.016, Math.max(W * 0.0017, W * 0.011 * Math.pow(10, -0.2 * (s.mag - 1))));
+    // Kadirle üstel: en parlak ≈ %2,2, en sönük (6,5) ≈ %0,45 (küçük levhada da görünsün).
+    const size = Math.min(
+      W * 0.022,
+      Math.max(W * 0.0045, W * 0.016 * Math.pow(10, -0.12 * (s.mag - 1))),
+    );
     ctx.beginPath();
     ctx.arc(x, y, size, 0, Math.PI * 2);
     ctx.fill();
@@ -342,13 +351,13 @@ export function drawArtistPlate(
 
   ctx.fillStyle = colors.ink;
   ctx.globalAlpha = 0.75;
-  ctx.font = `500 ${Math.round(W * 0.03)}px ${mono}`;
+  ctx.font = `500 ${Math.round(W * 0.045)}px ${mono}`;
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   const label = field.constellation
     ? (CONSTELLATION_TR[field.constellation] ?? field.constellation)
     : "Adsız küme";
-  ctx.fillText(label.toLocaleUpperCase("tr"), W * 0.08, W * 0.11);
+  ctx.fillText(label.toLocaleUpperCase("tr"), W * 0.08, W * 0.125);
   ctx.globalAlpha = 1;
   return true;
 }

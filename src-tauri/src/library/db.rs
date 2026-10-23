@@ -501,14 +501,15 @@ impl Library {
     }
 
     /// Sanatçılar (albüm sanatçısı, yoksa sanatçı), ada göre sıralı. `query` [`Library::albums`]
-    /// gibi süzer.
+    /// gibi süzer: hangi sanatçıların görüneceğini seçer, sayılar yine sanatçının bütünüdür.
     pub fn artists(&self, query: &str, limit: usize) -> Result<Vec<ArtistRow>, LibraryError> {
         let (filter, words) = search_filter(query, 1);
         let sql = format!(
             "SELECT COALESCE(album_artist, artist) AS who, COUNT(DISTINCT album), COUNT(*),
                     path, MIN(sort_key)
-             FROM tracks WHERE COALESCE(album_artist, artist) IS NOT NULL{filter}
-             GROUP BY who ORDER BY MIN(sort_key) LIMIT {}",
+             FROM tracks WHERE COALESCE(album_artist, artist) IS NOT NULL
+             GROUP BY who HAVING SUM(CASE WHEN 1{filter} THEN 1 ELSE 0 END) > 0
+             ORDER BY MIN(sort_key) LIMIT {}",
             limit.min(MAX_RESULTS)
         );
         let mut stmt = self.conn.prepare(&sql)?;
@@ -525,6 +526,16 @@ impl Library {
 }
 
 impl Library {
+    /// Sanatçının şarkılarının yolları, çalma sırasıyla (albüm, disk, parça). Sanatçı
+    /// [`Library::artists`] gibi albüm sanatçısıyla (yoksa sanatçıyla) bulunur.
+    pub fn artist_tracks(&self, artist: &str) -> Result<Vec<String>, LibraryError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT path FROM tracks WHERE COALESCE(album_artist, artist) = ?1 ORDER BY sort_key",
+        )?;
+        let rows = stmt.query_map([artist], |r| r.get(0))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
     /// Albümün şarkılarının yolları, çalma sırasıyla (disk, parça). Albüm [`Library::albums`]
     /// gibi albüm sanatçısı (yoksa sanatçı) ve adıyla bulunur; sanatçısız albümde `artist` boş.
     pub fn album_tracks(
@@ -1234,6 +1245,75 @@ mod tests {
         lib.execute_for_test("DROP TRIGGER analyses_follow_tracks; DROP TABLE analyses;");
         assert_eq!((album(&lib).bpm, album(&lib).key), (None, None));
         assert_eq!(lib.albums("kelime", 10).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn sanatcilar_ve_sanatcinin_sarkilari_ayni_gruplamayi_kullanir() {
+        let mut lib = Library::open_in_memory().unwrap();
+        let folder = lib.add_folder("/m").unwrap();
+        let mut derleme = track(
+            "/m/d1.flac",
+            Some("Bir"),
+            Some("Ece"),
+            Some("Derleme"),
+            Some(1),
+        );
+        derleme.album_artist = Some("Çeşitli".to_owned());
+        lib.apply_changes(
+            folder.id,
+            &[
+                (derleme, STAMP),
+                (
+                    track(
+                        "/m/e2.flac",
+                        Some("Rüzgâr"),
+                        Some("Ece"),
+                        Some("İlk"),
+                        Some(2),
+                    ),
+                    STAMP,
+                ),
+                (
+                    track(
+                        "/m/e1.flac",
+                        Some("Deniz"),
+                        Some("Ece"),
+                        Some("İlk"),
+                        Some(1),
+                    ),
+                    STAMP,
+                ),
+                (
+                    track(
+                        "/m/e3.flac",
+                        Some("Kum"),
+                        Some("Ece"),
+                        Some("İkinci"),
+                        Some(1),
+                    ),
+                    STAMP,
+                ),
+            ],
+            &[],
+        )
+        .unwrap();
+        let artists = lib.artists("", 10).unwrap();
+        for artist in &artists {
+            let paths = lib.artist_tracks(&artist.name).unwrap();
+            assert_eq!(paths.len() as u32, artist.track_count, "{}", artist.name);
+            assert_eq!(paths[0], artist.cover_path);
+        }
+        let ece = artists.iter().find(|a| a.name == "Ece").unwrap();
+        assert_eq!((ece.album_count, ece.track_count), (2, 3));
+        // Derlemedeki şarkı "Çeşitli"nin; çalma sırası albüm, sonra parça.
+        assert_eq!(
+            lib.artist_tracks("Ece").unwrap(),
+            ["/m/e3.flac", "/m/e1.flac", "/m/e2.flac"]
+        );
+        // Arama sanatçıyı seçer, sayılar sanatçının bütünü.
+        let found = lib.artists("rüzgar", 10).unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!((found[0].name.as_str(), found[0].track_count), ("Ece", 3));
     }
 
     #[test]

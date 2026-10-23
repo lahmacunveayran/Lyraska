@@ -12,13 +12,17 @@ import {
   clearAlbumCover,
   errorMessage,
   libraryAlbumTracks,
+  libraryArtistTracks,
   pickImage,
   setAlbumCover,
   type LibraryAlbum,
+  type LibraryArtist,
   type LibraryFolder,
   type LibraryTrack,
 } from "../lib/backend";
 import { AlbumGrid } from "./AlbumGrid";
+import { ArtistGrid } from "./ArtistGrid";
+import { useArtists } from "../hooks/useArtists";
 import { invalidateAlbumCover } from "../lib/albumCovers";
 import { useAlbums } from "../hooks/useAlbums";
 import { analysisPending, bpmLabel } from "../lib/analysis";
@@ -100,6 +104,8 @@ export function splitSources(
   };
 }
 
+const VIEW_TITLES = { songs: "Şarkılar", albums: "Albümler", artists: "Sanatçılar" } as const;
+
 /** Kaynakların kısa özeti: "Müzik klasörü · 5 tek şarkı", "3 klasör". */
 export function sourcesLabel(folders: LibraryFolder[], files: number): string {
   const parts = [];
@@ -125,8 +131,9 @@ export function LibraryPanel({
   onPlayPaths,
 }: LibraryPanelProps) {
   const { status, query } = library;
-  const [view, setView] = useState<"songs" | "albums">("songs");
+  const [view, setView] = useState<"songs" | "albums" | "artists">("songs");
   const { albums, error: albumsError } = useAlbums(view === "albums", query, library.tracks);
+  const { artists, error: artistsError } = useArtists(view === "artists", query, library.tracks);
   const current = useMemo(
     () => library.tracks.find((track) => track.path === currentPath) ?? null,
     [library.tracks, currentPath],
@@ -155,12 +162,13 @@ export function LibraryPanel({
       })
       .catch((e) => setAlbumError(errorMessage(e)));
   };
-  const playAlbum = (album: LibraryAlbum) => {
+  /** Albümü ya da sanatçıyı baştan çalar; ikinci tık (çift tık) ikinci kez başlatmaz. */
+  const playGroup = (load: () => Promise<string[]>, name: string) => {
     if (startingAlbum.current) return;
     startingAlbum.current = true;
-    void libraryAlbumTracks(album.name, album.artist)
+    void load()
       .then((paths) => {
-        setAlbumError(paths.length > 0 ? null : `“${album.name}” albümünde şarkı bulunamadı.`);
+        setAlbumError(paths.length > 0 ? null : `“${name}” için şarkı bulunamadı.`);
         if (paths.length > 0) onPlayPaths(paths);
       })
       .catch((e) => setAlbumError(errorMessage(e)))
@@ -168,6 +176,10 @@ export function LibraryPanel({
         startingAlbum.current = false;
       });
   };
+  const playAlbum = (album: LibraryAlbum) =>
+    playGroup(() => libraryAlbumTracks(album.name, album.artist), album.name);
+  const playArtist = (artist: LibraryArtist) =>
+    playGroup(() => libraryArtistTracks(artist.name), artist.name);
   const [sort, setSort] = useState<LibrarySort>(DEFAULT_SORT);
   const [camelot, setCamelot] = useState(loadCamelot);
   const sources = useMemo(
@@ -352,13 +364,17 @@ export function LibraryPanel({
     <section className="library" aria-label="Kütüphane">
       <header className="library__header">
         <h2 className="library__title">
-          {view === "albums" ? "Albümler" : "Şarkılar"}
+          {VIEW_TITLES[view]}
           <span className="library__count">
             {view === "albums"
               ? albums === null
                 ? "…"
                 : `${NUMBER.format(albums.length)} albüm`
-              : `${NUMBER.format(status.trackCount)} şarkı`}
+              : view === "artists"
+                ? artists === null
+                  ? "…"
+                  : `${NUMBER.format(artists.length)} sanatçı`
+                : `${NUMBER.format(status.trackCount)} şarkı`}
           </span>
         </h2>
         <div className="library__views" role="group" aria-label="Kütüphane görünümü">
@@ -366,6 +382,7 @@ export function LibraryPanel({
             [
               ["songs", "Şarkılar"],
               ["albums", "Albümler"],
+              ["artists", "Sanatçılar"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -580,6 +597,24 @@ export function LibraryPanel({
         </div>
       ) : (
         <>
+          {view === "artists" && (
+            <div className="library__albums">
+              {artistsError || albumError ? (
+                <p className="library__problem" role="alert">
+                  {artistsError ?? albumError}
+                </p>
+              ) : null}
+              {artists === null ? (
+                <p className="library__none">Sanatçılar yükleniyor…</p>
+              ) : artists.length === 0 ? (
+                <p className="library__none">
+                  {query ? `“${query}” için sanatçı yok.` : "Sanatçı etiketi olan şarkı yok."}
+                </p>
+              ) : (
+                <ArtistGrid artists={artists} current={current} onPlay={playArtist} />
+              )}
+            </div>
+          )}
           {view === "albums" && (
             <div className="library__albums">
               {albumsError || albumError ? (

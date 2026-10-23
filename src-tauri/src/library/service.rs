@@ -11,7 +11,7 @@ use crate::audio::decode::Decoder;
 
 use super::db::MAX_RESULTS;
 use super::scan::{self, ScanProgress, ScanState};
-use super::{path_covers, AlbumRow, FolderRow, Library, LibraryError, TrackRow};
+use super::{path_covers, AlbumRow, ArtistRow, FolderRow, Library, LibraryError, TrackRow};
 
 /// Arayüzün gösterdiği kütüphane durumu.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -149,6 +149,16 @@ impl LibraryService {
     /// Albümler (arama [`Self::search`] gibi süzer).
     pub fn albums(&self, query: &str) -> Result<Vec<AlbumRow>, LibraryError> {
         self.lock()?.albums(query, MAX_RESULTS)
+    }
+
+    /// Sanatçılar (arama [`Self::search`] gibi süzer).
+    pub fn artists(&self, query: &str) -> Result<Vec<ArtistRow>, LibraryError> {
+        self.lock()?.artists(query, MAX_RESULTS)
+    }
+
+    /// Sanatçının şarkıları, çalma sırasıyla.
+    pub fn artist_tracks(&self, artist: &str) -> Result<Vec<String>, LibraryError> {
+        self.lock()?.artist_tracks(artist)
     }
 
     /// Albümün şarkıları, çalma sırasıyla.
