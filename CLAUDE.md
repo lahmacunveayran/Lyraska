@@ -19,7 +19,9 @@ değişmesi gerekiyorsa önce proje sahibine sorulur.
 ## Bilgi birikimi ve çalışma yöntemi
 
 Her oturum başında bu dosyadan sonra **[docs/BILGI-BIRIKIMI.md](docs/BILGI-BIRIKIMI.md)** okunur: deneyimle
-öğrenilenler, tuzaklar, proje sahibinin kararları. Yeni bir ders öğrenilince oraya eklenir. Özü:
+öğrenilenler, tuzaklar, proje sahibinin kararları. Yeni bir ders öğrenilince oraya eklenir. Ardından
+**[docs/ACIK-KONULAR.md](docs/ACIK-KONULAR.md)** okunur: sıradaki işler ve cevap bekleyen sorular; biten iş oradan
+silinir, yeni iş eklenir. İkisinin de satır sınırı vardır (`check:docs`). Özü:
 
 - **Küçük PR** (proje sahibinin isteği): bir PR = bir iş; büyük iş en başta parçalara bölünür, ilk parça hızla
   birleştirilir.
@@ -178,6 +180,7 @@ lyraska/
 │   ├── SARKI-HARITASI.md     # Açık şarkı haritası biçimi (sürüm 1) ve ses parmak izi
 │   ├── DOGRULAMA.md          # Gerçek cihazda denenecekler listesi ve proje sahibinin bildirdiği sonuçlar
 │   ├── BILGI-BIRIKIMI.md     # "İkinci beyin": oturumlardan öğrenilenler, tuzaklar, sahibinin kararları (her oturumda okunur)
+│   ├── ACIK-KONULAR.md       # Sıradaki işler ve cevap bekleyen sorular (her oturumda okunur; biten silinir)
 │   ├── DENETIM.md            # Kalite denetimi (16 Ekim 2026): sağlık, matematik doğrulaması, bulgular, öncelik sırası
 │   ├── DENETIM-2.md          # İkinci denetim (16 Ekim 2026): düzeltmelerin yeniden denetimi + altı bağımsız denetçi
 │   │                         # (tam raporlar ve doğrulama betikleri denetim-2/ altında)
