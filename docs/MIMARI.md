@@ -316,6 +316,20 @@ MilkDropScene ─ loadPreset(json, harmanlama) ─▶ Butterchurn (eel-wasm: EEL
      makroları; presetler onlara yazabilir) her pikselde `lyraska_inputs(…)` ile genel değişkenlere kopyalanır.
      Çeviriden gelen başlık yalnızca GLSL karakterleri taşıyabilir (tırnak, `#`, `$`, ters bölü yok); arayüze
      yalnızca metin gider, Butterchurn ekran kartına derletir.
+  4. **Döngü kuralı** (`milkdrop/shader_loops.rs`): gölgelendirici her pikselde çalışır; piksel başına 10⁸ turluk
+     bir `for` ya da `while (true)` ekran kartını saniyelerce meşgul eder, Windows sürücüyü sıfırlar (TDR: ekran
+     kararır, bütün WebGL bağlamları kaybolur). Denetim **çevirinin çıktısında** yapılır: önişlemci açılmış
+     (`#define N 100000000` sayıya dönüşmüş, makroyla gizlenmiş döngü görünür), yorumlar atılmış, yazım tek
+     biçimlidir; ekran kartına giden metin tam olarak denetlenen metindir. İzin: yalnızca
+     `for (int|float i = SABİT; i <,<=,>,>= SABİT; i++ / i-- / i += SABİT / i -= SABİT)`; SABİT sayı ya da ilk
+     değeri sayı olan, hiç değiştirilmeyen genel değişken (`static const int N = 8;`). Tur sayısı benzetilerek
+     bulunur (kayan noktada ekran kartının 32 bitiyle: adım değeri değiştirmiyorsa bitmez sayılır), en çok 256
+     (DirectX 9 `ps_3_0`'ın döngü sayacı da en çok 255'tir); sayaç gövdede değiştirilemez (atama, `++`, `inout`);
+     iç içe en çok 2 (çağrılan işlevlerinkiler dahil), en çok 8 döngü, piksel başına en çok 1024 tur ve 16 384
+     işlev çağrısı. `while`/`do` yok. Etki tahmini: gerçek presetlerdeki döngüler bulanıklaştırma çekirdeği gibi
+     küçük ve sabit sınırlıdır (MilkDrop'un `ps_2_x` profilleri döngüyü açar, 512 komut sınırı uzun döngüye
+     zaten izin vermez); korpusta değişken sınırlı ya da `while` döngüsü olan az sayıda gölgelendirici sade
+     hâline düşer (`korpus_olcumu` nedenleri sayar).
   - Çevrilemeyen gölgelendirici atılır (öteki kalır), görsel "sade hâliyle" çalar, galeride yazılır ve nedeni
     günlüğe bilgi olarak düşer (`shaderError`). Çeviri ekran kartında derlenemezse arayüz (`milkdropShaders.ts`)
     Butterchurn'ün programının bağlanma durumuna bakar ve onu varsayılanla değiştirir (yoksa görüntü kararırdı).
@@ -461,6 +475,7 @@ Her kural ya bir testle ya da CI'daki bir adımla denetlenir. Elle hatırlanmas�
 | Yalnızca seçilen klasördeki `.milk` dosyaları açılır (bağlantı yok, ≤ 1 alt düzey) | `milkdrop` testleri `yalnizca_secilen_…`, `baglanti_ve_derin_dosyalar_acilmaz`, Windows yolu testi   |
 | MilkDrop denklemleri programı donduramaz (döngü kırpılır, iç içe/piksel başı yok)  | `milkdrop::eel` ve `parse` testleri; `check:scenes` döngü denemesi (gerçek tarayıcı)                 |
 | Gölgelendirici çevirici programı çökertemez/donduramaz (yakıt, bellek, boyut)      | `milkdrop::shader` testleri (sonsuz makro, derin ifade, büyük ve bozuk girdi)                        |
+| Çevrilen gölgelendirici ekran kartını donduramaz (sabit, kısa döngüler; while yok) | `milkdrop::shader_loops` testleri, `shader` testi `sinirsiz_ya_da_cok_uzun_dongu_reddedilir`         |
 | Çevrilen gölgelendirici gerçek tarayıcıda derlenir ve frenden geçer                | `check:scenes` gölgelendirici denemesi (`data-shaders="ok"`, frenli ve frensiz parlama, CI)          |
 | `hlslparser.wasm` depodaki kaynağın ta kendisi                                     | CI "HLSL çevirici": wasi-sdk 30.0 ile yeniden derleyip baytı baytına karşılaştırır                   |
 | Çalarken program kapanan görsel bir daha kendiliğinden seçilmez                    | `src/lib/milkdrop.test.ts`, bileşen testleri (işaret, atlananlar, pagehide)                          |

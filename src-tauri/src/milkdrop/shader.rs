@@ -26,8 +26,10 @@
 //! Güvenlik: girdi en çok [`MAX_SOURCE_BYTES`], çıktı en çok [`MAX_OUTPUT_BYTES`]; çıktı yalnızca
 //! GLSL'in kullandığı karakterlerden oluşur (tırnak, ters bölü, `#`, `$`, ters tırnak yok) ve
 //! arayüze yalnızca metin olarak gider: Butterchurn onu ekran kartına derletir (WebGL kum havuzu).
-//! JavaScript olarak hiçbir yerde çalışmaz. Gölgelendiricinin ürettiği görüntü yine parlaklık
-//! freninden geçer (`flashGuard.ts`).
+//! JavaScript olarak hiçbir yerde çalışmaz. Döngüler sabit ve kısa olmalı (`while` yok, en çok 256
+//! tur, iç içe en çok iki; `shader_loops.rs`): her pikselde çalışan sınırsız bir döngü ekran
+//! kartını dondururdu. Gölgelendiricinin ürettiği görüntü yine parlaklık freninden geçer
+//! (`flashGuard.ts`).
 //!
 //! Sonuçlar bellekte saklanır (aynı metin bir daha çevrilmez); en çok [`CACHE_ENTRIES`].
 
@@ -85,6 +87,8 @@ pub enum ShaderError {
     BadOutput(&'static str),
     #[error("gölgelendirici çevirici başlatılamadı ({0})")]
     Engine(String),
+    #[error("gölgelendiricide izin verilmeyen döngü ({0}); ekran kartını dondurabilir")]
+    Loop(&'static str),
 }
 
 /// Bellekteki çeviriler: (tür, `.milk`'teki metin) → sonuç (hatalar da saklanır).
@@ -800,6 +804,9 @@ fn finish(glsl: &str, kind: ShaderKind) -> Result<String, ShaderError> {
     out.push_str("}\n");
     // Yalnızca çevirinin kendisi denetlenir; önüne Lyraska'nın kendi (sabit) satırları gelir.
     validate(&out)?;
+    // Piksel başına sınırsız ya da çok uzun döngü ekran kartını dondurur (Windows'ta TDR).
+    super::shader_loops::check(&out, "lyraska_inputs")
+        .map_err(|e| ShaderError::Loop(e.reason()))?;
     out.insert_str(0, &globals_block(kind));
     out.push_str(&format!(
         "shader_body {{\nlyraska_inputs({args});\nret = {ENTRY}(uv).rgb;\n}}\n"
@@ -1194,5 +1201,71 @@ shader_body
         assert_eq!(declaration("vec4 f(vec2 uv) {"), None);
         assert!(is_dropped("q32") && is_dropped("q1") && is_dropped("decay"));
         assert!(!is_dropped("q33") && !is_dropped("q1x") && !is_dropped("q01x"));
+    }
+
+    /// Döngü kuralının reddettiği gölgelendirici: hata iletisi döngüyü anar.
+    fn loop_rejected(source: &str) -> bool {
+        match convert_uncached(source, ShaderKind::Comp) {
+            Err(error) => error.to_string().contains("döngü"),
+            Ok(_) => false,
+        }
+    }
+
+    #[test]
+    fn sinirsiz_ya_da_cok_uzun_dongu_reddedilir() {
+        for bad in [
+            // Ekran kartında piksel başına 100 milyon tur: Windows sürücüyü sıfırlar (TDR).
+            "shader_body { float s = 0; for (int i = 0; i < 100000000; i++) { s += 1; } ret = s; }",
+            // Makroyla gizlenmiş sınır (çeviri önişlemciyi açar).
+            "#define N 100000000\nshader_body { float s = 0; for (int i=0;i<N;i++) s += 1; ret = s; }",
+            "shader_body { float s = 0; while (true) { s += 1; } ret = s; }",
+            "shader_body { float s = 0; for (int i = 0; i < 257; i++) s += 1; ret = s; }",
+            // Sınır bir değişken (her pikselde başka olabilir) ya da tur hiç bitmiyor.
+            "shader_body { float s = 0; for (int i = 0; i < q1; i++) s += 1; ret = s; }",
+            "shader_body { float s = 0; for (int i = 0; i < 8; i--) s += 1; ret = s; }",
+            "shader_body { float s = 0; for (float t = 16777216; t < 16777300; t += 1) s += 1; ret = s; }",
+            // Döngü değişkeni gövdede değişiyor (doğrudan ya da inout parametreyle).
+            "shader_body { float s = 0; for (int i = 0; i < 8; i++) { i = 0; s += 1; } ret = s; }",
+            "void g(inout int x) { x = 0; }\nshader_body { float s = 0; \
+             for (int i = 0; i < 8; i++) { g(i); s += 1; } ret = s; }",
+            // İç içe üç döngü; işlev çağrısıyla gizlenmiş iç içe döngü.
+            "shader_body { float s = 0; for (int i = 0; i < 2; i++) for (int j = 0; j < 2; j++) \
+             for (int k = 0; k < 2; k++) s += 1; ret = s; }",
+            "float f() { float s = 0; for (int i = 0; i < 4; i++) for (int j = 0; j < 4; j++) \
+             s += 1; return s; }\nshader_body { float s = 0; for (int k = 0; k < 2; k++) \
+             s += f(); ret = s; }",
+            // İki katlı 256 tur: piksel başına 65 536 tur.
+            "shader_body { float s = 0; for (int i = 0; i < 256; i++) for (int j = 0; j < 256; j++) \
+             s += 1; ret = s; }",
+            // Dokuz döngü.
+            format!(
+                "shader_body {{ float s = 0; {} ret = s; }}",
+                "for (int i = 0; i < 2; i++) s += 1; ".repeat(9)
+            )
+            .as_str(),
+            // Sabit değil: gölgelendirici sınırı değiştiriyor.
+            "float n = 4;\nshader_body { float s = 0; n = 1000000; \
+             for (int i = 0; i < n; i++) s += 1; ret = s; }",
+        ] {
+            assert!(loop_rejected(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn kucuk_sabit_donguler_cevrilir() {
+        for good in [
+            // Bulanıklaştırma çekirdeği gibi küçük, iç içe döngüler.
+            "shader_body { float3 s = 0; for (int x = -2; x <= 2; x++) for (int y = -2; y <= 2; y++) \
+             s += tex2D(sampler_main, uv + float2(x, y)*texsize.zw).xyz; ret = s / 25; }",
+            "static const int N = 8;\nshader_body { float s = 0; for (int i = N; i > 0; i -= 2) \
+             s += 1; ret = s; }",
+            "shader_body { float s = 0; for (float t = 0; t < 1; t += 0.125) s += t; \
+             for (int i = 0; i < 256; i++) s += 1; ret = s; }",
+            "float f(float x) { float s = 0; for (int i = 0; i < 4; i++) s += x; return s; }\n\
+             shader_body { float s = 0; for (int k = 0; k < 4; k++) s += f(k); ret = s; }",
+        ] {
+            let out = convert_uncached(good, ShaderKind::Comp);
+            assert!(out.is_ok(), "{good}: {out:?}");
+        }
     }
 }

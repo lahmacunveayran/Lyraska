@@ -988,6 +988,23 @@ per_frame_1=wave_r = 0.5 + 0.5*sin(time);\n";
     }
 
     #[test]
+    fn sinirsiz_donguli_golgelendirici_atilir_gorsel_sade_calar() {
+        let text = "[preset00]\nzoom=1\n\
+                    warp_1=`shader_body { float s = 0; for (int i = 0; i < 100000000; i++) \
+                    s += 1; ret = s; }\n\
+                    comp_1=`shader_body { ret = GetPixel(uv); }\n";
+        let parsed = parse_ok(text);
+        assert!(parsed.simplified);
+        assert_eq!(parsed.preset.warp, "", "döngülü bükme atıldı");
+        assert!(!parsed.preset.comp.is_empty());
+        let error = parsed.shader_error.unwrap();
+        assert!(
+            error.starts_with("bükme: gölgelendiricide izin verilmeyen döngü"),
+            "{error}"
+        );
+    }
+
+    #[test]
     fn denetim_karakterleri_temizlenir() {
         let preset = parse_ok("per_frame_1=a = 1;\u{0}\u{7}\tb = 2;\n").preset;
         assert_eq!(preset.frame_eqs_eel, "a = 1;  \tb = 2;");

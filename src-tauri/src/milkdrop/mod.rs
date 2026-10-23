@@ -14,6 +14,7 @@
 pub mod eel;
 pub mod parse;
 pub mod shader;
+mod shader_loops;
 
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};

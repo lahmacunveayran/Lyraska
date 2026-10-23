@@ -123,8 +123,9 @@ lyraska/
 │   │   ├── file_manager.rs   # dosya gezginini açma (günlük, işaret klasörü); Windows'ta dosyayı seçili gösterir
 │   │   ├── milkdrop/         # MilkDrop sahnesi: kullanıcının .milk klasörü (listeleme, yalnızca o klasörden açma);
 │   │   │                     # parse.rs: .milk → Butterchurn JSON (program preset içermez); shader.rs: HLSL → GLSL
-│   │   │                     # (hlslparser.wasm, wasmi kum havuzu: yakıt + bellek sınırı); eel.rs: döngü kuralı
-│   │   │                     # (loop MilkDrop sınırına kırpılır, iç içe/piksel başına döngü yok)
+│   │   │                     # (hlslparser.wasm, wasmi kum havuzu: yakıt + bellek sınırı); shader_loops.rs: GLSL
+│   │   │                     # döngü kuralı (yalnızca sabit sınırlı for, ≤ 256 tur, iç içe ≤ 2; ekran kartı donmasın);
+│   │   │                     # eel.rs: döngü kuralı (loop MilkDrop sınırına kırpılır, iç içe/piksel başına döngü yok)
 │   │   ├── storage.rs        # library.sqlite3 şeması ve sıralı göçleri (kütüphane + analiz önbelleği)
 │   │   ├── diagnostics.rs    # Yerel hata ve çökme günlüğü (logs/lyraska.log; gerçek zamanlı yoldan çağrılmaz)
 │   │   ├── settings.rs       # Kalıcı ayarlar (settings.json; ekolayzer, kulaklık, parametrik EQ, crossfeed, eşitleme, güvenli mod, ses gecikmesi)
