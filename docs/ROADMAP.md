@@ -193,7 +193,7 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       (1 048 576 tur) kırpılır, iç içe ya da piksel başına döngülü görsel açılmaz; çalarken program kapanan görsel
       kalıcı olarak atlanır. Temeli (0.0.59): Rust'ta ham dalga biçimi (`visual_waveform`) ve parlaklık freni
       (kanıtı `flashGuardMath.ts`)
-  - [x] MilkDrop 2 gölgelendiricilerinin (HLSL) GLSL'e çevrilmesi (0.0.61): projectM'in hlslparser'ı (MIT)
+  - [x] MilkDrop 2 gölgelendiricilerinin (HLSL) GLSL'e çevrilmesi (0.0.63): projectM'in hlslparser'ı (MIT)
         WebAssembly'ye derlendi ve Rust'ta `wasmi` kum havuzunda çalışır (yakıt ve bellek sınırı, `unsafe` ve
         `eval` yok); hazırlık ve Butterchurn biçimi `milkdrop/shader.rs`'te. projectM'in 9 603 presetlik "Cream of
         the Crop" setinde (yalnızca yerel ölçüm, depoya girmez) 15 524 gölgelendiricinin 15 442'si (%99,5)
@@ -217,7 +217,9 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       parlaklıkları temalardan yüksek değil). **Hazır ayarlar**: sahne ve görünümü tek tıkla kurar; altı hazır ayar
       programla gelir (ör. "Sakin deniz"), kullanıcı kendi ayarını adıyla kaydedip siler (en fazla 50; tarayıcı
       deposunda, okunurken doğrulanır). Her sahnenin son görünümü hatırlanır
-- [ ] Kod imzalama (Windows "bilinmeyen yayımcı" uyarısının kalkması)
+- ~~Kod imzalama~~ (Windows "bilinmeyen yayımcı" uyarısının kalkması): proje sahibinin kararı, **kod imzası
+  olmayacak** (devir notu 23 Ekim 2026). Seçeneklerin araştırması (SignPath Foundation, Certum, Microsoft Store)
+  karar değişirse diye 22 Ekim devir notunda
 - [x] **Açık şarkı haritası formatı** (0.0.55; plan, 9 Ekim 2026): Lyraska'nın şarkı haritası (vuruşlar, ölçü
       başları, bölümler, droplar ve güvenleri, enerji, ton) belgelenmiş, sürümlü bir JSON biçiminde dışa ve içe
       aktarılır. Biçim belgesi: [SARKI-HARITASI.md](SARKI-HARITASI.md). İşaretleme panelinde **Şarkı haritası

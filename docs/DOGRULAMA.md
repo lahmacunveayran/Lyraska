@@ -427,7 +427,7 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
   açınca her sahnenin son görünümü ve kaydettiğiniz ayarlar yerinde.
 - Bildirin: beğenmediğiniz paletler ya da hız aralığı (çok yavaş/çok hızlı); kaydettiğiniz ayar kaybolduysa.
 
-**E10. MilkDrop sahnesi: kendi .milk görselleriniz (0.0.60; gölgelendiriciler 0.0.61)**
+**E10. MilkDrop sahnesi: kendi .milk görselleriniz (0.0.60; gölgelendiriciler 0.0.63)**
 
 - Önce: Lyraska hazır MilkDrop görseli içermez (yazarları lisans vermediği için dağıtamıyoruz). Bilgisayarınızda
   `.milk` dosyaları olan bir klasör gerekir; örneğin eski bir Winamp kurulumundaki
@@ -444,7 +444,7 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
     görünebilir; bu frenin işidir). Güvenli modda bu daha da yavaş.
   - Görsel değişimi her zaman birkaç saniyelik yumuşak bir geçişle olur; kendiliğinden değişim yalnızca şarkıda yeni
     bir bölüm başlayınca ya da drop'ta, en sık 15 saniyede bir.
-  - 0.0.61'den beri gölgelendiriciler (görselin renklerini, bulanıklığını, dokusunu veren küçük programlar) de
+  - 0.0.63'den beri gölgelendiriciler (görselin renklerini, bulanıklığını, dokusunu veren küçük programlar) de
     çalışır: çoğu görsel MilkDrop'taki hâline çok daha yakın görünmeli (renkli, dokulu, katmanlı). Gölgelendiricili
     bir görsel ilk açılışta yarım saniyeye kadar geç gelebilir (çeviri), ikinci açılışta hemen gelir.
   - Az sayıda görselin altında "Gölgelendiricisi çevrilemedi, sade hâliyle çalıyor" yazar: bunlar sade görünür.
