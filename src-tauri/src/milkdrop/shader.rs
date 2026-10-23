@@ -229,11 +229,11 @@ float rad;
 float ang;
 float2 uv_orig;
 
-#define lyraska_GetMain(uv) (tex2D(sampler_main,uv).xyz)
-#define lyraska_GetPixel(uv) (tex2D(sampler_main,uv).xyz)
-#define lyraska_GetBlur1(uv) (tex2D(sampler_blur1,uv).xyz*scale1 + bias1)
-#define lyraska_GetBlur2(uv) (tex2D(sampler_blur2,uv).xyz*scale2 + bias2)
-#define lyraska_GetBlur3(uv) (tex2D(sampler_blur3,uv).xyz*scale3 + bias3)
+#define GetMain(uv) (tex2D(sampler_main,uv).xyz)
+#define GetPixel(uv) (tex2D(sampler_main,uv).xyz)
+#define GetBlur1(uv) (tex2D(sampler_blur1,uv).xyz*scale1 + bias1)
+#define GetBlur2(uv) (tex2D(sampler_blur2,uv).xyz*scale2 + bias2)
+#define GetBlur3(uv) (tex2D(sampler_blur3,uv).xyz*scale3 + bias3)
 #define lyraska_lum(x) (dot(x,float3(0.32,0.49,0.29)))
 #define tex2d tex2D
 #define tex3d tex3D
@@ -242,23 +242,23 @@ float2 uv_orig;
 /// `.milk`'teki gölgelendiriciyi çevirinin beklediği tam HLSL programına çevirir.
 fn prepare(source: &str) -> Result<String, ShaderError> {
     let source = rename_macro_calls(&strip_sampler_states(source));
+    let aliases = define_aliases(&source);
     let (head, body) = split_body(&source)?;
-    let head = fix_sampler_declarations(head);
+    let head = fix_sampler_declarations(head, &aliases);
     Ok(format!(
         "{PREAMBLE}\n{head}\n\nfloat4 {ENTRY}(float2 uv : TEXCOORD0) : COLOR0\n{{\n\
          float3 ret = 0;\n{body}\nreturn float4(ret, 1.0);\n}}\n"
     ))
 }
 
-/// MilkDrop'un işlev biçimli makroları (`lum(x)`, `GetBlur1(uv)` …).
-const FUNCTION_MACROS: [&str; 6] = [
-    "GetMain", "GetPixel", "GetBlur1", "GetBlur2", "GetBlur3", "lum",
-];
+/// Presetlerde aynı adla değişken de olan MilkDrop işlev makroları (`float lum = lum(renk);`).
+const FUNCTION_MACROS: [&str; 1] = ["lum"];
 
-/// `lum(` → `lyraska_lum(` (ve öteki işlev makroları). projectM'in önişlemcisi makro adını
-/// arkasında `(` olmasa da açar; MilkDrop'ta (gerçek C önişlemcisi) `float lum = lum(renk);`
-/// geçerlidir. Makrolar Lyraska adıyla tanımlanır, yalnızca çağrılar yeniden adlandırılır: aynı
-/// adlı değişkene dokunulmaz.
+/// `lum(` → `lyraska_lum(`. projectM'in önişlemcisi makro adını arkasında `(` olmasa da açar;
+/// MilkDrop'ta (gerçek C önişlemcisi) `float lum = lum(renk);` geçerlidir. Makro Lyraska adıyla
+/// tanımlanır, yalnızca çağrılar yeniden adlandırılır: aynı adlı değişkene dokunulmaz.
+/// (`GetPixel` gibi ötekiler kendi adıyla kalır: presetler `#define MyGet GetPixel` diye takma ad
+/// verir.)
 fn rename_macro_calls(source: &str) -> String {
     let bytes = source.as_bytes();
     let mut out = String::with_capacity(source.len() + 64);
@@ -281,6 +281,26 @@ fn rename_macro_calls(source: &str) -> String {
     }
     out.push_str(&source[copied..]);
     out
+}
+
+/// `#define ad başka_ad` biçimindeki takma adlar (ikisi de tek kelime; sondaki yorum atılır).
+fn define_aliases(source: &str) -> HashMap<&str, &str> {
+    let mut aliases = HashMap::new();
+    for line in source.lines() {
+        let Some(rest) = line.trim_start().strip_prefix("#define") else {
+            continue;
+        };
+        let rest = rest.split("//").next().unwrap_or("");
+        let mut words = rest.split_whitespace();
+        let simple =
+            |s: &str| s.bytes().next().is_some_and(is_ident_start) && s.bytes().all(is_ident);
+        if let (Some(name), Some(value), None) = (words.next(), words.next(), words.next()) {
+            if simple(name) && simple(value) {
+                aliases.insert(name, value);
+            }
+        }
+    }
+    aliases
 }
 
 /// `shader_body`'den önceki kısım (kullanıcının işlevleri, bildirimleri) ve gövde (ilk `{` ile
@@ -319,8 +339,10 @@ fn strip_sampler_states(source: &str) -> String {
 }
 
 /// Kullanıcının örnekleyici bildirimleri: `sampler sampler_x;` (MilkDrop'un kısa yazımı) →
-/// `sampler2D sampler_x;`; programın zaten tanımladıkları (`sampler_main` …) silinir.
-fn fix_sampler_declarations(head: &str) -> String {
+/// `sampler2D sampler_x;`; programın zaten tanımladıkları (`sampler_main` …) silinir. Bildirilen ad
+/// bir takma adsa (`#define sampler_resim sampler_bulut`) gerçek ad bildirilir: projectM'in
+/// önişlemcisi takma adı parantezle açar, `sampler2D (sampler_bulut);` ayrıştırılamaz.
+fn fix_sampler_declarations(head: &str, aliases: &HashMap<&str, &str>) -> String {
     let bytes = head.as_bytes();
     let mut out = String::with_capacity(head.len());
     let mut copied = 0;
@@ -353,6 +375,13 @@ fn fix_sampler_declarations(head: &str) -> String {
                 // Önündeki `uniform` da bildirime dahildir.
                 let start = uniform_before(head, i);
                 out.push_str(&head[copied..start]);
+                let mut name = name;
+                for _ in 0..8 {
+                    match aliases.get(name) {
+                        Some(real) => name = real,
+                        None => break,
+                    }
+                }
                 let lower = name.to_ascii_lowercase();
                 if !BUILTIN_SAMPLERS.contains(&lower.as_str()) {
                     out.push_str(kind);
@@ -1018,7 +1047,7 @@ shader_body
         let head = "uniform sampler2D sampler_main;\nsampler sampler_bulut = sampler_state { \
                     AddressU = Wrap; Filter = Linear; };\nsampler3D sampler_hacim;\n\
                     float f(sampler2D s, float2 p) { return tex2D(s, p).x; }\n";
-        let fixed = fix_sampler_declarations(&strip_sampler_states(head));
+        let fixed = fix_sampler_declarations(&strip_sampler_states(head), &HashMap::new());
         assert_eq!(
             fixed,
             "\nsampler2D sampler_bulut;\nsampler3D sampler_hacim;\n\
@@ -1033,9 +1062,16 @@ shader_body
     #[test]
     fn islev_makrosu_ayni_adli_degiskeni_bozmaz() {
         assert_eq!(
-            rename_macro_calls("float lum = lum (c) + GetBlur1(uv).x; myGetPixel(uv); lum2(x);"),
-            "float lum = lyraska_lum (c) + lyraska_GetBlur1(uv).x; myGetPixel(uv); lum2(x);"
+            rename_macro_calls("float lum = lum (c) + GetBlur1(uv).x; mylum(uv); lum2(x);"),
+            "float lum = lyraska_lum (c) + GetBlur1(uv).x; mylum(uv); lum2(x);"
         );
+        // Takma adlı örnekleyici ve takma adlı makro.
+        let source = "#define sampler_resim sampler_bulut // yorum\nsampler2D sampler_resim;\n\
+                      #define MyGet GetPixel\n\
+                      shader_body { ret = MyGet(uv) + tex2D(sampler_resim, uv).xyz; }";
+        let out = convert_uncached(source, ShaderKind::Warp).unwrap();
+        assert!(out.contains("uniform sampler2D sampler_bulut;"), "{out}");
+        assert!(!out.contains("sampler_resim"), "{out}");
         let source = "shader_body { float3 c = GetPixel(uv); float lum = lum(c); ret = lum; }";
         let out = convert_uncached(source, ShaderKind::Comp).unwrap();
         assert!(out.contains("float lum = float( dot("), "{out}");
