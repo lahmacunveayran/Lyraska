@@ -315,7 +315,8 @@ function folderName(path: string): string {
  * müzikle kendiliğinden değiştirme. Lyraska hazır görsel içermez.
  */
 function MilkdropSection({ controls }: { controls: MilkdropControls }) {
-  const { library, loading, currentName, simplified, notice, auto, skippedCount } = controls;
+  const { library, loading, currentName, simplified, shaderNote, notice, auto, skippedCount } =
+    controls;
   const count = library.presets.length;
   const none = count === 0;
   return (
@@ -333,7 +334,8 @@ function MilkdropSection({ controls }: { controls: MilkdropControls }) {
           <span className="scene-gallery__name">{currentName}</span>
           {simplified && (
             <span className="scene-gallery__hint">
-              Gölgelendiricileri desteklenmiyor, sade hâliyle çalıyor.
+              Gölgelendiricisi çevrilemedi, sade hâliyle çalıyor.
+              {shaderNote && <> Neden: {shaderNote}</>}
             </span>
           )}
         </p>

@@ -4,7 +4,8 @@
 //! yazarları lisans vermemiştir (`docs/LISANSLAR.md`). Kullanıcı kendi bilgisayarındaki bir klasörü
 //! seçer; program o klasördeki `.milk` dosyalarını listeler ve seçileni Butterchurn'ün JSON
 //! biçimine çevirir ([`parse`]). Dosyalar hiçbir yere kopyalanmaz ya da saklanmaz; yalnızca
-//! seçilen klasörün yolu ayarlarda hatırlanır.
+//! seçilen klasörün yolu ayarlarda hatırlanır. Gölgelendiriciler (HLSL) kum havuzundaki bir
+//! çeviriciyle GLSL'e çevrilir ([`shader`]).
 //!
 //! Güvenlik: yalnızca seçilen klasörün içindeki (ve bir alt düzeyindeki) `.milk` dosyaları açılır;
 //! boyut sınırı vardır. Çevrilen preset yalnızca sayılar ve EEL denklem metni taşır; denklemleri
@@ -12,6 +13,8 @@
 
 pub mod eel;
 pub mod parse;
+pub mod shader;
+mod shader_loops;
 
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
@@ -58,8 +61,11 @@ pub struct MilkdropFolder {
 #[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct MilkdropPreset {
     pub name: String,
-    /// Gölgelendiricileri (HLSL) desteklenmediği için atıldı: görsel sade hâliyle çalar.
+    /// Gölgelendiricisi (HLSL) çevrilemediği için atıldı: görsel sade hâliyle çalar.
     pub simplified: bool,
+    /// Çevrilemeyen gölgelendiricinin nedeni (günlüğe yazılır; galeride "sade hâliyle çalıyor"
+    /// notunun yanında görünür).
+    pub shader_error: Option<String>,
     /// Butterchurn'ün `loadPreset`'ine verilecek nesne.
     pub preset: ButterchurnPreset,
 }
@@ -279,6 +285,7 @@ pub fn load(folder: Option<&Path>, path: &Path) -> Result<MilkdropPreset, Milkdr
     Ok(MilkdropPreset {
         name,
         simplified: parsed.simplified,
+        shader_error: parsed.shader_error,
         preset: parsed.preset,
     })
 }
@@ -551,9 +558,13 @@ mod tests {
         // tarayıcıda denenen preset, bu ayrıştırıcının çıktısıyla birebir aynıdır.
         // İkincisi (döngü denemesi) çok büyük `loop`'un kırpılmış hâlini taşır.
         let folder = fixture("");
-        for name in ["lyraska-parlama", "lyraska-dongu"] {
+        for name in ["lyraska-parlama", "lyraska-dongu", "lyraska-golge"] {
             let loaded = load(Some(&folder), &fixture(&format!("{name}.milk"))).unwrap();
-            assert!(!loaded.simplified);
+            assert!(!loaded.simplified, "{name}: {:?}", loaded.shader_error);
+            if std::env::var_os("LYRASKA_FIXTURE_WRITE").is_some() {
+                let json = serde_json::to_string_pretty(&loaded.preset).unwrap();
+                std::fs::write(fixture(&format!("{name}.json")), json + "\n").unwrap();
+            }
             let expected: serde_json::Value = serde_json::from_str(
                 &std::fs::read_to_string(fixture(&format!("{name}.json"))).unwrap(),
             )

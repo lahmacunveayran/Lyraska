@@ -55,6 +55,7 @@ const FULL_MILKDROP_FOLDER: MilkdropFolder = {
 const FULL_MILKDROP_PRESET: Omit<MilkdropPreset, "preset"> & { preset: null } = {
   name: "",
   simplified: false,
+  shaderError: null,
   preset: null,
 };
 

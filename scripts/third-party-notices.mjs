@@ -6,6 +6,9 @@
 //   bağımlılıklar; derleme betikleri ve proc-macro'lar hariç). Lisans metinleri crate'in kendi
 //   paketinden (~/.cargo/registry/cache/*/<ad>-<sürüm>.crate) okunur; önce `cargo fetch` gerekir.
 // - npm: pakete giren (dev olmayan) bağımlılıklar (`npm ls --omit=dev`); lisans metinleri node_modules'tan.
+// - Gömülü C/C++: MilkDrop gölgelendirici çeviricisi (src-tauri/hlsl/hlslparser.wasm) projectM'in
+//   hlslparser'ını ve wasi-sdk'nın C/C++ kitaplıklarını içerir; metinler depoda
+//   (src-tauri/vendor/hlslparser/LICENSE, src-tauri/hlsl/lisanslar/).
 //
 // MIT/BSD/ISC gibi lisanslar ikili dağıtımda telif ve izin metninin verilmesini şart koşar
 // (DENETIM.md C3). Çıktı belirlenimcidir (sıralı, tarih yok); CI yeniden üretip depodakiyle karşılaştırır.
@@ -179,6 +182,41 @@ function npmPackages() {
   return found.sort((a, b) => byCodePoint(a.name, b.name) || byCodePoint(a.version, b.version));
 }
 
+/** WebAssembly çeviriciye derlenmiş C/C++ kodu (sürümler `src-tauri/hlsl/build.sh` ile aynı). */
+function embeddedPackages() {
+  const read = (path) => readFileSync(join(ROOT, path), "utf8");
+  const licenses = "src-tauri/hlsl/lisanslar";
+  return [
+    {
+      name: "hlslparser (projectM çatalı)",
+      version: "349b7cc2db31",
+      license: "MIT (projectM değişiklikleri: projectM ekibi, LGPL-2.1-or-later olabilir)",
+      repository: "https://github.com/projectM-visualizer/projectm/tree/master/vendor/hlslparser",
+      texts: new Map([["LICENSE", read("src-tauri/vendor/hlslparser/LICENSE")]]),
+    },
+    {
+      name: "libc++ ve libc++abi (LLVM, wasi-sdk)",
+      version: "30.0",
+      license: "Apache-2.0 WITH LLVM-exception",
+      repository: "https://github.com/llvm/llvm-project",
+      texts: new Map([["LICENSE.TXT", read(`${licenses}/libcxx-LICENSE.TXT`)]]),
+    },
+    {
+      name: "wasi-libc (wasi-sdk)",
+      version: "30.0",
+      license:
+        "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT; içindeki musl MIT, cloudlibc BSD-2-Clause, dlmalloc CC0",
+      repository: "https://github.com/WebAssembly/wasi-libc",
+      texts: new Map([
+        ["LICENSE", read(`${licenses}/wasi-libc-LICENSE`)],
+        ["LICENSE-MIT", read(`${licenses}/wasi-libc-LICENSE-MIT`)],
+        ["libc-top-half/musl/COPYRIGHT", read(`${licenses}/musl-COPYRIGHT`)],
+        ["libc-bottom-half/cloudlibc/LICENSE", read(`${licenses}/cloudlibc-LICENSE`)],
+      ]),
+    },
+  ];
+}
+
 function normalize(text) {
   return text
     .replace(/\r\n?/g, "\n")
@@ -273,6 +311,11 @@ function build() {
   };
   section(`RUST KÜTÜPHANELERİ (${rust.length}; ses motoru, analiz, kütüphane)`, rust);
   section(`JAVASCRIPT KÜTÜPHANELERİ (${npm.length}; arayüz)`, npm);
+  const embedded = embeddedPackages();
+  section(
+    `GÖMÜLÜ C/C++ KÜTÜPHANELERİ (${embedded.length}; MilkDrop gölgelendirici çeviricisi, WebAssembly)`,
+    embedded,
+  );
 
   lines.push("=".repeat(78));
   lines.push(`LİSANS METİNLERİ (${texts.size} farklı metin)`);

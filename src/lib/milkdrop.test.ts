@@ -3,6 +3,7 @@ import type { VisualFrame } from "./backend";
 import {
   AUTO_BLEND_SECONDS,
   EMPTY_HISTORY,
+  GPU_HANG_SECONDS,
   MAX_HISTORY,
   MAX_PRESET_SECONDS,
   MIN_BLEND_SECONDS,
@@ -13,6 +14,7 @@ import {
   WAVEFORM_WINDOW,
   addSkipped,
   audioLevels,
+  blameContextLoss,
   blendSeconds,
   clearSkipList,
   historyNext,
@@ -276,6 +278,16 @@ describe("donma işareti ve atlananlar listesi", () => {
   afterEach(() => {
     window.localStorage.clear();
     vi.restoreAllMocks();
+  });
+
+  it("bağlam kaybı yalnızca görsel açılırken ya da açıldıktan sonraki 10 sn içinde suçlanır", () => {
+    expect(GPU_HANG_SECONDS).toBe(10);
+    expect(blameContextLoss(null, 5000)).toBe(false);
+    expect(blameContextLoss(1000, 1000)).toBe(true);
+    expect(blameContextLoss(1000, 11_000)).toBe(true);
+    expect(blameContextLoss(1000, 11_001)).toBe(false);
+    // Saat geri gittiyse (olmamalı) suçlanmaz.
+    expect(blameContextLoss(5000, 4000)).toBe(false);
   });
 
   it("işaret yazılır, okunur, silinir", () => {

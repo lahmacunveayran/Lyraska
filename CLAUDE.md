@@ -16,6 +16,18 @@ değişmesi gerekiyorsa önce proje sahibine sorulur.
 - Test için sahibine her zaman sabit indirme linki verilir:
   https://github.com/lahmacunveayran/Lyraska/releases/download/test-surumu/Lyraska-Kurulum.exe
 
+## Bilgi birikimi ve çalışma yöntemi
+
+Her oturum başında bu dosyadan sonra **[docs/BILGI-BIRIKIMI.md](docs/BILGI-BIRIKIMI.md)** okunur: deneyimle
+öğrenilenler, tuzaklar, proje sahibinin kararları. Yeni bir ders öğrenilince oraya eklenir. Özü:
+
+- **Küçük PR** (proje sahibinin isteği): bir PR = bir iş; büyük iş en başta parçalara bölünür, ilk parça hızla
+  birleştirilir.
+- Bağımsız işler paralel ajanlara verilir (ayrı çalışma kopyası; ajanlar push etmez, PR açmaz); her büyük değişiklik
+  ayrı bir ajanın **bağımsız incelemesinden** geçer, bulgular önce testle yakalanıp düzeltilir.
+- PR açmadan önce `main` yeniden çekilir: başka oturumlar aynı anda birleştirmiş olabilir.
+- Proje sahibi "dur" derse çalışan ajanlar durdurulur; "sorma" dediği konu bir daha sorulmaz.
+
 ## Ürün
 
 Adı **Lyraska** (lir çalgısı ve Lyra takımyıldızından). Depo: `lahmacunveayran/Lyraska` (eski adı `gozlemesevdalisi/Lyraska`; program kimliği `io.github.gozlemesevdalisi.lyraska` kullanıcı verisi kaybolmasın diye aynı kalır).
@@ -83,10 +95,13 @@ lyraska/
 │   │                         # (errorReporting.ts), parlama sayacı (flash.ts), WebGL2 çizimi (gl.ts ortak;
 │   │                         # skyRenderer.ts, highwayRenderer.ts; galeri: shaderScene.ts, shaderSources.ts
 │   │                         # gölgelendiriciler, shaderRenderer.ts, sceneLook.ts hız ve palet, scenePreset.ts hazır
-│   │                         # ayarlar; milkdrop.ts MilkDrop geçiş zamanı ve ses verisi), WebGL2 açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts), parlaklık
-│   │                         # freni: güvenilmeyen sahnelerin (MilkDrop) son geçişi, bölge parlaklığı karede ≤ r·dt
-│   │                         # (flashGuard.ts; saf hesap ve kanıt flashGuardMath.ts; flashGuardCheck.ts yalnızca
-│   │                         # check:scenes'in parlayan deseni, programa girmez)
+│   │                         # ayarlar; milkdrop.ts MilkDrop geçiş zamanı ve ses verisi; milkdropShaders.ts ekran
+│   │                         # kartında derlenemeyen MilkDrop gölgelendiricisini varsayılanla değiştirir), WebGL2
+│   │                         # açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts), parlaklık freni:
+│   │                         # güvenilmeyen sahnelerin (MilkDrop) son geçişi, bölge parlaklığı karede ≤ r·dt, blok
+│   │                         # piksellerinin ortalama mutlak değişimi ≤ r_p·dt (ince desen), durum tam çözünürlükte
+│   │                         # 16 bit (flashGuard.ts; saf hesap ve kanıt flashGuardMath.ts; flashGuardCheck.ts
+│   │                         # yalnızca check:scenes'in parlayan ve tersine dönen deseni, programa girmez)
 │   └── styles/               # CSS; renkler :root değişkenlerinde
 ├── src-tauri/                # Rust çekirdeği
 │   ├── src/
@@ -122,7 +137,9 @@ lyraska/
 │   │   ├── atomic_file.rs    # bölünmez dosya yazma (geçici dosya + sync_all + ad değiştirme): ayarlar, işaretler
 │   │   ├── file_manager.rs   # dosya gezginini açma (günlük, işaret klasörü); Windows'ta dosyayı seçili gösterir
 │   │   ├── milkdrop/         # MilkDrop sahnesi: kullanıcının .milk klasörü (listeleme, yalnızca o klasörden açma);
-│   │   │                     # parse.rs: .milk → Butterchurn JSON (HLSL gölgelendiriciler atılır; program preset içermez);
+│   │   │                     # parse.rs: .milk → Butterchurn JSON (program preset içermez); shader.rs: HLSL → GLSL
+│   │   │                     # (hlslparser.wasm, wasmi kum havuzu: yakıt + bellek sınırı); shader_loops.rs: GLSL
+│   │   │                     # döngü kuralı (yalnızca sabit sınırlı for, ≤ 256 tur, iç içe ≤ 2; ekran kartı donmasın);
 │   │   │                     # eel.rs: döngü kuralı (loop MilkDrop sınırına kırpılır, iç içe/piksel başına döngü yok)
 │   │   ├── storage.rs        # library.sqlite3 şeması ve sıralı göçleri (kütüphane + analiz önbelleği)
 │   │   ├── diagnostics.rs    # Yerel hata ve çökme günlüğü (logs/lyraska.log; gerçek zamanlı yoldan çağrılmaz)
@@ -147,6 +164,9 @@ lyraska/
 │   ├── examples/             # ses_denemesi.rs: gerçek ses aygıtıyla uçtan uca deneme
 │   ├── tests/                # Gerçek kodek testleri (formats.rs) ve sentetik test verisi (data/; data/milkdrop/
 │   │                         # projenin özgün, bilerek parlayan deneme preseti)
+│   ├── hlsl/                 # MilkDrop gölgelendirici çeviricisi: shim.cpp köprüsü, build.sh (wasi-sdk 30.0;
+│   │                         # CI baytı baytına aynı derlendiğini denetler), hlslparser.wasm, lisanslar/
+│   ├── vendor/hlslparser/    # projectM'in hlslparser'ı (MIT, 349b7cc2db31; LYRASKA işaretli iki küçük yama)
 │   ├── tauri.conf.json       # Pencere, güvenlik, Windows NSIS kurulum ayarları
 │   └── deny.toml             # cargo-deny lisans kuralları
 ├── scripts/                  # Yardımcı betikler (npm lisans denetimi, depoda ses dosyası denetimi, sahne denetimi,
@@ -157,6 +177,7 @@ lyraska/
 │   ├── ISARETLEME.md         # İşaretleme aracı kılavuzu (proje sahibi için)
 │   ├── SARKI-HARITASI.md     # Açık şarkı haritası biçimi (sürüm 1) ve ses parmak izi
 │   ├── DOGRULAMA.md          # Gerçek cihazda denenecekler listesi ve proje sahibinin bildirdiği sonuçlar
+│   ├── BILGI-BIRIKIMI.md     # "İkinci beyin": oturumlardan öğrenilenler, tuzaklar, sahibinin kararları (her oturumda okunur)
 │   ├── DENETIM.md            # Kalite denetimi (16 Ekim 2026): sağlık, matematik doğrulaması, bulgular, öncelik sırası
 │   ├── DENETIM-2.md          # İkinci denetim (16 Ekim 2026): düzeltmelerin yeniden denetimi + altı bağımsız denetçi
 │   │                         # (tam raporlar ve doğrulama betikleri denetim-2/ altında)
@@ -212,6 +233,7 @@ Hepsi depo kökünde çalıştırılır.
 | Sahneler gerçek tarayıcıda     | `npm run check:scenes` (önce `npm run build`; CI'da Windows Edge)                                                                      |
 | Windows'a özel kodu denetle    | `cd src-tauri && cargo clippy --target x86_64-pc-windows-gnu --all-targets -- -D warnings` (bkz. not)                                  |
 | Gerçek ses aygıtıyla deneme    | `cd src-tauri && cargo run --example ses_denemesi`                                                                                     |
+| HLSL çeviricisini derle        | `sh src-tauri/hlsl/build.sh` (önce `fetch-wasi-sdk.sh`; bkz. dosya başı); çıktı commit edilir                                          |
 | Kurulum dosyası (Windows)      | `npm run tauri build`                                                                                                                  |
 
 Not: Rust derlemesi için önce `npm run build` ile `dist/` oluşturulmuş olmalıdır.

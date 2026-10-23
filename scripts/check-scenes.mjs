@@ -28,6 +28,9 @@
 // (src-tauri/tests/data/milkdrop/lyraska-parlama.*: saniyede dört kez tersine dönen, bilerek parlayan
 // bir görsel) gerçek sahnede çalışır: WebGL, hareket ve kare kare parlama ölçümü (görünen tuval
 // frenli, Butterchurn'ün görünmeyen tuvali frensiz denetim olarak), normal ve güvenli modda.
+// Gölgelendirici denemesi (lyraska-golge.*: HLSL bükme ve birleştirme gölgelendiricisi; birleştirme
+// saniyede dört kez beyaza çakar) çekirdeğin GLSL çevirisinin gerçek tarayıcıda derlendiğini
+// (`data-shaders="ok"`) ve çakan gölgelendiricide de frenin tuttuğunu gösterir.
 //
 // Program sayfaları programın gerçek içerik güvenlik politikasıyla (CSP, tauri.conf.json) açılır:
 // `eval`/`new Function` engellidir; Butterchurn'ün yalnızca WebAssembly yolunu kullandığı böylece
@@ -46,7 +49,8 @@ const APP_CSP = JSON.parse(
 /**
  * MilkDrop sahnesinin deneme presetleri: Rust ayrıştırıcısının özgün `.milk` dosyalarından ürettiği
  * JSON (`milkdrop::tests::ornek_gorsel_beklenen_jsona_cevrilir` aynı olduklarını denetler).
- * `parlama`: bilerek parlar; `dongu`: denkleminde çok büyük bir `loop` (programın sınırıyla kırpılmış).
+ * `parlama`: bilerek parlar; `dongu`: denkleminde çok büyük bir `loop` (programın sınırıyla kırpılmış);
+ * `golge`: HLSL gölgelendiricileri GLSL'e çevrilmiş (`milkdrop/shader.rs`), birleştirmesi bilerek çakar.
  */
 const milkdropFixture = (name) =>
   JSON.parse(
@@ -58,6 +62,7 @@ const milkdropFixture = (name) =>
 const MILKDROP_PRESETS = {
   parlama: { name: "Lyraska parlama denemesi", preset: milkdropFixture("parlama") },
   dongu: { name: "Lyraska döngü denemesi", preset: milkdropFixture("dongu") },
+  golge: { name: "Lyraska gölgelendirici denemesi", preset: milkdropFixture("golge") },
 };
 const EXPECT_FALLBACK = process.env.SCENE_EXPECT === "fallback";
 const APP_URL = `http://localhost:${PORT}`;
@@ -99,7 +104,8 @@ const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama") => `
         presets: [{ name: ${JSON.stringify(MILKDROP_PRESETS[milk].name)},
           path: "C:/MilkDrop/lyraska-${milk}.milk" }] };
       case "milkdrop_load": return { name: ${JSON.stringify(MILKDROP_PRESETS[milk].name)},
-        simplified: false, preset: ${JSON.stringify(MILKDROP_PRESETS[milk].preset)} };
+        simplified: false, shaderError: null,
+        preset: ${JSON.stringify(MILKDROP_PRESETS[milk].preset)} };
       case "audio_delay_get": return 0;
       // Tek bölümlük harita: arayüzün vurgu rengi (VU ve spektrum sahnelerinin halesi) de temada.
       case "song_map": return { meter: 4, downbeatPhase: 0, grouping: [], meterConfidence: 1, downbeats: [],
@@ -499,6 +505,8 @@ const SCENES = [
     extra: () => null,
     warmup: 6000,
     timeBased: true,
+    // Gölgelendiricisiz deneme ve çevrilen HLSL gölgelendiricili deneme (WebGL, hareket).
+    milks: [null, "golge"],
     requires: (state) =>
       !state.preset
         ? "MilkDrop görseli açılmadı"
@@ -552,6 +560,13 @@ function brightestThemes(count) {
  * galeri sahnelerinde ayrıca en parlak sabit palet ve en yüksek hız (temadan bağımsız).
  */
 function variants(scene) {
+  if (scene.milks) {
+    return scene.milks.map((milk) => ({
+      label: milk ? `${scene.name} · ${MILKDROP_PRESETS[milk].name}` : scene.name,
+      look: null,
+      milk: milk ?? undefined,
+    }));
+  }
   if (scene.looks) {
     return scene.looks.map((look) => ({ label: `${scene.name} · ${look.name}`, look: look.id }));
   }
@@ -591,7 +606,7 @@ async function checkScene(browser, scene, variant) {
   });
   page.on("pageerror", (e) => problems.push(`sayfa hatası: ${e}`));
   await page.addInitScript(
-    initScript(scene.id, { look: variant.look, sceneLook: variant.sceneLook }),
+    initScript(scene.id, { look: variant.look, sceneLook: variant.sceneLook, milk: variant.milk }),
   );
   await startPlaying(page, scene.warmup ?? 1500);
   await hideChrome(page);
@@ -676,7 +691,9 @@ async function flashGuardBundle() {
  * Zamana bağlı parlama ölçümü: bilerek parlayan desen (saniyede 10 ve 1 kez siyah ↔ beyaz, tam
  * ekran ve tek bölge) frenden geçirilir; her karede ekran okunur, en kötü WCAG penceresinin
  * parlaklık dizisi `countFlashes` ile sayılır. Frenli her durum saniyede ≤ 3 (güvenli modda ≤ 1)
- * parlamalı; frensiz denetim parlamayı görmeli (ölçümün çalıştığının kanıtı).
+ * parlamalı; frensiz denetim parlamayı görmeli (ölçümün çalıştığının kanıtı). İnce desen (1
+ * piksellik şerit ve dama, blok ortalaması sabit) piksel başına `countChanges` ile sayılır: en
+ * kötü blokta saniyede ≤ 3 (güvenli modda ≤ 1,05) tersine dönme; frensiz denetim görmeli.
  */
 async function checkFlashGuard(browser, code) {
   const page = await browser.newPage({ viewport: { width: 400, height: 300 } });
@@ -700,7 +717,8 @@ async function checkFlashGuard(browser, code) {
       continue;
     }
     console.log(
-      `${name}: saniyede ${r.flashesPerSecond.toFixed(2)} parlama · karede en büyük değişim ` +
+      `${name}: saniyede ${r.flashesPerSecond.toFixed(2)} parlama · ` +
+        `${r.reversalsPerSecond.toFixed(2)} desen dönüşü · karede en büyük değişim ` +
         `${r.maxStep.toFixed(4)} · ${r.storage ? `saklama ${r.storage} · ` : ""}` +
         `kare ${r.frameMs.toFixed(1)} ms`,
     );
@@ -713,6 +731,17 @@ async function checkFlashGuard(browser, code) {
       problems.push(
         `${name}: frensiz desen parlama olarak ölçülmedi (${r.flashesPerSecond.toFixed(2)} < ` +
           `${c.minPerSecond}): ölçüm çalışmıyor`,
+      );
+    }
+    if (c.maxReversals !== undefined && r.reversalsPerSecond > c.maxReversals) {
+      problems.push(
+        `${name}: saniyede ${r.reversalsPerSecond.toFixed(2)} desen dönüşü > ${c.maxReversals}`,
+      );
+    }
+    if (c.minReversals !== undefined && r.reversalsPerSecond < c.minReversals) {
+      problems.push(
+        `${name}: frensiz desen dönüşü ölçülmedi (${r.reversalsPerSecond.toFixed(2)} < ` +
+          `${c.minReversals}): ölçüm çalışmıyor`,
       );
     }
   }
@@ -753,8 +782,10 @@ const MILKDROP_VIEWPORT = { width: 384, height: 216 };
  * Ayrıca sayfanın CSP'sinin `eval`'i gerçekten engellediği denetlenir: Butterchurn bu koşulda
  * çalışıyorsa JavaScript (`new Function`) yolunu kullanmıyordur.
  */
-async function checkMilkdropFlashes(browser, bundle, safe) {
-  const label = `MilkDrop · zamana bağlı parlama${safe ? " (güvenli mod)" : ""}`;
+async function checkMilkdropFlashes(browser, bundle, safe, milk = "parlama") {
+  const label =
+    `MilkDrop · zamana bağlı parlama${safe ? " (güvenli mod)" : ""}` +
+    (milk === "parlama" ? "" : ` · ${MILKDROP_PRESETS[milk].name}`);
   const seconds = safe ? MILKDROP_SECONDS.safe : MILKDROP_SECONDS.normal;
   const step = 1000 / 60;
   const page = await openPage(browser, { stepMs: step, viewport: MILKDROP_VIEWPORT, scale: 1 });
@@ -770,7 +801,7 @@ async function checkMilkdropFlashes(browser, bundle, safe) {
   await page.addInitScript(PRESERVE_DRAWING_BUFFER);
   // Başlangıç betikleri bir işlevin içinde çalışır: paketin `var`'ı pencereye ayrıca konur.
   await page.addInitScript(`${bundle}\n;window.LyraskaFlashGuardCheck = LyraskaFlashGuardCheck;`);
-  await page.addInitScript(initScript("milkdrop", { safe }));
+  await page.addInitScript(initScript("milkdrop", { safe, milk }));
   const started = Date.now();
   // Görsel açılsın, fren siyahtan biraz açılsın.
   await startPlaying(page, 2000, step);
@@ -784,8 +815,15 @@ async function checkMilkdropFlashes(browser, bundle, safe) {
     webgl: c.dataset.webgl ?? null,
     preset: c.dataset.preset ?? null,
     guard: c.dataset.guard ?? null,
+    shaders: c.dataset.shaders ?? null,
     error: c.dataset.webglError ?? null,
   }));
+  // Gölgelendiricili görselde çeviri ekran kartında derlenmiş olmalı (varsayılana dönülmemiş).
+  if (milk === "golge" && state.shaders !== "ok") {
+    problems.push(
+      `${label}: çevrilen gölgelendirici derlenmedi (${state.shaders ?? "bilinmiyor"})`,
+    );
+  }
   // CSP gerçekten uygulanıyor mu: sayfanın kendi kodundaki dizgi değerlendirmesi engellenmeli.
   // (`page.evaluate`'in kendisi CSP'den muaf olduğu için dizgi bir zamanlayıcıyla, sayfanın
   // kendi görevinde değerlendirilir.) Butterchurn bu sayfada açıldıysa `new Function`'a gerek
@@ -843,7 +881,8 @@ async function checkMilkdropFlashes(browser, bundle, safe) {
     `${label}: frenli saniyede ${result.guarded.flashesPerSecond.toFixed(2)} parlama (karede en ` +
       `büyük değişim ${result.guarded.maxStep.toFixed(4)}) · frensiz ` +
       `${result.raw ? result.raw.flashesPerSecond.toFixed(2) : "-"} · ${result.frames} kare · ` +
-      `fren ${state.guard} · eval engelli · ${((Date.now() - started) / 1000).toFixed(1)} sn`,
+      `fren ${state.guard} · gölgelendirici ${state.shaders ?? "-"} · eval engelli · ` +
+      `${((Date.now() - started) / 1000).toFixed(1)} sn`,
   );
   if (result.error) problems.push(`${label}: ölçüm hatası: ${result.error}`);
   if (result.frames < seconds * 60 * 0.9) {
@@ -935,6 +974,7 @@ try {
       for (const safe of [false, true]) {
         problems = problems.concat(await checkMilkdropFlashes(browser, bundle, safe));
       }
+      problems = problems.concat(await checkMilkdropFlashes(browser, bundle, false, "golge"));
       problems = problems.concat(await checkMilkdropLoop(browser));
     }
     const bright = brightestThemes(2);

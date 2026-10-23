@@ -7,25 +7,63 @@ export const FLASH_DELTA = 0.1;
 
 /** Parlaklık eğrisindeki (0..1 bağıl parlaklık) parlama sayısı. */
 export function countFlashes(luminance: readonly number[]): number {
-  // Yükselirken en yüksek, düşerken en düşük değer izlenir; ondan %10 dönüş bir değişimdir.
-  let min = luminance[0] ?? 0;
-  let max = min;
-  let direction = 0;
-  let changes = 0;
+  return Math.floor(countChanges(luminance) / 2);
+}
+
+/**
+ * Parlaklık eğrisindeki değişim sayısı: yükselirken en yüksek, düşerken en düşük değer izlenir;
+ * ondan %10 dönüş bir değişimdir (iki zıt değişim bir parlama). Bir pikselin eğrisinde her
+ * değişim desenin bir "tersine dönmesi"dir.
+ */
+export function countChanges(luminance: readonly number[]): number {
+  const counter = createChangeCounter(1);
+  const sample = new Float64Array(1);
   for (const l of luminance) {
-    min = direction > 0 ? min : Math.min(min, l);
-    max = direction < 0 ? max : Math.max(max, l);
-    if (direction >= 0 && max - l >= FLASH_DELTA) {
-      direction = -1;
-      changes++;
-      min = l;
-    } else if (direction <= 0 && l - min >= FLASH_DELTA) {
-      direction = 1;
-      changes++;
-      max = l;
-    }
+    sample[0] = l;
+    counter.push(sample);
   }
-  return Math.floor(changes / 2);
+  return counter.changes[0] ?? 0;
+}
+
+export interface ChangeCounter {
+  /** Her eğrinin şimdiye kadarki değişim sayısı. */
+  readonly changes: Float64Array;
+  /** Bütün eğrilerin bir sonraki değeri. */
+  push(values: ArrayLike<number>): void;
+}
+
+/** Aynı anda `size` eğrinin (ör. her pikselin) değişimlerini sayar (`countChanges` gibi). */
+export function createChangeCounter(size: number): ChangeCounter {
+  const min = new Float64Array(size);
+  const max = new Float64Array(size);
+  const direction = new Int8Array(size);
+  const changes = new Float64Array(size);
+  let started = false;
+  return {
+    changes,
+    push(values) {
+      for (let i = 0; i < size; i++) {
+        const l = values[i] ?? 0;
+        if (!started) {
+          min[i] = l;
+          max[i] = l;
+        }
+        const d = direction[i]!;
+        if (d <= 0) min[i] = Math.min(min[i]!, l);
+        if (d >= 0) max[i] = Math.max(max[i]!, l);
+        if (d >= 0 && max[i]! - l >= FLASH_DELTA) {
+          direction[i] = -1;
+          changes[i]! += 1;
+          min[i] = l;
+        } else if (d <= 0 && l - min[i]! >= FLASH_DELTA) {
+          direction[i] = 1;
+          changes[i]! += 1;
+          max[i] = l;
+        }
+      }
+      started = true;
+    },
+  };
 }
 
 /**

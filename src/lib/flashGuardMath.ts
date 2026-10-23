@@ -4,7 +4,9 @@
  * uygulamasıdır ve sabitler (ızgara, hızlar, pay) iki taraf için de buradan gelir.
  *
  * Amaç: güvenilmeyen bir sahnenin (ör. kullanıcının MilkDrop preseti) görüntüsü ne olursa olsun,
- * ekranda saniyede 3'ten fazla parlama olmaması (WCAG 2.3.1; güvenli modda 1).
+ * ekranda saniyede 3'ten fazla parlama olmaması (WCAG 2.3.1; güvenli modda 1) ve ince bir desenin
+ * (şerit, dama) saniyede 3'ten fazla tersine dönmemesi (ITU-R BT.1702, Ofcom: titreyen, tersine
+ * dönen desen; güvenli modda ~1).
  *
  * ## Yöntem
  *
@@ -13,65 +15,100 @@
  * `n_b` bloğun piksel sayısı, `N_c` hücrenin piksel sayısıdır. Parlaklık bağıl parlaklıktır
  * (doğrusal RGB'den `Y = 0,2126 R + 0,7152 G + 0,0722 B`), yani pikseller arasında doğrusaldır.
  *
- * Durum: `H_b`, bir önceki karede gösterilen görüntünün blok ortalama rengi (doğrusal RGB, kesin).
- * Yeni karede girdinin blok ortalaması `X̄_b` ölçülür. Hücrenin dört köşesine (k) bir "geçiş payı"
- * `a_k ∈ [0, 1]` verilir; blok içinde payı köşelerin çift doğrusal karışımıdır ve blok boyunca
- * sabittir: `a(b) = Σ_k φ_k(b)·a_k`, `φ_k` köşe ağırlıkları (bloğun hücredeki merkezinde, toplamları 1).
- * Gösterilen piksel:
+ * Durum: `P(p)`, bir önceki karede gösterilen görüntü, **tam çözünürlükte** (doğrusal RGB, kanal
+ * başına 16 bit sabit nokta; ping-pong doku). Yeni karede girdi `X(p)`'dir; her blokta iki sayı
+ * ölçülür (ikisi de `P`'den, her karede yeniden: birikmez):
  *
- *     O(p) = H_b + a(b)·(X(p) − H_b)        (p, b bloğunda)
+ *     ΔY_b = (1/n_b) Σ_{p∈b} (Y(X(p)) − Y(P(p)))      (ortalamanın değişimi)
+ *     D_b  = (1/n_b) Σ_{p∈b} |Y(X(p)) − Y(P(p))|      (piksellerin ortalama mutlak değişimi)
  *
- * yani önceki görüntüyle yeni görüntünün dışbükey karışımı. `a = 1` ise görüntü olduğu gibi geçer.
- * Bloğun yeni ortalaması `H_b + a(b)·(X̄_b − H_b)`'dir ve bir sonraki karenin durumu olur.
+ * Hücrenin dört köşesine (k) bir "geçiş payı" `a_k ∈ [0, 1]` verilir; blok içinde payı köşelerin
+ * çift doğrusal karışımıdır ve blok boyunca sabittir: `a(b) = Σ_k φ_k(b)·a_k`, `φ_k` köşe
+ * ağırlıkları (bloğun hücredeki merkezinde, toplamları 1). Gösterilen piksel:
+ *
+ *     O(p) = P(p) + a(b)·(X(p) − P(p))        (p, b bloğunda)
+ *
+ * yani önceki gösterilen pikselle yeni pikselin dışbükey karışımı (sahnede olmayan renk üretilmez).
+ * `a = 1` ise görüntü olduğu gibi geçer. `O` 16 bite yuvarlanıp bir sonraki karenin `P`'si olur;
+ * ekrana `O`'nun 8 bit sRGB'si gider.
  *
  * ## Sınırın kanıtı
  *
- * 1. Hücre. `μ_c` hücrenin gösterilen ortalama parlaklığı olsun. `a` blok boyunca sabit olduğundan
+ * 1. Hücre ortalaması. `μ_c` hücrenin gösterilen ortalama parlaklığı olsun. `a` blok boyunca sabit
+ *    ve parlaklık doğrusal olduğundan bloğun ortalaması tam `a(b)·ΔY_b` değişir:
  *
  *        μ_c(t) − μ_c(t−1) = Σ_b n_b·a(b)·ΔY_b / N_c = Σ_k a_k·E_{c,k},
- *        ΔY_b = Y(X̄_b) − Y(H_b),   E_{c,k} = Σ_{b∈c} n_b·φ_k(b)·ΔY_b / N_c.
+ *        E_{c,k} = Σ_{b∈c} n_b·φ_k(b)·ΔY_b / N_c.
  *
- *    Hücrenin payı `α_c = min(1, s / Σ_k |E_{c,k}|)`, köşenin payı ona dokunan (en çok dört)
- *    hücrenin paylarının en küçüğüdür: `a_k ≤ α_c`. O hâlde
- *    `|Δμ_c| ≤ Σ_k a_k·|E_{c,k}| ≤ α_c·Σ_k |E_{c,k}| ≤ s`. Bu kesindir; parlaklaşmada da
- *    kararmada da (ani siyah: önceki görüntü `1 − a` payıyla ekranda kalır) geçerlidir.
- *    `s = r·dt` (r: saniyedeki en büyük parlaklık değişimi), `dt` en fazla `GUARD_MAX_DT`.
+ *    Hücrenin ortalama payı `α_c = min(1, s / Σ_k |E_{c,k}|)`. O hâlde `a_k ≤ α_c` iken
+ *    `|Δμ_c| ≤ Σ_k a_k·|E_{c,k}| ≤ α_c·Σ_k |E_{c,k}| ≤ s`. Parlaklaşmada da kararmada da (ani
+ *    siyah: önceki görüntü `1 − a` payıyla ekranda kalır) geçerlidir. `s = r·dt − m`
+ *    (r: saniyedeki en büyük parlaklık değişimi, `dt` en fazla `GUARD_MAX_DT`, m pay).
  *
- * 2. Pencere. Hücrelerden oluşan her pencerenin ortalaması hücre ortalamalarının ağırlıklı
+ * 2. Desen (piksellerin mutlak değişimi). Bloğun her pikseli tam `a(b)·(Y(X) − Y(P))` değişir:
+ *    bloğun ortalama mutlak değişimi `a(b)·D_b`'dir. Hücrenin desen payı
+ *    `β_c = min(1, s_p / max_{b∈c} D_b)` (`s_p = r_p·dt − m`). Hücrenin payı
+ *    `g_c = min(α_c, β_c)`, köşenin payı ona dokunan (en çok dört) hücrenin paylarının en
+ *    küçüğüdür: `a_k ≤ g_c`, dolayısıyla `a(b) = Σ_k φ_k·a_k ≤ g_c` ve her blokta
+ *    `a(b)·D_b ≤ β_c·D_b ≤ s_p`. Bloğun ortalaması bloğun pikselleri gibi mutlak değişimle de
+ *    sınırlı olduğundan (`|ΔY| ≤ D`) r_p ≤ r iken 1. adım 2.'nin sonucudur; ikisi de ayrı denetlenir.
+ *
+ * 3. Saklama. `O` kanal başına 16 bite yuvarlanır: yarım adım `q/2 = 0,5/65535 ≈ 7,6·10⁻⁶`;
+ *    parlaklık kanalların ağırlıklı ortalaması olduğundan piksel ve ortalama değişim bir karede en
+ *    çok bu kadar fazla olur. Pay `m = GUARD_SLEW_MARGIN = 10⁻⁵` bunu (ve 32 bit kayan nokta ile
+ *    24 bit sabit noktalı ara değerlerin yuvarlamasını) karşılar: saklanan görüntüde her kare
+ *    `|Δμ_c| ≤ r·dt`, her blokta ortalama mutlak değişim `≤ r_p·dt`. Ölçüm her karede saklanan
+ *    `P`'den yapıldığı için yuvarlama birikmez.
+ *
+ * 4. Pencere. Hücrelerden oluşan her pencerenin ortalaması hücre ortalamalarının ağırlıklı
  *    ortalamasıdır (`μ_W = Σ_c (N_c / N_W)·μ_c`, ağırlıklar ≥ 0, toplamları 1); dolayısıyla
  *    `|Δμ_W| ≤ max_c |Δμ_c| ≤ s`. WCAG'nin parlama alanı (1024×768 ekranda 341×256, ekranın
  *    ~1/3'ü) ~10×6 hücredir.
  *
- * 3. Parlama sayısı. `countFlashes` (`flash.ts`) bir değişimi, eğri bir önceki değişimden (ya da
+ * 5. Parlama sayısı. `countFlashes` (`flash.ts`) bir değişimi, eğri bir önceki değişimden (ya da
  *    başlangıçtan) bu yana izlenen uç değerden 0,1 uzaklaşınca sayar; bunun için eğrinin en az
- *    0,1 yol alması, yani en az `0,1 / r` saniye gerekir. T saniyede en çok `⌊r·T / 0,1⌋` değişim,
- *    en çok `r·T / 0,2` parlama olur: r = 0,3 → saniyede 1,5.
+ *    0,1 yol alması gerekir. T saniyede en çok `r·T / 0,1` değişim, `r·T / 0,2` parlama olur.
  *
- * 4. Ekranın 8 biti. Ekrana giden renk 8 bit sRGB'ye yuvarlanır. Bir kanalın yarım adımı doğrusal
+ * 6. Ekranın 8 biti. Ekrana giden renk 8 bit sRGB'ye yuvarlanır. Bir kanalın yarım adımı doğrusal
  *    ışıkta en çok `ε_q = ½ · (1/255) · 2,4/1,055 ≈ 0,0045`'tir (sRGB eğrisinin en dik yeri,
- *    beyaz); parlaklık kanalların ağırlıklı ortalaması olduğundan piksel ve pencere ortalaması da
- *    en çok bu kadar sapar ve sapma birikmez (durum yuvarlanmamış değeri saklar). Görünen eğride
- *    sayılan bir değişim kesin eğride en az `0,1 − 2·ε_q` yol ister:
- *    `parlama/sn ≤ r / (2·(0,1 − 2·ε_q))` (`flashRateBound`). Normal mod r = 0,3 → ≤ 1,65 (sınır 3);
- *    güvenli mod r = 0,18 → ≤ 0,99 (hedef 1; 0,2 yuvarlamayla 1,1'e çıkardı).
+ *    beyaz); piksel ve pencere ortalaması da en çok bu kadar sapar ve sapma birikmez (ekrana giden,
+ *    saklanandan her karede yeniden hesaplanır). Görünen eğride sayılan bir değişim saklanan
+ *    eğride en az `0,1 − 2·ε_q` yol ister: `parlama/sn ≤ r / (2·(0,1 − 2·ε_q))`
+ *    (`flashRateBound`), desen için `tersine dönme/sn ≤ r_p / (0,1 − 2·ε_q)`
+ *    (`patternReversalBound`).
  *
- * 5. Hizasız pencereler. Kenarı hücrelerin ortasından geçen bir pencerenin ortalaması
- *    `Σ_c w_c·μ_c + D_W`'dir: ilk terim yine hız sınırlıdır (ağırlıklar ≥ 0, toplamları 1);
- *    `D_W`, kenardaki hücrelerin içindeki dağılımdan gelir (hücrenin pencerede kalan kısmı
- *    hücre ortalamasından farklıysa). `|D_W| ≤ d` ise sınır `r / (2·(0,1 − 2·ε_q − 2·d))` olur.
- *    Tekdüze ya da hücreden büyük ölçekli değişimlerde `d ≈ 0`; köşe ağırlıkları hücre içindeki
- *    birinci dereceden dağılımı da görür (bir yarısı parlayıp öbür yarısı kararan hücrede köşe
- *    terimleri zıt işaretlidir, mutlak toplamları sınırlanır). Kalan açık: hücre içinde ortalaması
- *    ve köşe ağırlıklı toplamları sıfır olan, belirli bir pencerenin kenarına göre kurgulanmış ince
- *    desenler. Tarayıcı denetimi pencereleri 4 piksel adımla, hücrelere hizasız ölçer.
+ * 7. Desenin tersine dönmesi. Bir pikselin parlaklık eğrisinde `countChanges` (`flash.ts`) her
+ *    0,1'lik dönüşü bir değişim sayar ("tersine dönme": şerit açıktan koyuya ya da tersi). Bloğun
+ *    piksellerinin T saniyedeki yollarının ortalaması 2. adımdan en çok `r_p·T`'dir; her sayılan
+ *    değişim o pikselde en az `0,1 − 2ε_q` yol ister. Dolayısıyla **her blokta, piksel başına
+ *    ortalama tersine dönme sayısı saniyede ≤ `r_p / (0,1 − 2ε_q)`**. Bloğu kaplayan, kontrastı
+ *    ≥ 0,1 (ITU-R BT.1702'nin 20 cd/m²'si ~200 cd/m²'lik ekranda) bir desenin her tersine dönüşü
+ *    bloğun her pikselini değiştirir: desen saniyede en çok bu kadar tersine döner. Normal mod
+ *    r_p = 0,27 → ≤ 2,96/sn (çift olarak ≤ 1,48 "desen parlaması"); güvenli mod r_p = 0,095 →
+ *    ≤ 1,04/sn (kontrast ≥ 0,105 ise ≤ 1; çift olarak ≤ 0,52). Güvenli modun hızı gece göğünün en
+ *    hızlı parlaklık eğrisinden (0,0913/sn) küçük seçilmedi: kendi sahnelerimizin eğrileri frenden
+ *    değişmeden geçer. Sınır yereldir (her 8×8 piksellik blok, 1080p'de ~7,5 px): ekranın küçük bir
+ *    yerindeki desen de sınırlanır (BT.1702 ancak ekranın %25'ini aşanı yasaklar; güvenli taraf).
+ *
+ * 8. Hizasız pencereler. Herhangi bir piksel kümesinin (W, `N_W` piksel) ortalaması en çok
+ *    piksellerinin ortalama mutlak değişimi kadar değişir; W'nin blok içinde kalan parçası da en
+ *    çok bütün bloğun toplamı kadar:
+ *
+ *        |Δμ_W| ≤ (1/N_W)·Σ_{p∈W} |ΔY(p)| ≤ (1/N_W)·Σ_{b ∩ W ≠ ∅} n_b·a(b)·D_b ≤ s_p·N⁺_W / N_W,
+ *
+ *    `N⁺_W` W'ye dokunan blokların piksel sayısı. Hücrelere ya da bloklara hizasız her pencere
+ *    böylece de kesin sınırlıdır: WCAG penceresi 1080p'de 640×480, blok ~7,5 px, `N⁺/N ≤ 1,06`
+ *    → saniyede ≤ 1,57 parlama (güvenli ≤ 0,55). Tarayıcı denetimi pencereleri 4 piksel adımla,
+ *    hücrelere hizasız ölçer.
  *
  * Kırmızı parlama (WCAG "red flash"): doymuş kırmızı ↔ karanlık geçişleri parlaklık üzerinden
- * sınırlıdır (saf kırmızının parlaklığı 0,2126; tam geçiş normal modda en az 0,7 sn). Aynı
- * parlaklıkta kırmızı ↔ başka renk titreşimi bu frene görünmez; gerekirse ikinci bir "kırmızılık"
- * kanalı aynı yöntemle sınırlanır (bilinen boşluk, MIMARI.md).
+ * sınırlıdır (saf kırmızının parlaklığı 0,2126). Aynı parlaklıkta kırmızı ↔ başka renk titreşimi
+ * bu frene görünmez; gerekirse ikinci bir "kırmızılık" kanalı aynı yöntemle sınırlanır (bilinen
+ * boşluk, MIMARI.md).
  *
- * Renk tonu: gösterilen her piksel, önceki gösterilen blok rengiyle yeni pikselin karışımıdır;
- * sahnede olmayan bir renk üretilmez. Fren devrede değilken (`a = 1`) görüntü değişmeden geçer.
+ * Bedel: hızlı ve ince ayrıntılı hareket (ince çizgiler, keskin doku) piksel başına çok değişir;
+ * fren onu da yavaşlatır (iz bırakır). Yavaş ya da yumuşak değişen görüntü (piksel başına
+ * saniyede `r_p`'den yavaş) değişmeden geçer.
  */
 
 import { FLASH_DELTA } from "./flash";
@@ -82,17 +119,32 @@ export const GUARD_ROWS = 18;
 /** Hücre başına blok (her eksende). */
 export const GUARD_BLOCKS_PER_CELL = 8;
 
-/** Normal modda gösterilen parlaklığın en büyük değişim hızı (bağıl parlaklık / saniye). */
+/** Normal modda gösterilen ortalama parlaklığın en büyük değişim hızı (bağıl parlaklık / saniye). */
 export const GUARD_RATE = 0.3;
 /** Güvenli modda (8 bit yuvarlama dahil saniyede ≤ 1 parlama). */
 export const GUARD_SAFE_RATE = 0.18;
+/**
+ * Normal modda bir bloğun piksellerinin ortalama mutlak parlaklık değişiminin en büyük hızı
+ * (desen: saniyede ≤ 2,96 tersine dönme).
+ */
+export const GUARD_PATTERN_RATE = 0.27;
+/** Güvenli modda (≤ 1,04 tersine dönme/sn; gece göğünün eğrisi değişmeden geçer). */
+export const GUARD_PATTERN_SAFE_RATE = 0.095;
 /**
  * Bir karenin en uzun süresi (saniye). Sekme arka plandan dönünce gelen uzun bir kare tek seferde
  * büyük bir sıçramaya izin vermesin; kısa `dt` her zaman güvenli taraftır.
  */
 export const GUARD_MAX_DT = 0.1;
-/** Kayan nokta ve 24 bit saklama yuvarlamaları için her karede düşülen pay. */
+/**
+ * Her karede düşülen pay: durumun 16 bit saklanmasının yarım adımı (`STATE_HALF_STEP`) ve kayan
+ * nokta ile 24 bit sabit noktalı ara değerlerin yuvarlaması.
+ */
 export const GUARD_SLEW_MARGIN = 1e-5;
+
+/** Durum (önceki gösterilen görüntü): kanal başına 16 bit sabit nokta. */
+export const STATE_SCALE = 65535;
+/** Durumun yuvarlamasının en büyük hatası (doğrusal ışık, kanal başına). */
+export const STATE_HALF_STEP = 0.5 / STATE_SCALE;
 
 /** Ekranın 8 bit sRGB yuvarlamasının doğrusal parlaklıktaki en büyük sapması (yarım adım). */
 export const SRGB_HALF_STEP_LUMINANCE = (0.5 / 255) * (2.4 / 1.055);
@@ -100,15 +152,35 @@ export const SRGB_HALF_STEP_LUMINANCE = (0.5 / 255) * (2.4 / 1.055);
 /** Bağıl parlaklık ağırlıkları (doğrusal RGB). */
 export const LUMA: readonly [number, number, number] = [0.2126, 0.7152, 0.0722];
 
+/** Ortalama ve desen hızları (normal ya da güvenli mod). */
+export interface GuardRates {
+  mean: number;
+  pattern: number;
+}
+
+export function guardRates(safe: boolean): GuardRates {
+  return safe
+    ? { mean: GUARD_SAFE_RATE, pattern: GUARD_PATTERN_SAFE_RATE }
+    : { mean: GUARD_RATE, pattern: GUARD_PATTERN_RATE };
+}
+
 /** Bir karede izin verilen en büyük parlaklık değişimi. */
 export function frameSlew(rate: number, dt: number): number {
   const time = Number.isFinite(dt) ? Math.min(Math.max(dt, 0), GUARD_MAX_DT) : 0;
   return Math.max(0, rate * time - GUARD_SLEW_MARGIN);
 }
 
-/** Hızı `rate` olan frenin 8 bit ekranda saniyedeki en çok parlama sayısı (kanıtın 4. adımı). */
+/** Hızı `rate` olan frenin 8 bit ekranda saniyedeki en çok parlama sayısı (kanıtın 6. adımı). */
 export function flashRateBound(rate: number): number {
   return rate / (2 * (FLASH_DELTA - 2 * SRGB_HALF_STEP_LUMINANCE));
+}
+
+/**
+ * Desen hızı `rate` olan frenin 8 bit ekranda bir blokta piksel başına saniyedeki en çok tersine
+ * dönme (0,1'lik değişim) sayısı (kanıtın 7. adımı).
+ */
+export function patternReversalBound(rate: number): number {
+  return rate / (FLASH_DELTA - 2 * SRGB_HALF_STEP_LUMINANCE);
 }
 
 /** sRGB (0..1) → doğrusal ışık. */
@@ -120,6 +192,11 @@ export function srgbToLinear(v: number): number {
 export function linearToSrgb(v: number): number {
   const c = Math.min(Math.max(v, 0), 1);
   return c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055;
+}
+
+/** Durumun saklanışı: 16 bit sabit noktaya yuvarlama (ekran kartının `writeState`'i). */
+export function quantizeState(v: number): number {
+  return Math.round(Math.min(Math.max(v, 0), 1) * STATE_SCALE) / STATE_SCALE;
 }
 
 export interface GuardGrid {
@@ -177,27 +254,75 @@ export function blockCounts(grid: GuardGrid): Float64Array {
   return counts;
 }
 
-export interface GuardStep {
+/** Her pikselin bloğu (satır satır, `width × height`). */
+export function pixelBlocks(grid: GuardGrid): Int32Array {
+  const { width, height } = grid;
+  const bx = grid.cols * grid.perCell;
+  const by = grid.rows * grid.perCell;
+  const blocks = new Int32Array(width * height);
+  for (let y = 0; y < height; y++) {
+    const yb = blockOfPixel(y, height, by);
+    for (let x = 0; x < width; x++) blocks[y * width + x] = yb * bx + blockOfPixel(x, width, bx);
+  }
+  return blocks;
+}
+
+/** Bir karede blokların ölçümü (kanıtın `ΔY_b` ve `D_b`'si). */
+export interface BlockStats {
+  delta: Float64Array;
+  abs: Float64Array;
+}
+
+/**
+ * Blokların ölçümü: `state` (önceki gösterilen) ve `input` (yeni kare) pikseller, doğrusal RGB,
+ * piksel başına 3 değer, satır satır.
+ */
+export function blockStats(
+  grid: GuardGrid,
+  blocks: Int32Array,
+  counts: Float64Array,
+  state: Float64Array,
+  input: Float64Array,
+): BlockStats {
+  const delta = new Float64Array(counts.length);
+  const abs = new Float64Array(counts.length);
+  const [lr, lg, lb] = LUMA;
+  const pixels = grid.width * grid.height;
+  for (let p = 0; p < pixels; p++) {
+    const d =
+      lr * (input[p * 3]! - state[p * 3]!) +
+      lg * (input[p * 3 + 1]! - state[p * 3 + 1]!) +
+      lb * (input[p * 3 + 2]! - state[p * 3 + 2]!);
+    const b = blocks[p]!;
+    delta[b]! += d;
+    abs[b]! += Math.abs(d);
+  }
+  for (let b = 0; b < counts.length; b++) {
+    const n = counts[b]!;
+    delta[b] = n > 0 ? delta[b]! / n : 0;
+    abs[b] = n > 0 ? abs[b]! / n : 0;
+  }
+  return { delta, abs };
+}
+
+export interface GuardGains {
   /** Blokların geçiş payı `a(b)`. */
   gains: Float64Array;
-  /** Gösterilen blok ortalamaları (doğrusal RGB, `3 × blok`); bir sonraki karenin durumu. */
-  output: Float64Array;
-  /** Hücrelerin payı `α_c` (satır satır). */
+  /** Hücrelerin payı `g_c = min(α_c, β_c)` (satır satır). */
   cellGains: Float64Array;
 }
 
 /**
- * Frenin bir karesi (kaynak uygulama). `hold`: önceki gösterilen blok ortalamaları, `input`: yeni
- * karenin blok ortalamaları (ikisi de doğrusal RGB, blok başına 3 değer, satır satır), `slew`: bu
- * karede izin verilen değişim (`frameSlew`).
+ * Payların hesabı (kanıtın 1. ve 2. adımı): `slew` ortalama, `patternSlew` desen için bu karede
+ * izin verilen değişim (`frameSlew`).
  */
-export function guardStep(
+export function guardGains(
   grid: GuardGrid,
   counts: Float64Array,
-  hold: Float64Array,
-  input: Float64Array,
+  stats: BlockStats,
   slew: number,
-): GuardStep {
+  patternSlew: number,
+): GuardGains {
   const { cols, rows, perCell } = grid;
   const bx = cols * perCell;
   const cellGains = new Float64Array(cols * rows);
@@ -205,35 +330,66 @@ export function guardStep(
     for (let cx = 0; cx < cols; cx++) {
       const e = [0, 0, 0, 0];
       let total = 0;
+      let worst = 0;
       for (let j = 0; j < perCell; j++) {
         for (let i = 0; i < perCell; i++) {
           const b = (cy * perCell + j) * bx + cx * perCell + i;
           const n = counts[b] ?? 0;
-          const dy = luminanceAt(input, b) - luminanceAt(hold, b);
+          const dy = stats.delta[b] ?? 0;
           const w = cornerWeights(i, j, perCell);
           for (let k = 0; k < 4; k++) e[k]! += n * w[k]! * dy;
           total += n;
+          if (n > 0) worst = Math.max(worst, stats.abs[b] ?? 0);
         }
       }
       const l1 = total > 0 ? e.reduce((sum, v) => sum + Math.abs(v), 0) / total : 0;
-      cellGains[cy * cols + cx] = l1 <= slew ? 1 : slew / l1;
+      const alpha = l1 <= slew ? 1 : slew / l1;
+      const beta = worst <= patternSlew ? 1 : patternSlew / worst;
+      cellGains[cy * cols + cx] = Math.min(alpha, beta);
     }
   }
   const vertices = vertexGains(cellGains, cols, rows);
   const blocks = bx * rows * perCell;
   const gains = new Float64Array(blocks);
-  const output = new Float64Array(blocks * 3);
   for (let b = 0; b < blocks; b++) {
-    const x = b % bx;
-    const y = Math.floor(b / bx);
-    const a = blockGain(vertices, cols, perCell, x, y);
-    gains[b] = a;
+    gains[b] = blockGain(vertices, cols, perCell, b % bx, Math.floor(b / bx));
+  }
+  return { gains, cellGains };
+}
+
+export interface GuardStep extends GuardGains {
+  /** Gösterilen ve saklanan görüntü (doğrusal RGB, piksel başına 3; 16 bite yuvarlanmış). */
+  output: Float64Array;
+}
+
+/**
+ * Frenin bir karesi (kaynak uygulama): `state` önceki gösterilen, `input` yeni kare (doğrusal RGB,
+ * piksel başına 3 değer, satır satır). Çıktı `O = P + a·(X − P)`, ekran kartı gibi 16 bite
+ * yuvarlanır (`quantize: false` ile yuvarlanmaz).
+ */
+export function guardStep(
+  grid: GuardGrid,
+  blocks: Int32Array,
+  counts: Float64Array,
+  state: Float64Array,
+  input: Float64Array,
+  slew: number,
+  patternSlew: number,
+  quantize = true,
+): GuardStep {
+  const stats = blockStats(grid, blocks, counts, state, input);
+  const { gains, cellGains } = guardGains(grid, counts, stats, slew, patternSlew);
+  const output = new Float64Array(state.length);
+  const pixels = grid.width * grid.height;
+  for (let p = 0; p < pixels; p++) {
+    const a = gains[blocks[p]!]!;
     for (let ch = 0; ch < 3; ch++) {
-      const h = hold[b * 3 + ch] ?? 0;
-      output[b * 3 + ch] = h + a * ((input[b * 3 + ch] ?? 0) - h);
+      const i = p * 3 + ch;
+      const o = state[i]! + a * (input[i]! - state[i]!);
+      output[i] = quantize ? quantizeState(o) : o;
     }
   }
-  return { gains, output, cellGains };
+  return { gains, cellGains, output };
 }
 
 /** Köşelerin payı: köşeye dokunan hücrelerin en küçük payı (`(cols+1) × (rows+1)`). */
@@ -276,36 +432,21 @@ export function blockGain(
   return w[0] * at(0, 0) + w[1] * at(1, 0) + w[2] * at(0, 1) + w[3] * at(1, 1);
 }
 
-/** Blok rengi dizisinde `b` bloğunun parlaklığı. */
-export function luminanceAt(rgb: Float64Array, b: number): number {
-  return (
-    LUMA[0] * (rgb[b * 3] ?? 0) + LUMA[1] * (rgb[b * 3 + 1] ?? 0) + LUMA[2] * (rgb[b * 3 + 2] ?? 0)
-  );
-}
-
-/** Hücrelerin gösterilen ortalama parlaklıkları (piksel ağırlıklı). */
-export function cellLuminances(
-  grid: GuardGrid,
+/**
+ * Bloklarda piksel başına ortalama değişim sayısı (`countChanges`'in sayıları, piksel başına) ve
+ * en kötü bloğunki: desenin tersine dönme ölçüsü (kanıtın 7. adımı).
+ */
+export function worstBlockChanges(
+  blocks: Int32Array,
   counts: Float64Array,
-  rgb: Float64Array,
-): Float64Array {
-  const { cols, rows, perCell } = grid;
-  const bx = cols * perCell;
-  const result = new Float64Array(cols * rows);
-  for (let cy = 0; cy < rows; cy++) {
-    for (let cx = 0; cx < cols; cx++) {
-      let sum = 0;
-      let total = 0;
-      for (let j = 0; j < perCell; j++) {
-        for (let i = 0; i < perCell; i++) {
-          const b = (cy * perCell + j) * bx + cx * perCell + i;
-          const n = counts[b] ?? 0;
-          sum += n * luminanceAt(rgb, b);
-          total += n;
-        }
-      }
-      result[cy * cols + cx] = total > 0 ? sum / total : 0;
-    }
-  }
-  return result;
+  changes: ArrayLike<number>,
+): number {
+  const sums = new Float64Array(counts.length);
+  for (let p = 0; p < blocks.length; p++) sums[blocks[p]!]! += changes[p] ?? 0;
+  let worst = 0;
+  sums.forEach((s, b) => {
+    const n = counts[b] ?? 0;
+    if (n > 0) worst = Math.max(worst, s / n);
+  });
+  return worst;
 }

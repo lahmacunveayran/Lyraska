@@ -68,9 +68,37 @@ kuralları). Kod bağımlılıklarının lisanslarını CI denetler (`npm run ch
   > conditions: The above copyright notice and this permission notice shall be included in all copies or
   > substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 
-- **Deneme preseti:** `src-tauri/tests/data/milkdrop/lyraska-parlama.milk` (ve ondan üretilen `.json`) bu proje için
+- **Deneme presetleri:** `src-tauri/tests/data/milkdrop/lyraska-*.milk` (ve onlardan üretilen `.json`) bu proje için
   yazıldı (GPL-3.0); yalnızca testlerde ve sahne denetiminde kullanılır, programla dağıtılmaz. Ölçümün parlamayı
-  gördüğünü kanıtlamak için **bilerek parlar** (saniyede dört kez tersine dönme).
+  gördüğünü kanıtlamak için **bilerek parlar** (saniyede dört kez tersine dönme; `lyraska-golge` HLSL gölgelendiricisi
+  ekranın yarısını saniyede dört kez beyaza çakar). `milkdrop/shader.rs` testlerindeki HLSL parçaları da özgündür.
+
+## MilkDrop gölgelendirici çeviricisi (HLSL → GLSL)
+
+- **Ne için:** MilkDrop 2 presetlerinin HLSL gölgelendiricilerini Butterchurn'ün GLSL ES 3.00 biçimine çevirmek
+  (`src-tauri/src/milkdrop/shader.rs`). Çevirici WebAssembly'dir (`src-tauri/hlsl/hlslparser.wasm`), programın
+  içine gömülür ve Rust'ta `wasmi` ile kum havuzunda çalışır.
+- **hlslparser**, projectM'in çatalı: <https://github.com/projectM-visualizer/projectm/tree/master/vendor/hlslparser>,
+  commit `349b7cc2db312d47cef6be24c6856ced6643a385` (10 Ekim 2026). Klasörün kendi `LICENSE`'ı **MIT**, "Copyright
+  (c) 2013-2014 Unknown Worlds Entertainment, Inc." (üst kaynak Thekla/hlslparser ve Unknown Worlds'ün aynı MIT
+  bildirimi); metin `src-tauri/vendor/hlslparser/LICENSE`. projectM'in geri kalanı LGPL-2.1-or-later'dır; ekibin bu
+  klasördeki değişiklikleri hangi lisansla geldiği belirsiz, iki durumda da GPL-3.0-only ile uyumlu (LGPL kaynağı
+  zaten depoda). Lyraska'nın yaması küçük ve `LYRASKA` yorumlu (`Engine.cpp`).
+- **wasi-sdk 30.0** (<https://github.com/WebAssembly/wasi-sdk>, araç: Apache-2.0 WITH LLVM-exception) yalnızca derleme
+  aracıdır; `.wasm`'a giren kitaplıkları: **wasi-libc** (Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR **MIT**;
+  içindeki musl MIT "Copyright © 2005-2020 Rich Felker, et al.", cloudlibc BSD-2-Clause "Copyright (c) 2015-2017
+  Nuxi", dlmalloc CC0) ve **libc++/libc++abi** (LLVM, Apache-2.0 WITH LLVM-exception). Metinler
+  `src-tauri/hlsl/lisanslar/` altında (wasi-libc `wasi-sdk-30` etiketinden, libc++ `llvmorg-21.1.0`'dan).
+- **wasmi** 2.0.0 (crates.io, <https://github.com/wasmi-labs/wasmi>): **MIT OR Apache-2.0**; bağımlılıkları
+  `wasmparser` 0.228 (Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT), `spin`, `libm`, `hashbrown`,
+  `foldhash`, `string-interner` (MIT ya da MIT/Apache-2.0). Hepsi `deny.toml` izin listesinde; `cargo deny` denetler.
+- **Hazırlık kodu** (`shader.rs`'te `prepare`/`PREAMBLE` ve Butterchurn biçimine getirme): `milkdrop-preset-utils`
+  0.2.1'in `prepareShader` ve `processUnOptimizedShader` işlevlerinden (yukarıdaki MIT bildirimi) uyarlandı; Rust'ta
+  yeniden yazıldı.
+- Bildirimler: `npm run notices` bu üç gömülü kitaplığı (hlslparser, wasi-libc, libc++) `UCUNCU-TARAF.txt`'e "Gömülü
+  C/C++ kütüphaneleri" başlığıyla ekler; metinler depodaki dosyalardan okunur.
+- **AGPL ya da ticari kullanım yasağı yok.** projectM'in preset setleri **kullanılmadı ve dağıtılmaz**; çeviri oranı
+  yalnızca geliştiricinin bilgisayarında ölçüldü (bkz. ROADMAP).
 
 ## Ton profilleri (Krumhansl ve Kessler, 1982)
 

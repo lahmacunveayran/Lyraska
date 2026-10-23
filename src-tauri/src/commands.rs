@@ -501,10 +501,20 @@ pub async fn milkdrop_load(
     store: State<'_, SettingsStore>,
 ) -> Result<MilkdropPreset, String> {
     let folder = store.get().milkdrop_folder;
-    tauri::async_runtime::spawn_blocking(move || milkdrop::load(folder.as_deref(), &path))
-        .await
-        .map_err(reported)?
-        .map_err(|e| e.to_string())
+    let preset =
+        tauri::async_runtime::spawn_blocking(move || milkdrop::load(folder.as_deref(), &path))
+            .await
+            .map_err(reported)?
+            .map_err(|e| e.to_string())?;
+    // Gölgelendiricisi çevrilemeyen görsel yine çalar; neden bilgi olarak günlüğe yazılır
+    // (çevirici iyileştirilirken hangi presetlerin kaldığı görülsün).
+    if let Some(reason) = &preset.shader_error {
+        diagnostics::info(&format!(
+            "MilkDrop görseli sade çalıyor ({}): {reason}",
+            preset.name
+        ));
+    }
+    Ok(preset)
 }
 
 /// Epilepsi güvenli modu açık mı.

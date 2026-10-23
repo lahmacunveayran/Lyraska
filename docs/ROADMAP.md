@@ -187,15 +187,23 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       yazarları lisans vermemiş). Klasör seçilir ve hatırlanır; `.milk` Rust'ta Butterchurn biçimine çevrilir
       (MilkDrop 1 ve 2 anahtarları, dalgalar, şekiller, denklemler; Türkçe/Batı Windows kodlaması; boyut ve satır
       sınırı). Denklemler yalnızca WebAssembly'ye derlenir (CSP'de yalnızca `'wasm-unsafe-eval'`, `'unsafe-eval'`
-      yok). Her kare **parlaklık freninden** geçer (saniyede ≤ 1,65 parlama, güvenli modda ≤ 1; gerçek sahnede kare
-      kare ölçülür); "animasyonları azalt"ta sahne çalışmaz. Görsel değişimi bölüm başında ya da drop'ta, en sık
+      yok). Her kare **parlaklık freninden** geçer (saniyede ≤ 1,65 parlama, güvenli modda ≤ 1; ince desen
+      saniyede ≤ 2,96 kez tersine döner, güvenli modda ≤ 1,04; gerçek sahnede kare kare ölçülür); "animasyonları azalt"ta sahne çalışmaz. Görsel değişimi bölüm başında ya da drop'ta, en sık
       15 sn'de bir, en az 3 sn harmanlanarak; Önceki/Sonraki elle. **Donma koruması**: `loop` MilkDrop'un sınırına
       (1 048 576 tur) kırpılır, iç içe ya da piksel başına döngülü görsel açılmaz; çalarken program kapanan görsel
       kalıcı olarak atlanır. Temeli (0.0.59): Rust'ta ham dalga biçimi (`visual_waveform`) ve parlaklık freni
       (kanıtı `flashGuardMath.ts`)
-  - [ ] MilkDrop 2 gölgelendiricilerinin (HLSL) GLSL'e çevrilmesi: şimdilik atılıyor, gölgelendiricili görseller
-        "sade hâliyle" çalıyor (eval'siz bir HLSL çevirici gerekir: Rust'ta ya da `-s DYNAMIC_EXECUTION=0` ile
-        yeniden derlenmiş hlslparser)
+  - [x] MilkDrop 2 gölgelendiricilerinin (HLSL) GLSL'e çevrilmesi (0.0.63): projectM'in hlslparser'ı (MIT)
+        WebAssembly'ye derlendi ve Rust'ta `wasmi` kum havuzunda çalışır (yakıt ve bellek sınırı, `unsafe` ve
+        `eval` yok); hazırlık ve Butterchurn biçimi `milkdrop/shader.rs`'te. projectM'in 9 603 presetlik "Cream of
+        the Crop" setinde (yalnızca yerel ölçüm, depoya girmez) 15 524 gölgelendiricinin 15 442'si (%99,5)
+        çevriliyor, 15 317'si (%98,7) gerçek tarayıcıda (Chromium) derleniyor; çevrilemeyen ya da ekran kartında
+        derlenemeyen gölgelendirici atılır, görsel "sade hâliyle" çalar. CI ikili dosyanın kaynağından baytı baytına
+        aynı derlendiğini denetler
+  - [ ] Kalan gölgelendirici farkları (yerel ölçümde ~%1,3): HLSL `all()`/`any()`, `bool` üzerinde `saturate`,
+        `tex3D`'nin iki bileşenli koordinatı; çevrilen ama derlenmeyenlerde dizi ilk değeri eksik öğeli,
+        gölgelendiricinin uniform'a (`texsize`, `rand_preset`, `time`) ya da `uv_orig`'e yazması, GLSL'de ayrılmış
+        adlar (`sample`)
   - [ ] İsteğe bağlı: lisansı tek tek doğrulanmış birkaç preset programla gelsin (ör. MIT lisanslı küçük setler;
         her biri parlama testinden geçerek) — proje sahibinin kararı
 - [x] Kinetik şarkı sözleri (0.0.56): sözler yalnızca kullanıcının kendi dosyalarından (şarkının yanındaki `.lrc` ya
@@ -209,7 +217,9 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       parlaklıkları temalardan yüksek değil). **Hazır ayarlar**: sahne ve görünümü tek tıkla kurar; altı hazır ayar
       programla gelir (ör. "Sakin deniz"), kullanıcı kendi ayarını adıyla kaydedip siler (en fazla 50; tarayıcı
       deposunda, okunurken doğrulanır). Her sahnenin son görünümü hatırlanır
-- [ ] Kod imzalama (Windows "bilinmeyen yayımcı" uyarısının kalkması)
+- ~~Kod imzalama~~ (Windows "bilinmeyen yayımcı" uyarısının kalkması): proje sahibinin kararı, **kod imzası
+  olmayacak** (devir notu 23 Ekim 2026). Seçeneklerin araştırması (SignPath Foundation, Certum, Microsoft Store)
+  karar değişirse diye 22 Ekim devir notunda
 - [x] **Açık şarkı haritası formatı** (0.0.55; plan, 9 Ekim 2026): Lyraska'nın şarkı haritası (vuruşlar, ölçü
       başları, bölümler, droplar ve güvenleri, enerji, ton) belgelenmiş, sürümlü bir JSON biçiminde dışa ve içe
       aktarılır. Biçim belgesi: [SARKI-HARITASI.md](SARKI-HARITASI.md). İşaretleme panelinde **Şarkı haritası

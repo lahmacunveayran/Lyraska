@@ -14,10 +14,12 @@ import { fitCanvas, getWebGl2, gpuName, reportSceneProblem } from "../lib/gl";
 import {
   SCHEDULE_START,
   audioLevels,
+  blameContextLoss,
   restartSchedule,
   stepSchedule,
   writePending,
 } from "../lib/milkdrop";
+import { brokenShaders, resetShaders } from "../lib/milkdropShaders";
 import { usePrefersReducedMotion } from "../lib/usePrefersReducedMotion";
 
 const SCENE_NAME = "MilkDrop";
@@ -38,10 +40,13 @@ export interface MilkDropSceneProps {
  * Güvenlik:
  * - Butterchurn kendi, **görünmeyen** tuvaline çizer (OffscreenCanvas; DOM'da değil). Görünen
  *   tuvale yalnızca parlaklık freni (`flashGuard.ts`) çizer: görüntünün her bölgesinin parlaklığı
- *   saniyede en çok 0,3 (güvenli modda 0,18) değişir; preset ne yaparsa yapsın saniyede 3'ten
- *   (güvenli modda 1'den) az parlama. Fren kurulamazsa sahne hiç gösterilmez.
+ *   saniyede en çok 0,3 (güvenli modda 0,18), her küçük bloğun piksellerinin parlaklığı ortalama
+ *   0,27 (güvenli 0,095) değişir; preset ne yaparsa yapsın saniyede 3'ten (güvenli modda 1'den) az
+ *   parlama, ince desenler (şerit, dama) saniyede ≤ 3 (güvenli ~1) tersine döner. Fren kurulamazsa
+ *   sahne hiç gösterilmez.
  * - Preset denklemleri yalnızca WebAssembly'ye derlenir (`onlyUseWASM`); JavaScript olarak
- *   çalıştırılmaz (CSP'de `'unsafe-eval'` yok).
+ *   çalıştırılmaz (CSP'de `'unsafe-eval'` yok). Gölgelendiricileri çekirdek GLSL'e çevirir;
+ *   ekran kartında derlenemeyen olursa varsayılanla değiştirilir (`milkdropShaders.ts`).
  * - "Animasyonları azalt" açıksa sahne çalışmaz, kısa bir açıklama görünür.
  */
 export function MilkDropScene({ playing, safe = false, controls }: MilkDropSceneProps) {
@@ -108,6 +113,11 @@ interface Engine {
   /** Çalan görselin yolu ve isteğinin sırası (donma işareti ve hata bildirimi için). */
   currentPath: string | null;
   currentSerial: number;
+  /**
+   * Açılan ya da yeni açılmış görsel ve anı (`performance.now`): bu arada bağlam kaybolursa
+   * (ekran kartı sıfırlandı) görsel suçlanır.
+   */
+  suspect: { serial: number; path: string; since: number } | null;
   lost: boolean;
 }
 
@@ -176,8 +186,23 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
     const guard = setup.guard;
     canvas.dataset.guard = guard.storage;
 
+    // Görsel açılırken ya da yeni açılmışken bağlam kaybolduysa (ekran kartı sıfırlandı; ör.
+    // gölgelendiricideki uzun döngü) görsel kalıcı atlanır: yeniden kurulum onu bir daha açmaz.
+    const blame = () => {
+      const suspect = created?.suspect;
+      if (!created || !suspect) return;
+      created.suspect = null;
+      if (blameContextLoss(suspect.since, performance.now())) {
+        controlsRef.current.failed(
+          suspect.serial,
+          "ekran kartı bu görseli çizerken durdu (bağlam kayboldu); atlananlara eklendi",
+          suspect.path,
+        );
+      }
+    };
     const onLost = (event: Event) => {
       event.preventDefault();
+      blame();
       if (created) created.lost = true;
     };
     const onRestored = () => {
@@ -195,6 +220,7 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
     let internal: HTMLCanvasElement | OffscreenCanvas | null = null;
     const onInternalLost = (event: Event) => {
       event.preventDefault();
+      blame();
       if (created) created.lost = true;
       // Butterchurn'ün durumu geri gelmez: kısa bir süre sonra baştan kurulur.
       window.setTimeout(onRestored, 1000);
@@ -231,6 +257,7 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
           waveInFlight: false,
           currentPath: null,
           currentSerial: 0,
+          suspect: null,
           lost: false,
         };
         engine.current = created;
@@ -271,7 +298,9 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
     if (!request || ready === 0) return;
     const run = async () => {
       const current = engine.current;
-      if (!current || controlsRef.current.request?.serial !== request.serial) return;
+      if (!current || current.lost || controlsRef.current.request?.serial !== request.serial) {
+        return;
+      }
       let preset: MilkdropPreset;
       try {
         preset = await loadMilkdropPreset(request.entry.path);
@@ -279,6 +308,11 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
         // Donma işareti: bu görsel çalarken (ya da açılırken) program zorla kapanırsa bir sonraki
         // açılışta atlanır. İşaret görsel çaldığı sürece durur.
         writePending(request.entry.path);
+        current.suspect = {
+          serial: request.serial,
+          path: request.entry.path,
+          since: performance.now(),
+        };
         await current.visualizer.loadPreset(
           preset.preset,
           current.hasPreset ? request.blendSeconds : 0,
@@ -286,18 +320,43 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
       } catch (error) {
         // Açılamadı: işaret hâlâ çalan görsele döner.
         writePending(current.hasPreset ? current.currentPath : null);
-        // Sahne bu arada yeniden kurulduysa (bağlam kaybı) görsel suçlu değil: yeni kurulum açar.
-        if (engine.current === current) {
+        // Sahne bu arada yeniden kurulduysa ya da bağlam kaybolduysa açılamaması görselin suçu
+        // değil (kayıp ayrıca değerlendirildi); yeni kurulum açar.
+        if (engine.current === current && !current.lost) {
+          current.suspect = null;
           controlsRef.current.failed(request.serial, describeError(error));
         }
         return;
       }
+      // Çevrilen gölgelendirici ekran kartında derlenemediyse Butterchurn'ün varsayılanı kullanılır
+      // (yoksa görüntü kararırdı); görsel sade hâliyle çalar.
+      const broken = brokenShaders(current.visualizer);
+      if (broken !== "unknown" && broken.length > 0) resetShaders(current.visualizer, broken);
+      const gpuBroken = broken !== "unknown" && broken.length > 0;
+      const simplified = preset.simplified || gpuBroken;
+      const note =
+        preset.shaderError ??
+        (gpuBroken
+          ? `${broken.map((s) => (s === "warp" ? "bükme" : "birleştirme")).join(", ")}: ` +
+            "ekran kartında derlenemedi"
+          : null);
+      if (current.lost) return;
       current.hasPreset = true;
       current.currentPath = request.entry.path;
       current.currentSerial = request.serial;
+      // Süre açılış bitince yeniden başlar: ilk kareler de gölgelendiriciyi çalıştırır.
+      current.suspect = {
+        serial: request.serial,
+        path: request.entry.path,
+        since: performance.now(),
+      };
       schedule.current = restartSchedule(schedule.current);
-      if (canvasRef.current) canvasRef.current.dataset.preset = preset.name;
-      controlsRef.current.loaded(request.serial, preset.name, preset.simplified);
+      if (canvasRef.current) {
+        canvasRef.current.dataset.preset = preset.name;
+        canvasRef.current.dataset.shaders =
+          broken === "unknown" ? "unknown" : broken.length > 0 ? "reset" : "ok";
+      }
+      controlsRef.current.loaded(request.serial, preset.name, simplified, note);
     };
     loadChain.current = loadChain.current.then(run, run);
   }, [request, ready]);
