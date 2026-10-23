@@ -716,6 +716,8 @@ pub struct Prepared {
 /// Geçiş sürerken durum sorgusuna verilen cevap (eski oturum kapandı, yenisi henüz yok).
 struct PendingTransition {
     seq: u64,
+    /// Açılmakta olan şarkı.
+    path: PathBuf,
     track: Option<TrackInfo>,
     position_secs: f64,
     playing: bool,
@@ -819,6 +821,7 @@ impl Player {
         let old = self.session.take();
         let mut pending = PendingTransition {
             seq,
+            path: path.to_path_buf(),
             track: None,
             position_secs: start_secs.unwrap_or(0.0),
             playing: autoplay,
@@ -1056,11 +1059,22 @@ impl Player {
                 return Err(error);
             }
         };
+        // Kilit dışında hazırlanan bir şarkı geçişi sürüyorsa iptal edilir: kurulduğunda oturumunu
+        // kendisi kapatır (daha yeni bir geçiş var sayar), kör testle üst üste çalmaz. Test bitince
+        // dönülecek şarkı, açılmakta olan şarkıdır.
+        let pending = self.pending.take();
+        if pending.is_some() {
+            self.transition_seq += 1;
+        }
         if self.abx_resume.is_none() {
-            self.abx_resume = self.session.as_ref().map(|s| {
-                let (track, position) = s.now_playing();
-                (track.path, position)
-            });
+            self.abx_resume = self
+                .session
+                .as_ref()
+                .map(|s| {
+                    let (track, position) = s.now_playing();
+                    (track.path, position)
+                })
+                .or_else(|| pending.map(|p| (p.path, p.position_secs)));
         }
         self.close_session();
         match prepared.start() {
@@ -2632,6 +2646,38 @@ mod tests {
         player.load(&song, false).unwrap();
         assert!(!player.abx_status().active);
         std::fs::remove_file(song).ok();
+    }
+
+    #[test]
+    fn kor_test_suren_sarki_gecisiyle_ust_uste_calmaz() {
+        // Şarkıya tıklandı (geçiş kilit dışında hazırlanıyor) ve hemen kör test başlatıldı.
+        let song = ramp_song("kor-gecis-eski.wav");
+        let next = ramp_song("kor-gecis-yeni.wav");
+        let mut player = Player::new();
+        player.load(&song, true).unwrap();
+        assert!(wait_until(|| player.status().position_secs > 0.2));
+        let transition = player.begin_transition(&next, true, None);
+        let request = AbxRequest {
+            a: abx_song("kor-gecis-a.wav"),
+            b: abx_song("kor-gecis-b.wav"),
+            start_secs: 0.0,
+            clip_secs: 3.0,
+            trials: 8,
+        };
+        assert!(player.abx_start(&request).unwrap().active);
+        // Geçiş şimdi biter: oturumu takılmaz, test tek ses kaynağı kalır.
+        let _ = player.install(Player::prepare(transition));
+        assert!(
+            player.session.is_none(),
+            "şarkı ile test üst üste çalmamalı"
+        );
+        assert!(player.abx_status().active);
+        // Test bitince açılmakta olan şarkıya dönülür.
+        player.abx_stop();
+        assert_eq!(player.state(), PlaybackState::Paused);
+        assert_eq!(player.status().track.map(|t| t.path), Some(next.clone()));
+        std::fs::remove_file(song).ok();
+        std::fs::remove_file(next).ok();
     }
 
     #[test]
