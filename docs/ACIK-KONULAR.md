@@ -6,7 +6,8 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 ## İş sırası (proje sahibinin kararı, 23 Ekim 2026)
 
 1. Kütüphanenin tam ekran, baştan tasarımı; dört küçük PR:
-   1. Çekirdek: albüm/sanatçı sorguları, tek tek eklenen şarkıların tek grupta toplanması, hız ölçümü.
+   1. Çekirdek: albüm/sanatçı sorguları (PR açık; 20 000 şarkıda ≤ 25 ms). Tek tek eklenen şarkıların tek
+      grupta toplanması 4. parçaya kaldı.
    2. Tam ekran kütüphane + Şarkılar görünümü (sol menü, sıralama, akıcı kaydırma).
    3. Albümler (kapak ızgarası) ve Sanatçılar.
    4. Klasörler ve uyarılar (kutucuklar kalkar).
