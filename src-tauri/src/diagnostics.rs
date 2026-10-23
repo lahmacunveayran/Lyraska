@@ -176,7 +176,9 @@ fn install_panic_hook() {
                 thread.name().unwrap_or("adsız")
             ),
         );
-        if !STARTED.load(Ordering::Acquire) {
+        // Testlerde kutu açılmaz: kapatacak kimse yok, test programı sonsuza kadar bekler (CI'da
+        // Windows'ta oldu). Çökmenin günlüğe yazılması testlerde de sınanır.
+        if !STARTED.load(Ordering::Acquire) && !cfg!(test) {
             startup_failure_dialog(&message);
         }
         previous(info);

@@ -225,6 +225,12 @@ Tam metin: `docs/denetim-faz0/dogrulama.md`.
    Önerim SignPath başvurusu. İmza gelene kadar her test sürümüne GitHub'ın ücretsiz "derleme kanıtı"
    (attestation) eklenir.
 
+**Sahibinin kararları (23 Ekim 2026):**
+
+- 1, 2 ve gizli güvenlik bildirimi: proje sahibi açtı. `main` korumalı (beş CI işi zorunlu, atlama izni yok).
+- 3: kod imzası **yok**; kurulum dosyası "bilinmeyen yayımcı" olarak kalır. Her test sürümünde derleme kanıtı
+  (attestation) sürer. Karar ileride yeniden açılabilir.
+
 ## 9. Düzeltme durumu
 
 PR #100 (sürüm 0.0.61). "Düzeldi" demek: kod değişti, hatayı yakalayan test ya da kapı eklendi, bütün kapılar yeşil.
@@ -341,4 +347,5 @@ Faz 0'ın kapsamı dışında kalanlar ya da bilinçli bırakılanlar (hepsi Dü
 - **Yayın:** WebView2 önyükleyicisinin karması (YAY-08 kalanı); zizmor'un çevrimiçi denetimleri (YAY-12; CI'da
   token ile denenmeden açılmadı).
 - **Belgeler:** üçüncü taraf bildirimlerinde telif satırı olmayan 37 paket (BEL-11; lisans metinleri var).
-- **Proje sahibinin düğmeleri:** bölüm 8 (dal koruması, fork PR onayı, gizli güvenlik bildirimi, kod imzası).
+- **Proje sahibinin düğmeleri:** dal koruması, fork PR onayı ve gizli güvenlik bildirimi açıldı; kod imzası
+  bilinçli olarak yok (bölüm 8).
