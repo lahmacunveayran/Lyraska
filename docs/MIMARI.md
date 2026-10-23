@@ -330,9 +330,10 @@ MilkDropScene ─ loadPreset(json, harmanlama) ─▶ Butterchurn (eel-wasm: EEL
      küçük ve sabit sınırlıdır (MilkDrop'un `ps_2_x` profilleri döngüyü açar, 512 komut sınırı uzun döngüye
      zaten izin vermez); korpusta değişken sınırlı ya da `while` döngüsü olan az sayıda gölgelendirici sade
      hâline düşer (`korpus_olcumu` nedenleri sayar).
-  - Çevrilemeyen gölgelendirici atılır (öteki kalır), görsel "sade hâliyle" çalar, galeride yazılır ve nedeni
-    günlüğe bilgi olarak düşer (`shaderError`). Çeviri ekran kartında derlenemezse arayüz (`milkdropShaders.ts`)
-    Butterchurn'ün programının bağlanma durumuna bakar ve onu varsayılanla değiştirir (yoksa görüntü kararırdı).
+  - Çevrilemeyen gölgelendirici atılır (öteki kalır), görsel "sade hâliyle" çalar, galeride nedeniyle birlikte
+    yazılır ("Neden: …") ve günlüğe bilgi olarak düşer (`shaderError`). Çeviri ekran kartında derlenemezse
+    arayüz (`milkdropShaders.ts`) Butterchurn'ün programının bağlanma durumuna bakar ve onu varsayılanla değiştirir
+    (yoksa görüntü kararırdı; galeride "ekran kartında derlenemedi" yazar).
   - Ölçüm (yerel, preset depoya girmez; `shader::tests::korpus_olcumu`): projectM "Cream of the Crop"
     (9 603 preset, 15 524 gölgelendirici) bkz. ROADMAP. Gölgelendiricinin ürettiği her kare yine parlaklık
     freninden geçer; `check:scenes` bilerek çakan özgün bir gölgelendirici denemesiyle (`lyraska-golge.milk`) bunu

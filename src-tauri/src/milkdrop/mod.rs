@@ -63,7 +63,8 @@ pub struct MilkdropPreset {
     pub name: String,
     /// Gölgelendiricisi (HLSL) çevrilemediği için atıldı: görsel sade hâliyle çalar.
     pub simplified: bool,
-    /// Çevrilemeyen gölgelendiricinin nedeni (günlüğe yazılır, arayüzde ipucu olarak görünür).
+    /// Çevrilemeyen gölgelendiricinin nedeni (günlüğe yazılır; galeride "sade hâliyle çalıyor"
+    /// notunun yanında görünür).
     pub shader_error: Option<String>,
     /// Butterchurn'ün `loadPreset`'ine verilecek nesne.
     pub preset: ButterchurnPreset,

@@ -10,7 +10,8 @@ export type MilkdropPreset = { name: string,
  */
 simplified: boolean, 
 /**
- * Çevrilemeyen gölgelendiricinin nedeni (günlüğe yazılır, arayüzde ipucu olarak görünür).
+ * Çevrilemeyen gölgelendiricinin nedeni (günlüğe yazılır; galeride "sade hâliyle çalıyor"
+ * notunun yanında görünür).
  */
 shaderError: string | null, 
 /**

@@ -39,6 +39,8 @@ export interface MilkdropControls {
   currentName: string | null;
   /** Çalan görselin gölgelendiricileri desteklenmediği için sade hâliyle çalıyor. */
   simplified: boolean;
+  /** Sade hâlin nedeni (ör. çekirdeğin `shaderError`'ı); galeride kısa not. */
+  shaderNote: string | null;
   /** Kullanıcıya kısa bilgi (ör. açılamayan ya da atlanan görsel). */
   notice: string | null;
   /** Bu klasörde, önceki açılışlarda program onları çalarken kapandığı için atlanan görseller. */
@@ -55,7 +57,7 @@ export interface MilkdropControls {
   /** Sahne: müzikte uygun an geldi. */
   advance: () => void;
   /** Sahne: istenen görsel açıldı / açılamadı ya da çizerken hata verdi. */
-  loaded: (serial: number, name: string, simplified: boolean) => void;
+  loaded: (serial: number, name: string, simplified: boolean, shaderNote?: string | null) => void;
   failed: (serial: number, message: string) => void;
 }
 
@@ -106,6 +108,7 @@ export function useMilkdrop(active: boolean): MilkdropControls {
   const [request, setRequest] = useState<MilkdropRequest | null>(null);
   const [currentName, setCurrentName] = useState<string | null>(null);
   const [simplified, setSimplified] = useState(false);
+  const [shaderNote, setShaderNote] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [skipped, setSkipped] = useState<string[]>(loadSkipList);
   const [auto, setAutoState] = useState(readAuto);
@@ -151,6 +154,7 @@ export function useMilkdrop(active: boolean): MilkdropControls {
       failures.current = 0;
       setCurrentName(null);
       setSimplified(false);
+      setShaderNote(null);
       setRequest(null);
       requested.current = null;
       // Önceki açılışta bir görsel çalarken program kapandıysa o görsel atlananlara girer.
@@ -204,13 +208,17 @@ export function useMilkdrop(active: boolean): MilkdropControls {
     go(historyNext(history.current, presets.current.length, Math.random, avoid()), false);
   }, [avoid, go]);
 
-  const loaded = useCallback((done: number, name: string, isSimplified: boolean) => {
-    if (done !== serial.current) return;
-    failures.current = 0;
-    setCurrentName(name);
-    setSimplified(isSimplified);
-    // Bilgi (ör. atlanan görsel) kullanıcı başka bir görsel seçene kadar kalır.
-  }, []);
+  const loaded = useCallback(
+    (done: number, name: string, isSimplified: boolean, note: string | null = null) => {
+      if (done !== serial.current) return;
+      failures.current = 0;
+      setCurrentName(name);
+      setSimplified(isSimplified);
+      setShaderNote(isSimplified ? note : null);
+      // Bilgi (ör. atlanan görsel) kullanıcı başka bir görsel seçene kadar kalır.
+    },
+    [],
+  );
 
   const failed = useCallback(
     (done: number, message: string) => {
@@ -278,6 +286,7 @@ export function useMilkdrop(active: boolean): MilkdropControls {
       request,
       currentName,
       simplified,
+      shaderNote,
       notice,
       skippedCount,
       retrySkipped,
@@ -296,6 +305,7 @@ export function useMilkdrop(active: boolean): MilkdropControls {
       request,
       currentName,
       simplified,
+      shaderNote,
       notice,
       skippedCount,
       retrySkipped,

@@ -276,6 +276,8 @@ describe("MilkDrop sahnesi", () => {
     // Sade hâliyle çalan görsel (gölgelendiricisi atılmış) belirtilir.
     expect(section).toHaveTextContent("bulut sade");
     expect(section).toHaveTextContent("Gölgelendiricisi çevrilemedi, sade hâliyle çalıyor.");
+    // Nedeni de kısa bir not olarak görünür (çekirdeğin `shaderError`'ı).
+    expect(section).toHaveTextContent("Neden: bükme: gölgelendirici çevrilemedi");
     expect(section).toHaveTextContent(
       "Görsel açılamadı, sonrakine geçildi: Görsel açılamadı (bozuk): MilkDrop görseli değil",
     );
@@ -463,6 +465,7 @@ describe("MilkDrop denetimleri (galeri)", () => {
       request: null,
       currentName: null,
       simplified: false,
+      shaderNote: null,
       notice: null,
       skippedCount: 0,
       retrySkipped: vi.fn(),

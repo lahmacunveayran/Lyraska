@@ -298,7 +298,14 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
       // (yoksa görüntü kararırdı); görsel sade hâliyle çalar.
       const broken = brokenShaders(current.visualizer);
       if (broken !== "unknown" && broken.length > 0) resetShaders(current.visualizer, broken);
-      const simplified = preset.simplified || (broken !== "unknown" && broken.length > 0);
+      const gpuBroken = broken !== "unknown" && broken.length > 0;
+      const simplified = preset.simplified || gpuBroken;
+      const note =
+        preset.shaderError ??
+        (gpuBroken
+          ? `${broken.map((s) => (s === "warp" ? "bükme" : "birleştirme")).join(", ")}: ` +
+            "ekran kartında derlenemedi"
+          : null);
       current.hasPreset = true;
       current.currentPath = request.entry.path;
       current.currentSerial = request.serial;
@@ -308,7 +315,7 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
         canvasRef.current.dataset.shaders =
           broken === "unknown" ? "unknown" : broken.length > 0 ? "reset" : "ok";
       }
-      controlsRef.current.loaded(request.serial, preset.name, simplified);
+      controlsRef.current.loaded(request.serial, preset.name, simplified, note);
     };
     loadChain.current = loadChain.current.then(run, run);
   }, [request, ready]);

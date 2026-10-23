@@ -83,7 +83,7 @@ lyraska/
 │   │                         # (errorReporting.ts), parlama sayacı (flash.ts), WebGL2 çizimi (gl.ts ortak;
 │   │                         # skyRenderer.ts, highwayRenderer.ts; galeri: shaderScene.ts, shaderSources.ts
 │   │                         # gölgelendiriciler, shaderRenderer.ts, sceneLook.ts hız ve palet, scenePreset.ts hazır
-│   │                         # ayarlar; milkdrop.ts MilkDrop geçiş zamanı ve ses verisi), WebGL2 açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts), parlaklık
+│   │                         # ayarlar; milkdrop.ts MilkDrop geçiş zamanı ve ses verisi; milkdropShaders.ts ekran kartında derlenemeyen MilkDrop gölgelendiricisini varsayılanla değiştirir), WebGL2 açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts), parlaklık
 │   │                         # freni: güvenilmeyen sahnelerin (MilkDrop) son geçişi, bölge parlaklığı karede ≤ r·dt
 │   │                         # (flashGuard.ts; saf hesap ve kanıt flashGuardMath.ts; flashGuardCheck.ts yalnızca
 │   │                         # check:scenes'in parlayan deseni, programa girmez)
