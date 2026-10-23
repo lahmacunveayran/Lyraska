@@ -3006,6 +3006,82 @@ kbd {
     0 14px 28px rgba(0, 0, 0, 0.5);
 }
 
+.album {
+  position: relative;
+}
+
+/* Kapak menüsü: kartın üstüne gelince (ya da klavye odağında) görünür. */
+.album__menu {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.album:hover .album__menu,
+.album__menu:focus-within,
+.album__menu[open] {
+  opacity: 1;
+}
+
+.album__menu summary {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--library-menu);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  list-style: none;
+}
+
+.album__menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.album__menu-list {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 6px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 10px;
+  background: var(--library-menu);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+}
+
+.album__menu-list button {
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.album__menu-list button:hover,
+.album__menu-list button:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .album__menu {
+    transition: none;
+  }
+}
+
 .album__name {
   margin-top: 12px;
   overflow: hidden;

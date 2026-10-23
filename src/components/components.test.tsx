@@ -24,6 +24,9 @@ const backend = vi.hoisted(() => ({
   search: vi.fn(),
   albums: [] as import("../lib/backend").LibraryAlbum[],
   albumTracks: vi.fn(),
+  pickImage: vi.fn(),
+  setAlbumCover: vi.fn(),
+  clearAlbumCover: vi.fn(),
   addFolder: vi.fn(),
   removeFolder: vi.fn(),
   pickFolder: vi.fn(),
@@ -187,6 +190,12 @@ vi.mock("../lib/backend", async (importOriginal) => {
       return backend.tracks;
     },
     libraryAlbums: async () => backend.albums,
+    pickImage: async () => backend.pickImage() ?? null,
+    setAlbumCover: async (album: string, artist: string | null, path: string) =>
+      backend.setAlbumCover(album, artist, path),
+    clearAlbumCover: async (album: string, artist: string | null) =>
+      backend.clearAlbumCover(album, artist),
+    getAlbumCover: async () => null,
     libraryAlbumTracks: async (album: string, artist: string | null) =>
       backend.albumTracks(album, artist) ?? [],
     pickFolder: async () => backend.pickFolder(),
@@ -1232,6 +1241,24 @@ describe("kütüphane", () => {
     expect(screen.queryByRole("grid")).not.toBeInTheDocument();
     const card = await screen.findByRole("button", { name: /Kelimeler/ });
     expect(card).toHaveTextContent("Şebnem Ferah · 2 şarkı · 7 dk");
+
+    // Kullanıcı kendi kapağını seçebilir: kopyası Lyraska'da saklanır; kaldırılabilir.
+    backend.pickImage.mockReturnValue("C:\\Resimler\\kapak.jpg");
+    await act(async () => fireEvent.click(screen.getByLabelText("Kapak seçenekleri: Kelimeler")));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Kapak seç…" })));
+    await waitFor(() =>
+      expect(backend.setAlbumCover).toHaveBeenCalledWith(
+        "Kelimeler",
+        "Şebnem Ferah",
+        "C:\\Resimler\\kapak.jpg",
+      ),
+    );
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Seçtiğim kapağı kaldır" })),
+    );
+    expect(backend.clearAlbumCover).toHaveBeenCalledWith("Kelimeler", "Şebnem Ferah");
+    // Kapak menüsü albümü çalmaz.
+    expect(backend.albumTracks).not.toHaveBeenCalled();
 
     // DJ görünümü düğmesi yalnızca şarkılarda (albümlerde işe yaramaz).
     expect(screen.queryByRole("button", { name: "DJ görünümü" })).not.toBeInTheDocument();

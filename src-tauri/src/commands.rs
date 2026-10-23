@@ -389,6 +389,58 @@ pub async fn library_albums(
         .await
 }
 
+/// Kullanıcının albüme seçtiği kapakların deposu (büyük veri klasöründe).
+fn cover_store(big: &BigDataDir) -> Result<crate::library::covers::CoverStore, String> {
+    big.0
+        .as_ref()
+        .map(|dir| crate::library::covers::CoverStore::new(dir))
+        .map_err(|e| reported(format!("Uygulama klasörü bulunamadı: {e}")))
+}
+
+/// Albüme seçilmiş kapak (`data:` adresi); seçilmemişse `null`.
+#[tauri::command]
+pub async fn album_cover_get(
+    album: String,
+    artist: Option<String>,
+    big: State<'_, BigDataDir>,
+) -> Result<Option<String>, String> {
+    let store = cover_store(&big)?;
+    blocking(move || {
+        Ok(store
+            .get(&album, artist.as_deref())
+            .map(|cover| cover.data_url()))
+    })
+    .await
+}
+
+/// Resmi albümün kapağı yapar (kopyası Lyraska'da saklanır; müzik dosyalarına dokunulmaz).
+#[tauri::command]
+pub async fn album_cover_set(
+    album: String,
+    artist: Option<String>,
+    path: PathBuf,
+    big: State<'_, BigDataDir>,
+) -> Result<(), String> {
+    let store = cover_store(&big)?;
+    blocking(move || {
+        store
+            .set(&album, artist.as_deref(), &path)
+            .map_err(|e| e.to_string())
+    })
+    .await
+}
+
+/// Albüme seçilmiş kapağı kaldırır.
+#[tauri::command]
+pub async fn album_cover_clear(
+    album: String,
+    artist: Option<String>,
+    big: State<'_, BigDataDir>,
+) -> Result<(), String> {
+    let store = cover_store(&big)?;
+    blocking(move || store.clear(&album, artist.as_deref()).map_err(reported)).await
+}
+
 /// Albümün şarkılarının yolları, çalma sırasıyla.
 #[tauri::command]
 pub async fn library_album_tracks(

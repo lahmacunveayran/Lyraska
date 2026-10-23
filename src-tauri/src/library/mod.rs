@@ -5,12 +5,14 @@
 //!
 //! Kütüphaneye "kaynak" eklenir: bir klasör (alt klasörleriyle birlikte) ya da
 //! tek bir şarkı dosyası. İkisi de aynı şekilde taranır, güncellenir ve çıkarılır.
+//! - [`covers`]: kullanıcının albümlere seçtiği kapaklar (veri klasöründe; müzik dosyalarına dokunulmaz).
 //! - [`service`]: veritabanı + arka plan taraması; Tauri komutlarının kullandığı katman.
 //!
 //! Veritabanı kullanıcının bilgisayarında, makineye özgü uygulama veri klasöründe durur
 //! (`%LOCALAPPDATA%\io.github.gozlemesevdalisi.lyraska\library.sqlite3`; bkz. `data_dirs`). İnternet
 //! gerekmez.
 
+pub mod covers;
 pub mod db;
 pub mod scan;
 pub mod service;

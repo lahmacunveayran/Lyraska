@@ -447,6 +447,32 @@ export function libraryAlbums(query: string): Promise<LibraryAlbum[]> {
   return invoke<LibraryAlbum[]>("library_albums", { query });
 }
 
+/** Albüme kullanıcının seçtiği kapak (`data:` adresi); seçilmemişse `null`. */
+export async function getAlbumCover(album: string, artist: string | null): Promise<string | null> {
+  if (!isTauri()) return null;
+  return invoke<string | null>("album_cover_get", { album, artist });
+}
+
+/** Resmi albümün kapağı yapar (kopyası Lyraska'da saklanır; müzik dosyalarına dokunulmaz). */
+export function setAlbumCover(album: string, artist: string | null, path: string): Promise<void> {
+  return invoke<void>("album_cover_set", { album, artist, path });
+}
+
+export function clearAlbumCover(album: string, artist: string | null): Promise<void> {
+  return invoke<void>("album_cover_clear", { album, artist });
+}
+
+/** Kapak resmi seçme penceresi. */
+export async function pickImage(): Promise<string | null> {
+  const selected = await open({
+    title: "Kapak resmi seçin",
+    multiple: false,
+    directory: false,
+    filters: [{ name: "Resimler", extensions: ["jpg", "jpeg", "png", "webp", "gif"] }],
+  });
+  return typeof selected === "string" ? selected : null;
+}
+
 /** Albümün şarkılarının yolları, çalma sırasıyla. */
 export function libraryAlbumTracks(album: string, artist: string | null): Promise<string[]> {
   return invoke<string[]>("library_album_tracks", { album, artist });

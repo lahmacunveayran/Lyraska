@@ -134,6 +134,7 @@ lyraska/
 │   │   ├── library/          # Müzik kütüphanesi (SQLite, uygulama veri klasöründe)
 │   │   │   ├── db.rs         #   kaynak (klasör ya da tek şarkı) ve şarkı tabloları, Türkçe arama, BPM
 │   │   │   ├── scan.rs       #   paralel etiket okuma, değişmeyeni atlama, silineni çıkarma
+│   │   │   ├── covers.rs     #   kullanıcının albüme seçtiği kapaklar (veri klasöründe `kapaklar/`; müzik dosyalarına dokunulmaz)
 │   │   │   └── service.rs    #   arka plan taraması; komutların kullandığı katman
 │   │   ├── data_dirs.rs      # veri klasörleri (Roaming küçük, Local büyük; eskiyi bir kez taşır), tek örnek kilidi
 │   │   ├── atomic_file.rs    # bölünmez dosya yazma (geçici dosya + sync_all + ad değiştirme): ayarlar, işaretler

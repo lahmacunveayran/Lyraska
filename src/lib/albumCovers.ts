@@ -1,8 +1,9 @@
-import { getTrackCover } from "./backend";
+import { getAlbumCover, getTrackCover } from "./backend";
 import { drawPrintCover, readPrintColors, type CoverInput, type PrintColors } from "./printCover";
 
 /**
- * Albüm ızgarasının kapakları: şarkıdaki gerçek kapak varsa o (küçültülmüş), yoksa baskı kapağı
+ * Albüm ızgarasının kapakları: kullanıcının seçtiği kapak, yoksa şarkıdaki gerçek kapak
+ * (küçültülmüş), o da yoksa baskı kapağı
  * (`printCover.ts`). Kapaklar sırayla hazırlanır (kaydırırken arayüz takılmasın) ve küçük
  * `data:` adresleri olarak akılda tutulur. Ekrandan çıkan kartın bekleyen işi yapılmaz.
  */
@@ -21,11 +22,27 @@ export interface AlbumCoverRequest extends CoverInput {
   coverPath: string;
 }
 
-/** Kapağın kimliği: albüm, ton ve tempo (analiz bitince baskı kapağı yeniden çizilir). */
+/** Albümün kimliği (albüm sanatçısı, yoksa sanatçı + albüm adı). */
+function albumId(album: string, artist: string | null): string {
+  return `${artist ?? "\u0001"}\u0000${album}`;
+}
+
+/** Kapağı değişen albümlerin sürümü: yeni kimlik eski kapağı önbellekten düşürür. */
+const revisions = new Map<string, number>();
+
+/**
+ * Kapağın kimliği: albüm, ton, tempo (analiz bitince baskı kapağı yeniden çizilir) ve kullanıcının
+ * kapak değişikliği.
+ */
 export function albumCoverKey(request: AlbumCoverRequest): string {
-  return [request.artist ?? "\u0001", request.album, request.key ?? "", request.bpm ?? ""].join(
-    "\u0000",
-  );
+  const id = albumId(request.album, request.artist);
+  return [id, request.key ?? "", request.bpm ?? "", revisions.get(id) ?? 0].join("\u0000");
+}
+
+/** Kullanıcı albümün kapağını seçti ya da kaldırdı: kapak yeniden hazırlanır. */
+export function invalidateAlbumCover(album: string, artist: string | null) {
+  const id = albumId(album, artist);
+  revisions.set(id, (revisions.get(id) ?? 0) + 1);
 }
 
 const cache = new Map<string, string>();
@@ -47,6 +64,7 @@ export function clearAlbumCovers() {
   queue.length = 0;
   wanted.clear();
   pending.clear();
+  revisions.clear();
   running = 0;
   colors = null;
 }
@@ -100,7 +118,8 @@ function printed(request: AlbumCoverRequest): string {
 }
 
 async function prepare(request: AlbumCoverRequest): Promise<string> {
-  const real = await getTrackCover(request.coverPath).catch(() => null);
+  const chosen = await getAlbumCover(request.album, request.artist).catch(() => null);
+  const real = chosen ?? (await getTrackCover(request.coverPath).catch(() => null));
   if (real && real.length <= MAX_REAL_COVER_CHARS) {
     const small = await shrink(real);
     if (small) return small;

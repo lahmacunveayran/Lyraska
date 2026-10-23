@@ -9,13 +9,17 @@ import {
   SearchIcon,
 } from "./icons";
 import {
+  clearAlbumCover,
   errorMessage,
   libraryAlbumTracks,
+  pickImage,
+  setAlbumCover,
   type LibraryAlbum,
   type LibraryFolder,
   type LibraryTrack,
 } from "../lib/backend";
 import { AlbumGrid } from "./AlbumGrid";
+import { invalidateAlbumCover } from "../lib/albumCovers";
 import { useAlbums } from "../hooks/useAlbums";
 import { analysisPending, bpmLabel } from "../lib/analysis";
 import {
@@ -130,6 +134,27 @@ export function LibraryPanel({
   const [albumError, setAlbumError] = useState<string | null>(null);
   // Albüm açılırken ikinci tık (çift tık) albümü ikinci kez başlatmasın.
   const startingAlbum = useRef(false);
+  // Kapak seçilince ızgara yeniden çizilsin (kapağın kimliği değişti).
+  const [, setCoverRevision] = useState(0);
+  const changeCover = (album: LibraryAlbum, path: string | null) => {
+    const action = path
+      ? setAlbumCover(album.name, album.artist, path)
+      : clearAlbumCover(album.name, album.artist);
+    void action
+      .then(() => {
+        invalidateAlbumCover(album.name, album.artist);
+        setCoverRevision((n) => n + 1);
+        setAlbumError(null);
+      })
+      .catch((e) => setAlbumError(errorMessage(e)));
+  };
+  const chooseCover = (album: LibraryAlbum) => {
+    void pickImage()
+      .then((path) => {
+        if (path) changeCover(album, path);
+      })
+      .catch((e) => setAlbumError(errorMessage(e)));
+  };
   const playAlbum = (album: LibraryAlbum) => {
     if (startingAlbum.current) return;
     startingAlbum.current = true;
@@ -569,7 +594,13 @@ export function LibraryPanel({
                   {query ? `“${query}” için albüm yok.` : "Albüm etiketi olan şarkı yok."}
                 </p>
               ) : (
-                <AlbumGrid albums={albums} current={current} onPlay={playAlbum} />
+                <AlbumGrid
+                  albums={albums}
+                  current={current}
+                  onPlay={playAlbum}
+                  onChooseCover={chooseCover}
+                  onClearCover={(album) => changeCover(album, null)}
+                />
               )}
             </div>
           )}

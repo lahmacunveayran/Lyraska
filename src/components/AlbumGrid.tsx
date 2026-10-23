@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { PlayIcon } from "./icons";
 import type { LibraryAlbum, LibraryTrack } from "../lib/backend";
 import { albumCoverKey, cachedAlbumCover, requestAlbumCover } from "../lib/albumCovers";
@@ -10,6 +10,9 @@ export interface AlbumGridProps {
   /** Çalan şarkı (albümü vurgulanır); kütüphanede değilse `null`. */
   current: LibraryTrack | null;
   onPlay: (album: LibraryAlbum) => void;
+  /** Kullanıcı albüme kendi kapağını seçer / seçtiğini kaldırır. */
+  onChooseCover: (album: LibraryAlbum) => void;
+  onClearCover: (album: LibraryAlbum) => void;
 }
 
 /** Albüm süresi: "42 dk", "1 sa 12 dk". */
@@ -86,7 +89,18 @@ export function isAlbumOf(track: LibraryTrack, album: LibraryAlbum): boolean {
   return track.album === album.name && (track.albumArtist ?? track.artist) === album.artist;
 }
 
-export function AlbumGrid({ albums, current, onPlay }: AlbumGridProps) {
+export function AlbumGrid({
+  albums,
+  current,
+  onPlay,
+  onChooseCover,
+  onClearCover,
+}: AlbumGridProps) {
+  const choose = (event: MouseEvent<HTMLButtonElement>, action: () => void) => {
+    const menu = event.currentTarget.closest("details");
+    if (menu) menu.open = false;
+    action();
+  };
   return (
     <ul className="albums" aria-label="Albümler">
       {albums.map((album) => {
@@ -114,6 +128,19 @@ export function AlbumGrid({ albums, current, onPlay }: AlbumGridProps) {
                   .join(" · ")}
               </span>
             </button>
+            <details className="album__menu">
+              <summary aria-label={`Kapak seçenekleri: ${album.name}`} title="Kapak seçenekleri">
+                ⋯
+              </summary>
+              <div className="album__menu-list">
+                <button type="button" onClick={(e) => choose(e, () => onChooseCover(album))}>
+                  Kapak seç…
+                </button>
+                <button type="button" onClick={(e) => choose(e, () => onClearCover(album))}>
+                  Seçtiğim kapağı kaldır
+                </button>
+              </div>
+            </details>
           </li>
         );
       })}

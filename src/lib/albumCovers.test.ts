@@ -2,6 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const covers = vi.hoisted(() => ({ calls: [] as string[] }));
 vi.mock("./backend", () => ({
+  getAlbumCover: async (album: string) => {
+    covers.calls.push(`seçilen:${album}`);
+    return null;
+  },
   getTrackCover: async (path: string) => {
     covers.calls.push(path);
     return null;
@@ -12,6 +16,7 @@ import {
   albumCoverKey,
   cachedAlbumCover,
   clearAlbumCovers,
+  invalidateAlbumCover,
   requestAlbumCover,
 } from "./albumCovers";
 
@@ -26,6 +31,9 @@ const album = (name: string, key: string | null = null, bpm: number | null = nul
 /** Bekleyen işlerin bitmesi (kuyruk ve `setTimeout(0)` nefesleri). */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
+/** Şarkı kapağı okumaları (kullanıcının seçtiği kapağa bakış ayrı sayılır). */
+const trackReads = () => covers.calls.filter((c) => !c.startsWith("seçilen:"));
+
 afterEach(() => {
   clearAlbumCovers();
   covers.calls.length = 0;
@@ -37,13 +45,13 @@ describe("albüm kapakları", () => {
     requestAlbumCover(album("Kum"), (url) => got.push(url));
     requestAlbumCover(album("Kum"), (url) => got.push(url));
     await settle();
-    expect(covers.calls).toEqual(["/m/Kum.flac"]);
+    expect(covers.calls).toEqual(["seçilen:Kum", "/m/Kum.flac"]);
     // jsdom'da tuval çizilemez: boş kapak (kart düz zeminle görünür), ama yine akılda.
     expect(got).toEqual(["", ""]);
     expect(cachedAlbumCover(albumCoverKey(album("Kum")))).toBe("");
     requestAlbumCover(album("Kum"), (url) => got.push(url));
     expect(got).toHaveLength(3);
-    expect(covers.calls).toHaveLength(1);
+    expect(trackReads()).toHaveLength(1);
   });
 
   it("ekrandan çıkan kartın sıradaki işi yapılmaz", async () => {
@@ -54,7 +62,7 @@ describe("albüm kapakları", () => {
     const release = requestAlbumCover(album("C"), (url) => got.push(`C${url}`));
     release();
     await settle();
-    expect(covers.calls).toEqual(["/m/A.flac", "/m/B.flac"]);
+    expect(trackReads()).toEqual(["/m/A.flac", "/m/B.flac"]);
     expect(got.sort()).toEqual(["A", "B"]);
     expect(cachedAlbumCover(albumCoverKey(album("C")))).toBeNull();
   });
@@ -68,6 +76,18 @@ describe("albüm kapakları", () => {
     await settle();
     requestAlbumCover(album("Yön", "8A", 124), () => undefined);
     await settle();
-    expect(covers.calls).toEqual(["/m/Yön.flac", "/m/Yön.flac"]);
+    expect(trackReads()).toEqual(["/m/Yön.flac", "/m/Yön.flac"]);
+  });
+
+  it("kullanıcı kapağı seçince ya da kaldırınca kapak yeniden hazırlanır", async () => {
+    const key = albumCoverKey(album("Tuz"));
+    requestAlbumCover(album("Tuz"), () => undefined);
+    await settle();
+    expect(cachedAlbumCover(key)).toBe("");
+    invalidateAlbumCover("Tuz", "Ada");
+    expect(albumCoverKey(album("Tuz"))).not.toBe(key);
+    expect(cachedAlbumCover(albumCoverKey(album("Tuz")))).toBeNull();
+    // Başka albüm etkilenmez.
+    expect(albumCoverKey(album("Kıyı"))).toBe(albumCoverKey(album("Kıyı")));
   });
 });
