@@ -32,6 +32,10 @@ Ses motoru, analiz algoritmaları ve DSP matematiği kapsam dışıdır (16 Ekim
 
   Puanı düşüren kusurların çoğu birkaç satırlık düzeltmeler. Hedef her alanda en az 9: düzeltme durumu bölüm 9'da.
 
+- **Düzeltmelerden sonra yeniden puanlama** (bölüm 10): yeni denetçiler ilk turun düzeltmelerini doğruladı ama
+  yeni açıklar buldu; depodaki kod 6–7, GitHub ayarları dahil 4–5 aldı. Onların bulgularının çoğu da düzeltildi
+  (bölüm 10.3); düzeltilmiş kod yeniden puanlanmadı. Açık kalanlar bölüm 10.4'te.
+
 - **Sizin kararınızı ya da düğmenize bağlı olanlar** bölüm 8'de: `main` dalını koruma kuralı, fork'tan gelen
   önerilerin onayı, kod imzalama.
 
@@ -262,3 +266,79 @@ PR #100 (sürüm 0.0.61). "Düzeldi" demek: kod değişti, hatayı yakalayan tes
 
 Düzeltmelerden sonra kod, ilk denetimi görmemiş yeni bağımsız denetçilere aynı kural metniyle puanlatıldı. Sonuç
 bölüm 10'da.
+
+## 10. Yeniden puanlama ve sonrası
+
+### 10.1 Yöntem
+
+Düzeltmelerden sonra (`9ae1b6d`) beş alan, ilk denetimi görmemiş beş yeni bağımsız denetçiye aynı kural metniyle
+([BRIEF](denetim-faz0/yeniden/BRIEF.md)) yeniden puanlatıldı. Her denetçi kapıları bozarak (mutasyon) sınadı ve
+puanı iki biçimde verdi: (a) depodaki kod ve yapılandırma; (b) GitHub ayarları ve satın alınacaklar dahil. Tam
+raporlar: [yayın](denetim-faz0/yeniden/yayin.md), [kabuk](denetim-faz0/yeniden/kabuk.md),
+[kapılar](denetim-faz0/yeniden/kapi.md), [belgeler](denetim-faz0/yeniden/belge.md),
+[iskelet](denetim-faz0/yeniden/iskelet.md).
+
+### 10.2 Puanlar
+
+| Alan     | İlk bağımsız denetim (B) | Yeniden (a) | Yeniden (b) |
+| -------- | ------------------------ | ----------- | ----------- |
+| Yayın    | 5                        | 7           | 4           |
+| Kabuk    | 7                        | 6           | 5           |
+| Kapılar  | 6                        | 6           | 5           |
+| Belgeler | 6                        | 6           | 5           |
+| İskelet  | 7                        | 7           | 5           |
+
+Okuma notları:
+
+- Yeni denetçiler ilk turun düzelttiklerini doğruladı (fork PR açığı, sabit link, tek örnek kilidi, işaret kaybı,
+  lisans ve ses kapıları); puanı tutan **yeni** bulgulardı. En ağırı: `check:rules` CI'ya eklenmemişti ve
+  "uzak adres" kuralı bir düzenli ifade hatası yüzünden hiç tetiklenmiyordu. İkincisi: sıkılaştırılan CSP,
+  Ayarlar > Lisanslar metinlerinin sürümde açılmasını engelliyordu.
+- (b) sütununu düşüren üç şey depoda değil, proje sahibinin GitHub ayarlarında: `main` dal koruması yok,
+  gizli güvenlik bildirimi kapalı, kurulum dosyası imzasız (bölüm 8).
+- Aşağıdaki düzeltmelerden sonra **üçüncü bir puanlama yapılmadı**. Tablodaki puanlar `9ae1b6d`'ye aittir;
+  düzeltilmiş kodun puanı ancak yeni bir bağımsız turla söylenebilir.
+
+### 10.3 Yeniden puanlamadan sonra düzeltilenler
+
+| Bulgu                                   | Düzeltme                                                                                                                                   |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| KAP-01, YAY-02, KAB-02, BEL-02, ISK-01  | `check:rules` CI'da; `check:docs` her `check:*` betiğinin CI'da çalıştığını denetler                                                       |
+| KAB-03, KAP-03                          | Uzak adres kuralı düzeldi (ws/ftp, `//alan` dahil); Rust'ta soket ve HTTP istemcisi yasak; `deny.toml` ağ crate'lerini yasaklar            |
+| KAB-01, BEL-01                          | CSP `connect-src 'self'`; arayüz `fetch` kullanıyorsa `check:rules` bunu zorunlu tutar                                                     |
+| KAB-04, ISK-10 (kısmen)                 | Uyarı kutusu PowerShell'i System32'deki tam yoldan çalıştırır                                                                              |
+| ISK-02                                  | Aygıt kurtarma kilit dışında (önce kilit altında başlatılır, yeni aygıt kilit dışında açılır)                                              |
+| KAP-04                                  | `check:audio --history`: izinli klasöre konup silinen büyük dosya da yakalanır                                                             |
+| KAP-05                                  | Sahne denetiminin listesi programdaki sahnelerle testle karşılaştırılır                                                                    |
+| KAP-06                                  | İzin listesine AGPL ve ticari kullanımı yasaklayan lisans eklenemez (`check:licenses` ve test)                                             |
+| KAP-07, YAY-10                          | Elle başlatılan test sürümü, commit'in CI'si yeşil değilse yayımlanmaz                                                                     |
+| KAP-08                                  | `check:rules`: `expect(unsafe_code)`, liste içinde `unsafe_code`, `cfg_attr(…, ignore)`, `it.concurrent.skip`                              |
+| KAP-09                                  | Komut sözleşmesi değeri çağrıyı saran fonksiyondan okur; takma adlı `invoke` reddedilir; ESLint Tauri API'sini backend.ts'e kısıtlar       |
+| KAP-10, BEL-05                          | `npm run check`: arayüz tarafının bütün denetimleri tek komutta; README ve CLAUDE.md buna bağlı                                            |
+| KAP-11                                  | Türe duyarlı lint: beklenmeyen Promise yasak; satır içi `eslint-disable` etkisiz                                                           |
+| KAP-13, BEL-04                          | `check:docs`: her dosya kendi klasörünün altında; bileşenler de; `AppData\Roaming` yazımı; Rust kodunda eski hesap linki. Üç eksik bulundu |
+| KAP-14                                  | Ses imzası: ADTS AAC, başı dolgulu ses, zip içindeki ses                                                                                   |
+| KAP-15                                  | Kapı betikleri de tür denetiminde (`tsconfig.scripts.json`)                                                                                |
+| BEL-06, BEL-07, BEL-09, BEL-10          | Günlükteki yollar doğru anlatılır; kısayollar güncel; GPL bildirimi dağıtma hakkını söyler; karşılama metni                                |
+| YAY-08 (kısmen), YAY-09, YAY-11, YAY-13 | Node tam sürüm, çalıştırıcılar sabit; doğrulama komutu iş akışı ve dalı sabitler; örtük npm önbelleği kapalı; yorum düzeltildi             |
+
+Düzeltmeler sırasında bulunan: Windows'ta Rust test programı hiç açılmıyordu (`STATUS_ENTRYPOINT_NOT_FOUND`).
+Tauri'nin dialog eklentisi Windows'un yeni ileti kutusunu bağlıyor, bunu açan manifest ise yalnızca programa
+gömülüyordu. Manifest artık her çıktıya (testler dahil) gömülür (`src-tauri/windows-app-manifest.xml`, `build.rs`).
+
+### 10.4 Açık kalanlar
+
+Faz 0'ın kapsamı dışında kalanlar ya da bilinçli bırakılanlar (hepsi Düşük ya da Bilgi):
+
+- **Ses yolunda dizi indeksleme (KAP-12, ISK-08):** `panic = "abort"` altında sınır dışı indeks programı
+  kapatır. Ses motoru Faz 1'in konusu; Clippy `indexing_slicing` ses yolu modüllerinde ayrı bir işte açılmalı.
+- **İskelet:** tarama çökme koruması (ISK-03), `Player`'ın tek kilidi (ISK-04), async komutlarda
+  `spawn_blocking` (ISK-05), kör test ile şarkı geçişinin çakışması (ISK-06), `check:commands`'ın sarmalayıcıyı
+  kullanım sayması (ISK-07), sürüm bilgisi için `cmd`'nin göreli adla çağrılması (ISK-10 kalanı).
+- **Kabuk:** komutların disk yolu sınırlaması (KAB-06), veri klasörü taşımasının geri alma yolu (KAB-07),
+  kalibrasyon kaydının yeri (KAB-08), WebView2 uyarı metni ve en düşük sürüm (KAB-09), MSRV'nin derlenerek
+  sınanmaması (KAB-10), `core:default` izni (KAB-11), sessiz kalan bazı açılış hataları (KAB-05).
+- **Yayın:** WebView2 önyükleyicisinin karması (YAY-08 kalanı); zizmor'un çevrimiçi denetimleri (YAY-12; CI'da
+  token ile denenmeden açılmadı).
+- **Belgeler:** üçüncü taraf bildirimlerinde telif satırı olmayan 37 paket (BEL-11; lisans metinleri var).
+- **Proje sahibinin düğmeleri:** bölüm 8 (dal koruması, fork PR onayı, gizli güvenlik bildirimi, kod imzası).
