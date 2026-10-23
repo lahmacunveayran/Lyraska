@@ -28,6 +28,15 @@ ffmpeg -filter_complex "$SRC" -ac 1 -c:a libopus -b:a 32k "${TAGS[@]}" uc-uc-ton
 ffmpeg -filter_complex "$SRC" -ac 1 -ar 48000 -c:a libopus -b:a 32k "${TAGS[@]}" uc-uc-ton.webm
 ```
 
+`uzun.webm`, `uzun.opus`: 40 sn pembe gürültü (tekrarsız: sarmadan sonraki kayma tek anlamlı ölçülür), Opus 16 kb/sn.
+WebM, YouTube dosyaları gibi çok kümeli (2 sn) ve Cues'lu; `.opus` ondan yt-dlp gibi kopyalanır (Ogg akışı 360 örnek
+kaymalı başlar):
+
+```sh
+ffmpeg -f lavfi -i "anoisesrc=d=40:c=pink:r=48000:a=0.3:s=7,lowpass=f=6000" -ac 1 -c:a libopus -b:a 16k -cluster_time_limit 2000 uzun.webm
+ffmpeg -i uzun.webm -c copy uzun.opus
+```
+
 `sozlu.flac`, `sozlu.mp3`: 22 050 Hz mono, 1 sn 440 Hz; içlerine gömülü zamanlı sözler (LRC biçiminde, Türkçe
 harflerle). FLAC'ta Vorbis yorumu `LYRICS`, MP3'te ID3v2.3 `USLT` çerçevesi (UTF-16, dil `tur`). ffmpeg MP3'e `USLT`
 yazmadığı için etiket Python ile kurulup ffmpeg'in etiketsiz MP3'ünün önüne eklenir:

@@ -77,8 +77,11 @@ vardır (`check:docs`; avenoxbeyin'den alınan fikir, 23 Ekim 2026): sınır aş
   değerler okununca sorunun ışıklandırmada olduğu görüldü. Varsayımla kod değiştirmeden önce sayıya bakılır.
 - **Opus (23 Ekim 2026):** `symphonia-adapter-libopus` Ogg'da kusursuz. Symphonia'nın Matroska/WebM okuyucusu ise
   süreyi ve sarmayı bilmiyor, ilk paketin zamanı eksi (−ön boşluk) ve hedefsiz etiketleri albüm düzeyi sayıyor; WebM
-  başlığı (Segment Title) hiç okunmuyor. Hepsi `decode.rs`'te telafi edildi ve `tests/formats.rs` ile ölçülüyor.
-  Ders: yeni biçimde önce örnek sayısı, hiza (ilinti) ve sarma ölçülür; "açılıyor" yetmez.
+  başlığı (Segment Title) hiç okunmuyor; Cues'lu dosyada sarma hata vermeden saniyelerce ileri gidiyor ve paket
+  zamanları 1,5 ms sapıyor. Çözüm `decode.rs`'te: Matroska'da sarma dosyayı baştan okuyarak, Opus zamanı paketlerin
+  TOC baytından sayılarak; Ogg Opus'ta ön boşluğu çözücü değil `trim` atar. Ders: kısa, tek kümeli test dosyası
+  sarma hatalarını gizledi (bağımsız inceleme buldu); sarma testi uzun, çok kümeli, tekrarsız sinyalle ve baştan
+  çözülen sesle örnek örnek karşılaştırılarak yapılır.
 - GLSL kaynakları TypeScript şablon metni içindeyse yorumlarda ters tırnak işareti kullanılmaz; şablon metnini kapatır.
 
 ## 6. Lisans dersleri
