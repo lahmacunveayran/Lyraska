@@ -5,11 +5,11 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 
 ## İş sırası (proje sahibinin kararı, 23 Ekim 2026)
 
-1. Kütüphanenin tam ekran, baştan tasarımı; dört küçük PR:
-   1. Albümler (0.0.68): kapak ızgarası, kapağı olmayan albüme tondan ve tempodan baskı kapağı.
-   2. Sanatçılar (yıldız atlası levhaları; veri hazır: `src/lib/starAtlas.json`, CC BY-SA 4.0).
-   3. Görünüm seçiciye Sanatçılar ve Gökyüzü; albüm sayfası; şarkı satırında kapak küçük resmi.
-   4. Gökyüzü (renkli; taslak onaylandı).
+1. Kütüphanenin baştan tasarımı; küçük PR'lar:
+   1. Sanatçılar (0.0.69, PR açık): yıldız atlası levhaları.
+   2. Ortada cam sayfa (B+, sahibinin seçimi) ve sade başlık (yerelde hazır).
+   3. Gökyüzü (renkli; taslak onaylandı; yerelde yapılıyor).
+   4. Albüm sayfası; şarkı satırında kapak küçük resmi.
 2. Davul/bas/vokal ayrıştırma: Spleeter; önce eğitimsiz iyileştirmeler ölçülür.
 3. Otomatik DJ (Bölüm II), Aşama A'dan; her aşama ayrı oturumda (`docs/gorev/20-BOLUM-II-DJ.md`).
 

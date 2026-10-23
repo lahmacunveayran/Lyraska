@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { PlaybackStatus, TrackInfo } from "../lib/backend";
 import { marqueeWindow } from "./Marquee";
+import { ArtistGrid } from "./ArtistGrid";
 import { spectrumColumns } from "./SpectrumDemo";
 import { textToColumns } from "../lib/dotFont";
 import { clearCoverCache } from "../hooks/useCover";
@@ -1276,6 +1277,21 @@ describe("kütüphane", () => {
     expect(backend.albumTracks).toHaveBeenCalledTimes(1);
     expect(backend.albumTracks).toHaveBeenCalledWith("Kelimeler", "Şebnem Ferah");
     await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(backend.tracks[0]!.path));
+  });
+
+  it("sanatçının albüm sayısı değişince (tarama) levhası yeniden çizilir", async () => {
+    const artist = { name: "Şebnem Ferah", albumCount: 2, trackCount: 5, coverPath: "C:\\a.flac" };
+    const { container, rerender } = render(
+      <ArtistGrid artists={[artist]} current={null} onPlay={() => {}} />,
+    );
+    await screen.findByText(/^α \d\dh\d\dm/);
+    const before = container.querySelector(".artist__plate");
+    rerender(
+      <ArtistGrid artists={[{ ...artist, albumCount: 3 }]} current={null} onPlay={() => {}} />,
+    );
+    // Eski levha (2 halkalı) kalmaz: yenisi çizilir.
+    expect(container.querySelector(".artist__plate")).not.toBe(before);
+    expect(await screen.findByText(/^α \d\dh\d\dm/)).toBeInTheDocument();
   });
 
   it("sanatçılar görünümü: yıldız atlası levhaları; sanatçıya tıklayınca hepsini çalar", async () => {

@@ -4,7 +4,7 @@ import { hash, rng } from "./printCover";
  * Sanatçı levhası: "basılı yıldız atlası". Sanatçının adı gökyüzünde sabit bir noktaya düşer
  * (ad → sağ açıklık ve dik açıklık); o noktanın 20°'lik alanındaki gerçek yıldızlar (HYG v4.0)
  * ve takımyıldız çizgileri (Stellarium) krem kâğıda mürekkeple basılır. Pembe halkalar sanatçının
- * albüm sayısı kadardır. Veri: `starAtlas.json` (CC BY-SA 4.0, bkz. docs/LISANSLAR.md).
+ * albüm sayısı kadardır (levhada o kadar yıldız varsa). Veri: `starAtlas.json` (CC BY-SA 4.0, bkz. docs/LISANSLAR.md).
  *
  * Eşleme sabittir: aynı ad her sürümde aynı gökyüzü parçasını almalı (test bunu dondurur).
  */
@@ -224,8 +224,45 @@ export function plateCoordinates(field: PlateField): string {
   const h = Math.floor(field.raHours);
   const m = Math.floor((field.raHours - h) * 60);
   const d = Math.round(Math.abs(field.decDeg));
-  const sign = field.decDeg >= 0 ? "+" : "−";
+  // İşaret yuvarlanmış değerden: −0,3° "−00°" değil "+00°" yazılır.
+  const sign = field.decDeg >= 0 || d === 0 ? "+" : "−";
   return `α ${String(h).padStart(2, "0")}h${String(m).padStart(2, "0")}m · δ ${sign}${String(d).padStart(2, "0")}°`;
+}
+
+/** Levhanın çerçevesi: çizgilerin ortası (`mx`, `my`) ve yarı genişlik (alan birimiyle). */
+export function plateFrame(field: PlateField): { mx: number; my: number; span: number } {
+  const pts = field.segments.flat();
+  const xs = pts.map((p) => p.x);
+  const ys = pts.map((p) => p.y);
+  const mx = pts.length ? (Math.min(...xs) + Math.max(...xs)) / 2 : 0;
+  const my = pts.length ? (Math.min(...ys) + Math.max(...ys)) / 2 : 0;
+  const span = Math.max(
+    0.35,
+    ...pts.map((p) => Math.abs(p.x - mx)),
+    ...pts.map((p) => Math.abs(p.y - my)),
+  );
+  return { mx, my, span };
+}
+
+/** Levha çizilirken ortadan uzaklık ölçeği: çerçevenin yarı genişliği tuvalin bu kesri. */
+const FRAME_SCALE = 0.36;
+/** Pembe halkanın tam görüneceği alan: çerçeve çizgisinin (0,45) biraz içi. */
+const RING_LIMIT = 0.42;
+
+/**
+ * Pembe halkalı yıldızlar: albüm sayısı kadar (levhada o kadar yıldız varsa). Önce çizgilerin en
+ * parlak yıldızları, yetmezse levhada görünen öteki yıldızların en parlakları.
+ */
+export function ringStars(field: PlateField, albums: number): PlateStar[] {
+  const { mx, my, span } = plateFrame(field);
+  const k = FRAME_SCALE / span;
+  const visible = (s: PlateStar) =>
+    Math.abs(s.x - mx) * k <= RING_LIMIT && Math.abs(s.y - my) * k <= RING_LIMIT;
+  const onLines = [...new Set(field.segments.flat())].filter(visible);
+  const lineSet = new Set(onLines);
+  const others = field.stars.filter((s) => !lineSet.has(s) && visible(s));
+  const byMag = (a: PlateStar, b: PlateStar) => a.mag - b.mag;
+  return [...onLines.sort(byMag), ...others.sort(byMag)].slice(0, Math.max(0, albums));
 }
 
 export interface PlateColors {
@@ -262,17 +299,8 @@ export function drawArtistPlate(
   }
   ctx.putImageData(img, 0, 0);
 
-  const pts = field.segments.flat();
-  const xs = pts.map((p) => p.x);
-  const ys = pts.map((p) => p.y);
-  const mx = pts.length ? (Math.min(...xs) + Math.max(...xs)) / 2 : 0;
-  const my = pts.length ? (Math.min(...ys) + Math.max(...ys)) / 2 : 0;
-  const span = Math.max(
-    0.35,
-    ...pts.map((p) => Math.abs(p.x - mx)),
-    ...pts.map((p) => Math.abs(p.y - my)),
-  );
-  const scale = (W * 0.36) / span;
+  const { mx, my, span } = plateFrame(field);
+  const scale = (W * FRAME_SCALE) / span;
   const at = (s: PlateStar): [number, number] => [
     W / 2 - (s.x - mx) * scale,
     W / 2 - (s.y - my) * scale,
@@ -324,9 +352,7 @@ export function drawArtistPlate(
     ctx.lineTo(x2 - ux * gap, y2 - uy * gap);
     ctx.stroke();
   }
-  const highlighted = new Set(
-    [...new Set(pts)].sort((a, b) => a.mag - b.mag).slice(0, Math.max(0, albums)),
-  );
+  const highlighted = new Set(ringStars(field, albums));
   ctx.fillStyle = colors.ink;
   for (const s of field.stars) {
     const [x, y] = at(s);

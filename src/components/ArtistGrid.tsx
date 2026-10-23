@@ -67,6 +67,28 @@ function renderPlate(
   return plate;
 }
 
+/**
+ * Çizim sırası: levhalar karede bir tane çizilir (her biri birkaç ms); atlas yüklenince ya da hızlı
+ * kaydırmada görünen bütün levhalar aynı anda çizilip arayüzü takıltmasın.
+ */
+const queue: (() => void)[] = [];
+let pumping = false;
+function nextFrame(run: () => void) {
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(run);
+  else setTimeout(run, 0);
+}
+function schedule(job: () => void) {
+  queue.push(job);
+  if (pumping) return;
+  pumping = true;
+  const pump = () => {
+    queue.shift()?.();
+    if (queue.length > 0) nextFrame(pump);
+    else pumping = false;
+  };
+  nextFrame(pump);
+}
+
 /** Testler arasında temizler. */
 export function clearArtistPlates() {
   plates.clear();
@@ -86,7 +108,10 @@ function ArtistPlate({ artist }: { artist: LibraryArtist }) {
     let cancelled = false;
     const draw = () => {
       void loadAtlas().then((atlas) => {
-        if (!cancelled) setPlate(renderPlate(atlas, artist));
+        if (cancelled) return;
+        schedule(() => {
+          if (!cancelled) setPlate(renderPlate(atlas, artist));
+        });
       });
     };
     if (typeof IntersectionObserver === "undefined") {
@@ -139,7 +164,8 @@ export function ArtistGrid({ artists, current, onPlay }: ArtistGridProps) {
             onClick={() => onPlay(artist)}
             title={`Sanatçının bütün şarkılarını çal: ${artist.name}`}
           >
-            <ArtistPlate artist={artist} />
+            {/* Albüm sayısı değişince (tarama) levha yeniden çizilir: halka sayısı ona bağlı. */}
+            <ArtistPlate key={artist.albumCount} artist={artist} />
             <span className="album__play" aria-hidden>
               <PlayIcon />
             </span>

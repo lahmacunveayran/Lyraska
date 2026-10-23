@@ -5,6 +5,8 @@ import {
   drawArtistPlate,
   plateCoordinates,
   plateField,
+  plateFrame,
+  ringStars,
   skyPoint,
   type StarAtlas,
 } from "./artistPlate";
@@ -50,6 +52,42 @@ describe("sanatçı levhası", () => {
     expect(ids).toHaveLength(88);
     for (const id of ids) expect(CONSTELLATION_TR[id], id).toBeTruthy();
     expect(atlas.stars.length).toBeGreaterThan(8000);
+  });
+
+  it("pembe halka sayısı albüm sayısı kadar; halkalar levhada görünür", () => {
+    // Çizgisi az (birkaç yıldızlı) takımyıldızlarda halkalar öteki yıldızlarla tamamlanır.
+    let short = 0;
+    for (let i = 0; i < 300; i++) {
+      const name = `Sanatçı ${i}`;
+      for (const albums of [1, 5, 12]) {
+        const field = plateField(atlas, name, albums);
+        const rings = ringStars(field, albums);
+        const { mx, my, span } = plateFrame(field);
+        const inFrame = (s: { x: number; y: number }) =>
+          (Math.abs(s.x - mx) * 0.36) / span <= 0.42 && (Math.abs(s.y - my) * 0.36) / span <= 0.42;
+        // Levhada o kadar yıldız yoksa (seyrek gök, çok albüm) görünen yıldızların hepsi.
+        const want = Math.min(albums, field.stars.filter(inFrame).length);
+        expect(rings).toHaveLength(want);
+        expect(new Set(rings).size).toBe(want);
+        expect(rings.every(inFrame)).toBe(true);
+        if (albums <= 5) short += want < albums ? 1 : 0;
+      }
+    }
+    // Eskiden çizgi yıldızlarıyla sınırlıydı (5 albümde levhaların %39'u eksik halkalıydı).
+    expect(short).toBe(0);
+  });
+
+  it("halkalar önce çizgilerin en parlak yıldızlarına konur", () => {
+    const field = plateField(atlas, "Nehir", 3);
+    const onLines = new Set(field.segments.flat());
+    expect(ringStars(field, 2).every((s) => onLines.has(s))).toBe(true);
+    expect(ringStars(field, 0)).toEqual([]);
+  });
+
+  it('künyede sıfıra yuvarlanan eksi derece "+00°" yazılır', () => {
+    const field = { ...plateField(atlas, "Nehir", 1), raHours: 5.5, decDeg: -0.3 };
+    expect(plateCoordinates(field)).toBe("α 05h30m · δ +00°");
+    expect(plateCoordinates({ ...field, decDeg: -0.6 })).toBe("α 05h30m · δ −01°");
   });
 
   it("çizilemeyen tuvalde (2D bağlamı yok) hata vermez", () => {
