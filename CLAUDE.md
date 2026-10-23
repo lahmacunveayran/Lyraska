@@ -216,6 +216,7 @@ Hepsi depo kökünde çalıştırılır.
 | Sahneler gerçek tarayıcıda     | `npm run check:scenes` (önce `npm run build`; CI'da Windows Edge)                                                                      |
 | Windows'a özel kodu denetle    | `cd src-tauri && cargo clippy --target x86_64-pc-windows-gnu --all-targets -- -D warnings` (bkz. not)                                  |
 | Gerçek ses aygıtıyla deneme    | `cd src-tauri && cargo run --example ses_denemesi`                                                                                     |
+| HLSL çeviricisini derle        | `sh src-tauri/hlsl/build.sh` (önce `fetch-wasi-sdk.sh`; bkz. dosya başı); çıktı commit edilir                                          |
 | Kurulum dosyası (Windows)      | `npm run tauri build`                                                                                                                  |
 
 Not: Rust derlemesi için önce `npm run build` ile `dist/` oluşturulmuş olmalıdır.
