@@ -16,6 +16,18 @@ değişmesi gerekiyorsa önce proje sahibine sorulur.
 - Test için sahibine her zaman sabit indirme linki verilir:
   https://github.com/lahmacunveayran/Lyraska/releases/download/test-surumu/Lyraska-Kurulum.exe
 
+## Bilgi birikimi ve çalışma yöntemi
+
+Her oturum başında bu dosyadan sonra **[docs/BILGI-BIRIKIMI.md](docs/BILGI-BIRIKIMI.md)** okunur: deneyimle
+öğrenilenler, tuzaklar, proje sahibinin kararları. Yeni bir ders öğrenilince oraya eklenir. Özü:
+
+- **Küçük PR** (proje sahibinin isteği): bir PR = bir iş; büyük iş en başta parçalara bölünür, ilk parça hızla
+  birleştirilir.
+- Bağımsız işler paralel ajanlara verilir (ayrı çalışma kopyası; ajanlar push etmez, PR açmaz); her büyük değişiklik
+  ayrı bir ajanın **bağımsız incelemesinden** geçer, bulgular önce testle yakalanıp düzeltilir.
+- PR açmadan önce `main` yeniden çekilir: başka oturumlar aynı anda birleştirmiş olabilir.
+- Proje sahibi "dur" derse çalışan ajanlar durdurulur; "sorma" dediği konu bir daha sorulmaz.
+
 ## Ürün
 
 Adı **Lyraska** (lir çalgısı ve Lyra takımyıldızından). Depo: `lahmacunveayran/Lyraska` (eski adı `gozlemesevdalisi/Lyraska`; program kimliği `io.github.gozlemesevdalisi.lyraska` kullanıcı verisi kaybolmasın diye aynı kalır).
@@ -165,6 +177,7 @@ lyraska/
 │   ├── ISARETLEME.md         # İşaretleme aracı kılavuzu (proje sahibi için)
 │   ├── SARKI-HARITASI.md     # Açık şarkı haritası biçimi (sürüm 1) ve ses parmak izi
 │   ├── DOGRULAMA.md          # Gerçek cihazda denenecekler listesi ve proje sahibinin bildirdiği sonuçlar
+│   ├── BILGI-BIRIKIMI.md     # "İkinci beyin": oturumlardan öğrenilenler, tuzaklar, sahibinin kararları (her oturumda okunur)
 │   ├── DENETIM.md            # Kalite denetimi (16 Ekim 2026): sağlık, matematik doğrulaması, bulgular, öncelik sırası
 │   ├── DENETIM-2.md          # İkinci denetim (16 Ekim 2026): düzeltmelerin yeniden denetimi + altı bağımsız denetçi
 │   │                         # (tam raporlar ve doğrulama betikleri denetim-2/ altında)
