@@ -376,3 +376,17 @@ export function contractProblems(
   }
   return problems;
 }
+
+/**
+ * Köprünün (`backend.ts`) dışa verdiği ama ürün kodunda (testler hariç) hiç çağrılmayan
+ * fonksiyonlar. Komut "kullanılıyor" sayılırken sarmalayıcısının kendisi kullanılmıyor olabilir:
+ * o zaman komut da sarmalayıcı da ölü koddur.
+ */
+export function unusedBridgeFunctions(bridge, productTexts) {
+  const exported = [...bridge.matchAll(/^export\s+(?:async\s+)?function\s+(\w+)/gm)].map(
+    (m) => m[1],
+  );
+  return exported.filter(
+    (name) => !productTexts.some((text) => new RegExp(`\\b${name}\\b`).test(text)),
+  );
+}

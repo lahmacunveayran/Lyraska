@@ -19,15 +19,6 @@ export function trackTitle(track: TrackInfo): string {
 
 const KHZ = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 1 });
 
-/** Teknik bilgi satırı: "FLAC · 44,1 kHz · Stereo". */
-export function trackTechLine(track: TrackInfo): string {
-  const channels =
-    track.channels === 1 ? "Mono" : track.channels === 2 ? "Stereo" : `${track.channels} kanal`;
-  return [track.codec.toUpperCase(), `${KHZ.format(track.sampleRate / 1000)} kHz`, channels].join(
-    " · ",
-  );
-}
-
 /**
  * Sinyal yolu: sesin şarkıdan hoparlöre nasıl gittiği. Şarkı açık değilse `null`.
  * Ör. "MP3 44,1 kHz → 48 kHz (yüksek kalite) → Hoparlörler (Realtek) · taşma koruması".

@@ -8,7 +8,6 @@ import {
   signalPathText,
   titleScale,
   trackName,
-  trackTechLine,
   trackTitle,
 } from "./format";
 import type { PlaybackStatus, TrackInfo } from "./backend";
@@ -50,16 +49,6 @@ describe("trackTitle", () => {
     expect(trackTitle({ ...track, title: "Gece", artist: "Lyra" })).toBe("Lyra - Gece");
     expect(trackTitle({ ...track, title: "Gece" })).toBe("Gece");
     expect(trackTitle(track)).toBe("sarki");
-  });
-});
-
-describe("trackTechLine", () => {
-  it("kodek, örnekleme hızı ve kanalı Türkçe biçimde yazar", () => {
-    expect(trackTechLine(track)).toBe("FLAC · 44,1 kHz · Stereo");
-    expect(trackTechLine({ ...track, codec: "mp3", sampleRate: 48000, channels: 1 })).toBe(
-      "MP3 · 48 kHz · Mono",
-    );
-    expect(trackTechLine({ ...track, channels: 6 })).toContain("6 kanal");
   });
 });
 

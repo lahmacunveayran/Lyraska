@@ -125,7 +125,9 @@ impl ScanState {
     }
 }
 
-/// Verilen klasörleri sırayla tarar. Tarama süresince `state.scanning` açıktır.
+/// Verilen klasörleri sırayla tarar. Tarama süresince `state.scanning` açıktır (testler; program
+/// `service::run_scan` ile tarar).
+#[cfg(test)]
 pub fn scan_folders(
     library: &Mutex<Library>,
     folders: &[FolderRow],

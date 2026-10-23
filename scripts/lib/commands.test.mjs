@@ -7,6 +7,7 @@ import {
   rustToTs,
   tsRenames,
   uiCalls,
+  unusedBridgeFunctions,
 } from "./commands.mjs";
 
 const RUST = `
@@ -151,4 +152,9 @@ export const seekText = (seconds: string) => invoke<Status>("seek", { seconds })
       ]),
     );
   });
+});
+
+it("köprünün kullanılmayan fonksiyonları (denetimdeki kaçak: sarmalayıcı kullanım sayılıyordu)", () => {
+  const bridge = `export function getA() {}\nexport async function getB() {}\nfunction ic() {}`;
+  expect(unusedBridgeFunctions(bridge, ["getA();", "getAB();"])).toEqual(["getB"]);
 });

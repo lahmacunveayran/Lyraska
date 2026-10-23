@@ -1350,7 +1350,8 @@ impl Player {
         }
     }
 
-    /// Çalıyorsa duraklatır, değilse çalar.
+    /// Çalıyorsa duraklatır, değilse çalar (testler; komut geçişi kilit dışında yapar).
+    #[cfg(test)]
     pub fn toggle(&mut self) -> Result<(), AudioError> {
         if self.state() == PlaybackState::Playing {
             self.pause();
