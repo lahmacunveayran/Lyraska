@@ -7,7 +7,11 @@ export type LibraryTrack = { id: number, path: string,
 /**
  * Etiketteki başlık, yoksa dosya adı.
  */
-title: string, artist: string | null, album: string | null, trackNumber: number | null, durationSecs: number | null, codec: string, 
+title: string, artist: string | null, album: string | null, 
+/**
+ * Albüm sanatçısı; albümler bununla (yoksa sanatçıyla) gruplanır.
+ */
+albumArtist: string | null, trackNumber: number | null, durationSecs: number | null, codec: string, 
 /**
  * Tempo (önbellekteki geçerli analizden); analiz edilmediyse ya da ritim yoksa `None`.
  */

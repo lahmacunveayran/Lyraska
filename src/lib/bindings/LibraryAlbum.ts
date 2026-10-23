@@ -15,4 +15,8 @@ durationSecs: number,
 /**
  * Kapak resminin okunacağı şarkı: albümün ilk şarkısı.
  */
-coverPath: string, };
+coverPath: string, 
+/**
+ * İlk şarkının temposu ve tonu (Camelot): üretilen kapağın ailesi ve mürekkepleri.
+ */
+bpm: number | null, key: string | null, };

@@ -740,7 +740,7 @@ pub struct Cover {
 }
 
 /// Bu boyuttan büyük kapak gösterilmez: arayüze taşınması pahalı, ekranda farkı yok.
-const MAX_COVER_BYTES: usize = 8 * 1024 * 1024;
+pub(crate) const MAX_COVER_BYTES: usize = 8 * 1024 * 1024;
 
 impl Cover {
     /// Arayüzde doğrudan gösterilebilen `data:` adresi.
@@ -834,7 +834,7 @@ pub fn embedded_cover(path: &Path) -> Result<Option<Cover>, AudioError> {
 }
 
 /// Verinin resim türü (ilk baytlarından; etiketteki tür bilgisine güvenilmez).
-fn image_type(data: &[u8]) -> Option<&'static str> {
+pub(crate) fn image_type(data: &[u8]) -> Option<&'static str> {
     if data.starts_with(&[0xFF, 0xD8, 0xFF]) {
         Some("image/jpeg")
     } else if data.starts_with(b"\x89PNG\r\n\x1a\n") {

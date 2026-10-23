@@ -6,9 +6,9 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 ## İş sırası (proje sahibinin kararı, 23 Ekim 2026)
 
 1. Kütüphanenin tam ekran, baştan tasarımı; dört küçük PR:
-   1. Tam ekran kütüphane + Şarkılar (0.0.66; kutucuklar kalktı, tek eklenenler tek satır).
-   2. Albümler (üretilen baskı kapakları, Rust'ta önbellekli) ve Sanatçılar (yıldız atlası levhaları).
-   3. Görünüm seçici (Şarkılar · Albümler · Sanatçılar · Gökyüzü), klasör başına şarkı sayısı, kapak küçük resmi.
+   1. Albümler (0.0.68): kapak ızgarası, kapağı olmayan albüme tondan ve tempodan baskı kapağı.
+   2. Sanatçılar (yıldız atlası levhaları; veri hazır: `src/lib/starAtlas.json`, CC BY-SA 4.0).
+   3. Görünüm seçiciye Sanatçılar ve Gökyüzü; albüm sayfası; şarkı satırında kapak küçük resmi.
    4. Gökyüzü (renkli; taslak onaylandı).
 2. Davul/bas/vokal ayrıştırma: Spleeter; önce eğitimsiz iyileştirmeler ölçülür.
 3. Otomatik DJ (Bölüm II), Aşama A'dan; her aşama ayrı oturumda (`docs/gorev/20-BOLUM-II-DJ.md`).

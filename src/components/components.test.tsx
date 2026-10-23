@@ -22,6 +22,11 @@ const backend = vi.hoisted(() => ({
   libraryFailure: null as string | null,
   tracks: [] as import("../lib/backend").LibraryTrack[],
   search: vi.fn(),
+  albums: [] as import("../lib/backend").LibraryAlbum[],
+  albumTracks: vi.fn(),
+  pickImage: vi.fn(),
+  setAlbumCover: vi.fn(),
+  clearAlbumCover: vi.fn(),
   addFolder: vi.fn(),
   removeFolder: vi.fn(),
   pickFolder: vi.fn(),
@@ -184,6 +189,15 @@ vi.mock("../lib/backend", async (importOriginal) => {
       if (backend.libraryFailure) throw backend.libraryFailure;
       return backend.tracks;
     },
+    libraryAlbums: async () => backend.albums,
+    pickImage: async () => backend.pickImage() ?? null,
+    setAlbumCover: async (album: string, artist: string | null, path: string) =>
+      backend.setAlbumCover(album, artist, path),
+    clearAlbumCover: async (album: string, artist: string | null) =>
+      backend.clearAlbumCover(album, artist),
+    getAlbumCover: async () => null,
+    libraryAlbumTracks: async (album: string, artist: string | null) =>
+      backend.albumTracks(album, artist) ?? [],
     pickFolder: async () => backend.pickFolder(),
     pickAudioFiles: async (extensions: string[]) => backend.pickFiles(extensions),
     addLibraryFolder: async (path: string) => {
@@ -394,6 +408,7 @@ beforeEach(() => {
   backend.library = null;
   backend.libraryFailure = null;
   backend.tracks = [];
+  backend.albums = [];
   backend.drag = null;
   backend.dragFailure = null;
   backend.dropOutcome = null;
@@ -652,6 +667,7 @@ describe("kütüphane", () => {
     title,
     artist: "Şebnem Ferah",
     album: "Kelimeler",
+    albumArtist: null,
     trackNumber: id,
     durationSecs: 200,
     codec: "flac",
@@ -1195,6 +1211,66 @@ describe("kütüphane", () => {
     backend.open.mockClear();
     await act(async () => fireEvent.keyDown(remove, { key: "Enter" }));
     expect(backend.open).not.toHaveBeenCalled();
+  });
+
+  it("albümler görünümü: kapak ızgarası; albüme tıklayınca baştan çalar", async () => {
+    backend.desktop = true;
+    backend.library = library;
+    backend.tracks = [song(1, "Mayın Tarlası"), song(2, "Bir Kedi Gördüm")];
+    backend.albums = [
+      {
+        name: "Kelimeler",
+        artist: "Şebnem Ferah",
+        trackCount: 2,
+        durationSecs: 400,
+        coverPath: backend.tracks[0]!.path,
+        bpm: 128,
+        key: "8A",
+      },
+    ];
+    backend.albumTracks.mockReturnValue([backend.tracks[0]!.path, backend.tracks[1]!.path]);
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Albümler" })));
+    expect(screen.getByRole("heading", { name: /Albümler/ })).toHaveTextContent("1 albüm");
+    expect(screen.getByRole("button", { name: "Şarkılar" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    // Şarkı tablosu gizli, albüm kartı görünür.
+    expect(screen.queryByRole("grid")).not.toBeInTheDocument();
+    const card = await screen.findByRole("button", { name: /Kelimeler/ });
+    expect(card).toHaveTextContent("Şebnem Ferah · 2 şarkı · 7 dk");
+
+    // Kullanıcı kendi kapağını seçebilir: kopyası Lyraska'da saklanır; kaldırılabilir.
+    backend.pickImage.mockReturnValue("C:\\Resimler\\kapak.jpg");
+    await act(async () => fireEvent.click(screen.getByLabelText("Kapak seçenekleri: Kelimeler")));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Kapak seç…" })));
+    await waitFor(() =>
+      expect(backend.setAlbumCover).toHaveBeenCalledWith(
+        "Kelimeler",
+        "Şebnem Ferah",
+        "C:\\Resimler\\kapak.jpg",
+      ),
+    );
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Seçtiğim kapağı kaldır" })),
+    );
+    expect(backend.clearAlbumCover).toHaveBeenCalledWith("Kelimeler", "Şebnem Ferah");
+    // Kapak menüsü albümü çalmaz.
+    expect(backend.albumTracks).not.toHaveBeenCalled();
+
+    // DJ görünümü düğmesi yalnızca şarkılarda (albümlerde işe yaramaz).
+    expect(screen.queryByRole("button", { name: "DJ görünümü" })).not.toBeInTheDocument();
+
+    // Çift tık albümü iki kez başlatmaz.
+    await act(async () => {
+      fireEvent.click(card);
+      fireEvent.click(card);
+    });
+    expect(backend.albumTracks).toHaveBeenCalledTimes(1);
+    expect(backend.albumTracks).toHaveBeenCalledWith("Kelimeler", "Şebnem Ferah");
+    await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(backend.tracks[0]!.path));
   });
 
   it("arama kutusuna yazılanla arar ve klasör kaldırılabilir", async () => {

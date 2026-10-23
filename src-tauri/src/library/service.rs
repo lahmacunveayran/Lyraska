@@ -11,7 +11,7 @@ use crate::audio::decode::Decoder;
 
 use super::db::MAX_RESULTS;
 use super::scan::{self, ScanProgress, ScanState};
-use super::{path_covers, FolderRow, Library, LibraryError, TrackRow};
+use super::{path_covers, AlbumRow, FolderRow, Library, LibraryError, TrackRow};
 
 /// Arayüzün gösterdiği kütüphane durumu.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -144,6 +144,20 @@ impl LibraryService {
 
     pub fn search(&self, query: &str, limit: Option<usize>) -> Result<Vec<TrackRow>, LibraryError> {
         self.lock()?.search(query, limit.unwrap_or(MAX_RESULTS))
+    }
+
+    /// Albümler (arama [`Self::search`] gibi süzer).
+    pub fn albums(&self, query: &str) -> Result<Vec<AlbumRow>, LibraryError> {
+        self.lock()?.albums(query, MAX_RESULTS)
+    }
+
+    /// Albümün şarkıları, çalma sırasıyla.
+    pub fn album_tracks(
+        &self,
+        album: &str,
+        artist: Option<&str>,
+    ) -> Result<Vec<String>, LibraryError> {
+        self.lock()?.album_tracks(album, artist)
     }
 
     /// Kaynak ekler — bir klasör ya da tek bir şarkı — ve taramayı başlatır.

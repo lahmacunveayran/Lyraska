@@ -45,6 +45,8 @@ pub struct TrackRow {
     pub title: String,
     pub artist: Option<String>,
     pub album: Option<String>,
+    /// Albüm sanatçısı; albümler bununla (yoksa sanatçıyla) gruplanır.
+    pub album_artist: Option<String>,
     pub track_number: Option<u32>,
     pub duration_secs: Option<f64>,
     pub codec: String,
@@ -69,6 +71,9 @@ pub struct AlbumRow {
     pub duration_secs: f64,
     /// Kapak resminin okunacağı şarkı: albümün ilk şarkısı.
     pub cover_path: String,
+    /// İlk şarkının temposu ve tonu (Camelot): üretilen kapağın ailesi ve mürekkepleri.
+    pub bpm: Option<f64>,
+    pub key: Option<String>,
 }
 
 /// Kütüphanedeki bir sanatçı (albüm sanatçısı, yoksa sanatçı).
@@ -386,7 +391,7 @@ impl Library {
             (
                 format!(
                     "SELECT t.id, t.path, COALESCE(t.title, t.file_name), t.artist, t.album,
-                            t.track_number, t.duration_secs, t.codec, a.bpm,
+                            t.album_artist, t.track_number, t.duration_secs, t.codec, a.bpm,
                             a.path IS NOT NULL AND {FULLY_CURRENT},
                             CASE WHEN a.key_version = ?5 THEN a.camelot END
                      FROM tracks t LEFT {VALID_ANALYSIS_JOIN}"
@@ -396,7 +401,7 @@ impl Library {
         } else {
             (
                 "SELECT t.id, t.path, COALESCE(t.title, t.file_name), t.artist, t.album,
-                        t.track_number, t.duration_secs, t.codec, NULL, 0, NULL
+                        t.album_artist, t.track_number, t.duration_secs, t.codec, NULL, 0, NULL
                  FROM tracks t"
                     .to_owned(),
                 Vec::new(),
@@ -421,12 +426,13 @@ impl Library {
                 title: r.get(2)?,
                 artist: r.get(3)?,
                 album: r.get(4)?,
-                track_number: r.get(5)?,
-                duration_secs: r.get(6)?,
-                codec: r.get(7)?,
-                bpm: r.get(8)?,
-                analyzed: r.get(9)?,
-                key: r.get(10)?,
+                album_artist: r.get(5)?,
+                track_number: r.get(6)?,
+                duration_secs: r.get(7)?,
+                codec: r.get(8)?,
+                bpm: r.get(9)?,
+                analyzed: r.get(10)?,
+                key: r.get(11)?,
             })
         })?;
         Ok(rows.collect::<Result<_, _>>()?)
@@ -435,26 +441,60 @@ impl Library {
 
 impl Library {
     /// Albümler, sanatçı ve albüm adına göre sıralı. `query` boş değilse yalnızca şarkılarından
-    /// biri aramaya uyan albümler (arama kuralı [`Library::search`] ile aynı).
+    /// biri aramaya uyan albümler (arama kuralı [`Library::search`] ile aynı); sayı ve süre yine
+    /// bütün albümündür (kart tıklanınca çalınanla aynı).
     pub fn albums(&self, query: &str, limit: usize) -> Result<Vec<AlbumRow>, LibraryError> {
-        // SQLite'ta MIN() ile seçilen satırın öteki sütunları (path) o satırdan gelir.
-        let (filter, words) = search_filter(query, 1);
-        let sql = format!(
-            "SELECT album, COALESCE(album_artist, artist), COUNT(*),
-                    COALESCE(SUM(duration_secs), 0), path, MIN(sort_key)
-             FROM tracks WHERE album IS NOT NULL AND album <> ''{filter}
-             GROUP BY COALESCE(album_artist, artist), album
-             ORDER BY MIN(sort_key) LIMIT {}",
+        // Analiz önbelleği okunamıyorsa albümler tempo ve tonsuz listelenir ([`Library::search`]).
+        self.albums_with(query, limit, true)
+            .or_else(|_| self.albums_with(query, limit, false))
+    }
+
+    fn albums_with(
+        &self,
+        query: &str,
+        limit: usize,
+        with_analysis: bool,
+    ) -> Result<Vec<AlbumRow>, LibraryError> {
+        // SQLite'ta tek MIN() ile seçilen satırın öteki sütunları (path) o satırdan gelir; arama
+        // koşulu bu yüzden MIN/MAX değil SUM ile sayılır.
+        let versions: Vec<rusqlite::types::Value> = if with_analysis {
+            analysis_versions().into_iter().map(Into::into).collect()
+        } else {
+            Vec::new()
+        };
+        let (filter, words) = search_filter(query, versions.len() + 1);
+        let grouped = format!(
+            "SELECT album, COALESCE(album_artist, artist) AS who, COUNT(*) AS n,
+                    COALESCE(SUM(duration_secs), 0) AS dur, path, MIN(sort_key) AS first
+             FROM tracks WHERE album IS NOT NULL AND album <> ''
+             GROUP BY who, album HAVING SUM(CASE WHEN 1{filter} THEN 1 ELSE 0 END) > 0
+             ORDER BY first LIMIT {}",
             limit.min(MAX_RESULTS)
         );
+        let sql = if with_analysis {
+            format!(
+                "SELECT g.album, g.who, g.n, g.dur, g.path, a.bpm,
+                        CASE WHEN a.key_version = ?5 THEN a.camelot END
+                 FROM ({grouped}) g JOIN tracks t ON t.path = g.path LEFT {VALID_ANALYSIS_JOIN}
+                 ORDER BY g.first"
+            )
+        } else {
+            format!("SELECT album, who, n, dur, path, NULL, NULL FROM ({grouped}) ORDER BY first")
+        };
         let mut stmt = self.conn.prepare(&sql)?;
-        let rows = stmt.query_map(params_from_iter(words.iter()), |r| {
+        let values: Vec<rusqlite::types::Value> = versions
+            .into_iter()
+            .chain(words.into_iter().map(Into::into))
+            .collect();
+        let rows = stmt.query_map(params_from_iter(values.iter()), |r| {
             Ok(AlbumRow {
                 name: r.get(0)?,
                 artist: r.get(1)?,
                 track_count: r.get(2)?,
                 duration_secs: r.get(3)?,
                 cover_path: r.get(4)?,
+                bpm: r.get(5)?,
+                key: r.get(6)?,
             })
         })?;
         Ok(rows.collect::<Result<_, _>>()?)
@@ -480,6 +520,23 @@ impl Library {
                 cover_path: r.get(3)?,
             })
         })?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+}
+
+impl Library {
+    /// Albümün şarkılarının yolları, çalma sırasıyla (disk, parça). Albüm [`Library::albums`]
+    /// gibi albüm sanatçısı (yoksa sanatçı) ve adıyla bulunur; sanatçısız albümde `artist` boş.
+    pub fn album_tracks(
+        &self,
+        album: &str,
+        artist: Option<&str>,
+    ) -> Result<Vec<String>, LibraryError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT path FROM tracks WHERE album = ?1 AND COALESCE(album_artist, artist) IS ?2
+             ORDER BY sort_key",
+        )?;
+        let rows = stmt.query_map(rusqlite::params![album, artist], |r| r.get(0))?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
 }
@@ -1086,6 +1143,113 @@ mod tests {
             (1, false)
         );
         assert_eq!((get("/bos").track_count, get("/bos").single), (0, false));
+    }
+
+    #[test]
+    fn albumler_ve_albumun_sarkilari_ayni_gruplamayi_kullanir() {
+        let mut lib = Library::open_in_memory().unwrap();
+        let folder = lib.add_folder("/m").unwrap();
+        let with_album_artist = |path: &str, artist: &str, no: u32| {
+            let mut t = track(path, Some(path), Some(artist), Some("Derleme"), Some(no));
+            t.album_artist = Some("Çeşitli".to_owned());
+            (t, STAMP)
+        };
+        lib.apply_changes(
+            folder.id,
+            &[
+                // Derleme: albüm sanatçısı var, şarkıların sanatçıları farklı.
+                with_album_artist("/m/d2.flac", "Ece", 2),
+                with_album_artist("/m/d1.flac", "Bora", 1),
+                // Sanatçısız albüm.
+                (
+                    track("/m/s1.flac", Some("Sessiz"), None, Some("Adsız"), Some(1)),
+                    STAMP,
+                ),
+                (
+                    track("/m/s2.flac", Some("Rüzgâr"), None, Some("Adsız"), Some(2)),
+                    STAMP,
+                ),
+            ],
+            &[],
+        )
+        .unwrap();
+        let albums = lib.albums("", 10).unwrap();
+        assert_eq!(albums.len(), 2);
+        for album in &albums {
+            let paths = lib
+                .album_tracks(&album.name, album.artist.as_deref())
+                .unwrap();
+            assert_eq!(paths.len() as u32, album.track_count, "{}", album.name);
+            assert_eq!(paths[0], album.cover_path, "kapak ilk şarkıdan");
+        }
+        let derleme = albums.iter().find(|a| a.name == "Derleme").unwrap();
+        assert_eq!(derleme.artist.as_deref(), Some("Çeşitli"));
+        assert_eq!(
+            lib.album_tracks("Derleme", Some("Çeşitli")).unwrap()[0],
+            "/m/d1.flac"
+        );
+        // Şarkılarda albüm sanatçısı da gelir (çalan albüm böyle bulunur).
+        let tracks = lib.search("ece", 10).unwrap();
+        assert_eq!(tracks[0].album_artist.as_deref(), Some("Çeşitli"));
+
+        // Arama yalnızca hangi albümlerin görüneceğini seçer; sayı ve süre bütün albümün.
+        let found = lib.albums("rüzgar", 10).unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!((found[0].name.as_str(), found[0].track_count), ("Adsız", 2));
+        assert!((found[0].duration_secs - 400.0).abs() < 1e-9);
+        // Analizi olmayan albümün tempo ve tonu yok.
+        assert_eq!((found[0].bpm, found[0].key.as_deref()), (None, None));
+    }
+
+    #[test]
+    fn albumun_tempo_ve_tonu_ilk_sarkinin_gecerli_analizinden_gelir() {
+        let lib = sample();
+        let album = |lib: &Library| lib.albums("", 10).unwrap()[0].clone();
+        assert_eq!((album(&lib).bpm, album(&lib).key), (None, None));
+        let v = VERSIONS;
+        lib.conn
+            .execute(
+                "INSERT INTO analyses
+                     (path, file_size, modified, version, frames, bpm, levels, meters, onset,
+                      spectrum_version, rhythm_version, loudness_version, bass_version,
+                      key_version, camelot)
+                 VALUES (?1, ?2, ?3, 6, 0, 128.0, x'', x'', x'', ?4, ?5, ?6, ?7, ?8, '8A')",
+                params![
+                    album(&lib).cover_path,
+                    STAMP.size as i64,
+                    STAMP.modified,
+                    v.spectrum,
+                    v.rhythm,
+                    v.loudness,
+                    v.bass,
+                    v.key
+                ],
+            )
+            .unwrap();
+        assert_eq!(
+            (album(&lib).bpm, album(&lib).key.as_deref()),
+            (Some(128.0), Some("8A"))
+        );
+        // Önbellek okunamıyorsa albümler yine listelenir (tempo ve tonsuz); arama da çalışır.
+        lib.execute_for_test("DROP TRIGGER analyses_follow_tracks; DROP TABLE analyses;");
+        assert_eq!((album(&lib).bpm, album(&lib).key), (None, None));
+        assert_eq!(lib.albums("kelime", 10).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn albumun_sarkilari_calma_sirasiyla_gelir() {
+        let lib = sample();
+        let album = &lib.albums("", 10).unwrap()[0];
+        let paths = lib
+            .album_tracks(&album.name, album.artist.as_deref())
+            .unwrap();
+        assert_eq!(paths.len() as u32, album.track_count);
+        // Parça numarası sırası (a = 1, b = 2), eklenme sırası değil.
+        assert_eq!(paths[0], "/muzik/a.flac");
+        assert!(lib
+            .album_tracks(&album.name, Some("Başka"))
+            .unwrap()
+            .is_empty());
     }
 
     #[test]

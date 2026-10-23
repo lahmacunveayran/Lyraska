@@ -64,6 +64,24 @@
   --key-10: #6fe358;
   --key-11: #58e386;
   --key-12: #58e3cc;
+  /* Baskı kapakları (kapağı olmayan albümler): Camelot zincirindeki 12 mürekkep, kâğıtlar */
+  --print-ink-1: #1e1c1b;
+  --print-ink-2: #2b3f78;
+  --print-ink-3: #1f5a6b;
+  --print-ink-4: #2e7c6c;
+  --print-ink-5: #6a6a2f;
+  --print-ink-6: #c79e2a;
+  --print-ink-7: #cf5a2e;
+  --print-ink-8: #c9473e;
+  --print-ink-9: #7a2b3b;
+  --print-ink-10: #5a3b6b;
+  --print-ink-11: #6e7b85;
+  --print-ink-12: #8a5a3c;
+  --print-paper-cream: #f0eadc;
+  --print-paper-bone: #e6dfce;
+  --print-paper-coal: #1c1d22;
+  --print-paper-navy: #172033;
+  --print-white: #ece6d6;
 
   /* VFD (vakumlu floresan ekran) renkleri */
   --vfd: #6cf6df;
@@ -2761,6 +2779,10 @@ kbd {
   background: var(--well);
 }
 
+.library__table[hidden] {
+  display: none;
+}
+
 .library__row {
   position: absolute;
   top: 0;
@@ -2857,7 +2879,235 @@ kbd {
 }
 
 .library__add {
+  margin-left: auto;
   border-color: var(--library-accent);
+}
+
+/* DJ görünümü düğmesi varsa (Şarkılar) sağa o yaslar. */
+.library__toggle ~ .library__add {
+  margin-left: 0;
+}
+
+/* Görünüm seçici: Şarkılar · Albümler */
+.library__views {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.library__view {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.library__view:hover {
+  color: var(--ink);
+}
+
+.library__view.is-on {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Albümler: kapak ızgarası */
+.library__albums {
+  flex: 1;
+  min-height: 0;
+  margin-top: 14px;
+  overflow-y: auto;
+}
+
+.albums {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 28px 22px;
+  margin: 0;
+  padding: 4px 4px 24px;
+  list-style: none;
+}
+
+.album {
+  content-visibility: auto;
+  contain-intrinsic-size: 180px 250px;
+}
+
+.album__button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.album__cover {
+  aspect-ratio: 1;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.5);
+}
+
+.album__cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.album__play {
+  position: absolute;
+  right: 10px;
+  top: calc(100% - 96px);
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--ink-dark);
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.album__play svg {
+  width: 16px;
+  height: 16px;
+}
+
+.album__button:hover .album__play,
+.album__button:focus-visible .album__play {
+  opacity: 1;
+  transform: none;
+}
+
+.album__button:focus-visible {
+  outline: 2px solid var(--ink-2);
+  outline-offset: 4px;
+}
+
+.album__button.is-current .album__cover {
+  box-shadow:
+    0 0 0 2px var(--library-accent),
+    0 14px 28px rgba(0, 0, 0, 0.5);
+}
+
+.album {
+  position: relative;
+}
+
+/* Kapak menüsü: kartın üstüne gelince (ya da klavye odağında) görünür. */
+.album__menu {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.album:hover .album__menu,
+.album__menu:focus-within,
+.album__menu[open] {
+  opacity: 1;
+}
+
+.album__menu summary {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--library-menu);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  list-style: none;
+}
+
+.album__menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.album__menu-list {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 6px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 10px;
+  background: var(--library-menu);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+}
+
+.album__menu-list button {
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.album__menu-list button:hover,
+.album__menu-list button:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .album__menu {
+    transition: none;
+  }
+}
+
+.album__name {
+  margin-top: 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 650;
+  font-stretch: 94%;
+}
+
+.album__meta {
+  margin-top: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--font-figures);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .album__play {
+    transition: none;
+    transform: none;
+  }
 }
 
 /* Sıralanabilen sütun başlıkları */

@@ -130,6 +130,9 @@ vardır (`check:docs`; avenoxbeyin'den alınan fikir, 23 Ekim 2026): sınır aş
   ("La minör"); Camelot yalnızca "DJ görünümü" seçeneğinde. Yazılar: başlık **Bricolage Grotesque**, şarkı listesi
   **Martian Mono**, sayılar JetBrains Mono (Fraunces, Inter kalın/ince, Unbounded, Instrument Serif reddedildi).
   Tek vurgu rengi pembe `#FF5A88`, az kullanılır. Yıldız verisi: HYG v4 + Stellarium modern (CC BY-SA 4.0, atıfla).
+- **Albüm kapağını kullanıcı seçebilir** (23 Ekim 2026): seçilen resmin kopyası Lyraska'nın veri klasöründe
+  (`kapaklar/`) tutulur; müzik dosyalarına ve klasörlerine dokunulmaz (sahibinin seçimi). Sıra: seçilen kapak →
+  şarkıdaki kapak → yandaki resim → baskı kapağı.
 - **Kutucuk yok:** her klasör ya da tek eklenen şarkı için ayrı "çip" sahibi tarafından reddedildi. Kaynaklar
   başlığın yanında tek düğmede; tek tek eklenenler tek satır, seçilince liste süzülür; kaldırma önce sorar.
 - Görsel tasarımda sahibi zor beğenir: seçenekleri gerçek boyutta, yan yana görsel olarak sun; bağımsız sanat
