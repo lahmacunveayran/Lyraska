@@ -65,6 +65,9 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 - Ayrıca: bir klasörü bırakın (kütüphaneye eklenir, taranır); bir `.txt` ya da `.wma` bırakın (anlaşılır bir "bu tür
   desteklenmiyor" mesajı).
 - Olmadıysa: hata günlüğünü gönderin; içinde "Pencereye … öğe bırakıldı" satırı olup olmadığı nedeni gösterir.
+- 0.0.62'de arayüzün izinleri daraltıldı (yalnızca olay dinleme ve dosya seçme penceresi): bu deneme 0.0.62 ile
+  yeniden yapılmalı. Ekolayzer ve şarkı haritasını "Dosyaya kaydet" de denensin (kaydetme penceresini artık çekirdek
+  açıyor).
 
 **A3. Tek şarkı eklemek hızlı (0.0.33)**
 
