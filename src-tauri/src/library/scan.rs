@@ -9,13 +9,14 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 
 use serde::Serialize;
 use walkdir::WalkDir;
 
 use super::db::FileStamp;
 use super::{FolderRow, Library, LibraryError};
+use crate::analysis::background::CrashGuard;
 use crate::audio::decode::{Decoder, TrackInfo, SUPPORTED_EXTENSIONS};
 
 /// Veritabanına tek işlemde yazılan şarkı sayısı.
@@ -33,6 +34,8 @@ pub struct ScanState {
     /// Yalnızca süren klasörün taraması durdurulsun (kaynak kütüphaneden çıkarıldı).
     cancel_folder: AtomicBool,
     current: Mutex<Option<String>>,
+    /// Çökme döngüsü koruması ve önceki açılışlarda programı kapatmış (atlanacak) dosyalar.
+    guard: OnceLock<(CrashGuard, HashSet<(PathBuf, FileStamp)>)>,
 }
 
 /// Tarama durumunun anlık görüntüsü.
@@ -81,6 +84,17 @@ impl ScanState {
 
     pub fn is_scanning(&self) -> bool {
         self.scanning.load(Ordering::Acquire)
+    }
+
+    /// Çökme döngüsü korumasını kurar (taramadan önce, bir kez). Sürüm derlemesi panikte kapanır:
+    /// etiketi okunurken programı kapatan bir dosya kütüphane klasöründe kalsaydı program her
+    /// açılışta aynı dosyada yeniden kapanırdı. İki kez kapatan dosya atlanır; döner: atlananlar.
+    pub fn set_crash_guard(&self, guard: CrashGuard) -> Vec<PathBuf> {
+        let skip = guard.recover();
+        let mut skipped: Vec<PathBuf> = skip.iter().map(|(path, _)| path.clone()).collect();
+        skipped.sort();
+        let _ = self.guard.set((guard, skip));
+        skipped
     }
 
     /// Süren taramayı durdurur (program kapanırken).
@@ -193,7 +207,9 @@ pub fn scan_folder(
     let next = AtomicUsize::new(0);
     let (tx, rx) = mpsc::channel::<Option<(TrackInfo, FileStamp)>>();
     let write_result = std::thread::scope(|scope| {
-        for _ in 0..workers {
+        // Her işçi korumanın kendi yuvasına yazar (1'den başlar; 0 arka plan analizininki gibi tek).
+        let guard = state.guard.get();
+        for slot in 1..=workers {
             let tx = tx.clone();
             let (next, to_read) = (&next, &to_read);
             scope.spawn(move || loop {
@@ -206,7 +222,16 @@ pub fn scan_folder(
                 let Some((path, stamp)) = to_read.get(i) else {
                     break;
                 };
-                let info = Decoder::open(path).ok().map(|d| (d.info().clone(), *stamp));
+                let info = match guard {
+                    Some((_, skip)) if skip.contains(&(path.clone(), *stamp)) => None,
+                    Some((guard, _)) => {
+                        guard.begin_slot(slot, path, *stamp);
+                        let info = Decoder::open(path).ok().map(|d| (d.info().clone(), *stamp));
+                        guard.end_slot(slot);
+                        info
+                    }
+                    None => Decoder::open(path).ok().map(|d| (d.info().clone(), *stamp)),
+                };
                 if tx.send(info).is_err() {
                     break;
                 }
@@ -372,6 +397,51 @@ mod tests {
         let found = lib.search("deneme albümü", 10).unwrap();
         assert_eq!(found.len(), 4);
         assert!(found.iter().all(|t| t.title == "Üç Ton"));
+    }
+
+    #[test]
+    fn programi_iki_kez_kapatan_dosya_atlanir_degisince_yeniden_denenir() {
+        let (library, folder, dir) = setup();
+        let traces = temp_path("tarama-izleri");
+        std::fs::create_dir_all(&traces).unwrap();
+        let culprit = dir.join("uc-uc-ton.ogg");
+        let meta = std::fs::metadata(&culprit).unwrap();
+        let stamp = FileStamp::of_metadata(&meta);
+        // İki açılışta da tarama bu dosyayı okurken program kapandı (iz kaldı).
+        let guard = CrashGuard::named(traces.clone(), "tarama");
+        guard.begin_slot(3, &culprit, stamp);
+        assert!(guard.recover().is_empty(), "bir kez yetmez");
+        guard.begin_slot(2, &culprit, stamp);
+
+        let state = ScanState::default();
+        let skipped = state.set_crash_guard(CrashGuard::named(traces.clone(), "tarama"));
+        assert_eq!(skipped, vec![culprit.clone()]);
+        let summary = scan_folder(&library, &folder, &state).unwrap();
+        assert_eq!(summary.updated, 3, "atlanan dosya okunmaz");
+        assert_eq!(library.lock().unwrap().track_count().unwrap(), 3);
+        // Düzgün okunan dosyalar iz bırakmaz.
+        let left: Vec<_> = std::fs::read_dir(&traces)
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .starts_with("tarama-suruyor")
+            })
+            .collect();
+        assert!(left.is_empty());
+
+        // Dosya değişti (başka damga): yeniden denenir.
+        std::fs::File::options()
+            .write(true)
+            .open(&culprit)
+            .unwrap()
+            .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000))
+            .unwrap();
+        let state = ScanState::default();
+        state.set_crash_guard(CrashGuard::named(traces, "tarama"));
+        let again = scan_folder(&library, &folder, &state).unwrap();
+        assert_eq!(again.updated, 1);
     }
 
     #[test]

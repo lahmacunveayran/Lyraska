@@ -94,8 +94,15 @@ pub fn run() {
             };
             app.manage(commands::BigDataDir(big.clone()));
             // Kütüphane açılır açılmaz arka planda güncellenir.
+            // Etiketi okunurken programı kapatan dosya her açılışta yeniden kapatmasın.
             let service = big.clone().and_then(|dir| {
                 library::LibraryService::open_checked(&dir.join("library.sqlite3"), unclean)
+                    .map(|service| {
+                        service.with_crash_guard(analysis::background::CrashGuard::named(
+                            dir.clone(),
+                            "tarama",
+                        ))
+                    })
                     .map_err(|e| e.to_string())
             });
             match &service {
