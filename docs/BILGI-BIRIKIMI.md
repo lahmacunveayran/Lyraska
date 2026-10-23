@@ -84,6 +84,14 @@ vardır (`check:docs`; avenoxbeyin'den alınan fikir, 23 Ekim 2026): sınır aş
   çözülen sesle örnek örnek karşılaştırılarak yapılır.
 - GLSL kaynakları TypeScript şablon metni içindeyse yorumlarda ters tırnak işareti kullanılmaz; şablon metnini kapatır.
 
+- **Dosya türü içinden tanınır, uzantısından değil** (23 Ekim 2026): sahibi yt-dlp'nin `.webm`'lerini elle `.opus`
+  yaptı; içi Matroska kaldı, uzantıya bakan kod ön boşluğu iki kez attı (6 ms) ve sarma kaydı. EBML imzası
+  (`1A 45 DF A3`) okunur; uzantı yalnızca dosya okunamazsa yedek.
+- **Kapak yalnızca dosyanın içinde değildir:** `.webm` kapak taşıyamaz; yt-dlp kapağı yanına `Şarkı.opus.webp`
+  adıyla yazar. Gömülü kapak yoksa yandaki resim (`Şarkı.jpg`, `Şarkı.opus.webp`, `cover.jpg`…) okunur.
+- **Sahibine dosya silen betik verilmez** (ya da önce işin başarısı denetlenir): başka bir sohbetin verdiği kapak
+  gömme betiği ffmpeg hata verince yarım çıktıyı başarı sanıp sahibinin orijinal şarkılarını sildi.
+
 ## 6. Lisans dersleri
 
 - "Ticari kullanım yasak" (NC) lisanslar GPL-3.0 ile çelişir (GPL satma hakkı da verir); program ücretsiz olsa da

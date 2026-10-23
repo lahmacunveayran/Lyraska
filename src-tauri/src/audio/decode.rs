@@ -129,7 +129,7 @@ impl Decoder {
             .ok_or(AudioError::NoAudioTrack)?
             .clone();
 
-        let is_matroska = has_extension(path, MATROSKA_EXTENSIONS);
+        let is_matroska = is_matroska_file(path);
         let opus = params.codec == CODEC_ID_OPUS;
         // Opus'un baştaki ön boşluğu (pre-skip): Ogg'da onu çözücü değil biz atarız (boşluksuz
         // çalma dolgusu gibi, aşağıda `trim`); çözücü yalnızca ilk çözdüğü pakette attığı için
@@ -642,6 +642,21 @@ fn media_duration(format: &dyn FormatReader) -> Option<u64> {
 }
 
 /// Uzantı listede mi? (Büyük/küçük harf fark etmez.)
+/// Matroska/WebM mı? Önce dosyanın ilk baytlarına (EBML imzası) bakılır: uzantısı elle
+/// değiştirilmiş dosya (ör. yt-dlp'nin `.webm`'i `.opus` diye yeniden adlandırılmış) da doğru
+/// tanınır. Okunamazsa uzantıya bakılır.
+fn is_matroska_file(path: &Path) -> bool {
+    use std::io::Read;
+    let mut magic = [0u8; 4];
+    match std::fs::File::open(path).and_then(|mut f| f.read_exact(&mut magic)) {
+        Ok(()) => magic == EBML_MAGIC,
+        Err(_) => has_extension(path, MATROSKA_EXTENSIONS),
+    }
+}
+
+/// EBML başlığının kimliği: her Matroska/WebM dosyası bununla başlar.
+const EBML_MAGIC: [u8; 4] = [0x1A, 0x45, 0xDF, 0xA3];
+
 fn has_extension(path: &Path, list: &[&str]) -> bool {
     path.extension()
         .and_then(|e| e.to_str())
@@ -734,9 +749,59 @@ impl Cover {
     }
 }
 
-/// Dosyanın içindeki kapak resmini okur (ID3, FLAC, MP4, Vorbis…): ön kapak öncelikli,
-/// yoksa ilk resim. Ses çözülmez. Resim olmayan ya da çok büyük veri atlanır.
+/// Şarkının kapağı: önce dosyanın içindeki resim ([`embedded_cover`]), yoksa yanındaki resim
+/// dosyası ([`sidecar_cover`]). İçine kapak gömülemeyen biçimler (ör. `.webm`) ve kapağı ayrı
+/// indirilen şarkılar da böylece kapak alır.
 pub fn read_cover(path: &Path) -> Result<Option<Cover>, AudioError> {
+    match embedded_cover(path)? {
+        Some(cover) => Ok(Some(cover)),
+        None => Ok(sidecar_cover(path)),
+    }
+}
+
+/// Şarkıyla aynı adı taşıyan resimler ("Şarkı.opus" → "Şarkı.jpg"), sonra klasörün kapağı.
+const SIDECAR_EXTENSIONS: [&str; 5] = ["jpg", "jpeg", "png", "webp", "gif"];
+const FOLDER_COVERS: [&str; 4] = ["cover", "folder", "front", "album"];
+
+/// Şarkının yanındaki kapak resmi: önce aynı adlı resim ("Şarkı.jpg" ya da yt-dlp'nin
+/// "Şarkı.opus.webp" adı), sonra klasördeki `cover`, `folder`, `front` ya da `album` resmi. Yalnızca gerçekten resim olan ve çok büyük olmayan dosya.
+pub fn sidecar_cover(path: &Path) -> Option<Cover> {
+    let dir = path.parent()?;
+    let stem = path.file_stem()?;
+    let file_name = path.file_name()?;
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    let mut add = |name: &std::ffi::OsStr| {
+        for ext in SIDECAR_EXTENSIONS {
+            // Adın kendisinde nokta olabilir ("Şarkı (ft. X)"): uzantı değiştirilmez, eklenir.
+            // Windows'ta büyük/küçük harf fark etmez; öteki sistemlerde iki yazılış denenir.
+            for ext in [ext.to_owned(), ext.to_ascii_uppercase()] {
+                let mut file = name.to_os_string();
+                file.push(".");
+                file.push(ext);
+                candidates.push(dir.join(file));
+            }
+        }
+    };
+    add(stem);
+    // yt-dlp kapağı dosyanın tam adına uzantı ekleyerek yazar ("Şarkı.opus.webp").
+    add(file_name);
+    for name in FOLDER_COVERS {
+        add(std::ffi::OsStr::new(name));
+    }
+    candidates.into_iter().find_map(|candidate| {
+        let size = std::fs::metadata(&candidate).ok()?.len();
+        if !candidate.is_file() || size > MAX_COVER_BYTES as u64 {
+            return None;
+        }
+        let data = std::fs::read(&candidate).ok()?;
+        let media_type = image_type(&data)?;
+        Some(Cover { media_type, data })
+    })
+}
+
+/// Dosyanın içindeki kapak resmini okur (ID3, FLAC, MP4, Vorbis, Opus…): ön kapak öncelikli,
+/// yoksa ilk resim. Ses çözülmez. Resim olmayan ya da çok büyük veri atlanır.
+pub fn embedded_cover(path: &Path) -> Result<Option<Cover>, AudioError> {
     let mut format = probe(path)?;
     let mut metadata = format.metadata();
     let Some(revision) = metadata.skip_to_latest() else {
@@ -1022,6 +1087,13 @@ mod tests {
     /// Kapak testleri için küçük "resimler" (yalnızca ilk baytları gerçek; tür bunlardan tanınır).
     const PNG: &[u8] = b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR-kapak";
     const JPEG: &[u8] = &[0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, b'J', b'F', b'I', b'F'];
+    const WEBP: &[u8] = b"RIFF\x10\x00\x00\x00WEBPVP8 kapak";
+
+    fn fixture_named(name: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/data")
+            .join(name)
+    }
 
     fn fixture(ext: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -1117,6 +1189,68 @@ mod tests {
         );
         assert!(Decoder::open(&path).is_ok());
         std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn uzantisi_opus_yapilmis_webm_webm_gibi_cozulur() {
+        // yt-dlp'nin .webm dosyası elle .opus diye yeniden adlandırılınca içi hâlâ Matroska'dır;
+        // uzantıya bakılsaydı ön boşluk iki kez atılır, sarma yanlış yere düşerdi.
+        let renamed = temp_path("yeniden-adli.opus");
+        std::fs::copy(fixture("webm"), &renamed).unwrap();
+        let decode_all = |path: &Path| {
+            let mut decoder = Decoder::open(path).unwrap();
+            let mut out = Vec::new();
+            while let Some(chunk) = decoder.next_chunk().unwrap() {
+                out.extend_from_slice(chunk);
+            }
+            (decoder.info().duration_secs, out)
+        };
+        let (dur_webm, webm) = decode_all(&fixture("webm"));
+        let (dur_renamed, renamed_samples) = decode_all(&renamed);
+        assert_eq!(dur_renamed, dur_webm);
+        assert_eq!(renamed_samples.len(), webm.len());
+        assert!(renamed_samples == webm, "örnekler aynı olmalı");
+        assert!(is_matroska_file(&renamed));
+        assert!(!is_matroska_file(&fixture("opus")));
+        std::fs::remove_file(renamed).ok();
+    }
+
+    #[test]
+    fn opus_icine_gomulu_kapak_okunur() {
+        // yt-dlp --embed-thumbnail'in yaptığı gibi: OpusTags içinde METADATA_BLOCK_PICTURE.
+        let cover = read_cover(&fixture_named("kapakli.opus")).unwrap().unwrap();
+        assert_eq!(cover.media_type, "image/png");
+    }
+
+    #[test]
+    fn kapak_yoksa_yanindaki_resim_okunur() {
+        let dir = temp_path("yan-kapak");
+        std::fs::create_dir_all(&dir).unwrap();
+        // Adında nokta olan şarkı: "Şarkı (ft. X).opus" → "Şarkı (ft. X).jpg".
+        let song = dir.join("Şarkı (ft. X).opus");
+        std::fs::copy(fixture("ogg"), &song).unwrap();
+        assert_eq!(read_cover(&song).unwrap(), None);
+
+        // Klasörün kapağı...
+        std::fs::write(dir.join("cover.png"), PNG).unwrap();
+        assert_eq!(read_cover(&song).unwrap().unwrap().data, PNG);
+        // ...ama şarkıyla aynı adlı resim önce gelir.
+        std::fs::write(dir.join("Şarkı (ft. X).jpg"), JPEG).unwrap();
+        let cover = read_cover(&song).unwrap().unwrap();
+        assert_eq!(
+            (cover.media_type, cover.data.as_slice()),
+            ("image/jpeg", JPEG)
+        );
+        // yt-dlp'nin adlandırması da tanınır ("Şarkı (ft. X).opus.webp").
+        std::fs::remove_file(dir.join("Şarkı (ft. X).jpg")).unwrap();
+        std::fs::write(dir.join("Şarkı (ft. X).opus.webp"), WEBP).unwrap();
+        assert_eq!(read_cover(&song).unwrap().unwrap().media_type, "image/webp");
+        std::fs::remove_file(dir.join("Şarkı (ft. X).opus.webp")).unwrap();
+        std::fs::write(dir.join("Şarkı (ft. X).jpg"), JPEG).unwrap();
+        // Resim olmayan dosya atlanır.
+        std::fs::write(dir.join("Şarkı (ft. X).jpg"), b"resim degil").unwrap();
+        assert_eq!(read_cover(&song).unwrap().unwrap().data, PNG);
+        std::fs::remove_dir_all(dir).ok();
     }
 
     #[test]
