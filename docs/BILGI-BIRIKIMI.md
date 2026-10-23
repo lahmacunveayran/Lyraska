@@ -40,6 +40,10 @@ Kalıcı bir kural hâline gelmesi gereken şey proje sahibine sorulup `CLAUDE.m
 - Taşıma: dal `origin/main`'den yeniden kurulur, iş `git cherry-pick` ile alınır. Sürüm çakışmasında `main`'in
   sürümü alınıp bir sonrakine yükseltilir (`package.json`, `package-lock.json` iki kök alan, `Cargo.toml`,
   `Cargo.lock`'taki `lyraska`). `Cargo.lock` cargo ile yeniden üretilir; `UCUNCU-TARAF.txt` `npm run notices` ile.
+- **Dışarıda (derleyicisiz) yazılan yamalar eski `main`'e göre yazılmış olabilir** (23 Ekim 2026, yama 0001):
+  `git apply --reject` ile uyan parçalar alınır, reddedilenler `main`'deki hâliyle karşılaştırılıp yalnızca eksik
+  kalan elle taşınır. `files/` kopyasını üstüne yazmak yeni işleri siler. Yamanın testleri `main`'deki testlerle
+  aynı adı taşıyabilir: silinmez, yeniden adlandırılır.
 - Başka oturumun devir notu (`docs/devlog/` aynı gün) okunur: sahibinin yeni kararları orada olabilir (ör. depo adı
   `lahmacunveayran/Lyraska` oldu, "kod imzası olmayacak").
 
@@ -87,6 +91,20 @@ Kalıcı bir kural hâline gelmesi gereken şey proje sahibine sorulup `CLAUDE.m
 - İşe yarayan GitHub repoları kullanılabilir; lisans kuralıyla birlikte.
 - YouTube'dan indirme (yt-dlp) önerilmedi (telif, çevrimdışı ilkesi, kalite); yasal "klasör izleme" önerildi;
   karar Faz 4 sonrasına kaldı.
-- **Kaynak ayrıştırma** (davul/bas/vokal) seçildi, Faz 5'te. Karar bekleniyor: Spleeter (ağırlıklar MIT,
-  kurulum +40–80 MB) ya da yapay zekâsız klasik yöntem.
+- **Kaynak ayrıştırma** (davul/bas/vokal): **Spleeter** seçildi (23 Ekim 2026; kod ve ağırlıklar MIT, kurulum
+  +40–80 MB, önceden arka planda hesaplanır). Uygulamadan önce ağırlık lisansı ve çalışma zamanı (ONNX) lisansı
+  birincil kaynaktan yeniden doğrulanır.
+- Sahibi Spleeter'ı "geliştirip daha iyi yapmak" istiyor (23 Ekim 2026). Yeniden eğitim yasal veriye bağlı (MUSDB18
+  NC, kullanılamaz); önce eğitimsiz iyileştirmeler (Wiener süzgeci, 16 kHz bant, analiz amaçlı kullanım) ölçülür.
+- **İş sırası (23 Ekim 2026):** yama 0001 (#105) → `.opus`/`.webm` → kütüphanenin baştan tasarımı (4 PR: çekirdek
+  sorguları ve gruplama; tam ekran kütüphane + Şarkılar; Albümler ve Sanatçılar; Klasörler ve uyarılar) → kaynak
+  ayrıştırma → Otomatik DJ (Bölüm II). Kütüphane kararı: **tam ekran**, arayüz baştan, çekirdek korunup iyileştirilir (veri ve analiz kaybı yok).
+- Görev kitabı `docs/gorev/00-CEKIRDEK.md`, `10-BOLUM-I.md`, `20-BOLUM-II-DJ.md` (dışarıda hazırlandı). Bölüm II
+  (Otomatik DJ) için sahibi onay verdi (23 Ekim 2026: "DJ işlerini de yap, gerekli hassasiyetle"); sırada en
+  sonda. Aşama A'dan başlar, her aşama ayrı oturumda; A–D ürün koduna dokunmaz, onay kapıları (K0, B0, tez seçimi,
+  çıkış modu, Aşama E uygulaması) atlanmaz.
+- **Geri bildirim (23 Ekim 2026):** drop gösterimi tam olmamış; kütüphane paneli "aşırı kötü", beğenilmedi
+  (yeniden tasarım gerekli). `.opus` ve `.webm` açılmalı (Faz 3b).
+- Sahibi "çok yıldızlı GitHub repolarını kullan" dedi (23 Ekim 2026): yıldız sayısı ölçüt değildir; her repo
+  lisans (AGPL/NC yok), çevrimdışı ilkesi ve gerçek bir ihtiyaca uygunlukla seçilir.
 - MilkDrop: programla hazır görsel dağıtılmaz; kullanıcı kendi `.milk` dosyalarını açar.

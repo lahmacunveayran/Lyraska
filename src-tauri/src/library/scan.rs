@@ -67,8 +67,9 @@ pub struct ScanSummary {
     /// Okunamayan (izin, ağ kopması, G/Ç hatası) alt klasör ya da dosya sayısı. Bunların
     /// altındaki bilinen şarkılar "silinmiş" sayılmaz: tarama onlara dokunmaz.
     pub unreadable: usize,
-    /// Kök okunabildiği halde bilinen şarkıların **hiçbiri** bulunamadı (çıkarılmış disk, bağlanmamış
-    /// ağ paylaşımı, boş görünen sürücü): bunlar silinmiş sayılmaz, kütüphanede kalır.
+    /// Kök okunabildiği halde bilinen şarkıların **hiçbiri** (en az 20 şarkılık kaynakta yarıdan
+    /// fazlası) bulunamadı (çıkarılmış disk, bağlanmamış ağ paylaşımı, sürücü harfini başka disk
+    /// almış): bunlar silinmiş sayılmaz, kütüphanede kalır (KUT-01).
     pub suspicious: usize,
 }
 
@@ -173,10 +174,10 @@ pub fn scan_folder(
     // Atlanan klasörlerin (geri dönüşüm kutusu vb.) altındaki eski kayıtlar da silinmez.
     let untouched: Vec<PathBuf> = unreadable.iter().chain(skipped.iter()).cloned().collect();
     let mut removed = removal_candidates(known.keys(), &on_disk, &untouched);
-    // Kütüphanede şarkı vardı ama diskte hiçbiri yok: büyük olasılıkla disk takılı ya da ağ
-    // paylaşımı bağlı değil. Hepsini silmek, geri gelince bütün kütüphaneyi (analizleriyle)
+    // Kütüphanede şarkı vardı ama diskte hiçbiri (büyük kaynakta çoğu) yok: büyük olasılıkla
+    // disk takılı değil, ağ paylaşımı bağlı değil ya da sürücü harfini başka disk aldı. Hepsini silmek, geri gelince bütün kütüphaneyi (analizleriyle)
     // baştan kurdurur; onun yerine hiçbirine dokunulmaz ve kullanıcıya söylenir.
-    let suspicious = if !known.is_empty() && removed.len() == known.len() {
+    let suspicious = if is_suspicious_removal(known.len(), removed.len()) {
         std::mem::take(&mut removed).len()
     } else {
         0
@@ -298,6 +299,13 @@ fn is_skipped_dir(entry: &walkdir::DirEntry) -> bool {
         && entry.file_name().to_str().is_some_and(|name| {
             name.starts_with('.') || SKIPPED_DIRS.iter().any(|s| s.eq_ignore_ascii_case(name))
         })
+}
+
+/// Silme kararı şüpheli mi? `known` bilinen, `missing` diskte bulunamayan şarkı sayısı.
+/// Hepsi yok görünüyorsa ya da (büyük kütüphanede, en az 20 şarkıda) yarıdan fazlası yok
+/// görünüyorsa şüphelidir. Küçük kütüphanede bir iki şarkının gerçekten silinmesi normaldir.
+fn is_suspicious_removal(known: usize, missing: usize) -> bool {
+    known > 0 && (missing == known || (known >= 20 && missing * 2 > known))
 }
 
 /// Klasördeki (alt klasörler dahil) desteklenen ses dosyaları ve damgaları; ikinci değer
@@ -581,6 +589,46 @@ mod tests {
             .into_keys()
             .collect();
         assert!(known.iter().all(|p| !p.contains("cop.mp3")), "{known:?}");
+    }
+
+    #[test]
+    fn supheli_silme_esigi() {
+        assert!(!is_suspicious_removal(0, 0));
+        assert!(!is_suspicious_removal(4, 1), "tek şarkı silindi: normal");
+        assert!(is_suspicious_removal(4, 4), "hepsi yok görünüyor");
+        assert!(
+            !is_suspicious_removal(10, 6),
+            "küçük kütüphanede çoğunluk eşiği yok"
+        );
+        assert!(is_suspicious_removal(20, 11), "büyük kütüphanede çoğu yok");
+        assert!(
+            !is_suspicious_removal(20, 10),
+            "tam yarısı şüpheli sayılmaz"
+        );
+    }
+
+    #[test]
+    fn klasor_yerinde_sarkilar_silinince_kutuphane_korunur() {
+        let (library, folder, dir) = setup();
+        let state = ScanState::default();
+        scan_folder(&library, &folder, &state).unwrap();
+        assert_eq!(library.lock().unwrap().track_count().unwrap(), 4);
+
+        // Klasör yerinde kalır ama bütün şarkılar yok olur (ör. sürücü harfini başka bir disk
+        // aldı ya da bölüm bağlı değil).
+        for name in ["uc-uc-ton.mp3", "uc-uc-ton.m4a", "uc-uc-ton.ogg"] {
+            std::fs::remove_file(dir.join(name)).unwrap();
+        }
+        std::fs::remove_file(dir.join("Alt Klasör/şarkı.FLAC")).unwrap();
+
+        let after = scan_folder(&library, &folder, &state).unwrap();
+        assert_eq!(after.removed, 0);
+        assert_eq!(after.suspicious, 4);
+        assert_eq!(
+            library.lock().unwrap().track_count().unwrap(),
+            4,
+            "şarkılar ve analizleri korunur"
+        );
     }
 
     #[test]

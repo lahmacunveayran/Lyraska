@@ -784,6 +784,12 @@ impl Player {
     /// Kilit altında bloklar; arayüz komutu bunun yerine [`Self::begin_transition`] →
     /// [`Self::prepare`] → [`Self::install`] üçlüsünü kullanır.
     pub fn load(&mut self, path: &Path, autoplay: bool) -> Result<TrackInfo, AudioError> {
+        // Açılamayan dosya çalan şarkıyı da susturmasın: yeni dosya önce yoklanır, eski oturum
+        // ancak yoklama başarılıysa kapanır. Çalan oturum yoksa mevcut yol izlenir (hata durumu
+        // gösterilir).
+        if self.session.is_some() {
+            Decoder::open(path)?;
+        }
         self.device_recoveries = 0;
         self.restart(path, autoplay, None)
     }
@@ -2113,6 +2119,32 @@ mod tests {
         // Oynatıcı bozulmaz: yeni komutlar sorunsuz çalışır.
         player.play().unwrap();
         player.stop().unwrap();
+    }
+
+    #[test]
+    fn acilamayan_dosya_calan_sarkiyi_susturmaz() {
+        let calan = ramp_song("n1-calan.wav");
+        let bozuk = temp_path("n1-bozuk.wav");
+        std::fs::write(&bozuk, [0u8; 64]).unwrap();
+        let mut player = Player::new();
+        player.load(&calan, false).unwrap();
+        player.seek(1.2).unwrap();
+        let before = player.status();
+
+        // Olmayan ve bozuk dosya: hata döner ama çalan oturum yerinde kalır.
+        for path in [Path::new("/olmayan/sarki.flac"), bozuk.as_path()] {
+            assert!(player.load(path, true).is_err());
+            let after = player.status();
+            assert_eq!(after.state, before.state);
+            assert!(after.error.is_none(), "{:?}", after.error);
+            assert_eq!(
+                after.track.as_ref().map(|t| &t.path),
+                before.track.as_ref().map(|t| &t.path)
+            );
+            assert!((after.position_secs - before.position_secs).abs() < 0.05);
+        }
+        std::fs::remove_file(calan).ok();
+        std::fs::remove_file(bozuk).ok();
     }
 
     /// Koşul sağlanana kadar (en fazla 5 sn) bekler.

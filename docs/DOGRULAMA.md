@@ -92,6 +92,50 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 - Nasıl: Arama kutusuna Türkçe harfsiz yazın (ör. "gulumse", "sarki").
 - Neye bakılır: "Gülümse", "Şarkı" gibi adlar bulunur.
 
+**A7. Açılamayan dosya sürüklenince dürüst mesaj (0.0.64)**
+
+- Nasıl: YouTube'dan indirdiğiniz bir `.webm` ya da `.opus` dosyasını (Opus kodekli) Lyraska penceresine
+  sürükleyin. Yanına bir MP3'ü de ekleyip ikisini birlikte bırakın.
+- Neye bakılır:
+  - MP3 kütüphaneye eklenir ve çalar.
+  - `.webm` için "... bu ses kodeği (ör. Opus) henüz desteklenmiyor" gibi, nedenini söyleyen bir uyarı çıkar;
+    **"eklendi" denmez** ve Kütüphane panelinde o dosya için boş bir kutucuk oluşmaz.
+- Olmadıysa: ekrandaki mesajı ve hata günlüğünü gönderin.
+
+**A8. Açılamayan dosya, çalan müziği susturmuyor (0.0.64)**
+
+- Nasıl: Bir şarkı çalarken kütüphaneden ya da **Dosya aç** ile desteklenmeyen bir dosyayı (ör. Opus'lu `.webm`)
+  açmayı deneyin.
+- Neye bakılır: hata mesajı görünür ama çalan şarkı **kesilmeden** çalmaya devam eder.
+
+**A9. Klasördeki şarkılar bir anda kaybolursa kütüphane silinmiyor (KUT-01, 0.0.64)**
+
+- Nasıl:
+  1. Bir deneme klasörüne en az 5 şarkı koyup Lyraska'ya ekleyin; analizlerin bitmesini bekleyin.
+  2. Lyraska'yı kapatın. Klasörün içindeki **bütün şarkıları** başka bir yere (ör. Masaüstü) taşıyın; klasör boş kalsın.
+  3. Lyraska'yı açın.
+- Neye bakılır: şarkılar **kütüphaneden silinmez**; panelde "kütüphanedeki X şarkı bulunamadı (disk takılı
+  değil, ağ paylaşımı bağlı değil ya da klasör taşınmış olabilir); şarkılar kütüphaneden çıkarılmadı." uyarısı görünür.
+- Sonra: şarkıları klasöre geri koyup **Yeniden tara**'ya basın; uyarı kaybolur ve analizler yerindedir.
+
+**A10. Çok sayıda kutucuk listeyi ekrandan itmiyor (0.0.64)**
+
+- Nasıl: **Şarkı ekle** ile bir seferde 30'dan fazla şarkı seçin (ya da 30'dan fazla şarkıyı pencereye sürükleyin).
+- Neye bakılır: Kütüphane panelindeki kutucuk alanı belli bir yüksekliği aşınca kendi içinde kayar; şarkı listesi
+  ekrandan kaybolmaz.
+
+**A11. Bozuk kütüphane dosyası kenara alınıyor (KUT-02, 0.0.64; isteğe bağlı)**
+
+- Nasıl:
+  1. Lyraska'yı kapatın.
+  2. Dosya Gezgini'nin adres çubuğuna `%LOCALAPPDATA%\io.github.gozlemesevdalisi.lyraska` yazıp Enter'a basın.
+  3. **Önce yedek alın:** `library.sqlite3` dosyasını başka bir klasöre kopyalayın.
+  4. Orijinal `library.sqlite3` dosyasını Not Defteri ile açıp içeriğini silin, "deneme" yazıp kaydedin.
+  5. Lyraska'yı açın.
+- Neye bakılır: program açılır, kütüphane boştur; aynı klasörde `library.sqlite3.bozuk-...` adlı bir dosya
+  oluşmuştur (bozuk dosya silinmeden saklanmıştır).
+- Geri dönmek için: Lyraska'yı kapatın, yeni `library.sqlite3` dosyasını silin, kopyaladığınız yedeği yerine koyun.
+
 ## B. Çalma ve ses
 
 **B1. Ses kalitesi (#25)**
