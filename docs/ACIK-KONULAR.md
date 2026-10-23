@@ -29,6 +29,7 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 - WebM'de şarkı adı okunmuyor (Matroska Segment Title; symphonia okumuyor) ve sondaki Opus dolgusu (≤ 20 ms)
   atılmıyor (DiscardPadding). İkisi de küçük; istenirse kendi küçük EBML okuyucusuyla.
 
-- Drop gösterimi "tam olmamış" (sahibi, 23 Ekim): neyin eksik olduğu sorulmadı; kütüphaneden önce kısaca sorulmalı.
+- Drop hesabı sorunlu (sahibi, 23 Ekim): bazen yanlış yerde buluyor, bazen hiç bulmuyor. BPM için yalnızca "his";
+  önce gerçek şarkılarda işaretle–ölç (`evaluate.rs`). Kütüphaneden sonra, sahnelerden önce.
 - Görev kitabındaki durum dosyalarının adı: kitap `BULGULAR.json`/`KAPILAR.md` der, depoda `FINDINGS.json`/`GATES.md`.
 - Görev kitabındaki test linki eski hesap adını taşıyor; doğrusu `CLAUDE.md`'deki.
