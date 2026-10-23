@@ -130,6 +130,9 @@ pub fn start_analysis_cache(
     ))
 }
 
+/// Büyük, yeniden üretilebilir verinin klasörü (Windows'ta Local; bulunamadıysa neden).
+pub struct BigDataDir(pub Result<PathBuf, String>);
+
 /// Tauri'nin yönettiği arka plan analizi (önbellek açılamadıysa yok).
 pub struct BackgroundState(pub Option<BackgroundAnalysis>);
 
@@ -405,13 +408,13 @@ pub struct CalibrationTrack {
     pub clicks: Vec<f64>,
 }
 
-/// Tıklama kaydını uygulama veri klasörüne yazar (her seferinde yeniden; küçük bir dosya).
+/// Tıklama kaydını büyük veri klasörüne (Local) yazar: her seferinde yeniden üretilir (~1,6 MB),
+/// gezici profilde eşitlenmesin.
 #[tauri::command]
-pub async fn calibration_track(app: tauri::AppHandle) -> Result<CalibrationTrack, String> {
-    use tauri::Manager;
-    let dir = app
-        .path()
-        .app_data_dir()
+pub async fn calibration_track(big: State<'_, BigDataDir>) -> Result<CalibrationTrack, String> {
+    let dir = big
+        .0
+        .as_ref()
         .map_err(|e| reported(format!("Uygulama klasörü bulunamadı: {e}")))?;
     let path = dir.join("kalibrasyon").join("tiklama.wav");
     visual_bridge::calibration::write(&path)

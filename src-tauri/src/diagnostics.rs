@@ -42,7 +42,10 @@ static STARTED: AtomicBool = AtomicBool::new(false);
 /// Günlüğü açar, açılış satırını yazar ve çökme yakalayıcıyı kurar.
 pub fn init(dir: &Path) {
     let path = dir.join(LOG_NAME);
-    if let Err(error) = open(&path) {
+    let opened = open(&path);
+    // Kanca günlük açılamasa da kurulur: açılış çökmesinde uyarı kutusu yine çıkar.
+    install_panic_hook();
+    if let Err(error) = opened {
         eprintln!("Hata günlüğü açılamadı ({}): {error}", path.display());
         return;
     }
@@ -54,7 +57,6 @@ pub fn init(dir: &Path) {
         std::env::consts::ARCH,
         crate::run as fn(),
     ));
-    install_panic_hook();
 }
 
 /// Açılış tamamlandı: bundan sonraki çökmeler yalnızca günlüğe yazılır.
@@ -69,10 +71,11 @@ fn os_version() -> String {
         use std::os::windows::process::CommandExt;
         // CREATE_NO_WINDOW: konsol penceresi bir an bile görünmesin.
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        let output = std::process::Command::new("cmd")
-            .args(["/C", "ver"])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output();
+        let output =
+            std::process::Command::new(crate::file_manager::system_program(r"System32\cmd.exe"))
+                .args(["/C", "ver"])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output();
         if let Ok(output) = output {
             let text = String::from_utf8_lossy(&output.stdout).trim().to_owned();
             if !text.is_empty() {
@@ -186,14 +189,15 @@ fn install_panic_hook() {
 }
 
 /// Açılışta çöken programın kullanıcıya tek izi: neden ve günlüğün yeri (Windows uyarı kutusu).
-fn startup_failure_dialog(message: &str) {
+pub fn startup_failure_dialog(message: &str) {
     let log = log_path()
         .map(|p| p.display().to_string())
         .unwrap_or_else(|| "(günlük açılamadı)".to_owned());
     let text = format!(
         "Lyraska açılamadı.\n\n{message}\n\nAyrıntılar hata günlüğünde:\n{log}\n\n\
-         Hata kaydı açarken bu dosyayı ekleyin. Microsoft Edge WebView2 kurulu değilse ya da \
-         bozulduysa Lyraska'yı yeniden kurmak onu da kurar."
+         Hata kaydı açarken bu dosyayı ekleyin. Microsoft Edge WebView2 kurulu değilse Lyraska'yı \
+         yeniden kurmak onu da kurar. Kuruluysa ama bozulduysa: Windows Ayarlar → Uygulamalar → \
+         Microsoft Edge WebView2 Runtime → Değiştir → Onar."
     );
     notice_dialog(&text, true);
 }
@@ -211,11 +215,9 @@ pub fn notice_dialog(text: &str, error: bool) {
         let script = "Add-Type -AssemblyName System.Windows.Forms; \
             [void][System.Windows.Forms.MessageBox]::Show($env:LYRASKA_NOTICE, 'Lyraska', 'OK', \
             $env:LYRASKA_NOTICE_ICON)";
-        // Tam yol: PATH'e ve programın kendi klasöründeki aynı adlı bir dosyaya güvenilmez.
-        let system_root = std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into());
-        let powershell = std::path::Path::new(&system_root)
-            .join(r"System32\WindowsPowerShell\v1.0\powershell.exe");
-        let _ = std::process::Command::new(powershell)
+        let powershell =
+            crate::file_manager::system_program(r"System32\WindowsPowerShell\v1.0\powershell.exe");
+        let shown = std::process::Command::new(powershell)
             .args(["-NoProfile", "-NonInteractive", "-Command", script])
             .env("LYRASKA_NOTICE", text)
             .env(
@@ -224,6 +226,15 @@ pub fn notice_dialog(text: &str, error: bool) {
             )
             .creation_flags(CREATE_NO_WINDOW)
             .status();
+        // Kısıtlı kurumsal makinede PowerShell engelli olabilir: kutu çıkmadıysa günlükte görünsün.
+        match shown {
+            Ok(status) if status.success() => {}
+            Ok(status) => write(
+                "HATA",
+                &format!("Uyarı kutusu gösterilemedi (PowerShell: {status})"),
+            ),
+            Err(e) => write("HATA", &format!("Uyarı kutusu gösterilemedi: {e}")),
+        }
     }
     #[cfg(not(windows))]
     {

@@ -35,29 +35,33 @@ pub fn run() {
     let context = tauri::generate_context!();
     // Küçük, kullanıcıya ait veri (ayarlar, işaretler) gezici klasörde (Roaming); büyük ve yeniden
     // üretilebilir veri (kütüphane + analiz önbelleği, günlükler) makineye özgü klasörde (Local).
-    // Eski sürümün Roaming'e yazdıkları bir kez taşınır. Klasörler Tauri'den önce bulunur:
-    let early = data_dirs::DataDirs::resolve(&context.config().identifier);
-    // Hata ve çökme günlüğü en önce, pencereden de önce açılır: WebView2 ya da pencere açılamazsa
-    // Tauri panikler; o çökme de günlüğe yazılır ve kullanıcıya gösterilir.
-    if let Some(dirs) = &early {
-        diagnostics::init(&dirs.big.join("logs"));
-    }
-    // Tek örnek: program zaten açıksa ikinci kopya aynı dosyalara dokunmadan kapanır.
-    let _instance = match early
+    // Klasörler Tauri'den önce bulunur.
+    let paths = data_dirs::locate(&context.config().identifier);
+    // Tek örnek: kilit her zaman Local'da. Program zaten açıksa ikinci kopya hiçbir dosyaya
+    // dokunmadan (taşıma, günlük) kapanır.
+    let lock = paths
         .as_ref()
-        .map(|dirs| data_dirs::acquire_instance_lock(&dirs.big))
-    {
+        .map(|(_, local)| data_dirs::acquire_instance_lock(local));
+    if let Some(Err(data_dirs::LockError::AlreadyRunning)) = lock {
+        already_running_notice();
+        return;
+    }
+    // Eski sürümün Roaming'e yazdıkları bir kez taşınır (kilitten sonra: iki kopya aynı anda taşımaz).
+    let early = paths.map(|(roaming, local)| data_dirs::DataDirs::migrate(roaming, &local));
+    // Hata ve çökme günlüğü pencereden önce açılır: WebView2 ya da pencere açılamazsa Tauri
+    // panikler; o çökme de günlüğe yazılır ve kullanıcıya gösterilir.
+    if let Some((dirs, migration)) = &early {
+        diagnostics::init(&dirs.big.join("logs"));
+        log_migration(migration);
+    }
+    let early = early.map(|(dirs, _)| dirs);
+    let _instance = match lock {
         Some(Ok(lock)) => Some(lock),
-        Some(Err(data_dirs::LockError::AlreadyRunning)) => {
-            diagnostics::info("Lyraska zaten açık; ikinci kopya kapanıyor");
-            already_running_notice();
-            return;
-        }
         Some(Err(data_dirs::LockError::Io(e))) => {
             diagnostics::error(&format!("Tek örnek kilidi alınamadı: {e}"));
             None
         }
-        None => None,
+        _ => None,
     };
     // Önceki oturum yarıda kaldıysa (çökme, elektrik kesintisi) kütüphane bu açılışta tam denetlenir.
     let session_dir = early.as_ref().map(|dirs| dirs.big.clone());
@@ -76,16 +80,19 @@ pub fn run() {
                 None => {
                     let roaming = app.path().app_data_dir().map_err(|e| e.to_string());
                     let big = match (&roaming, app.path().app_local_data_dir()) {
-                        (Ok(roaming), Ok(local)) => Ok(data_dirs::big_data_dir(roaming, &local)),
+                        (Ok(roaming), Ok(local)) => {
+                            let (big, migration) = data_dirs::big_data_dir(roaming, &local);
+                            diagnostics::init(&big.join("logs"));
+                            log_migration(&migration);
+                            Ok(big)
+                        }
                         (Ok(roaming), Err(_)) => Ok(roaming.clone()),
                         (Err(e), _) => Err(e.clone()),
                     };
-                    if let Ok(dir) = &big {
-                        diagnostics::init(&dir.join("logs"));
-                    }
                     (roaming, big)
                 }
             };
+            app.manage(commands::BigDataDir(big.clone()));
             // Kütüphane açılır açılmaz arka planda güncellenir.
             let service = big.clone().and_then(|dir| {
                 library::LibraryService::open_checked(&dir.join("library.sqlite3"), unclean)
@@ -230,6 +237,8 @@ pub fn run() {
             let message = format!("Lyraska başlatılamadı: {e}");
             diagnostics::error(&message);
             eprintln!("{message}");
+            // Konsolsuz programda kullanıcının tek izi bu kutu (neden ve günlüğün yeri).
+            diagnostics::startup_failure_dialog(&message);
             std::process::exit(1);
         }
     };
@@ -244,6 +253,19 @@ pub fn run() {
             }
         }
     });
+}
+
+/// Eski kütüphanenin taşınmasının sonucu: Roaming'de kalındıysa hata kaydında görünsün.
+fn log_migration(migration: &data_dirs::Migration) {
+    match migration {
+        data_dirs::Migration::NotNeeded => {}
+        data_dirs::Migration::Moved => {
+            diagnostics::info("Kütüphane ve günlükler makineye özgü klasöre (Local) taşındı");
+        }
+        data_dirs::Migration::KeptInRoaming(reason) => diagnostics::error(&format!(
+            "Kütüphane Local klasörüne taşınamadı, Roaming'de kalıyor: {reason}"
+        )),
+    }
 }
 
 /// Program zaten açıkken ikinci kez başlatılınca: kullanıcıya kısa bir not (Windows).

@@ -123,7 +123,13 @@ if (usesFetch && !connectSrc.split(/\s+/).includes("'self'")) {
 }
 
 // İzinler en dar hâlinde: yeni bir Tauri izni (ör. dosya sistemi, kabuk, http) bilinçli eklenir.
-const ALLOWED_PERMISSIONS = ["core:default", "dialog:allow-open", "dialog:allow-save"];
+// Arayüzün kullandıkları: olay dinleme (pencereye sürükle-bırak) ve dosya seçme/kaydetme pencereleri.
+const ALLOWED_PERMISSIONS = [
+  "core:event:allow-listen",
+  "core:event:allow-unlisten",
+  "dialog:allow-open",
+  "dialog:allow-save",
+];
 for (const file of readdirSync(join(ROOT, "src-tauri/capabilities"))) {
   const capability = JSON.parse(readFileSync(join(ROOT, "src-tauri/capabilities", file), "utf8"));
   for (const permission of capability.permissions ?? []) {
