@@ -125,6 +125,35 @@ jobs:
           (cd src-tauri && cargo fetch --locked --target x86_64-pc-windows-msvc)
           npm run check:notices
 
+  hlsl:
+    name: HLSL çevirici (WebAssembly)
+    # MilkDrop gölgelendirici çeviricisi (src-tauri/hlsl/hlslparser.wasm) depodaki kaynaktan
+    # (vendor/hlslparser + hlsl/shim.cpp) sabit araç takımıyla (wasi-sdk 30.0, SHA-256 denetimli)
+    # yeniden derlenir: baytı baytına aynı olmalı. Depodaki ikili dosya kaynağından başka bir şey
+    # olamaz. Araç takımı önbellekte durur (~120 MB indirme yalnızca ilk seferde).
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: wasi-sdk önbelleği
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/wasi-sdk
+          key: wasi-sdk-${{ hashFiles('src-tauri/hlsl/fetch-wasi-sdk.sh') }}
+      - name: wasi-sdk 30.0
+        run: sh src-tauri/hlsl/fetch-wasi-sdk.sh ~/wasi-sdk
+      - name: Yeniden derle ve karşılaştır
+        run: |
+          WASI_SDK_PATH=~/wasi-sdk/wasi-sdk-30.0-x86_64-linux \
+            sh src-tauri/hlsl/build.sh "$RUNNER_TEMP/hlslparser.wasm"
+          if ! cmp "$RUNNER_TEMP/hlslparser.wasm" src-tauri/hlsl/hlslparser.wasm; then
+            echo "src-tauri/hlsl/hlslparser.wasm kaynağından derlenenle aynı değil."
+            echo "Yeniden derleyip commit edin: sh src-tauri/hlsl/build.sh (bkz. dosya başı)"
+            exit 1
+          fi
+
   guvenlik:
     name: Güvenlik uyarıları
     # Bilinen açıklar: Rust crate'leri (RustSec) ve pakete giren npm bağımlılıkları. Güvenilmeyen
