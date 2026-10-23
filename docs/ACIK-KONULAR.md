@@ -20,6 +20,12 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 
 ## Ele alınmayı bekleyen geri bildirim ve bulgular
 
+- Sahneler "yavan" (sahibi, 23 Ekim): tepki zayıf, detay az, tekrar ediyor, renkler cansız. Araştırma
+  `docs/arastirma/gorsel-vay-arastirma.md`: ortak son işlem zinciri, şarkı haritasıyla koreografi, tondan palet.
+  Kütüphaneden sonra.
+- Kütüphane taslakları (Şarkılar, Albümler, albüm sayfası, Sanatçılar, Klasörler, Gökyüzü) sahibin onayını bekliyor;
+  araştırma `docs/arastirma/kutuphane-arastirma.md`.
+
 - WebM'de şarkı adı okunmuyor (Matroska Segment Title; symphonia okumuyor) ve sondaki Opus dolgusu (≤ 20 ms)
   atılmıyor (DiscardPadding). İkisi de küçük; istenirse kendi küçük EBML okuyucusuyla.
 
