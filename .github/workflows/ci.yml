@@ -101,6 +101,8 @@ jobs:
         run: rm -f src/lib/bindings/*.ts
       - name: Testler
         working-directory: src-tauri
+        # Takılan bir test işi bütün süre boyunca bekletmesin.
+        timeout-minutes: 15
         run: cargo test --locked
       # Depodakiyle aynı olmalı: Rust'ta değişen bir tip arayüzde fark edilmeden kalamaz.
       - name: Arayüz tipleri güncel mi (ts-rs)
@@ -187,12 +189,15 @@ jobs:
           SCENE_BROWSER_ARGS: --disable-webgl --disable-webgl2
           SCENE_EXPECT: fallback
 
-  windows:
-    name: Windows (Clippy, testler, kurulum dosyası)
+  # Windows işi ikiye bölünür ve iki parça paralel çalışır: takılan ya da kırılan bir parça
+  # ötekini bekletmez, hangi parçanın bozulduğu adından görünür. Her adımın kendi süre sınırı var:
+  # takılan bir test işi 60 dakika değil, en çok 15 dakika tutar.
+  windows-testler:
+    name: "Windows: Clippy ve testler"
     # Windows'a özel kod (WASAPI) her push ve PR'da denetlenir: test sürümüne giden commit de
-    # Windows'ta sınanmış olur. Kurulum dosyası PR'larda derlenir; main için "Test sürümü"nde.
+    # Windows'ta sınanmış olur.
     runs-on: windows-2025
-    timeout-minutes: 60
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -216,24 +221,51 @@ jobs:
       # WASAPI çıkışı gibi yalnızca Windows'ta derlenen kod burada denetlenir.
       - name: Lint (Clippy, Windows)
         working-directory: src-tauri
+        timeout-minutes: 15
         run: cargo clippy --all-targets --locked -- -D warnings
       - name: Testler (Windows)
         working-directory: src-tauri
+        timeout-minutes: 15
         run: cargo test --locked
       - name: Gerçek ses aygıtıyla deneme
         # Barındırılan Windows makinesinde ses aygıtı yoktur: deneme "ATLANDI" der ve iş akışına
         # uyarı düşer (yeşil ama boş). Gerçek aygıt denemesi proje sahibinin kurulumuyla yapılır (YAY-09).
         working-directory: src-tauri
+        timeout-minutes: 10
         run: cargo run --locked --example ses_denemesi
+
+  windows-kurulum:
+    name: "Windows: kurulum dosyası"
+    # Kurulum dosyası PR'larda derlenir; main için "Test sürümü" iş akışında.
+    if: github.event_name != 'push'
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Rust araç zinciri (rust-toolchain.toml)
+        shell: bash
+        run: |
+          toolchain=$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal
+          rustc --version
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: src-tauri -> target
+      - run: npm ci
       - name: Kurulum dosyasını derle
-        if: github.event_name != 'push'
+        timeout-minutes: 30
         # Tauri CLI doğrudan: üçüncü taraf eylem ve token gerekmez. Derleme kodu etiket olarak PR'ın
         # ucudur; içerik ise GitHub'ın PR'ı main ile birleştirdiği hâlidir (deneme dosyası, yayın değil).
         env:
           LYRASKA_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: npm run tauri build -- --ci -- --locked
       - name: Kurulum dosyasını yükle
-        if: github.event_name != 'push'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: Lyraska-Kurulum-PR
@@ -241,10 +273,33 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Hata ayıklama sembollerini yükle
-        if: github.event_name != 'push'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: Lyraska-Semboller-PR
           path: src-tauri/target/release/*.pdb
           if-no-files-found: warn
           retention-days: 14
+
+  # `main`'in koruma kuralı bu adı zorunlu denetim olarak bekler: iki Windows parçasının ortak
+  # sonucu. Parçalardan biri kırmızıysa (ya da iptal olduysa) bu da kırmızıdır; kurulum dosyası
+  # push'ta derlenmediği için orada "atlandı" sayılır.
+  windows:
+    name: Windows (Clippy, testler, kurulum dosyası)
+    needs: [windows-testler, windows-kurulum]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: İki Windows parçası da geçti mi
+        env:
+          TESTLER: ${{ needs.windows-testler.result }}
+          KURULUM: ${{ needs.windows-kurulum.result }}
+          OLAY: ${{ github.event_name }}
+        run: |
+          echo "Clippy ve testler: $TESTLER · kurulum dosyası: $KURULUM"
+          [ "$TESTLER" = success ] || exit 1
+          if [ "$OLAY" = push ]; then
+            [ "$KURULUM" = skipped ] || [ "$KURULUM" = success ] || exit 1
+          else
+            [ "$KURULUM" = success ] || exit 1
+          fi
