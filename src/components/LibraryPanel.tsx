@@ -8,7 +8,14 @@ import {
   RefreshIcon,
   SearchIcon,
 } from "./icons";
-import type { LibraryFolder, LibraryTrack } from "../lib/backend";
+import {
+  libraryAlbumTracks,
+  type LibraryAlbum,
+  type LibraryFolder,
+  type LibraryTrack,
+} from "../lib/backend";
+import { AlbumGrid } from "./AlbumGrid";
+import { useAlbums } from "../hooks/useAlbums";
 import { analysisPending, bpmLabel } from "../lib/analysis";
 import {
   DEFAULT_SORT,
@@ -56,6 +63,8 @@ export interface LibraryPanelProps {
   currentPath: string | null;
   playing: boolean;
   onPlay: (track: LibraryTrack, list: LibraryTrack[]) => void;
+  /** Albümü baştan çalar (şarkı yolları çalma sırasıyla). */
+  onPlayPaths: (paths: string[]) => void;
 }
 
 /** Klasör yolunun son parçası ("D:\Müzik\Rock" → "Rock"). */
@@ -108,8 +117,22 @@ export function LibraryPanel({
   currentPath,
   playing,
   onPlay,
+  onPlayPaths,
 }: LibraryPanelProps) {
   const { status, query } = library;
+  const [view, setView] = useState<"songs" | "albums">("songs");
+  const { albums, error: albumsError } = useAlbums(view === "albums", query, library.tracks);
+  const tracksByPath = useMemo(
+    () => new Map(library.tracks.map((track) => [track.path, track])),
+    [library.tracks],
+  );
+  const playAlbum = (album: LibraryAlbum) => {
+    void libraryAlbumTracks(album.name, album.artist)
+      .then((paths) => {
+        if (paths.length > 0) onPlayPaths(paths);
+      })
+      .catch(() => undefined);
+  };
   const [sort, setSort] = useState<LibrarySort>(DEFAULT_SORT);
   const [camelot, setCamelot] = useState(loadCamelot);
   const sources = useMemo(
@@ -292,9 +315,31 @@ export function LibraryPanel({
     <section className="library" aria-label="Kütüphane">
       <header className="library__header">
         <h2 className="library__title">
-          Şarkılar
-          <span className="library__count">{NUMBER.format(status.trackCount)} şarkı</span>
+          {view === "albums" ? "Albümler" : "Şarkılar"}
+          <span className="library__count">
+            {view === "albums"
+              ? `${NUMBER.format(albums.length)} albüm`
+              : `${NUMBER.format(status.trackCount)} şarkı`}
+          </span>
         </h2>
+        <div className="library__views" role="group" aria-label="Görünüm">
+          {(
+            [
+              ["songs", "Şarkılar"],
+              ["albums", "Albümler"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={view === id}
+              className={`library__view${view === id ? " is-on" : ""}`}
+              onClick={() => setView(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         {status.folders.length > 0 && (
           <details
             className="library__sources"
@@ -493,104 +538,138 @@ export function LibraryPanel({
           </div>
         </div>
       ) : (
-        <div className="library__table" role="grid" aria-rowcount={tracks.length}>
+        <>
+          {view === "albums" && (
+            <div className="library__albums">
+              {albumsError ? (
+                <p className="library__problem">{albumsError}</p>
+              ) : albums.length === 0 ? (
+                <p className="library__none">
+                  {query ? `“${query}” için albüm yok.` : "Albüm etiketi olan şarkı yok."}
+                </p>
+              ) : (
+                <AlbumGrid
+                  albums={albums}
+                  tracksByPath={tracksByPath}
+                  currentPath={currentPath}
+                  onPlay={playAlbum}
+                />
+              )}
+            </div>
+          )}
           <div
-            className={`library__row library__row--head${onlySingles ? " library__row--removable" : ""}`}
-            role="row"
+            className="library__table"
+            role="grid"
+            aria-rowcount={tracks.length}
+            hidden={view !== "songs"}
           >
-            <span role="columnheader">#</span>
-            {sortHeader("title", "Başlık")}
-            {sortHeader("artist", "Sanatçı", undefined, "Sanatçı, albüm ve parça sırasıyla")}
-            {sortHeader("album", "Albüm", "library__album")}
-            {sortHeader("bpm", "BPM", "library__time library__bpm", "Tempo (vuruş/dakika)")}
-            {sortHeader(
-              "key",
-              "Ton",
-              "library__key",
-              "Ton; Camelot çarkının sırasıyla dizilir, uyumlu tonlar yan yana gelir",
-            )}
-            {sortHeader("duration", "Süre", "library__time")}
-            {onlySingles && <span role="columnheader" aria-label="Çıkar" />}
-          </div>
-          <div
-            ref={listRef}
-            className="library__list"
-            tabIndex={0}
-            onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
-            onKeyDown={onListKey}
-            aria-label="Şarkılar"
-            aria-activedescendant={
-              selected >= 0 && tracks[selected] ? rowId(tracks[selected].id) : undefined
-            }
-          >
-            {tracks.length === 0 ? (
-              <p className="library__none">
-                {query ? `“${query}” için sonuç yok.` : scan.scanning ? "Taranıyor…" : "Şarkı yok."}
-              </p>
-            ) : (
-              <div style={{ height: tracks.length * ROW_HEIGHT, position: "relative" }}>
-                {tracks.slice(range.start, range.end).map((track, offset) => {
-                  const index = range.start + offset;
-                  const isCurrent = track.path === currentPath;
-                  const hue = keyHue(track.key);
-                  const single = onlySingles ? singles.get(track.path) : undefined;
-                  return (
-                    <div
-                      key={track.id}
-                      id={rowId(track.id)}
-                      role="row"
-                      aria-rowindex={index + 1}
-                      aria-selected={index === selected}
-                      className={`library__row${onlySingles ? " library__row--removable" : ""}${isCurrent ? " is-current" : ""}${index === selected ? " is-selected" : ""}`}
-                      style={{ transform: `translateY(${index * ROW_HEIGHT}px)` }}
-                      onClick={() => setSelected(index)}
-                      onDoubleClick={() => onPlay(track, tracks)}
-                      title={track.path}
-                    >
-                      <span className="library__no" role="gridcell">
-                        {isCurrent ? playing ? <PlayIcon /> : <PauseIcon /> : index + 1}
-                      </span>
-                      <span className="library__cell" role="gridcell">
-                        {track.title}
-                      </span>
-                      <span className="library__cell library__muted" role="gridcell">
-                        {track.artist ?? "—"}
-                      </span>
-                      <span className="library__cell library__muted library__album" role="gridcell">
-                        {track.album ?? "—"}
-                      </span>
-                      <span
-                        className="library__time library__bpm"
-                        role="gridcell"
-                        title={track.analyzed ? undefined : "Analiz bekliyor"}
+            <div
+              className={`library__row library__row--head${onlySingles ? " library__row--removable" : ""}`}
+              role="row"
+            >
+              <span role="columnheader">#</span>
+              {sortHeader("title", "Başlık")}
+              {sortHeader("artist", "Sanatçı", undefined, "Sanatçı, albüm ve parça sırasıyla")}
+              {sortHeader("album", "Albüm", "library__album")}
+              {sortHeader("bpm", "BPM", "library__time library__bpm", "Tempo (vuruş/dakika)")}
+              {sortHeader(
+                "key",
+                "Ton",
+                "library__key",
+                "Ton; Camelot çarkının sırasıyla dizilir, uyumlu tonlar yan yana gelir",
+              )}
+              {sortHeader("duration", "Süre", "library__time")}
+              {onlySingles && <span role="columnheader" aria-label="Çıkar" />}
+            </div>
+            <div
+              ref={listRef}
+              className="library__list"
+              tabIndex={0}
+              onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+              onKeyDown={onListKey}
+              aria-label="Şarkılar"
+              aria-activedescendant={
+                selected >= 0 && tracks[selected] ? rowId(tracks[selected].id) : undefined
+              }
+            >
+              {tracks.length === 0 ? (
+                <p className="library__none">
+                  {query
+                    ? `“${query}” için sonuç yok.`
+                    : scan.scanning
+                      ? "Taranıyor…"
+                      : "Şarkı yok."}
+                </p>
+              ) : (
+                <div style={{ height: tracks.length * ROW_HEIGHT, position: "relative" }}>
+                  {tracks.slice(range.start, range.end).map((track, offset) => {
+                    const index = range.start + offset;
+                    const isCurrent = track.path === currentPath;
+                    const hue = keyHue(track.key);
+                    const single = onlySingles ? singles.get(track.path) : undefined;
+                    return (
+                      <div
+                        key={track.id}
+                        id={rowId(track.id)}
+                        role="row"
+                        aria-rowindex={index + 1}
+                        aria-selected={index === selected}
+                        className={`library__row${onlySingles ? " library__row--removable" : ""}${isCurrent ? " is-current" : ""}${index === selected ? " is-selected" : ""}`}
+                        style={{ transform: `translateY(${index * ROW_HEIGHT}px)` }}
+                        onClick={() => setSelected(index)}
+                        onDoubleClick={() => onPlay(track, tracks)}
+                        title={track.path}
                       >
-                        {bpmLabel(track)}
-                      </span>
-                      <span
-                        className="library__key"
-                        role="gridcell"
-                        title={track.analyzed ? undefined : "Analiz bekliyor"}
-                      >
-                        {hue !== null && (
-                          <i
-                            className="library__key-dot"
-                            style={{ background: `var(--key-${hue})` }}
-                            aria-hidden
-                          />
+                        <span className="library__no" role="gridcell">
+                          {isCurrent ? playing ? <PlayIcon /> : <PauseIcon /> : index + 1}
+                        </span>
+                        <span className="library__cell" role="gridcell">
+                          {track.title}
+                        </span>
+                        <span className="library__cell library__muted" role="gridcell">
+                          {track.artist ?? "—"}
+                        </span>
+                        <span
+                          className="library__cell library__muted library__album"
+                          role="gridcell"
+                        >
+                          {track.album ?? "—"}
+                        </span>
+                        <span
+                          className="library__time library__bpm"
+                          role="gridcell"
+                          title={track.analyzed ? undefined : "Analiz bekliyor"}
+                        >
+                          {bpmLabel(track)}
+                        </span>
+                        <span
+                          className="library__key"
+                          role="gridcell"
+                          title={track.analyzed ? undefined : "Analiz bekliyor"}
+                        >
+                          {hue !== null && (
+                            <i
+                              className="library__key-dot"
+                              style={{ background: `var(--key-${hue})` }}
+                              aria-hidden
+                            />
+                          )}
+                          {keyText(track, camelot)}
+                        </span>
+                        <span className="library__time" role="gridcell">
+                          {track.durationSecs ? formatTime(track.durationSecs) : ""}
+                        </span>
+                        {onlySingles && (
+                          <span role="gridcell">{single && removeButton(single)}</span>
                         )}
-                        {keyText(track, camelot)}
-                      </span>
-                      <span className="library__time" role="gridcell">
-                        {track.durationSecs ? formatTime(track.durationSecs) : ""}
-                      </span>
-                      {onlySingles && <span role="gridcell">{single && removeButton(single)}</span>}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </section>
   );

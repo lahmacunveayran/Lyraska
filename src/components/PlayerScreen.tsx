@@ -151,6 +151,9 @@ export function PlayerScreen() {
     },
     [playList, closeDrawer],
   );
+  const playPaths = (paths: string[]) => {
+    if (paths[0]) playAndReveal(paths, paths[0]);
+  };
   const playFromLibrary = (track: LibraryTrack, list: LibraryTrack[]) =>
     playAndReveal(
       list.map((t) => t.path),
@@ -479,6 +482,7 @@ export function PlayerScreen() {
               currentPath={statusPath}
               playing={playing}
               onPlay={playFromLibrary}
+              onPlayPaths={playPaths}
             />
           </ErrorBoundary>
         </div>

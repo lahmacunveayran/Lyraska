@@ -30,7 +30,7 @@ use crate::audio::peq::{
 };
 use crate::audio::player::{PlaybackState, PlaybackStatus, Player, Transition};
 use crate::audio::PlaybackOptions;
-use crate::library::{DropOutcome, LibraryService, LibraryStatus, TrackRow};
+use crate::library::{AlbumRow, DropOutcome, LibraryService, LibraryStatus, TrackRow};
 use crate::milkdrop::{self, MilkdropFolder, MilkdropPreset};
 use crate::settings::SettingsStore;
 use crate::visual_bridge::VisualFrame;
@@ -374,6 +374,33 @@ pub async fn library_remove_folder(
         .run(move |service| {
             service.remove_folder(id).map_err(reported)?;
             service.status().map_err(reported)
+        })
+        .await
+}
+
+/// Kütüphanedeki albümler (arama kutusundaki yazıyla süzülür).
+#[tauri::command]
+pub async fn library_albums(
+    query: String,
+    library: State<'_, LibraryState>,
+) -> Result<Vec<AlbumRow>, String> {
+    library
+        .run(move |service| service.albums(&query).map_err(reported))
+        .await
+}
+
+/// Albümün şarkılarının yolları, çalma sırasıyla.
+#[tauri::command]
+pub async fn library_album_tracks(
+    album: String,
+    artist: Option<String>,
+    library: State<'_, LibraryState>,
+) -> Result<Vec<String>, String> {
+    library
+        .run(move |service| {
+            service
+                .album_tracks(&album, artist.as_deref())
+                .map_err(reported)
         })
         .await
 }

@@ -192,6 +192,8 @@ pub fn run() {
             commands::library_remove_folder,
             commands::library_rescan,
             commands::library_search,
+            commands::library_albums,
+            commands::library_album_tracks,
             commands::equalizer_get,
             commands::equalizer_set,
             commands::set_next_track,

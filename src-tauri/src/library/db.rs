@@ -484,6 +484,23 @@ impl Library {
     }
 }
 
+impl Library {
+    /// Albümün şarkılarının yolları, çalma sırasıyla (disk, parça). Albüm [`Library::albums`]
+    /// gibi albüm sanatçısı (yoksa sanatçı) ve adıyla bulunur; sanatçısız albümde `artist` boş.
+    pub fn album_tracks(
+        &self,
+        album: &str,
+        artist: Option<&str>,
+    ) -> Result<Vec<String>, LibraryError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT path FROM tracks WHERE album = ?1 AND COALESCE(album_artist, artist) IS ?2
+             ORDER BY sort_key",
+        )?;
+        let rows = stmt.query_map(rusqlite::params![album, artist], |r| r.get(0))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+}
+
 /// Arama kelimelerinin SQL koşulu (` AND search LIKE ?n …`, `first` numaralı parametreden) ve
 /// değerleri. Boş aramada koşul yoktur.
 fn search_filter(query: &str, first: usize) -> (String, Vec<String>) {
@@ -1086,6 +1103,22 @@ mod tests {
             (1, false)
         );
         assert_eq!((get("/bos").track_count, get("/bos").single), (0, false));
+    }
+
+    #[test]
+    fn albumun_sarkilari_calma_sirasiyla_gelir() {
+        let lib = sample();
+        let album = &lib.albums("", 10).unwrap()[0];
+        let paths = lib
+            .album_tracks(&album.name, album.artist.as_deref())
+            .unwrap();
+        assert_eq!(paths.len() as u32, album.track_count);
+        // Parça numarası sırası (a = 1, b = 2), eklenme sırası değil.
+        assert_eq!(paths[0], "/muzik/a.flac");
+        assert!(lib
+            .album_tracks(&album.name, Some("Başka"))
+            .unwrap()
+            .is_empty());
     }
 
     #[test]

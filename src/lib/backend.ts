@@ -34,6 +34,7 @@ import type { KeyMap } from "./bindings/KeyMap";
 import type { KeyRelation } from "./bindings/KeyRelation";
 import type { LibraryFolder } from "./bindings/LibraryFolder";
 import type { LibraryStatus } from "./bindings/LibraryStatus";
+import type { LibraryAlbum } from "./bindings/LibraryAlbum";
 import type { LibraryTrack } from "./bindings/LibraryTrack";
 import type { LyricLine } from "./bindings/LyricLine";
 import type { LyricWord } from "./bindings/LyricWord";
@@ -89,6 +90,7 @@ export type {
   KeyRelation,
   LibraryFolder,
   LibraryStatus,
+  LibraryAlbum,
   LibraryTrack,
   LyricLine,
   LyricWord,
@@ -439,6 +441,15 @@ export function rescanLibrary(): Promise<LibraryStatus> {
 
 export function searchLibrary(query: string): Promise<LibraryTrack[]> {
   return invoke<LibraryTrack[]>("library_search", { query });
+}
+
+export function libraryAlbums(query: string): Promise<LibraryAlbum[]> {
+  return invoke<LibraryAlbum[]>("library_albums", { query });
+}
+
+/** Albümün şarkılarının yolları, çalma sırasıyla. */
+export function libraryAlbumTracks(album: string, artist: string | null): Promise<string[]> {
+  return invoke<string[]>("library_album_tracks", { album, artist });
 }
 
 /** Ekolayzer durumu. Tarayıcı önizlemesinde yaklaşık bir eğri hesaplanır. */
