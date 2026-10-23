@@ -55,6 +55,9 @@ impl ScanRequest {
     }
 }
 
+/// Kopyası aynı kütüphaneyi paylaşır (alanlar `Arc`): komutlar işi engellenebilir iş parçacığına
+/// taşırken kopyayı götürür.
+#[derive(Clone)]
 pub struct LibraryService {
     library: Arc<Mutex<Library>>,
     scan: Arc<ScanState>,

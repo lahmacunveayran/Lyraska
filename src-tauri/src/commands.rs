@@ -159,6 +159,16 @@ impl LibraryState {
         self.service.as_ref().map_err(Clone::clone)
     }
 
+    /// Kütüphane işini engellenebilir iş parçacığında yapar: tarama yazarken bir sorgu
+    /// veritabanını saniyelerce bekleyebilir (`busy_timeout`).
+    async fn run<T: Send + 'static>(
+        &self,
+        work: impl FnOnce(&LibraryService) -> Result<T, String> + Send + 'static,
+    ) -> Result<T, String> {
+        let service = self.get()?.clone();
+        blocking(move || work(&service)).await
+    }
+
     /// Program kapanırken süren taramayı durdurur.
     pub fn shutdown(&self) {
         if let Ok(service) = &self.service {
@@ -192,20 +202,26 @@ pub async fn open_track(
 /// hata değildir: kapak yerine özgün renk kapağı gösterilir.
 #[tauri::command]
 pub async fn track_cover(path: PathBuf) -> Result<Option<String>, String> {
-    Ok(crate::audio::decode::read_cover(&path)
-        .ok()
-        .flatten()
-        .map(|cover| cover.data_url()))
+    blocking(move || {
+        Ok(crate::audio::decode::read_cover(&path)
+            .ok()
+            .flatten()
+            .map(|cover| cover.data_url()))
+    })
+    .await
 }
 
 /// Şarkının sözleri: yanındaki `.lrc` dosyası ya da şarkıya gömülü sözler; yoksa `null`.
 /// Sözler yalnızca kullanıcının kendi dosyalarından okunur, hiçbir yere kaydedilmez.
 #[tauri::command]
 pub async fn track_lyrics(path: PathBuf) -> Result<Option<Lyrics>, String> {
-    let duration = Decoder::open(&path)
-        .ok()
-        .and_then(|d| d.info().duration_secs);
-    Ok(crate::audio::lyrics::for_track(&path, duration))
+    blocking(move || {
+        let duration = Decoder::open(&path)
+            .ok()
+            .and_then(|d| d.info().duration_secs);
+        Ok(crate::audio::lyrics::for_track(&path, duration))
+    })
+    .await
 }
 
 /// Boşluksuz geçiş için sıradaki şarkıyı bildirir (`null`: sıra yok).
@@ -247,6 +263,17 @@ async fn finish_transition(
         player.lock()?.install(prepared).map_err(reported)?;
     }
     Ok(player.lock()?.status())
+}
+
+/// Dosya ya da veritabanı işini tokio'nun engellenebilir iş parçacığında yapar. Async komutlar
+/// çalışma zamanının birkaç işçisini paylaşır; diskte uzun süren bir okuma onları bağlarsa görsel
+/// kareleri ve durum sorguları sıraya girer (DENETIM-FAZ0 ISK-05).
+async fn blocking<T: Send + 'static>(
+    work: impl FnOnce() -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(work)
+        .await
+        .map_err(reported)?
 }
 
 /// Durdurur ve şarkının başına döner.
@@ -293,7 +320,9 @@ pub async fn visual_waveform(
 /// Kütüphane durumu: klasörler, şarkı sayısı, tarama ilerlemesi.
 #[tauri::command]
 pub async fn library_status(library: State<'_, LibraryState>) -> Result<LibraryStatus, String> {
-    library.get()?.status().map_err(reported)
+    library
+        .run(|service| service.status().map_err(reported))
+        .await
 }
 
 /// Klasörü kütüphaneye ekler ve arka planda taramaya başlar.
@@ -302,9 +331,12 @@ pub async fn library_add_folder(
     path: PathBuf,
     library: State<'_, LibraryState>,
 ) -> Result<LibraryStatus, String> {
-    let service = library.get()?;
-    service.add_folder(&path).map_err(reported)?;
-    service.status().map_err(reported)
+    library
+        .run(move |service| {
+            service.add_folder(&path).map_err(reported)?;
+            service.status().map_err(reported)
+        })
+        .await
 }
 
 /// Pencereye bırakılan şarkıları ve klasörleri kütüphaneye ekler; çalınacak şarkıları döndürür.
@@ -313,7 +345,9 @@ pub async fn library_add_dropped(
     paths: Vec<PathBuf>,
     library: State<'_, LibraryState>,
 ) -> Result<DropOutcome, String> {
-    let outcome = library.get()?.add_dropped(&paths);
+    let (outcome, paths) = library
+        .run(move |service| Ok((service.add_dropped(&paths), paths)))
+        .await?;
     diagnostics::info(&format!(
         "Bırakılanlar işlendi: {} öğe; {} şarkı çalınacak, {} şarkı ve {} klasör eklendi, \
          {} zaten kütüphanede, {} sorun",
@@ -336,17 +370,23 @@ pub async fn library_remove_folder(
     id: i64,
     library: State<'_, LibraryState>,
 ) -> Result<LibraryStatus, String> {
-    let service = library.get()?;
-    service.remove_folder(id).map_err(reported)?;
-    service.status().map_err(reported)
+    library
+        .run(move |service| {
+            service.remove_folder(id).map_err(reported)?;
+            service.status().map_err(reported)
+        })
+        .await
 }
 
 /// Bütün klasörleri yeniden tarar (değişmeyen dosyalar atlanır).
 #[tauri::command]
 pub async fn library_rescan(library: State<'_, LibraryState>) -> Result<LibraryStatus, String> {
-    let service = library.get()?;
-    service.request_scan();
-    service.status().map_err(reported)
+    library
+        .run(|service| {
+            service.request_scan();
+            service.status().map_err(reported)
+        })
+        .await
 }
 
 /// Kütüphanede arar; boş arama bütün şarkıları döndürür.
@@ -356,7 +396,9 @@ pub async fn library_search(
     limit: Option<usize>,
     library: State<'_, LibraryState>,
 ) -> Result<Vec<TrackRow>, String> {
-    library.get()?.search(&query, limit).map_err(reported)
+    library
+        .run(move |service| service.search(&query, limit).map_err(reported))
+        .await
 }
 
 /// Ekolayzer ayarları ve uygulanan eğri.
@@ -522,14 +564,17 @@ pub async fn headphone_import(
     player: State<'_, PlayerState>,
     store: State<'_, SettingsStore>,
 ) -> Result<HeadphoneState, String> {
-    let path = std::path::Path::new(&path);
-    let text = std::fs::read_to_string(path)
-        .map_err(|e| reported(format!("Profil dosyası okunamadı: {e}")))?;
-    let name = path
-        .file_stem()
-        .map(|s| HeadphoneProfile::name_from_file(&s.to_string_lossy()))
-        .unwrap_or_default();
-    let profile = HeadphoneProfile::parse(&text, &name).map_err(reported)?;
+    let profile = blocking(move || {
+        let path = std::path::Path::new(&path);
+        let text = std::fs::read_to_string(path)
+            .map_err(|e| reported(format!("Profil dosyası okunamadı: {e}")))?;
+        let name = path
+            .file_stem()
+            .map(|s| HeadphoneProfile::name_from_file(&s.to_string_lossy()))
+            .unwrap_or_default();
+        HeadphoneProfile::parse(&text, &name).map_err(reported)
+    })
+    .await?;
     apply_headphone(
         HeadphoneSettings {
             enabled: true,
@@ -613,9 +658,12 @@ pub async fn parametric_import(
     player: State<'_, PlayerState>,
     store: State<'_, SettingsStore>,
 ) -> Result<ParametricState, String> {
-    let text =
-        std::fs::read_to_string(&path).map_err(|e| reported(format!("Dosya okunamadı: {e}")))?;
-    let profile = HeadphoneProfile::parse(&text, "").map_err(reported)?;
+    let profile = blocking(move || {
+        let text = std::fs::read_to_string(&path)
+            .map_err(|e| reported(format!("Dosya okunamadı: {e}")))?;
+        HeadphoneProfile::parse(&text, "").map_err(reported)
+    })
+    .await?;
     apply_parametric(ParametricSettings::from_profile(&profile), &player, &store)
 }
 
@@ -623,7 +671,10 @@ pub async fn parametric_import(
 #[tauri::command]
 pub async fn parametric_export(path: String, player: State<'_, PlayerState>) -> Result<(), String> {
     let text = player.lock()?.parametric().to_apo();
-    std::fs::write(&path, text).map_err(|e| reported(format!("Dosya yazılamadı: {e}")))
+    blocking(move || {
+        std::fs::write(&path, text).map_err(|e| reported(format!("Dosya yazılamadı: {e}")))
+    })
+    .await
 }
 
 fn apply_parametric(
@@ -673,13 +724,17 @@ pub async fn song_map_export(
     player: State<'_, PlayerState>,
     annotations: State<'_, AnnotationStore>,
 ) -> Result<(), String> {
-    let info = Decoder::open(&path).map_err(reported)?.info().clone();
+    let info = blocking(move || Ok(Decoder::open(&path).map_err(reported)?.info().clone())).await?;
     let marks = annotations.load(&AnnotatedTrack::from_info(&info));
     let map = player
         .lock()?
         .export_song_map(&info, marks.as_ref())
         .map_err(reported)?;
-    std::fs::write(&target, map.to_json()).map_err(|e| reported(format!("Dosya yazılamadı: {e}")))
+    blocking(move || {
+        std::fs::write(&target, map.to_json())
+            .map_err(|e| reported(format!("Dosya yazılamadı: {e}")))
+    })
+    .await
 }
 
 /// Şarkı haritası dosyasını şarkıya uygular (parmak iziyle eşleşirse).
@@ -689,8 +744,12 @@ pub async fn song_map_import(
     file: PathBuf,
     player: State<'_, PlayerState>,
 ) -> Result<ImportedMapStatus, String> {
-    let info = Decoder::open(&path).map_err(reported)?.info().clone();
-    let map = MapFile::read(&file).map_err(reported)?;
+    let (info, map, file) = blocking(move || {
+        let info = Decoder::open(&path).map_err(reported)?.info().clone();
+        let map = MapFile::read(&file).map_err(reported)?;
+        Ok((info, map, file))
+    })
+    .await?;
     let name = file
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
@@ -732,7 +791,7 @@ pub async fn annotation_get(
     path: PathBuf,
     store: State<'_, AnnotationStore>,
 ) -> Result<Option<Annotation>, String> {
-    Ok(store.load(&annotated_track(&path)?))
+    Ok(store.load(&annotated_track(path).await?))
 }
 
 /// İşaretleri şarkının işaret dosyasına yazar; dosyanın yolunu döndürür.
@@ -745,7 +804,7 @@ pub async fn annotation_save(
     key: Option<crate::analysis::key::MarkedKey>,
     store: State<'_, AnnotationStore>,
 ) -> Result<String, String> {
-    let annotation = Annotation::new(annotated_track(&path)?, beats, drops, key);
+    let annotation = Annotation::new(annotated_track(path.clone()).await?, beats, drops, key);
     store
         .save(&annotation)
         .map(|p| p.display().to_string())
@@ -759,7 +818,7 @@ pub async fn annotation_evaluate(
     path: PathBuf,
     store: State<'_, AnnotationStore>,
 ) -> Result<Annotation, String> {
-    let track = annotated_track(&path)?;
+    let track = annotated_track(path.clone()).await?;
     let annotation = store
         .load(&track)
         .ok_or_else(|| "Önce işaretleri kaydedin.".to_owned())?;
@@ -815,9 +874,12 @@ pub fn annotation_open_folder(store: State<'_, AnnotationStore>) -> Result<(), S
     crate::file_manager::open_folder(dir).map_err(|e| reported(format!("Klasör açılamadı: {e}")))
 }
 
-fn annotated_track(path: &std::path::Path) -> Result<AnnotatedTrack, String> {
-    let decoder = Decoder::open(path).map_err(reported)?;
-    Ok(AnnotatedTrack::from_info(decoder.info()))
+async fn annotated_track(path: PathBuf) -> Result<AnnotatedTrack, String> {
+    blocking(move || {
+        let decoder = Decoder::open(&path).map_err(reported)?;
+        Ok(AnnotatedTrack::from_info(decoder.info()))
+    })
+    .await
 }
 
 /// Arayüzde oluşan hatayı (yakalanmamış istisna vb.) günlüğe yazar.
@@ -894,7 +956,16 @@ pub async fn abx_status(player: State<'_, PlayerState>) -> Result<AbxStatus, Str
 /// Testi kapatır.
 #[tauri::command]
 pub async fn abx_stop(player: State<'_, PlayerState>) -> Result<AbxStatus, String> {
-    Ok(player.lock()?.abx_stop())
+    // Şarkıya dönüş (ses aygıtını açmak) kilit dışında: görsel kareler ve durum sorguları beklemez.
+    let transition = player.lock()?.begin_abx_stop();
+    if let Some(transition) = transition {
+        let prepared = tauri::async_runtime::spawn_blocking(move || Player::prepare(transition))
+            .await
+            .map_err(reported)?;
+        // Açılamazsa (ör. dosya silindi) hata durumu gösterilir; test yine kapanır.
+        let _ = player.lock()?.install(prepared);
+    }
+    Ok(AbxStatus::inactive())
 }
 
 /// Konum, durum ve şarkı bilgisi. Arayüz bunu düzenli aralıklarla sorar.

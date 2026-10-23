@@ -1116,12 +1116,19 @@ impl Player {
 
     /// Testi kapatır; test başlarken çalan şarkı kaldığı yerde duraklatılmış açılır.
     pub fn abx_stop(&mut self) -> AbxStatus {
-        self.abx = None;
-        if let Some((path, position)) = self.abx_resume.take() {
+        if let Some(transition) = self.begin_abx_stop() {
             // Açılamazsa (ör. dosya silindi) hata durumu gösterilir; test yine kapanır.
-            let _ = self.restart(&path, false, Some(position));
+            let _ = self.install(Self::prepare(transition));
         }
         AbxStatus::inactive()
+    }
+
+    /// Testi kapatmanın kilit altındaki adımı (hiç beklemez): şarkıya dönülecekse geçiş başlar;
+    /// ses aygıtını açmak kilit dışında yapılır (`commands::abx_stop`).
+    pub fn begin_abx_stop(&mut self) -> Option<Transition> {
+        self.abx = None;
+        let (path, position) = self.abx_resume.take()?;
+        Some(self.begin_transition(&path, false, Some(position)))
     }
 
     pub fn abx_status(&self) -> AbxStatus {
