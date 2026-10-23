@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   CloseIcon,
+  FolderIcon,
   FolderPlusIcon,
   MusicPlusIcon,
   PauseIcon,
@@ -102,6 +103,31 @@ export function splitSources(
     folders: sources.filter((s) => !single(s)),
     files: sources.filter(single),
   };
+}
+
+/** Bekleme bunu aşmazsa yer tutucu gösterilmez (kısa yüklemede yanıp sönme olmasın). */
+const LOADING_DELAY_MS = 1000;
+
+/** Uzayan yüklemede hareketsiz, soluk kart iskeletleri (animasyon yok: parlama ve hareket güvenli). */
+function LoadingGrid({ label }: { label: string }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setVisible(true), LOADING_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+  if (!visible) return null;
+  return (
+    <div role="status" aria-label={`${label}…`}>
+      <ul className="albums library__skeleton" aria-hidden>
+        {Array.from({ length: 12 }, (_, i) => (
+          <li key={i} className="album">
+            <div className="album__cover" />
+            <span className="library__skeleton-line" />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 const VIEW_TITLES = { songs: "Şarkılar", albums: "Albümler", artists: "Sanatçılar" } as const;
@@ -215,24 +241,54 @@ export function LibraryPanel({
   const [viewport, setViewport] = useState(400);
   const listRef = useRef<HTMLDivElement>(null);
   const sourcesRef = useRef<HTMLDetailsElement>(null);
+  const addMenuRef = useRef<HTMLDetailsElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
 
-  // Kaynak listesi dışına tıklanınca ya da Esc'e basılınca kapanır.
+  // Kısayollar (yalnızca kütüphane görünürken): Ctrl+F / Ctrl+K arama, Ctrl+1/2/3 görünüm.
+  // Rakam tuşları tek başına sahne değiştirir; burada yalnızca Ctrl ile birlikte kullanılır.
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      const section = sectionRef.current;
+      if (!section || section.closest("[hidden], [inert]")) return;
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+      const key = event.key.toLowerCase();
+      if (key === "f" || key === "k") {
+        event.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+        return;
+      }
+      const views = ["songs", "albums", "artists"] as const;
+      const view = views[Number(event.key) - 1];
+      if (view) {
+        event.preventDefault();
+        setView(view);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Açılır listeler (kaynaklar, müzik ekle) dışına tıklanınca ya da Esc'e basılınca kapanır.
   useEffect(() => {
     const close = (event: Event) => {
-      const details = sourcesRef.current;
-      if (!details?.open) return;
-      // Panel gizliyken (başka sekme, çekmece kapalı) açık kalan liste sessizce kapanır; Esc'i yutmaz.
-      if (details.closest("[hidden], [inert]")) {
+      for (const details of [sourcesRef.current, addMenuRef.current]) {
+        if (!details?.open) continue;
+        // Panel gizliyken (başka sekme, çekmece kapalı) açık kalan liste sessizce kapanır; Esc'i
+        // yutmaz.
+        if (details.closest("[hidden], [inert]")) {
+          details.open = false;
+          continue;
+        }
+        if (event instanceof window.KeyboardEvent) {
+          if (event.key !== "Escape") continue;
+          event.preventDefault();
+        } else if (event.target instanceof Node && details.contains(event.target)) {
+          continue;
+        }
         details.open = false;
-        return;
       }
-      if (event instanceof window.KeyboardEvent) {
-        if (event.key !== "Escape") return;
-        event.preventDefault();
-      } else if (event.target instanceof Node && details.contains(event.target)) {
-        return;
-      }
-      details.open = false;
     };
     document.addEventListener("pointerdown", close);
     document.addEventListener("keydown", close, true);
@@ -314,6 +370,12 @@ export function LibraryPanel({
     );
   };
 
+  /** Menüden seçilen işi yapar ve menüyü kapatır. */
+  const runMenu = (menu: { current: HTMLDetailsElement | null }, action: () => void) => {
+    if (menu.current) menu.current.open = false;
+    action();
+  };
+
   const closeSources = () => {
     if (sourcesRef.current) sourcesRef.current.open = false;
     setConfirmRemove(null);
@@ -361,7 +423,7 @@ export function LibraryPanel({
   const problems = [...status.problems, ...(library.error && usable ? [library.error] : [])];
 
   return (
-    <section className="library" aria-label="Kütüphane">
+    <section className="library" aria-label="Kütüphane" ref={sectionRef}>
       <header className="library__header">
         <h2 className="library__title">
           {VIEW_TITLES[view]}
@@ -384,10 +446,11 @@ export function LibraryPanel({
               ["albums", "Albümler"],
               ["artists", "Sanatçılar"],
             ] as const
-          ).map(([id, label]) => (
+          ).map(([id, label], index) => (
             <button
               key={id}
               type="button"
+              title={`${label} (Ctrl+${index + 1})`}
               aria-pressed={view === id}
               className={`library__view${view === id ? " is-on" : ""}`}
               onClick={() => setView(id)}
@@ -405,6 +468,7 @@ export function LibraryPanel({
             }}
           >
             <summary title="Kütüphaneye eklenen klasörler ve şarkılar">
+              <FolderIcon />
               {sourcesLabel(sources.folders, sources.files.length)}
             </summary>
             <div className="library__sources-menu" aria-label="Eklenen klasörler ve şarkılar">
@@ -457,6 +521,26 @@ export function LibraryPanel({
                   <span aria-hidden>→</span>
                 </button>
               )}
+              <button
+                type="button"
+                className="library__source library__source--action"
+                onClick={() => {
+                  closeSources();
+                  void library.rescan();
+                }}
+                disabled={!usable || scan.scanning}
+                aria-label="Kütüphaneyi yeniden tara"
+              >
+                <RefreshIcon />
+                <span className="library__source-text">
+                  <span className="library__source-name">
+                    {scan.scanning ? "Taranıyor…" : "Şimdi yeniden tara"}
+                  </span>
+                  <span className="library__source-path">
+                    Değişen, eklenen ve silinen şarkıları bulur
+                  </span>
+                </span>
+              </button>
             </div>
           </details>
         )}
@@ -474,10 +558,20 @@ export function LibraryPanel({
         <label className="library__search">
           <SearchIcon />
           <input
+            ref={searchRef}
             type="search"
             value={query}
             onChange={(e) => library.setQuery(e.target.value)}
-            placeholder="Ara: şarkı, sanatçı, albüm"
+            onKeyDown={(e) => {
+              // İlk Esc aramayı temizler, ikincisi (kutu boşken) kütüphaneyi kapatır.
+              if (e.key === "Escape" && query) {
+                e.preventDefault();
+                library.setQuery("");
+              } else if (e.key === "Escape") {
+                e.currentTarget.blur();
+              }
+            }}
+            placeholder="Ara: şarkı, sanatçı, albüm (Ctrl+F)"
             aria-label="Kütüphanede ara"
             disabled={!usable || noFolders}
             spellCheck={false}
@@ -494,38 +588,44 @@ export function LibraryPanel({
             </button>
           )}
         </label>
-        <button
-          type="button"
-          className="hw-button hw-button--small library__add"
-          onClick={() => void library.addFolder()}
-          disabled={!usable}
-          title="Klasördeki bütün şarkıları ekleyin"
-          aria-label="Klasör ekle"
-        >
-          <FolderPlusIcon />
-          <span>Klasör ekle</span>
-        </button>
-        <button
-          type="button"
-          className="hw-button hw-button--small"
-          onClick={() => void library.addFiles(extensions)}
-          disabled={!usable}
-          title="Tek tek şarkı seçip ekleyin (birden fazla seçebilirsiniz)"
-          aria-label="Şarkı ekle"
-        >
-          <MusicPlusIcon />
-          <span>Şarkı ekle</span>
-        </button>
-        <button
-          type="button"
-          className="hw-button hw-button--small hw-button--icon"
-          onClick={() => void library.rescan()}
-          disabled={!usable || noFolders || scan.scanning}
-          title="Kütüphaneyi yeniden tara"
-          aria-label="Kütüphaneyi yeniden tara"
-        >
-          <RefreshIcon />
-        </button>
+        <details className="library__add-menu" ref={addMenuRef}>
+          <summary className="hw-button hw-button--small library__add" title="Müzik ekle">
+            <FolderPlusIcon />
+            <span>Müzik ekle</span>
+            <span aria-hidden className="library__caret">
+              ▾
+            </span>
+          </summary>
+          <div className="library__menu-list">
+            <button
+              type="button"
+              onClick={() => runMenu(addMenuRef, () => void library.addFolder())}
+              disabled={!usable}
+              aria-label="Klasör ekle"
+            >
+              <FolderPlusIcon />
+              <span>
+                Klasör ekle…
+                <small>Önerilen: klasördeki şarkılar ve sonradan eklenenler</small>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => runMenu(addMenuRef, () => void library.addFiles(extensions))}
+              disabled={!usable}
+              aria-label="Şarkı ekle"
+            >
+              <MusicPlusIcon />
+              <span>
+                Tek tek şarkı ekle…
+                <small>Birden fazla şarkı seçebilirsiniz</small>
+              </span>
+            </button>
+            <p className="library__menu-note">
+              Şarkıları ya da klasörleri pencereye sürükleyip de bırakabilirsiniz.
+            </p>
+          </div>
+        </details>
       </header>
 
       {library.unavailable && (
@@ -605,7 +705,7 @@ export function LibraryPanel({
                 </p>
               ) : null}
               {artists === null ? (
-                <p className="library__none">Sanatçılar yükleniyor…</p>
+                <LoadingGrid label="Sanatçılar yükleniyor" />
               ) : artists.length === 0 ? (
                 <p className="library__none">
                   {query ? `“${query}” için sanatçı yok.` : "Sanatçı etiketi olan şarkı yok."}
@@ -623,7 +723,7 @@ export function LibraryPanel({
                 </p>
               ) : null}
               {albums === null ? (
-                <p className="library__none">Albümler yükleniyor…</p>
+                <LoadingGrid label="Albümler yükleniyor" />
               ) : albums.length === 0 ? (
                 <p className="library__none">
                   {query ? `“${query}” için albüm yok.` : "Albüm etiketi olan şarkı yok."}
@@ -705,7 +805,7 @@ export function LibraryPanel({
                         <span className="library__no" role="gridcell">
                           {isCurrent ? playing ? <PlayIcon /> : <PauseIcon /> : index + 1}
                         </span>
-                        <span className="library__cell" role="gridcell">
+                        <span className="library__cell library__title-cell" role="gridcell">
                           {track.title}
                         </span>
                         <span className="library__cell library__muted" role="gridcell">

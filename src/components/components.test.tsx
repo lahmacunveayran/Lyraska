@@ -1335,6 +1335,49 @@ describe("kütüphane", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("kütüphane kısayolları: Ctrl+F arama, Ctrl+2 albümler; Esc önce aramayı temizler", async () => {
+    backend.desktop = true;
+    backend.library = library;
+    backend.tracks = [song(1, "Mayın Tarlası")];
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    const search = screen.getByRole("searchbox", { name: "Kütüphanede ara" });
+    await act(async () => fireEvent.keyDown(window, { key: "f", ctrlKey: true }));
+    expect(search).toHaveFocus();
+    await act(async () => fireEvent.change(search, { target: { value: "mayın" } }));
+    // İlk Esc aramayı temizler, kütüphane açık kalır.
+    await act(async () => fireEvent.keyDown(search, { key: "Escape" }));
+    expect(search).toHaveValue("");
+    expect(document.getElementById("drawer")).toHaveAttribute("aria-hidden", "false");
+    // Ctrl+2 albümler; tek başına "2" sahne kısayolu olarak kalır (kütüphaneyi değiştirmez).
+    await act(async () => fireEvent.keyDown(window, { key: "2", ctrlKey: true }));
+    expect(screen.getByRole("button", { name: "Albümler" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await act(async () => fireEvent.keyDown(window, { key: "1", ctrlKey: true }));
+    expect(screen.getByRole("button", { name: "Şarkılar" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("müzik ekle menüsü klasör ve tek tek şarkı; yeniden tarama kaynak menüsünde", async () => {
+    backend.desktop = true;
+    backend.library = library;
+    backend.tracks = [song(1, "Mayın Tarlası")];
+    backend.pickFolder.mockResolvedValue("D:\\Arşiv");
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    await act(async () => fireEvent.click(screen.getByText("Müzik ekle")));
+    expect(screen.getByText(/sürükleyip de bırakabilirsiniz/)).toBeInTheDocument();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Klasör ekle" })));
+    expect(backend.addFolder).toHaveBeenCalledWith("D:\\Arşiv");
+    expect(
+      screen.getByRole("button", { name: "Kütüphaneyi yeniden tara" }).closest("details"),
+    ).toHaveClass("library__sources");
+  });
+
   it("arama kutusuna yazılanla arar ve klasör kaldırılabilir", async () => {
     backend.desktop = true;
     backend.library = library;

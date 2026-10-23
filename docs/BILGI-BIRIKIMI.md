@@ -133,6 +133,10 @@ vardır (`check:docs`; avenoxbeyin'den alınan fikir, 23 Ekim 2026): sınır aş
 - **Albüm kapağını kullanıcı seçebilir** (23 Ekim 2026): seçilen resmin kopyası Lyraska'nın veri klasöründe
   (`kapaklar/`) tutulur; müzik dosyalarına ve klasörlerine dokunulmaz (sahibinin seçimi). Sıra: seçilen kapak →
   şarkıdaki kapak → yandaki resim → baskı kapağı.
+- **Kütüphane düzeni (23 Ekim 2026):** tam ekran beğenilmedi; ortada yüzen cam sayfa (en çok 1240 px, dört yanında
+  sahne, alt çubuk kullanılabilir; dışına tıklamak ya da Esc kapatır). Kısayollar araştırmaya dayalı: Ctrl+F/Ctrl+K
+  arama, Ctrl+1/2/3 görünüm (tek başına rakamlar sahne değiştirir), ilk Esc aramayı temizler. Ekleme tek "Müzik
+  ekle" menüsünde, yeniden tarama kaynak menüsünde. Şarkı adı Martian Mono, sanatçı/albüm orantılı ve soluk.
 - **Kutucuk yok:** her klasör ya da tek eklenen şarkı için ayrı "çip" sahibi tarafından reddedildi. Kaynaklar
   başlığın yanında tek düğmede; tek tek eklenenler tek satır, seçilince liste süzülür; kaldırma önce sorar.
 - Görsel tasarımda sahibi zor beğenir: seçenekleri gerçek boyutta, yan yana görsel olarak sun; bağımsız sanat
