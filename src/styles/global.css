@@ -48,7 +48,9 @@
   --font-figures: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
   --library-accent: #ff5a88;
   --library-menu: rgba(18, 24, 38, 0.97);
-  --library-panel: rgba(9, 12, 20, 0.7);
+  --library-panel: rgba(9, 12, 20, 0.74);
+  /* Kütüphane sayfasının en geniş hali */
+  --library-sheet-width: 1240px;
   --library-key-text: #b8c0c5;
   --library-placeholder: #8c95a8;
   /* Ton renkleri: Camelot çarkı renk çemberine oturur, uyumlu tonlar komşu renk alır (Gökyüzü ile aynı) */
@@ -1455,12 +1457,53 @@ kbd {
 }
 
 /* Kütüphane sekmesinde çekmece tam ekran açılır; alttaki çalma çubuğu görünür kalır. */
+/* Kütüphane sekmesinde çekmece ortada yüzen cam bir sayfaya dönüşür: dört yanından sahne görünür
+   (proje sahibinin seçimi, bağımsız arayüz denetiminin "B+" düzeni). */
 .drawer.is-full {
-  left: 20px;
+  top: 84px;
+  left: max(48px, calc((100vw - var(--library-sheet-width)) / 2));
+  right: max(48px, calc((100vw - var(--library-sheet-width)) / 2));
   width: auto;
-  bottom: calc(var(--dock-space) + 12px);
-  /* Arkadaki gökyüzü sezilsin */
+  bottom: calc(var(--dock-space) + 16px);
+  border-radius: 28px;
   background: var(--library-panel);
+}
+
+.drawer.is-full .drawer__head {
+  justify-content: space-between;
+}
+
+/* Panel sekmeleri sayfanın başlığıyla yarışmasın: sola yaslı, sade, küçük. */
+.drawer.is-full .drawer__tabs {
+  flex: 0 1 auto;
+  padding: 0;
+  background: transparent;
+}
+
+.drawer.is-full .drawer__tab {
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+
+/* Sayfanın dışında görünen sahneye tıklamak kütüphaneyi kapatır (alttaki çubuk kullanılabilir kalır). */
+.library-backdrop {
+  position: absolute;
+  inset: 76px 0 var(--dock-space) 0;
+  z-index: 5;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+}
+
+@media (max-width: 1200px) {
+  .drawer.is-full {
+    top: 76px;
+    left: 20px;
+    right: 20px;
+  }
 }
 
 .app.has-full-drawer .hero {
@@ -1470,8 +1513,6 @@ kbd {
 
 .drawer.is-full .library {
   width: 100%;
-  max-width: 1360px;
-  margin: 0 auto;
 }
 
 .drawer.is-full .library__table {

@@ -1315,6 +1315,26 @@ describe("kütüphane", () => {
     await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(backend.tracks[0]!.path));
   });
 
+  it("kütüphane ortada cam sayfa; dışındaki sahneye tıklayınca kapanır", async () => {
+    backend.desktop = true;
+    backend.library = library;
+    backend.tracks = [song(1, "Mayın Tarlası")];
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    const drawer = document.getElementById("drawer")!;
+    expect(drawer).toHaveClass("is-full");
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Kütüphaneyi kapat, sahneye dön" })),
+    );
+    expect(drawer).toHaveAttribute("aria-hidden", "true");
+    // Öteki paneller (ör. Ekolayzer) sağdaki çekmecede kalır; sahneye tıklama yakalanmaz.
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ekolayzer" })));
+    expect(drawer).not.toHaveClass("is-full");
+    expect(
+      screen.queryByRole("button", { name: "Kütüphaneyi kapat, sahneye dön" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("arama kutusuna yazılanla arar ve klasör kaldırılabilir", async () => {
     backend.desktop = true;
     backend.library = library;
