@@ -220,6 +220,8 @@ export function PlayerScreen() {
 
   // Odak yönetimi (ARA-06): çekmece açılınca odak seçili sekmeye gider; kapanınca onu açan
   // düğmeye döner (yoksa klavye kullanıcısı belgenin başından Tab'lamaya başlardı).
+  // Kütüphane sekmesi tam ekran açılır; öteki paneller sağdaki çekmecede kalır.
+  const libraryFull = drawer.open && drawer.panel === "library";
   const drawerTrigger = useRef<HTMLElement | null>(null);
   const wasOpen = useRef(drawer.open);
   useEffect(() => {
@@ -269,8 +271,8 @@ export function PlayerScreen() {
   return (
     <main
       className={`app${cinema ? " is-cinema" : ""}${drawer.open ? " has-drawer" : ""}${
-        status.state === "error" || player.error ? " is-error" : ""
-      }`}
+        libraryFull ? " has-full-drawer" : ""
+      }${status.state === "error" || player.error ? " is-error" : ""}`}
       data-theme={theme}
     >
       {/* Sahne çizilemezse yalnızca sahne yerine durgun gök kalır; başka sahne seçilince yeniden denenir. */}
@@ -400,7 +402,9 @@ export function PlayerScreen() {
 
       <aside
         id="drawer"
-        className={`drawer${drawer.open ? " is-open" : ""}`}
+        className={`drawer${drawer.open ? " is-open" : ""}${
+          drawer.panel === "library" ? " is-full" : ""
+        }`}
         aria-label="Paneller"
         aria-hidden={!drawer.open}
         inert={!drawer.open}
