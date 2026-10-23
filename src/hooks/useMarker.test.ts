@@ -2,12 +2,18 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useMarker } from "./useMarker";
 
+const mocks = vi.hoisted(() => ({
+  save: vi.fn<(...args: unknown[]) => Promise<string>>(async () => "kayit.json"),
+  evaluate: vi.fn(),
+}));
+
 vi.mock("../lib/backend", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/backend")>();
   return {
     ...actual,
     getAnnotation: async () => null,
-    saveAnnotation: async () => "kayit.json",
+    saveAnnotation: mocks.save,
+    evaluateAnnotation: mocks.evaluate,
   };
 });
 
@@ -44,5 +50,43 @@ describe("işaretleme ve ses gecikmesi", () => {
     // Tuşa basıştan olayın işlenmesine kadar geçen süre de (en fazla 0,25 sn) düşülür.
     expect(result.current.marks.beats[0]).toBeGreaterThan(9.6);
     expect(result.current.marks.beats[0]).toBeLessThanOrEqual(9.85);
+  });
+});
+
+describe("doğruluk ölçümü ve işaretler (DENETIM-FAZ0 ISK-03)", () => {
+  const EVALUATION = { fMeasure: 0.9 };
+
+  it("kaydedilmemiş işaretler ölçümden önce kaydedilir", async () => {
+    mocks.save.mockClear();
+    mocks.evaluate.mockResolvedValue({ evaluation: EVALUATION });
+    const { result } = renderHook(() => useMarker(TRACK, true, () => 10, null, 0));
+    await waitFor(() => expect(result.current.marks.beats).toEqual([]));
+    act(() => result.current.mark("beat"));
+    await act(async () => result.current.evaluate());
+    expect(mocks.save).toHaveBeenCalledTimes(1);
+    expect(mocks.save.mock.calls[0]?.[1]).toEqual([10]);
+    expect(result.current.evaluation).toEqual(EVALUATION);
+  });
+
+  it("ölçüm sürerken işaret gelirse eski işaretlerin sonucu gösterilmez", async () => {
+    let finish: (value: unknown) => void = () => {};
+    mocks.evaluate.mockImplementation(() => new Promise((resolve) => (finish = resolve)));
+    let now = 10;
+    const { result } = renderHook(() => useMarker(TRACK, true, () => now, null, 0));
+    await waitFor(() => expect(result.current.marks.beats).toEqual([]));
+    let running: Promise<void> = Promise.resolve();
+    act(() => {
+      running = result.current.evaluate();
+    });
+    await waitFor(() => expect(mocks.evaluate).toHaveBeenCalled());
+    now = 11;
+    act(() => result.current.mark("beat"));
+    await act(async () => {
+      finish({ evaluation: EVALUATION });
+      await running;
+    });
+    expect(result.current.evaluation).toBeNull();
+    expect(result.current.error).toMatch(/işaretler değişti/);
+    expect(result.current.marks.beats).toEqual([11]);
   });
 });

@@ -73,7 +73,10 @@ export function NowPlaying({
         {track ? (
           byline && <p className="now__byline">{byline}</p>
         ) : (
-          <p className="now__byline">Müzik klasörünüzü ya da şarkılarınızı pencereye sürükleyin.</p>
+          <p className="now__byline">
+            Müzik klasörünüzü ya da şarkılarınızı pencereye sürükleyin; ya da Kütüphane panelinden
+            klasör ekleyin.
+          </p>
         )}
         {!available && <p className="now__hint">Ses çalmak için programı Windows'ta açın.</p>}
         {problem && (

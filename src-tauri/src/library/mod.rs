@@ -7,8 +7,9 @@
 //! tek bir şarkı dosyası. İkisi de aynı şekilde taranır, güncellenir ve çıkarılır.
 //! - [`service`]: veritabanı + arka plan taraması; Tauri komutlarının kullandığı katman.
 //!
-//! Veritabanı kullanıcının bilgisayarında, uygulama veri klasöründe durur
-//! (`%APPDATA%\io.github.gozlemesevdalisi.lyraska\library.sqlite3`). İnternet gerekmez.
+//! Veritabanı kullanıcının bilgisayarında, makineye özgü uygulama veri klasöründe durur
+//! (`%LOCALAPPDATA%\io.github.gozlemesevdalisi.lyraska\library.sqlite3`; bkz. `data_dirs`). İnternet
+//! gerekmez.
 
 pub mod db;
 pub mod scan;

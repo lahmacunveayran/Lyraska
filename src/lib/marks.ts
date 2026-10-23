@@ -3,6 +3,9 @@
  * Saf hesaplar (test edilebilir); kayıt ve doğruluk ölçümü çekirdekte.
  */
 
+/** Doğruluk ölçümü için en az işaretli vuruş (Rust: `annotation::MIN_EVALUATION_BEATS`). */
+export const MIN_EVALUATION_BEATS = 8;
+
 export type MarkKind = "beat" | "drop";
 
 export interface Marks {

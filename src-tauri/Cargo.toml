@@ -1,12 +1,12 @@
 [package]
 name = "lyraska"
-version = "0.0.60"
+version = "0.0.61"
 description = "Görselleri şarkıyı önceden bilen, çevrimdışı müzik çalar"
-authors = ["Lyraska geliştiricileri"]
+authors = ["Lyraska katkıcıları"]
 license = "GPL-3.0-only"
-repository = "https://github.com/gozlemesevdalisi/Lyraska"
+repository = "https://github.com/lahmacunveayran/Lyraska"
 edition = "2021"
-rust-version = "1.85"
+rust-version = "1.90"
 
 [lib]
 # `_lib` soneki Windows'ta bin ve lib adlarının çakışmasını önler.
@@ -29,6 +29,9 @@ walkdir = "2"
 serde_json = { version = "1", features = ["float_roundtrip"] }
 rubato = "5"
 miniz_oxide = "0.8"
+# Uygulama veri klasörleri Tauri açılmadan önce bulunur (günlük ve tek örnek kilidi için); Tauri
+# de aynı crate'i aynı kuralla kullanır (yeni paket gelmez).
+dirs = "7"
 
 [profile.release]
 codegen-units = 1
@@ -49,6 +52,13 @@ all = { level = "warn", priority = -1 }
 unwrap_used = "warn"
 expect_used = "warn"
 panic = "warn"
+# Yarım kod yolları (CLAUDE.md: kütüphane kodunda panic yok). `unreachable` açılamaz: Tauri'nin
+# `#[tauri::command]` makrosunun ürettiği kodda geçer.
+todo = "warn"
+unimplemented = "warn"
+dbg_macro = "warn"
+# Her `#[allow]` gerekçesini taşır: kuralı susturan yer neden susturduğunu söyler.
+allow_attributes_without_reason = "warn"
 
 [target."cfg(windows)".dependencies]
 wasapi = "0.25"

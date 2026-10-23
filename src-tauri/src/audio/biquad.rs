@@ -952,7 +952,7 @@ mod tests {
 
     /// Belgedeki tablo: `cargo test --lib biquad::tests::dogruluk_tablosu -- --ignored --nocapture`.
     #[test]
-    #[ignore]
+    #[ignore = "belgedeki tabloyu üretir; sınama değil"]
     fn dogruluk_tablosu() {
         for rate in [44_100.0, 48_000.0, 96_000.0] {
             println!("{rate} Hz: tür, RBJ ortalama / en kötü, eşlenmiş ortalama / en kötü (dB)");

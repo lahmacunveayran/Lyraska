@@ -35,7 +35,10 @@
 //! en büyük yükseltmesini ([`EqProcessor::boost_db`]) bildirir.
 
 // Matris ve filtre hesaplarında indisli döngüler formüllerle bire bir eşleşir.
-#![allow(clippy::needless_range_loop)]
+#![allow(
+    clippy::needless_range_loop,
+    reason = "bant matrisleri indeksle okunur; i ve j aynı anda birden çok diziyi gezer"
+)]
 
 use std::f64::consts::PI;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -541,7 +544,7 @@ impl Layout {
 /// k. tasarım noktasının frekansı: çift sıradakiler bant ortaları, tek
 /// sıradakiler iki komşu bandın geometrik ortası.
 fn design_point_hz(k: usize) -> f64 {
-    if k % 2 == 0 {
+    if k.is_multiple_of(2) {
         CENTERS_HZ[k / 2]
     } else {
         (CENTERS_HZ[k / 2] * CENTERS_HZ[k / 2 + 1]).sqrt()
@@ -550,7 +553,7 @@ fn design_point_hz(k: usize) -> f64 {
 
 /// k. tasarım noktasındaki hedef: bant ortasında sürgü, arada komşuların ortalaması.
 fn design_target(gains_db: &[f64; BANDS], k: usize) -> f64 {
-    if k % 2 == 0 {
+    if k.is_multiple_of(2) {
         gains_db[k / 2]
     } else {
         0.5 * (gains_db[k / 2] + gains_db[k / 2 + 1])

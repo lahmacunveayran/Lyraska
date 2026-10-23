@@ -27,6 +27,12 @@ pub const SUPPORTED_EXTENSIONS: &[&str] = &[
     "caf", "mka", "webm",
 ];
 
+/// Kabul edilen örnekleme hızları: telefon kaydından DXD'ye (768 kHz) kadar.
+const MIN_SAMPLE_RATE: u32 = 1_000;
+const MAX_SAMPLE_RATE: u32 = 768_000;
+/// Kabul edilen en çok kanal (çok kanallı kayıtlar 7.1.4 vb.; üstü bozuk başlık sayılır).
+const MAX_CHANNELS: usize = 32;
+
 /// Açılan şarkının bilgileri.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -92,12 +98,25 @@ impl Decoder {
         let sample_rate = params
             .sample_rate
             .ok_or_else(|| AudioError::Unsupported("örnekleme hızı bilinmiyor".to_owned()))?;
+        // Bozuk başlık (ör. WAV'da 0xFFFFFFFF Hz) sınırsız bellek ayırmaya ve programın kapanmasına
+        // yol açardı; kütüphanede kalan böyle bir dosya her açılışta yeniden çökertirdi
+        // (DENETIM-FAZ0 ISK-02). Gerçek kayıtlar bu aralıkta.
+        if !(MIN_SAMPLE_RATE..=MAX_SAMPLE_RATE).contains(&sample_rate) {
+            return Err(AudioError::Unsupported(format!(
+                "örnekleme hızı geçersiz ({sample_rate} Hz)"
+            )));
+        }
         let channels = params
             .channels
             .as_ref()
             .map(|c| c.count())
             .filter(|&c| c > 0)
             .ok_or_else(|| AudioError::Unsupported("kanal sayısı bilinmiyor".to_owned()))?;
+        if channels > MAX_CHANNELS {
+            return Err(AudioError::Unsupported(format!(
+                "kanal sayısı desteklenmiyor ({channels})"
+            )));
+        }
 
         let source_bits = match params.sample_format {
             Some(symphonia::core::audio::sample::SampleFormat::F32)
@@ -547,6 +566,32 @@ mod tests {
             bytes.extend_from_slice(&s.to_le_bytes());
         }
         std::fs::write(path, bytes).unwrap();
+    }
+
+    #[test]
+    fn gecersiz_ornekleme_hizi_reddedilir_cokmez() {
+        // Hata (ISK-02, doğrulama turu): örnekleme hızı alanı 0xFFFFFFFF olan bir WAV, analizde
+        // gigabaytlarca bellek ayırmaya ve programın kapanmasına yol açıyordu.
+        for rate in [u32::MAX, 0, 500] {
+            let path = temp_path("bozuk-hiz.wav");
+            let mut bytes = Vec::new();
+            bytes.extend_from_slice(b"RIFF");
+            bytes.extend_from_slice(&(36u32 + 8).to_le_bytes());
+            bytes.extend_from_slice(b"WAVEfmt ");
+            bytes.extend_from_slice(&16u32.to_le_bytes());
+            bytes.extend_from_slice(&1u16.to_le_bytes()); // PCM
+            bytes.extend_from_slice(&1u16.to_le_bytes());
+            bytes.extend_from_slice(&rate.to_le_bytes());
+            bytes.extend_from_slice(&rate.wrapping_mul(2).to_le_bytes());
+            bytes.extend_from_slice(&2u16.to_le_bytes());
+            bytes.extend_from_slice(&16u16.to_le_bytes());
+            bytes.extend_from_slice(b"data");
+            bytes.extend_from_slice(&8u32.to_le_bytes());
+            bytes.extend_from_slice(&[0; 8]);
+            std::fs::write(&path, bytes).unwrap();
+            let result = Decoder::open(&path);
+            assert!(result.is_err(), "{rate} Hz kabul edilmemeli");
+        }
     }
 
     #[test]

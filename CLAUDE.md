@@ -14,18 +14,18 @@ değişmesi gerekiyorsa önce proje sahibine sorulur.
   o zaman da hangi sayfada hangi butona basılacağı tam olarak yazılır.
 - Sahibine karar sorulacaksa seçenekler ve Claude'un önerisi birlikte sunulur.
 - Test için sahibine her zaman sabit indirme linki verilir:
-  https://github.com/gozlemesevdalisi/Lyraska/releases/download/test-surumu/Lyraska-Kurulum.exe
+  https://github.com/lahmacunveayran/Lyraska/releases/download/test-surumu/Lyraska-Kurulum.exe
 
 ## Ürün
 
-Adı **Lyraska** (lir çalgısı ve Lyra takımyıldızından). Depo: `gozlemesevdalisi/Lyraska`.
+Adı **Lyraska** (lir çalgısı ve Lyra takımyıldızından). Depo: `lahmacunveayran/Lyraska` (eski adı `gozlemesevdalisi/Lyraska`; program kimliği `io.github.gozlemesevdalisi.lyraska` kullanıcı verisi kaybolmasın diye aynı kalır).
 
 Görselleri şarkıyı **önceden bilen**, tamamen **çevrimdışı** çalışan bir Windows müzik çalar.
 
 - Şarkı çalmadan önce analiz edilir: beat, ölçü, bölümler, drop, enerji → "şarkı haritası".
 - **Görsel Yönetmen** görselleri üç katmanda koreografe eder: **atmosfer**, **ritim**, **doku**.
-- Profesyonel ses: parametrik EQ, AutoEq kulaklık profilleri, loudness (EBU R128), bit-perfect mod; crossfeed
-  planlanıyor (yol haritası).
+- Profesyonel ses: parametrik EQ, AutoEq kulaklık profilleri, loudness (EBU R128), crossfeed, bit-perfect mod,
+  kör test (ABX).
 - Nostalji modları (eski araba teybi, VU ibreleri vb.) **özgün tasarımdır**.
   **Pioneer adı, logosu, yazı tipi veya herhangi bir varlığı asla kullanılmaz**; başka markaların da.
 - Program hiçbir zaman internete bağlanmak zorunda değildir. Telemetri yoktur.
@@ -55,11 +55,17 @@ lyraska/
 │   ├── components/           # React bileşenleri: PlayerScreen (sahne tüm pencere; üstünde cam katmanlar:
 │   │                         # NowPlaying büyük başlık, InfoStack drop sayacı ve sıradaki, SeekBar şarkı haritası
 │   │                         # şeridi, LyricsOverlay kinetik sözler; sahneler SceneStage'de, galeri ShaderScene + SceneGallery, MilkDropScene kullanıcının .milk görselleri; sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
-│   │                         # ayarlar; her panel ve sahne bir ErrorBoundary içinde: hata yalnızca o bölümü kapatır)
-│   ├── hooks/                # usePlayback (oynatıcı + çalma sırası), useLibrary, useEqualizer, useHeadphone,
-│   │                         # useMarker (işaretleme), useSync (ses–görüntü senkronu), useVisualFeed (görsel
-│   │                         # verisi), useSongMap (çalan şarkının haritası), useDrawer (çekmece), useScene
-│   │                         # (sahne, 1–9 ve 0, PageDown/PageUp), useDropToLibrary (sürükle-bırak), useIdle (sinema görünümü),
+│   │                         # ayarlar; her panel ve sahne bir ErrorBoundary içinde: hata yalnızca o bölümü kapatır).
+│   │                         # Klasik sahneler SkyScene, HighwayScene, DriveScene, VuScene (VuMeter), SpectrumView
+│   │                         # (DotMatrix, SpectrumDemo karşılama gösterisi); paneller LibraryPanel, EqualizerPanel
+│   │                         # (CrossfeedStrip, ParametricEq), MarkerPanel, SyncPanel, AbxPanel, SettingsPanel;
+│   │                         # Dock alttaki cam (şerit, süre, çalma düğmeleri), DropOverlay sürükle-bırak, Marquee kayan
+│   │                         # yazı, icons simgeler
+│   ├── hooks/                # usePlayer (oynatıcı: aç, çal, sar), usePlayback (oynatıcı + çalma sırası), useLibrary,
+│   │                         # useEqualizer, useHeadphone, useMarker (işaretleme), useSync (ses–görüntü senkronu),
+│   │                         # useVisualFeed (görsel verisi), useSongMap (çalan şarkının haritası), useDrawer
+│   │                         # (çekmece), useScene (sahne, 1–9 ve 0, PageDown/PageUp), useDropToLibrary (sürükle-bırak),
+│   │                         # useIdle (sinema görünümü), useKeyboardFocus (klavye odağı sinema görünümünü tutar),
 │   │                         # useVisualSafe (epilepsi güvenli modu), usePlaybackOptions (ses yüksekliği eşitleme),
 │   │                         # useSkyLook (gece göğünün manzarası: göl, korona, karlı vadi), useCover (kapak),
 │   │                         # useAbx (kör test), useSongKey (çalan şarkının tonu), useParametric (elle
@@ -67,14 +73,20 @@ lyraska/
 │   │                         # useLyrics (şarkı sözleri), useScenePresets (galeri sahnelerinin görünümü ve
 │   │                         # hazır ayarlar), useMilkdrop (MilkDrop klasörü, görseller, önceki/sonraki)
 │   ├── lib/                  # Saf yardımcılar (format, meter, dotFont, vu, sky, highway, queue, sync, songMap,
-│   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile, lyrics), Rust köprüsü (backend.ts; veri tipleri bindings/ altında
-│   │                         # Rust'tan üretilir, elle düzenlenmez), arayüz hatalarını günlüğe yazma (errorReporting.ts), parlama sayacı
-│   │                         # (flash.ts), WebGL2 çizimi (gl.ts ortak; skyRenderer.ts, highwayRenderer.ts; galeri: shaderScene.ts,
-│   │                         # shaderSources.ts gölgelendiriciler, shaderRenderer.ts, sceneLook.ts hız ve palet,
-│   │                         # scenePreset.ts hazır ayarlar; milkdrop.ts MilkDrop geçiş zamanı ve ses verisi),
-│   │                         # WebGL2 açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts), parlaklık freni: güvenilmeyen
-│   │                         # sahnelerin (MilkDrop) son geçişi, bölge parlaklığı karede ≤ r·dt (flashGuard.ts; saf hesap ve
-│   │                         # kanıt flashGuardMath.ts; flashGuardCheck.ts yalnızca check:scenes'in parlayan deseni, programa girmez)
+│   │                         # analysis: BPM sütunu, drop: bırakma bildirimi, eq: ekolayzer bantları,
+│   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile, lyrics,
+│   │                         # clock: akıcı oynatma saati, marks: işaret hesapları, scene: sahne listesi,
+│   │                         # sceneClock: sahne iç saatleri, virtual: uzun listede görünen satırlar),
+│   │                         # usePrefersReducedMotion ("animasyonları azalt"), browserGuard (sürümde F5, sağ tık
+│   │                         # menüsü, geri gibi tarayıcı davranışlarını kapatır), Rust köprüsü (backend.ts; veri tipleri
+│   │                         # bindings/ altında Rust'tan üretilir, elle düzenlenmez), arayüz hatalarını günlüğe yazma
+│   │                         # (errorReporting.ts), parlama sayacı (flash.ts), WebGL2 çizimi (gl.ts ortak;
+│   │                         # skyRenderer.ts, highwayRenderer.ts; galeri: shaderScene.ts, shaderSources.ts
+│   │                         # gölgelendiriciler, shaderRenderer.ts, sceneLook.ts hız ve palet, scenePreset.ts hazır
+│   │                         # ayarlar; milkdrop.ts MilkDrop geçiş zamanı ve ses verisi), WebGL2 açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts), parlaklık
+│   │                         # freni: güvenilmeyen sahnelerin (MilkDrop) son geçişi, bölge parlaklığı karede ≤ r·dt
+│   │                         # (flashGuard.ts; saf hesap ve kanıt flashGuardMath.ts; flashGuardCheck.ts yalnızca
+│   │                         # check:scenes'in parlayan deseni, programa girmez)
 │   └── styles/               # CSS; renkler :root değişkenlerinde
 ├── src-tauri/                # Rust çekirdeği
 │   ├── src/
@@ -106,6 +118,9 @@ lyraska/
 │   │   │   ├── db.rs         #   kaynak (klasör ya da tek şarkı) ve şarkı tabloları, Türkçe arama, BPM
 │   │   │   ├── scan.rs       #   paralel etiket okuma, değişmeyeni atlama, silineni çıkarma
 │   │   │   └── service.rs    #   arka plan taraması; komutların kullandığı katman
+│   │   ├── data_dirs.rs      # veri klasörleri (Roaming küçük, Local büyük; eskiyi bir kez taşır), tek örnek kilidi
+│   │   ├── atomic_file.rs    # bölünmez dosya yazma (geçici dosya + sync_all + ad değiştirme): ayarlar, işaretler
+│   │   ├── file_manager.rs   # dosya gezginini açma (günlük, işaret klasörü); Windows'ta dosyayı seçili gösterir
 │   │   ├── milkdrop/         # MilkDrop sahnesi: kullanıcının .milk klasörü (listeleme, yalnızca o klasörden açma);
 │   │   │                     # parse.rs: .milk → Butterchurn JSON (HLSL gölgelendiriciler atılır; program preset içermez);
 │   │   │                     # eel.rs: döngü kuralı (loop MilkDrop sınırına kırpılır, iç içe/piksel başına döngü yok)
@@ -178,24 +193,26 @@ Kurallar:
 
 Hepsi depo kökünde çalıştırılır.
 
-| İş                             | Komut                                                                                                  |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| Bağımlılıkları kur             | `npm ci`                                                                                               |
-| Programı geliştirme modunda aç | `npm run tauri dev`                                                                                    |
-| Yalnızca arayüz (tarayıcıda)   | `npm run dev`                                                                                          |
-| Arayüz testleri                | `npm test`                                                                                             |
-| Arayüz lint / tür / biçim      | `npm run lint`, `npm run typecheck`, `npm run format:check`                                            |
-| Biçimlendir                    | `npm run format` ve `cd src-tauri && cargo fmt`                                                        |
-| Rust testleri                  | `cd src-tauri && cargo test` (arayüz veri tiplerini de `src/lib/bindings/`'e üretir)                   |
-| Komut sözleşmesi               | `npm run check:commands` (arayüzün çağrıları ↔ çekirdeğin komutları)                                   |
-| Rust lint                      | `cd src-tauri && cargo clippy --all-targets -- -D warnings`                                            |
-| Lisans denetimi                | `npm run check:licenses` ve `cd src-tauri && cargo deny check licenses bans sources`                   |
-| Depoda ses dosyası yok mu      | `npm run check:audio` (telif: yalnızca `src-tauri/tests/data/` sentetik sesleri)                       |
-| Lisans bildirimleri            | `npm run notices` üretir (`public/lisanslar/UCUNCU-TARAF.txt`), `npm run check:notices` CI'da denetler |
-| Sahneler gerçek tarayıcıda     | `npm run check:scenes` (önce `npm run build`; CI'da Windows Edge)                                      |
-| Windows'a özel kodu denetle    | `cd src-tauri && cargo clippy --target x86_64-pc-windows-gnu --all-targets -- -D warnings` (bkz. not)  |
-| Gerçek ses aygıtıyla deneme    | `cd src-tauri && cargo run --example ses_denemesi`                                                     |
-| Kurulum dosyası (Windows)      | `npm run tauri build`                                                                                  |
+| İş                             | Komut                                                                                                                                  |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Bağımlılıkları kur             | `npm ci`                                                                                                                               |
+| Programı geliştirme modunda aç | `npm run tauri dev`                                                                                                                    |
+| Yalnızca arayüz (tarayıcıda)   | `npm run dev`                                                                                                                          |
+| Arayüz testleri                | `npm test`                                                                                                                             |
+| Arayüz lint / tür / biçim      | `npm run lint`, `npm run typecheck`, `npm run format:check`                                                                            |
+| Bütün arayüz denetimleri       | `npm run check` (biçim, lint, tür, testler, `check:*`; push öncesi tek komut)                                                          |
+| Biçimlendir                    | `npm run format` ve `cd src-tauri && cargo fmt`                                                                                        |
+| Rust testleri                  | `cd src-tauri && cargo test` (arayüz veri tiplerini de `src/lib/bindings/`'e üretir)                                                   |
+| Komut sözleşmesi               | `npm run check:commands` (arayüzün çağrıları ↔ çekirdeğin komutları)                                                                   |
+| Belgeler ve kurallar           | `npm run check:docs` (CLAUDE.md ağacı, klasör adları, linkler), `npm run check:rules` (unsafe, atlanan test, uzak adres, CSP, izinler) |
+| Rust lint                      | `cd src-tauri && cargo clippy --all-targets -- -D warnings`                                                                            |
+| Lisans denetimi                | `npm run check:licenses` ve `cd src-tauri && cargo deny check licenses bans sources`                                                   |
+| Depoda ses dosyası yok mu      | `npm run check:audio` (telif: yalnızca `src-tauri/tests/data/` sentetik sesleri)                                                       |
+| Lisans bildirimleri            | `npm run notices` üretir (`public/lisanslar/UCUNCU-TARAF.txt`), `npm run check:notices` CI'da denetler                                 |
+| Sahneler gerçek tarayıcıda     | `npm run check:scenes` (önce `npm run build`; CI'da Windows Edge)                                                                      |
+| Windows'a özel kodu denetle    | `cd src-tauri && cargo clippy --target x86_64-pc-windows-gnu --all-targets -- -D warnings` (bkz. not)                                  |
+| Gerçek ses aygıtıyla deneme    | `cd src-tauri && cargo run --example ses_denemesi`                                                                                     |
+| Kurulum dosyası (Windows)      | `npm run tauri build`                                                                                                                  |
 
 Not: Rust derlemesi için önce `npm run build` ile `dist/` oluşturulmuş olmalıdır.
 Windows'a özel kodun (WASAPI) Linux'tan denetimi için bir kez `rustup target add x86_64-pc-windows-gnu` ve
@@ -232,7 +249,8 @@ TypeScript / React:
 Görsel güvenlik (zorunlu):
 
 - **Epilepsi güvenliği**: hiçbir sahne saniyede 3'ten fazla parlama üretmez. Ani tam ekran beyaz/kırmızı
-  geçiş yoktur. Faz 2'de bu kural bir "epilepsi güvenli modu" ile denetlenebilir hale gelir.
+  geçiş yoktur. "Epilepsi güvenli modu" (Ayarlar) açıkken saniyede en fazla 1 nabız; sahneler ve karşılama
+  gösterisi buna uyar ve her sahne kendi parlama testini taşır.
 - İşletim sistemindeki "animasyonları azalt" tercihine (`prefers-reduced-motion`) uyulur.
 
 ## Test kuralları
@@ -243,7 +261,9 @@ Görsel güvenlik (zorunlu):
 - TypeScript: Vitest + Testing Library; dosya adı `*.test.ts(x)`.
 - Kalite hedefleri ölçülebilir testlere bağlanır: beat F-ölçüsü ≥ 0,80; senkron ±20 ms;
   1080p dahili GPU'da 60 fps; 1 saat çalmada sıfır takılma.
-- Push'tan önce yerelde şunlar temiz olmalı: biçim, lint, tür denetimi, testler, lisans denetimi.
+- Push'tan önce yerelde şunlar temiz olmalı: biçim, lint, tür denetimi, testler, lisans denetimi ve `check:*`
+  kapıları. Arayüz tarafının hepsi tek komutta: `npm run check`; Rust tarafı için README'deki "Checks" listesi
+  (CI'nın çalıştırdığının aynısı; `check:docs` CI'nın her `check:*` betiğini çalıştırdığını denetler).
 
 ## Lisans kuralları
 

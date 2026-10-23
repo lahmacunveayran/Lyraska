@@ -36,17 +36,17 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       0.0.22: sahneler CI'da Windows Edge ile denetlenir; WebGL2 açılamazsa neden hata günlüğüne yazılır ve gece
       göğü 2D yedek çizimle (Lyra dahil) görünür. Proje sahibinde ışıklar görünüyor (#24 kapandı)
 - [x] Kuzey ışıklarını göz kamaştırıcı ve estetik yapmak (proje sahibinin isteği; parlamasız, epilepsi sınırı
-      içinde) ([#30](https://github.com/gozlemesevdalisi/Lyraska/issues/30)). 0.0.30: perdeler yeniden çizildi
+      içinde) ([#30](https://github.com/lahmacunveayran/Lyraska/issues/30)). 0.0.30: perdeler yeniden çizildi
       (katlanma, ince ışınlar, alttan yeşil üstte mor, dört derinlik, Vega'nın ışık çizgileri); üç manzara
       (göl, korona, karlı vadi) Ayarlar'da. Proje sahibi onayladı (16 Ekim; #30 kapandı)
 - [x] Gerçek albüm kapakları (0.0.32): şarkının içindeki kapak büyük başlığın yanında ve sıradaki şarkı kartında;
       yoksa albüm adından özgün renk kapağı. Arayüzün vurgu renkleri çalan bölümün temasına yumuşakça geçer.
       Her panel ve sahne bir hata sınırı içinde: hata yalnızca o bölümü kapatır
-- [x] Sürükle-bırak sorunu ([#29](https://github.com/gozlemesevdalisi/Lyraska/issues/29)). 0.0.23: bırakılan şarkılar
+- [x] Sürükle-bırak sorunu ([#29](https://github.com/lahmacunveayran/Lyraska/issues/29)). 0.0.23: bırakılan şarkılar
       kütüphaneye eklenir ve çalar, sürüklerken pencerede vurgu, desteklenmeyen türde anlaşılır mesaj. Proje sahibi
       onayladı (16 Ekim; #29 kapandı)
 - [x] Yalnızca ID3v1 etiketli MP3'lerde başlık/sanatçı okunması
-      ([#27](https://github.com/gozlemesevdalisi/Lyraska/issues/27)). 0.0.33: Türkçe harfler (Windows-1254) ve
+      ([#27](https://github.com/lahmacunveayran/Lyraska/issues/27)). 0.0.33: Türkçe harfler (Windows-1254) ve
       UTF-8 doğru okunur; kütüphanedeki etkilenmiş kayıtlar bir sonraki taramada kendiliğinden düzelir.
       Faz 1 ile onaylandı (16 Ekim)
 
@@ -114,9 +114,9 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
 
 - [x] Yüksek kaliteli yeniden örnekleme (aygıtın hızına, Windows'a bırakmadan), taşma koruması, sinyal yolu göstergesi (öne alındı: 0.0.12).
       "Müzikler garip geliyor" bildiriminin proje sahibince doğrulanması bekliyor
-      ([#25](https://github.com/gozlemesevdalisi/Lyraska/issues/25))
+      ([#25](https://github.com/lahmacunveayran/Lyraska/issues/25))
 - [x] Parametrik EQ (0.0.53; motor ve elle ayar arayüzü).
-      Ekolayzerle ilgili kalan işler tek yerde: [#26](https://github.com/gozlemesevdalisi/Lyraska/issues/26)
+      Ekolayzerle ilgili kalan işler tek yerde: [#26](https://github.com/lahmacunveayran/Lyraska/issues/26)
   - [x] Süzgeç çekirdeği (0.0.53; proje sahibi, 16 Ekim 2026: "en üst düzey mühendislik, en üst düzey matematik"):
         sekiz tür (tepe, raflar, alçak/yüksek/bant geçiren, çentik, tüm geçiren); RBJ'nin yanında analog eğriye
         eşlenmiş tasarım (44,1 kHz'te ortalama sapma tepe süzgecinde 0,70 → 0,16 dB, alçak geçirende 3,97 → 0,16 dB;
@@ -283,7 +283,7 @@ Faz 6'da sırayı kullanıcı seçer; burada **sırayı program seçer**, geçi�
 - ~~**Ses iş parçacığına Windows ses önceliği (MMCSS, "Pro Audio")**~~: proje sahibi kararı Claude'a bıraktı
   (22 Ekim 2026); 0.0.52'de yalnızca `output/wasapi.rs` içinde `// GÜVENLİK:` gerekçeli tek `unsafe` çağrıyla
   eklendi (DENETIM-2 bölüm 5.3).
-- **Ekolayzerde sıradaki iş** ([#26](https://github.com/gozlemesevdalisi/Lyraska/issues/26)): elle parametrik EQ
+- **Ekolayzerde sıradaki iş** ([#26](https://github.com/lahmacunveayran/Lyraska/issues/26)): elle parametrik EQ
   arayüzü (öneri; lisans beklemiyor), hazır kulaklık listesi (önce ölçüm kaynaklarının lisansı), loudness.
 - **Retriever / Veritas** ([VERITAS.md](VERITAS.md)): yol haritasında kapandı (22 Ekim 2026; "araştırıldı, MP3 için
   kapıdan geçmedi"). Açık kalan tek seçenek: AAC için aynı deneyin yapılıp yapılmayacağı (öneri: şimdilik hayır;

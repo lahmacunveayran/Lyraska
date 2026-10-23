@@ -1,0 +1,55 @@
+# Haftalık güvenlik taraması: kod değişmese de yeni açıklanan güvenlik açıkları (RustSec, npm)
+# ve deponun güvenlik duruşu (OpenSSF Scorecard) her hafta denetlenir. Scorecard sonuçları
+# GitHub'da Security → Code scanning altında görünür; dışarıya yayımlanmaz.
+name: Güvenlik taraması
+
+on:
+  schedule:
+    - cron: "17 6 * * 1" # her pazartesi 09:17 (İstanbul)
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  uyarilar:
+    name: Bilinen açıklar (RustSec, npm)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Rust güvenlik uyarıları (cargo-deny)
+        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2
+        with:
+          manifest-path: src-tauri/Cargo.toml
+          command: check advisories
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: npm güvenlik uyarıları
+        run: npm audit --audit-level=high
+
+  scorecard:
+    name: OpenSSF Scorecard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read # iş akışı çalıştırmalarını okumak için
+      security-events: write # sonuçları Code scanning'e yüklemek için
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a # v2.4.3
+        with:
+          results_file: scorecard.sarif
+          results_format: sarif
+          publish_results: false
+      - uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          sarif_file: scorecard.sarif

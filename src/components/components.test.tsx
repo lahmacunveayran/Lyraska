@@ -447,18 +447,33 @@ describe("oynatıcı ekranı", () => {
     expect(screen.getByText(/Windows'ta açın/)).toBeInTheDocument();
     // Program bilgisi ayarlar panelinde.
     await act(async () => fireEvent.click(screen.getByRole("tab", { name: "Ayarlar" })));
-    await waitFor(() => expect(screen.getByText(/Faz 2 · Sürüm/)).toBeInTheDocument());
-    // Lisanslar: GPL ve kaynak kodu bağlantısı; üçüncü taraf bildirimleri açılınca yüklenir (C3).
-    expect(screen.getByText(/GNU GPL 3.0/)).toBeInTheDocument();
-    expect(screen.queryByTitle("Üçüncü taraf lisans bildirimleri")).not.toBeInTheDocument();
-    const details = screen.getByText("Üçüncü taraf lisans bildirimleri").closest("details");
-    expect(details).not.toBeNull();
-    details!.open = true;
-    await act(async () => fireEvent(details!, new Event("toggle")));
-    expect(screen.getByTitle("Üçüncü taraf lisans bildirimleri")).toHaveAttribute(
-      "src",
-      "/lisanslar/UCUNCU-TARAF.txt",
+    await waitFor(() => expect(screen.getByText(/Test sürümü · Sürüm/)).toBeInTheDocument());
+    // Lisanslar: GPL (yalnızca sürüm 3, garanti yok) ve kaynak kodu; metinler açılınca yüklenir
+    // ve UTF-8 olarak okunur (C3, DENETIM-FAZ0 BEL-11).
+    expect(screen.getByText(/GPL-3.0-only/)).toBeInTheDocument();
+    expect(screen.getByText(/hiçbir garanti verilmez/)).toBeInTheDocument();
+    const fetchMock = vi.fn((url: string) =>
+      Promise.resolve(new Response(`metin: ${url} · Ünlü ğüşıöç`, { status: 200 })),
     );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      for (const [title, url] of [
+        ["GNU GPL sürüm 3 (lisans metni)", "/lisanslar/GPL-3.0.txt"],
+        ["Üçüncü taraf lisans bildirimleri", "/lisanslar/UCUNCU-TARAF.txt"],
+      ] as const) {
+        expect(screen.queryByLabelText(title)).not.toBeInTheDocument();
+        const details = screen.getByText(title).closest("details");
+        expect(details).not.toBeNull();
+        details!.open = true;
+        await act(async () => fireEvent(details!, new Event("toggle")));
+        await waitFor(() =>
+          expect(screen.getByLabelText(title)).toHaveTextContent(`metin: ${url} · Ünlü ğüşıöç`),
+        );
+      }
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("dosya seçilince şarkıyı açar ve süreyi gösterir", async () => {

@@ -1,16 +1,25 @@
 # main'de CI yeşil bitince Windows kurulum dosyasını derler ve "test-surumu" adlı
 # sabit GitHub Release'ini yeniler. İndirme linki hiç değişmez:
-# https://github.com/gozlemesevdalisi/Lyraska/releases/download/test-surumu/Lyraska-Kurulum.exe
+# https://github.com/lahmacunveayran/Lyraska/releases/download/test-surumu/Lyraska-Kurulum.exe
 #
-# Güvenlik (DENETIM.md C1, C2, C4):
-# - CI'yi bekler (`workflow_run`): kırmızı ya da sınanmamış bir main sabit linke düşmez.
+# Güvenlik (DENETIM.md C1, C2, C4; DENETIM-FAZ0.md G1, G2, G12, G14):
+# - CI'yi bekler (`workflow_run`), ama yalnızca bu deponun `main` dalına yapılan push'un CI'sini.
+#   `branches: [main]` süzgeci tek başına yetmez: dal adına bakar, fork'taki `main` adlı daldan
+#   açılan bir PR'ın CI'si de "main" sayılır. Olay türü ve depo ayrıca denetlenir.
+# - Derleme önbelleksizdir: yayın derlemesi önceki çalıştırmaların bıraktığı hiçbir şeye güvenmez.
 # - Derleme işinin yazma izni yoktur; yazma izni yalnızca Release'i yenileyen, kod çalıştırmayan işte.
+# - Yayın, derlenen commit hâlâ main'in ucuysa yapılır: "Re-run" ya da gecikmiş bir çalıştırma eski
+#   bir sürümü sabit linke geri koyamaz.
+# - Kurulum dosyasına GitHub'ın derleme kanıtı (build provenance attestation) eklenir: dosyanın bu
+#   depodaki hangi commit'ten, hangi iş akışıyla derlendiği imzalı olarak doğrulanabilir.
 # - Üçüncü taraf eylemler commit SHA'sıyla sabitlenir; `checkout` kimlik bilgisi bırakmaz.
 # - Yayın iptal edilmez, sıraya girer; yeni dosya önce ayrı adla yüklenir, eskisi sonra silinir.
 name: Test sürümü
 
 on:
-  workflow_run:
+  # Yalnızca bu deponun main push'u kabul edilir (derle.if); derlenen kod main'in kendisidir, PR kodu
+  # değil. zizmor'un genel uyarısı bu yüzden bu satırda susturulur.
+  workflow_run: # zizmor: ignore[dangerous-triggers]
     workflows: [CI]
     types: [completed]
     branches: [main]
@@ -31,12 +40,21 @@ env:
 jobs:
   derle:
     name: Kurulum dosyasını derle
-    # Elle başlatılmadıysa yalnızca CI başarılı bittiğinde.
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
-    runs-on: windows-latest
+    # Elle başlatma yalnızca main'den. Otomatik başlatma yalnızca bu deponun main'ine yapılan
+    # push'un CI'si başarıyla bittiğinde (PR'ların, özellikle fork PR'larının CI'si sayılmaz).
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: windows-2025
     timeout-minutes: 60
     permissions:
       contents: read
+      # Elle başlatmada commit'in CI sonucunu okumak için (yalnızca okuma).
+      actions: read
     outputs:
       sha: ${{ steps.kaynak.outputs.sha }}
       version: ${{ steps.surum.outputs.version }}
@@ -47,20 +65,36 @@ jobs:
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: echo "sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+      # Elle başlatma CI'yi atlayamaz: main'in bu commit'i için push CI'si başarıyla bitmiş olmalı
+      # (otomatik başlatmada bu, derle.if'te zaten denetlenir).
+      - name: Elle başlatmada CI yeşil mi
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.kaynak.outputs.sha }}
+        run: |
+          passed=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SHA&event=push&status=success" --jq '.total_count')
+          if [ "$passed" -lt 1 ]; then
+            echo "::error::$SHA için başarılı bir CI çalıştırması yok; test sürümü yayımlanmaz."
+            exit 1
+          fi
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           ref: ${{ steps.kaynak.outputs.sha }}
           persist-credentials: false
+      # Önbellek yok (npm ve Rust): bkz. dosya başı.
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
-          node-version: 22
-          cache: npm
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
-        with:
-          toolchain: 1.97.0
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        with:
-          workspaces: src-tauri -> target
+          node-version-file: .nvmrc
+          # setup-node v5, package.json'a `packageManager` eklenirse önbelleği kendiliğinden açar.
+          package-manager-cache: false
+      - name: Rust araç zinciri (rust-toolchain.toml)
+        shell: bash
+        run: |
+          toolchain=$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal
+          rustc --version
       - run: npm ci
       - name: Sürüm numarası
         id: surum
@@ -68,6 +102,9 @@ jobs:
         run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
       - name: Kurulum dosyasını derle
         # Tauri CLI doğrudan: üçüncü taraf eylem ve token gerekmez. `--locked`: Cargo.lock aynen.
+        # LYRASKA_COMMIT: programın Ayarlar > Program'da gösterdiği derleme kodu (derlenen commit).
+        env:
+          LYRASKA_COMMIT: ${{ steps.kaynak.outputs.sha }}
         run: npm run tauri build -- --ci -- --locked
       - name: Kurulum dosyasını sabit ada kopyala
         shell: pwsh
@@ -96,21 +133,43 @@ jobs:
   yayinla:
     name: test-surumu Release'ini yenile
     needs: derle
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
-    # Yazma izni yalnızca burada; bu iş depo kodunu indirmez ve çalıştırmaz.
+    # Bu iş depo kodunu indirmez ve çalıştırmaz.
     permissions:
-      contents: write
+      contents: write # Release dosyasını ve etiketi yenilemek için
+      id-token: write # derleme kanıtını Sigstore ile imzalamak için
+      attestations: write # derleme kanıtını depoya kaydetmek için
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       SHA: ${{ needs.derle.outputs.sha }}
       VERSION: ${{ needs.derle.outputs.version }}
     steps:
+      - name: Derlenen commit hâlâ main'in ucu mu
+        # "Re-run", sıradaki eski bir çalıştırma ya da derleme sırasında gelen yeni bir push: sabit
+        # linke yalnızca en güncel main çıkar. Daha yeni bir main varsa onun yayını zaten gelecek.
+        id: guncel
+        run: |
+          set -euo pipefail
+          head=$(gh api "repos/$GH_REPO/commits/main" --jq .sha)
+          if [ "$head" = "$SHA" ]; then
+            echo "yayinla=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "yayinla=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Derlenen commit ($SHA) main'in ucu değil ($head); yayın atlandı."
+          fi
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: steps.guncel.outputs.yayinla == 'true'
         with:
           name: kurulum
+      - name: Derleme kanıtı (attestation)
+        if: steps.guncel.outputs.yayinla == 'true'
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: ${{ env.ASSET_NAME }}
       - name: Sürüm notlarını hazırla
+        if: steps.guncel.outputs.yayinla == 'true'
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
@@ -124,6 +183,9 @@ jobs:
           - Commit: [\`$short_sha\`](https://github.com/$GH_REPO/commit/$SHA)
           - Derlenme: $date (İstanbul)
           - SHA-256 (\`$ASSET_NAME\`): \`$sha256\`
+          - Derleme kanıtı: dosyanın bu depoda bu commit'ten derlendiği GitHub'da imzalı olarak kayıtlı
+            ([Attestations](https://github.com/$GH_REPO/attestations); doğrulama:
+            \`gh attestation verify $ASSET_NAME --repo $GH_REPO --signer-workflow $GH_REPO/.github/workflows/test-surumu.yml --source-ref refs/heads/main\`)
           - Hata ayıklama sembolleri: [derleme çalıştırmasının "semboller" dosyası]($RUN_URL) (90 gün)
 
           ### Kurulum
@@ -132,22 +194,17 @@ jobs:
              (Program henüz dijital olarak imzalanmadığı için bu uyarı normaldir; imzalama Faz 4'te.)
           3. Kurulum yönetici izni istemez; program Başlat menüsüne "Lyraska" adıyla eklenir.
           NOTES
-      - name: Etiketi taşı ve Release'i yenile
+      - name: Dosyayı yükle, sonra etiketi ve notları yenile
+        if: steps.guncel.outputs.yayinla == 'true'
         run: |
           set -euo pipefail
-          # Etiketi bu commit'e taşı (Release aynı kalır, böylece link değişmez). Git kimlik bilgisi
-          # yok; API ile.
-          if gh api "repos/$GH_REPO/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
-            gh api -X PATCH "repos/$GH_REPO/git/refs/tags/$RELEASE_TAG" -f sha="$SHA" -F force=true >/dev/null
-          else
-            gh api -X POST "repos/$GH_REPO/git/refs" -f ref="refs/tags/$RELEASE_TAG" -f sha="$SHA" >/dev/null
-          fi
-
+          # Sıra önemli: önce yeni dosya yerine oturur, etiket ve notlar ancak ondan sonra değişir.
+          # Yükleme yarıda kalırsa Release eski dosyası, eski etiketi ve eski notlarıyla tutarlı kalır.
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh api -X POST "repos/$GH_REPO/git/refs" -f ref="refs/tags/$RELEASE_TAG" -f sha="$SHA" >/dev/null
             gh release create "$RELEASE_TAG" --verify-tag --title "Test sürümü (en güncel)" \
               --notes-file notlar.md --prerelease
           fi
-          gh release edit "$RELEASE_TAG" --title "Test sürümü (en güncel)" --notes-file notlar.md --prerelease
 
           # Yeni dosya önce geçici adla yüklenir; eskisi ancak yenisi yerindeyken silinir ve yenisi
           # sabit ada çevrilir: link en kısa süre boş kalır.
@@ -164,4 +221,9 @@ jobs:
           done <<< "$assets"
           new_id=$(gh api "repos/$GH_REPO/releases/tags/$RELEASE_TAG" --jq ".assets[] | select(.name==\"$temp_name\") | .id")
           gh api -X PATCH "repos/$GH_REPO/releases/assets/$new_id" -f name="$ASSET_NAME" >/dev/null
+
+          # Etiketi bu commit'e taşı (Release aynı kalır, böylece link değişmez); git kimlik bilgisi
+          # yok, API ile. Sonra notlar.
+          gh api -X PATCH "repos/$GH_REPO/git/refs/tags/$RELEASE_TAG" -f sha="$SHA" -F force=true >/dev/null
+          gh release edit "$RELEASE_TAG" --title "Test sürümü (en güncel)" --notes-file notlar.md --prerelease
           echo "İndirme linki: https://github.com/$GH_REPO/releases/download/$RELEASE_TAG/$ASSET_NAME"

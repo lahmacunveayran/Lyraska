@@ -148,7 +148,7 @@ pub fn exclusive_format(sample_rate: u32, channels: usize) -> Result<IntFormat, 
 /// yalnızca bu iş parçacığının zamanlayıcı sınıfını değiştirir, belleğe dokunmaz. Tutamaç
 /// yalnızca aynı iş parçacığında ve bir kez geri verilir. CLAUDE.md kuralı gereği `unsafe`
 /// yalnızca bu modülde ve proje sahibine bildirilerek (DENETIM-2 bölüm 5.3) açılmıştır.
-#[allow(unsafe_code)]
+#[allow(unsafe_code, reason = "MMCSS Windows API çağrısı; GÜVENLİK: yukarıda")]
 fn boost_thread_priority() -> Option<ThreadPriority> {
     use windows::core::PCWSTR;
     use windows::Win32::System::Threading::AvSetMmThreadCharacteristicsW;
@@ -172,7 +172,7 @@ fn boost_thread_priority() -> Option<ThreadPriority> {
 struct ThreadPriority(windows::Win32::Foundation::HANDLE);
 
 impl Drop for ThreadPriority {
-    #[allow(unsafe_code)]
+    #[allow(unsafe_code, reason = "MMCSS kaydını geri verme; GÜVENLİK: aşağıda")]
     fn drop(&mut self) {
         use windows::Win32::System::Threading::AvRevertMmThreadCharacteristics;
         // GÜVENLİK: tutamaç `boost_thread_priority`'den geldi, bu iş parçacığına aittir ve bir

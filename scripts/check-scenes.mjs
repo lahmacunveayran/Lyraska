@@ -2,7 +2,7 @@
 // "Gece otoyolu" sahnelerini sahte müzik verisiyle çalıştırır ve ölçer:
 //
 // - Ekran kartı çizimi (WebGL2) açıldı mı, gölgelendiriciler derlendi mi?
-// - Konsolda hata var mı?
+// - Konsolda hata var mı? (Programın CSP'si de uygulanır: CSP ihlali konsol hatasıdır.)
 // - Görüntü gerçekten çiziliyor mu (düz/karanlık değil) ve zamanla değişiyor mu?
 // - Gece göğünde sağ üstteki Lyra takımyıldızının yıldızları görünüyor mu?
 // - Parlama sınırı: sessizden tam sese geçişte ekrandaki en büyük parlaklık farkı. Gece göğünün
@@ -215,8 +215,14 @@ function measure(png) {
  * parlama ölçümünü yumuşatmaz.
  */
 async function hideChrome(page) {
-  await page.addStyleTag({
-    content: ".chrome, .drawer, .stage__shade, .drop-notice { visibility: hidden !important; }",
+  // Satır içi <style> programın CSP'sine takılır (style-src 'self'); CSSOM ile kurulan stil sayfası
+  // CSP'nin dışındadır ve sayfanın kendi stillerine dokunmaz.
+  await page.evaluate(() => {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(
+      ".chrome, .drawer, .stage__shade, .drop-notice { visibility: hidden !important; }",
+    );
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
   });
 }
 

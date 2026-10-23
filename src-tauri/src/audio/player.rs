@@ -980,17 +980,26 @@ impl Player {
     /// yeni varsayılan aygıtta kaldığı yerden sürdürür (duraklatılmışsa duraklatılmış). Durum
     /// sorgusunda ve her görsel karede bakılır (SES-01). Art arda çok tekrarlanırsa durur:
     /// aygıt gerçekten yoksa hata durumu gösterilir.
-    fn recover_device(&mut self) {
-        let Some(session) = &self.session else {
-            return;
-        };
+    pub fn recover_device(&mut self) {
+        if let Some(transition) = self.begin_device_recovery() {
+            // Açılamazsa (aygıt hiç yok) hata durumu gösterilir; kullanıcı "çal" ile yeniden dener.
+            let _ = self.install(Self::prepare(transition));
+        }
+    }
+
+    /// Aygıt değiştiyse (kulaklık takıldı/çıkarıldı) şarkıyı yeni aygıtta kaldığı yerden sürdürecek
+    /// geçişin kilit altındaki adımı (hiç beklemez). Ses aygıtını açmak ve ön dolum yüzlerce ms
+    /// sürer: geçiş kilit dışında hazırlanır (`commands::finish_transition`), görsel kareleri ve
+    /// durum sorguları beklemez (DENETIM-FAZ0 ISK-02, ikinci tur). Gerek yoksa `None`.
+    pub fn begin_device_recovery(&mut self) -> Option<Transition> {
+        let session = self.session.as_ref()?;
         if !session.shared.device_changed.swap(false, Ordering::AcqRel) {
-            return;
+            return None;
         }
         if session.shared.ended.load(Ordering::Acquire)
             || self.device_recoveries >= MAX_DEVICE_RECOVERIES
         {
-            return;
+            return None;
         }
         self.device_recoveries += 1;
         let (track, position) = session.now_playing();
@@ -999,8 +1008,7 @@ impl Player {
             "Ses aygıtı değişti; \"{}\" yeni aygıtta {position:.1}. saniyeden sürdürülüyor",
             track.file_name
         ));
-        // Açılamazsa (aygıt hiç yok) hata durumu gösterilir; kullanıcı "çal" ile yeniden dener.
-        let _ = self.restart(&track.path, resume, Some(position));
+        Some(self.begin_transition(&track.path, resume, Some(position)))
     }
 
     /// Çalan oturumu kapatır. Ses önce yumuşakça kısılır, kısılma hoparlöre ulaşınca oturum
@@ -1017,6 +1025,13 @@ impl Player {
             }
         }
         self.session = None;
+    }
+
+    /// Program kapanırken: ses yumuşakça kısılır, oturum ve kör test kapanır, ses aygıtı bırakılır
+    /// (süreç sonlanırken aygıtta yarım arabellek "tık"ı kalmasın).
+    pub fn shutdown(&mut self) {
+        self.abx = None;
+        self.close_session();
     }
 
     /// Kör dinleme testini kurar. Çalan şarkı durur (ses aygıtı teste geçer); test bitince
@@ -1269,26 +1284,42 @@ impl Player {
 
     /// Çalar ya da kaldığı yerden devam eder. Şarkı bittiyse baştan çalar.
     pub fn play(&mut self) -> Result<(), AudioError> {
+        match self.begin_play() {
+            Some(transition) => self.install(Self::prepare(transition)).map(|_| ()),
+            None => Ok(()),
+        }
+    }
+
+    /// Çalmanın kilit altındaki adımı (hiç beklemez). Duraklatılmış oturum hemen sürer (`None`).
+    /// Bitmiş ya da hatalı oturumun yeniden kurulması gerekir: dönen geçiş kilit dışında
+    /// [`Self::prepare`] ile hazırlanıp [`Self::install`] ile kurulur (bkz. `open_track`).
+    pub fn begin_play(&mut self) -> Option<Transition> {
         self.device_recoveries = 0;
-        let Some(session) = &self.session else {
-            return Ok(());
-        };
+        let session = self.session.as_ref()?;
         match session.state() {
             PlaybackState::Ended => {
                 let path = session.now_playing().0.path;
-                self.load(&path, true).map(|_| ())
+                Some(self.begin_transition(&path, true, None))
             }
             PlaybackState::Error => {
                 // Ör. aygıt koptu (kulaklık çıkarıldı): o anki varsayılan aygıtta kalınan
                 // yerden sürer.
                 let (track, position) = session.now_playing();
-                self.restart(&track.path, true, Some(position)).map(|_| ())
+                Some(self.begin_transition(&track.path, true, Some(position)))
             }
             _ => {
                 session.shared.paused.store(false, Ordering::Release);
-                Ok(())
+                None
             }
         }
+    }
+
+    /// Durdurmanın kilit altındaki adımı: şarkı başa sarılıp duraklatılmış açılacak (geçiş kilit
+    /// dışında hazırlanır). Oturum yoksa `None`.
+    pub fn begin_stop(&mut self) -> Option<Transition> {
+        let path = self.session.as_ref()?.now_playing().0.path;
+        self.device_recoveries = 0;
+        Some(self.begin_transition(&path, false, None))
     }
 
     /// Duraklatır (ses ~10 ms içinde yumuşakça kısılır).
@@ -1319,11 +1350,10 @@ impl Player {
 
     /// Durdurur ve şarkının başına döner (duraklatılmış olarak).
     pub fn stop(&mut self) -> Result<(), AudioError> {
-        let Some(session) = &self.session else {
-            return Ok(());
-        };
-        let path = session.now_playing().0.path;
-        self.load(&path, false).map(|_| ())
+        match self.begin_stop() {
+            Some(transition) => self.install(Self::prepare(transition)).map(|_| ()),
+            None => Ok(()),
+        }
     }
 
     pub fn state(&self) -> PlaybackState {
@@ -1536,7 +1566,6 @@ impl Player {
     /// Spektrum ekolayzerden önce çıkarıldığı için ekolayzerin etkisi burada eklenir:
     /// görseller duyulanı gösterir.
     pub fn visual_now(&mut self) -> Option<VisualData> {
-        self.recover_device();
         // Boşluksuz geçişle gelen şarkının ölçümü de vaktinde ses yoluna yazılsın.
         self.sync_levels();
         // Gecikme telafisi: ekranda görüneceği an ve ses aygıtının ek gecikmesi. Boşluksuz
@@ -1696,7 +1725,6 @@ impl Player {
     }
 
     pub fn status(&mut self) -> PlaybackStatus {
-        self.recover_device();
         let level = self.current_level();
         match &self.session {
             Some(session) => {
@@ -2392,7 +2420,18 @@ mod tests {
         let old = Arc::clone(&player.session.as_ref().unwrap().shared);
         old.device_changed.store(true, Ordering::Release);
 
+        // Durum sorgusu kendisi aygıtı açmaz (kilit altında yavaş iş olmasın); komut katmanı
+        // geçişi kilit dışında yapar. Burada aynı adımlar art arda.
         let status = player.status();
+        assert!(
+            Arc::ptr_eq(&player.session.as_ref().unwrap().shared, &old),
+            "sorgu açmaz"
+        );
+        player.recover_device();
+        let status = {
+            let _ = status;
+            player.status()
+        };
         assert_eq!(
             status.state,
             PlaybackState::Paused,
@@ -2408,6 +2447,7 @@ mod tests {
         player.play().unwrap();
         let shared = Arc::clone(&player.session.as_ref().unwrap().shared);
         shared.device_changed.store(true, Ordering::Release);
+        player.recover_device();
         assert_eq!(player.status().state, PlaybackState::Playing);
         assert!(!Arc::ptr_eq(
             &player.session.as_ref().unwrap().shared,
@@ -2428,8 +2468,7 @@ mod tests {
             let shared = Arc::clone(&player.session.as_ref().unwrap().shared);
             shared.fail("Ses aygıtına yazılamadı".to_owned());
             shared.device_changed.store(true, Ordering::Release);
-            // Görsel sorgusu da toparlanmayı tetikler.
-            let _ = player.visual_now();
+            player.recover_device();
             assert_eq!(
                 player.state(),
                 PlaybackState::Playing,
@@ -2439,6 +2478,7 @@ mod tests {
         let shared = Arc::clone(&player.session.as_ref().unwrap().shared);
         shared.fail("Ses aygıtına yazılamadı".to_owned());
         shared.device_changed.store(true, Ordering::Release);
+        player.recover_device();
         assert_eq!(
             player.status().state,
             PlaybackState::Error,

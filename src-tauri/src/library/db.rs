@@ -65,12 +65,20 @@ impl Library {
     /// eşleriyle birlikte `<ad>.bozuk-<zaman>` adıyla kenara alınır ve boş kütüphane kurulur;
     /// `recovery_notice` bunu söyler. Başka hatalar (izin, kilit) olduğu gibi döner.
     pub fn open(path: &Path) -> Result<Self, LibraryError> {
+        Self::open_checked(path, false)
+    }
+
+    /// `verify`: açılışta veri sayfaları da denetlenir (`PRAGMA quick_check`). Yalnızca şema
+    /// sayfası değil, şarkı ve analiz sayfaları bozuksa da dosya kenara alınır. Dosya büyükse
+    /// saniyeler sürebileceği için yalnızca önceki oturum düzgün kapanmadıysa istenir (elektrik
+    /// kesintisi, çökme; `lib.rs`). DENETIM-FAZ0 ISK-07.
+    pub fn open_checked(path: &Path, verify: bool) -> Result<Self, LibraryError> {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
         let error = match Connection::open(path)
             .map_err(LibraryError::from)
-            .and_then(Self::init)
+            .and_then(|conn| Self::init(conn, verify))
         {
             Ok(library) => return Ok(library),
             Err(error) => error,
@@ -83,7 +91,7 @@ impl Library {
             "Kütüphane dosyası bozuk ({error}); {} olarak kenara alındı, boş kütüphane kuruldu.",
             moved.display()
         ));
-        let mut library = Self::init(Connection::open(path)?)?;
+        let mut library = Self::init(Connection::open(path)?, false)?;
         library.recovery_notice = Some(format!(
             "Kütüphane dosyası bozulmuştu; \"{}\" adıyla kenara alındı ve kütüphane boş olarak \
              yeniden kuruldu. Klasörlerinizi yeniden ekleyin; analizler yeniden yapılır.",
@@ -99,7 +107,7 @@ impl Library {
 
     /// Bellekte geçici veritabanı (testler için).
     pub fn open_in_memory() -> Result<Self, LibraryError> {
-        Self::init(Connection::open_in_memory()?)
+        Self::init(Connection::open_in_memory()?, false)
     }
 
     /// Testlerde veritabanını doğrudan değiştirmek için (ör. eski sürümün kaydını kurmak).
@@ -114,12 +122,21 @@ impl Library {
         self.conn.query_row(sql, [], |r| r.get(0)).unwrap()
     }
 
-    fn init(mut conn: Connection) -> Result<Self, LibraryError> {
+    fn init(mut conn: Connection, verify: bool) -> Result<Self, LibraryError> {
         // Analiz önbelleği aynı dosyaya yazarken kısa süre beklenir.
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         conn.execute_batch(
             "PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL;",
         )?;
+        if verify {
+            let result: String = conn.query_row("PRAGMA quick_check(1)", [], |row| row.get(0))?;
+            if result != "ok" {
+                return Err(LibraryError::Database(rusqlite::Error::SqliteFailure(
+                    rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CORRUPT),
+                    Some(result),
+                )));
+            }
+        }
         // Şema ve göçler tek yerde (kütüphane ve analiz önbelleği aynı dosyayı kullanır).
         crate::storage::migrate(&mut conn)?;
         Ok(Self {
@@ -436,7 +453,10 @@ fn is_corruption(error: &LibraryError) -> bool {
     let code = match error {
         LibraryError::Database(
             rusqlite::Error::SqliteFailure(e, _) | rusqlite::Error::SqlInputError { error: e, .. },
-        ) => e.code,
+        )
+        | LibraryError::Schema(crate::storage::SchemaError::Database(
+            rusqlite::Error::SqliteFailure(e, _) | rusqlite::Error::SqlInputError { error: e, .. },
+        )) => e.code,
         _ => return false,
     };
     matches!(
@@ -505,6 +525,37 @@ mod tests {
         // Sağlam dosya kenara alınmaz, bildirim yok.
         let sound = Library::open(&path).unwrap();
         assert!(sound.recovery_notice().is_none());
+    }
+
+    #[test]
+    fn veri_sayfasi_bozuksa_denetimli_acilista_kenara_alinir() {
+        // Hata (ISK-07): yalnızca şema sayfası denetleniyordu; veri sayfası bozuk dosya "açılıyor",
+        // sonra her sorgu "malformed" diyordu ve hiç düzelmiyordu.
+        let path = crate::audio::test_util::temp_path("veri-bozuk.sqlite3");
+        {
+            let library = Library::open(&path).unwrap();
+            library
+                .conn
+                .execute_batch(
+                    "PRAGMA journal_mode = DELETE; CREATE TABLE dolgu(x BLOB);
+                     WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 400)
+                     INSERT INTO dolgu SELECT randomblob(500) FROM n;",
+                )
+                .unwrap();
+        }
+        // Son sayfalardan birini (şema sayfası değil) bozuk baytlarla ez.
+        let mut bytes = std::fs::read(&path).unwrap();
+        let page = 4096;
+        let at = bytes.len() - 2 * page;
+        bytes[at..at + page].fill(0xA5);
+        std::fs::write(&path, &bytes).unwrap();
+
+        // Denetimsiz açılış bozukluğu görmez (eski davranış, hızlı yol)...
+        assert!(Library::open(&path).unwrap().recovery_notice().is_none());
+        // ...denetimli açılış görür ve dosyayı kenara alır.
+        let library = Library::open_checked(&path, true).unwrap();
+        assert!(library.recovery_notice().is_some());
+        assert_eq!(library.track_count().unwrap(), 0);
     }
 
     fn track(

@@ -247,11 +247,28 @@ export function useMarker(
     return () => window.removeEventListener("keydown", onKey, { capture: true });
   }, [recording, playing, positionNow, markAt, undo]);
 
+  // Ölçüm diskteki işaretlerle yapılır: kaydedilmemiş değişiklik varsa önce kaydedilir. Ölçüm
+  // sürerken yeni işaret gelirse sonuç eski işaretlere aittir; gösterilmez (çekirdek de diske
+  // yazmaz, DENETIM-FAZ0 ISK-03).
   const evaluate = useCallback(async () => {
     if (!trackPath) return;
     setEvaluating(true);
     try {
+      const unsaved = pending.current;
+      if (dirty && unsaved && unsaved.path === trackPath) {
+        const file = await saveAnnotation(unsaved.path, unsaved.beats, unsaved.drops, unsaved.key);
+        setSavedFile(file);
+        if (changeCount.current === unsaved.change) {
+          setDirty(false);
+          dirtySince.current = null;
+        }
+      }
+      const startedAt = changeCount.current;
       const result = await evaluateAnnotation(trackPath);
+      if (changeCount.current !== startedAt) {
+        setError("Ölçüm sürerken işaretler değişti; sonuç gösterilmedi. Yeniden ölçün.");
+        return;
+      }
       setEvaluation(result.evaluation);
       setError(null);
     } catch (e) {
@@ -259,7 +276,7 @@ export function useMarker(
     } finally {
       setEvaluating(false);
     }
-  }, [trackPath]);
+  }, [trackPath, dirty]);
 
   return {
     marks,

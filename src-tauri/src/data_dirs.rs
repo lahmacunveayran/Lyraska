@@ -3,7 +3,13 @@
 //! makineye özgü (Local) klasöre yazılır: gezici profillerde oturum açmayı yavaşlatmasın, kota
 //! doldurmasın (DENETIM-2 KUT-03). Eski sürümlerin Roaming'e yazdığı dosyalar ilk açılışta bir
 //! kez taşınır; taşınamazsa eski yer kullanılmaya devam eder (kütüphane kaybolmaz).
+//!
+//! Klasörler Tauri açılmadan önce, Tauri'nin kuralıyla bulunur (`dirs::data_dir` /
+//! `dirs::data_local_dir` + program kimliği): günlük pencereden önce açılır ve tek örnek kilidi
+//! alınır.
 
+use std::fs::File;
+use std::io;
 use std::path::{Path, PathBuf};
 
 /// Local klasöre taşınacak dosyalar (yoksa atlanır). SQLite'ın `-wal`/`-shm` eşleri de taşınır.
@@ -13,6 +19,121 @@ const MOVED_FILES: &[&str] = &[
     "library.sqlite3-shm",
 ];
 const MOVED_DIRS: &[&str] = &["logs"];
+
+/// Programın veri klasörleri.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DataDirs {
+    /// Küçük, kullanıcıya ait veri (Windows'ta Roaming).
+    pub roaming: PathBuf,
+    /// Büyük, yeniden üretilebilir veri (Windows'ta Local; taşınamadıysa Roaming).
+    pub big: PathBuf,
+}
+
+impl DataDirs {
+    /// Tauri'nin `app_data_dir` / `app_local_data_dir` kuralıyla aynı klasörler; eski kütüphane
+    /// gerekirse taşınır. İşletim sistemi klasörü bildirmezse `None` (Tauri'ninki kullanılır).
+    pub fn resolve(identifier: &str) -> Option<Self> {
+        let roaming = dirs::data_dir()?.join(identifier);
+        let local = dirs::data_local_dir()?.join(identifier);
+        let big = big_data_dir(&roaming, &local);
+        Some(Self { roaming, big })
+    }
+}
+
+/// Tek örnek kilidi: tutulduğu sürece programın ikinci bir kopyası açılmaz. İki kopya aynı ayar
+/// dosyasını "son yazan kazanır" biçiminde ezer, aynı kütüphaneyi tarar ve iki ses akışı çalar.
+/// İşletim sisteminin dosya kilidi kullanılır: program çökse de kilit kendiliğinden kalkar.
+#[derive(Debug)]
+pub struct InstanceLock {
+    _file: File,
+}
+
+/// Kilit alınamadı.
+#[derive(Debug)]
+pub enum LockError {
+    /// Program zaten açık.
+    AlreadyRunning,
+    /// Kilit dosyası açılamadı (ör. yazılamayan klasör): program yine açılır.
+    Io(io::Error),
+}
+
+/// `dir/lyraska.lock` üzerinde tek örnek kilidini alır.
+pub fn acquire_instance_lock(dir: &Path) -> Result<InstanceLock, LockError> {
+    std::fs::create_dir_all(dir).map_err(LockError::Io)?;
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(dir.join("lyraska.lock"))
+        .map_err(LockError::Io)?;
+    match file.try_lock() {
+        Ok(()) => Ok(InstanceLock { _file: file }),
+        Err(std::fs::TryLockError::WouldBlock) => Err(LockError::AlreadyRunning),
+        Err(std::fs::TryLockError::Error(e)) => Err(LockError::Io(e)),
+    }
+}
+
+/// Oturum işareti: program açıkken `big` klasöründe `oturum-acik` dosyası durur, düzgün kapanışta
+/// silinir. Açılışta hâlâ duruyorsa önceki oturum yarıda kesildi (çökme, elektrik kesintisi,
+/// Görev Yöneticisi): döner `true` ve kütüphane bu açılışta tam denetlenir. Tek örnek kilidinden
+/// sonra çağrılır (ikinci kopya işarete dokunmaz).
+pub fn begin_session(dir: &Path) -> bool {
+    let marker = dir.join("oturum-acik");
+    let unclean = marker.exists();
+    let _ = std::fs::create_dir_all(dir);
+    let _ = std::fs::write(&marker, b"");
+    unclean
+}
+
+/// Düzgün kapanış: oturum işareti kalkar.
+pub fn end_session(dir: &Path) {
+    let _ = std::fs::remove_file(dir.join("oturum-acik"));
+}
+
+/// Dosyayı ya da klasörü taşır. `rename` farklı birimler arasında çalışmaz (ör. Roaming başka bir
+/// diske yönlendirilmiş kurumsal profil): o zaman kopyalanıp eskisi silinir. Kopyalama yarıda
+/// kalırsa yarım kopya silinir, kaynak yerinde kalır.
+pub fn move_path(from: &Path, to: &Path) -> io::Result<()> {
+    if std::fs::rename(from, to).is_ok() {
+        return Ok(());
+    }
+    copy_then_remove(from, to)
+}
+
+fn copy_then_remove(from: &Path, to: &Path) -> io::Result<()> {
+    let copied = if from.is_dir() {
+        copy_dir(from, to)
+    } else {
+        std::fs::copy(from, to).map(|_| ())
+    };
+    if let Err(error) = copied {
+        if to.is_dir() {
+            let _ = std::fs::remove_dir_all(to);
+        } else {
+            let _ = std::fs::remove_file(to);
+        }
+        return Err(error);
+    }
+    if from.is_dir() {
+        std::fs::remove_dir_all(from)
+    } else {
+        std::fs::remove_file(from)
+    }
+}
+
+fn copy_dir(from: &Path, to: &Path) -> io::Result<()> {
+    std::fs::create_dir_all(to)?;
+    for entry in std::fs::read_dir(from)? {
+        let entry = entry?;
+        let target = to.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_dir(&entry.path(), &target)?;
+        } else {
+            std::fs::copy(entry.path(), target)?;
+        }
+    }
+    Ok(())
+}
 
 /// Büyük verinin klasörü: `local`. `roaming`'de eski sürümden kalan dosyalar varsa ve `local`'da
 /// henüz kütüphane yoksa, dosyalar taşınır. Taşıma başarısızsa (ör. başka pencere dosyayı
@@ -30,12 +151,12 @@ pub fn big_data_dir(roaming: &Path, local: &Path) -> PathBuf {
     }
     for name in MOVED_FILES {
         let from = roaming.join(name);
-        if from.exists() && std::fs::rename(&from, local.join(name)).is_err() {
+        if from.exists() && move_path(&from, &local.join(name)).is_err() {
             // Kütüphane dosyası taşınamadıysa eski yerde kalır; eşleri de orada kalmalı.
             for moved in MOVED_FILES {
                 let back = local.join(moved);
                 if back.exists() {
-                    let _ = std::fs::rename(&back, roaming.join(moved));
+                    let _ = move_path(&back, &roaming.join(moved));
                 }
             }
             return roaming.to_path_buf();
@@ -44,7 +165,7 @@ pub fn big_data_dir(roaming: &Path, local: &Path) -> PathBuf {
     for dir in MOVED_DIRS {
         let from = roaming.join(dir);
         if from.is_dir() && !local.join(dir).exists() {
-            let _ = std::fs::rename(&from, local.join(dir));
+            let _ = move_path(&from, &local.join(dir));
         }
     }
     local.to_path_buf()
@@ -93,6 +214,69 @@ mod tests {
             b"yeni"
         );
         assert!(roaming.join("library.sqlite3").exists());
+    }
+
+    #[test]
+    fn kopyalayarak_tasima_dosya_ve_klasor() {
+        // Birimler arası taşımada kullanılan yol (rename'in başarısız olduğu durum) doğrudan.
+        let root = temp_path("kopya");
+        std::fs::create_dir_all(root.join("a/logs/eski")).unwrap();
+        std::fs::write(root.join("a/logs/lyraska.log"), b"log").unwrap();
+        std::fs::write(root.join("a/logs/eski/x.log"), b"x").unwrap();
+        std::fs::write(root.join("a/library.sqlite3"), b"db").unwrap();
+        std::fs::create_dir_all(root.join("b")).unwrap();
+
+        copy_then_remove(&root.join("a/logs"), &root.join("b/logs")).unwrap();
+        copy_then_remove(
+            &root.join("a/library.sqlite3"),
+            &root.join("b/library.sqlite3"),
+        )
+        .unwrap();
+        assert_eq!(
+            std::fs::read(root.join("b/logs/lyraska.log")).unwrap(),
+            b"log"
+        );
+        assert_eq!(std::fs::read(root.join("b/logs/eski/x.log")).unwrap(), b"x");
+        assert_eq!(
+            std::fs::read(root.join("b/library.sqlite3")).unwrap(),
+            b"db"
+        );
+        assert!(!root.join("a/logs").exists() && !root.join("a/library.sqlite3").exists());
+
+        // Kaynak yoksa hata; hedefte yarım kopya kalmaz.
+        assert!(copy_then_remove(&root.join("a/yok"), &root.join("b/yok")).is_err());
+        assert!(!root.join("b/yok").exists());
+    }
+
+    #[test]
+    fn yarida_kalan_oturum_sonraki_acilista_anlasilir() {
+        let dir = temp_path("oturum");
+        assert!(!begin_session(&dir), "ilk açılış temiz");
+        end_session(&dir);
+        assert!(!begin_session(&dir), "düzgün kapanıştan sonra temiz");
+        // Kapanış olmadan yeniden açılış: önceki oturum yarıda kalmış.
+        assert!(begin_session(&dir));
+    }
+
+    #[test]
+    fn ikinci_ornek_kilidi_alamaz_birincisi_kapaninca_alir() {
+        let dir = temp_path("kilit");
+        let first = acquire_instance_lock(&dir).unwrap();
+        assert!(matches!(
+            acquire_instance_lock(&dir),
+            Err(LockError::AlreadyRunning)
+        ));
+        drop(first);
+        assert!(acquire_instance_lock(&dir).is_ok());
+    }
+
+    #[test]
+    fn klasorler_tauri_kuraliyla_bulunur() {
+        let id = "io.github.gozlemesevdalisi.lyraska";
+        if let Some(dirs) = DataDirs::resolve(id) {
+            assert!(dirs.roaming.ends_with(id));
+            assert!(dirs.big.ends_with(id));
+        }
     }
 
     #[test]

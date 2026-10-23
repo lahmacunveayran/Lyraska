@@ -43,6 +43,25 @@ allow = [
 multiple-versions = "allow"
 wildcards = "deny"
 allow-wildcard-paths = true
+# Program internete bağlanmaz (CLAUDE.md): HTTP/WebSocket istemcileri ve Tauri'nin ağ eklentileri hiçbir
+# yoldan (dolaylı bağımlılık dahil) gelemez. Tauri reqwest'i yalnızca mobil hedeflerde kullanır.
+deny = [
+  { crate = "reqwest" },
+  { crate = "hyper" },
+  { crate = "hyper-util" },
+  { crate = "ureq" },
+  { crate = "attohttpc" },
+  { crate = "curl" },
+  { crate = "isahc" },
+  { crate = "surf" },
+  { crate = "tungstenite" },
+  { crate = "tokio-tungstenite" },
+  { crate = "tauri-plugin-http" },
+  { crate = "tauri-plugin-updater" },
+  { crate = "tauri-plugin-websocket" },
+  { crate = "tauri-plugin-upload" },
+  { crate = "tauri-plugin-shell" },
+]
 
 [sources]
 unknown-registry = "deny"

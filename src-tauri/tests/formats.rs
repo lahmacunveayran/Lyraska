@@ -5,7 +5,7 @@
 //! gidilmediğini gösterir. Ayrıntı: `tests/data/README.md`.
 
 // Deneme kodu: beklenmeyen bir hata denemeyi hemen durdurmalı.
-#![allow(clippy::unwrap_used)]
+#![allow(clippy::unwrap_used, reason = "test: başarısızlık testi düşürür")]
 
 use std::path::PathBuf;
 

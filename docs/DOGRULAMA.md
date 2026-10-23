@@ -9,14 +9,15 @@ düzeltilir.
 
 ## Nasıl kullanılır
 
-1. Test sürümünü kurun: https://github.com/gozlemesevdalisi/Lyraska/releases/download/test-surumu/Lyraska-Kurulum.exe
+1. Test sürümünü kurun: https://github.com/lahmacunveayran/Lyraska/releases/download/test-surumu/Lyraska-Kurulum.exe
    Windows "bilinmeyen yayımcı" derse **Ek bilgi → Yine de çalıştır**.
 2. **Ayarlar** (sağ üstteki dişli) → **Program** bölümünde sürüm **0.0.46 ya da sonrası** yazmalı.
 3. Maddeleri sırayla deneyin. Her madde için bana yalnızca şunu yazmanız yeterli:
    - madde numarası ve **✅ oldu** ya da **❌ olmadı**,
    - olmadıysa ne gördüğünüzü bir cümleyle (ekran görüntüsü varsa çok iyi).
 4. Bir şey ters giderse **Ayarlar → Hata günlüğü** düğmesine basın; açılan klasördeki `lyraska.log` dosyasını
-   gönderin. Kişisel bilgi içermez (yalnızca program olayları ve dosya adları).
+   gönderin. Şarkıların kendisini içermez; ama program olaylarının yanında şarkı dosyalarının adı ve klasör yolu
+   (Windows kullanıcı adınız dahil) geçebilir. İsterseniz göndermeden önce Not Defteri ile açıp bakın.
 
 Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce onları deneyin.
 
@@ -28,11 +29,13 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 
 - Nasıl:
   1. Lyraska'yı kapatın.
-  2. Dosya Gezgini'nin adres çubuğuna `%APPDATA%\io.github.gozlemesevdalisi.lyraska` yazıp Enter'a basın.
+  2. Dosya Gezgini'nin adres çubuğuna `%LOCALAPPDATA%\io.github.gozlemesevdalisi.lyraska` yazıp Enter'a basın
+     (0.0.51'den beri kütüphane bu "yerel" klasörde durur).
   3. Şimdiki `library.sqlite3` dosyasının adını `library.sqlite3.yeni` yapın. Yanında `library.sqlite3-wal` ya da
      `library.sqlite3-shm` varsa onların da sonuna `.yeni` ekleyin (bunlar şimdiki kütüphanenin parçalarıdır; eski
      dosyayla karışmamalı).
-  4. Yedeğiniz `library.sqlite3.bak` dosyasının adını `library.sqlite3` yapın.
+  4. Yedeğiniz `library.sqlite3.bak` dosyasını bu klasöre taşıyın ve adını `library.sqlite3` yapın. Yedek eski
+     sürümlerde `%APPDATA%\io.github.gozlemesevdalisi.lyraska` klasöründe durur (adres çubuğuna yazıp açabilirsiniz).
   5. Lyraska'yı açın.
 - Neye bakılır:
   - "Kütüphane açılamadı" uyarısı çıkmaz.

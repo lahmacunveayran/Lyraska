@@ -69,7 +69,12 @@ pub struct LibraryService {
 
 impl LibraryService {
     pub fn open(path: &Path) -> Result<Self, LibraryError> {
-        let library = Library::open(path)?;
+        Self::open_checked(path, false)
+    }
+
+    /// `verify`: veri sayfaları da denetlenir (bkz. [`Library::open_checked`]).
+    pub fn open_checked(path: &Path, verify: bool) -> Result<Self, LibraryError> {
+        let library = Library::open_checked(path, verify)?;
         let recovery_notice = library.recovery_notice().map(str::to_owned);
         Ok(Self {
             recovery_notice,

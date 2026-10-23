@@ -1,5 +1,5 @@
 // Programla dağıtılan üçüncü taraf kodun lisans bildirimlerini üretir:
-// public/lisanslar/UCUNCU-TARAF.txt (programın içine paketlenir, Ayarlar > Program'dan açılır).
+// public/lisanslar/UCUNCU-TARAF.txt (programın içine paketlenir, Ayarlar > Lisanslar'dan açılır).
 //
 // Kaynaklar:
 // - Rust: Windows hedefinde çalıştırılabilir dosyaya giren crate'ler (`cargo tree`, yalnızca normal
@@ -51,6 +51,7 @@ function rustPackages() {
   for (const raw of out.split("\n")) {
     // CI `CARGO_TERM_COLOR=always` verse bile renk kodları ve "(*)" tekrar işareti temizlenir.
     const line = raw
+      // eslint-disable-next-line no-control-regex -- ANSI renk kodu (ESC) bilerek temizlenir
       .replace(/\u001b\[[0-9;]*m/g, "")
       .replace(/ \(\*\)$/, "")
       .trim();
@@ -67,8 +68,30 @@ function rustPackages() {
   );
 }
 
-/** Crate paketindeki lisans dosyaları (ad → metin). */
+/**
+ * Paketinde lisans dosyası olmayan crate'ler için depoda tutulan metinler (scripts/notices/README.md).
+ * Crate adı → dosya.
+ */
+const MANUAL_TEXTS = {
+  realfft: "realfft.LICENSE.txt",
+  "webview2-com": "webview2-com.LICENSE.txt",
+  "webview2-com-sys": "webview2-com.LICENSE.txt",
+};
+
+/** Crate paketindeki lisans dosyaları (ad → metin); yoksa elle eklenen metin. */
 function rustLicenseTexts(name, version) {
+  const texts = packagedLicenseTexts(name, version);
+  if (texts.size === 0 && MANUAL_TEXTS[name]) {
+    const file = MANUAL_TEXTS[name];
+    texts.set(
+      `scripts/notices/${file}`,
+      readFileSync(join(ROOT, "scripts", "notices", file), "utf8"),
+    );
+  }
+  return texts;
+}
+
+function packagedLicenseTexts(name, version) {
   const cargoHome = process.env.CARGO_HOME ?? join(homedir(), ".cargo");
   const cacheRoot = join(cargoHome, "registry", "cache");
   const file = `${name}-${version}.crate`;
@@ -166,7 +189,7 @@ function build() {
   lines.push("LYRASKA — ÜÇÜNCÜ TARAF LİSANS BİLDİRİMLERİ");
   lines.push("");
   lines.push(
-    "Lyraska GPL-3.0-only lisansıyla dağıtılır (kaynak kodu: https://github.com/gozlemesevdalisi/Lyraska).",
+    "Lyraska GPL-3.0-only lisansıyla dağıtılır (kaynak kodu: https://github.com/lahmacunveayran/Lyraska).",
   );
   lines.push(
     "Program aşağıdaki açık kaynak kütüphaneleri içerir. Her kütüphanenin lisansı ve telif sahipleri",

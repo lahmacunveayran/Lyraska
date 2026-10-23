@@ -1,0 +1,9 @@
+[package]
+name = "fuzzsym"
+version = "0.1.0"
+edition = "2021"
+[dependencies]
+symphonia = { version = "=0.6.1", default-features = false, features = ["all", "opt-simd"] }
+[profile.release]
+opt-level = 2
+debug = false

@@ -8,6 +8,7 @@ import type {
   ParametricState,
 } from "./backend";
 import { createFlashGuard } from "./flashGuard";
+import { SCENES } from "./scene";
 
 /**
  * Sahne denetiminin (`scripts/check-scenes.mjs`) sahte çekirdeği, arayüzün beklediği verinin
@@ -129,5 +130,19 @@ describe("parlaklık freninin denetim deseni", () => {
     const setup = createFlashGuard(lost);
     expect(setup.ok).toBe(false);
     if (!setup.ok) expect(setup.reason).toMatch(/kayıp/);
+  });
+});
+
+describe("sahne denetiminin sahne listesi", () => {
+  it("programdaki her sahne tarayıcıda denetlenir (yeni sahne parlama ölçümünden kaçamaz)", () => {
+    const script = readFileSync("scripts/check-scenes.mjs", "utf8");
+    const start = script.indexOf("const SCENES = [");
+    const end = script.indexOf("];", script.indexOf("const ALL_SCENES = ["));
+    expect(start).toBeGreaterThan(0);
+    const region = script.slice(start, end);
+    const checked = new Set(
+      [...region.matchAll(/\bid: "(\w+)"|^\s*\["(\w+)", "/gm)].map((m) => m[1] ?? m[2]),
+    );
+    expect([...checked].sort()).toEqual(SCENES.map((s) => s.id).sort());
   });
 });

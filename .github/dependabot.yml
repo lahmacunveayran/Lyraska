@@ -1,0 +1,15 @@
+# GitHub eylemleri SHA ile sabitlendiği için kendiliğinden güncellenmez; Dependabot ayda bir
+# toplu bir PR açar (SHA ve yorumdaki sürüm birlikte). Rust ve npm bağımlılıkları bilinçli
+# yükseltilir: lisans bildirimleri (npm run notices) her yükseltmede yeniden üretilmelidir.
+# Güvenlik açığı olan bağımlılıklar haftalık "Güvenlik taraması"nda yakalanır.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      eylemler:
+        patterns: ["*"]
+    commit-message:
+      prefix: "CI eylemlerini güncelle"

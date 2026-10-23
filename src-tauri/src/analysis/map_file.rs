@@ -652,18 +652,13 @@ impl MapStore {
         .then_some(imported)
     }
 
-    /// Saklar (önce geçici dosyaya).
+    /// Saklar (bölünmez yazma, `atomic_file`).
     pub fn save(&self, imported: &ImportedMap) -> std::io::Result<()> {
         let path = self
             .file_for(&imported.track_path)
             .ok_or_else(|| std::io::Error::other("uygulama veri klasörü bulunamadı"))?;
-        if let Some(dir) = path.parent() {
-            std::fs::create_dir_all(dir)?;
-        }
         let text = serde_json::to_string(imported).map_err(std::io::Error::other)?;
-        let temp = path.with_extension("json.tmp");
-        std::fs::write(&temp, text)?;
-        std::fs::rename(&temp, &path)
+        crate::atomic_file::write(&path, text.as_bytes())
     }
 
     /// Şarkının haritasını kaldırır (yoksa bir şey yapmaz).

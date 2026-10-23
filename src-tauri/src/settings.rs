@@ -34,7 +34,23 @@ pub struct Settings {
     pub playback: PlaybackOptions,
     /// MilkDrop sahnesinin `.milk` klasörü (kullanıcının kendi dosyaları); seçilmediyse yok.
     pub milkdrop_folder: Option<PathBuf>,
+    /// Bu sürümün tanımadığı alanlar (daha yeni bir sürümün ayarları): olduğu gibi geri yazılır.
+    /// Kullanıcı eski bir test sürümüne dönse de yeni sürümün ayarları silinmez (ISK-09).
+    #[serde(flatten)]
+    pub unknown: serde_json::Map<String, serde_json::Value>,
 }
+
+/// Bu sürümün tanıdığı alanlar (dosyadaki adlarıyla).
+const KNOWN_FIELDS: [&str; 8] = [
+    "equalizer",
+    "headphone",
+    "parametric",
+    "crossfeed",
+    "visualSafe",
+    "audioDelayMs",
+    "playback",
+    "milkdropFolder",
+];
 
 /// Ayarları bellekte tutar ve her değişiklikte diske yazar.
 pub struct SettingsStore {
@@ -74,6 +90,7 @@ impl SettingsStore {
                 audio_delay_ms: crate::visual_bridge::clamp_audio_delay_ms(settings.audio_delay_ms),
                 playback: settings.playback,
                 milkdrop_folder: crate::milkdrop::sanitize_folder(settings.milkdrop_folder),
+                unknown: settings.unknown,
             }),
         }
     }
@@ -150,24 +167,19 @@ fn parse_lenient(text: &str, path: &Path) -> Settings {
         audio_delay_ms: field(&value, "audioDelayMs"),
         playback: field(&value, "playback"),
         milkdrop_folder: field(&value, "milkdropFolder"),
+        unknown: value
+            .iter()
+            .filter(|(key, _)| !KNOWN_FIELDS.contains(&key.as_str()))
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect(),
     }
 }
 
-/// Önce geçici dosyaya yazılır, diske işlenir (`sync_all`), sonra adı değiştirilir: yazma ya da
-/// yeniden adlandırma sırasında elektrik kesilse de eski ayarlar bozulmaz.
+/// Bölünmez yazma (`atomic_file`): yazma ya da yeniden adlandırma sırasında elektrik kesilse de
+/// eski ayarlar bozulmaz.
 fn save(path: &Path, settings: &Settings) -> io::Result<()> {
-    use std::io::Write;
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir)?;
-    }
     let text = serde_json::to_string_pretty(settings).map_err(io::Error::other)?;
-    let temp = path.with_extension("json.tmp");
-    {
-        let mut file = std::fs::File::create(&temp)?;
-        file.write_all(text.as_bytes())?;
-        file.sync_all()?;
-    }
-    std::fs::rename(&temp, path)
+    crate::atomic_file::write(path, text.as_bytes())
 }
 
 #[cfg(test)]
@@ -335,5 +347,33 @@ mod tests {
         let saved = store.update(|s| s.equalizer.gains_db[1] = -3.0).unwrap();
         assert_eq!(saved.equalizer.gains_db[1], -3.0);
         assert_eq!(store.get().equalizer.gains_db[1], -3.0);
+    }
+
+    #[test]
+    fn yeni_surumun_bilinmeyen_ayarlari_korunur() {
+        // Hata (ISK-09): eski sürüm, tanımadığı alanları ilk kayıtta dosyadan siliyordu.
+        let path = temp_path("ayar-ileri").join("settings.json");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(
+            &path,
+            r#"{"visualSafe":true,"gelecekAyar":{"a":1},"baskaAyar":[1,2]}"#,
+        )
+        .unwrap();
+        let store = SettingsStore::open(&path);
+        assert!(store.get().visual_safe);
+        store.update(|s| s.audio_delay_ms = 120).unwrap();
+        let saved: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(saved["gelecekAyar"], serde_json::json!({"a": 1}));
+        assert_eq!(saved["baskaAyar"], serde_json::json!([1, 2]));
+        assert_eq!(saved["audioDelayMs"], 120);
+
+        // Bir alan bozukken (yumuşak okuma yolu) de korunur.
+        std::fs::write(&path, r#"{"audioDelayMs":"bozuk","gelecekAyar":7}"#).unwrap();
+        let store = SettingsStore::open(&path);
+        store.update(|s| s.visual_safe = true).unwrap();
+        let saved: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(saved["gelecekAyar"], 7);
     }
 }

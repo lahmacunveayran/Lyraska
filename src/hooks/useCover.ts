@@ -30,7 +30,7 @@ export function useCover(trackPath: string | null): string | null {
   useEffect(() => {
     if (!trackPath || cache.has(trackPath)) return;
     let cancelled = false;
-    getTrackCover(trackPath)
+    void getTrackCover(trackPath)
       .catch(() => null)
       .then((url) => {
         remember(trackPath, url);

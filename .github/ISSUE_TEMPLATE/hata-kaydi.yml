@@ -18,8 +18,13 @@ body:
         - Programın açılışı / karşılama ekranı
         - Şarkı çalma / ses
         - Müzik kütüphanesi
-        - Görseller
-        - Ekolayzer ve ses ayarları
+        - Görseller (sahneler)
+        - Şarkı sözleri
+        - Ekolayzer, kulaklık düzeltmesi, crossfeed ve ses ayarları
+        - İşaretleme / şarkı haritası dosyası
+        - Senkron (ses ile görüntü aynı anda değil)
+        - Kör test
+        - Ayarlar
         - Diğer
     validations:
       required: true
@@ -66,8 +71,10 @@ body:
     id: surum
     attributes:
       label: Program sürümü
-      description: Sağ üstteki **Ayarlar** düğmesine basın; "Program" bölümünde "Sürüm ... · ..." olarak yazar (sürüm ve derleme kodu; ikisini de yazın).
-      placeholder: "0.0.52 · a1b2c3d"
+      description: Sağ üstteki **dişli simgesine (Ayarlar)** basın (düğmeler görünmüyorsa fareyi oynatın); "Program" bölümünde "Sürüm ... · ..." olarak yazar (sürüm ve derleme kodu; ikisini de yazın). Program açılmıyorsa "Açılmıyor" yazın.
+      placeholder: "0.0.57 · a1b2c3d"
+    validations:
+      required: true
 
   - type: dropdown
     id: windows
@@ -83,9 +90,11 @@ body:
     attributes:
       label: Hata günlüğü
       description: |
-        Sağ üstteki **Ayarlar** düğmesine basın, "Program" bölümündeki **Hata günlüğü** düğmesine basın; açılan klasörde seçili duran
+        Sağ üstteki **dişli simgesine (Ayarlar)** basın, "Program" bölümündeki **Hata günlüğü** düğmesine basın; açılan klasörde seçili duran
         `lyraska.log` dosyasını bu kutuya sürükleyip bırakın. Program çöktüyse yeniden açıp aynı şeyi yapın:
-        çökme bilgisi dosyada kalır. Dosyada program sürümü, Windows sürümü ve hata mesajları vardır;
+        çökme bilgisi dosyada kalır. Program hiç açılmıyorsa Dosya Gezgini'nin adres çubuğuna
+        `%LOCALAPPDATA%\io.github.gozlemesevdalisi.lyraska\logs` yazıp Enter'a basın; `lyraska.log` oradadır.
+        Dosyada program sürümü ve derleme kodu, Windows sürümü ve hata mesajları vardır;
         hata mesajlarında şarkı dosyalarının adı ve klasör yolu (Windows kullanıcı adınız dahil) geçebilir.
         İsterseniz eklemeden önce Not Defteri ile açıp bakabilirsiniz. Şarkıların kendisi dosyada yoktur.
 

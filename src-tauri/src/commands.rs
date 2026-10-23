@@ -13,8 +13,10 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use serde::Serialize;
 use tauri::State;
 
-use crate::analysis::annotation::{AnnotatedTrack, Annotation, AnnotationStore};
-use crate::analysis::background::BackgroundAnalysis;
+use crate::analysis::annotation::{
+    AnnotatedTrack, Annotation, AnnotationStore, EvaluationSaveError, MIN_EVALUATION_BEATS,
+};
+use crate::analysis::background::{BackgroundAnalysis, CrashGuard};
 use crate::analysis::cache::AnalysisCache;
 use crate::analysis::evaluate;
 use crate::analysis::map_file::{ImportedMapStatus, MapFile, MapStore};
@@ -26,7 +28,7 @@ use crate::audio::lyrics::Lyrics;
 use crate::audio::peq::{
     HeadphoneProfile, HeadphoneSettings, HeadphoneState, ParametricSettings, ParametricState,
 };
-use crate::audio::player::{PlaybackStatus, Player};
+use crate::audio::player::{PlaybackState, PlaybackStatus, Player, Transition};
 use crate::audio::PlaybackOptions;
 use crate::library::{DropOutcome, LibraryService, LibraryStatus, TrackRow};
 use crate::milkdrop::{self, MilkdropFolder, MilkdropPreset};
@@ -64,8 +66,9 @@ impl AppInfo {
         Self {
             name: "Lyraska".to_owned(),
             version: env!("CARGO_PKG_VERSION").to_owned(),
-            commit: env!("LYRASKA_COMMIT").to_owned(),
-            phase: "Faz 2".to_owned(),
+            commit: env!("LYRASKA_BUILD_COMMIT").to_owned(),
+            // Faz adı değil: programda birden çok fazın işi bir arada; yol haritası docs/ROADMAP.md.
+            phase: "Test sürümü".to_owned(),
             audio_engine: audio::status().label().to_owned(),
             analysis: analysis::status().label().to_owned(),
             visual_bridge: visual_bridge::status().label().to_owned(),
@@ -89,6 +92,13 @@ impl PlayerState {
     }
 }
 
+/// Program kapanırken oynatıcıyı kapatır (`lib.rs`, `RunEvent::Exit`).
+pub fn stop_on_exit(player: &PlayerState) {
+    if let Ok(mut player) = player.0.lock() {
+        player.shutdown();
+    }
+}
+
 /// Kayıtlı ayarları oynatıcıya uygular (program açılırken).
 pub fn restore_settings(player: &PlayerState, store: &SettingsStore) {
     if let Ok(mut player) = player.lock() {
@@ -109,12 +119,14 @@ pub fn restore_settings(player: &PlayerState, store: &SettingsStore) {
 pub fn start_analysis_cache(
     player: &PlayerState,
     cache: Arc<AnalysisCache>,
+    guard: CrashGuard,
 ) -> Option<BackgroundAnalysis> {
     let mut player = player.lock().ok()?;
     player.set_analysis_cache(Arc::clone(&cache));
     Some(BackgroundAnalysis::start(
         cache,
         player.foreground_analyses(),
+        guard,
     ))
 }
 
@@ -206,26 +218,25 @@ pub async fn set_next_track(
 /// Çalıyorsa duraklatır, değilse çalar.
 #[tauri::command]
 pub async fn toggle_playback(player: State<'_, PlayerState>) -> Result<PlaybackStatus, String> {
-    let mut player = player.lock()?;
-    player.toggle().map_err(reported)?;
-    Ok(player.status())
+    // Duraklatma ve sürdürme anında; bitmiş ya da hatalı şarkıyı yeniden kurmak (dosya açma, ses
+    // aygıtı) kilit dışında yapılır (bkz. `open_track`; DENETIM-FAZ0 ISK-01).
+    let transition = {
+        let mut player = player.lock()?;
+        if player.state() == PlaybackState::Playing {
+            player.pause();
+            None
+        } else {
+            player.begin_play()
+        }
+    };
+    finish_transition(transition, &player).await
 }
 
-/// Durdurur ve şarkının başına döner.
-#[tauri::command]
-pub async fn stop_playback(player: State<'_, PlayerState>) -> Result<PlaybackStatus, String> {
-    let mut player = player.lock()?;
-    player.stop().map_err(reported)?;
-    Ok(player.status())
-}
-
-/// Şarkıda verilen saniyeye atlar (yeni oturum; hazırlığı kilit dışında, bkz. `open_track`).
-#[tauri::command]
-pub async fn seek_playback(
-    seconds: f64,
-    player: State<'_, PlayerState>,
+/// Kilit altında başlatılmış bir geçişi kilit dışında hazırlar, kilit altında kurar.
+async fn finish_transition(
+    transition: Option<Transition>,
+    player: &PlayerState,
 ) -> Result<PlaybackStatus, String> {
-    let transition = player.lock()?.begin_seek(seconds);
     if let Some(transition) = transition {
         let prepared = tauri::async_runtime::spawn_blocking(move || Player::prepare(transition))
             .await
@@ -235,10 +246,32 @@ pub async fn seek_playback(
     Ok(player.lock()?.status())
 }
 
+/// Durdurur ve şarkının başına döner.
+#[tauri::command]
+pub async fn stop_playback(player: State<'_, PlayerState>) -> Result<PlaybackStatus, String> {
+    let transition = player.lock()?.begin_stop();
+    finish_transition(transition, &player).await
+}
+
+/// Şarkıda verilen saniyeye atlar (yeni oturum; hazırlığı kilit dışında, bkz. `open_track`).
+#[tauri::command]
+pub async fn seek_playback(
+    seconds: f64,
+    player: State<'_, PlayerState>,
+) -> Result<PlaybackStatus, String> {
+    let transition = player.lock()?.begin_seek(seconds);
+    finish_transition(transition, &player).await
+}
+
 /// Şu an duyulan anın görsel verisi. Arayüz her ekran karesinde sorar;
 /// analiz o ana yetişmediyse `null` döner.
 #[tauri::command]
 pub async fn visual_frame(player: State<'_, PlayerState>) -> Result<Option<VisualFrame>, String> {
+    // Aygıt değiştiyse şarkı yeni aygıtta kilit dışında yeniden açılır (bkz. `playback_status`).
+    let transition = player.lock()?.begin_device_recovery();
+    if transition.is_some() {
+        finish_transition(transition, &player).await?;
+    }
     Ok(player.lock()?.visual_now().map(VisualFrame::from))
 }
 
@@ -595,12 +628,17 @@ fn apply_parametric(
     player: &PlayerState,
     store: &SettingsStore,
 ) -> Result<ParametricState, String> {
-    let mut player = player.lock()?;
-    let applied = player.set_parametric(settings);
+    // Oynatıcı kilidi yalnızca ayarı uygularken tutulur; dosyaya yazma (diske işleme) kilit
+    // dışında: bant sürüklenirken görsel veri ve durum sorguları beklemez (DENETIM-FAZ0 ISK-01).
+    let (applied, comparing) = {
+        let mut player = player.lock()?;
+        let applied = player.set_parametric(settings);
+        (applied, player.parametric_comparing())
+    };
     store
         .update(|s| s.parametric = applied.clone())
         .map_err(|e| reported(format!("Parametrik ekolayzer kaydedilemedi: {e}")))?;
-    Ok(ParametricState::new(applied, player.parametric_comparing()))
+    Ok(ParametricState::new(applied, comparing))
 }
 
 /// Crossfeed: ayar, hazır ayarlar ve çizim için eğriler.
@@ -719,11 +757,13 @@ pub async fn annotation_evaluate(
     store: State<'_, AnnotationStore>,
 ) -> Result<Annotation, String> {
     let track = annotated_track(&path)?;
-    let mut annotation = store
+    let annotation = store
         .load(&track)
         .ok_or_else(|| "Önce işaretleri kaydedin.".to_owned())?;
-    if annotation.beats.len() < 8 {
-        return Err("Doğruluğu ölçmek için en az 8 beat işaretleyin.".to_owned());
+    if annotation.beats.len() < MIN_EVALUATION_BEATS {
+        return Err(format!(
+            "Doğruluğu ölçmek için en az {MIN_EVALUATION_BEATS} beat işaretleyin."
+        ));
     }
     let marked = annotation.beats.clone();
     let marked_drops = annotation.drops.clone();
@@ -734,11 +774,16 @@ pub async fn annotation_evaluate(
     .await
     .map_err(reported)?
     .map_err(reported)?;
-    annotation.evaluation = Some(result);
+    // Yalnızca ölçülen işaretler hâlâ diskteyse yazılır: ölçüm sürerken kaydedilen yeni işaretler
+    // eskileriyle ezilmez (DENETIM-FAZ0 ISK-03).
     store
-        .save(&annotation)
-        .map_err(|e| reported(format!("Sonuç kaydedilemedi: {e}")))?;
-    Ok(annotation)
+        .save_evaluation(&annotation, result)
+        .map_err(|e| match e {
+            EvaluationSaveError::MarksChanged => {
+                "Ölçüm sürerken işaretler değişti; sonuç yazılmadı. Yeniden ölçün.".to_owned()
+            }
+            EvaluationSaveError::Io(e) => reported(format!("Sonuç kaydedilemedi: {e}")),
+        })
 }
 
 /// Çalan şarkının yapısı (ölçü, bölümler, droplar, enerji); analiz bitmediyse `null`.
@@ -764,7 +809,7 @@ pub fn annotation_open_folder(store: State<'_, AnnotationStore>) -> Result<(), S
         .dir()
         .ok_or_else(|| "İşaret klasörü bulunamadı.".to_owned())?;
     std::fs::create_dir_all(dir).map_err(|e| reported(format!("Klasör açılamadı: {e}")))?;
-    open_folder(dir).map_err(|e| reported(format!("Klasör açılamadı: {e}")))
+    crate::file_manager::open_folder(dir).map_err(|e| reported(format!("Klasör açılamadı: {e}")))
 }
 
 fn annotated_track(path: &std::path::Path) -> Result<AnnotatedTrack, String> {
@@ -786,54 +831,7 @@ pub fn log_frontend_error(message: String) {
 pub fn open_log() -> Result<(), String> {
     let path = diagnostics::log_path()
         .ok_or_else(|| "Hata günlüğü açılamadı: uygulama veri klasörü bulunamadı.".to_owned())?;
-    reveal(&path).map_err(|e| format!("Hata günlüğü açılamadı: {e}"))
-}
-
-#[cfg(windows)]
-fn open_folder(dir: &std::path::Path) -> std::io::Result<()> {
-    std::process::Command::new("explorer")
-        .arg(dir)
-        .spawn()
-        .map(|_| ())
-}
-
-#[cfg(not(windows))]
-fn open_folder(dir: &std::path::Path) -> std::io::Result<()> {
-    std::process::Command::new("xdg-open")
-        .arg(dir)
-        .spawn()
-        .map(|_| ())
-}
-
-#[cfg(windows)]
-fn reveal(path: &std::path::Path) -> std::io::Result<()> {
-    use std::os::windows::process::CommandExt;
-    // Olduğu gibi verilir: `arg` boşluklu yolu bütünüyle tırnaklardı.
-    std::process::Command::new("explorer")
-        .raw_arg(select_argument(path))
-        .spawn()
-        .map(|_| ())
-}
-
-/// `explorer /select,"<dosya>"`: klasörü açar ve dosyayı seçili gösterir. Tırnak
-/// yalnızca yolun çevresinde olmalı. Explorer bütünüyle tırnaklı `"/select,C:\…"`
-/// biçimini anlamaz ve dosyayı seçmek yerine Belgeler'i açar. Kullanıcı adında
-/// boşluk varsa ("C:\Users\Ali Veli\…") olan buydu. Windows yollarında `"` olmaz.
-#[cfg(any(windows, test))]
-fn select_argument(path: &std::path::Path) -> std::ffi::OsString {
-    let mut argument = std::ffi::OsString::from("/select,\"");
-    argument.push(path);
-    argument.push("\"");
-    argument
-}
-
-#[cfg(not(windows))]
-fn reveal(path: &std::path::Path) -> std::io::Result<()> {
-    let dir = path.parent().unwrap_or(path);
-    std::process::Command::new("xdg-open")
-        .arg(dir)
-        .spawn()
-        .map(|_| ())
+    crate::file_manager::reveal(&path).map_err(|e| format!("Hata günlüğü açılamadı: {e}"))
 }
 
 /// Kör dinleme testini kurar: iki dosyanın aynı bölümü belleğe çözülür, hizalanır, ses yüksekliği
@@ -899,21 +897,14 @@ pub async fn abx_stop(player: State<'_, PlayerState>) -> Result<AbxStatus, Strin
 /// Konum, durum ve şarkı bilgisi. Arayüz bunu düzenli aralıklarla sorar.
 #[tauri::command]
 pub async fn playback_status(player: State<'_, PlayerState>) -> Result<PlaybackStatus, String> {
-    Ok(player.lock()?.status())
+    // Kulaklık takılıp çıkarılınca: yeni aygıtı açmak kilit dışında (görseller beklemez).
+    let transition = player.lock()?.begin_device_recovery();
+    finish_transition(transition, &player).await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn gezginde_secme_yolu_bosluklu_kullanici_adinda_da_dogru() {
-        let path = std::path::Path::new(r"C:\Users\Ali Veli\AppData\logs\lyraska.log");
-        assert_eq!(
-            select_argument(path),
-            r#"/select,"C:\Users\Ali Veli\AppData\logs\lyraska.log""#
-        );
-    }
 
     #[test]
     fn surum_package_json_ile_ayni() {

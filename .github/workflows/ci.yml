@@ -1,9 +1,10 @@
-# main'e push ve her PR'da: arayüz (TypeScript) ve çekirdek (Rust) testleri, lint, lisans
-# ve güvenlik uyarısı denetimi. PR'larda ayrıca Windows kurulum dosyası derlenir ve
-# "Artifacts" bölümüne eklenir. main'de CI yeşil bitince "Test sürümü" iş akışı çalışır.
+# main'e push ve her PR'da: arayüz (TypeScript) ve çekirdek (Rust) testleri, lint, lisans,
+# güvenlik uyarısı ve iş akışı denetimi; Windows'ta Clippy ve testler. PR'larda ayrıca Windows
+# kurulum dosyası derlenir ve "Artifacts" bölümüne eklenir. main'de CI yeşil bitince "Test sürümü"
+# iş akışı çalışır.
 #
-# Üçüncü taraf eylemler commit SHA'sıyla sabitlenir (yorumdaki etiket bilgi içindir);
-# Rust araç zinciri sabit sürümdür: yeni clippy lint'leri ilgisiz PR'ları kırmaz.
+# Üçüncü taraf eylemler commit SHA'sıyla sabitlenir (yorumdaki etiket bilgi içindir). Rust araç
+# zinciri rust-toolchain.toml'dan, Node sürümü .nvmrc'den gelir: yerel derlemeyle aynı.
 name: CI
 
 on:
@@ -21,20 +22,21 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  RUST_TOOLCHAIN: 1.97.0
 
 jobs:
   arayuz:
     name: Arayüz (TypeScript)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+          # Ses dosyası denetimi bütün geçmişe bakar: bir kez girip silinen ses de geçmişte kalır.
+          fetch-depth: 0
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - name: Biçim denetimi (Prettier)
@@ -47,8 +49,12 @@ jobs:
         run: npm test
       - name: Lisans denetimi
         run: npm run check:licenses
-      - name: Depoda ses dosyası yok (telif)
-        run: npm run check:audio
+      - name: Depoda ses dosyası yok (telif; bütün geçmiş)
+        run: npm run check:audio -- --history
+      - name: Belgeler kodla uyumlu mu
+        run: npm run check:docs
+      - name: Kurallar (unsafe, atlanan test, uzak adres, CSP, izinler)
+        run: npm run check:rules
       - name: Komut sözleşmesi (arayüz ↔ çekirdek)
         run: npm run check:commands
       - name: Derleme
@@ -56,7 +62,7 @@ jobs:
 
   cekirdek:
     name: Çekirdek (Rust)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -68,17 +74,18 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
       # Tauri, derleme sırasında arayüz dosyalarını (dist/) gömer.
       - name: Arayüzü derle
         run: |
           npm ci
           npm run build
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
-        with:
-          toolchain: ${{ env.RUST_TOOLCHAIN }}
-          components: rustfmt, clippy
+      - name: Rust araç zinciri (rust-toolchain.toml)
+        run: |
+          toolchain=$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal --component rustfmt,clippy
+          rustc --version
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           workspaces: src-tauri -> target
@@ -94,6 +101,8 @@ jobs:
         run: rm -f src/lib/bindings/*.ts
       - name: Testler
         working-directory: src-tauri
+        # Takılan bir test işi bütün süre boyunca bekletmesin.
+        timeout-minutes: 15
         run: cargo test --locked
       # Depodakiyle aynı olmalı: Rust'ta değişen bir tip arayüzde fark edilmeden kalamaz.
       - name: Arayüz tipleri güncel mi (ts-rs)
@@ -121,7 +130,7 @@ jobs:
     # Bilinen açıklar: Rust crate'leri (RustSec) ve pakete giren npm bağımlılıkları. Güvenilmeyen
     # ses dosyası açan bir programda ayrıştırıcı açığı fark edilmeden kalmamalı. Bu iş kırmızıysa
     # test sürümü yayımlanmaz.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -134,25 +143,36 @@ jobs:
           command: check advisories
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
-      - name: npm güvenlik uyarıları (yalnızca pakete giren bağımlılıklar)
-        run: npm audit --omit=dev --audit-level=high
+      - name: npm güvenlik uyarıları (kurulum dosyasını üreten araçlar dahil)
+        run: npm audit --audit-level=high
+      # İş akışlarının kendisi: güvensiz tetikleyici, komut enjeksiyonu, aşırı izin, sabitlenmemiş
+      # eylem (zizmor) ve sözdizimi/kabuk hataları (actionlint). Sürümler sabit; Go modülleri
+      # sağlama toplamı veritabanıyla doğrulanır.
+      - name: İş akışı denetimi (zizmor, actionlint)
+        run: |
+          pipx run zizmor==1.31.1 --offline --min-severity=low .github/workflows
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          "$(go env GOPATH)/bin/actionlint"
+        env:
+          GOFLAGS: -mod=mod
 
   sahneler:
     name: Sahneler (Windows, Edge)
     # Gece göğü ve gece otoyolu gerçek Windows'ta, programın kullandığı Edge motoruyla
     # açılır: gölgelendiriciler Windows'ta (ANGLE → Direct3D 11) derlenir mi, görüntü
     # çiziliyor mu, Lyra yıldızları görünüyor mu? Ayrıntı: scripts/check-scenes.mjs
-    runs-on: windows-latest
-    timeout-minutes: 30
+    runs-on: windows-2025
+    # Galeri ve MilkDrop'un kare kare parlama ölçümleri uzun sürer; 30 dk'nın dibindeydi.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - name: Arayüzü derle
@@ -169,24 +189,29 @@ jobs:
           SCENE_BROWSER_ARGS: --disable-webgl --disable-webgl2
           SCENE_EXPECT: fallback
 
-  windows:
-    name: Windows kurulum dosyası
-    # main için kurulum dosyası "Test sürümü" iş akışında derlenir.
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-    runs-on: windows-latest
-    timeout-minutes: 60
+  # Windows işi ikiye bölünür ve iki parça paralel çalışır: takılan ya da kırılan bir parça
+  # ötekini bekletmez, hangi parçanın bozulduğu adından görünür. Her adımın kendi süre sınırı var:
+  # takılan bir test işi 60 dakika değil, en çok 15 dakika tutar.
+  windows-testler:
+    name: "Windows: Clippy ve testler"
+    # Windows'a özel kod (WASAPI) her push ve PR'da denetlenir: test sürümüne giden commit de
+    # Windows'ta sınanmış olur.
+    runs-on: windows-2025
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
-        with:
-          toolchain: ${{ env.RUST_TOOLCHAIN }}
-          components: clippy
+      - name: Rust araç zinciri (rust-toolchain.toml)
+        shell: bash
+        run: |
+          toolchain=$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal --component clippy
+          rustc --version
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           workspaces: src-tauri -> target
@@ -196,17 +221,49 @@ jobs:
       # WASAPI çıkışı gibi yalnızca Windows'ta derlenen kod burada denetlenir.
       - name: Lint (Clippy, Windows)
         working-directory: src-tauri
+        timeout-minutes: 15
         run: cargo clippy --all-targets --locked -- -D warnings
       - name: Testler (Windows)
         working-directory: src-tauri
+        timeout-minutes: 15
         run: cargo test --locked
       - name: Gerçek ses aygıtıyla deneme
         # Barındırılan Windows makinesinde ses aygıtı yoktur: deneme "ATLANDI" der ve iş akışına
         # uyarı düşer (yeşil ama boş). Gerçek aygıt denemesi proje sahibinin kurulumuyla yapılır (YAY-09).
         working-directory: src-tauri
+        timeout-minutes: 10
         run: cargo run --locked --example ses_denemesi
+
+  windows-kurulum:
+    name: "Windows: kurulum dosyası"
+    # Kurulum dosyası PR'larda derlenir; main için "Test sürümü" iş akışında.
+    if: github.event_name != 'push'
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Rust araç zinciri (rust-toolchain.toml)
+        shell: bash
+        run: |
+          toolchain=$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal
+          rustc --version
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: src-tauri -> target
+      - run: npm ci
       - name: Kurulum dosyasını derle
-        # Tauri CLI doğrudan: üçüncü taraf eylem ve token gerekmez.
+        timeout-minutes: 30
+        # Tauri CLI doğrudan: üçüncü taraf eylem ve token gerekmez. Derleme kodu etiket olarak PR'ın
+        # ucudur; içerik ise GitHub'ın PR'ı main ile birleştirdiği hâlidir (deneme dosyası, yayın değil).
+        env:
+          LYRASKA_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: npm run tauri build -- --ci -- --locked
       - name: Kurulum dosyasını yükle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -222,3 +279,27 @@ jobs:
           path: src-tauri/target/release/*.pdb
           if-no-files-found: warn
           retention-days: 14
+
+  # `main`'in koruma kuralı bu adı zorunlu denetim olarak bekler: iki Windows parçasının ortak
+  # sonucu. Parçalardan biri kırmızıysa (ya da iptal olduysa) bu da kırmızıdır; kurulum dosyası
+  # push'ta derlenmediği için orada "atlandı" sayılır.
+  windows:
+    name: Windows (Clippy, testler, kurulum dosyası)
+    needs: [windows-testler, windows-kurulum]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: İki Windows parçası da geçti mi
+        env:
+          TESTLER: ${{ needs.windows-testler.result }}
+          KURULUM: ${{ needs.windows-kurulum.result }}
+          OLAY: ${{ github.event_name }}
+        run: |
+          echo "Clippy ve testler: $TESTLER · kurulum dosyası: $KURULUM"
+          [ "$TESTLER" = success ] || exit 1
+          if [ "$OLAY" = push ]; then
+            [ "$KURULUM" = skipped ] || [ "$KURULUM" = success ] || exit 1
+          else
+            [ "$KURULUM" = success ] || exit 1
+          fi

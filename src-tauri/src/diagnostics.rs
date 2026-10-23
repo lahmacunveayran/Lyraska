@@ -1,9 +1,16 @@
 //! Yerel hata ve çökme günlüğü.
 //!
 //! Program uygulama veri klasöründe `logs/lyraska.log` dosyasına yazar: açılış
-//! bilgisi (sürüm, işletim sistemi), kullanıcıya gösterilen hatalar, ses
-//! motorunun hataları ve çökmeler (panic: mesaj, yer, yığın izi). Dosya hiçbir
+//! bilgisi (sürüm, derleme kodu, Windows sürümü), kullanıcıya gösterilen hatalar, ses
+//! motorunun hataları ve çökmeler (panic: mesaj, yer, adresli yığın izi). Dosya hiçbir
 //! yere gönderilmez; kullanıcı "Hata günlüğü" düğmesiyle açıp hata kaydına ekler.
+//!
+//! Günlük Tauri'den **önce** açılır (`lib.rs`): pencere ya da WebView2 açılamazsa Tauri panikler,
+//! o çökme de yazılır. Açılış tamamlanmadan gelen bir çökmede Windows'ta kullanıcıya bir uyarı
+//! kutusu gösterilir (konsolsuz programda başka hiçbir iz kalmazdı).
+//!
+//! Yığın izi, sürüm derlemesinde (semboller ayrı `.pdb`'de) adreslerle yazılır; açılış satırındaki
+//! başvuru adresi (`run` fonksiyonunun bellekteki yeri) ile adresler `.pdb`'deki yerlere çevrilir.
 //!
 //! Dosya 1 MB'ı geçince `lyraska.1.log` adıyla saklanır ve yenisi başlar
 //! (en fazla ~2 MB yer kaplar).
@@ -14,6 +21,7 @@
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -28,6 +36,8 @@ struct Log {
 }
 
 static LOG: Mutex<Option<Log>> = Mutex::new(None);
+/// Açılış tamamlandı mı (pencere açıldı, kurulum bitti)? Öncesindeki çökme kullanıcıya gösterilir.
+static STARTED: AtomicBool = AtomicBool::new(false);
 
 /// Günlüğü açar, açılış satırını yazar ve çökme yakalayıcıyı kurar.
 pub fn init(dir: &Path) {
@@ -37,12 +47,40 @@ pub fn init(dir: &Path) {
         return;
     }
     info(&format!(
-        "Lyraska {} başladı · {} {}",
+        "Lyraska {} · derleme {} başladı · {} · {} · başvuru adresi run={:p}",
         env!("CARGO_PKG_VERSION"),
-        std::env::consts::OS,
-        std::env::consts::ARCH
+        env!("LYRASKA_BUILD_COMMIT"),
+        os_version(),
+        std::env::consts::ARCH,
+        crate::run as fn(),
     ));
     install_panic_hook();
+}
+
+/// Açılış tamamlandı: bundan sonraki çökmeler yalnızca günlüğe yazılır.
+pub fn mark_started() {
+    STARTED.store(true, Ordering::Release);
+}
+
+/// İşletim sistemi ve sürümü (Windows'ta ör. "Microsoft Windows [Version 10.0.22631.4602]").
+fn os_version() -> String {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // CREATE_NO_WINDOW: konsol penceresi bir an bile görünmesin.
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        let output = std::process::Command::new("cmd")
+            .args(["/C", "ver"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output();
+        if let Ok(output) = output {
+            let text = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+            if !text.is_empty() {
+                return text;
+            }
+        }
+    }
+    std::env::consts::OS.to_owned()
 }
 
 /// Günlük dosyasının yolu (açılamadıysa `None`).
@@ -130,15 +168,68 @@ fn install_panic_hook() {
             .unwrap_or_default();
         let thread = std::thread::current();
         let backtrace = std::backtrace::Backtrace::force_capture();
+        // `{:#}`: sembol yoksa da adresler yazılır (`{}` yalnızca "<unknown>" yazar).
         write(
             "ÇÖKME",
             &format!(
-                "iş parçacığı \"{}\": {message} ({location})\n{backtrace}",
+                "iş parçacığı \"{}\": {message} ({location})\n{backtrace:#}",
                 thread.name().unwrap_or("adsız")
             ),
         );
+        // Testlerde kutu açılmaz: kapatacak kimse yok, test programı sonsuza kadar bekler (CI'da
+        // Windows'ta oldu). Çökmenin günlüğe yazılması testlerde de sınanır.
+        if !STARTED.load(Ordering::Acquire) && !cfg!(test) {
+            startup_failure_dialog(&message);
+        }
         previous(info);
     }));
+}
+
+/// Açılışta çöken programın kullanıcıya tek izi: neden ve günlüğün yeri (Windows uyarı kutusu).
+fn startup_failure_dialog(message: &str) {
+    let log = log_path()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|| "(günlük açılamadı)".to_owned());
+    let text = format!(
+        "Lyraska açılamadı.\n\n{message}\n\nAyrıntılar hata günlüğünde:\n{log}\n\n\
+         Hata kaydı açarken bu dosyayı ekleyin. Microsoft Edge WebView2 kurulu değilse ya da \
+         bozulduysa Lyraska'yı yeniden kurmak onu da kurar."
+    );
+    notice_dialog(&text, true);
+}
+
+/// Pencere olmadan kullanıcıya ileti kutusu (Windows): açılışta çökme ya da ikinci kopya.
+/// Windows'un kendi PowerShell'i ileti kutusunu gösterir; metin komut satırına değil ortam
+/// değişkenine konur (içindeki tırnak ya da işaretler komut olarak yorumlanamaz). `unsafe` ve
+/// ek bağımlılık gerekmez; tek bedeli kutunun bir saniye kadar geç açılması. Kutu kapanana kadar
+/// beklenir.
+pub fn notice_dialog(text: &str, error: bool) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        let script = "Add-Type -AssemblyName System.Windows.Forms; \
+            [void][System.Windows.Forms.MessageBox]::Show($env:LYRASKA_NOTICE, 'Lyraska', 'OK', \
+            $env:LYRASKA_NOTICE_ICON)";
+        // Tam yol: PATH'e ve programın kendi klasöründeki aynı adlı bir dosyaya güvenilmez.
+        let system_root = std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into());
+        let powershell = std::path::Path::new(&system_root)
+            .join(r"System32\WindowsPowerShell\v1.0\powershell.exe");
+        let _ = std::process::Command::new(powershell)
+            .args(["-NoProfile", "-NonInteractive", "-Command", script])
+            .env("LYRASKA_NOTICE", text)
+            .env(
+                "LYRASKA_NOTICE_ICON",
+                if error { "Error" } else { "Information" },
+            )
+            .creation_flags(CREATE_NO_WINDOW)
+            .status();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = error;
+        eprintln!("{text}");
+    }
 }
 
 /// "2026-10-08 06:45:12 UTC" (saat dilimi kütüphanesi kullanmadan).

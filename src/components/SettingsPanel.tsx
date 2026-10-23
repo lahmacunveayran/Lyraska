@@ -21,7 +21,8 @@ export interface SettingsPanelProps {
 const SHORTCUTS: [string, string][] = [
   ["Boşluk", "Çal / duraklat"],
   ["← →", "5 saniye geri / ileri"],
-  ["1 – 5", "Sahne seç"],
+  ["1 – 9, 0", "Sahne seç"],
+  ["PageDown / PageUp", "Sonraki / önceki sahne"],
   ["Ctrl + O", "Dosya aç"],
   ["Esc", "Paneli kapat"],
 ];
@@ -37,7 +38,6 @@ export function SettingsPanel({
   lyrics,
 }: SettingsPanelProps) {
   const [logError, setLogError] = useState<string | null>(null);
-  const [noticesOpen, setNoticesOpen] = useState(false);
   const signalPath = signalPathText(status);
   const notice = status.output?.notice ?? null;
 
@@ -207,26 +207,50 @@ export function SettingsPanel({
       <div className="settings__group">
         <h2 className="settings__title">Lisanslar</h2>
         <p className="settings__text">
-          Lyraska özgür yazılımdır (GNU GPL 3.0). Kaynak kodu: github.com/gozlemesevdalisi/Lyraska
+          Lyraska özgür yazılımdır: GNU Genel Kamu Lisansı sürüm 3 (yalnızca bu sürüm, GPL-3.0-only)
+          ile dağıtılır ve hiçbir garanti verilmez. Bu lisansın koşullarıyla kopyalayabilir,
+          değiştirebilir ve dağıtabilirsiniz. © 2026 Lyraska katkıcıları. Kaynak kodu:
+          github.com/lahmacunveayran/Lyraska
         </p>
         <p className="settings__hint">
           Program açık kaynak kütüphaneler içerir; telif sahipleri ve lisans metinleri aşağıda.
         </p>
-        {/* 450 KB'lik metin yalnızca açılınca yüklenir; programın içinde paketlidir. */}
-        <details
-          className="settings__notices"
-          onToggle={(event) => setNoticesOpen(event.currentTarget.open)}
-        >
-          <summary className="glass-button">Üçüncü taraf lisans bildirimleri</summary>
-          {noticesOpen && (
-            <iframe
-              className="settings__notices-frame"
-              src="/lisanslar/UCUNCU-TARAF.txt"
-              title="Üçüncü taraf lisans bildirimleri"
-            />
-          )}
-        </details>
+        <LicenseText src="/lisanslar/GPL-3.0.txt" title="GNU GPL sürüm 3 (lisans metni)" />
+        <LicenseText src="/lisanslar/UCUNCU-TARAF.txt" title="Üçüncü taraf lisans bildirimleri" />
       </div>
     </section>
+  );
+}
+
+/**
+ * Programın içine paketlenmiş bir lisans metni; yalnızca açılınca yüklenir (bildirimler 450 KB).
+ * `fetch().text()` her zaman UTF-8 okur: Türkçe harfler, sunucunun bildirdiği karakter kümesinden
+ * bağımsız olarak doğru görünür.
+ */
+function LicenseText({ src, title }: { src: string; title: string }) {
+  const [text, setText] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  return (
+    <details
+      className="settings__notices"
+      onToggle={(event) => {
+        if (!event.currentTarget.open || text !== null) return;
+        fetch(src)
+          .then((response) => (response.ok ? response.text() : Promise.reject(response.status)))
+          .then(setText)
+          .catch(() => setFailed(true));
+      }}
+    >
+      <summary className="glass-button">{title}</summary>
+      {failed ? (
+        <p className="settings__warn">Metin açılamadı ({src}).</p>
+      ) : (
+        text !== null && (
+          <pre className="settings__notices-text" tabIndex={0} aria-label={title}>
+            {text}
+          </pre>
+        )
+      )}
+    </details>
   );
 }

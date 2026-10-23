@@ -1,0 +1,66 @@
+ INFO zizmor: 🌈 zizmor v1.31.1
+ INFO audit: zizmor: 🌈 completed repo/.github/workflows/ci.yml
+ INFO audit: zizmor: 🌈 completed repo/.github/workflows/test-surumu.yml
+info[superfluous-actions]: action functionality is already included by the runner
+  --> repo/.github/workflows/ci.yml:78:15
+   |
+78 |         - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+   |           -     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ use `rustup` and/or `cargo` in a script step
+   |  _________|
+   | |
+79 | |         with:
+80 | |           toolchain: ${{ env.RUST_TOOLCHAIN }}
+81 | |           components: rustfmt, clippy
+   | |_____________________________________- this step
+   |
+   = note: audit confidence → Medium
+   = help: audit documentation → https://docs.zizmor.sh/audits/#superfluous-actions
+
+info[superfluous-actions]: action functionality is already included by the runner
+   --> repo/.github/workflows/ci.yml:186:15
+    |
+186 |         - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+    |           -     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ use `rustup` and/or `cargo` in a script step
+    |  _________|
+    | |
+187 | |         with:
+188 | |           toolchain: ${{ env.RUST_TOOLCHAIN }}
+189 | |           components: clippy
+    | |____________________________- this step
+    |
+    = note: audit confidence → Medium
+    = help: audit documentation → https://docs.zizmor.sh/audits/#superfluous-actions
+
+error[dangerous-triggers]: use of fundamentally insecure workflow trigger
+  --> repo/.github/workflows/test-surumu.yml:13:3
+   |
+13 |   workflow_run:
+   |   ^^^^^^^^^^^^ workflow_run is almost always used insecurely
+   |
+   = note: audit confidence → Medium
+   = help: audit documentation → https://docs.zizmor.sh/audits/#dangerous-triggers
+
+help[undocumented-permissions]: permissions without explanatory comments
+   --> repo/.github/workflows/test-surumu.yml:103:7
+    |
+103 |       contents: write
+    |       ^^^^^^^^^^^^^^^ needs an explanatory comment
+    |
+    = note: audit confidence → High
+    = help: audit documentation → https://docs.zizmor.sh/audits/#undocumented-permissions
+
+info[superfluous-actions]: action functionality is already included by the runner
+  --> repo/.github/workflows/test-surumu.yml:58:15
+   |
+58 |         - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+   |           -     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ use `rustup` and/or `cargo` in a script step
+   |  _________|
+   | |
+59 | |         with:
+60 | |           toolchain: 1.97.0
+   | |___________________________- this step
+   |
+   = note: audit confidence → Medium
+   = help: audit documentation → https://docs.zizmor.sh/audits/#superfluous-actions
+
+5 findings: 3 informational, 1 low, 0 medium, 1 high

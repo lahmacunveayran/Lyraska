@@ -1,75 +1,64 @@
-// node_modules altındaki bütün paketlerin lisanslarını denetler.
-// Kural: AGPL lisanslı ya da ticari kullanımı yasaklayan paket kullanılmaz. Lisansı
-// belirtilmemiş ya da "UNLICENSED" (izin verilmemiş, tescilli) paket de kabul edilmez:
-// lisans eklemeden önce doğrulanır (CLAUDE.md).
+// npm bağımlılıklarının lisanslarını denetler (Rust tarafı: cargo deny check licenses).
+//
+// Kural (CLAUDE.md "Lisans kuralları"): yalnızca src-tauri/deny.toml'daki izin listesindeki
+// lisanslar. Liste tek yerde; npm ve Rust aynı politikayı uygular. Lisans alanı SPDX ifadesi
+// olarak ayrıştırılır: "(MIT OR Apache-2.0) AND BUSL-1.1" gibi bir ifadede BUSL izinsizse paket
+// reddedilir. Lisansı belirtilmemiş, "UNLICENSED" ya da "SEE LICENSE IN" yazan paket de reddedilir.
+//
+// Kaynak paket kilidi (package-lock.json): yalnızca bu makinede kurulanlar değil, başka işletim
+// sistemlerine özgü isteğe bağlı paketler de denetlenir.
+//
+// Pakete girmeyen geliştirme araçları için DEV_ONLY'deki lisanslar ayrıca kabul edilir: ikisi de
+// izin verici ve GPL-3.0 ile uyumlu, ikisi de programla dağıtılmaz (proje sahibine bildirildi,
+// DENETIM-FAZ0.md bölüm 8).
 // Kullanım: npm run check:licenses
 
-import { readdirSync, readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { allowedFromDenyToml, checkLicense, forbiddenLicenses } from "./lib/licenses.mjs";
 
-/** Yasak lisans kalıpları (büyük/küçük harf duyarsız). */
-const FORBIDDEN = [
-  /AGPL/i,
-  /SSPL/i,
-  /BUSL/i,
-  /Business Source/i,
-  /Commons Clause/i,
-  /Elastic-2\.0/i,
-  /CC-BY-NC/i,
-  /NonCommercial/i,
-  /PolyForm-Noncommercial/i,
-  /Prosperity/i,
-  /^UNLICENSED$/i,
+const ROOT = resolve(import.meta.dirname, "..");
+
+/** Yalnızca geliştirme araçlarında (pakete girmez) ek olarak kabul edilen lisanslar. */
+const DEV_ONLY = [
+  "BlueOak-1.0.0", // izin verici (Blue Oak Council); ör. glob/minimatch çevresi
+  "CC-BY-4.0", // veri lisansı; caniuse-lite (tarayıcı destek tablosu)
 ];
 
-function licenseOf(pkg) {
-  const value = pkg.license ?? pkg.licenses;
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) return value.map((l) => l.type ?? l).join(" OR ");
-  if (value && typeof value === "object") return value.type ?? "BİLİNMİYOR";
-  return "BİLİNMİYOR";
-}
+const allowed = allowedFromDenyToml(readFileSync(join(ROOT, "src-tauri", "deny.toml"), "utf8"));
+const allowedDev = new Set([...allowed, ...DEV_ONLY]);
+const lock = JSON.parse(readFileSync(join(ROOT, "package-lock.json"), "utf8"));
 
-function* packageDirs(root) {
-  if (!existsSync(root)) return;
-  for (const entry of readdirSync(root, { withFileTypes: true })) {
-    if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
-    const dir = join(root, entry.name);
-    if (entry.name.startsWith("@")) {
-      yield* packageDirs(dir);
-      continue;
-    }
-    yield dir;
-    yield* packageDirs(join(dir, "node_modules"));
-  }
-}
-
-const problems = [];
-const unknown = [];
+const problems = forbiddenLicenses(allowedDev).map(
+  (id) =>
+    `izin listesinde yasaklı lisans: ${id} (AGPL ve ticari kullanımı yasaklayan lisanslar giremez)`,
+);
 let count = 0;
-for (const dir of packageDirs("node_modules")) {
-  const file = join(dir, "package.json");
-  if (!existsSync(file)) continue;
-  const pkg = JSON.parse(readFileSync(file, "utf8"));
-  if (!pkg.name) continue;
+let shipped = 0;
+for (const [key, entry] of Object.entries(lock.packages ?? {})) {
+  if (!key.startsWith("node_modules/") || entry.link) continue;
+  const name = key.slice(key.lastIndexOf("node_modules/") + "node_modules/".length);
+  let field = entry.license;
+  const manifest = join(ROOT, key, "package.json");
+  if (field === undefined && existsSync(manifest)) {
+    const pkg = JSON.parse(readFileSync(manifest, "utf8"));
+    field = pkg.license ?? pkg.licenses;
+  }
   count++;
-  const license = licenseOf(pkg);
-  // "A OR B" biçiminde, yasak olmayan bir seçenek varsa kabul edilir.
-  const options = license.replace(/[()]/g, "").split(/\s+OR\s+/i);
-  if (options.every((option) => FORBIDDEN.some((re) => re.test(option)))) {
-    problems.push(`${pkg.name}@${pkg.version}: ${license}`);
-  } else if (license === "BİLİNMİYOR" || /^SEE LICENSE IN/i.test(license)) {
-    unknown.push(`${pkg.name}@${pkg.version}`);
+  if (!entry.dev) shipped++;
+  const problem = checkLicense(field, entry.dev ? allowedDev : allowed);
+  if (problem) {
+    problems.push(`${name}@${entry.version}${entry.dev ? "" : " (pakete girer)"}: ${problem}`);
   }
 }
 
-if (unknown.length > 0) {
-  console.error(`Lisansı belirtilmemiş ${unknown.length} paket:\n  ${unknown.join("\n  ")}`);
-}
 if (problems.length > 0) {
-  console.error(`Yasak lisanslı paketler bulundu:\n  ${problems.join("\n  ")}`);
-}
-if (problems.length > 0 || unknown.length > 0) {
+  console.error(`İzin verilmeyen ya da belirsiz lisanslı paketler:\n  ${problems.join("\n  ")}`);
+  console.error(
+    "İzin verilen lisanslar: src-tauri/deny.toml. Yeni lisans önce proje sahibine sorulur.",
+  );
   process.exit(1);
 }
-console.log(`Lisans denetimi tamam: ${count} paket incelendi, yasak lisans yok.`);
+console.log(
+  `Lisans denetimi tamam: ${count} paket (${shipped} pakete giren), hepsi izin listesinde.`,
+);
