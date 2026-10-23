@@ -23,6 +23,7 @@ import {
 } from "../lib/backend";
 import { AlbumGrid } from "./AlbumGrid";
 import { ArtistGrid } from "./ArtistGrid";
+import { SkyView } from "./SkyView";
 import { useArtists } from "../hooks/useArtists";
 import { invalidateAlbumCover } from "../lib/albumCovers";
 import { useAlbums } from "../hooks/useAlbums";
@@ -130,7 +131,12 @@ function LoadingGrid({ label }: { label: string }) {
   );
 }
 
-const VIEW_TITLES = { songs: "Şarkılar", albums: "Albümler", artists: "Sanatçılar" } as const;
+const VIEW_TITLES = {
+  songs: "Şarkılar",
+  albums: "Albümler",
+  artists: "Sanatçılar",
+  sky: "Gökyüzü",
+} as const;
 
 /** Kaynakların kısa özeti: "Müzik klasörü · 5 tek şarkı", "3 klasör". */
 export function sourcesLabel(folders: LibraryFolder[], files: number): string {
@@ -157,7 +163,7 @@ export function LibraryPanel({
   onPlayPaths,
 }: LibraryPanelProps) {
   const { status, query } = library;
-  const [view, setView] = useState<"songs" | "albums" | "artists">("songs");
+  const [view, setView] = useState<"songs" | "albums" | "artists" | "sky">("songs");
   const { albums, error: albumsError } = useAlbums(view === "albums", query, library.tracks);
   const { artists, error: artistsError } = useArtists(view === "artists", query, library.tracks);
   const current = useMemo(
@@ -245,7 +251,7 @@ export function LibraryPanel({
   const searchRef = useRef<HTMLInputElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
 
-  // Kısayollar (yalnızca kütüphane görünürken): Ctrl+F / Ctrl+K arama, Ctrl+1/2/3 görünüm.
+  // Kısayollar (yalnızca kütüphane görünürken): Ctrl+F / Ctrl+K arama, Ctrl+1–4 görünüm.
   // Rakam tuşları tek başına sahne değiştirir; burada yalnızca Ctrl ile birlikte kullanılır.
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
@@ -259,7 +265,7 @@ export function LibraryPanel({
         searchRef.current?.select();
         return;
       }
-      const views = ["songs", "albums", "artists"] as const;
+      const views = ["songs", "albums", "artists", "sky"] as const;
       const view = views[Number(event.key) - 1];
       if (view) {
         event.preventDefault();
@@ -445,6 +451,7 @@ export function LibraryPanel({
               ["songs", "Şarkılar"],
               ["albums", "Albümler"],
               ["artists", "Sanatçılar"],
+              ["sky", "Gökyüzü"],
             ] as const
           ).map(([id, label], index) => (
             <button
@@ -697,6 +704,13 @@ export function LibraryPanel({
         </div>
       ) : (
         <>
+          {view === "sky" && (
+            <SkyView
+              tracks={tracks}
+              currentPath={currentPath}
+              onPlay={(track) => onPlay(track, tracks)}
+            />
+          )}
           {view === "artists" && (
             <div className="library__albums">
               {artistsError || albumError ? (

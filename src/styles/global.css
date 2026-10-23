@@ -3177,6 +3177,80 @@ kbd {
   overflow-y: auto;
 }
 
+/* Gökyüzü: şarkılar ton ve tempoya göre yıldız; durağan çizim. */
+.sky-view {
+  position: relative;
+  flex: 1;
+  min-height: 320px;
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: radial-gradient(circle at 50% 50%, rgba(30, 36, 64, 0.55), rgba(6, 8, 14, 0.75) 70%);
+}
+
+.sky-view__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.sky-view__key {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-display);
+  font-size: 12px;
+  line-height: 1.15;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.sky-view__key small {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.sky-view__card {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  gap: 2px;
+  max-width: 280px;
+  padding: 8px 11px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 10px;
+  background: var(--glass-strong);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.sky-view__card b {
+  font-family: var(--font-songs);
+  font-weight: 500;
+}
+
+.sky-view__card span {
+  color: var(--text-muted);
+}
+
+.sky-view__facts {
+  font-family: var(--font-figures);
+  font-variant-numeric: tabular-nums;
+}
+
+.sky-view__legend {
+  position: absolute;
+  bottom: 8px;
+  left: 12px;
+  right: 12px;
+  margin: 0;
+  color: var(--text-muted);
+  font-family: var(--font-figures);
+  font-size: 11px;
+  pointer-events: none;
+}
+
 .albums {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));

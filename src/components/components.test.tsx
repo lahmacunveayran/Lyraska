@@ -5,6 +5,7 @@ import { ArtistGrid } from "./ArtistGrid";
 import { spectrumColumns } from "./SpectrumDemo";
 import { textToColumns } from "../lib/dotFont";
 import { clearCoverCache } from "../hooks/useCover";
+import { layoutSky } from "../lib/skyMap";
 
 // Rust çekirdeğini taklit eden sahte arka uç.
 const backend = vi.hoisted(() => ({
@@ -1313,6 +1314,38 @@ describe("kütüphane", () => {
     await act(async () => fireEvent.click(card));
     expect(backend.artistTracks).toHaveBeenCalledWith("Şebnem Ferah");
     await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(backend.tracks[0]!.path));
+  });
+
+  it("gökyüzü görünümü: tonu ve temposu bilinen şarkı yıldız olur, tıklayınca çalar", async () => {
+    backend.desktop = true;
+    backend.library = library;
+    backend.tracks = [song(1, "Mayın Tarlası"), song(2, "Bir Kedi Gördüm"), song(3, "Fırtına")];
+    // jsdom yerleşim yapmaz: alanın boyutu elle verilir.
+    const width = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(600);
+    const height = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(400);
+    try {
+      render(<App />);
+      await screen.findByText("Mayın Tarlası");
+      await act(async () => fireEvent.keyDown(window, { key: "4", ctrlKey: true }));
+      expect(screen.getByRole("button", { name: "Gökyüzü" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      // Yalnızca 1. şarkının tonu ve temposu var (2. ritimsiz, 3. analiz bekliyor).
+      expect(screen.getByText(/1 yıldız · 2 şarkı gökyüzünde yok/)).toBeInTheDocument();
+      const sky = screen.getByRole("img", { name: /Gökyüzü/ });
+      expect(within(sky.parentElement!).getByText("La minör")).toBeInTheDocument();
+      // Yıldızın yeri saf hesaptan (skyMap testleri); üstüne gelip tıklayınca çalar.
+      const { stars } = layoutSky(backend.tracks, 300, 200, 400 / 2 - 36);
+      const star = stars[0]!;
+      fireEvent.pointerMove(sky, { clientX: star.x, clientY: star.y });
+      expect(await screen.findByText(/çalmak için/)).toHaveTextContent("La minör · 128 BPM");
+      await act(async () => fireEvent.click(sky));
+      await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(backend.tracks[0]!.path));
+    } finally {
+      width.mockRestore();
+      height.mockRestore();
+    }
   });
 
   it("kütüphane ortada cam sayfa; dışındaki sahneye tıklayınca kapanır", async () => {
