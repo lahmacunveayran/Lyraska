@@ -94,18 +94,20 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 
 **A7. Açılamayan dosya sürüklenince dürüst mesaj (0.0.64)**
 
-- Nasıl: YouTube'dan indirdiğiniz bir `.webm` ya da `.opus` dosyasını (Opus kodekli) Lyraska penceresine
-  sürükleyin. Yanına bir MP3'ü de ekleyip ikisini birlikte bırakın.
+- Hazırlık (açılamayan bir dosya): Masaüstünde sağ tık → Yeni → Metin Belgesi; içine birkaç kelime yazıp kaydedin
+  ve adını `bozuk.mp3` yapın (Windows "uzantı değişsin mi" diye sorarsa **Evet**). Dosya uzantıları
+  görünmüyorsa: Dosya Gezgini → Görünüm → Göster → **Dosya adı uzantıları**.
+- Nasıl: `bozuk.mp3`'ü ve gerçek bir MP3'ü birlikte seçip Lyraska penceresine sürükleyin.
 - Neye bakılır:
-  - MP3 kütüphaneye eklenir ve çalar.
-  - `.webm` için "... bu ses kodeği (ör. Opus) henüz desteklenmiyor" gibi, nedenini söyleyen bir uyarı çıkar;
+  - Gerçek MP3 kütüphaneye eklenir ve çalar.
+  - `bozuk.mp3` için "Bu dosya biçimi desteklenmiyor ya da dosya bozuk ..." gibi, nedenini söyleyen bir uyarı çıkar;
     **"eklendi" denmez** ve Kütüphane panelinde o dosya için boş bir kutucuk oluşmaz.
+  - (0.0.64'te `.webm` ve `.opus` da açılamıyordu; 0.0.65'ten beri açılır, bkz. A12.)
 - Olmadıysa: ekrandaki mesajı ve hata günlüğünü gönderin.
 
 **A8. Açılamayan dosya, çalan müziği susturmuyor (0.0.64)**
 
-- Nasıl: Bir şarkı çalarken kütüphaneden ya da **Dosya aç** ile desteklenmeyen bir dosyayı (ör. Opus'lu `.webm`)
-  açmayı deneyin.
+- Nasıl: Bir şarkı çalarken **Dosya aç** ile A7'deki `bozuk.mp3`'ü açmayı deneyin.
 - Neye bakılır: hata mesajı görünür ama çalan şarkı **kesilmeden** çalmaya devam eder.
 
 **A9. Klasördeki şarkılar bir anda kaybolursa kütüphane silinmiyor (KUT-01, 0.0.64)**
@@ -135,6 +137,15 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 - Neye bakılır: program açılır, kütüphane boştur; aynı klasörde `library.sqlite3.bozuk-...` adlı bir dosya
   oluşmuştur (bozuk dosya silinmeden saklanmıştır).
 - Geri dönmek için: Lyraska'yı kapatın, yeni `library.sqlite3` dosyasını silin, kopyaladığınız yedeği yerine koyun.
+
+**A12. `.opus` ve `.webm` şarkılar çalıyor (0.0.65)**
+
+- Nasıl: YouTube'dan indirdiğiniz (ör. yt-dlp ile) bir `.webm` ya da `.opus` dosyasını pencereye sürükleyin; bir
+  tane de **Dosya aç** ile açın. Şarkının ortasına tıklayıp sarın.
+- Neye bakılır: şarkı çalar, süresi görünür, sarınca tıkladığınız yerden devam eder; birkaç saniye içinde BPM ve
+  şarkı haritası gelir. `.webm`'de şarkı adı yerine dosya adı görünebilir (bilinen sınır); sanatçı ve albüm
+  etiketleri varsa görünür.
+- Olmadıysa: dosyanın adını, ekrandaki mesajı ve hata günlüğünü gönderin.
 
 ## B. Çalma ve ses
 

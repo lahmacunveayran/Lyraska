@@ -17,6 +17,26 @@ ffmpeg -filter_complex "$SRC" -ac 1 -c:a libvorbis -q:a 2 -metadata title="Üç 
 ffmpeg -filter_complex "$SRC" -ac 1 -c:a flac -metadata title="Üç Ton" -metadata artist="Lyraska Test" -metadata album="Deneme Albümü" -metadata album_artist="Lyraska" -metadata track="3/9" -metadata disc="1/2" uc-uc-ton.flac
 ```
 
+`uc-uc-ton.opus`, `uc-uc-ton.webm`: aynı üç ton, Opus (libopus, 32 kb/sn); Opus her zaman 48 kHz çözülür.
+WebM, YouTube'dan inen dosyalar gibi 48 kHz yazılır (yoksa ffmpeg başlığa 24 kHz yazar). Etiketler yukarıdakilerle
+aynı:
+
+```sh
+SRC="sine=frequency=440:duration=1:sample_rate=22050[a];sine=frequency=880:duration=1:sample_rate=22050[b];sine=frequency=1760:duration=1:sample_rate=22050[c];[a][b][c]concat=n=3:v=0:a=1,volume=0.5"
+TAGS=(-metadata title="Üç Ton" -metadata artist="Lyraska Test" -metadata album="Deneme Albümü" -metadata album_artist="Lyraska" -metadata track="3/9" -metadata disc="1/2")
+ffmpeg -filter_complex "$SRC" -ac 1 -c:a libopus -b:a 32k "${TAGS[@]}" uc-uc-ton.opus
+ffmpeg -filter_complex "$SRC" -ac 1 -ar 48000 -c:a libopus -b:a 32k "${TAGS[@]}" uc-uc-ton.webm
+```
+
+`uzun.webm`, `uzun.opus`: 40 sn pembe gürültü (tekrarsız: sarmadan sonraki kayma tek anlamlı ölçülür), Opus 16 kb/sn.
+WebM, YouTube dosyaları gibi çok kümeli (2 sn) ve Cues'lu; `.opus` ondan yt-dlp gibi kopyalanır (Ogg akışı 360 örnek
+kaymalı başlar):
+
+```sh
+ffmpeg -f lavfi -i "anoisesrc=d=40:c=pink:r=48000:a=0.3:s=7,lowpass=f=6000" -ac 1 -c:a libopus -b:a 16k -cluster_time_limit 2000 uzun.webm
+ffmpeg -i uzun.webm -c copy uzun.opus
+```
+
 `sozlu.flac`, `sozlu.mp3`: 22 050 Hz mono, 1 sn 440 Hz; içlerine gömülü zamanlı sözler (LRC biçiminde, Türkçe
 harflerle). FLAC'ta Vorbis yorumu `LYRICS`, MP3'te ID3v2.3 `USLT` çerçevesi (UTF-16, dil `tur`). ffmpeg MP3'e `USLT`
 yazmadığı için etiket Python ile kurulup ffmpeg'in etiketsiz MP3'ünün önüne eklenir:
