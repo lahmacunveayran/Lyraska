@@ -214,9 +214,9 @@ vi.mock("../lib/backend", async (importOriginal) => {
     },
     getImportedSongMap: async () => backend.importedMap,
     getTrackLyrics: async () => backend.lyrics,
-    pickSongMapSavePath: async (name: string) => `C:/Belgeler/${name}`,
-    exportSongMap: async (path: string, target: string) => {
-      backend.mapExport(path, target);
+    exportSongMap: async (path: string, defaultName: string) => {
+      backend.mapExport(path, defaultName);
+      return `C:/Belgeler/${defaultName}`;
     },
     pickSongMapFile: async () => backend.mapPick,
     importSongMap: async (path: string, file: string) => {
@@ -290,9 +290,9 @@ vi.mock("../lib/backend", async (importOriginal) => {
         design: "rbj",
       });
     },
-    pickParametricSavePath: async () => "C:/eq/Lyraska ParametricEQ.txt",
-    exportParametric: async (path: string) => {
-      backend.parametricExport(path);
+    exportParametric: async () => {
+      backend.parametricExport();
+      return "C:/eq/Lyraska ParametricEQ.txt";
     },
     getCrossfeed: async () => {
       const { DEFAULT_CROSSFEED, previewCrossfeedState } = await import("../lib/crossfeed");
@@ -2101,7 +2101,7 @@ describe("parametrik ekolayzer", () => {
     await act(async () =>
       fireEvent.click(within(panel).getByRole("button", { name: "Dosyaya kaydet" })),
     );
-    expect(backend.parametricExport).toHaveBeenCalledWith("C:/eq/Lyraska ParametricEQ.txt");
+    expect(backend.parametricExport).toHaveBeenCalled();
   });
 });
 
@@ -2182,10 +2182,7 @@ describe("şarkı haritası dosyası", () => {
     await act(async () =>
       fireEvent.click(within(strip).getByRole("button", { name: "Haritayı dışa aktar" })),
     );
-    expect(backend.mapExport).toHaveBeenCalledWith(
-      track.path,
-      "C:/Belgeler/Lyra - Gece Otoyolu.harita.json",
-    );
+    expect(backend.mapExport).toHaveBeenCalledWith(track.path, "Lyra - Gece Otoyolu.harita.json");
     expect(within(strip).getByText(/^Kaydedildi: /)).toBeInTheDocument();
 
     const asked = backend.songMapAsked.mock.calls.length;

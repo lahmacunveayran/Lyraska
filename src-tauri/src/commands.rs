@@ -667,14 +667,61 @@ pub async fn parametric_import(
     apply_parametric(ParametricSettings::from_profile(&profile), &player, &store)
 }
 
-/// Parametrik ekolayzeri Equalizer APO biçiminde dosyaya yazar.
-#[tauri::command]
-pub async fn parametric_export(path: String, player: State<'_, PlayerState>) -> Result<(), String> {
-    let text = player.lock()?.parametric().to_apo();
+/// Kaydetme penceresini çekirdek açar: yazılacak yol arayüzden gelmez. Arayüzde bir hata yüzünden
+/// betik çalıştırılabilse bile kullanıcının seçmediği bir yere dosya yazılamaz (DENETIM-FAZ0
+/// KAB-06). Kullanıcı vazgeçerse `None`.
+async fn ask_save_path(
+    app: tauri::AppHandle,
+    title: &'static str,
+    file_name: String,
+    filter: (&'static str, &'static str),
+) -> Result<Option<PathBuf>, String> {
+    use tauri_plugin_dialog::DialogExt;
     blocking(move || {
-        std::fs::write(&path, text).map_err(|e| reported(format!("Dosya yazılamadı: {e}")))
+        app.dialog()
+            .file()
+            .set_title(title)
+            .set_file_name(file_name)
+            .add_filter(filter.0, &[filter.1])
+            .blocking_save_file()
+            .map(|chosen| {
+                chosen
+                    .into_path()
+                    .map_err(|e| reported(format!("Kaydetme yolu okunamadı: {e}")))
+            })
+            .transpose()
     })
     .await
+}
+
+/// Seçilen yola yazar; kaydedilen dosyanın yolu.
+async fn write_chosen(path: PathBuf, bytes: Vec<u8>) -> Result<Option<String>, String> {
+    blocking(move || {
+        std::fs::write(&path, bytes).map_err(|e| reported(format!("Dosya yazılamadı: {e}")))?;
+        Ok(Some(path.display().to_string()))
+    })
+    .await
+}
+
+/// Parametrik ekolayzeri Equalizer APO biçiminde kullanıcının seçtiği dosyaya yazar; kaydedilen
+/// dosyanın yolu (vazgeçildiyse `null`).
+#[tauri::command]
+pub async fn parametric_export(
+    app: tauri::AppHandle,
+    player: State<'_, PlayerState>,
+) -> Result<Option<String>, String> {
+    let text = player.lock()?.parametric().to_apo();
+    let Some(path) = ask_save_path(
+        app,
+        "Parametrik ekolayzeri kaydet (Equalizer APO biçimi)",
+        "Lyraska ParametricEQ.txt".to_owned(),
+        ("Equalizer APO", "txt"),
+    )
+    .await?
+    else {
+        return Ok(None);
+    };
+    write_chosen(path, text.into_bytes()).await
 }
 
 fn apply_parametric(
@@ -715,26 +762,38 @@ pub async fn crossfeed_set(
     Ok(CrossfeedState::new(applied))
 }
 
-/// Şarkı haritasını dosyaya yazar (açık biçim, `docs/SARKI-HARITASI.md`). Kullanıcının
-/// işaretlediği vuruş, drop ve ton analizinkinin yerine geçer.
+/// Şarkı haritasını kullanıcının seçtiği dosyaya yazar (açık biçim, `docs/SARKI-HARITASI.md`);
+/// kaydedilen dosyanın yolu (vazgeçildiyse `null`). Kullanıcının işaretlediği vuruş, drop ve ton
+/// analizinkinin yerine geçer. `default_name`: pencerede önerilen dosya adı (klasör kısmı atılır).
 #[tauri::command]
 pub async fn song_map_export(
     path: PathBuf,
-    target: PathBuf,
+    default_name: String,
+    app: tauri::AppHandle,
     player: State<'_, PlayerState>,
     annotations: State<'_, AnnotationStore>,
-) -> Result<(), String> {
+) -> Result<Option<String>, String> {
     let info = blocking(move || Ok(Decoder::open(&path).map_err(reported)?.info().clone())).await?;
     let marks = annotations.load(&AnnotatedTrack::from_info(&info));
     let map = player
         .lock()?
         .export_song_map(&info, marks.as_ref())
         .map_err(reported)?;
-    blocking(move || {
-        std::fs::write(&target, map.to_json())
-            .map_err(|e| reported(format!("Dosya yazılamadı: {e}")))
-    })
-    .await
+    let default_name = std::path::Path::new(&default_name).file_name().map_or_else(
+        || "sarki.harita.json".to_owned(),
+        |n| n.to_string_lossy().into_owned(),
+    );
+    let Some(target) = ask_save_path(
+        app,
+        "Şarkı haritasını kaydet",
+        default_name,
+        ("Lyraska şarkı haritası", "json"),
+    )
+    .await?
+    else {
+        return Ok(None);
+    };
+    write_chosen(target, map.to_json().into_bytes()).await
 }
 
 /// Şarkı haritası dosyasını şarkıya uygular (parmak iziyle eşleşirse).

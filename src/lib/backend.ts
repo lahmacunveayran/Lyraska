@@ -1,5 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { open } from "@tauri-apps/plugin-dialog";
 import { previewEqState } from "./eq";
 import type { AbxChoice } from "./bindings/AbxChoice";
 import type { AbxResult } from "./bindings/AbxResult";
@@ -561,9 +561,13 @@ export async function importParametric(path: string): Promise<ParametricState> {
   return invoke<ParametricState>("parametric_import", { path });
 }
 
-/** Ayarı Equalizer APO biçiminde dosyaya yazar. */
-export async function exportParametric(path: string): Promise<void> {
-  return invoke<void>("parametric_export", { path });
+/**
+ * Ayarı Equalizer APO biçiminde dosyaya yazar. Kaydetme penceresini çekirdek açar (yazılacak yolu
+ * arayüz vermez); kaydedilen dosyanın yolu ya da vazgeçildiyse `null`.
+ */
+export async function exportParametric(): Promise<string | null> {
+  if (!isTauri()) return null;
+  return invoke<string | null>("parametric_export");
 }
 
 /** Parametrik ekolayzer dosyası seçme penceresi. */
@@ -575,16 +579,6 @@ export async function pickParametricFile(): Promise<string | null> {
     filters: [{ name: "Equalizer APO / AutoEq / REW", extensions: ["txt"] }],
   });
   return typeof selected === "string" ? selected : null;
-}
-
-/** Kaydetme penceresi; seçilen yol ya da `null`. */
-export async function pickParametricSavePath(): Promise<string | null> {
-  const path = await save({
-    title: "Parametrik ekolayzeri kaydet (Equalizer APO biçimi)",
-    defaultPath: "Lyraska ParametricEQ.txt",
-    filters: [{ name: "Equalizer APO", extensions: ["txt"] }],
-  });
-  return path ?? null;
 }
 
 /** Crossfeed (kulaklıkta hoparlörden dinler gibi). Tarayıcı önizlemesinde `null`: arayüz çizer. */
@@ -601,10 +595,12 @@ export async function setCrossfeed(settings: CrossfeedSettings): Promise<Crossfe
 
 /**
  * Şarkı haritasını dosyaya yazar (açık biçim; ses içermez). İşaretlenmiş vuruş, drop ve ton
- * analizinkinin yerine geçer.
+ * analizinkinin yerine geçer. Kaydetme penceresini çekirdek açar (`defaultName` önerilen ad);
+ * kaydedilen dosyanın yolu ya da vazgeçildiyse `null`.
  */
-export async function exportSongMap(path: string, target: string): Promise<void> {
-  return invoke<void>("song_map_export", { path, target });
+export async function exportSongMap(path: string, defaultName: string): Promise<string | null> {
+  if (!isTauri()) return null;
+  return invoke<string | null>("song_map_export", { path, defaultName });
 }
 
 /** Şarkı haritası dosyasını şarkıya uygular; ses parmak izi tutmazsa hata verir. */
@@ -632,16 +628,6 @@ export async function pickSongMapFile(): Promise<string | null> {
     filters: [{ name: "Lyraska şarkı haritası", extensions: ["json"] }],
   });
   return typeof selected === "string" ? selected : null;
-}
-
-/** Şarkı haritasını kaydetme penceresi; seçilen yol ya da `null`. */
-export async function pickSongMapSavePath(defaultName: string): Promise<string | null> {
-  const path = await save({
-    title: "Şarkı haritasını kaydet",
-    defaultPath: defaultName,
-    filters: [{ name: "Lyraska şarkı haritası", extensions: ["json"] }],
-  });
-  return path ?? null;
 }
 
 /** Pencereye dosya sürükleme olaylarını dinleyen işlevler. */

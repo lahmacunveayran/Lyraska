@@ -5,7 +5,6 @@ import {
   getImportedSongMap,
   importSongMap,
   pickSongMapFile,
-  pickSongMapSavePath,
   removeSongMap,
   type ImportedMapStatus,
 } from "../lib/backend";
@@ -76,10 +75,8 @@ export function useMapFile(trackPath: string | null, trackTitle: string | null):
     () =>
       run(async () => {
         if (!trackPath) return null;
-        const target = await pickSongMapSavePath(mapFileName(trackTitle ?? "sarki"));
-        if (!target) return null;
-        await exportSongMap(trackPath, target);
-        return `Kaydedildi: ${target}`;
+        const target = await exportSongMap(trackPath, mapFileName(trackTitle ?? "sarki"));
+        return target ? `Kaydedildi: ${target}` : null;
       }),
     [run, trackPath, trackTitle],
   );
