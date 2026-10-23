@@ -658,6 +658,7 @@ describe("kütüphane", () => {
     title,
     artist: "Şebnem Ferah",
     album: "Kelimeler",
+    albumArtist: null,
     trackNumber: id,
     durationSecs: 200,
     codec: "flac",
@@ -1214,6 +1215,8 @@ describe("kütüphane", () => {
         trackCount: 2,
         durationSecs: 400,
         coverPath: backend.tracks[0]!.path,
+        bpm: 128,
+        key: "8A",
       },
     ];
     backend.albumTracks.mockReturnValue([backend.tracks[0]!.path, backend.tracks[1]!.path]);
@@ -1230,7 +1233,15 @@ describe("kütüphane", () => {
     const card = await screen.findByRole("button", { name: /Kelimeler/ });
     expect(card).toHaveTextContent("Şebnem Ferah · 2 şarkı · 7 dk");
 
-    await act(async () => fireEvent.click(card));
+    // DJ görünümü düğmesi yalnızca şarkılarda (albümlerde işe yaramaz).
+    expect(screen.queryByRole("button", { name: "DJ görünümü" })).not.toBeInTheDocument();
+
+    // Çift tık albümü iki kez başlatmaz.
+    await act(async () => {
+      fireEvent.click(card);
+      fireEvent.click(card);
+    });
+    expect(backend.albumTracks).toHaveBeenCalledTimes(1);
     expect(backend.albumTracks).toHaveBeenCalledWith("Kelimeler", "Şebnem Ferah");
     await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(backend.tracks[0]!.path));
   });

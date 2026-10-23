@@ -3,33 +3,40 @@ import { drawPrintCover, readPrintColors, type CoverInput, type PrintColors } fr
 
 /**
  * Albüm ızgarasının kapakları: şarkıdaki gerçek kapak varsa o (küçültülmüş), yoksa baskı kapağı
- * (`printCover.ts`). Kapaklar sırayla ve azar azar hazırlanır (kaydırırken arayüz takılmasın),
- * küçük `data:` adresleri olarak akılda tutulur.
+ * (`printCover.ts`). Kapaklar sırayla hazırlanır (kaydırırken arayüz takılmasın) ve küçük
+ * `data:` adresleri olarak akılda tutulur. Ekrandan çıkan kartın bekleyen işi yapılmaz.
  */
 
 /** Izgaradaki kapağın piksel boyu (yüksek DPI'da da keskin). */
 export const COVER_SIZE = 320;
-/** Akılda tutulan kapak sayısı (her biri ≈ 20–40 KB). */
-const CACHE_LIMIT = 600;
-/** Aynı anda okunan gerçek kapak sayısı (dosya okuma çekirdekte, ayrı iş parçacığında). */
-const PARALLEL = 3;
+/** Akılda tutulan kapak sayısı (her biri ≈ 40–70 KB). */
+const CACHE_LIMIT = 400;
+/** Aynı anda hazırlanan kapak sayısı (dosya okuma çekirdekte, ayrı iş parçacığında). */
+const PARALLEL = 2;
+/** Bundan büyük gömülü kapak küçültülmez, baskı kapağı çizilir (çok büyük `data:` adresi). */
+const MAX_REAL_COVER_CHARS = 12 * 1024 * 1024;
 
 export interface AlbumCoverRequest extends CoverInput {
   /** Kapak resminin okunacağı şarkı. */
   coverPath: string;
 }
 
-const cache = new Map<string, string>();
-const pending = new Map<string, Promise<string>>();
-let running = 0;
-const queue: (() => void)[] = [];
-let colors: PrintColors | null = null;
-
-export function albumCoverKey(album: string, artist: string | null): string {
-  return `${artist ?? ""}\u0000${album}`;
+/** Kapağın kimliği: albüm, ton ve tempo (analiz bitince baskı kapağı yeniden çizilir). */
+export function albumCoverKey(request: AlbumCoverRequest): string {
+  return [request.artist ?? "\u0001", request.album, request.key ?? "", request.bpm ?? ""].join(
+    "\u0000",
+  );
 }
 
-/** Hazırsa kapağın adresi (beklemeden). */
+const cache = new Map<string, string>();
+const queue: (() => void)[] = [];
+/** Kapağı bekleyen kartlar (kimlik başına): sıfıra inerse bekleyen iş yapılmaz. */
+const wanted = new Map<string, number>();
+const pending = new Map<string, Promise<string | null>>();
+let running = 0;
+let colors: PrintColors | null = null;
+
+/** Hazırsa kapağın adresi (beklemeden); `""` = çizilemedi (2D bağlamı yok). */
 export function cachedAlbumCover(key: string): string | null {
   return cache.get(key) ?? null;
 }
@@ -37,7 +44,10 @@ export function cachedAlbumCover(key: string): string | null {
 /** Testler arasında temizler. */
 export function clearAlbumCovers() {
   cache.clear();
+  queue.length = 0;
+  wanted.clear();
   pending.clear();
+  running = 0;
   colors = null;
 }
 
@@ -50,20 +60,8 @@ function remember(key: string, url: string) {
   }
 }
 
-function slot<T>(work: () => Promise<T>): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const start = () => {
-      running++;
-      work()
-        .then(resolve, reject)
-        .finally(() => {
-          running--;
-          queue.shift()?.();
-        });
-    };
-    if (running < PARALLEL) start();
-    else queue.push(start);
-  });
+function next() {
+  while (running < PARALLEL && queue.length > 0) queue.shift()?.();
 }
 
 function canvas(): HTMLCanvasElement {
@@ -92,13 +90,7 @@ function shrink(url: string): Promise<string | null> {
   });
 }
 
-/** Bir sonraki boş ana kadar bekler (baskı kapağı çizimi kare kaçırmasın). */
-function idle(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0));
-}
-
-async function printed(request: AlbumCoverRequest): Promise<string> {
-  await idle();
+function printed(request: AlbumCoverRequest): string {
   colors ??= readPrintColors();
   const c = canvas();
   const mono = getComputedStyle(document.documentElement).getPropertyValue("--font-figures").trim();
@@ -107,19 +99,69 @@ async function printed(request: AlbumCoverRequest): Promise<string> {
   return c.toDataURL("image/jpeg", 0.88);
 }
 
-/** Albümün kapağı: önce şarkıdaki resim, yoksa baskı kapağı. */
-export function albumCover(request: AlbumCoverRequest): Promise<string> {
-  const key = albumCoverKey(request.album, request.artist);
+async function prepare(request: AlbumCoverRequest): Promise<string> {
+  const real = await getTrackCover(request.coverPath).catch(() => null);
+  if (real && real.length <= MAX_REAL_COVER_CHARS) {
+    const small = await shrink(real);
+    if (small) return small;
+  }
+  // Bir kare boyunca nefes: üst üste çizimler arayüzü kilitlemesin.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  return printed(request);
+}
+
+/**
+ * Albümün kapağını ister; hazır olunca `onReady` çağrılır (önbellekteyse hemen). Dönen işlev
+ * isteği bırakır: kartı ekrandan çıkan istek, sırası gelince yapılmaz.
+ */
+export function requestAlbumCover(
+  request: AlbumCoverRequest,
+  onReady: (url: string) => void,
+): () => void {
+  const key = albumCoverKey(request);
   const ready = cache.get(key);
-  if (ready) return Promise.resolve(ready);
-  const waiting = pending.get(key);
-  if (waiting) return waiting;
-  const work = slot(async () => {
-    const real = await getTrackCover(request.coverPath).catch(() => null);
-    const url = (real && (await shrink(real))) || (await printed(request));
-    remember(key, url);
-    return url;
-  }).finally(() => pending.delete(key));
-  pending.set(key, work);
-  return work;
+  if (ready !== undefined) {
+    onReady(ready);
+    return () => undefined;
+  }
+  wanted.set(key, (wanted.get(key) ?? 0) + 1);
+  let active = true;
+  let job = pending.get(key);
+  if (!job) {
+    job = new Promise<string | null>((resolve) => {
+      queue.push(() => {
+        if (!wanted.get(key)) {
+          pending.delete(key);
+          resolve(null);
+          return;
+        }
+        running++;
+        prepare(request)
+          .then(
+            (url) => {
+              remember(key, url);
+              resolve(url);
+            },
+            () => resolve(null),
+          )
+          .finally(() => {
+            running--;
+            pending.delete(key);
+            next();
+          });
+      });
+    });
+    pending.set(key, job);
+    next();
+  }
+  void job.then((url) => {
+    if (active && url !== null) onReady(url);
+  });
+  return () => {
+    if (!active) return;
+    active = false;
+    const left = (wanted.get(key) ?? 1) - 1;
+    if (left > 0) wanted.set(key, left);
+    else wanted.delete(key);
+  };
 }

@@ -9,6 +9,7 @@ import {
   SearchIcon,
 } from "./icons";
 import {
+  errorMessage,
   libraryAlbumTracks,
   type LibraryAlbum,
   type LibraryFolder,
@@ -122,16 +123,25 @@ export function LibraryPanel({
   const { status, query } = library;
   const [view, setView] = useState<"songs" | "albums">("songs");
   const { albums, error: albumsError } = useAlbums(view === "albums", query, library.tracks);
-  const tracksByPath = useMemo(
-    () => new Map(library.tracks.map((track) => [track.path, track])),
-    [library.tracks],
+  const current = useMemo(
+    () => library.tracks.find((track) => track.path === currentPath) ?? null,
+    [library.tracks, currentPath],
   );
+  const [albumError, setAlbumError] = useState<string | null>(null);
+  // Albüm açılırken ikinci tık (çift tık) albümü ikinci kez başlatmasın.
+  const startingAlbum = useRef(false);
   const playAlbum = (album: LibraryAlbum) => {
+    if (startingAlbum.current) return;
+    startingAlbum.current = true;
     void libraryAlbumTracks(album.name, album.artist)
       .then((paths) => {
+        setAlbumError(paths.length > 0 ? null : `“${album.name}” albümünde şarkı bulunamadı.`);
         if (paths.length > 0) onPlayPaths(paths);
       })
-      .catch(() => undefined);
+      .catch((e) => setAlbumError(errorMessage(e)))
+      .finally(() => {
+        startingAlbum.current = false;
+      });
   };
   const [sort, setSort] = useState<LibrarySort>(DEFAULT_SORT);
   const [camelot, setCamelot] = useState(loadCamelot);
@@ -274,6 +284,8 @@ export function LibraryPanel({
 
   const showSingles = (on: boolean) => {
     setSinglesView(on);
+    // Tek eklenenler şarkı listesinde süzülür.
+    if (on) setView("songs");
     setSelected(-1);
     closeSources();
   };
@@ -318,7 +330,9 @@ export function LibraryPanel({
           {view === "albums" ? "Albümler" : "Şarkılar"}
           <span className="library__count">
             {view === "albums"
-              ? `${NUMBER.format(albums.length)} albüm`
+              ? albums === null
+                ? "…"
+                : `${NUMBER.format(albums.length)} albüm`
               : `${NUMBER.format(status.trackCount)} şarkı`}
           </span>
         </h2>
@@ -404,15 +418,17 @@ export function LibraryPanel({
             </div>
           </details>
         )}
-        <button
-          type="button"
-          className={`hw-button hw-button--small library__toggle${camelot ? " is-on" : ""}`}
-          aria-pressed={camelot}
-          onClick={toggleCamelot}
-          title="DJ görünümü: tonlar Camelot koduyla yazılır (ör. 8A = La minör)"
-        >
-          DJ görünümü
-        </button>
+        {view === "songs" && (
+          <button
+            type="button"
+            className={`hw-button hw-button--small library__toggle${camelot ? " is-on" : ""}`}
+            aria-pressed={camelot}
+            onClick={toggleCamelot}
+            title="DJ görünümü: tonlar Camelot koduyla yazılır (ör. 8A = La minör)"
+          >
+            DJ görünümü
+          </button>
+        )}
         <label className="library__search">
           <SearchIcon />
           <input
@@ -541,19 +557,19 @@ export function LibraryPanel({
         <>
           {view === "albums" && (
             <div className="library__albums">
-              {albumsError ? (
-                <p className="library__problem">{albumsError}</p>
+              {albumsError || albumError ? (
+                <p className="library__problem" role="alert">
+                  {albumsError ?? albumError}
+                </p>
+              ) : null}
+              {albums === null ? (
+                <p className="library__none">Albümler yükleniyor…</p>
               ) : albums.length === 0 ? (
                 <p className="library__none">
                   {query ? `“${query}” için albüm yok.` : "Albüm etiketi olan şarkı yok."}
                 </p>
               ) : (
-                <AlbumGrid
-                  albums={albums}
-                  tracksByPath={tracksByPath}
-                  currentPath={currentPath}
-                  onPlay={playAlbum}
-                />
+                <AlbumGrid albums={albums} current={current} onPlay={playAlbum} />
               )}
             </div>
           )}

@@ -224,7 +224,7 @@ function layerCanvas(size: number): [HTMLCanvasElement, Ctx] | null {
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   return ctx ? [canvas, ctx] : null;
 }
 
@@ -377,7 +377,8 @@ export function drawPrintCover(
   colors: PrintColors,
   options: { small?: boolean; mono?: string } = {},
 ): Family | null {
-  const ctx = canvas.getContext("2d");
+  // Piksel okuma (kâğıt, tanecik) sık: tuval işlemcide tutulur, ekran kartından geri okunmaz.
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) return null;
   const W = canvas.width;
   const seed = hash(`${input.artist ?? ""}\u0000${input.album}`);
@@ -633,10 +634,11 @@ export function drawPrintCover(
   }
   grain(ctx, W, seed, P.dark);
   if (!options.small) {
-    const ink = P.dark ? "rgba(236, 230, 214, 0.9)" : "rgba(30, 28, 27, 0.88)";
+    const ink = P.dark ? colors.white : (colors.inks[0] ?? "#1e1c1b");
     const mono = options.mono ?? "monospace";
     ctx.font = `500 ${Math.round(W * 0.085)}px ${mono}`;
     ctx.fillStyle = ink;
+    ctx.globalAlpha = 0.9;
     ctx.textBaseline = "bottom";
     ctx.textAlign = "right";
     ctx.fillText(catalogNumber(seed), W * 0.94, W * 0.965);

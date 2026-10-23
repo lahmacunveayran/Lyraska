@@ -1,16 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { PlayIcon } from "./icons";
 import type { LibraryAlbum, LibraryTrack } from "../lib/backend";
-import { albumCover, albumCoverKey, cachedAlbumCover } from "../lib/albumCovers";
+import { albumCoverKey, cachedAlbumCover, requestAlbumCover } from "../lib/albumCovers";
 
 const NUMBER = new Intl.NumberFormat("tr-TR");
 
 export interface AlbumGridProps {
   albums: LibraryAlbum[];
-  /** Kapak için ton ve tempo: albümün kapak şarkısı bu listede aranır. */
-  tracksByPath: Map<string, LibraryTrack>;
-  /** Çalan şarkının yolu (albümü vurgulanır). */
-  currentPath: string | null;
+  /** Çalan şarkı (albümü vurgulanır); kütüphanede değilse `null`. */
+  current: LibraryTrack | null;
   onPlay: (album: LibraryAlbum) => void;
 }
 
@@ -21,51 +19,59 @@ export function albumLength(seconds: number): string {
   return `${Math.floor(minutes / 60)} sa ${minutes % 60} dk`;
 }
 
-function AlbumCover({ album, track }: { album: LibraryAlbum; track: LibraryTrack | undefined }) {
-  const key = albumCoverKey(album.name, album.artist);
-  const [url, setUrl] = useState(() => cachedAlbumCover(key));
+function AlbumCover({ album }: { album: LibraryAlbum }) {
+  const request = {
+    album: album.name,
+    artist: album.artist,
+    key: album.key,
+    bpm: album.bpm,
+    coverPath: album.coverPath,
+  };
+  const key = albumCoverKey(request);
+  const [loaded, setLoaded] = useState<{ key: string; url: string } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
-  const bpm = track?.bpm ?? null;
-  const musicalKey = track?.key ?? null;
+  const cached = cachedAlbumCover(key);
+  const url = cached ?? (loaded?.key === key ? loaded.url : null);
 
-  // Kapak yalnızca ekrana yaklaşınca hazırlanır.
+  // Kapak yalnızca ekrana yaklaşınca istenir; ekrandan çıkınca bekleyen istek bırakılır.
   useEffect(() => {
-    if (url) return;
+    if (url !== null) return;
     const element = ref.current;
     if (!element) return;
-    let cancelled = false;
+    let release: (() => void) | null = null;
     const load = () => {
-      void albumCover({
-        album: album.name,
-        artist: album.artist,
-        key: musicalKey,
-        bpm,
-        coverPath: album.coverPath,
-      }).then((ready) => {
-        if (!cancelled) setUrl(ready);
-      });
+      release = requestAlbumCover(
+        {
+          album: album.name,
+          artist: album.artist,
+          key: album.key,
+          bpm: album.bpm,
+          coverPath: album.coverPath,
+        },
+        (ready) => setLoaded({ key, url: ready }),
+      );
     };
     if (typeof IntersectionObserver === "undefined") {
       load();
-      return () => {
-        cancelled = true;
-      };
+      return () => release?.();
     }
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          observer.disconnect();
-          load();
+        const visible = entries.some((e) => e.isIntersecting);
+        if (visible && !release) load();
+        else if (!visible && release) {
+          release();
+          release = null;
         }
       },
       { rootMargin: "400px" },
     );
     observer.observe(element);
     return () => {
-      cancelled = true;
       observer.disconnect();
+      release?.();
     };
-  }, [url, album.name, album.artist, album.coverPath, musicalKey, bpm]);
+  }, [url, key, album.name, album.artist, album.key, album.bpm, album.coverPath]);
 
   return (
     <div ref={ref} className="album__cover">
@@ -75,24 +81,25 @@ function AlbumCover({ album, track }: { album: LibraryAlbum; track: LibraryTrack
 }
 
 /** Albümler: kapak ızgarası. Kapağa tıklamak albümü baştan çalar. */
-export function AlbumGrid({ albums, tracksByPath, currentPath, onPlay }: AlbumGridProps) {
-  const current = currentPath ? tracksByPath.get(currentPath) : undefined;
+/** Şarkı bu albümün mü? Albümler albüm sanatçısıyla (yoksa sanatçıyla) gruplanır. */
+export function isAlbumOf(track: LibraryTrack, album: LibraryAlbum): boolean {
+  return track.album === album.name && (track.albumArtist ?? track.artist) === album.artist;
+}
+
+export function AlbumGrid({ albums, current, onPlay }: AlbumGridProps) {
   return (
     <ul className="albums" aria-label="Albümler">
       {albums.map((album) => {
-        const playing =
-          current !== undefined &&
-          current.album === album.name &&
-          (album.artist === null || current.artist === album.artist);
+        const playing = current !== null && isAlbumOf(current, album);
         return (
-          <li key={albumCoverKey(album.name, album.artist)} className="album">
+          <li key={`${album.artist ?? ""}\u0000${album.name}`} className="album">
             <button
               type="button"
               className={`album__button${playing ? " is-current" : ""}`}
               onClick={() => onPlay(album)}
               title={`Albümü çal: ${album.name}`}
             >
-              <AlbumCover album={album} track={tracksByPath.get(album.coverPath)} />
+              <AlbumCover album={album} />
               <span className="album__play" aria-hidden>
                 <PlayIcon />
               </span>

@@ -71,7 +71,7 @@ lyraska/
 │   │                         # şeridi, LyricsOverlay kinetik sözler; sahneler SceneStage'de, galeri ShaderScene + SceneGallery, MilkDropScene kullanıcının .milk görselleri; sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
 │   │                         # ayarlar; her panel ve sahne bir ErrorBoundary içinde: hata yalnızca o bölümü kapatır).
 │   │                         # Klasik sahneler SkyScene, HighwayScene, DriveScene, VuScene (VuMeter), SpectrumView
-│   │                         # (DotMatrix, SpectrumDemo karşılama gösterisi); paneller LibraryPanel, EqualizerPanel
+│   │                         # (DotMatrix, SpectrumDemo karşılama gösterisi); paneller LibraryPanel (AlbumGrid albüm ızgarası), EqualizerPanel
 │   │                         # (CrossfeedStrip, ParametricEq), MarkerPanel, SyncPanel, AbxPanel, SettingsPanel;
 │   │                         # Dock alttaki cam (şerit, süre, çalma düğmeleri), DropOverlay sürükle-bırak, Marquee kayan
 │   │                         # yazı, icons simgeler
@@ -85,12 +85,12 @@ lyraska/
 │   │                         # useAbx (kör test), useSongKey (çalan şarkının tonu), useParametric (elle
 │   │                         # parametrik EQ), useCrossfeed (crossfeed), useMapFile (şarkı haritası dosyası),
 │   │                         # useLyrics (şarkı sözleri), useScenePresets (galeri sahnelerinin görünümü ve
-│   │                         # hazır ayarlar), useMilkdrop (MilkDrop klasörü, görseller, önceki/sonraki)
+│   │                         # hazır ayarlar), useMilkdrop (MilkDrop klasörü, görseller, önceki/sonraki), useAlbums (albüm listesi)
 │   ├── lib/                  # Saf yardımcılar (format, meter, dotFont, vu, sky, highway, queue, sync, songMap,
 │   │                         # analysis: BPM sütunu, drop: bırakma bildirimi, eq: ekolayzer bantları,
 │   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile, lyrics,
 │   │                         # clock: akıcı oynatma saati, marks: işaret hesapları, scene: sahne listesi,
-│   │                         # sceneClock: sahne iç saatleri, virtual: uzun listede görünen satırlar, librarySort: kütüphane sıralaması ve ton adı),
+│   │                         # sceneClock: sahne iç saatleri, virtual: uzun listede görünen satırlar, librarySort: kütüphane sıralaması ve ton adı, printCover: kapağı olmayan albümün baskı kapağı, albumCovers: kapak sırası ve önbelleği),
 │   │                         # usePrefersReducedMotion ("animasyonları azalt"), browserGuard (sürümde F5, sağ tık
 │   │                         # menüsü, geri gibi tarayıcı davranışlarını kapatır), Rust köprüsü (backend.ts; veri tipleri
 │   │                         # bindings/ altında Rust'tan üretilir, elle düzenlenmez), arayüz hatalarını günlüğe yazma

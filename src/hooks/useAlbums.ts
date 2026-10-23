@@ -9,8 +9,9 @@ export function useAlbums(
   enabled: boolean,
   query: string,
   refreshKey: unknown,
-): { albums: LibraryAlbum[]; error: string | null } {
-  const [albums, setAlbums] = useState<LibraryAlbum[]>([]);
+): { albums: LibraryAlbum[] | null; error: string | null } {
+  // Bu aramanın sonucu gelene kadar `null` (yükleniyor): boş liste yanlışlıkla "albüm yok" demesin.
+  const [loaded, setLoaded] = useState<{ query: string; albums: LibraryAlbum[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const seq = useRef(0);
 
@@ -20,7 +21,7 @@ export function useAlbums(
     libraryAlbums(query)
       .then((result) => {
         if (mine !== seq.current) return;
-        setAlbums(result);
+        setLoaded({ query, albums: result });
         setError(null);
       })
       .catch((e) => {
@@ -28,5 +29,5 @@ export function useAlbums(
       });
   }, [enabled, query, refreshKey]);
 
-  return { albums, error };
+  return { albums: loaded && loaded.query === query ? loaded.albums : null, error };
 }

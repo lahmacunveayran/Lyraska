@@ -17,6 +17,7 @@ function track(id: number, fields: Partial<LibraryTrack>): LibraryTrack {
     title: `Şarkı ${id}`,
     artist: null,
     album: null,
+    albumArtist: null,
     trackNumber: null,
     durationSecs: null,
     codec: "flac",
