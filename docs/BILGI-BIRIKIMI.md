@@ -91,8 +91,16 @@ Kalıcı bir kural hâline gelmesi gereken şey proje sahibine sorulup `CLAUDE.m
 - İşe yarayan GitHub repoları kullanılabilir; lisans kuralıyla birlikte.
 - YouTube'dan indirme (yt-dlp) önerilmedi (telif, çevrimdışı ilkesi, kalite); yasal "klasör izleme" önerildi;
   karar Faz 4 sonrasına kaldı.
-- **Kaynak ayrıştırma** (davul/bas/vokal) seçildi, Faz 5'te. Karar bekleniyor: Spleeter (ağırlıklar MIT,
-  kurulum +40–80 MB) ya da yapay zekâsız klasik yöntem.
+- **Kaynak ayrıştırma** (davul/bas/vokal): **Spleeter** seçildi (23 Ekim 2026; kod ve ağırlıklar MIT, kurulum
+  +40–80 MB, önceden arka planda hesaplanır). Uygulamadan önce ağırlık lisansı ve çalışma zamanı (ONNX) lisansı
+  birincil kaynaktan yeniden doğrulanır.
+- Sahibi Spleeter'ı "geliştirip daha iyi yapmak" istiyor (23 Ekim 2026). Yeniden eğitim yasal veriye bağlı (MUSDB18
+  NC, kullanılamaz); önce eğitimsiz iyileştirmeler (Wiener süzgeci, 16 kHz bant, analiz amaçlı kullanım) ölçülür.
+- **İş sırası (23 Ekim 2026):** yama 0001 (#105) → `.opus`/`.webm` → kütüphanenin baştan tasarımı (4 PR: çekirdek
+  sorguları ve gruplama; tam ekran kütüphane + Şarkılar; Albümler ve Sanatçılar; Klasörler ve uyarılar) → kaynak
+  ayrıştırma. Kütüphane kararı: **tam ekran**, arayüz baştan, çekirdek korunup iyileştirilir (veri ve analiz kaybı yok).
+- Görev kitabı `docs/gorev/00-CEKIRDEK.md`, `10-BOLUM-I.md`, `20-BOLUM-II-DJ.md` (dışarıda hazırlandı). Bölüm II
+  (Otomatik DJ) yalnızca sahibi "Bölüm II'ye geç" derse başlar.
 - **Geri bildirim (23 Ekim 2026):** drop gösterimi tam olmamış; kütüphane paneli "aşırı kötü", beğenilmedi
   (yeniden tasarım gerekli). `.opus` ve `.webm` açılmalı (Faz 3b).
 - Sahibi "çok yıldızlı GitHub repolarını kullan" dedi (23 Ekim 2026): yıldız sayısı ölçüt değildir; her repo
