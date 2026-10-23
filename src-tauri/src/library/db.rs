@@ -51,6 +51,33 @@ pub struct TrackRow {
     pub key: Option<String>,
 }
 
+/// Kütüphanedeki bir albüm (albüm sanatçısı, yoksa sanatçı + albüm adıyla gruplanır).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export, rename = "LibraryAlbum"))]
+pub struct AlbumRow {
+    pub name: String,
+    /// Albüm sanatçısı, yoksa şarkıların sanatçısı.
+    pub artist: Option<String>,
+    pub track_count: u32,
+    /// Şarkıların toplam süresi (saniye; süresi bilinmeyenler sayılmaz).
+    pub duration_secs: f64,
+    /// Kapak resminin okunacağı şarkı: albümün ilk şarkısı.
+    pub cover_path: String,
+}
+
+/// Kütüphanedeki bir sanatçı (albüm sanatçısı, yoksa sanatçı).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export, rename = "LibraryArtist"))]
+pub struct ArtistRow {
+    pub name: String,
+    pub album_count: u32,
+    pub track_count: u32,
+    /// Kapak resminin okunacağı şarkı: sanatçının ilk şarkısı.
+    pub cover_path: String,
+}
+
 pub use crate::analysis::cache::FileStamp;
 
 pub struct Library {
@@ -389,6 +416,70 @@ impl Library {
     }
 }
 
+impl Library {
+    /// Albümler, sanatçı ve albüm adına göre sıralı. `query` boş değilse yalnızca şarkılarından
+    /// biri aramaya uyan albümler (arama kuralı [`Library::search`] ile aynı).
+    pub fn albums(&self, query: &str, limit: usize) -> Result<Vec<AlbumRow>, LibraryError> {
+        // SQLite'ta MIN() ile seçilen satırın öteki sütunları (path) o satırdan gelir.
+        let (filter, words) = search_filter(query, 1);
+        let sql = format!(
+            "SELECT album, COALESCE(album_artist, artist), COUNT(*),
+                    COALESCE(SUM(duration_secs), 0), path, MIN(sort_key)
+             FROM tracks WHERE album IS NOT NULL AND album <> ''{filter}
+             GROUP BY COALESCE(album_artist, artist), album
+             ORDER BY MIN(sort_key) LIMIT {}",
+            limit.min(MAX_RESULTS)
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
+        let rows = stmt.query_map(params_from_iter(words.iter()), |r| {
+            Ok(AlbumRow {
+                name: r.get(0)?,
+                artist: r.get(1)?,
+                track_count: r.get(2)?,
+                duration_secs: r.get(3)?,
+                cover_path: r.get(4)?,
+            })
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// Sanatçılar (albüm sanatçısı, yoksa sanatçı), ada göre sıralı. `query` [`Library::albums`]
+    /// gibi süzer.
+    pub fn artists(&self, query: &str, limit: usize) -> Result<Vec<ArtistRow>, LibraryError> {
+        let (filter, words) = search_filter(query, 1);
+        let sql = format!(
+            "SELECT COALESCE(album_artist, artist) AS who, COUNT(DISTINCT album), COUNT(*),
+                    path, MIN(sort_key)
+             FROM tracks WHERE COALESCE(album_artist, artist) IS NOT NULL{filter}
+             GROUP BY who ORDER BY MIN(sort_key) LIMIT {}",
+            limit.min(MAX_RESULTS)
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
+        let rows = stmt.query_map(params_from_iter(words.iter()), |r| {
+            Ok(ArtistRow {
+                name: r.get(0)?,
+                album_count: r.get(1)?,
+                track_count: r.get(2)?,
+                cover_path: r.get(3)?,
+            })
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+}
+
+/// Arama kelimelerinin SQL koşulu (` AND search LIKE ?n …`, `first` numaralı parametreden) ve
+/// değerleri. Boş aramada koşul yoktur.
+fn search_filter(query: &str, first: usize) -> (String, Vec<String>) {
+    let words: Vec<String> = search_key(query)
+        .split_whitespace()
+        .map(|w| format!("%{}%", escape_like(w)))
+        .collect();
+    let filter = (0..words.len())
+        .map(|i| format!(" AND search LIKE ?{} ESCAPE '\\'", i + first))
+        .collect();
+    (filter, words)
+}
+
 /// Şarkıyı (`t`) kareleri ve ritmi güncel analiziyle (`a`) eşleyen JOIN: BPM buradan gelir.
 /// `?1`–`?4` analiz parçalarının sürümleri ([`analysis_versions`]). Ses yüksekliği ya da bas
 /// tepeleri eskise de BPM gösterilmeye devam eder (onların yenilenmesi saatler sürebilir).
@@ -632,6 +723,42 @@ mod tests {
         )
         .unwrap();
         lib
+    }
+
+    #[test]
+    fn albumler_ve_sanatcilar_gruplanir_ve_sirali_gelir() {
+        let lib = sample();
+        let albums = lib.albums("", 100).unwrap();
+        let names: Vec<(&str, Option<&str>, u32)> = albums
+            .iter()
+            .map(|a| (a.name.as_str(), a.artist.as_deref(), a.track_count))
+            .collect();
+        // Sıra şarkı listesiyle aynı: sanatçı, sonra albüm (Şebnem, s-e-b, Sezen'den önce);
+        // etiketsiz şarkının albümü yok.
+        assert_eq!(
+            names,
+            [
+                ("Kelimeler", Some("Şebnem Ferah"), 2),
+                ("Gülümse", Some("Sezen Aksu"), 1)
+            ]
+        );
+        // Kapak albümün ilk şarkısından (1. parça a.flac), süre toplam.
+        assert_eq!(albums[0].cover_path, "/muzik/a.flac");
+        assert!((albums[0].duration_secs - 400.0).abs() < 1e-9);
+
+        let artists = lib.artists("", 100).unwrap();
+        let names: Vec<(&str, u32, u32)> = artists
+            .iter()
+            .map(|a| (a.name.as_str(), a.album_count, a.track_count))
+            .collect();
+        assert_eq!(names, [("Şebnem Ferah", 1, 2), ("Sezen Aksu", 1, 1)]);
+
+        // Arama Türkçe harf ve büyük/küçük harf duyarsız; yalnızca uyan şarkının grubu.
+        let found = lib.albums("mayin", 100).unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].name, "Kelimeler");
+        assert_eq!(lib.artists("GULUMSE", 100).unwrap()[0].name, "Sezen Aksu");
+        assert!(lib.albums("yok%böyle", 100).unwrap().is_empty());
     }
 
     #[test]
