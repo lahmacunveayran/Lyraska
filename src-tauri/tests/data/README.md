@@ -37,6 +37,19 @@ ffmpeg -f lavfi -i "anoisesrc=d=40:c=pink:r=48000:a=0.3:s=7,lowpass=f=6000" -ac 
 ffmpeg -i uzun.webm -c copy uzun.opus
 ```
 
+`kapakli.opus`: 1 sn 440 Hz Opus; içinde yt-dlp'nin `--embed-thumbnail`'i gibi gömülü kapak (OpusTags'te
+`METADATA_BLOCK_PICTURE`, 8×8 düz renk PNG):
+
+```sh
+ffmpeg -f lavfi -i color=c=0x2B3F78:s=8x8 -frames:v 1 k.png
+PIC=$(python3 -c "
+import struct,base64
+img=open('k.png','rb').read();m=b'image/png'
+b=struct.pack('>II',3,len(m))+m+struct.pack('>IIIIII',0,8,8,24,0,len(img))+img
+print(base64.b64encode(b).decode())")
+ffmpeg -f lavfi -i "sine=frequency=440:duration=1:sample_rate=48000" -ac 1 -c:a libopus -b:a 16k -metadata title="Kapaklı" -metadata METADATA_BLOCK_PICTURE="$PIC" kapakli.opus
+```
+
 `sozlu.flac`, `sozlu.mp3`: 22 050 Hz mono, 1 sn 440 Hz; içlerine gömülü zamanlı sözler (LRC biçiminde, Türkçe
 harflerle). FLAC'ta Vorbis yorumu `LYRICS`, MP3'te ID3v2.3 `USLT` çerçevesi (UTF-16, dil `tur`). ffmpeg MP3'e `USLT`
 yazmadığı için etiket Python ile kurulup ffmpeg'in etiketsiz MP3'ünün önüne eklenir:
