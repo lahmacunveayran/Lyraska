@@ -78,12 +78,21 @@ pub enum AudioError {
     Abx(String),
 }
 
+/// Symphonia'nın İngilizce iç mesajını kullanıcıya anlaşılır bir nedene çevirir.
+fn unsupported_reason(what: &str) -> String {
+    if what.contains("codec") {
+        "bu ses kodeği (ör. Opus) henüz desteklenmiyor".to_owned()
+    } else {
+        what.to_owned()
+    }
+}
+
 impl From<symphonia::core::errors::Error> for AudioError {
     fn from(error: symphonia::core::errors::Error) -> Self {
         use symphonia::core::errors::Error as E;
         match error {
             E::IoError(e) => AudioError::Decode(e.to_string()),
-            E::Unsupported(what) => AudioError::Unsupported(what.to_owned()),
+            E::Unsupported(what) => AudioError::Unsupported(unsupported_reason(what)),
             other => AudioError::Decode(other.to_string()),
         }
     }
@@ -123,6 +132,19 @@ pub(crate) mod test_util;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn desteklenmeyen_kodek_turkce_nedenle_gosterilir() {
+        let codec = AudioError::from(symphonia::core::errors::Error::Unsupported(
+            "core (codec): unsupported audio codec",
+        ));
+        assert_eq!(
+            codec.to_string(),
+            "Bu dosya biçimi desteklenmiyor ya da dosya bozuk: bu ses kodeği (ör. Opus) henüz desteklenmiyor"
+        );
+        let other = AudioError::from(symphonia::core::errors::Error::Unsupported("başka neden"));
+        assert!(other.to_string().ends_with("başka neden"));
+    }
 
     #[test]
     fn ic_islem_64_bit() {

@@ -7,6 +7,8 @@ use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 
+use crate::audio::decode::Decoder;
+
 use super::db::MAX_RESULTS;
 use super::scan::{self, ScanProgress, ScanState};
 use super::{path_covers, FolderRow, Library, LibraryError, TrackRow};
@@ -187,8 +189,9 @@ impl LibraryService {
     /// şarkılar ayrıca çalınmak üzere bırakılış sırasıyla döndürülür.
     ///
     /// Dosya mı klasör mü olduğu diskte denetlenir (uzantıya bakılmaz). Zaten
-    /// kütüphanede olan şarkı yine çalınır. Biri eklenemese de diğerleri eklenir;
-    /// her sorun kullanıcıya gösterilecek bir cümle olarak döner.
+    /// kütüphanede olan şarkı yine çalınır. Açılamayan şarkı (desteklenmeyen kodek, bozuk dosya)
+    /// eklenmez ve çalma sırasına girmez; nedeni sorun olarak döner. Biri eklenemese de
+    /// diğerleri eklenir; her sorun kullanıcıya gösterilecek bir cümle olarak döner.
     pub fn add_dropped(&self, paths: &[PathBuf]) -> DropOutcome {
         let mut outcome = DropOutcome::default();
         for path in paths {
@@ -211,6 +214,12 @@ impl LibraryService {
                 continue;
             }
             if is_track {
+                // Açılamayan dosya için ölü bir kaynak oluşturma ve "eklendi" deme: gerçek
+                // nedeni söyle (ör. Opus'lu .webm: kodek desteklenmiyor).
+                if let Err(error) = Decoder::open(path) {
+                    outcome.problems.push(format!("{name}: {error}"));
+                    continue;
+                }
                 outcome.tracks.push(path.to_string_lossy().into_owned());
             }
             match self.add_folder(path) {
@@ -308,22 +317,39 @@ fn run_scan(library: &Mutex<Library>, scan: &ScanState, request: &ScanRequest) -
     let problems = folders
         .iter()
         .filter(|folder| request.all || request.folders.contains(&folder.id))
-        .filter_map(|folder| match scan::scan_folder(library, folder, scan) {
-            Ok(summary) if summary.suspicious > 0 => Some(format!(
-                "{}: kütüphanedeki {} şarkının hiçbiri bulunamadı (disk takılı değil ya da ağ \
-                     paylaşımı bağlı değil olabilir); şarkılar kütüphanede tutuldu.",
-                folder.path, summary.suspicious
-            )),
-            Ok(summary) if summary.unreadable > 0 => Some(format!(
-                "{}: {} alt klasör ya da dosya okunamadı (izin, ağ ya da disk hatası); \
-                     oradaki şarkılara dokunulmadı.",
-                folder.path, summary.unreadable
-            )),
-            Ok(_) => None,
-            Err(e) => Some(e.to_string()),
+        .flat_map(|folder| match scan::scan_folder(library, folder, scan) {
+            Ok(summary) => scan_problems(&folder.path, &summary),
+            Err(e) => vec![e.to_string()],
         })
         .collect();
     scan.set_scanning(false);
+    problems
+}
+
+/// Bir klasör taramasının kullanıcıya gösterilecek sorunları; sorun yoksa boş döner.
+fn scan_problems(path: &str, summary: &scan::ScanSummary) -> Vec<String> {
+    let mut problems = Vec::new();
+    if summary.suspicious > 0 {
+        problems.push(format!(
+            "{path}: kütüphanedeki {} şarkı bulunamadı (disk takılı değil, ağ paylaşımı bağlı \
+             değil ya da klasör taşınmış olabilir); şarkılar kütüphaneden çıkarılmadı.",
+            summary.suspicious
+        ));
+    }
+    if summary.unreadable > 0 {
+        problems.push(format!(
+            "{path}: {} alt klasör ya da dosya okunamadı (izin, ağ ya da disk hatası); \
+             oradaki şarkılara dokunulmadı.",
+            summary.unreadable
+        ));
+    }
+    if summary.failed > 0 {
+        problems.push(format!(
+            "{path}: {} dosya açılamadı (kodek desteklenmiyor ya da dosya bozuk); \
+             kütüphaneye eklenmedi.",
+            summary.failed
+        ));
+    }
     problems
 }
 
@@ -350,6 +376,41 @@ mod tests {
             std::fs::copy(data.join(&name), dir.join(name)).unwrap();
         }
         dir
+    }
+
+    #[test]
+    fn tarama_sorunlari_acilamayan_ve_supheli_silmeyi_bildirir() {
+        let summary = scan::ScanSummary {
+            failed: 2,
+            suspicious: 5,
+            ..scan::ScanSummary::default()
+        };
+        let problems = scan_problems("D:\\Müzik", &summary);
+        assert_eq!(problems.len(), 2, "{problems:?}");
+        assert!(problems[0].contains("5 şarkı bulunamadı"));
+        assert!(problems[1].contains("2 dosya açılamadı"));
+        assert!(scan_problems("D:\\Müzik", &scan::ScanSummary::default()).is_empty());
+    }
+
+    #[test]
+    fn birakilan_acilamayan_dosya_eklenmez_sirada_olmaz_ve_nedeni_soylenir() {
+        let service = LibraryService::new(Library::open_in_memory().unwrap());
+        let elsewhere = temp_path("servis-acilamayan");
+        std::fs::create_dir_all(&elsewhere).unwrap();
+        // Uzantısı ses dosyası, içeriği çözülemiyor (desteklenmeyen kodek ya da bozuk dosya).
+        let bad = elsewhere.join("klip.webm");
+        std::fs::write(&bad, b"bozuk".repeat(50)).unwrap();
+
+        let outcome = service.add_dropped(&[bad]);
+        assert!(outcome.tracks.is_empty());
+        assert_eq!(outcome.added_tracks, 0);
+        assert_eq!(outcome.problems.len(), 1, "{:?}", outcome.problems);
+        assert!(outcome.problems[0].starts_with("klip.webm: "));
+        wait_idle(&service);
+        assert!(
+            service.status().unwrap().folders.is_empty(),
+            "ölü kaynak eklenmemeli"
+        );
     }
 
     #[test]

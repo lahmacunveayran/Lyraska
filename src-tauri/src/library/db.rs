@@ -635,6 +635,24 @@ mod tests {
     }
 
     #[test]
+    fn library_adli_bozuk_dosya_tek_kez_kenara_alinir() {
+        let path = crate::audio::test_util::temp_path("library.sqlite3");
+        std::fs::write(&path, b"sqlite degil ".repeat(100)).unwrap();
+
+        let library = Library::open(&path).unwrap();
+        assert_eq!(library.track_count().unwrap(), 0);
+
+        let dir = path.parent().unwrap();
+        let kept: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .filter_map(Result::ok)
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|name| name.starts_with("library.sqlite3.bozuk-"))
+            .collect();
+        assert_eq!(kept.len(), 1, "{kept:?}");
+    }
+
+    #[test]
     fn bos_arama_hepsini_sanatci_album_parca_sirasiyla_dondurur() {
         let titles: Vec<String> = sample()
             .search("", 100)

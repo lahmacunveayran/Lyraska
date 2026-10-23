@@ -40,6 +40,10 @@ Kalıcı bir kural hâline gelmesi gereken şey proje sahibine sorulup `CLAUDE.m
 - Taşıma: dal `origin/main`'den yeniden kurulur, iş `git cherry-pick` ile alınır. Sürüm çakışmasında `main`'in
   sürümü alınıp bir sonrakine yükseltilir (`package.json`, `package-lock.json` iki kök alan, `Cargo.toml`,
   `Cargo.lock`'taki `lyraska`). `Cargo.lock` cargo ile yeniden üretilir; `UCUNCU-TARAF.txt` `npm run notices` ile.
+- **Dışarıda (derleyicisiz) yazılan yamalar eski `main`'e göre yazılmış olabilir** (23 Ekim 2026, yama 0001):
+  `git apply --reject` ile uyan parçalar alınır, reddedilenler `main`'deki hâliyle karşılaştırılıp yalnızca eksik
+  kalan elle taşınır. `files/` kopyasını üstüne yazmak yeni işleri siler. Yamanın testleri `main`'deki testlerle
+  aynı adı taşıyabilir: silinmez, yeniden adlandırılır.
 - Başka oturumun devir notu (`docs/devlog/` aynı gün) okunur: sahibinin yeni kararları orada olabilir (ör. depo adı
   `lahmacunveayran/Lyraska` oldu, "kod imzası olmayacak").
 
@@ -89,4 +93,8 @@ Kalıcı bir kural hâline gelmesi gereken şey proje sahibine sorulup `CLAUDE.m
   karar Faz 4 sonrasına kaldı.
 - **Kaynak ayrıştırma** (davul/bas/vokal) seçildi, Faz 5'te. Karar bekleniyor: Spleeter (ağırlıklar MIT,
   kurulum +40–80 MB) ya da yapay zekâsız klasik yöntem.
+- **Geri bildirim (23 Ekim 2026):** drop gösterimi tam olmamış; kütüphane paneli "aşırı kötü", beğenilmedi
+  (yeniden tasarım gerekli). `.opus` ve `.webm` açılmalı (Faz 3b).
+- Sahibi "çok yıldızlı GitHub repolarını kullan" dedi (23 Ekim 2026): yıldız sayısı ölçüt değildir; her repo
+  lisans (AGPL/NC yok), çevrimdışı ilkesi ve gerçek bir ihtiyaca uygunlukla seçilir.
 - MilkDrop: programla hazır görsel dağıtılmaz; kullanıcı kendi `.milk` dosyalarını açar.
