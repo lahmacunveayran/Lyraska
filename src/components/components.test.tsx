@@ -1094,6 +1094,49 @@ describe("kütüphane", () => {
     }
   });
 
+  it("tek tek eklenen şarkılar kutucuk değil, kaynak penceresinde tek satır; seçilince süzülür", async () => {
+    backend.desktop = true;
+    backend.library = {
+      ...library,
+      folders: [
+        { id: 7, path: "C:\\Müzik" },
+        { id: 8, path: "D:\\İndir\\Tek.mp3" },
+        { id: 9, path: "D:\\İndir\\Öteki.flac" },
+      ],
+    };
+    backend.tracks = [
+      song(1, "Mayın Tarlası"),
+      { ...song(2, "Tek"), path: "D:\\İndir\\Tek.mp3" },
+      { ...song(3, "Öteki"), path: "D:\\İndir\\Öteki.flac" },
+    ];
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    // Her şarkı için ayrı kutucuk yok: tek bir özet.
+    expect(screen.getByText("Müzik klasörü · 2 tek şarkı")).toBeInTheDocument();
+    expect(screen.queryByText("Tek.mp3")).not.toBeInTheDocument();
+    const rows = () => screen.getAllByRole("row").length - 1;
+    expect(rows()).toBe(3);
+
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: /Tek tek eklenenler/ })),
+    );
+    expect(rows()).toBe(2);
+    expect(screen.queryByText("Mayın Tarlası")).not.toBeInTheDocument();
+    // Süzülmüş listede satırdaki × o şarkıyı kütüphaneden çıkarır.
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Kütüphaneden çıkar: D:\\İndir\\Öteki.flac" }),
+      ),
+    );
+    expect(backend.removeFolder).toHaveBeenCalledWith(9);
+
+    // Süzgeç etiketi bütün listeyi geri getirir.
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: /Kaynak: tek eklenenler/ })),
+    );
+    expect(rows()).toBe(3);
+  });
+
   it("arama kutusuna yazılanla arar ve klasör kaldırılabilir", async () => {
     backend.desktop = true;
     backend.library = library;
@@ -1101,9 +1144,13 @@ describe("kütüphane", () => {
     const search = await screen.findByRole("searchbox", { name: "Kütüphanede ara" });
     await act(async () => fireEvent.change(search, { target: { value: "sebnem" } }));
     await waitFor(() => expect(backend.search).toHaveBeenLastCalledWith("sebnem"));
+    // Kaldırma önce sorar: × düğmesi yalnızca onay ister, "Evet" kaldırır.
     await act(async () =>
       fireEvent.click(screen.getByRole("button", { name: /Kütüphaneden çıkar/ })),
     );
+    expect(backend.removeFolder).not.toHaveBeenCalled();
+    expect(screen.getByText("Kaldırılsın mı?")).toBeInTheDocument();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Evet" })));
     expect(backend.removeFolder).toHaveBeenCalledWith(7);
   });
 });
