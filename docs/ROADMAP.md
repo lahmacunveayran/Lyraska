@@ -193,9 +193,12 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       (1 048 576 tur) kırpılır, iç içe ya da piksel başına döngülü görsel açılmaz; çalarken program kapanan görsel
       kalıcı olarak atlanır. Temeli (0.0.59): Rust'ta ham dalga biçimi (`visual_waveform`) ve parlaklık freni
       (kanıtı `flashGuardMath.ts`)
-  - [ ] MilkDrop 2 gölgelendiricilerinin (HLSL) GLSL'e çevrilmesi: şimdilik atılıyor, gölgelendiricili görseller
-        "sade hâliyle" çalıyor (eval'siz bir HLSL çevirici gerekir: Rust'ta ya da `-s DYNAMIC_EXECUTION=0` ile
-        yeniden derlenmiş hlslparser)
+  - [x] MilkDrop 2 gölgelendiricilerinin (HLSL) GLSL'e çevrilmesi (0.0.61): projectM'in hlslparser'ı (MIT)
+        WebAssembly'ye derlendi ve Rust'ta `wasmi` kum havuzunda çalışır (yakıt ve bellek sınırı, `unsafe` ve
+        `eval` yok); hazırlık ve Butterchurn biçimi `milkdrop/shader.rs`'te. projectM'in 9 603 presetlik "Cream of
+        the Crop" setinde (yalnızca yerel ölçüm, depoya girmez) gölgelendiricilerin ~%99'u çevriliyor; çevrilemeyen
+        ya da ekran kartında derlenemeyen gölgelendirici atılır, görsel "sade hâliyle" çalar. CI ikili dosyanın
+        kaynağından baytı baytına aynı derlendiğini denetler
   - [ ] İsteğe bağlı: lisansı tek tek doğrulanmış birkaç preset programla gelsin (ör. MIT lisanslı küçük setler;
         her biri parlama testinden geçerek) — proje sahibinin kararı
 - [x] Kinetik şarkı sözleri (0.0.56): sözler yalnızca kullanıcının kendi dosyalarından (şarkının yanındaki `.lrc` ya

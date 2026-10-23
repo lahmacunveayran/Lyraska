@@ -270,6 +270,7 @@ Klasör seç (dialog) ─▶ milkdrop_set_folder ─▶ settings.json'da milkdro
 görsel seçildi ─────▶ milkdrop_load(path) ─▶ milkdrop::load: bağlantı değil, gerçek yeri klasörün içinde
                                              (en çok bir alt düzey), .milk, dosya ≤ 512 KB;
                                              UTF-8/UTF-16/Windows-1254 → parse.rs (eel.rs döngü kuralı)
+                                             → shader.rs: HLSL → GLSL (wasmi kum havuzunda hlslparser.wasm)
                                              → Butterchurn JSON
 MilkDropScene ─ loadPreset(json, harmanlama) ─▶ Butterchurn (eel-wasm: EEL → WebAssembly)
    her kare: visual_waveform → render({ audioLevels, elapsedTime: dt }) → görünmeyen tuval
@@ -297,8 +298,31 @@ MilkDropScene ─ loadPreset(json, harmanlama) ─▶ Butterchurn (eel-wasm: EEL
     oturumda bir daha denemez. Kalan risk: 1 048 576 turluk bir döngünün gövdesi çok uzunsa kare yavaşlar (donma
     değil); gerekirse aşağıdaki donma koruması devreye girer. `check:scenes` gerçek tarayıcıda `loop(2000000000, …)`
     içeren deneme presetiyle 60 kare çizer (kırpılmamış hâli zaman aşımına uğrar; elle denendi).
-- **Gölgelendiriciler**: MilkDrop 2'nin HLSL gölgelendiricileri henüz GLSL'e çevrilmez; varsa atılır, görsel
-  Butterchurn'ün varsayılan gölgelendiricileriyle "sade hâliyle" çalar ve galeride bu yazılır (`simplified`).
+- **Gölgelendiriciler** (`milkdrop/shader.rs`): MilkDrop 2'nin HLSL bükme (`warp_N`) ve birleştirme (`comp_N`)
+  gölgelendiricileri görsel açılırken bir kez GLSL ES 3.00'a çevrilir (sonuç bellekte saklanır):
+  1. **Hazırlık**: MilkDrop'un sarmalaması (örnekleyiciler, `q1`…`q32`, `time`, `texsize` …, `GetBlur1`/`GetPixel`/
+     `lum`/`tex2d` makroları; gövde `float4 lyraska_main(float2 uv)` işlevi). `milkdrop-preset-utils`'in
+     `prepareShader`'ından (MIT) uyarlandı; `sampler_state` blokları, `sampler sampler_x;` kısa yazımı, takma adlı
+     örnekleyiciler ve `lum` adlı değişkenler de düzeltilir.
+  2. **Çeviri**: projectM'in hlslparser'ı (`src-tauri/vendor/hlslparser`, MIT; iki küçük `LYRASKA` yaması: hata
+     iletisi saklanır, sayılar `strtod`/`snprintf` ile) ve küçük bir C++ köprüsü (`src-tauri/hlsl/shim.cpp`)
+     wasi-sdk 30.0 ile WebAssembly'ye derlenmiştir (`src-tauri/hlsl/hlslparser.wasm`, ~150 KB, `build.sh`). Rust'ta
+     saf Rust yorumlayıcı `wasmi` 2.0 çalıştırır: her çeviri yeni bir örnekte, en çok 1 milyar adım ("yakıt"; gerçek
+     gölgelendiriciler ≤ 85 milyon) ve 64 MB bellek; dosya/saat/ağ yok (WASI işlevleri "desteklenmiyor" döner).
+     Çeviricide sonsuz döngü, bellek taşması ya da bozuk girdi yalnızca o gölgelendiricinin çevrilememesi olur;
+     program çökmez, donmaz, `unsafe` yok. Girdi en çok 64 KB, çıktı 512 KB.
+  3. **Butterchurn biçimi**: çıktının başlığından Butterchurn'ün kendi tanımladıkları atılır; `rad`, `ang`,
+     `uv_orig`, `hue_shader` (Butterchurn'de `main()`'in yerel değişkenleri) ve `q1`…`q32` (Butterchurn'de uniform
+     makroları; presetler onlara yazabilir) her pikselde `lyraska_inputs(…)` ile genel değişkenlere kopyalanır.
+     Çeviriden gelen başlık yalnızca GLSL karakterleri taşıyabilir (tırnak, `#`, `$`, ters bölü yok); arayüze
+     yalnızca metin gider, Butterchurn ekran kartına derletir.
+  - Çevrilemeyen gölgelendirici atılır (öteki kalır), görsel "sade hâliyle" çalar, galeride yazılır ve nedeni
+    günlüğe bilgi olarak düşer (`shaderError`). Çeviri ekran kartında derlenemezse arayüz (`milkdropShaders.ts`)
+    Butterchurn'ün programının bağlanma durumuna bakar ve onu varsayılanla değiştirir (yoksa görüntü kararırdı).
+  - Ölçüm (yerel, preset depoya girmez; `shader::tests::korpus_olcumu`): projectM "Cream of the Crop"
+    (9 603 preset, 15 524 gölgelendirici) bkz. ROADMAP. Gölgelendiricinin ürettiği her kare yine parlaklık
+    freninden geçer; `check:scenes` bilerek çakan özgün bir gölgelendirici denemesiyle (`lyraska-golge.milk`) bunu
+    ölçer.
 - **Eval yok**: Butterchurn `onlyUseWASM: true` ile kurulur; JavaScript yolu (`loadJSPreset`, 8 `new Function`) hiç
   çağrılmaz. CSP: `script-src 'self' 'wasm-unsafe-eval'` (`'unsafe-eval'` yok). `check:scenes` programı bu CSP ile
   açar, sayfada dizgi değerlendirmesinin engellendiğini ve Butterchurn'ün yine çizdiğini denetler; CSP'den
@@ -436,6 +460,9 @@ Her kural ya bir testle ya da CI'daki bir adımla denetlenir. Elle hatırlanmas�
 | `.milk` her bölümüyle çevrilir; bozuk dosya panik yaptırmaz; sınırlar              | `milkdrop::parse` ve `milkdrop` testleri; sahne denetimindeki JSON ayrıştırıcının çıktısıyla aynı    |
 | Yalnızca seçilen klasördeki `.milk` dosyaları açılır (bağlantı yok, ≤ 1 alt düzey) | `milkdrop` testleri `yalnizca_secilen_…`, `baglanti_ve_derin_dosyalar_acilmaz`, Windows yolu testi   |
 | MilkDrop denklemleri programı donduramaz (döngü kırpılır, iç içe/piksel başı yok)  | `milkdrop::eel` ve `parse` testleri; `check:scenes` döngü denemesi (gerçek tarayıcı)                 |
+| Gölgelendirici çevirici programı çökertemez/donduramaz (yakıt, bellek, boyut)      | `milkdrop::shader` testleri (sonsuz makro, derin ifade, büyük ve bozuk girdi)                        |
+| Çevrilen gölgelendirici gerçek tarayıcıda derlenir ve frenden geçer                | `check:scenes` gölgelendirici denemesi (`data-shaders="ok"`, frenli ve frensiz parlama, CI)          |
+| `hlslparser.wasm` depodaki kaynağın ta kendisi                                     | CI "HLSL çevirici": wasi-sdk 30.0 ile yeniden derleyip baytı baytına karşılaştırır                   |
 | Çalarken program kapanan görsel bir daha kendiliğinden seçilmez                    | `src/lib/milkdrop.test.ts`, bileşen testleri (işaret, atlananlar, pagehide)                          |
 | MilkDrop geçişleri 15 sn'den sık değil, bölüm başında (erken geleni ertelenir)     | `src/lib/milkdrop.test.ts`                                                                           |
 | Yasaklı lisans yok                                                                 | `npm run check:licenses`, `cargo deny` (CI)                                                          |

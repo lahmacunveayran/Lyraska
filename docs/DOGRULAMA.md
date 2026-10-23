@@ -427,7 +427,7 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
   açınca her sahnenin son görünümü ve kaydettiğiniz ayarlar yerinde.
 - Bildirin: beğenmediğiniz paletler ya da hız aralığı (çok yavaş/çok hızlı); kaydettiğiniz ayar kaybolduysa.
 
-**E10. MilkDrop sahnesi: kendi .milk görselleriniz (0.0.60)**
+**E10. MilkDrop sahnesi: kendi .milk görselleriniz (0.0.60; gölgelendiriciler 0.0.61)**
 
 - Önce: Lyraska hazır MilkDrop görseli içermez (yazarları lisans vermediği için dağıtamıyoruz). Bilgisayarınızda
   `.milk` dosyaları olan bir klasör gerekir; örneğin eski bir Winamp kurulumundaki
@@ -444,8 +444,11 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
     görünebilir; bu frenin işidir). Güvenli modda bu daha da yavaş.
   - Görsel değişimi her zaman birkaç saniyelik yumuşak bir geçişle olur; kendiliğinden değişim yalnızca şarkıda yeni
     bir bölüm başlayınca ya da drop'ta, en sık 15 saniyede bir.
-  - Bazı görsellerin altında "Gölgelendiricileri desteklenmiyor, sade hâliyle çalıyor" yazar: bunlar MilkDrop'taki
-    hâllerinden sade görünür (bu sürümde beklenen). Açılamayan bir görselde neden yazılır ve sonrakine geçilir;
+  - 0.0.61'den beri gölgelendiriciler (görselin renklerini, bulanıklığını, dokusunu veren küçük programlar) de
+    çalışır: çoğu görsel MilkDrop'taki hâline çok daha yakın görünmeli (renkli, dokulu, katmanlı). Gölgelendiricili
+    bir görsel ilk açılışta yarım saniyeye kadar geç gelebilir (çeviri), ikinci açılışta hemen gelir.
+  - Az sayıda görselin altında "Gölgelendiricisi çevrilemedi, sade hâliyle çalıyor" yazar: bunlar sade görünür.
+    Hiçbir görselde ekran kararıp öyle kalmamalı. Açılamayan bir görselde neden yazılır ve sonrakine geçilir;
     iç içe ya da piksel başına döngü içeren görseller "programı dondurabileceği için açılmıyor" diye atlanır.
   - Program hiçbir görselde donmamalı. Donarsa (görev yöneticisinden kapatmanız gerekirse) bir sonraki açılışta
     galeride "… önceki açılışta çalarken program kapandı; atlananlara eklendi" yazmalı ve o görsel bir daha
@@ -453,7 +456,8 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
     atlanmamalı.
   - Programı kapatıp açınca seçtiğiniz klasör hatırlanır.
   - Akıcı mı (tam ekranda takılma, ısınma)? Görev yöneticisinde ekran kartı kullanımı ne kadar?
-- Bildirin: kullandığınız preset paketinin adı; açılmayan ya da çok farklı görünen görsellerin adları; parlama ya da
+- Bildirin: kullandığınız preset paketinin adı; açılmayan, "çevrilemedi" yazan, kararan ya da MilkDrop'takinden çok
+  farklı görünen görsellerin adları (hata günlüğünde "MilkDrop görseli sade çalıyor" satırları nedenini yazar); parlama ya da
   yanıp sönme gördüyseniz (görselin adıyla, hemen); takılma ya da donma varsa görselin adı ve bilgisayarın ekran
   kartı.
 

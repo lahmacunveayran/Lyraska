@@ -122,8 +122,9 @@ lyraska/
 │   │   ├── atomic_file.rs    # bölünmez dosya yazma (geçici dosya + sync_all + ad değiştirme): ayarlar, işaretler
 │   │   ├── file_manager.rs   # dosya gezginini açma (günlük, işaret klasörü); Windows'ta dosyayı seçili gösterir
 │   │   ├── milkdrop/         # MilkDrop sahnesi: kullanıcının .milk klasörü (listeleme, yalnızca o klasörden açma);
-│   │   │                     # parse.rs: .milk → Butterchurn JSON (HLSL gölgelendiriciler atılır; program preset içermez);
-│   │   │                     # eel.rs: döngü kuralı (loop MilkDrop sınırına kırpılır, iç içe/piksel başına döngü yok)
+│   │   │                     # parse.rs: .milk → Butterchurn JSON (program preset içermez); shader.rs: HLSL → GLSL
+│   │   │                     # (hlslparser.wasm, wasmi kum havuzu: yakıt + bellek sınırı); eel.rs: döngü kuralı
+│   │   │                     # (loop MilkDrop sınırına kırpılır, iç içe/piksel başına döngü yok)
 │   │   ├── storage.rs        # library.sqlite3 şeması ve sıralı göçleri (kütüphane + analiz önbelleği)
 │   │   ├── diagnostics.rs    # Yerel hata ve çökme günlüğü (logs/lyraska.log; gerçek zamanlı yoldan çağrılmaz)
 │   │   ├── settings.rs       # Kalıcı ayarlar (settings.json; ekolayzer, kulaklık, parametrik EQ, crossfeed, eşitleme, güvenli mod, ses gecikmesi)
@@ -147,6 +148,9 @@ lyraska/
 │   ├── examples/             # ses_denemesi.rs: gerçek ses aygıtıyla uçtan uca deneme
 │   ├── tests/                # Gerçek kodek testleri (formats.rs) ve sentetik test verisi (data/; data/milkdrop/
 │   │                         # projenin özgün, bilerek parlayan deneme preseti)
+│   ├── hlsl/                 # MilkDrop gölgelendirici çeviricisi: shim.cpp köprüsü, build.sh (wasi-sdk 30.0;
+│   │                         # CI baytı baytına aynı derlendiğini denetler), hlslparser.wasm, lisanslar/
+│   ├── vendor/hlslparser/    # projectM'in hlslparser'ı (MIT, 349b7cc2db31; LYRASKA işaretli iki küçük yama)
 │   ├── tauri.conf.json       # Pencere, güvenlik, Windows NSIS kurulum ayarları
 │   └── deny.toml             # cargo-deny lisans kuralları
 ├── scripts/                  # Yardımcı betikler (npm lisans denetimi, depoda ses dosyası denetimi, sahne denetimi,
