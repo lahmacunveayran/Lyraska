@@ -5,6 +5,10 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { installBrowserGuard } from "./lib/browserGuard";
 import { installErrorReporting } from "./lib/errorReporting";
 import "@fontsource-variable/inter/opsz.css";
+import "@fontsource-variable/bricolage-grotesque/standard.css";
+import "@fontsource-variable/martian-mono/standard.css";
+import "@fontsource/jetbrains-mono/latin-400.css";
+import "@fontsource/jetbrains-mono/latin-ext-400.css";
 import "./styles/global.css";
 
 installErrorReporting();

@@ -220,6 +220,30 @@ export function PlayerScreen() {
 
   // Odak yönetimi (ARA-06): çekmece açılınca odak seçili sekmeye gider; kapanınca onu açan
   // düğmeye döner (yoksa klavye kullanıcısı belgenin başından Tab'lamaya başlardı).
+  // Kütüphane sekmesi tam ekran açılır; öteki paneller sağdaki çekmecede kalır.
+  const libraryFull = drawer.open && drawer.panel === "library";
+  // Tam ekran kütüphane alttaki çalma çubuğunun hemen üstünde biter. Çubuğun boyu değişir (şarkı
+  // haritası şeridi, dar pencere): üst kenarı ölçülür, CSS değişkenine yazılır.
+  const mainRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const main = mainRef.current;
+    const dock = main?.querySelector<HTMLElement>(".dock");
+    if (!main || !dock || !libraryFull) return;
+    const update = () => {
+      const space = main.getBoundingClientRect().bottom - dock.getBoundingClientRect().top;
+      main.style.setProperty("--dock-space", `${Math.max(0, Math.round(space))}px`);
+    };
+    update();
+    window.addEventListener("resize", update);
+    if (typeof ResizeObserver === "undefined")
+      return () => window.removeEventListener("resize", update);
+    const observer = new ResizeObserver(update);
+    observer.observe(dock);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, [libraryFull]);
   const drawerTrigger = useRef<HTMLElement | null>(null);
   const wasOpen = useRef(drawer.open);
   useEffect(() => {
@@ -268,9 +292,10 @@ export function PlayerScreen() {
 
   return (
     <main
+      ref={mainRef}
       className={`app${cinema ? " is-cinema" : ""}${drawer.open ? " has-drawer" : ""}${
-        status.state === "error" || player.error ? " is-error" : ""
-      }`}
+        libraryFull ? " has-full-drawer" : ""
+      }${status.state === "error" || player.error ? " is-error" : ""}`}
       data-theme={theme}
     >
       {/* Sahne çizilemezse yalnızca sahne yerine durgun gök kalır; başka sahne seçilince yeniden denenir. */}
@@ -400,7 +425,9 @@ export function PlayerScreen() {
 
       <aside
         id="drawer"
-        className={`drawer${drawer.open ? " is-open" : ""}`}
+        className={`drawer${drawer.open ? " is-open" : ""}${
+          drawer.panel === "library" ? " is-full" : ""
+        }`}
         aria-label="Paneller"
         aria-hidden={!drawer.open}
         inert={!drawer.open}

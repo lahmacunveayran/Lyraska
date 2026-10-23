@@ -661,7 +661,7 @@ describe("kütüphane", () => {
     key: id === 1 ? "8A" : null,
   });
   const library = {
-    folders: [{ id: 7, path: "C:\\Müzik" }],
+    folders: [{ id: 7, path: "C:\\Müzik", trackCount: 3, single: false }],
     trackCount: 3,
     analyzed: 2,
     scan: { scanning: false, found: 3, processed: 3, current: null },
@@ -841,12 +841,18 @@ describe("kütüphane", () => {
       "—",
       "",
     ]);
-    // Ton sütunu: Camelot kodu; tonu belirsizse çizgi, analiz beklerken boş.
-    expect(rows.map((row) => row.querySelector(".library__key")?.textContent)).toEqual([
-      "8A",
-      "—",
-      "",
-    ]);
+    // Ton sütunu: herkesin dilinde ad (proje sahibinin kararı); tonu belirsizse çizgi, analiz
+    // beklerken boş. DJ görünümünde Camelot kodu.
+    const keys = () =>
+      screen
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => row.querySelector(".library__key")?.textContent);
+    expect(keys()).toEqual(["La minör", "—", ""]);
+    fireEvent.click(screen.getByRole("button", { name: "DJ görünümü" }));
+    expect(keys()).toEqual(["8A", "—", ""]);
+    fireEvent.click(screen.getByRole("button", { name: "DJ görünümü" }));
+    expect(keys()).toEqual(["La minör", "—", ""]);
     expect(screen.getByText(/Şarkı haritası: 2 \/ 3 şarkı analiz edildi/)).toBeInTheDocument();
 
     // Çift tıklayınca çalar.
@@ -1088,6 +1094,109 @@ describe("kütüphane", () => {
     }
   });
 
+  it("tek tek eklenen şarkılar kutucuk değil, kaynak penceresinde tek satır; seçilince süzülür", async () => {
+    backend.desktop = true;
+    backend.library = {
+      ...library,
+      folders: [
+        { id: 7, path: "C:\\Müzik", trackCount: 1, single: false },
+        { id: 8, path: "D:\\İndir\\Tek.mp3", trackCount: 1, single: true },
+        { id: 9, path: "D:\\İndir\\Öteki.flac", trackCount: 1, single: true },
+      ],
+    };
+    backend.tracks = [
+      song(1, "Mayın Tarlası"),
+      { ...song(2, "Tek"), path: "D:\\İndir\\Tek.mp3" },
+      { ...song(3, "Öteki"), path: "D:\\İndir\\Öteki.flac" },
+    ];
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    // Her şarkı için ayrı kutucuk yok: tek bir özet.
+    expect(screen.getByText("Müzik klasörü · 2 tek şarkı")).toBeInTheDocument();
+    expect(screen.queryByText("Tek.mp3")).not.toBeInTheDocument();
+    const rows = () => screen.getAllByRole("row").length - 1;
+    expect(rows()).toBe(3);
+
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: /Tek tek eklenenler/ })),
+    );
+    expect(rows()).toBe(2);
+    expect(screen.queryByText("Mayın Tarlası")).not.toBeInTheDocument();
+    // Süzülmüş listede satırdaki × o şarkıyı kütüphaneden çıkarır.
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Kütüphaneden çıkar: D:\\İndir\\Öteki.flac" }),
+      ),
+    );
+    expect(backend.removeFolder).toHaveBeenCalledWith(9);
+
+    // Süzgeç etiketi bütün listeyi geri getirir.
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: /Kaynak: tek eklenenler/ })),
+    );
+    expect(rows()).toBe(3);
+  });
+
+  it("sütun başlığıyla sıralar; liste yeniden gelse de seçim aynı şarkıda kalır", async () => {
+    backend.desktop = true;
+    backend.library = library;
+    backend.tracks = [song(1, "Mayın Tarlası"), song(2, "Bir Kedi Gördüm"), song(3, "Hoşçakal")];
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    const titles = () =>
+      screen
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => row.querySelectorAll("[role=gridcell]")[1]?.textContent);
+    const header = screen.getByRole("button", { name: /^Başlık/ });
+    await act(async () => fireEvent.click(header));
+    expect(titles()).toEqual(["Bir Kedi Gördüm", "Hoşçakal", "Mayın Tarlası"]);
+    expect(header.closest("[role=columnheader]")).toHaveAttribute("aria-sort", "ascending");
+    await act(async () => fireEvent.click(header));
+    expect(titles()).toEqual(["Mayın Tarlası", "Hoşçakal", "Bir Kedi Gördüm"]);
+    expect(header.closest("[role=columnheader]")).toHaveAttribute("aria-sort", "descending");
+
+    // "Hoşçakal" seçilir; liste çekirdekten yeniden gelir (ör. analiz ilerledi) ve sıra değişir.
+    await act(async () => fireEvent.click(screen.getByText("Hoşçakal")));
+    backend.tracks = [song(4, "Ağustos"), ...backend.tracks];
+    const search = screen.getByRole("searchbox", { name: "Kütüphanede ara" });
+    await act(async () => fireEvent.change(search, { target: { value: "a" } }));
+    await waitFor(() => expect(titles()).toContain("Ağustos"));
+    const selected = screen
+      .getAllByRole("row")
+      .filter((row) => row.getAttribute("aria-selected") === "true");
+    expect(selected.map((row) => row.textContent)).toEqual([expect.stringContaining("Hoşçakal")]);
+  });
+
+  it("kaynak listesi Esc ile kapanır ve çekmeceyi kapatmaz; satırdaki × üstünde Enter çalmaz", async () => {
+    backend.desktop = true;
+    backend.library = {
+      ...library,
+      folders: [
+        { id: 7, path: "C:\\Müzik", trackCount: 1, single: false },
+        { id: 8, path: "D:\\İndir\\Tek.mp3", trackCount: 1, single: true },
+      ],
+    };
+    backend.tracks = [song(1, "Mayın Tarlası"), { ...song(2, "Tek"), path: "D:\\İndir\\Tek.mp3" }];
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    const details = document.querySelector<HTMLDetailsElement>(".library__sources")!;
+    details.open = true;
+    await act(async () => fireEvent.keyDown(document.body, { key: "Escape" }));
+    expect(details.open).toBe(false);
+    expect(document.getElementById("drawer")).toHaveAttribute("aria-hidden", "false");
+
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: /Tek tek eklenenler/ })),
+    );
+    const row = screen.getByText("Tek").closest("[role=row]")!;
+    await act(async () => fireEvent.click(row));
+    const remove = within(row as HTMLElement).getByRole("button", { name: /Kütüphaneden çıkar/ });
+    backend.open.mockClear();
+    await act(async () => fireEvent.keyDown(remove, { key: "Enter" }));
+    expect(backend.open).not.toHaveBeenCalled();
+  });
+
   it("arama kutusuna yazılanla arar ve klasör kaldırılabilir", async () => {
     backend.desktop = true;
     backend.library = library;
@@ -1095,9 +1204,13 @@ describe("kütüphane", () => {
     const search = await screen.findByRole("searchbox", { name: "Kütüphanede ara" });
     await act(async () => fireEvent.change(search, { target: { value: "sebnem" } }));
     await waitFor(() => expect(backend.search).toHaveBeenLastCalledWith("sebnem"));
+    // Kaldırma önce sorar: × düğmesi yalnızca onay ister, "Evet" kaldırır.
     await act(async () =>
       fireEvent.click(screen.getByRole("button", { name: /Kütüphaneden çıkar/ })),
     );
+    expect(backend.removeFolder).not.toHaveBeenCalled();
+    expect(screen.getByText("Kaldırılsın mı?")).toBeInTheDocument();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Evet" })));
     expect(backend.removeFolder).toHaveBeenCalledWith(7);
   });
 });

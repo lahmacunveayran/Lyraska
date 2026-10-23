@@ -117,3 +117,12 @@ vardır (`check:docs`; avenoxbeyin'den alınan fikir, 23 Ekim 2026): sınır aş
 - Sahibi "çok yıldızlı GitHub repolarını kullan" dedi (23 Ekim 2026): yıldız sayısı ölçüt değildir; her repo
   lisans (AGPL/NC yok), çevrimdışı ilkesi ve gerçek bir ihtiyaca uygunlukla seçilir.
 - MilkDrop: programla hazır görsel dağıtılmaz; kullanıcı kendi `.milk` dosyalarını açar.
+- **Kütüphanenin görsel kararları (23 Ekim 2026):** sanat yönü "baskı atölyesi + gerçek gökyüzü"; açılış ekranı
+  **Gökyüzü** ve **renkli** (renk tondan; Camelot çarkı renk çemberine oturur: `--key-1…12`). Ton herkesin dilinde
+  ("La minör"); Camelot yalnızca "DJ görünümü" seçeneğinde. Yazılar: başlık **Bricolage Grotesque**, şarkı listesi
+  **Martian Mono**, sayılar JetBrains Mono (Fraunces, Inter kalın/ince, Unbounded, Instrument Serif reddedildi).
+  Tek vurgu rengi pembe `#FF5A88`, az kullanılır. Yıldız verisi: HYG v4 + Stellarium modern (CC BY-SA 4.0, atıfla).
+- **Kutucuk yok:** her klasör ya da tek eklenen şarkı için ayrı "çip" sahibi tarafından reddedildi. Kaynaklar
+  başlığın yanında tek düğmede; tek tek eklenenler tek satır, seçilince liste süzülür; kaldırma önce sorar.
+- Görsel tasarımda sahibi zor beğenir: seçenekleri gerçek boyutta, yan yana görsel olarak sun; bağımsız sanat
+  yönetmeni denetimi işe yarıyor (puan 6 → hedef 8+).

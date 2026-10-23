@@ -90,7 +90,7 @@ lyraska/
 │   │                         # analysis: BPM sütunu, drop: bırakma bildirimi, eq: ekolayzer bantları,
 │   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile, lyrics,
 │   │                         # clock: akıcı oynatma saati, marks: işaret hesapları, scene: sahne listesi,
-│   │                         # sceneClock: sahne iç saatleri, virtual: uzun listede görünen satırlar),
+│   │                         # sceneClock: sahne iç saatleri, virtual: uzun listede görünen satırlar, librarySort: kütüphane sıralaması ve ton adı),
 │   │                         # usePrefersReducedMotion ("animasyonları azalt"), browserGuard (sürümde F5, sağ tık
 │   │                         # menüsü, geri gibi tarayıcı davranışlarını kapatır), Rust köprüsü (backend.ts; veri tipleri
 │   │                         # bindings/ altında Rust'tan üretilir, elle düzenlenmez), arayüz hatalarını günlüğe yazma

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   CloseIcon,
   FolderPlusIcon,
@@ -8,14 +8,42 @@ import {
   RefreshIcon,
   SearchIcon,
 } from "./icons";
-import type { LibraryTrack } from "../lib/backend";
-import { analysisPending, bpmLabel, keyCell } from "../lib/analysis";
+import type { LibraryFolder, LibraryTrack } from "../lib/backend";
+import { analysisPending, bpmLabel } from "../lib/analysis";
+import {
+  DEFAULT_SORT,
+  keyHue,
+  keyText,
+  nextSort,
+  sortTracks,
+  type LibrarySort,
+  type SortKey,
+} from "../lib/librarySort";
 import { formatTime } from "../lib/format";
 import { scrollToRow, visibleRange } from "../lib/virtual";
 import type { LibraryControls } from "../hooks/useLibrary";
 
 /** Satır yüksekliği (CSS'teki `--row-height` ile aynı olmalı). */
-export const ROW_HEIGHT = 34;
+export const ROW_HEIGHT = 40;
+
+/** DJ görünümü (tonlar Camelot koduyla) tercihinin tarayıcı deposundaki adı. */
+const CAMELOT_KEY = "lyraska.library.camelot";
+
+function loadCamelot(): boolean {
+  try {
+    return window.localStorage.getItem(CAMELOT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveCamelot(value: boolean) {
+  try {
+    window.localStorage.setItem(CAMELOT_KEY, value ? "1" : "0");
+  } catch {
+    // Depo kapalıysa tercih yalnızca bu oturumda geçerli olur.
+  }
+}
 
 const NUMBER = new Intl.NumberFormat("tr-TR");
 
@@ -36,6 +64,37 @@ export function folderName(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
+/**
+ * Kaynakları ayırır: klasörler tek tek gösterilir, tek tek eklenen şarkılar tek grupta toplanır;
+ * her şarkı ayrı kutucuk olmaz. Hangisinin tek şarkı olduğunu çekirdek bilir (`single`); henüz
+ * taranmamış (şarkısı olmayan) kaynakta uzantıya bakılır.
+ */
+export function splitSources(
+  sources: LibraryFolder[],
+  extensions: string[],
+): { folders: LibraryFolder[]; files: LibraryFolder[] } {
+  const known = new Set(extensions.map((e) => e.toLowerCase()));
+  const isFile = (path: string) => {
+    const name = folderName(path);
+    const dot = name.lastIndexOf(".");
+    return dot > 0 && known.has(name.slice(dot + 1).toLowerCase());
+  };
+  const single = (s: LibraryFolder) => s.single || (s.trackCount === 0 && isFile(s.path));
+  return {
+    folders: sources.filter((s) => !single(s)),
+    files: sources.filter(single),
+  };
+}
+
+/** Kaynakların kısa özeti: "Müzik klasörü · 5 tek şarkı", "3 klasör". */
+export function sourcesLabel(folders: LibraryFolder[], files: number): string {
+  const parts = [];
+  if (folders.length === 1 && folders[0]) parts.push(`${folderName(folders[0].path)} klasörü`);
+  else if (folders.length > 1) parts.push(`${NUMBER.format(folders.length)} klasör`);
+  if (files > 0) parts.push(`${NUMBER.format(files)} tek şarkı`);
+  return parts.join(" · ");
+}
+
 /** Kütüphane: arama, klasörler, tarama durumu ve şarkı listesi. */
 /** Satırın belge kimliği (`aria-activedescendant` için). */
 function rowId(trackId: number): string {
@@ -50,14 +109,68 @@ export function LibraryPanel({
   playing,
   onPlay,
 }: LibraryPanelProps) {
-  const { status, tracks, query } = library;
-  const [selectedIndex, setSelected] = useState(-1);
-  // Arama sonucu küçülünce eski seçim listenin dışında kalabilir: o zaman seçim yok sayılır
+  const { status, query } = library;
+  const [sort, setSort] = useState<LibrarySort>(DEFAULT_SORT);
+  const [camelot, setCamelot] = useState(loadCamelot);
+  const sources = useMemo(
+    () => splitSources(status.folders, extensions),
+    [status.folders, extensions],
+  );
+  // Tek tek eklenen şarkılar kaynak listesinde tek satırdır; seçilince liste yalnızca onları gösterir.
+  const singles = useMemo(
+    () => new Map(sources.files.map((file) => [file.path, file])),
+    [sources.files],
+  );
+  const [singlesView, setSinglesView] = useState(false);
+  const onlySingles = singlesView && singles.size > 0;
+  // Tek eklenenlerin hepsi çıkarılınca süzgeç kapanır; sonra eklenen şarkı onu kendiliğinden açmaz.
+  // (Çizim sırasında düzeltilir: React'in önerdiği türetilmiş durum kalıbı.)
+  if (singlesView && singles.size === 0) setSinglesView(false);
+  const [confirmRemove, setConfirmRemove] = useState<number | null>(null);
+  const tracks = useMemo(() => {
+    const sorted = sortTracks(library.tracks, sort);
+    return onlySingles ? sorted.filter((track) => singles.has(track.path)) : sorted;
+  }, [library.tracks, sort, onlySingles, singles]);
+  // Seçim şarkının kimliğiyle tutulur: arka plan analizi listeyi yeniden sıralasa da seçili
+  // şarkı aynı kalır (Enter başka şarkıyı çalmaz).
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  // Arama sonucu küçülünce seçili şarkı listede olmayabilir: o zaman seçim yok sayılır
   // (Enter olmayan şarkıyı çalmaya kalkmaz, `aria-selected` yanlış satıra düşmez) (ARA-03).
-  const selected = selectedIndex < tracks.length ? selectedIndex : -1;
+  const selected = useMemo(
+    () => (selectedId === null ? -1 : tracks.findIndex((t) => t.id === selectedId)),
+    [tracks, selectedId],
+  );
+  const setSelected = (index: number) => setSelectedId(tracks[index]?.id ?? null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewport, setViewport] = useState(400);
   const listRef = useRef<HTMLDivElement>(null);
+  const sourcesRef = useRef<HTMLDetailsElement>(null);
+
+  // Kaynak listesi dışına tıklanınca ya da Esc'e basılınca kapanır.
+  useEffect(() => {
+    const close = (event: Event) => {
+      const details = sourcesRef.current;
+      if (!details?.open) return;
+      // Panel gizliyken (başka sekme, çekmece kapalı) açık kalan liste sessizce kapanır; Esc'i yutmaz.
+      if (details.closest("[hidden], [inert]")) {
+        details.open = false;
+        return;
+      }
+      if (event instanceof window.KeyboardEvent) {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+      } else if (event.target instanceof Node && details.contains(event.target)) {
+        return;
+      }
+      details.open = false;
+    };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", close, true);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", close, true);
+    };
+  }, []);
 
   // Liste yüksekliğini izle (pencere boyutu değişince).
   useEffect(() => {
@@ -81,6 +194,8 @@ export function LibraryPanel({
   };
 
   const onListKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    // Satırdaki bir düğmede (ör. ×) basılan tuş o düğmenindir.
+    if (event.target !== event.currentTarget) return;
     if (tracks.length === 0) return;
     const page = Math.max(1, Math.floor(viewport / ROW_HEIGHT) - 1);
     const moves: Record<string, number> = {
@@ -103,6 +218,67 @@ export function LibraryPanel({
     }
   };
 
+  const changeSort = (key: SortKey) => {
+    setSort((current) => nextSort(current, key));
+    setSelected(-1);
+  };
+
+  const sortHeader = (key: SortKey, label: string, className?: string, title?: string) => {
+    const active = sort.key === key;
+    return (
+      <span
+        role="columnheader"
+        className={className}
+        aria-sort={active ? (sort.descending ? "descending" : "ascending") : "none"}
+      >
+        <button
+          type="button"
+          className={`library__sort${active ? " is-active" : ""}`}
+          onClick={() => changeSort(key)}
+          title={title ? `${title} · sıralamak için tıklayın` : "Sıralamak için tıklayın"}
+        >
+          {label}
+          {active && <span aria-hidden>{sort.descending ? " ↓" : " ↑"}</span>}
+        </button>
+      </span>
+    );
+  };
+
+  const closeSources = () => {
+    if (sourcesRef.current) sourcesRef.current.open = false;
+    setConfirmRemove(null);
+  };
+
+  const showSingles = (on: boolean) => {
+    setSinglesView(on);
+    setSelected(-1);
+    closeSources();
+  };
+
+  const removeButton = (source: LibraryFolder, onRemove?: () => void) => (
+    <button
+      type="button"
+      className="library__remove"
+      onDoubleClick={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        if (onRemove) onRemove();
+        else void library.removeFolder(source.id);
+      }}
+      aria-label={`Kütüphaneden çıkar: ${source.path}`}
+      title="Kütüphaneden çıkar (dosyalar silinmez)"
+    >
+      <CloseIcon />
+    </button>
+  );
+
+  const toggleCamelot = () => {
+    setCamelot((value) => {
+      saveCamelot(!value);
+      return !value;
+    });
+  };
+
   const range = visibleRange(scrollTop, viewport, ROW_HEIGHT, tracks.length);
   const scan = status.scan;
   const noFolders = status.folders.length === 0;
@@ -116,9 +292,82 @@ export function LibraryPanel({
     <section className="library" aria-label="Kütüphane">
       <header className="library__header">
         <h2 className="library__title">
-          Kütüphane
+          Şarkılar
           <span className="library__count">{NUMBER.format(status.trackCount)} şarkı</span>
         </h2>
+        {status.folders.length > 0 && (
+          <details
+            className="library__sources"
+            ref={sourcesRef}
+            onToggle={(event) => {
+              if (!event.currentTarget.open) setConfirmRemove(null);
+            }}
+          >
+            <summary title="Kütüphaneye eklenen klasörler ve şarkılar">
+              {sourcesLabel(sources.folders, sources.files.length)}
+            </summary>
+            <div className="library__sources-menu" aria-label="Eklenen klasörler ve şarkılar">
+              {sources.folders.length > 0 && (
+                <ul>
+                  {sources.folders.map((folder) => (
+                    <li key={folder.id} className="library__source">
+                      <span className="library__source-text">
+                        <span className="library__source-name">{folderName(folder.path)}</span>
+                        <span className="library__source-path">{folder.path}</span>
+                      </span>
+                      <span className="library__source-count">
+                        {NUMBER.format(folder.trackCount)}
+                      </span>
+                      {confirmRemove === folder.id ? (
+                        <span className="library__confirm">
+                          Kaldırılsın mı?
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setConfirmRemove(null);
+                              void library.removeFolder(folder.id);
+                            }}
+                          >
+                            Evet
+                          </button>
+                          <button type="button" onClick={() => setConfirmRemove(null)}>
+                            Vazgeç
+                          </button>
+                        </span>
+                      ) : (
+                        removeButton(folder, () => setConfirmRemove(folder.id))
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {sources.files.length > 0 && (
+                <button
+                  type="button"
+                  className="library__source library__source--singles"
+                  onClick={() => showSingles(true)}
+                >
+                  <span className="library__source-text">
+                    <span className="library__source-name">Tek tek eklenenler</span>
+                    <span className="library__source-path">
+                      {NUMBER.format(sources.files.length)} şarkı · listede göster
+                    </span>
+                  </span>
+                  <span aria-hidden>→</span>
+                </button>
+              )}
+            </div>
+          </details>
+        )}
+        <button
+          type="button"
+          className={`hw-button hw-button--small library__toggle${camelot ? " is-on" : ""}`}
+          aria-pressed={camelot}
+          onClick={toggleCamelot}
+          title="DJ görünümü: tonlar Camelot koduyla yazılır (ör. 8A = La minör)"
+        >
+          DJ görünümü
+        </button>
         <label className="library__search">
           <SearchIcon />
           <input
@@ -130,10 +379,21 @@ export function LibraryPanel({
             disabled={!usable || noFolders}
             spellCheck={false}
           />
+          {onlySingles && (
+            <button
+              type="button"
+              className="library__filter"
+              onClick={() => showSingles(false)}
+              title="Bütün şarkıları göster"
+            >
+              Kaynak: tek eklenenler
+              <CloseIcon />
+            </button>
+          )}
         </label>
         <button
           type="button"
-          className="hw-button hw-button--small"
+          className="hw-button hw-button--small library__add"
           onClick={() => void library.addFolder()}
           disabled={!usable}
           title="Klasördeki bütün şarkıları ekleyin"
@@ -164,24 +424,6 @@ export function LibraryPanel({
           <RefreshIcon />
         </button>
       </header>
-
-      {status.folders.length > 0 && (
-        <ul className="library__folders" aria-label="Eklenen klasörler ve şarkılar">
-          {status.folders.map((folder) => (
-            <li key={folder.id} className="chip" title={folder.path}>
-              <span>{folderName(folder.path)}</span>
-              <button
-                type="button"
-                onClick={() => void library.removeFolder(folder.id)}
-                aria-label={`Kütüphaneden çıkar: ${folder.path}`}
-                title="Kütüphaneden çıkar (dosyalar silinmez)"
-              >
-                <CloseIcon />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
 
       {library.unavailable && (
         <div className="section-error library__unavailable" role="alert">
@@ -252,30 +494,23 @@ export function LibraryPanel({
         </div>
       ) : (
         <div className="library__table" role="grid" aria-rowcount={tracks.length}>
-          <div className="library__row library__row--head" role="row">
+          <div
+            className={`library__row library__row--head${onlySingles ? " library__row--removable" : ""}`}
+            role="row"
+          >
             <span role="columnheader">#</span>
-            <span role="columnheader">Başlık</span>
-            <span role="columnheader">Sanatçı</span>
-            <span role="columnheader" className="library__album">
-              Albüm
-            </span>
-            <span
-              role="columnheader"
-              className="library__time library__bpm"
-              title="Tempo (vuruş/dakika)"
-            >
-              BPM
-            </span>
-            <span
-              role="columnheader"
-              className="library__time library__key"
-              title="Ton, Camelot çarkında (ör. 8A = La minör, 8B = Do majör)"
-            >
-              Ton
-            </span>
-            <span role="columnheader" className="library__time">
-              Süre
-            </span>
+            {sortHeader("title", "Başlık")}
+            {sortHeader("artist", "Sanatçı", undefined, "Sanatçı, albüm ve parça sırasıyla")}
+            {sortHeader("album", "Albüm", "library__album")}
+            {sortHeader("bpm", "BPM", "library__time library__bpm", "Tempo (vuruş/dakika)")}
+            {sortHeader(
+              "key",
+              "Ton",
+              "library__key",
+              "Ton; Camelot çarkının sırasıyla dizilir, uyumlu tonlar yan yana gelir",
+            )}
+            {sortHeader("duration", "Süre", "library__time")}
+            {onlySingles && <span role="columnheader" aria-label="Çıkar" />}
           </div>
           <div
             ref={listRef}
@@ -297,6 +532,8 @@ export function LibraryPanel({
                 {tracks.slice(range.start, range.end).map((track, offset) => {
                   const index = range.start + offset;
                   const isCurrent = track.path === currentPath;
+                  const hue = keyHue(track.key);
+                  const single = onlySingles ? singles.get(track.path) : undefined;
                   return (
                     <div
                       key={track.id}
@@ -304,22 +541,14 @@ export function LibraryPanel({
                       role="row"
                       aria-rowindex={index + 1}
                       aria-selected={index === selected}
-                      className={`library__row${isCurrent ? " is-current" : ""}${index === selected ? " is-selected" : ""}`}
+                      className={`library__row${onlySingles ? " library__row--removable" : ""}${isCurrent ? " is-current" : ""}${index === selected ? " is-selected" : ""}`}
                       style={{ transform: `translateY(${index * ROW_HEIGHT}px)` }}
                       onClick={() => setSelected(index)}
                       onDoubleClick={() => onPlay(track, tracks)}
                       title={track.path}
                     >
                       <span className="library__no" role="gridcell">
-                        {isCurrent ? (
-                          playing ? (
-                            <PlayIcon />
-                          ) : (
-                            <PauseIcon />
-                          )
-                        ) : (
-                          (track.trackNumber ?? "")
-                        )}
+                        {isCurrent ? playing ? <PlayIcon /> : <PauseIcon /> : index + 1}
                       </span>
                       <span className="library__cell" role="gridcell">
                         {track.title}
@@ -338,15 +567,23 @@ export function LibraryPanel({
                         {bpmLabel(track)}
                       </span>
                       <span
-                        className="library__time library__key"
+                        className="library__key"
                         role="gridcell"
                         title={track.analyzed ? undefined : "Analiz bekliyor"}
                       >
-                        {keyCell(track)}
+                        {hue !== null && (
+                          <i
+                            className="library__key-dot"
+                            style={{ background: `var(--key-${hue})` }}
+                            aria-hidden
+                          />
+                        )}
+                        {keyText(track, camelot)}
                       </span>
                       <span className="library__time" role="gridcell">
                         {track.durationSecs ? formatTime(track.durationSecs) : ""}
                       </span>
+                      {onlySingles && <span role="gridcell">{single && removeButton(single)}</span>}
                     </div>
                   );
                 })}

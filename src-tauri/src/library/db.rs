@@ -18,7 +18,7 @@ pub const MAX_RESULTS: usize = 50_000;
 /// 1: ID3v1 metni Windows-1254 / UTF-8 olarak okunuyor (göç 4).
 pub const TAGS_VERSION: i64 = 1;
 
-/// Kütüphanedeki bir klasör.
+/// Kütüphanedeki bir kaynak: klasör ya da tek tek eklenmiş bir şarkı.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(test, derive(ts_rs::TS), ts(export, rename = "LibraryFolder"))]
@@ -26,6 +26,11 @@ pub struct FolderRow {
     #[cfg_attr(test, ts(type = "number"))]
     pub id: i64,
     pub path: String,
+    /// Kaynaktaki şarkı sayısı (yalnızca `folders()` doldurur; yeni eklenende 0).
+    pub track_count: u32,
+    /// Tek tek eklenmiş bir şarkı mı: kaynağın kendi yolu bir şarkının yolu. Uzantıya
+    /// bakılmaz (adı ".flac" ile biten bir klasör klasör kalır).
+    pub single: bool,
 }
 
 /// Listede gösterilen bir şarkı.
@@ -182,6 +187,8 @@ impl Library {
         Ok(FolderRow {
             id: self.conn.last_insert_rowid(),
             path: path.to_owned(),
+            track_count: 0,
+            single: false,
         })
     }
 
@@ -209,6 +216,8 @@ impl Library {
         Ok(FolderRow {
             id,
             path: path.to_owned(),
+            track_count: 0,
+            single: false,
         })
     }
 
@@ -219,14 +228,20 @@ impl Library {
         Ok(())
     }
 
+    /// Kaynaklar, şarkı sayıları ve tek şarkı olup olmadıklarıyla (`tracks_folder` dizini).
     pub fn folders(&self) -> Result<Vec<FolderRow>, LibraryError> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT id, path FROM folders ORDER BY path")?;
+        let mut stmt = self.conn.prepare(
+            "SELECT f.id, f.path, \
+                    (SELECT COUNT(*) FROM tracks t WHERE t.folder_id = f.id), \
+                    EXISTS (SELECT 1 FROM tracks t WHERE t.folder_id = f.id AND t.path = f.path) \
+             FROM folders f ORDER BY f.path",
+        )?;
         let rows = stmt.query_map([], |r| {
             Ok(FolderRow {
                 id: r.get(0)?,
                 path: r.get(1)?,
+                track_count: u32::try_from(r.get::<_, i64>(2)?).unwrap_or(u32::MAX),
+                single: r.get(3)?,
             })
         })?;
         Ok(rows.collect::<Result<_, _>>()?)
@@ -239,6 +254,8 @@ impl Library {
                 Ok(FolderRow {
                     id: r.get(0)?,
                     path: r.get(1)?,
+                    track_count: 0,
+                    single: false,
                 })
             })
             .optional()?)
@@ -1020,6 +1037,55 @@ mod tests {
         lib.remove_folder(id).unwrap();
         assert_eq!(lib.track_count().unwrap(), 0);
         assert!(lib.folders().unwrap().is_empty());
+    }
+
+    #[test]
+    fn kaynaklar_sarki_sayisi_ve_tek_sarki_bilgisiyle_gelir() {
+        let mut lib = sample();
+        let muzik = lib.folders().unwrap()[0].clone();
+        // Tek tek eklenmiş şarkı: kaynağın yolu şarkının kendi yolu.
+        let single = lib.add_folder("/indir/tek.mp3").unwrap();
+        lib.apply_changes(
+            single.id,
+            &[(track("/indir/tek.mp3", None, None, None, None), STAMP)],
+            &[],
+        )
+        .unwrap();
+        // Adı ses uzantısıyla biten bir klasör klasör kalır (uzantıya bakılmaz).
+        let tricky = lib.add_folder("/arsiv/Albüm.flac").unwrap();
+        lib.apply_changes(
+            tricky.id,
+            &[(
+                track("/arsiv/Albüm.flac/1.flac", None, None, None, None),
+                STAMP,
+            )],
+            &[],
+        )
+        .unwrap();
+        // Henüz taranmamış kaynak: sıfır şarkı, tek şarkı değil.
+        lib.add_folder("/bos").unwrap();
+
+        let rows = lib.folders().unwrap();
+        let get = |path: &str| rows.iter().find(|f| f.path == path).unwrap();
+        assert_eq!(
+            (get(&muzik.path).track_count, get(&muzik.path).single),
+            (4, false)
+        );
+        assert_eq!(
+            (
+                get("/indir/tek.mp3").track_count,
+                get("/indir/tek.mp3").single
+            ),
+            (1, true)
+        );
+        assert_eq!(
+            (
+                get("/arsiv/Albüm.flac").track_count,
+                get("/arsiv/Albüm.flac").single
+            ),
+            (1, false)
+        );
+        assert_eq!((get("/bos").track_count, get("/bos").single), (0, false));
     }
 
     #[test]

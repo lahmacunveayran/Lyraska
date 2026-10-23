@@ -6,11 +6,10 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 ## İş sırası (proje sahibinin kararı, 23 Ekim 2026)
 
 1. Kütüphanenin tam ekran, baştan tasarımı; dört küçük PR:
-   1. Çekirdek: albüm/sanatçı sorguları (PR açık; 20 000 şarkıda ≤ 25 ms). Tek tek eklenen şarkıların tek
-      grupta toplanması 4. parçaya kaldı.
-   2. Tam ekran kütüphane + Şarkılar görünümü (sol menü, sıralama, akıcı kaydırma).
-   3. Albümler (kapak ızgarası) ve Sanatçılar.
-   4. Klasörler ve uyarılar (kutucuklar kalkar).
+   1. Tam ekran kütüphane + Şarkılar (0.0.66; kutucuklar kalktı, tek eklenenler tek satır).
+   2. Albümler (üretilen baskı kapakları, Rust'ta önbellekli) ve Sanatçılar (yıldız atlası levhaları).
+   3. Görünüm seçici (Şarkılar · Albümler · Sanatçılar · Gökyüzü), klasör başına şarkı sayısı, kapak küçük resmi.
+   4. Gökyüzü (renkli; taslak onaylandı).
 2. Davul/bas/vokal ayrıştırma: Spleeter; önce eğitimsiz iyileştirmeler ölçülür.
 3. Otomatik DJ (Bölüm II), Aşama A'dan; her aşama ayrı oturumda (`docs/gorev/20-BOLUM-II-DJ.md`).
 
@@ -23,12 +22,13 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 - Sahneler "yavan" (sahibi, 23 Ekim): tepki zayıf, detay az, tekrar ediyor, renkler cansız. Araştırma
   `docs/arastirma/gorsel-vay-arastirma.md`: ortak son işlem zinciri, şarkı haritasıyla koreografi, tondan palet.
   Kütüphaneden sonra.
-- Kütüphane taslakları (Şarkılar, Albümler, albüm sayfası, Sanatçılar, Klasörler, Gökyüzü) sahibin onayını bekliyor;
-  araştırma `docs/arastirma/kutuphane-arastirma.md`.
+- Kütüphane taslakları: Gökyüzü onaylandı ("fena olmuş"); kapak ve sanatçı levhalarının renk düzeyi soruldu, cevap
+  yok. Araştırma `docs/arastirma/kutuphane-arastirma.md`.
 
 - WebM'de şarkı adı okunmuyor (Matroska Segment Title; symphonia okumuyor) ve sondaki Opus dolgusu (≤ 20 ms)
   atılmıyor (DiscardPadding). İkisi de küçük; istenirse kendi küçük EBML okuyucusuyla.
 
-- Drop gösterimi "tam olmamış" (sahibi, 23 Ekim): neyin eksik olduğu sorulmadı; kütüphaneden önce kısaca sorulmalı.
+- Drop hesabı sorunlu (sahibi, 23 Ekim): bazen yanlış yerde buluyor, bazen hiç bulmuyor. BPM için yalnızca "his";
+  önce gerçek şarkılarda işaretle–ölç (`evaluate.rs`). Kütüphaneden sonra, sahnelerden önce.
 - Görev kitabındaki durum dosyalarının adı: kitap `BULGULAR.json`/`KAPILAR.md` der, depoda `FINDINGS.json`/`GATES.md`.
 - Görev kitabındaki test linki eski hesap adını taşıyor; doğrusu `CLAUDE.md`'deki.

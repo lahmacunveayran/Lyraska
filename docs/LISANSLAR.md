@@ -36,6 +36,19 @@ kuralları). Kod bağımlılıklarının lisanslarını CI denetler (`npm run ch
   kullanım yasağı yok. OFL-1.1 izin listesinde olmadığı için proje sahibine soruldu, 8 Ekim 2026'da onaylandı;
   `src-tauri/deny.toml` izin listesine eklendi.
 
+## Bricolage Grotesque ve JetBrains Mono yazı tipleri
+
+- **Ne için:** kütüphanenin büyük başlıkları (Bricolage Grotesque; proje sahibi bağımsız denetçinin dört önerisi
+  arasından seçti, 23 Ekim 2026) ve listedeki sayılar (JetBrains Mono: tempo, süre, sayaçlar).
+- **Kaynak:** The Bricolage Grotesque Project Authors, <https://github.com/ateliertriay/bricolage>; The JetBrains
+  Mono Project Authors, <https://github.com/JetBrains/JetBrainsMono>
+- **Paket:** `@fontsource-variable/bricolage-grotesque` 5.3.0 (`standard.css`: ağırlık, genişlik, optik boyut) ve
+  `@fontsource/jetbrains-mono` 5.3.0 (yalnızca 400, latin ve latin-ext). Dosyalar programın içine paketlenir;
+  çalışırken internete bağlanılmaz.
+- **Lisans:** SIL Open Font License 1.1 (OFL-1.1); paketlerin `package.json` lisans alanı ve `LICENSE` dosyası
+  denetlendi. Ayrılmış yazı tipi adı (Reserved Font Name) yok; dosyalar değiştirilmeden kullanılır.
+- **Lisans metni:** `public/lisanslar/BricolageGrotesque-OFL-1.1.txt`, `public/lisanslar/JetBrainsMono-OFL-1.1.txt`.
+
 ## MilkDrop sahnesi: Butterchurn ve kullanıcının kendi görselleri
 
 - **Ne için:** galerideki MilkDrop sahnesi kullanıcının kendi `.milk` dosyalarını (MilkDrop görselleri,
