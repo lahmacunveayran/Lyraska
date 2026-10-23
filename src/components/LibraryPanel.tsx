@@ -65,8 +65,9 @@ export function folderName(path: string): string {
 }
 
 /**
- * Kaynakları ayırır: klasörler tek tek gösterilir, tek tek eklenen şarkılar (yolu desteklenen bir
- * ses uzantısıyla biten kaynaklar) tek grupta toplanır; her şarkı ayrı kutucuk olmaz.
+ * Kaynakları ayırır: klasörler tek tek gösterilir, tek tek eklenen şarkılar tek grupta toplanır;
+ * her şarkı ayrı kutucuk olmaz. Hangisinin tek şarkı olduğunu çekirdek bilir (`single`); henüz
+ * taranmamış (şarkısı olmayan) kaynakta uzantıya bakılır.
  */
 export function splitSources(
   sources: LibraryFolder[],
@@ -78,9 +79,10 @@ export function splitSources(
     const dot = name.lastIndexOf(".");
     return dot > 0 && known.has(name.slice(dot + 1).toLowerCase());
   };
+  const single = (s: LibraryFolder) => s.single || (s.trackCount === 0 && isFile(s.path));
   return {
-    folders: sources.filter((s) => !isFile(s.path)),
-    files: sources.filter((s) => isFile(s.path)),
+    folders: sources.filter((s) => !single(s)),
+    files: sources.filter(single),
   };
 }
 
@@ -121,15 +123,24 @@ export function LibraryPanel({
   );
   const [singlesView, setSinglesView] = useState(false);
   const onlySingles = singlesView && singles.size > 0;
+  // Tek eklenenlerin hepsi çıkarılınca süzgeç kapanır; sonra eklenen şarkı onu kendiliğinden açmaz.
+  // (Çizim sırasında düzeltilir: React'in önerdiği türetilmiş durum kalıbı.)
+  if (singlesView && singles.size === 0) setSinglesView(false);
   const [confirmRemove, setConfirmRemove] = useState<number | null>(null);
   const tracks = useMemo(() => {
     const sorted = sortTracks(library.tracks, sort);
     return onlySingles ? sorted.filter((track) => singles.has(track.path)) : sorted;
   }, [library.tracks, sort, onlySingles, singles]);
-  const [selectedIndex, setSelected] = useState(-1);
-  // Arama sonucu küçülünce eski seçim listenin dışında kalabilir: o zaman seçim yok sayılır
+  // Seçim şarkının kimliğiyle tutulur: arka plan analizi listeyi yeniden sıralasa da seçili
+  // şarkı aynı kalır (Enter başka şarkıyı çalmaz).
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  // Arama sonucu küçülünce seçili şarkı listede olmayabilir: o zaman seçim yok sayılır
   // (Enter olmayan şarkıyı çalmaya kalkmaz, `aria-selected` yanlış satıra düşmez) (ARA-03).
-  const selected = selectedIndex < tracks.length ? selectedIndex : -1;
+  const selected = useMemo(
+    () => (selectedId === null ? -1 : tracks.findIndex((t) => t.id === selectedId)),
+    [tracks, selectedId],
+  );
+  const setSelected = (index: number) => setSelectedId(tracks[index]?.id ?? null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewport, setViewport] = useState(400);
   const listRef = useRef<HTMLDivElement>(null);
@@ -140,6 +151,11 @@ export function LibraryPanel({
     const close = (event: Event) => {
       const details = sourcesRef.current;
       if (!details?.open) return;
+      // Panel gizliyken (başka sekme, çekmece kapalı) açık kalan liste sessizce kapanır; Esc'i yutmaz.
+      if (details.closest("[hidden], [inert]")) {
+        details.open = false;
+        return;
+      }
       if (event instanceof window.KeyboardEvent) {
         if (event.key !== "Escape") return;
         event.preventDefault();
@@ -178,6 +194,8 @@ export function LibraryPanel({
   };
 
   const onListKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    // Satırdaki bir düğmede (ör. ×) basılan tuş o düğmenindir.
+    if (event.target !== event.currentTarget) return;
     if (tracks.length === 0) return;
     const page = Math.max(1, Math.floor(viewport / ROW_HEIGHT) - 1);
     const moves: Record<string, number> = {
@@ -241,6 +259,7 @@ export function LibraryPanel({
     <button
       type="button"
       className="library__remove"
+      onDoubleClick={(event) => event.stopPropagation()}
       onClick={(event) => {
         event.stopPropagation();
         if (onRemove) onRemove();
@@ -295,6 +314,9 @@ export function LibraryPanel({
                       <span className="library__source-text">
                         <span className="library__source-name">{folderName(folder.path)}</span>
                         <span className="library__source-path">{folder.path}</span>
+                      </span>
+                      <span className="library__source-count">
+                        {NUMBER.format(folder.trackCount)}
                       </span>
                       {confirmRemove === folder.id ? (
                         <span className="library__confirm">

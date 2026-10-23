@@ -85,6 +85,7 @@ function compare(a: string | number, b: string | number): number {
 /**
  * Listeyi sıralar (yeni dizi; giriş değişmez). Eşitler çekirdeğin sırasını korur. Değeri
  * olmayanlar (analiz edilmemiş tempo, etiketsiz albüm) yön ne olursa olsun sonda kalır.
+ * Varsayılan sıranın tersi çekirdeğin sırasını yalnızca çevirir.
  */
 export function sortTracks(tracks: LibraryTrack[], sort: LibrarySort): LibraryTrack[] {
   const key = sort.key;

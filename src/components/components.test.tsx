@@ -661,7 +661,7 @@ describe("kütüphane", () => {
     key: id === 1 ? "8A" : null,
   });
   const library = {
-    folders: [{ id: 7, path: "C:\\Müzik" }],
+    folders: [{ id: 7, path: "C:\\Müzik", trackCount: 3, single: false }],
     trackCount: 3,
     analyzed: 2,
     scan: { scanning: false, found: 3, processed: 3, current: null },
@@ -1099,9 +1099,9 @@ describe("kütüphane", () => {
     backend.library = {
       ...library,
       folders: [
-        { id: 7, path: "C:\\Müzik" },
-        { id: 8, path: "D:\\İndir\\Tek.mp3" },
-        { id: 9, path: "D:\\İndir\\Öteki.flac" },
+        { id: 7, path: "C:\\Müzik", trackCount: 1, single: false },
+        { id: 8, path: "D:\\İndir\\Tek.mp3", trackCount: 1, single: true },
+        { id: 9, path: "D:\\İndir\\Öteki.flac", trackCount: 1, single: true },
       ],
     };
     backend.tracks = [
@@ -1135,6 +1135,66 @@ describe("kütüphane", () => {
       fireEvent.click(screen.getByRole("button", { name: /Kaynak: tek eklenenler/ })),
     );
     expect(rows()).toBe(3);
+  });
+
+  it("sütun başlığıyla sıralar; liste yeniden gelse de seçim aynı şarkıda kalır", async () => {
+    backend.desktop = true;
+    backend.library = library;
+    backend.tracks = [song(1, "Mayın Tarlası"), song(2, "Bir Kedi Gördüm"), song(3, "Hoşçakal")];
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    const titles = () =>
+      screen
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => row.querySelectorAll("[role=gridcell]")[1]?.textContent);
+    const header = screen.getByRole("button", { name: /^Başlık/ });
+    await act(async () => fireEvent.click(header));
+    expect(titles()).toEqual(["Bir Kedi Gördüm", "Hoşçakal", "Mayın Tarlası"]);
+    expect(header.closest("[role=columnheader]")).toHaveAttribute("aria-sort", "ascending");
+    await act(async () => fireEvent.click(header));
+    expect(titles()).toEqual(["Mayın Tarlası", "Hoşçakal", "Bir Kedi Gördüm"]);
+    expect(header.closest("[role=columnheader]")).toHaveAttribute("aria-sort", "descending");
+
+    // "Hoşçakal" seçilir; liste çekirdekten yeniden gelir (ör. analiz ilerledi) ve sıra değişir.
+    await act(async () => fireEvent.click(screen.getByText("Hoşçakal")));
+    backend.tracks = [song(4, "Ağustos"), ...backend.tracks];
+    const search = screen.getByRole("searchbox", { name: "Kütüphanede ara" });
+    await act(async () => fireEvent.change(search, { target: { value: "a" } }));
+    await waitFor(() => expect(titles()).toContain("Ağustos"));
+    const selected = screen
+      .getAllByRole("row")
+      .filter((row) => row.getAttribute("aria-selected") === "true");
+    expect(selected.map((row) => row.textContent)).toEqual([expect.stringContaining("Hoşçakal")]);
+  });
+
+  it("kaynak listesi Esc ile kapanır ve çekmeceyi kapatmaz; satırdaki × üstünde Enter çalmaz", async () => {
+    backend.desktop = true;
+    backend.library = {
+      ...library,
+      folders: [
+        { id: 7, path: "C:\\Müzik", trackCount: 1, single: false },
+        { id: 8, path: "D:\\İndir\\Tek.mp3", trackCount: 1, single: true },
+      ],
+    };
+    backend.tracks = [song(1, "Mayın Tarlası"), { ...song(2, "Tek"), path: "D:\\İndir\\Tek.mp3" }];
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    const details = document.querySelector<HTMLDetailsElement>(".library__sources")!;
+    details.open = true;
+    await act(async () => fireEvent.keyDown(document.body, { key: "Escape" }));
+    expect(details.open).toBe(false);
+    expect(document.getElementById("drawer")).toHaveAttribute("aria-hidden", "false");
+
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: /Tek tek eklenenler/ })),
+    );
+    const row = screen.getByText("Tek").closest("[role=row]")!;
+    await act(async () => fireEvent.click(row));
+    const remove = within(row as HTMLElement).getByRole("button", { name: /Kütüphaneden çıkar/ });
+    backend.open.mockClear();
+    await act(async () => fireEvent.keyDown(remove, { key: "Enter" }));
+    expect(backend.open).not.toHaveBeenCalled();
   });
 
   it("arama kutusuna yazılanla arar ve klasör kaldırılabilir", async () => {
