@@ -47,6 +47,13 @@ int String_Printf(char * buffer, int size, const char * format, ...) {
 }
 
 int String_FormatFloat(char * buffer, int size, float value) {
+#ifdef LYRASKA_FAST_NUMBERS
+    // LYRASKA: akış (ostringstream) yerine snprintf("%g"): aynı metin (akışın varsayılanı 6
+    // basamaklı %g'dir; WASI'de yerel ayar hep "C"), WebAssembly'de çok daha az adım.
+    char number[64];
+    String_Printf(number, sizeof(number), "%g", static_cast<double>(value));
+    return String_Printf(buffer, size, "float(%s)", number);
+#endif
     std::ostringstream oss;
     oss.imbue(std::locale("C"));
     oss << value;
@@ -84,6 +91,21 @@ static inline double iss_strtod(const char * in, char ** end) {
         return 0.0;
     }
 
+#ifdef LYRASKA_FAST_NUMBERS
+    // LYRASKA: akış (istringstream) yerine strtod; akış gibi yalnızca yukarıdaki karakterlere
+    // bakar ("C" yerel ayarı). Fark: akış "1e" gibi yarım üssü hiç sayı saymaz, strtod "1" alır.
+    {
+        std::string number(in, numEnd);
+        char * stop = NULL;
+        double value = strtod(number.c_str(), &stop);
+        if (stop == number.c_str()) {
+            *end = in_var;
+            return 0.0;
+        }
+        *end = in_var + (stop - number.c_str());
+        return value;
+    }
+#endif
     double df;
     std::istringstream iss(std::string(in, numEnd));
     iss.imbue(std::locale::classic());
@@ -122,6 +144,9 @@ int String_ToInteger(const char * str, char ** endptr) {
 
 // Engine/Log.cpp
 
+// LYRASKA: çevirinin ilk hata iletisi (lyraska_shim.cpp okur ve her çeviriden önce boşaltır).
+std::string Log_FirstError;
+
 void Log_Error(const char * format, ...) {
     va_list args;
     va_start(args, format);
@@ -138,6 +163,8 @@ void Log_ErrorArgList(const char * format, va_list args) {
     va_end(tmp);
     vsnprintf(buffer.data(), buffer.size(), format, args );
     //LOG_ERROR("[HLSLParser] " + std::string(buffer.data()));
+    // LYRASKA: ilk hata iletisi saklanır (Lyraska kullanıcıya nedenini gösterir).
+    if (Log_FirstError.empty()) Log_FirstError.assign(buffer.data());
 }
 
 
