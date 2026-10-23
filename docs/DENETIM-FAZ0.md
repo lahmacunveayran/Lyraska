@@ -364,3 +364,42 @@ Proje sahibinin kararıyla 10.3'ten sonra açık kalan küçük maddeler, üçü
 - **`freezePrototype` (KAB-11'in ikinci yarısı):** Tauri bunu yalnızca gerçek pencerede uygular; MilkDrop'un
   kullandığı kütüphanelerle çalıştığı CI'da sınanamıyor. Sınanmadan açılmadı.
 - **Kod imzası:** proje sahibinin kararıyla yok (bölüm 8).
+
+## 11. Üçüncü bağımsız puanlama (23 Ekim 2026, `4d09cb9`, sürüm 0.0.62)
+
+Bölüm 10.4'teki düzeltmeler birleştikten sonra beş alan, önceki turları görmemiş beş yeni denetçiye aynı kural
+metniyle ([BRIEF](denetim-faz0/ucuncu/BRIEF.md)) puanlatıldı. Tam raporlar: [yayın](denetim-faz0/ucuncu/yayin.md),
+[kabuk](denetim-faz0/ucuncu/kabuk.md), [kapılar](denetim-faz0/ucuncu/kapi.md),
+[belgeler](denetim-faz0/ucuncu/belge.md), [iskelet](denetim-faz0/ucuncu/iskelet.md).
+
+| Alan     | İlk bağımsız (B) | 2. tur (a) | 2. tur (b) | 3. tur (a) | 3. tur (b) |
+| -------- | ---------------- | ---------- | ---------- | ---------- | ---------- |
+| Yayın    | 5                | 7          | 4          | 8          | 7          |
+| Kabuk    | 7                | 6          | 5          | 8          | 7          |
+| Kapılar  | 6                | 6          | 5          | 7          | 6          |
+| Belgeler | 6                | 6          | 5          | 7          | 6          |
+| İskelet  | 7                | 7          | 5          | 8          | 7          |
+| Ortalama | 6,2              | 6,4        | 4,8        | 7,6        | 6,6        |
+
+(a) depodaki kod ve yapılandırma; (b) GitHub ayarları ve satın alınacaklar dahil.
+
+**(b)'yi tutan nedenler:** kod imzası yok (sahibinin kararı); yayın işi bir GitHub "environment" onayıyla
+korunmuyor; `main` kuralında onay sayısı 0 ve kapı dosyaları için CODEOWNERS yok. İki denetçi gizli güvenlik
+bildirimini ve dal korumasını oturumlarından doğrulayamadı (GitHub 403); bunlar açıktır (bölüm 8).
+
+**En önemli yeni bulgular** (ayrıntı raporlarda):
+
+- **Kapılar, KAP-01 (Yüksek):** Kapıların kendi ayarlarını hiçbir kapı korumuyor. CI adımını yorum satırına
+  almak, `continue-on-error` / `|| true` eklemek, `-D warnings`'i silmek, lint ya da tür ayarını gevşetmek, Vitest'te
+  testlerin çoğunu dışarıda bırakmak yeşil geçiyor. 74 mutasyonun 38'i bütün kapılardan geçti (16'sı kapının kendi
+  ayarını gevşetiyor).
+- **Kabuk, KAB-01 / Kapılar, KAP-03 (Orta):** İzin kapısı yalnızca `capabilities/*.json`'a bakıyor. `tauri.conf.json`
+  içine yazılan izinler, `withGlobalTauri`, `devtools` ve CSP'nin gevşetilmesinin bazı biçimleri yakalanmıyor.
+- **Kapılar, KAP-04 (Orta):** Yayımlanmış bir göç adımını değiştirmek yeşil geçiyor. Göç testi "eski dosyaları"
+  bugünkü adımlardan kuruyor.
+- **Yayın, YAY-01 / YAY-02 (Orta):** Paketlenmiş program CI'da hiç kurulup açılmıyor. Yayın hattına özgü kurallar
+  (fork süzgeci, "main'in ucu mu", önbelleksizlik) bozulunca zizmor ve actionlint yeşil kalıyor.
+- **İskelet, ISK-01 (Orta):** Üç yol hâlâ oynatıcı kilidi altında ağır iş yapıyor: çalarken bit-perfect değişimi,
+  kör test kurulumu, sıradaki şarkı.
+- **Belgeler, BEL-01 / BEL-02 (Orta):** `check:docs` sabit indirme linkini denetlemiyor. Güvenli moddaki "en fazla
+  1 nabız" kuralını koruyan bir test yok (bugünkü kod kurala uyuyor).
