@@ -229,25 +229,58 @@ float rad;
 float ang;
 float2 uv_orig;
 
-#define GetMain(uv) (tex2D(sampler_main,uv).xyz)
-#define GetPixel(uv) (tex2D(sampler_main,uv).xyz)
-#define GetBlur1(uv) (tex2D(sampler_blur1,uv).xyz*scale1 + bias1)
-#define GetBlur2(uv) (tex2D(sampler_blur2,uv).xyz*scale2 + bias2)
-#define GetBlur3(uv) (tex2D(sampler_blur3,uv).xyz*scale3 + bias3)
-#define lum(x) (dot(x,float3(0.32,0.49,0.29)))
+#define lyraska_GetMain(uv) (tex2D(sampler_main,uv).xyz)
+#define lyraska_GetPixel(uv) (tex2D(sampler_main,uv).xyz)
+#define lyraska_GetBlur1(uv) (tex2D(sampler_blur1,uv).xyz*scale1 + bias1)
+#define lyraska_GetBlur2(uv) (tex2D(sampler_blur2,uv).xyz*scale2 + bias2)
+#define lyraska_GetBlur3(uv) (tex2D(sampler_blur3,uv).xyz*scale3 + bias3)
+#define lyraska_lum(x) (dot(x,float3(0.32,0.49,0.29)))
 #define tex2d tex2D
 #define tex3d tex3D
 ";
 
 /// `.milk`'teki gölgelendiriciyi çevirinin beklediği tam HLSL programına çevirir.
 fn prepare(source: &str) -> Result<String, ShaderError> {
-    let source = strip_sampler_states(source);
+    let source = rename_macro_calls(&strip_sampler_states(source));
     let (head, body) = split_body(&source)?;
     let head = fix_sampler_declarations(head);
     Ok(format!(
         "{PREAMBLE}\n{head}\n\nfloat4 {ENTRY}(float2 uv : TEXCOORD0) : COLOR0\n{{\n\
          float3 ret = 0;\n{body}\nreturn float4(ret, 1.0);\n}}\n"
     ))
+}
+
+/// MilkDrop'un işlev biçimli makroları (`lum(x)`, `GetBlur1(uv)` …).
+const FUNCTION_MACROS: [&str; 6] = [
+    "GetMain", "GetPixel", "GetBlur1", "GetBlur2", "GetBlur3", "lum",
+];
+
+/// `lum(` → `lyraska_lum(` (ve öteki işlev makroları). projectM'in önişlemcisi makro adını
+/// arkasında `(` olmasa da açar; MilkDrop'ta (gerçek C önişlemcisi) `float lum = lum(renk);`
+/// geçerlidir. Makrolar Lyraska adıyla tanımlanır, yalnızca çağrılar yeniden adlandırılır: aynı
+/// adlı değişkene dokunulmaz.
+fn rename_macro_calls(source: &str) -> String {
+    let bytes = source.as_bytes();
+    let mut out = String::with_capacity(source.len() + 64);
+    let mut copied = 0;
+    let mut i = 0;
+    while i < bytes.len() {
+        if !is_ident_start(bytes[i]) || (i > 0 && is_ident(bytes[i - 1])) {
+            i += 1;
+            continue;
+        }
+        let end = ident_end(bytes, i);
+        let word = &source[i..end];
+        let next = skip_space(bytes, end);
+        if bytes.get(next) == Some(&b'(') && FUNCTION_MACROS.contains(&word) {
+            out.push_str(&source[copied..i]);
+            out.push_str("lyraska_");
+            copied = i;
+        }
+        i = end;
+    }
+    out.push_str(&source[copied..]);
+    out
 }
 
 /// `shader_body`'den önceki kısım (kullanıcının işlevleri, bildirimleri) ve gövde (ilk `{` ile
@@ -995,6 +1028,17 @@ shader_body
             strip_sampler_states("a = sampler_state"),
             "a = sampler_state"
         );
+    }
+
+    #[test]
+    fn islev_makrosu_ayni_adli_degiskeni_bozmaz() {
+        assert_eq!(
+            rename_macro_calls("float lum = lum (c) + GetBlur1(uv).x; myGetPixel(uv); lum2(x);"),
+            "float lum = lyraska_lum (c) + lyraska_GetBlur1(uv).x; myGetPixel(uv); lum2(x);"
+        );
+        let source = "shader_body { float3 c = GetPixel(uv); float lum = lum(c); ret = lum; }";
+        let out = convert_uncached(source, ShaderKind::Comp).unwrap();
+        assert!(out.contains("float lum = float( dot("), "{out}");
     }
 
     #[test]

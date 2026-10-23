@@ -49,11 +49,11 @@ warp_10=`    ret = tex2D(sampler_main, w).xyz*0.95 + 0.03*GetBlur1(uv);
 warp_11=`    ret += (tex2D(sampler_noise_lq, uv*texsize.xy*texsize_noise_lq.zw).xyz - 0.5)*0.01;
 warp_12=`    ret *= 1 - 0.05*rad;
 warp_13=`}
-comp_1=`// Birleştirme: saniyede dört kez tam beyaz ile karanlık arasında gidip gelir (bilerek parlar).
+comp_1=`// Birleştirme: sol yarı saniyede dört kez beyaza çakar (bilerek parlar); sağ yarı görüntü.
 comp_2=`shader_body
 comp_3=`{
 comp_4=`    float3 base = GetPixel(uv) + 0.3*GetBlur1(uv);
-comp_5=`    float strobe = step(0.5, frac(time*4.0));
-comp_6=`    ret = lerp(base*0.2, float3(1, 1, 1), strobe);
+comp_5=`    float strobe = step(0.5, frac(time*4.0))*step(uv.x, 0.5);
+comp_6=`    ret = lerp(base, float3(1, 1, 1), strobe);
 comp_7=`    ret *= 0.9 + 0.1*lum(hue_shader) + 0.0*rand_frame.x;
 comp_8=`}
