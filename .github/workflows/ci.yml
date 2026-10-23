@@ -26,7 +26,7 @@ env:
 jobs:
   arayuz:
     name: Arayüz (TypeScript)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -62,7 +62,7 @@ jobs:
 
   cekirdek:
     name: Çekirdek (Rust)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -128,7 +128,7 @@ jobs:
     # Bilinen açıklar: Rust crate'leri (RustSec) ve pakete giren npm bağımlılıkları. Güvenilmeyen
     # ses dosyası açan bir programda ayrıştırıcı açığı fark edilmeden kalmamalı. Bu iş kırmızıysa
     # test sürümü yayımlanmaz.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -161,7 +161,7 @@ jobs:
     # Gece göğü ve gece otoyolu gerçek Windows'ta, programın kullandığı Edge motoruyla
     # açılır: gölgelendiriciler Windows'ta (ANGLE → Direct3D 11) derlenir mi, görüntü
     # çiziliyor mu, Lyra yıldızları görünüyor mu? Ayrıntı: scripts/check-scenes.mjs
-    runs-on: windows-latest
+    runs-on: windows-2025
     # Galeri ve MilkDrop'un kare kare parlama ölçümleri uzun sürer; 30 dk'nın dibindeydi.
     timeout-minutes: 45
     steps:
@@ -191,7 +191,7 @@ jobs:
     name: Windows (Clippy, testler, kurulum dosyası)
     # Windows'a özel kod (WASAPI) her push ve PR'da denetlenir: test sürümüne giden commit de
     # Windows'ta sınanmış olur. Kurulum dosyası PR'larda derlenir; main için "Test sürümü"nde.
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -227,8 +227,8 @@ jobs:
         run: cargo run --locked --example ses_denemesi
       - name: Kurulum dosyasını derle
         if: github.event_name != 'push'
-        # Tauri CLI doğrudan: üçüncü taraf eylem ve token gerekmez. Derleme kodu PR'ın kendi
-        # commit'i (GitHub'ın geçici birleştirme commit'i değil).
+        # Tauri CLI doğrudan: üçüncü taraf eylem ve token gerekmez. Derleme kodu etiket olarak PR'ın
+        # ucudur; içerik ise GitHub'ın PR'ı main ile birleştirdiği hâlidir (deneme dosyası, yayın değil).
         env:
           LYRASKA_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: npm run tauri build -- --ci -- --locked

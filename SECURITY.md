@@ -21,7 +21,9 @@ https://github.com/lahmacunveayran/Lyraska/releases/download/test-surumu/Lyraska
 Kurulum dosyasının bu depodan derlendiği GitHub'ın derleme kanıtıyla doğrulanabilir:
 
 ```sh
-gh attestation verify Lyraska-Kurulum.exe --repo lahmacunveayran/Lyraska
+gh attestation verify Lyraska-Kurulum.exe --repo lahmacunveayran/Lyraska \
+  --signer-workflow lahmacunveayran/Lyraska/.github/workflows/test-surumu.yml \
+  --source-ref refs/heads/main
 ```
 
 # Security policy (English)

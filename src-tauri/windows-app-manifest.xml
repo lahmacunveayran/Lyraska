@@ -1,0 +1,20 @@
+<!--
+  Windows uygulama manifesti: Ortak Denetimler 6 (yeni ileti kutusu, TaskDialogIndirect). Tauri'nin
+  varsayılanıyla aynı içerik; build.rs bunu programa ve test programlarına birlikte gömer. Test
+  programında manifest yoksa Windows eski Ortak Denetimler'i yükler ve test programı hiç açılmaz
+  (STATUS_ENTRYPOINT_NOT_FOUND).
+-->
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <dependency>
+    <dependentAssembly>
+      <assemblyIdentity
+        type="win32"
+        name="Microsoft.Windows.Common-Controls"
+        version="6.0.0.0"
+        processorArchitecture="*"
+        publicKeyToken="6595b64144ccf1df"
+        language="*"
+      />
+    </dependentAssembly>
+  </dependency>
+</assembly>

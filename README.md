@@ -47,7 +47,9 @@ anyway**. Every build carries a GitHub build provenance attestation, so you can 
 was built from this repository:
 
 ```sh
-gh attestation verify Lyraska-Kurulum.exe --repo lahmacunveayran/Lyraska
+gh attestation verify Lyraska-Kurulum.exe --repo lahmacunveayran/Lyraska \
+  --signer-workflow lahmacunveayran/Lyraska/.github/workflows/test-surumu.yml \
+  --source-ref refs/heads/main
 ```
 
 The app needs Microsoft Edge WebView2, which Windows 10/11 already ships. If it is missing, the
