@@ -84,11 +84,12 @@ export function splitSources(
   };
 }
 
-/** Kaynakların kısa özeti: "2 klasör · 5 şarkı". */
-export function sourcesLabel(folders: number, files: number): string {
+/** Kaynakların kısa özeti: "Müzik klasörü · 5 tek şarkı", "3 klasör". */
+export function sourcesLabel(folders: LibraryFolder[], files: number): string {
   const parts = [];
-  if (folders > 0) parts.push(`${NUMBER.format(folders)} klasör`);
-  if (files > 0) parts.push(`${NUMBER.format(files)} şarkı`);
+  if (folders.length === 1 && folders[0]) parts.push(`${folderName(folders[0].path)} klasörü`);
+  else if (folders.length > 1) parts.push(`${NUMBER.format(folders.length)} klasör`);
+  if (files > 0) parts.push(`${NUMBER.format(files)} tek şarkı`);
   return parts.join(" · ");
 }
 
@@ -109,7 +110,22 @@ export function LibraryPanel({
   const { status, query } = library;
   const [sort, setSort] = useState<LibrarySort>(DEFAULT_SORT);
   const [camelot, setCamelot] = useState(loadCamelot);
-  const tracks = useMemo(() => sortTracks(library.tracks, sort), [library.tracks, sort]);
+  const sources = useMemo(
+    () => splitSources(status.folders, extensions),
+    [status.folders, extensions],
+  );
+  // Tek tek eklenen şarkılar kaynak listesinde tek satırdır; seçilince liste yalnızca onları gösterir.
+  const singles = useMemo(
+    () => new Map(sources.files.map((file) => [file.path, file])),
+    [sources.files],
+  );
+  const [singlesView, setSinglesView] = useState(false);
+  const onlySingles = singlesView && singles.size > 0;
+  const [confirmRemove, setConfirmRemove] = useState<number | null>(null);
+  const tracks = useMemo(() => {
+    const sorted = sortTracks(library.tracks, sort);
+    return onlySingles ? sorted.filter((track) => singles.has(track.path)) : sorted;
+  }, [library.tracks, sort, onlySingles, singles]);
   const [selectedIndex, setSelected] = useState(-1);
   // Arama sonucu küçülünce eski seçim listenin dışında kalabilir: o zaman seçim yok sayılır
   // (Enter olmayan şarkıyı çalmaya kalkmaz, `aria-selected` yanlış satıra düşmez) (ARA-03).
@@ -210,11 +226,26 @@ export function LibraryPanel({
     );
   };
 
-  const sources = splitSources(status.folders, extensions);
-  const removeButton = (source: LibraryFolder) => (
+  const closeSources = () => {
+    if (sourcesRef.current) sourcesRef.current.open = false;
+    setConfirmRemove(null);
+  };
+
+  const showSingles = (on: boolean) => {
+    setSinglesView(on);
+    setSelected(-1);
+    closeSources();
+  };
+
+  const removeButton = (source: LibraryFolder, onRemove?: () => void) => (
     <button
       type="button"
-      onClick={() => void library.removeFolder(source.id)}
+      className="library__remove"
+      onClick={(event) => {
+        event.stopPropagation();
+        if (onRemove) onRemove();
+        else void library.removeFolder(source.id);
+      }}
       aria-label={`Kütüphaneden çıkar: ${source.path}`}
       title="Kütüphaneden çıkar (dosyalar silinmez)"
     >
@@ -246,43 +277,69 @@ export function LibraryPanel({
           <span className="library__count">{NUMBER.format(status.trackCount)} şarkı</span>
         </h2>
         {status.folders.length > 0 && (
-          <details className="library__sources" ref={sourcesRef}>
-            <summary title="Kütüphaneye eklenen klasörler ve şarkılar; görmek için tıklayın">
-              {sourcesLabel(sources.folders.length, sources.files.length)}
+          <details
+            className="library__sources"
+            ref={sourcesRef}
+            onToggle={(event) => {
+              if (!event.currentTarget.open) setConfirmRemove(null);
+            }}
+          >
+            <summary title="Kütüphaneye eklenen klasörler ve şarkılar">
+              {sourcesLabel(sources.folders, sources.files.length)}
             </summary>
             <div className="library__sources-menu" aria-label="Eklenen klasörler ve şarkılar">
               {sources.folders.length > 0 && (
-                <>
-                  <p className="library__sources-head">Klasörler</p>
-                  <ul>
-                    {sources.folders.map((folder) => (
-                      <li key={folder.id} title={folder.path}>
-                        <span>{folderName(folder.path)}</span>
-                        {removeButton(folder)}
-                      </li>
-                    ))}
-                  </ul>
-                </>
+                <ul>
+                  {sources.folders.map((folder) => (
+                    <li key={folder.id} className="library__source">
+                      <span className="library__source-text">
+                        <span className="library__source-name">{folderName(folder.path)}</span>
+                        <span className="library__source-path">{folder.path}</span>
+                      </span>
+                      {confirmRemove === folder.id ? (
+                        <span className="library__confirm">
+                          Kaldırılsın mı?
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setConfirmRemove(null);
+                              void library.removeFolder(folder.id);
+                            }}
+                          >
+                            Evet
+                          </button>
+                          <button type="button" onClick={() => setConfirmRemove(null)}>
+                            Vazgeç
+                          </button>
+                        </span>
+                      ) : (
+                        removeButton(folder, () => setConfirmRemove(folder.id))
+                      )}
+                    </li>
+                  ))}
+                </ul>
               )}
               {sources.files.length > 0 && (
-                <>
-                  <p className="library__sources-head">Tek tek eklenenler</p>
-                  <ul>
-                    {sources.files.map((file) => (
-                      <li key={file.id} title={file.path}>
-                        <span>{folderName(file.path)}</span>
-                        {removeButton(file)}
-                      </li>
-                    ))}
-                  </ul>
-                </>
+                <button
+                  type="button"
+                  className="library__source library__source--singles"
+                  onClick={() => showSingles(true)}
+                >
+                  <span className="library__source-text">
+                    <span className="library__source-name">Tek tek eklenenler</span>
+                    <span className="library__source-path">
+                      {NUMBER.format(sources.files.length)} şarkı · listede göster
+                    </span>
+                  </span>
+                  <span aria-hidden>→</span>
+                </button>
               )}
             </div>
           </details>
         )}
         <button
           type="button"
-          className={`library__toggle${camelot ? " is-on" : ""}`}
+          className={`hw-button hw-button--small library__toggle${camelot ? " is-on" : ""}`}
           aria-pressed={camelot}
           onClick={toggleCamelot}
           title="DJ görünümü: tonlar Camelot koduyla yazılır (ör. 8A = La minör)"
@@ -300,10 +357,21 @@ export function LibraryPanel({
             disabled={!usable || noFolders}
             spellCheck={false}
           />
+          {onlySingles && (
+            <button
+              type="button"
+              className="library__filter"
+              onClick={() => showSingles(false)}
+              title="Bütün şarkıları göster"
+            >
+              Kaynak: tek eklenenler
+              <CloseIcon />
+            </button>
+          )}
         </label>
         <button
           type="button"
-          className="hw-button hw-button--small"
+          className="hw-button hw-button--small library__add"
           onClick={() => void library.addFolder()}
           disabled={!usable}
           title="Klasördeki bütün şarkıları ekleyin"
@@ -404,7 +472,10 @@ export function LibraryPanel({
         </div>
       ) : (
         <div className="library__table" role="grid" aria-rowcount={tracks.length}>
-          <div className="library__row library__row--head" role="row">
+          <div
+            className={`library__row library__row--head${onlySingles ? " library__row--removable" : ""}`}
+            role="row"
+          >
             <span role="columnheader">#</span>
             {sortHeader("title", "Başlık")}
             {sortHeader("artist", "Sanatçı", undefined, "Sanatçı, albüm ve parça sırasıyla")}
@@ -417,6 +488,7 @@ export function LibraryPanel({
               "Ton; Camelot çarkının sırasıyla dizilir, uyumlu tonlar yan yana gelir",
             )}
             {sortHeader("duration", "Süre", "library__time")}
+            {onlySingles && <span role="columnheader" aria-label="Çıkar" />}
           </div>
           <div
             ref={listRef}
@@ -439,6 +511,7 @@ export function LibraryPanel({
                   const index = range.start + offset;
                   const isCurrent = track.path === currentPath;
                   const hue = keyHue(track.key);
+                  const single = onlySingles ? singles.get(track.path) : undefined;
                   return (
                     <div
                       key={track.id}
@@ -446,22 +519,14 @@ export function LibraryPanel({
                       role="row"
                       aria-rowindex={index + 1}
                       aria-selected={index === selected}
-                      className={`library__row${isCurrent ? " is-current" : ""}${index === selected ? " is-selected" : ""}`}
+                      className={`library__row${onlySingles ? " library__row--removable" : ""}${isCurrent ? " is-current" : ""}${index === selected ? " is-selected" : ""}`}
                       style={{ transform: `translateY(${index * ROW_HEIGHT}px)` }}
                       onClick={() => setSelected(index)}
                       onDoubleClick={() => onPlay(track, tracks)}
                       title={track.path}
                     >
                       <span className="library__no" role="gridcell">
-                        {isCurrent ? (
-                          playing ? (
-                            <PlayIcon />
-                          ) : (
-                            <PauseIcon />
-                          )
-                        ) : (
-                          (track.trackNumber ?? "")
-                        )}
+                        {isCurrent ? playing ? <PlayIcon /> : <PauseIcon /> : index + 1}
                       </span>
                       <span className="library__cell" role="gridcell">
                         {track.title}
@@ -496,6 +561,7 @@ export function LibraryPanel({
                       <span className="library__time" role="gridcell">
                         {track.durationSecs ? formatTime(track.durationSecs) : ""}
                       </span>
+                      {onlySingles && <span role="gridcell">{single && removeButton(single)}</span>}
                     </div>
                   );
                 })}

@@ -841,12 +841,18 @@ describe("kütüphane", () => {
       "—",
       "",
     ]);
-    // Ton sütunu: Camelot kodu; tonu belirsizse çizgi, analiz beklerken boş.
-    expect(rows.map((row) => row.querySelector(".library__key")?.textContent)).toEqual([
-      "8A",
-      "—",
-      "",
-    ]);
+    // Ton sütunu: herkesin dilinde ad (proje sahibinin kararı); tonu belirsizse çizgi, analiz
+    // beklerken boş. DJ görünümünde Camelot kodu.
+    const keys = () =>
+      screen
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => row.querySelector(".library__key")?.textContent);
+    expect(keys()).toEqual(["La minör", "—", ""]);
+    fireEvent.click(screen.getByRole("button", { name: "DJ görünümü" }));
+    expect(keys()).toEqual(["8A", "—", ""]);
+    fireEvent.click(screen.getByRole("button", { name: "DJ görünümü" }));
+    expect(keys()).toEqual(["La minör", "—", ""]);
     expect(screen.getByText(/Şarkı haritası: 2 \/ 3 şarkı analiz edildi/)).toBeInTheDocument();
 
     // Çift tıklayınca çalar.
