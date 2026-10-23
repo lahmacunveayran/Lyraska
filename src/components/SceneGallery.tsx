@@ -333,7 +333,7 @@ function MilkdropSection({ controls }: { controls: MilkdropControls }) {
           <span className="scene-gallery__name">{currentName}</span>
           {simplified && (
             <span className="scene-gallery__hint">
-              Gölgelendiricileri desteklenmiyor, sade hâliyle çalıyor.
+              Gölgelendiricisi çevrilemedi, sade hâliyle çalıyor.
             </span>
           )}
         </p>

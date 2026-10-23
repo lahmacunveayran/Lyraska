@@ -18,6 +18,7 @@ import {
   stepSchedule,
   writePending,
 } from "../lib/milkdrop";
+import { brokenShaders, resetShaders } from "../lib/milkdropShaders";
 import { usePrefersReducedMotion } from "../lib/usePrefersReducedMotion";
 
 const SCENE_NAME = "MilkDrop";
@@ -41,7 +42,8 @@ export interface MilkDropSceneProps {
  *   saniyede en çok 0,3 (güvenli modda 0,18) değişir; preset ne yaparsa yapsın saniyede 3'ten
  *   (güvenli modda 1'den) az parlama. Fren kurulamazsa sahne hiç gösterilmez.
  * - Preset denklemleri yalnızca WebAssembly'ye derlenir (`onlyUseWASM`); JavaScript olarak
- *   çalıştırılmaz (CSP'de `'unsafe-eval'` yok).
+ *   çalıştırılmaz (CSP'de `'unsafe-eval'` yok). Gölgelendiricileri çekirdek GLSL'e çevirir;
+ *   ekran kartında derlenemeyen olursa varsayılanla değiştirilir (`milkdropShaders.ts`).
  * - "Animasyonları azalt" açıksa sahne çalışmaz, kısa bir açıklama görünür.
  */
 export function MilkDropScene({ playing, safe = false, controls }: MilkDropSceneProps) {
@@ -292,12 +294,21 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
         }
         return;
       }
+      // Çevrilen gölgelendirici ekran kartında derlenemediyse Butterchurn'ün varsayılanı kullanılır
+      // (yoksa görüntü kararırdı); görsel sade hâliyle çalar.
+      const broken = brokenShaders(current.visualizer);
+      if (broken !== "unknown" && broken.length > 0) resetShaders(current.visualizer, broken);
+      const simplified = preset.simplified || (broken !== "unknown" && broken.length > 0);
       current.hasPreset = true;
       current.currentPath = request.entry.path;
       current.currentSerial = request.serial;
       schedule.current = restartSchedule(schedule.current);
-      if (canvasRef.current) canvasRef.current.dataset.preset = preset.name;
-      controlsRef.current.loaded(request.serial, preset.name, preset.simplified);
+      if (canvasRef.current) {
+        canvasRef.current.dataset.preset = preset.name;
+        canvasRef.current.dataset.shaders =
+          broken === "unknown" ? "unknown" : broken.length > 0 ? "reset" : "ok";
+      }
+      controlsRef.current.loaded(request.serial, preset.name, simplified);
     };
     loadChain.current = loadChain.current.then(run, run);
   }, [request, ready]);

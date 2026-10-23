@@ -38,6 +38,7 @@ const fake = vi.hoisted(() => ({
 const preset = (name: string): MilkdropPreset => ({
   name,
   simplified: name.includes("sade"),
+  shaderError: name.includes("sade") ? "bükme: gölgelendirici çevrilemedi" : null,
   preset: {
     version: 2,
     baseVals: { zoom: 1.01 },
@@ -274,7 +275,7 @@ describe("MilkDrop sahnesi", () => {
     const section = await screen.findByRole("group", { name: "MilkDrop görselleri" });
     // Sade hâliyle çalan görsel (gölgelendiricisi atılmış) belirtilir.
     expect(section).toHaveTextContent("bulut sade");
-    expect(section).toHaveTextContent("Gölgelendiricileri desteklenmiyor, sade hâliyle çalıyor.");
+    expect(section).toHaveTextContent("Gölgelendiricisi çevrilemedi, sade hâliyle çalıyor.");
     expect(section).toHaveTextContent(
       "Görsel açılamadı, sonrakine geçildi: Görsel açılamadı (bozuk): MilkDrop görseli değil",
     );
