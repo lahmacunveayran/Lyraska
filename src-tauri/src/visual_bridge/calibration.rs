@@ -6,7 +6,6 @@
 //! kulaklıkta 150–250 ms). Kayıt programın kendisi tarafından üretilir; dışarıdan
 //! ses dosyası gerekmez.
 
-use std::io::Write;
 use std::path::Path;
 
 /// Kaydın örnekleme hızı.
@@ -53,9 +52,6 @@ pub fn samples() -> Vec<f64> {
 
 /// Tıklama kaydını 16 bit PCM WAV olarak yazar.
 pub fn write(path: &Path) -> std::io::Result<()> {
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir)?;
-    }
     let samples = samples();
     let data_len = (samples.len() * 2) as u32;
     let mut bytes = Vec::with_capacity(44 + samples.len() * 2);
@@ -75,7 +71,8 @@ pub fn write(path: &Path) -> std::io::Result<()> {
         let value = (sample.clamp(-1.0, 1.0) * 32767.0).round() as i16;
         bytes.extend_from_slice(&value.to_le_bytes());
     }
-    std::fs::File::create(path)?.write_all(&bytes)
+    // Bölünmez: oynatıcı yarım yazılmış bir dosyayı açmasın.
+    crate::atomic_file::write(path, &bytes)
 }
 
 #[cfg(test)]

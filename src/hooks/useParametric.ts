@@ -5,7 +5,6 @@ import {
   getParametric,
   importParametric,
   pickParametricFile,
-  pickParametricSavePath,
   setParametric,
   setParametricCompare,
   type ParametricSettings,
@@ -147,8 +146,7 @@ export function useParametric(): ParametricControls {
   const exportFile = useCallback(async () => {
     setBusy(true);
     try {
-      const path = await pickParametricSavePath();
-      if (path) await exportParametric(path);
+      await exportParametric();
       setError(null);
     } catch (e) {
       setError(errorMessage(e));

@@ -332,20 +332,35 @@ Düzeltmeler sırasında bulunan: Windows'ta Rust test programı hiç açılmıy
 Tauri'nin dialog eklentisi Windows'un yeni ileti kutusunu bağlıyor, bunu açan manifest ise yalnızca programa
 gömülüyordu. Manifest artık her çıktıya (testler dahil) gömülür (`src-tauri/windows-app-manifest.xml`, `build.rs`).
 
-### 10.4 Açık kalanlar
+### 10.4 Kalan maddelerin kapatılması (23 Ekim 2026)
 
-Faz 0'ın kapsamı dışında kalanlar ya da bilinçli bırakılanlar (hepsi Düşük ya da Bilgi):
+Proje sahibinin kararıyla 10.3'ten sonra açık kalan küçük maddeler, üçüncü bir puanlamadan önce kapatıldı:
 
-- **Ses yolunda dizi indeksleme (KAP-12, ISK-08):** `panic = "abort"` altında sınır dışı indeks programı
+| Bulgu          | Düzeltme                                                                                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| KAB-05         | Panik kancası günlük açılamasa da kurulur; Tauri kurulamazsa uyarı kutusu; PowerShell kutuyu gösteremezse günlüğe yazılır                         |
+| KAB-07         | Açılış sırası: tek örnek kilidi → taşıma → günlük (ikinci kopya hiçbir dosyaya dokunmaz); taşıma ya hep ya hiç, sonucu günlükte                   |
+| KAB-08         | Kalibrasyon kaydı Local'da ve bölünmez yazılıyor                                                                                                  |
+| KAB-09         | WebView2 uyarı metni doğru (bozuksa Windows'tan onarılır); en düşük WebView2 sürümü 120                                                           |
+| KAB-10         | `rust-version` araç zinciriyle aynı (1.97): MSRV sözü CI'da derlenen sürümle sınanır                                                              |
+| KAB-11, KAB-06 | `core:default` yerine yalnızca olay dinleme; kaydetme penceresini çekirdek açar, arayüz dosya yolu veremez (`dialog:allow-save` kalktı)           |
+| ISK-10         | cmd, explorer ve PowerShell `%SystemRoot%` altındaki tam yollarıyla                                                                               |
+| ISK-03         | Kütüphane taramasında çökme döngüsü koruması (programı iki kez kapatan dosya atlanır, Kütüphane panelinde gösterilir)                             |
+| ISK-05         | Dosya ve veritabanı işi yapan komutlar engellenebilir iş parçacığında; kör testten dönüşte ses aygıtı kilit dışında açılır                        |
+| ISK-06         | Kör test kurulurken süren şarkı geçişi iptal edilir (test önce yazıldı, düzeltmesiz kırmızı)                                                      |
+| ISK-07, ISK-09 | `check:commands` kullanılmayan köprü işlevini yakalar; ölü `trackTechLine` silindi, yalnızca testlerin kullandığı Rust işlevleri testlere ayrıldı |
+| YAY-08         | Node, Rust ve çalıştırıcılar sabit; gömülen WebView2 önyükleyicisinin Microsoft imzası yayından önce denetlenir                                   |
+| YAY-12         | zizmor çevrimiçi denetimlerle                                                                                                                     |
+| BEL-11         | Lisans metninde telif satırı olmayan paketlere yazarları yazılır                                                                                  |
+| KAP-16         | `.gitignore` ses kalıpları büyük/küçük harf duyarsız                                                                                              |
+
+### 10.5 Bilinçli olarak açık bırakılanlar
+
+- **Ses yolunda dizi indeksleme (KAP-12, ISK-08):** `panic = "abort"` altında sınır dışı bir indeks programı
   kapatır. Ses motoru Faz 1'in konusu; Clippy `indexing_slicing` ses yolu modüllerinde ayrı bir işte açılmalı.
-- **İskelet:** tarama çökme koruması (ISK-03), `Player`'ın tek kilidi (ISK-04), async komutlarda
-  `spawn_blocking` (ISK-05), kör test ile şarkı geçişinin çakışması (ISK-06), `check:commands`'ın sarmalayıcıyı
-  kullanım sayması (ISK-07), sürüm bilgisi için `cmd`'nin göreli adla çağrılması (ISK-10 kalanı).
-- **Kabuk:** komutların disk yolu sınırlaması (KAB-06), veri klasörü taşımasının geri alma yolu (KAB-07),
-  kalibrasyon kaydının yeri (KAB-08), WebView2 uyarı metni ve en düşük sürüm (KAB-09), MSRV'nin derlenerek
-  sınanmaması (KAB-10), `core:default` izni (KAB-11), sessiz kalan bazı açılış hataları (KAB-05).
-- **Yayın:** WebView2 önyükleyicisinin karması (YAY-08 kalanı); zizmor'un çevrimiçi denetimleri (YAY-12; CI'da
-  token ile denenmeden açılmadı).
-- **Belgeler:** üçüncü taraf bildirimlerinde telif satırı olmayan 37 paket (BEL-11; lisans metinleri var).
-- **Proje sahibinin düğmeleri:** dal koruması, fork PR onayı ve gizli güvenlik bildirimi açıldı; kod imzası
-  bilinçli olarak yok (bölüm 8).
+- **`Player`'ın büyüklüğü (ISK-04):** oynatıcıyı bölmek ve ses ayarlarını ayrı bir duruma taşımak büyük bir yapı
+  değişikliği. Kilit altında yavaş iş kalmadı (geçişler, aygıt kurtarma, kör testten dönüş kilit dışında); bölme
+  Faz 1'de yapılmalı.
+- **`freezePrototype` (KAB-11'in ikinci yarısı):** Tauri bunu yalnızca gerçek pencerede uygular; MilkDrop'un
+  kullandığı kütüphanelerle çalıştığı CI'da sınanamıyor. Sınanmadan açılmadı.
+- **Kod imzası:** proje sahibinin kararıyla yok (bölüm 8).

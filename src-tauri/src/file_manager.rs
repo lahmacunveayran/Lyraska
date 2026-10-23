@@ -1,10 +1,18 @@
 //! Dosya gezginini açan işletim sistemi kodu ("Hata günlüğü", "İşaret klasörü" düğmeleri).
 //! Komut katmanı ince kalsın diye ayrı (`commands.rs` yalnızca çağırır).
 
+/// Windows'un kendi programının tam yolu (`%SystemRoot%\…`). Göreli ad önce programın kendi
+/// klasöründe aranır: oradaki aynı adlı bir dosya ya da PATH'teki başka bir program çalışmasın.
+#[cfg(windows)]
+pub fn system_program(relative: &str) -> std::path::PathBuf {
+    let root = std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into());
+    std::path::Path::new(&root).join(relative)
+}
+
 /// Klasörü dosya gezgininde açar.
 #[cfg(windows)]
 pub fn open_folder(dir: &std::path::Path) -> std::io::Result<()> {
-    std::process::Command::new("explorer")
+    std::process::Command::new(system_program("explorer.exe"))
         .arg(dir)
         .spawn()
         .map(|_| ())
@@ -23,7 +31,7 @@ pub fn open_folder(dir: &std::path::Path) -> std::io::Result<()> {
 pub fn reveal(path: &std::path::Path) -> std::io::Result<()> {
     use std::os::windows::process::CommandExt;
     // Olduğu gibi verilir: `arg` boşluklu yolu bütünüyle tırnaklardı.
-    std::process::Command::new("explorer")
+    std::process::Command::new(system_program("explorer.exe"))
         .raw_arg(select_argument(path))
         .spawn()
         .map(|_| ())

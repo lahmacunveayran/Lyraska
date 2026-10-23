@@ -62,7 +62,12 @@ describe("uzantılar", () => {
 
   it(".gitignore aynı uzantıları dışarıda tutar", () => {
     const ignored = readFileSync(".gitignore", "utf8");
-    for (const ext of AUDIO_EXTENSIONS) expect(ignored, ext).toContain(`\n*.${ext}\n`);
+    // Büyük/küçük harf duyarsız kalıp: "mp3" → "[mM][pP]3".
+    const pattern = (ext) =>
+      [...ext].map((c) => (/[a-z]/.test(c) ? `[${c}${c.toUpperCase()}]` : c)).join("");
+    for (const ext of AUDIO_EXTENSIONS) {
+      expect(ignored, ext).toContain(`\n*.${pattern(ext)}\n`);
+    }
   });
 });
 

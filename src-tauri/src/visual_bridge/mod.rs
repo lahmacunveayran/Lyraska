@@ -40,7 +40,8 @@ pub fn visual_offset_secs(audio_delay_ms: i32) -> f64 {
 }
 
 /// Görsellerin okunacağı şarkı anı: duyulan an + [`visual_offset_secs`]. Şarkının başından
-/// önceye gitmez.
+/// önceye gitmez (kuralın tanımı; testler bununla denetler, oynatıcı kaydırmayı doğrudan kullanır).
+#[cfg(test)]
 pub fn visual_time(heard_secs: f64, audio_delay_ms: i32) -> f64 {
     (heard_secs + visual_offset_secs(audio_delay_ms)).max(0.0)
 }

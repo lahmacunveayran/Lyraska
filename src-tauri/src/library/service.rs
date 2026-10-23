@@ -55,6 +55,9 @@ impl ScanRequest {
     }
 }
 
+/// Kopyası aynı kütüphaneyi paylaşır (alanlar `Arc`): komutlar işi engellenebilir iş parçacığına
+/// taşırken kopyayı götürür.
+#[derive(Clone)]
 pub struct LibraryService {
     library: Arc<Mutex<Library>>,
     scan: Arc<ScanState>,
@@ -65,6 +68,9 @@ pub struct LibraryService {
     /// Açılışta bozuk veritabanı kenara alındıysa açıklaması; oturum boyunca sorunların başında
     /// gösterilir (tam tarama sorun listesini yenilese de silinmez).
     recovery_notice: Option<String>,
+    /// Programı kapattığı için taramada atlanan dosyalar (çökme döngüsü koruması); oturum boyunca
+    /// sorunların başında gösterilir.
+    crash_notices: Vec<String>,
 }
 
 impl LibraryService {
@@ -90,7 +96,25 @@ impl LibraryService {
             worker_running: Arc::new(AtomicBool::new(false)),
             problems: Arc::new(Mutex::new(Vec::new())),
             recovery_notice: None,
+            crash_notices: Vec::new(),
         }
+    }
+
+    /// Taramaya çökme döngüsü korumasını ekler (ilk taramadan önce). Programı iki kez kapatmış
+    /// dosyalar atlanır ve kullanıcıya söylenir.
+    pub fn with_crash_guard(mut self, guard: crate::analysis::background::CrashGuard) -> Self {
+        self.crash_notices = self
+            .scan
+            .set_crash_guard(guard)
+            .into_iter()
+            .map(|path| {
+                format!(
+                    "{}: okunurken program kapandığı için atlanıyor (dosya değişirse yeniden denenir).",
+                    path.display()
+                )
+            })
+            .collect();
+        self
     }
 
     fn lock(&self) -> Result<std::sync::MutexGuard<'_, Library>, LibraryError> {
@@ -110,6 +134,7 @@ impl LibraryService {
                 .recovery_notice
                 .iter()
                 .cloned()
+                .chain(self.crash_notices.iter().cloned())
                 .chain(self.problems.lock().map(|p| p.clone()).unwrap_or_default())
                 .collect(),
         })

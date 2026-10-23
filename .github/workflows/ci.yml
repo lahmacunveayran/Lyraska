@@ -152,11 +152,13 @@ jobs:
       # sağlama toplamı veritabanıyla doğrulanır.
       - name: İş akışı denetimi (zizmor, actionlint)
         run: |
-          pipx run zizmor==1.31.1 --offline --min-severity=low .github/workflows
+          pipx run zizmor==1.31.1 --min-severity=low .github/workflows
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           "$(go env GOPATH)/bin/actionlint"
         env:
           GOFLAGS: -mod=mod
+          # zizmor'un çevrimiçi denetimleri (sahte commit, bilinen açıklı eylem) için salt okuma.
+          GH_TOKEN: ${{ github.token }}
 
   sahneler:
     name: Sahneler (Windows, Edge)
@@ -265,6 +267,9 @@ jobs:
         env:
           LYRASKA_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: npm run tauri build -- --ci -- --locked
+      - name: WebView2 önyükleyicisi Microsoft imzalı mı
+        shell: pwsh
+        run: ./scripts/webview2-imzasi.ps1
       - name: Kurulum dosyasını yükle
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

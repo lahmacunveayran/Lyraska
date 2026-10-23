@@ -2,7 +2,8 @@
 //
 // - Arayüzün `invoke("ad", …)` ile çağırdığı her komut çekirdekte tanımlı ve
 //   `generate_handler!` listesinde kayıtlı mı? (Değilse çağrı çalışma anında başarısız olur.)
-// - Kayıtlı her komutu arayüz kullanıyor mu? (Kullanılmayan komut ölü koddur.)
+// - Kayıtlı her komutu arayüz kullanıyor mu? (Kullanılmayan komut ölü koddur.) Köprünün
+//   (`src/lib/backend.ts`) dışa verdiği her fonksiyon ürün kodunda (testler hariç) çağrılıyor mu?
 // - Gönderilen argüman adları Rust'taki parametre adlarıyla eşleşiyor mu? Tauri, Rust'taki
 //   `snake_case` parametreyi arayüzde `camelCase` bekler. Zorunlu (Option olmayan) her
 //   parametre gönderilmeli; Rust'ta olmayan bir ad gönderilmemeli.
@@ -22,6 +23,7 @@ import {
   rustCommands,
   tsRenames,
   uiCalls,
+  unusedBridgeFunctions,
 } from "./lib/commands.mjs";
 
 const RUST_COMMANDS = "src-tauri/src/commands.rs";
@@ -43,10 +45,16 @@ const renames = new Map(
     ...tsRenames(readFileSync(file, "utf8")),
   ]),
 );
-const calls = [...sourceFiles(UI_ROOT, /^(?!.*\.test\.tsx?$).*\.tsx?$/)].flatMap((file) =>
-  uiCalls(readFileSync(file, "utf8"), file),
-);
+const productFiles = [...sourceFiles(UI_ROOT, /^(?!.*\.test\.tsx?$).*\.tsx?$/)];
+const calls = productFiles.flatMap((file) => uiCalls(readFileSync(file, "utf8"), file));
 const problems = contractProblems(commands, handlers, calls, RUST_COMMANDS, renames);
+const BRIDGE = join(UI_ROOT, "lib", "backend.ts");
+for (const name of unusedBridgeFunctions(
+  readFileSync(BRIDGE, "utf8"),
+  productFiles.filter((file) => file !== BRIDGE).map((file) => readFileSync(file, "utf8")),
+)) {
+  problems.push(`${BRIDGE}: ${name} dışa veriliyor ama ürün kodunda hiç çağrılmıyor (ölü kod)`);
+}
 
 if (problems.length > 0) {
   console.error(`Komut sözleşmesi bozuk:\n  ${problems.join("\n  ")}`);

@@ -13,7 +13,8 @@
 //! **Çökme döngüsü koruması** ([`CrashGuard`]): sürüm derlemesi panikte kapanır
 //! (`panic = "abort"`). Analizi programı kapatan bir dosya kütüphanede kalsaydı, program her
 //! açılışta aynı dosyaya gelip yeniden kapanırdı. Analiz edilen dosya diske yazılır; program o
-//! dosyanın analizinde iki kez kapanırsa dosya atlanır (dosya değişince yeniden denenir).
+//! dosyanın analizinde iki kez kapanırsa dosya atlanır (dosya değişince yeniden denenir). Kütüphane
+//! taraması da (etiket okuma) aynı korumayı kendi izleriyle kullanır (`tarama-…`).
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -41,52 +42,96 @@ const BATCH: usize = 16;
 /// programı Görev Yöneticisi'nden kapatmış ya da elektrik kesilmiş olabilir.
 const CRASH_STRIKES: u32 = 2;
 
-/// Analizi süren dosyanın diskteki izi (bkz. modül belgesi).
+/// Programı kapatan dosyaların diskteki izi (bkz. modül belgesi). Arka plan analizi ve kütüphane
+/// taraması kullanır; ikisinin izleri ayrı adlarla tutulur (`analiz-…`, `tarama-…`). Paralel
+/// işçiler kendi "yuvalarına" yazar: her işçinin o an okuduğu dosya ayrı bir izde durur.
+#[derive(Debug)]
 pub struct CrashGuard {
     dir: Option<PathBuf>,
+    name: &'static str,
 }
 
 impl CrashGuard {
-    /// `dir`: kütüphanenin klasörü (izler `analiz-suruyor.txt` ve `analiz-atla.txt`).
+    /// Arka plan analizinin koruması. `dir`: kütüphanenin klasörü (izler `analiz-suruyor.txt` ve
+    /// `analiz-atla.txt`).
     pub fn new(dir: PathBuf) -> Self {
-        Self { dir: Some(dir) }
+        Self::named(dir, "analiz")
+    }
+
+    /// `name` önadıyla izler (`<name>-suruyor[-N].txt`, `<name>-atla.txt`).
+    pub fn named(dir: PathBuf, name: &'static str) -> Self {
+        // İzler eşitlemesiz ve tek yazmayla yazılır (her dosyada); klasör baştan hazır olsun.
+        let _ = std::fs::create_dir_all(&dir);
+        Self {
+            dir: Some(dir),
+            name,
+        }
     }
 
     /// İz tutulmaz (testler, klasörü olmayan önbellek).
     pub fn disabled() -> Self {
-        Self { dir: None }
+        Self {
+            dir: None,
+            name: "analiz",
+        }
     }
 
-    fn file(&self, name: &str) -> Option<PathBuf> {
-        Some(self.dir.as_ref()?.join(name))
+    /// Yuvanın "sürüyor" izi: 0 eski adıyla (`<name>-suruyor.txt`), diğerleri numaralı.
+    fn current(&self, slot: usize) -> Option<PathBuf> {
+        let file = if slot == 0 {
+            format!("{}-suruyor.txt", self.name)
+        } else {
+            format!("{}-suruyor-{slot}.txt", self.name)
+        };
+        Some(self.dir.as_ref()?.join(file))
     }
 
-    /// Açılışta: önceki oturum bir dosyanın analizinde kapandıysa o dosyanın sayacı artar. Döner:
-    /// atlanacak dosyalar (sayacı sınıra ulaşanlar, yol + damga).
+    /// Açılışta: önceki oturum bir dosyada kapandıysa o dosyanın sayacı artar. Döner: atlanacak
+    /// dosyalar (sayacı sınıra ulaşanlar, yol + damga).
     pub fn recover(&self) -> HashSet<(PathBuf, FileStamp)> {
-        let (Some(current), Some(skip_file)) = (
-            self.file("analiz-suruyor.txt"),
-            self.file("analiz-atla.txt"),
-        ) else {
+        let Some(dir) = self.dir.as_ref() else {
             return HashSet::new();
         };
+        let skip_file = dir.join(format!("{}-atla.txt", self.name));
         let mut strikes = read_strikes(&skip_file);
-        if let Some(crashed) = std::fs::read_to_string(&current)
-            .ok()
-            .and_then(|text| parse_entry(text.trim()))
-        {
+        let prefix = format!("{}-suruyor", self.name);
+        let traces: Vec<PathBuf> = std::fs::read_dir(dir)
+            .map(|entries| {
+                entries
+                    .filter_map(Result::ok)
+                    .map(|entry| entry.path())
+                    .filter(|path| {
+                        path.file_name()
+                            .and_then(|n| n.to_str())
+                            .is_some_and(|n| n.starts_with(&prefix) && n.ends_with(".txt"))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        for trace in &traces {
+            let Some(crashed) = std::fs::read_to_string(trace)
+                .ok()
+                .and_then(|text| parse_entry(text.trim()))
+            else {
+                let _ = std::fs::remove_file(trace);
+                continue;
+            };
             let count = strikes.entry(crashed.clone()).or_insert(0);
             *count += 1;
             diagnostics::error(&format!(
-                "Önceki açılışta program şu dosyanın analizinde kapandı ({}. kez): {}{}",
+                "Önceki açılışta program şu dosyada kapandı ({}, {}. kez): {}{}",
+                self.name,
                 count,
                 crashed.0.display(),
                 if *count >= CRASH_STRIKES {
-                    "; bu dosya artık arka planda analiz edilmeyecek (dosya değişirse yeniden denenir)"
+                    "; bu dosya artık atlanacak (dosya değişirse yeniden denenir)"
                 } else {
                     ""
                 }
             ));
+            let _ = std::fs::remove_file(trace);
+        }
+        if !traces.is_empty() {
             let text: String = strikes
                 .iter()
                 .map(|((path, stamp), n)| {
@@ -99,7 +144,6 @@ impl CrashGuard {
                 })
                 .collect();
             let _ = crate::atomic_file::write(&skip_file, text.as_bytes());
-            let _ = std::fs::remove_file(&current);
         }
         strikes
             .into_iter()
@@ -108,19 +152,30 @@ impl CrashGuard {
             .collect()
     }
 
+    /// Yuvadaki işçi bu dosyayı okumaya başlıyor. Diske eşitleme (`sync_all`) yapılmaz: korunan
+    /// durum programın kapanmasıdır, işletim sistemininki değil; yazılan iz kaybolmaz.
+    pub fn begin_slot(&self, slot: usize, path: &Path, stamp: FileStamp) {
+        if let Some(current) = self.current(slot) {
+            let line = format!("{}\t{}\t{}", stamp.size, stamp.modified, path.display());
+            let _ = std::fs::write(&current, line.as_bytes());
+        }
+    }
+
+    /// Yuvadaki işçi dosyayı bitirdi (başarılı ya da değil): program bu dosyada kapanmadı.
+    pub fn end_slot(&self, slot: usize) {
+        if let Some(current) = self.current(slot) {
+            let _ = std::fs::remove_file(current);
+        }
+    }
+
     /// Dosyanın analizi başlıyor.
     fn begin(&self, path: &Path, stamp: FileStamp) {
-        if let Some(current) = self.file("analiz-suruyor.txt") {
-            let line = format!("{}\t{}\t{}", stamp.size, stamp.modified, path.display());
-            let _ = crate::atomic_file::write(&current, line.as_bytes());
-        }
+        self.begin_slot(0, path, stamp);
     }
 
     /// Analiz bitti (başarılı ya da değil): program bu dosyada kapanmadı.
     fn end(&self) {
-        if let Some(current) = self.file("analiz-suruyor.txt") {
-            let _ = std::fs::remove_file(current);
-        }
+        self.end_slot(0);
     }
 }
 

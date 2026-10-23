@@ -29,14 +29,32 @@ pub struct DataDirs {
     pub big: PathBuf,
 }
 
+/// Tauri'nin `app_data_dir` / `app_local_data_dir` kuralıyla aynı klasörler: (Roaming, Local).
+/// Henüz hiçbir şey taşınmaz; işletim sistemi klasörü bildirmezse `None` (Tauri'ninki kullanılır).
+pub fn locate(identifier: &str) -> Option<(PathBuf, PathBuf)> {
+    Some((
+        dirs::data_dir()?.join(identifier),
+        dirs::data_local_dir()?.join(identifier),
+    ))
+}
+
+/// Eski kütüphanenin Local'a taşınmasının sonucu (açılışta günlüğe yazılır).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Migration {
+    /// Taşınacak bir şey yoktu.
+    NotNeeded,
+    /// Eski kütüphane Local'a taşındı.
+    Moved,
+    /// Taşınamadı; Roaming kullanılmaya devam ediliyor (neden).
+    KeptInRoaming(String),
+}
+
 impl DataDirs {
-    /// Tauri'nin `app_data_dir` / `app_local_data_dir` kuralıyla aynı klasörler; eski kütüphane
-    /// gerekirse taşınır. İşletim sistemi klasörü bildirmezse `None` (Tauri'ninki kullanılır).
-    pub fn resolve(identifier: &str) -> Option<Self> {
-        let roaming = dirs::data_dir()?.join(identifier);
-        let local = dirs::data_local_dir()?.join(identifier);
-        let big = big_data_dir(&roaming, &local);
-        Some(Self { roaming, big })
+    /// Klasörler; eski kütüphane gerekirse taşınır. Tek örnek kilidinden **sonra** çağrılır: iki
+    /// kopya aynı anda taşıma yapmasın.
+    pub fn migrate(roaming: PathBuf, local: &Path) -> (Self, Migration) {
+        let (big, migration) = big_data_dir(&roaming, local);
+        (Self { roaming, big }, migration)
     }
 }
 
@@ -90,35 +108,55 @@ pub fn end_session(dir: &Path) {
     let _ = std::fs::remove_file(dir.join("oturum-acik"));
 }
 
-/// Dosyayı ya da klasörü taşır. `rename` farklı birimler arasında çalışmaz (ör. Roaming başka bir
-/// diske yönlendirilmiş kurumsal profil): o zaman kopyalanıp eskisi silinir. Kopyalama yarıda
-/// kalırsa yarım kopya silinir, kaynak yerinde kalır.
+/// Dosyayı ya da klasörü taşır. Hedef zaten varsa dokunulmaz (hata). `rename` farklı birimler
+/// arasında çalışmaz (ör. Roaming başka bir diske yönlendirilmiş kurumsal profil): o zaman
+/// kopyalanıp eskisi silinir. Dosya taşıması ya hep ya hiçtir: kopyalama yarıda kalırsa ya da
+/// kaynak silinemezse (ör. başka program açık tutuyor) kopya silinir, kaynak yerinde kalır; iki
+/// ayrı sürüm oluşmaz.
 pub fn move_path(from: &Path, to: &Path) -> io::Result<()> {
+    if to.exists() {
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            format!("{} zaten var", to.display()),
+        ));
+    }
     if std::fs::rename(from, to).is_ok() {
         return Ok(());
     }
-    copy_then_remove(from, to)
+    copy_then_remove(from, to, remove_path)
 }
 
-fn copy_then_remove(from: &Path, to: &Path) -> io::Result<()> {
+fn remove_path(path: &Path) -> io::Result<()> {
+    if path.is_dir() {
+        std::fs::remove_dir_all(path)
+    } else {
+        std::fs::remove_file(path)
+    }
+}
+
+fn copy_then_remove(
+    from: &Path,
+    to: &Path,
+    remove: impl Fn(&Path) -> io::Result<()>,
+) -> io::Result<()> {
     let copied = if from.is_dir() {
         copy_dir(from, to)
     } else {
         std::fs::copy(from, to).map(|_| ())
     };
     if let Err(error) = copied {
-        if to.is_dir() {
-            let _ = std::fs::remove_dir_all(to);
-        } else {
+        let _ = remove_path(to);
+        return Err(error);
+    }
+    if let Err(error) = remove(from) {
+        // Kaynak silinemedi: dosyada kopya silinir (eski sürüm sonraki açılışta "taşınmış" sanılıp
+        // kullanılmasın). Klasör silme yarıda kalmış olabilir; kopyası o zaman korunur.
+        if !from.is_dir() {
             let _ = std::fs::remove_file(to);
         }
         return Err(error);
     }
-    if from.is_dir() {
-        std::fs::remove_dir_all(from)
-    } else {
-        std::fs::remove_file(from)
-    }
+    Ok(())
 }
 
 fn copy_dir(from: &Path, to: &Path) -> io::Result<()> {
@@ -137,29 +175,40 @@ fn copy_dir(from: &Path, to: &Path) -> io::Result<()> {
 
 /// Büyük verinin klasörü: `local`. `roaming`'de eski sürümden kalan dosyalar varsa ve `local`'da
 /// henüz kütüphane yoksa, dosyalar taşınır. Taşıma başarısızsa (ör. başka pencere dosyayı
-/// kilitlemiş) `roaming` döner: iki kopya oluşmaz.
-pub fn big_data_dir(roaming: &Path, local: &Path) -> PathBuf {
+/// kilitlemiş) taşınanlar geri alınır ve `roaming` döner: iki kopya oluşmaz.
+pub fn big_data_dir(roaming: &Path, local: &Path) -> (PathBuf, Migration) {
     if roaming == local {
-        return local.to_path_buf();
+        return (local.to_path_buf(), Migration::NotNeeded);
     }
     let old_library = roaming.join(MOVED_FILES[0]);
     if !old_library.exists() || local.join(MOVED_FILES[0]).exists() {
-        return local.to_path_buf();
+        return (local.to_path_buf(), Migration::NotNeeded);
     }
-    if std::fs::create_dir_all(local).is_err() {
-        return roaming.to_path_buf();
+    if let Err(error) = std::fs::create_dir_all(local) {
+        return (
+            roaming.to_path_buf(),
+            Migration::KeptInRoaming(format!("{}: {error}", local.display())),
+        );
     }
     for name in MOVED_FILES {
         let from = roaming.join(name);
-        if from.exists() && move_path(&from, &local.join(name)).is_err() {
-            // Kütüphane dosyası taşınamadıysa eski yerde kalır; eşleri de orada kalmalı.
+        if !from.exists() {
+            continue;
+        }
+        if let Err(error) = move_path(&from, &local.join(name)) {
+            // Kütüphane dosyası taşınamadıysa eski yerde kalır; eşleri de orada kalmalı. Yalnızca
+            // bu taşımanın götürdüğü dosyalar geri gelir: Roaming'de duran dosyaya dokunulmaz.
             for moved in MOVED_FILES {
                 let back = local.join(moved);
-                if back.exists() {
-                    let _ = move_path(&back, &roaming.join(moved));
+                let original = roaming.join(moved);
+                if back.exists() && !original.exists() {
+                    let _ = move_path(&back, &original);
                 }
             }
-            return roaming.to_path_buf();
+            return (
+                roaming.to_path_buf(),
+                Migration::KeptInRoaming(format!("{name}: {error}")),
+            );
         }
     }
     for dir in MOVED_DIRS {
@@ -168,7 +217,7 @@ pub fn big_data_dir(roaming: &Path, local: &Path) -> PathBuf {
             let _ = move_path(&from, &local.join(dir));
         }
     }
-    local.to_path_buf()
+    (local.to_path_buf(), Migration::Moved)
 }
 
 #[cfg(test)]
@@ -187,7 +236,10 @@ mod tests {
         std::fs::write(roaming.join("logs/lyraska.log"), b"log").unwrap();
         std::fs::write(roaming.join("settings.json"), b"{}").unwrap();
 
-        assert_eq!(big_data_dir(&roaming, &local), local);
+        assert_eq!(
+            big_data_dir(&roaming, &local),
+            (local.clone(), Migration::Moved)
+        );
         assert!(local.join("library.sqlite3").exists());
         assert!(local.join("library.sqlite3-wal").exists());
         assert!(local.join("logs/lyraska.log").exists());
@@ -197,7 +249,10 @@ mod tests {
             "ayarlar Roaming'de kalır"
         );
         // İkinci çağrı bir şey taşımaz.
-        assert_eq!(big_data_dir(&roaming, &local), local);
+        assert_eq!(
+            big_data_dir(&roaming, &local),
+            (local, Migration::NotNeeded)
+        );
     }
 
     #[test]
@@ -208,7 +263,7 @@ mod tests {
         std::fs::create_dir_all(&local).unwrap();
         std::fs::write(roaming.join("library.sqlite3"), b"eski").unwrap();
         std::fs::write(local.join("library.sqlite3"), b"yeni").unwrap();
-        assert_eq!(big_data_dir(&roaming, &local), local);
+        assert_eq!(big_data_dir(&roaming, &local).0, local);
         assert_eq!(
             std::fs::read(local.join("library.sqlite3")).unwrap(),
             b"yeni"
@@ -226,10 +281,11 @@ mod tests {
         std::fs::write(root.join("a/library.sqlite3"), b"db").unwrap();
         std::fs::create_dir_all(root.join("b")).unwrap();
 
-        copy_then_remove(&root.join("a/logs"), &root.join("b/logs")).unwrap();
+        copy_then_remove(&root.join("a/logs"), &root.join("b/logs"), remove_path).unwrap();
         copy_then_remove(
             &root.join("a/library.sqlite3"),
             &root.join("b/library.sqlite3"),
+            remove_path,
         )
         .unwrap();
         assert_eq!(
@@ -244,8 +300,55 @@ mod tests {
         assert!(!root.join("a/logs").exists() && !root.join("a/library.sqlite3").exists());
 
         // Kaynak yoksa hata; hedefte yarım kopya kalmaz.
-        assert!(copy_then_remove(&root.join("a/yok"), &root.join("b/yok")).is_err());
+        assert!(copy_then_remove(&root.join("a/yok"), &root.join("b/yok"), remove_path).is_err());
         assert!(!root.join("b/yok").exists());
+    }
+
+    #[test]
+    fn kaynak_silinemezse_kopya_da_silinir() {
+        // Başka bir program dosyayı açık tutuyor: kopya kalsaydı sonraki açılış onu "taşınmış"
+        // sanıp eski sürümü kullanırdı.
+        let root = temp_path("hephic");
+        std::fs::create_dir_all(root.join("a")).unwrap();
+        std::fs::create_dir_all(root.join("b")).unwrap();
+        std::fs::write(root.join("a/library.sqlite3"), b"db").unwrap();
+        let result = copy_then_remove(
+            &root.join("a/library.sqlite3"),
+            &root.join("b/library.sqlite3"),
+            |_| Err(io::Error::other("kilitli")),
+        );
+        assert!(result.is_err());
+        assert!(root.join("a/library.sqlite3").exists());
+        assert!(!root.join("b/library.sqlite3").exists());
+    }
+
+    #[test]
+    fn tasima_yarida_kalirsa_geri_alinir_var_olan_dosyaya_dokunulmaz() {
+        let roaming = temp_path("geri-roaming");
+        let local = roaming.parent().unwrap().join("geri-local");
+        std::fs::create_dir_all(&roaming).unwrap();
+        std::fs::create_dir_all(&local).unwrap();
+        std::fs::write(roaming.join("library.sqlite3"), b"db").unwrap();
+        std::fs::write(roaming.join("library.sqlite3-wal"), b"wal").unwrap();
+        // Local'da başka bir şeyin bıraktığı eş dosya: üstüne yazılmaz, taşıma geri alınır.
+        std::fs::write(local.join("library.sqlite3-wal"), b"yabanci").unwrap();
+
+        let (dir, migration) = big_data_dir(&roaming, &local);
+        assert_eq!(dir, roaming);
+        assert!(matches!(migration, Migration::KeptInRoaming(_)));
+        assert_eq!(
+            std::fs::read(roaming.join("library.sqlite3")).unwrap(),
+            b"db"
+        );
+        assert_eq!(
+            std::fs::read(roaming.join("library.sqlite3-wal")).unwrap(),
+            b"wal"
+        );
+        assert!(!local.join("library.sqlite3").exists());
+        assert_eq!(
+            std::fs::read(local.join("library.sqlite3-wal")).unwrap(),
+            b"yabanci"
+        );
     }
 
     #[test]
@@ -273,15 +376,15 @@ mod tests {
     #[test]
     fn klasorler_tauri_kuraliyla_bulunur() {
         let id = "io.github.gozlemesevdalisi.lyraska";
-        if let Some(dirs) = DataDirs::resolve(id) {
-            assert!(dirs.roaming.ends_with(id));
-            assert!(dirs.big.ends_with(id));
+        if let Some((roaming, local)) = locate(id) {
+            assert!(roaming.ends_with(id));
+            assert!(local.ends_with(id));
         }
     }
 
     #[test]
     fn ayni_klasorsa_hicbir_sey_yapilmaz() {
         let dir = temp_path("tek");
-        assert_eq!(big_data_dir(&dir, &dir), dir);
+        assert_eq!(big_data_dir(&dir, &dir), (dir, Migration::NotNeeded));
     }
 }
