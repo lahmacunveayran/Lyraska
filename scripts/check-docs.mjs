@@ -10,6 +10,8 @@
 //   birinin dosyasına gider.
 // - package.json'daki her `check:*` betiği CI'da çalışır.
 // - Programın içinde gösterilen GPL metni LICENSE'ın kendisidir.
+// - Her oturumda okunan "ikinci beyin" belgeleri sınırlı kalır: büyüdükçe her oturum daha çok
+//   kullanım payı harcar. Sınır aşılınca eski maddeler kısaltılır ya da devir notlarına taşınır.
 // Kullanım: npm run check:docs
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -29,7 +31,11 @@ const LIVE_DOCS = [
   "docs/ISARETLEME.md",
   "docs/LISANSLAR.md",
   "docs/SARKI-HARITASI.md",
+  "docs/BILGI-BIRIKIMI.md",
+  "docs/ACIK-KONULAR.md",
 ];
+/** Her oturumun başında okunan belgeler ve satır sınırları. */
+const SESSION_DOCS = { "docs/BILGI-BIRIKIMI.md": 160, "docs/ACIK-KONULAR.md": 60 };
 
 function* walk(dir) {
   for (const entry of readdirSync(join(ROOT, dir))) {
@@ -162,6 +168,16 @@ if (read("public/lisanslar/GPL-3.0.txt") !== read("LICENSE")) {
   problems.push(
     "public/lisanslar/GPL-3.0.txt, LICENSE ile aynı değil (cp LICENSE public/lisanslar/GPL-3.0.txt)",
   );
+}
+
+// 6. Her oturumda okunan belgeler sınırı aşmaz.
+for (const [doc, limit] of Object.entries(SESSION_DOCS)) {
+  const lines = read(doc).split("\n").length;
+  if (lines > limit) {
+    problems.push(
+      `${doc}: ${lines} satır (sınır ${limit}); eski maddeleri kısaltın ya da devir notlarına taşıyın`,
+    );
+  }
 }
 
 if (problems.length > 0) {

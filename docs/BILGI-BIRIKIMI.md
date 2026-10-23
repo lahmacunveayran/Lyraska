@@ -4,6 +4,8 @@ Lyraska'da çalışan her Claude oturumu bu dosyayı oturumun başında, `CLAUDE
 kurallar değil, **deneyimle öğrenilenler** durur: nasıl çalışınca iş hızlı ve sağlam ilerliyor, hangi tuzaklara
 düşüldü, proje sahibi neye karar verdi. Yeni bir ders öğrenildiğinde ilgili bölüme kısa bir madde eklenir (tarihiyle).
 Kalıcı bir kural hâline gelmesi gereken şey proje sahibine sorulup `CLAUDE.md`'ye taşınır.
+Sıradaki işler ve cevap bekleyen sorular burada değil, `docs/ACIK-KONULAR.md`'de durur. İki dosyanın da satır sınırı
+vardır (`check:docs`; avenoxbeyin'den alınan fikir, 23 Ekim 2026): sınır aşılınca eski maddeler kısaltılır.
 
 ## 1. Proje sahibiyle çalışma
 
