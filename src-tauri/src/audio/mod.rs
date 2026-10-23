@@ -81,7 +81,7 @@ pub enum AudioError {
 /// Symphonia'nın İngilizce iç mesajını kullanıcıya anlaşılır bir nedene çevirir.
 fn unsupported_reason(what: &str) -> String {
     if what.contains("codec") {
-        "bu ses kodeği (ör. Opus) henüz desteklenmiyor".to_owned()
+        "bu ses kodeği desteklenmiyor".to_owned()
     } else {
         what.to_owned()
     }
@@ -140,7 +140,7 @@ mod tests {
         ));
         assert_eq!(
             codec.to_string(),
-            "Bu dosya biçimi desteklenmiyor ya da dosya bozuk: bu ses kodeği (ör. Opus) henüz desteklenmiyor"
+            "Bu dosya biçimi desteklenmiyor ya da dosya bozuk: bu ses kodeği desteklenmiyor"
         );
         let other = AudioError::from(symphonia::core::errors::Error::Unsupported("başka neden"));
         assert!(other.to_string().ends_with("başka neden"));

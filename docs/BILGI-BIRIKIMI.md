@@ -75,6 +75,10 @@ vardır (`check:docs`; avenoxbeyin'den alınan fikir, 23 Ekim 2026): sınır aş
   derlenmiş kod yalnızca kum havuzunda (`wasmi`: yakıt + bellek sınırı).
 - **Önce ölç, sonra değiştir:** kum tepelerindeki "basamak" hatası gürültü fonksiyonunda sanıldı; ekran kartındaki
   değerler okununca sorunun ışıklandırmada olduğu görüldü. Varsayımla kod değiştirmeden önce sayıya bakılır.
+- **Opus (23 Ekim 2026):** `symphonia-adapter-libopus` Ogg'da kusursuz. Symphonia'nın Matroska/WebM okuyucusu ise
+  süreyi ve sarmayı bilmiyor, ilk paketin zamanı eksi (−ön boşluk) ve hedefsiz etiketleri albüm düzeyi sayıyor; WebM
+  başlığı (Segment Title) hiç okunmuyor. Hepsi `decode.rs`'te telafi edildi ve `tests/formats.rs` ile ölçülüyor.
+  Ders: yeni biçimde önce örnek sayısı, hiza (ilinti) ve sarma ölçülür; "açılıyor" yetmez.
 - GLSL kaynakları TypeScript şablon metni içindeyse yorumlarda ters tırnak işareti kullanılmaz; şablon metnini kapatır.
 
 ## 6. Lisans dersleri

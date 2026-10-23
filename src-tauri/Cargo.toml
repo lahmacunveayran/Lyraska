@@ -1,6 +1,6 @@
 [package]
 name = "lyraska"
-version = "0.0.64"
+version = "0.0.65"
 description = "Görselleri şarkıyı önceden bilen, çevrimdışı müzik çalar"
 authors = ["Lyraska katkıcıları"]
 license = "GPL-3.0-only"
@@ -41,6 +41,7 @@ wasmi = { version = "2.0.0", default-features = false, features = [
 # Uygulama veri klasörleri Tauri açılmadan önce bulunur (günlük ve tek örnek kilidi için); Tauri
 # de aynı crate'i aynı kuralla kullanır (yeni paket gelmez).
 dirs = "7"
+symphonia-adapter-libopus = "0.3.0"
 
 [profile.release]
 codegen-units = 1

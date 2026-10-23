@@ -6,7 +6,7 @@ burada; lisans metinlerinin tamamı sonda (aynı metni kullananlar tek kez veril
 Bu dosya scripts/third-party-notices.mjs ile üretilir ve CI'da depodakiyle karşılaştırılır.
 
 ==============================================================================
-RUST KÜTÜPHANELERİ (186; ses motoru, analiz, kütüphane)
+RUST KÜTÜPHANELERİ (188; ses motoru, analiz, kütüphane)
 ==============================================================================
 
 adler2 2.0.1
@@ -539,6 +539,12 @@ option-ext 0.2.0
   Yazarlar: Simon Ochsenreither
   LICENSE.txt → metin 86cf9656479f
 
+opusic-sys 0.7.5
+  Lisans: BSD-3-Clause
+  Kaynak: https://github.com/DoumanAsh/opusic-sys
+  Copyright 2001-2023 Xiph.Org, Skype Limited, Octasic,
+  LICENSE → metin 1cff0ac6c1aa
+
 parking_lot 0.12.5
   Lisans: MIT OR Apache-2.0
   Kaynak: https://github.com/Amanieu/parking_lot
@@ -808,6 +814,13 @@ symphonia 0.6.1
   Kaynak: https://github.com/pdeljanov/Symphonia
   Yazarlar: Philip Deljanov
   LICENSE → metin 4b89d4518bd1
+
+symphonia-adapter-libopus 0.3.0
+  Lisans: MIT OR Apache-2.0
+  Kaynak: https://github.com/aschey/symphonia-adapters
+  Copyright (c) 2025 Austin Schey
+  LICENSE-APACHE → metin 283ea6cc2997
+  LICENSE-MIT → metin eb1bcb687cd9
 
 symphonia-bundle-flac 0.6.1
   Lisans: MPL-2.0
@@ -1421,7 +1434,7 @@ wasi-libc (wasi-sdk) 30.0
   libc-top-half/musl/COPYRIGHT → metin 50a343c1ce9e
 
 ==============================================================================
-LİSANS METİNLERİ (128 farklı metin)
+LİSANS METİNLERİ (130 farklı metin)
 ==============================================================================
 
 ------------------------------------------------------------------------------
@@ -2221,6 +2234,54 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 ------------------------------------------------------------------------------
+metin 1cff0ac6c1aa — kullananlar: opusic-sys 0.7.5
+------------------------------------------------------------------------------
+Copyright 2001-2023 Xiph.Org, Skype Limited, Octasic,
+                    Jean-Marc Valin, Timothy B. Terriberry,
+                    CSIRO, Gregory Maxwell, Mark Borgerding,
+                    Erik de Castro Lopo, Mozilla, Amazon
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+- Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+
+- Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+
+- Neither the name of Internet Society, IETF or IETF Trust, nor the
+names of specific contributors, may be used to endorse or promote
+products derived from this software without specific prior written
+permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER
+OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Opus is subject to the royalty-free patent licenses which are
+specified at:
+
+Xiph.Org Foundation:
+https://datatracker.ietf.org/ipr/1524/
+
+Microsoft Corporation:
+https://datatracker.ietf.org/ipr/1914/
+
+Broadcom Corporation:
+https://datatracker.ietf.org/ipr/1526/
+
+------------------------------------------------------------------------------
 metin 1fc3bc7f4a1b — kullananlar: softbuffer 0.4.8
 ------------------------------------------------------------------------------
 Apache License
@@ -2482,7 +2543,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/wry.git
 Creator: Person: Daniel Thompson-Yvetot
 
 ------------------------------------------------------------------------------
-metin 283ea6cc2997 — kullananlar: audioadapter 5.0.0, audioadapter-buffers 5.2.0, audioadapter-sample 5.2.0, serialize-to-javascript 0.1.2, siphasher 1.0.4, utf8_iter 1.0.4
+metin 283ea6cc2997 — kullananlar: audioadapter 5.0.0, audioadapter-buffers 5.2.0, audioadapter-sample 5.2.0, serialize-to-javascript 0.1.2, siphasher 1.0.4, symphonia-adapter-libopus 0.3.0, utf8_iter 1.0.4
 ------------------------------------------------------------------------------
 Apache License
                            Version 2.0, January 2004
@@ -9929,6 +9990,31 @@ Permission is granted to anyone to use this software for any purpose, including 
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 
 3. This notice may not be removed or altered from any source distribution.
+
+------------------------------------------------------------------------------
+metin eb1bcb687cd9 — kullananlar: symphonia-adapter-libopus 0.3.0
+------------------------------------------------------------------------------
+MIT License
+
+Copyright (c) 2025 Austin Schey
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ------------------------------------------------------------------------------
 metin eb8a6c846304 — kullananlar: tauri-plugin-dialog 2.8.1, tauri-plugin-fs 2.6.0, @tauri-apps/plugin-dialog 2.8.1

@@ -4,9 +4,12 @@
 
 use std::fs::File;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
 use serde::Serialize;
-use symphonia::core::codecs::audio::{AudioDecoder, AudioDecoderOptions};
+use symphonia::core::codecs::audio::well_known::CODEC_ID_OPUS;
+use symphonia::core::codecs::audio::{AudioCodecParameters, AudioDecoder, AudioDecoderOptions};
+use symphonia::core::codecs::registry::CodecRegistry;
 use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::formats::probe::Hint;
 use symphonia::core::formats::{FormatOptions, FormatReader, SeekMode, SeekTo, TrackType};
@@ -18,14 +21,30 @@ use symphonia::core::units::{Time, TimeBase};
 use super::gapless::{self, Trim};
 use super::{AudioError, Sample};
 
+/// Matroska tabanlı uzantılar (WebM dahil). Symphonia'nın Matroska okuyucusu Opus'ta sarmayı ve süreyi
+/// bilmiyor; bunlar için yedek yol kullanılır.
+const MATROSKA_EXTENSIONS: &[&str] = &["mka", "mkv", "webm"];
+
+/// Opus'ta sarma hedefinden bu kadar önceki paketler de çözülür: çözücünün durumu oturur
+/// (RFC 7845 §4.6, en az 80 ms ön yuvarlama).
+const OPUS_PREROLL_SECS: f64 = 0.08;
+
 /// Kodlayıcı dolgusu çözücü tarafından atılmayan, MP4 tabanlı uzantılar.
 const MP4_EXTENSIONS: &[&str] = &["m4a", "m4b", "mp4"];
 
 /// "Dosya aç" penceresinde gösterilen uzantılar.
 pub const SUPPORTED_EXTENSIONS: &[&str] = &[
     "mp3", "flac", "wav", "wave", "aif", "aiff", "aifc", "ogg", "oga", "m4a", "m4b", "mp4", "aac",
-    "caf", "mka", "webm",
+    "caf", "mka", "webm", "opus",
 ];
+
+/// Programın çözebildiği kodekler: Symphonia'nın hepsi ve Opus (libopus; `.opus` ve çoğu `.webm`).
+static CODECS: LazyLock<CodecRegistry> = LazyLock::new(|| {
+    let mut registry = CodecRegistry::new();
+    symphonia::default::register_enabled_codecs(&mut registry);
+    registry.register_audio_decoder::<symphonia_adapter_libopus::OpusDecoder>();
+    registry
+});
 
 /// Kabul edilen örnekleme hızları: telefon kaydından DXD'ye (768 kHz) kadar.
 const MIN_SAMPLE_RATE: u32 = 1_000;
@@ -72,6 +91,13 @@ pub struct Decoder {
     /// Kaynağın örnek çözünürlüğü (bit): bit-perfect modda aygıt biçimi bundan dar olamaz.
     /// Kayan noktalı kaynak 32 sayılır; kodek bildirmiyorsa (MP3, Vorbis, AAC) `None`.
     source_bits: Option<u32>,
+    /// Matroska yedek yolu: sarma başarısız olursa dosya baştan açılır ve hedefe kadar ilerlenir.
+    reopen: Option<(PathBuf, AudioCodecParameters)>,
+    /// Bu saniyeden önce biten paketler çözülmeden atlanır (yedek yolla sarmada).
+    demux_until: Option<f64>,
+    /// Opus: çözücü baştaki ön boşluğu (pre-skip) kendisi atar; Matroska'da ilk paketin zamanı
+    /// eksidir (−ön boşluk). O kısmı ikinci kez atmamak için paket başı sıfırdan küçük sayılmaz.
+    opus: bool,
 }
 
 impl Decoder {
@@ -92,8 +118,7 @@ impl Decoder {
             .ok_or(AudioError::NoAudioTrack)?
             .clone();
 
-        let decoder = symphonia::default::get_codecs()
-            .make_audio_decoder(&params, &AudioDecoderOptions::default())?;
+        let decoder = CODECS.make_audio_decoder(&params, &AudioDecoderOptions::default())?;
 
         let sample_rate = params
             .sample_rate
@@ -125,18 +150,22 @@ impl Decoder {
         };
 
         // MP3 ve Vorbis'te dolguyu çözücü atar; MP4'te bilgiyi dosyadan biz okuruz.
-        let is_mp4 = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .is_some_and(|e| MP4_EXTENSIONS.iter().any(|m| e.eq_ignore_ascii_case(m)));
-        let trim = if is_mp4 {
+        let trim = if has_extension(path, MP4_EXTENSIONS) {
             gapless::mp4_trim(path, sample_rate)
         } else {
             None
         };
-        let playable_frames = trim.and_then(|t| t.frames).or(num_frames);
+        let is_matroska = has_extension(path, MATROSKA_EXTENSIONS);
+        let playable_frames = trim.and_then(|t| t.frames).or(num_frames).or_else(|| {
+            is_matroska
+                .then(|| matroska_duration(path, track_id))
+                .flatten()
+                .map(|secs| (secs * f64::from(sample_rate)).round() as u64)
+        });
+        let opus = params.codec == CODEC_ID_OPUS;
+        let reopen = is_matroska.then(|| (path.to_path_buf(), params.clone()));
 
-        let tags = read_tags(format.as_mut());
+        let tags = read_tags(format.as_mut(), is_matroska);
         let file_name = path
             .file_stem()
             .map(|s| s.to_string_lossy().into_owned())
@@ -167,6 +196,9 @@ impl Decoder {
             skip_until: None,
             trim,
             source_bits,
+            reopen,
+            demux_until: None,
+            opus,
         })
     }
 
@@ -199,16 +231,25 @@ impl Decoder {
         let stream_target = target + self.trim.map_or(0.0, |t| t.delay as f64 / rate);
         let time = Time::try_from_secs_f64(stream_target)
             .ok_or_else(|| AudioError::Seek("geçersiz konum".to_owned()))?;
-        self.format
-            .seek(
-                SeekMode::Accurate,
-                SeekTo::Time {
-                    time,
-                    track_id: Some(self.track_id),
-                },
-            )
-            .map_err(|e| AudioError::Seek(e.to_string()))?;
-        self.decoder.reset();
+        let seeked = self.format.seek(
+            SeekMode::Accurate,
+            SeekTo::Time {
+                time,
+                track_id: Some(self.track_id),
+            },
+        );
+        match (seeked, &self.reopen) {
+            (Ok(_), _) => self.decoder.reset(),
+            // Matroska okuyucusu bazı dosyalarda sarmayı beceremiyor: dosya baştan açılır,
+            // hedeften öncesi çözülmeden geçilir (yalnızca okuma; çözücü ön yuvarlamayla oturur).
+            (Err(_), Some((path, params))) => {
+                self.format = probe(path)?;
+                self.decoder =
+                    CODECS.make_audio_decoder(params, &AudioDecoderOptions::default())?;
+                self.demux_until = Some(stream_target - OPUS_PREROLL_SECS);
+            }
+            (Err(e), None) => return Err(AudioError::Seek(e.to_string())),
+        }
         self.skip_until = self.time_base.map(|_| stream_target);
         Ok((target * rate).round() as u64)
     }
@@ -239,7 +280,15 @@ impl Decoder {
             let packet_start = self
                 .time_base
                 .and_then(|tb| tb.calc_time(packet.pts.checked_add(packet.trim_start)?))
-                .map(|t| t.as_secs_f64());
+                .map(|t| t.as_secs_f64())
+                .map(|t| if self.opus { t.max(0.0) } else { t });
+            if let (Some(until), Some(start)) = (self.demux_until, packet_start) {
+                // Paket süresi Matroska'da bilinmiyor; Opus paketi en çok 120 ms'dir.
+                if start + 0.12 < until {
+                    continue;
+                }
+                self.demux_until = None;
+            }
             match self.decoder.decode(&packet) {
                 Ok(audio) => {
                     let frames = audio.frames();
@@ -307,7 +356,7 @@ struct Tags {
 /// Eski tip ID3v1 etiketi yalnızca yeni tip etiketlerde olmayan alanlar için kullanılır
 /// (30 karakterle sınırlıdır, kod sayfası belirtmez). Metni Türkçe harflerle okunur:
 /// bkz. [`id3v1_text`].
-fn read_tags(format: &mut dyn FormatReader) -> Tags {
+fn read_tags(format: &mut dyn FormatReader, matroska: bool) -> Tags {
     let mut tags = Tags::default();
     let mut metadata = format.metadata();
     // Bütün revizyonlar: dosyanın başındaki (ID3v2) ve sonundaki (ID3v1, APE) etiketler.
@@ -328,6 +377,9 @@ fn read_tags(format: &mut dyn FormatReader) -> Tags {
                 non_empty(value)
             }
         };
+        if matroska {
+            matroska_tags(&revision.media.tags, &mut tags);
+        }
         let track_tags = revision
             .per_track
             .iter()
@@ -357,6 +409,42 @@ fn read_tags(format: &mut dyn FormatReader) -> Tags {
         }
     }
     tags
+}
+
+/// Matroska/WebM etiketleri. Hedefi yazılmamış etiket kuralda albüm düzeyidir; symphonia bu yüzden
+/// `ARTIST`'i albüm sanatçısı sayar ve gerisini tanımaz. ffmpeg ve yt-dlp ise şarkının etiketlerini
+/// hedefsiz yazar: ham adlar (`ALBUM@ARTIST` gibi düzey önekiyle) doğrudan eşlenir.
+fn matroska_tags(raw: &[symphonia::core::meta::Tag], tags: &mut Tags) {
+    let number = |v: &str| {
+        v.split('/')
+            .next()
+            .and_then(|n| n.trim().parse::<u32>().ok())
+            .filter(|&n| n > 0)
+    };
+    for tag in raw {
+        let symphonia::core::meta::RawValue::String(value) = &tag.raw.value else {
+            continue;
+        };
+        let key = tag.raw.key.rsplit('@').next().unwrap_or_default();
+        let slot = match key.to_ascii_uppercase().as_str() {
+            "TITLE" => &mut tags.title,
+            "ARTIST" => &mut tags.artist,
+            "ALBUM" => &mut tags.album,
+            "ALBUM_ARTIST" | "ALBUMARTIST" => &mut tags.album_artist,
+            "PART_NUMBER" | "TRACK" | "TRACKNUMBER" => {
+                tags.track_number = tags.track_number.or_else(|| number(value));
+                continue;
+            }
+            "DISC" | "DISCNUMBER" => {
+                tags.disc_number = tags.disc_number.or_else(|| number(value));
+                continue;
+            }
+            _ => continue,
+        };
+        if slot.is_none() {
+            *slot = non_empty(value);
+        }
+    }
 }
 
 /// ID3v1 metni. Etiket kod sayfası belirtmez; symphonia baytları ISO-8859-1 sayar (her
@@ -396,6 +484,32 @@ pub(crate) fn windows_1254(byte: u8) -> char {
         0xFE => 'ş',
         _ => char::from(byte),
     }
+}
+
+/// Uzantı listede mi? (Büyük/küçük harf fark etmez.)
+fn has_extension(path: &Path, list: &[&str]) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| list.iter().any(|m| e.eq_ignore_ascii_case(m)))
+}
+
+/// Matroska dosyasının süresi (saniye): okuyucu bildirmediği için paketler çözülmeden baştan
+/// sona okunur ve son paketin başına bir Opus çerçevesi (20 ms) eklenir. Okunamazsa `None`.
+fn matroska_duration(path: &Path, track_id: u32) -> Option<f64> {
+    let mut format = probe(path).ok()?;
+    let time_base = format
+        .tracks()
+        .iter()
+        .find(|t| t.id == track_id)?
+        .time_base?;
+    let mut last = None;
+    while let Ok(Some(packet)) = format.next_packet() {
+        if packet.track_id == track_id {
+            last = Some(packet.pts);
+        }
+    }
+    let end = time_base.calc_time(last?)?.as_secs_f64() + 0.02;
+    (end > 0.0).then_some(end)
 }
 
 /// Dosyayı açar ve biçimini tanır (ses çözülmez).
