@@ -1,0 +1,86 @@
+{
+  "version": 2,
+  "baseVals": {
+    "additivewave": 1.0,
+    "decay": 0.95,
+    "gammaadj": 1.0,
+    "ob_size": 0.0,
+    "rating": 3.0,
+    "rot": 0.0,
+    "wave_a": 1.0,
+    "wave_b": 0.3,
+    "wave_g": 0.7,
+    "wave_mode": 0.0,
+    "wave_r": 1.0,
+    "wave_scale": 1.5,
+    "zoom": 1.01
+  },
+  "shapes": [
+    {
+      "baseVals": {
+        "a": 0.8,
+        "b": 1.0,
+        "enabled": 1.0,
+        "g": 0.5,
+        "r": 0.9,
+        "rad": 0.15,
+        "sides": 6.0
+      },
+      "init_eqs_eel": "",
+      "frame_eqs_eel": "x = 0.5 + 0.3*sin(time*0.8);\ny = 0.5 + 0.2*cos(time*1.1);"
+    },
+    {
+      "baseVals": {},
+      "init_eqs_eel": "",
+      "frame_eqs_eel": ""
+    },
+    {
+      "baseVals": {},
+      "init_eqs_eel": "",
+      "frame_eqs_eel": ""
+    },
+    {
+      "baseVals": {},
+      "init_eqs_eel": "",
+      "frame_eqs_eel": ""
+    }
+  ],
+  "waves": [
+    {
+      "baseVals": {
+        "b": 1.0,
+        "enabled": 1.0,
+        "g": 0.9,
+        "r": 0.4,
+        "samples": 256.0,
+        "thick": 1.0
+      },
+      "init_eqs_eel": "",
+      "frame_eqs_eel": "",
+      "point_eqs_eel": "x = sample;\ny = 0.5 + 0.25*value1 + 0.12*sin(sample*10 + time*2);"
+    },
+    {
+      "baseVals": {},
+      "init_eqs_eel": "",
+      "frame_eqs_eel": "",
+      "point_eqs_eel": ""
+    },
+    {
+      "baseVals": {},
+      "init_eqs_eel": "",
+      "frame_eqs_eel": "",
+      "point_eqs_eel": ""
+    },
+    {
+      "baseVals": {},
+      "init_eqs_eel": "",
+      "frame_eqs_eel": "",
+      "point_eqs_eel": ""
+    }
+  ],
+  "init_eqs_eel": "q1 = 0;",
+  "frame_eqs_eel": "// Lyraska'nın gölgelendirici denemesi (yalnızca test): birleştirme saniyede dört kez parlar.\nq1 = 0.5 + 0.5*sin(time*0.7);",
+  "pixel_eqs_eel": "",
+  "warp": "float rad;\nfloat ang;\nfloat progress = 0.0;\nvec3 hue_shader = vec3(1.0);\n#undef q1\nfloat q1;\n#undef q2\nfloat q2;\n#undef q3\nfloat q3;\n#undef q4\nfloat q4;\n#undef q5\nfloat q5;\n#undef q6\nfloat q6;\n#undef q7\nfloat q7;\n#undef q8\nfloat q8;\n#undef q9\nfloat q9;\n#undef q10\nfloat q10;\n#undef q11\nfloat q11;\n#undef q12\nfloat q12;\n#undef q13\nfloat q13;\n#undef q14\nfloat q14;\n#undef q15\nfloat q15;\n#undef q16\nfloat q16;\n#undef q17\nfloat q17;\n#undef q18\nfloat q18;\n#undef q19\nfloat q19;\n#undef q20\nfloat q20;\n#undef q21\nfloat q21;\n#undef q22\nfloat q22;\n#undef q23\nfloat q23;\n#undef q24\nfloat q24;\n#undef q25\nfloat q25;\n#undef q26\nfloat q26;\n#undef q27\nfloat q27;\n#undef q28\nfloat q28;\n#undef q29\nfloat q29;\n#undef q30\nfloat q30;\n#undef q31\nfloat q31;\n#undef q32\nfloat q32;\nvec2 matrix_row0(mat2 m, int i) { return vec2( m[0][i], m[1][i] ); }\nvec2 matrix_row0(mat2 m, float i_float) { int i=int(i_float); return vec2( m[0][i], m[1][i] ); }\nvec2 matrix_row0(mat2x3 m, int i) { return vec2( m[0][i], m[1][i]); }\nvec2 matrix_row0(mat2x3 m, float i_float) { int i=int(i_float); return vec2( m[0][i], m[1][i]); }\nvec2 matrix_row0(mat2x4 m, int i) { return vec2( m[0][i], m[1][i]); }\nvec2 matrix_row0(mat2x4 m, float i_float) { int i=int(i_float); return vec2( m[0][i], m[1][i]); }\nvec3 matrix_row0(mat3 m, int i) { return vec3( m[0][i], m[1][i], m[2][i] ); }\nvec3 matrix_row0(mat3 m, float i_float) { int i=int(i_float); return vec3( m[0][i], m[1][i], m[2][i] ); }\nvec3 matrix_row0(mat3x2 m, int i) { return vec3( m[0][i], m[1][i], m[2][i] ); }\nvec3 matrix_row0(mat3x2 m, float i_float) { int i=int(i_float); return vec3( m[0][i], m[1][i], m[2][i] ); }\nvec3 matrix_row0(mat3x4 m, int i) { return vec3( m[0][i], m[1][i], m[2][i] ); }\nvec3 matrix_row0(mat3x4 m, float i_float) { int i=int(i_float); return vec3( m[0][i], m[1][i], m[2][i] ); }\nvec4 matrix_row0(mat4 m, int i) { return vec4( m[0][i], m[1][i], m[2][i], m[3][i] ); }\nvec4 matrix_row0(mat4 m, float i_float) { int i=int(i_float); return vec4( m[0][i], m[1][i], m[2][i], m[3][i] ); }\nvec4 matrix_row0(mat4x3 m, int i) { return vec4( m[0][i], m[1][i], m[2][i], m[3][i] ); }\nvec4 matrix_row0(mat4x3 m, float i_float) { int i=int(i_float); return vec4( m[0][i], m[1][i], m[2][i], m[3][i] ); }\nvec4 matrix_row0(mat4x2 m, int i) { return vec4( m[0][i], m[1][i], m[2][i], m[3][i] ); }\nvec4 matrix_row0(mat4x2 m, float i_float) { int i=int(i_float); return vec4( m[0][i], m[1][i], m[2][i], m[3][i] ); }\nfloat mult0(int i_x, int i_y) { float x=float(i_x); float y=float(i_y); if (x == 0.0 || y == 0.0) { return 0.0; } else { return (x * y); } }\nfloat mult0(int i_x, float y) { float x=float(i_x); if (x == 0.0 || y == 0.0) { return 0.0; } else { return (x * y); } }\nfloat mult0(float x, int i_y) { float y=float(i_y); if (x == 0.0 || y == 0.0) { return 0.0; } else { return (x * y); } }\nfloat mult0(float x, float y) { if (x == 0.0 || y == 0.0) { return 0.0; } else { return (x * y); } }\nvec2 mult0(vec2 x, vec2 y) { return vec2(mult0(x.x, y.x), mult0(x.y, y.y)); }\nvec3 mult0(vec3 x, vec3 y) { return vec3(mult0(x.x, y.x), mult0(x.y, y.y), mult0(x.z, y.z)); }\nvec4 mult0(vec4 x, vec4 y) { return vec4(mult0(x.x, y.x), mult0(x.y, y.y), mult0(x.z, y.z), mult0(x.w, y.w)); }\nmat2 mult0(mat2 x, mat2 y) { return x * y; }\nmat3 mult0(mat3 x, mat3 y) { return x * y; }\nmat4 mult0(mat4 x, mat4 y) { return x * y; }\nvec2  m_scalar_swizzle20(float x) { return  vec2(x, x); }\nivec2 m_scalar_swizzle20(int   x) { return ivec2(x, x); }\nvec3  m_scalar_swizzle30(float x) { return  vec3(x, x, x); }\nivec3 m_scalar_swizzle30(int   x) { return ivec3(x, x, x); }\nvec4  m_scalar_swizzle40(float x) { return  vec4(x, x, x, x); }\nivec4 m_scalar_swizzle40(int   x) { return ivec4(x, x, x, x); }\nuvec2 m_scalar_swizzle20(uint  x) { return uvec2(x, x); }\nuvec3 m_scalar_swizzle30(uint  x) { return uvec3(x, x, x); }\nuvec4 m_scalar_swizzle40(uint  x) { return uvec4(x, x, x, x); }\nvec2 bvecTernary0(bvec2 cond, vec2 trueExpr, vec2 falseExpr) { vec2 ret; ret.x = cond.x ? trueExpr.x : falseExpr.x; ret.y = cond.y ? trueExpr.y : falseExpr.y; return ret; }\nvec3 bvecTernary0(bvec3 cond, vec3 trueExpr, vec3 falseExpr) { vec3 ret; ret.x = cond.x ? trueExpr.x : falseExpr.x; ret.y = cond.y ? trueExpr.y : falseExpr.y; ret.z = cond.z ? trueExpr.z : falseExpr.z; return ret; }\nvec4 bvecTernary0(bvec4 cond, vec4 trueExpr, vec4 falseExpr) { vec4 ret; ret.x = cond.x ? trueExpr.x : falseExpr.x; ret.y = cond.y ? trueExpr.y : falseExpr.y; ret.z = cond.z ? trueExpr.z : falseExpr.z; ret.w = cond.w ? trueExpr.w : falseExpr.w; return ret; }\nvec2 swirl(vec2 p, float t) {\n    return vec2(sin((mult0(t,float(1.7)) + mult0((p).y,float (9)))), cos((mult0(t,float(1.3)) + mult0((p).x,float (9)))));\n}\nvec4 lyraska_main(vec2 uv) {\n    vec3 ret = vec3( 0 );\n    vec2 d = vec2( (uv - vec2 (float(0.5))) );\n    vec2 w = vec2( ((uv + mult0(mult0(vec2 (float(0.003)),swirl(d, time)),vec2 ((float (1) + q1)))) - mult0(vec2 (float(0.004)),d)) );\n    (ret = (mult0((texture(sampler_main, w)).xyz,vec3 (float(0.95))) + mult0(vec3 (float(0.03)),(mult0((texture(sampler_blur1, uv)).xyz,vec3 (scale1)) + vec3 (bias1)))));\n    (ret += mult0(((texture(sampler_noise_lq, mult0(mult0(uv,(texsize).xy),(texsize_noise_lq).zw))).xyz - vec3 (float(0.5))),vec3 (float(0.01))));\n    (ret *= vec3 ((float (1) - mult0(float(0.05),rad))));\n    return vec4(ret, float(1));\n}\nvoid lyraska_inputs(float r, float a) {\n    rad = r; ang = a;\n    q1 = _qa.x;\n    q2 = _qa.y;\n    q3 = _qa.z;\n    q4 = _qa.w;\n    q5 = _qb.x;\n    q6 = _qb.y;\n    q7 = _qb.z;\n    q8 = _qb.w;\n    q9 = _qc.x;\n    q10 = _qc.y;\n    q11 = _qc.z;\n    q12 = _qc.w;\n    q13 = _qd.x;\n    q14 = _qd.y;\n    q15 = _qd.z;\n    q16 = _qd.w;\n    q17 = _qe.x;\n    q18 = _qe.y;\n    q19 = _qe.z;\n    q20 = _qe.w;\n    q21 = _qf.x;\n    q22 = _qf.y;\n    q23 = _qf.z;\n    q24 = _qf.w;\n    q25 = _qg.x;\n    q26 = _qg.y;\n    q27 = _qg.z;\n    q28 = _qg.w;\n    q29 = _qh.x;\n    q30 = _qh.y;\n    q31 = _qh.z;\n    q32 = _qh.w;\n}\nshader_body {\nlyraska_inputs(rad, ang);\nret = lyraska_main(uv).rgb;\n}\n",
+  "comp": "float rad;\nfloat ang;\nfloat progress = 0.0;\nvec2 uv_orig;\nvec3 hue_shader;\nfloat decay = 0.98;\n#undef q1\nfloat q1;\n#undef q2\nfloat q2;\n#undef q3\nfloat q3;\n#undef q4\nfloat q4;\n#undef q5\nfloat q5;\n#undef q6\nfloat q6;\n#undef q7\nfloat q7;\n#undef q8\nfloat q8;\n#undef q9\nfloat q9;\n#undef q10\nfloat q10;\n#undef q11\nfloat q11;\n#undef q12\nfloat q12;\n#undef q13\nfloat q13;\n#undef q14\nfloat q14;\n#undef q15\nfloat q15;\n#undef q16\nfloat q16;\n#undef q17\nfloat q17;\n#undef q18\nfloat q18;\n#undef q19\nfloat q19;\n#undef q20\nfloat q20;\n#undef q21\nfloat q21;\n#undef q22\nfloat q22;\n#undef q23\nfloat q23;\n#undef q24\nfloat q24;\n#undef q25\nfloat q25;\n#undef q26\nfloat q26;\n#undef q27\nfloat q27;\n#undef q28\nfloat q28;\n#undef q29\nfloat q29;\n#undef q30\nfloat q30;\n#undef q31\nfloat q31;\n#undef q32\nfloat q32;\nvec2 matrix_row0(mat2 m, int i) { return vec2( m[0][i], m[1][i] ); }\nvec2 matrix_row0(mat2 m, float i_float) { int i=int(i_float); return vec2( m[0][i], m[1][i] ); }\nvec2 matrix_row0(mat2x3 m, int i) { return vec2( m[0][i], m[1][i]); }\nvec2 matrix_row0(mat2x3 m, float i_float) { int i=int(i_float); return vec2( m[0][i], m[1][i]); }\nvec2 matrix_row0(mat2x4 m, int i) { return vec2( m[0][i], m[1][i]); }\nvec2 matrix_row0(mat2x4 m, float i_float) { int i=int(i_float); return vec2( m[0][i], m[1][i]); }\nvec3 matrix_row0(mat3 m, int i) { return vec3( m[0][i], m[1][i], m[2][i] ); }\nvec3 matrix_row0(mat3 m, float i_float) { int i=int(i_float); return vec3( m[0][i], m[1][i], m[2][i] ); }\nvec3 matrix_row0(mat3x2 m, int i) { return vec3( m[0][i], m[1][i], m[2][i] ); }\nvec3 matrix_row0(mat3x2 m, float i_float) { int i=int(i_float); return vec3( m[0][i], m[1][i], m[2][i] ); }\nvec3 matrix_row0(mat3x4 m, int i) { return vec3( m[0][i], m[1][i], m[2][i] ); }\nvec3 matrix_row0(mat3x4 m, float i_float) { int i=int(i_float); return vec3( m[0][i], m[1][i], m[2][i] ); }\nvec4 matrix_row0(mat4 m, int i) { return vec4( m[0][i], m[1][i], m[2][i], m[3][i] ); }\nvec4 matrix_row0(mat4 m, float i_float) { int i=int(i_float); return vec4( m[0][i], m[1][i], m[2][i], m[3][i] ); }\nvec4 matrix_row0(mat4x3 m, int i) { return vec4( m[0][i], m[1][i], m[2][i], m[3][i] ); }\nvec4 matrix_row0(mat4x3 m, float i_float) { int i=int(i_float); return vec4( m[0][i], m[1][i], m[2][i], m[3][i] ); }\nvec4 matrix_row0(mat4x2 m, int i) { return vec4( m[0][i], m[1][i], m[2][i], m[3][i] ); }\nvec4 matrix_row0(mat4x2 m, float i_float) { int i=int(i_float); return vec4( m[0][i], m[1][i], m[2][i], m[3][i] ); }\nfloat mult0(int i_x, int i_y) { float x=float(i_x); float y=float(i_y); if (x == 0.0 || y == 0.0) { return 0.0; } else { return (x * y); } }\nfloat mult0(int i_x, float y) { float x=float(i_x); if (x == 0.0 || y == 0.0) { return 0.0; } else { return (x * y); } }\nfloat mult0(float x, int i_y) { float y=float(i_y); if (x == 0.0 || y == 0.0) { return 0.0; } else { return (x * y); } }\nfloat mult0(float x, float y) { if (x == 0.0 || y == 0.0) { return 0.0; } else { return (x * y); } }\nvec2 mult0(vec2 x, vec2 y) { return vec2(mult0(x.x, y.x), mult0(x.y, y.y)); }\nvec3 mult0(vec3 x, vec3 y) { return vec3(mult0(x.x, y.x), mult0(x.y, y.y), mult0(x.z, y.z)); }\nvec4 mult0(vec4 x, vec4 y) { return vec4(mult0(x.x, y.x), mult0(x.y, y.y), mult0(x.z, y.z), mult0(x.w, y.w)); }\nmat2 mult0(mat2 x, mat2 y) { return x * y; }\nmat3 mult0(mat3 x, mat3 y) { return x * y; }\nmat4 mult0(mat4 x, mat4 y) { return x * y; }\nvec2  m_scalar_swizzle20(float x) { return  vec2(x, x); }\nivec2 m_scalar_swizzle20(int   x) { return ivec2(x, x); }\nvec3  m_scalar_swizzle30(float x) { return  vec3(x, x, x); }\nivec3 m_scalar_swizzle30(int   x) { return ivec3(x, x, x); }\nvec4  m_scalar_swizzle40(float x) { return  vec4(x, x, x, x); }\nivec4 m_scalar_swizzle40(int   x) { return ivec4(x, x, x, x); }\nuvec2 m_scalar_swizzle20(uint  x) { return uvec2(x, x); }\nuvec3 m_scalar_swizzle30(uint  x) { return uvec3(x, x, x); }\nuvec4 m_scalar_swizzle40(uint  x) { return uvec4(x, x, x, x); }\nvec2 bvecTernary0(bvec2 cond, vec2 trueExpr, vec2 falseExpr) { vec2 ret; ret.x = cond.x ? trueExpr.x : falseExpr.x; ret.y = cond.y ? trueExpr.y : falseExpr.y; return ret; }\nvec3 bvecTernary0(bvec3 cond, vec3 trueExpr, vec3 falseExpr) { vec3 ret; ret.x = cond.x ? trueExpr.x : falseExpr.x; ret.y = cond.y ? trueExpr.y : falseExpr.y; ret.z = cond.z ? trueExpr.z : falseExpr.z; return ret; }\nvec4 bvecTernary0(bvec4 cond, vec4 trueExpr, vec4 falseExpr) { vec4 ret; ret.x = cond.x ? trueExpr.x : falseExpr.x; ret.y = cond.y ? trueExpr.y : falseExpr.y; ret.z = cond.z ? trueExpr.z : falseExpr.z; ret.w = cond.w ? trueExpr.w : falseExpr.w; return ret; }\nvec4 lyraska_main(vec2 uv) {\n    vec3 ret = vec3( 0 );\n    vec3 base = vec3( ((texture(sampler_main, uv)).xyz + mult0(vec3 (float(0.3)),(mult0((texture(sampler_blur1, uv)).xyz,vec3 (scale1)) + vec3 (bias1)))) );\n    float strobe = float( step(float(0.5), fract(mult0(time,float(4)))) );\n    (ret = mix(mult0(base,vec3 (float(0.2))), vec3(1, 1, 1), vec3 (strobe)));\n    (ret *= vec3 (((float(0.9) + mult0(float(0.1),dot(hue_shader, vec3(float(0.32), float(0.49), float(0.29))))) + mult0(float(0),(rand_frame).x))));\n    return vec4(ret, float(1));\n}\nvoid lyraska_inputs(float r, float a, vec2 o, vec3 h) {\n    rad = r; ang = a; uv_orig = o; hue_shader = h;\n    q1 = _qa.x;\n    q2 = _qa.y;\n    q3 = _qa.z;\n    q4 = _qa.w;\n    q5 = _qb.x;\n    q6 = _qb.y;\n    q7 = _qb.z;\n    q8 = _qb.w;\n    q9 = _qc.x;\n    q10 = _qc.y;\n    q11 = _qc.z;\n    q12 = _qc.w;\n    q13 = _qd.x;\n    q14 = _qd.y;\n    q15 = _qd.z;\n    q16 = _qd.w;\n    q17 = _qe.x;\n    q18 = _qe.y;\n    q19 = _qe.z;\n    q20 = _qe.w;\n    q21 = _qf.x;\n    q22 = _qf.y;\n    q23 = _qf.z;\n    q24 = _qf.w;\n    q25 = _qg.x;\n    q26 = _qg.y;\n    q27 = _qg.z;\n    q28 = _qg.w;\n    q29 = _qh.x;\n    q30 = _qh.y;\n    q31 = _qh.z;\n    q32 = _qh.w;\n}\nshader_body {\nlyraska_inputs(rad, ang, uv_orig, hue_shader);\nret = lyraska_main(uv).rgb;\n}\n"
+}

@@ -12,12 +12,13 @@
 //! | `wave_K_init N`, `wave_K_per_frame N`, `wave_K_per_point N` | `waves[K]` denklemleri     |
 //! | `shapecode_K_ad=…`                             | `shapes[K].baseVals`                    |
 //! | `shape_K_init N`, `shape_K_per_frame N`        | `shapes[K]` denklemleri                 |
-//! | `warp_N=…`, `comp_N=…` (HLSL gölgelendirici)    | **atılır** (`simplified`)               |
+//! | `warp_N=…`, `comp_N=…` (HLSL gölgelendirici)    | `warp`, `comp` (GLSL ES 3.00, `shader.rs`) |
 //!
 //! Denklemler (EEL) **olduğu gibi** metin olarak geçer; arayüzde Butterchurn onları
 //! WebAssembly'ye derler (`onlyUseWASM`): hiçbir yerde JavaScript olarak çalıştırılmaz.
-//! MilkDrop 2 gölgelendiricilerinin (HLSL) GLSL'e çevrilmesi henüz yok: varsa atılır, Butterchurn
-//! varsayılan gölgelendiricileriyle çizer ve görsel "sade hâliyle" çalar.
+//! MilkDrop 2 gölgelendiricileri (HLSL) kum havuzundaki çeviriciyle GLSL'e çevrilir (`shader.rs`).
+//! Çevrilemeyen gölgelendirici atılır: Butterchurn onun yerine varsayılanıyla çizer, görsel
+//! "sade hâliyle" çalar (`simplified`) ve nedeni `shader_error`'da bildirilir.
 //!
 //! Anahtar eşlemesi ve varsayılanlar Jordan Berg'in `milkdrop-preset-utils` (0.2.1, MIT) paketinden
 //! uyarlanmıştır (`docs/LISANSLAR.md`). Farklar: satırlar konumlarına göre değil anahtarlarına göre
@@ -33,6 +34,7 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 
 use super::eel::{self, LoopError, LoopPolicy};
+use super::shader::{self, ShaderKind};
 
 /// Okunan dosyanın en büyük boyutu (bayt). Gerçek presetler çoğunlukla 30 KB'ın altındadır.
 pub const MAX_FILE_BYTES: u64 = 512 * 1024;
@@ -66,7 +68,8 @@ pub struct ButterchurnPreset {
     pub init_eqs_eel: String,
     pub frame_eqs_eel: String,
     pub pixel_eqs_eel: String,
-    /// Bükme ve birleştirme gölgelendiricileri: her zaman boş (Butterchurn varsayılanları).
+    /// Bükme ve birleştirme gölgelendiricileri: Butterchurn'ün GLSL biçiminde (`shader.rs`);
+    /// yoksa ya da çevrilemediyse boş (Butterchurn varsayılanı).
     pub warp: String,
     pub comp: String,
 }
@@ -96,8 +99,10 @@ pub struct ButterchurnWave {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Parsed {
     pub preset: ButterchurnPreset,
-    /// Dosyada gölgelendirici (HLSL) vardı ve atıldı: görsel sade hâliyle çalar.
+    /// Dosyada gölgelendirici (HLSL) vardı ama çevrilemedi ve atıldı: görsel sade hâliyle çalar.
     pub simplified: bool,
+    /// Çevrilemeyen gölgelendiricinin nedeni (ör. "bükme gölgelendiricisi çevrilemedi: …").
+    pub shader_error: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -142,7 +147,7 @@ enum ShapeCode {
 enum Key<'a> {
     Base(&'a str),
     Main(MainCode, u32),
-    Shader,
+    Shader(ShaderKind, u32),
     WaveValue(usize, &'a str),
     Wave(usize, WaveCode, u32),
     ShapeValue(usize, &'a str),
@@ -208,7 +213,8 @@ pub fn parse(text: &str) -> Result<Parsed, ParseError> {
     let mut wave_code: [[CodeLines; 3]; WAVES] = Default::default();
     let mut shape_values: [Values; SHAPES] = Default::default();
     let mut shape_code: [[CodeLines; 2]; SHAPES] = Default::default();
-    let mut simplified = false;
+    let mut warp = CodeLines::default();
+    let mut comp = CodeLines::default();
     let mut recognized = false;
 
     for (order, line) in body.iter().enumerate() {
@@ -226,10 +232,13 @@ pub fn parse(text: &str) -> Result<Parsed, ParseError> {
                 main[kind as usize].push(number, order, value);
                 recognized = true;
             }
-            Key::Shader => {
-                // `warp_1=`\`shader_body` gibi; ters tırnaklar ve boşluklar dışında bir şey varsa
-                // gölgelendirici vardır.
-                simplified |= value.chars().any(|c| c != '`' && !c.is_whitespace());
+            Key::Shader(kind, number) => {
+                // `warp_1=`\`shader_body`: her satır bir ters tırnakla başlar.
+                let lines = match kind {
+                    ShaderKind::Warp => &mut warp,
+                    ShaderKind::Comp => &mut comp,
+                };
+                lines.push(number, order, value.trim_start_matches('`'));
                 recognized = true;
             }
             Key::WaveValue(k, name) => {
@@ -288,18 +297,49 @@ pub fn parse(text: &str) -> Result<Parsed, ParseError> {
             frame_eqs_eel: guarded(frame, LoopPolicy::Forbidden)?,
         });
     }
+    let init_eqs_eel = guarded(init, LoopPolicy::Capped)?;
+    let frame_eqs_eel = guarded(frame, LoopPolicy::Capped)?;
+    let pixel_eqs_eel = guarded(pixel, LoopPolicy::Forbidden)?;
+
+    // Gölgelendiriciler denklemler denetlendikten sonra çevrilir (reddedilecek görsel için boşuna
+    // çeviri yapılmaz). Biri çevrilemezse yalnızca o atılır; öteki kalır.
+    let mut errors = Vec::new();
+    let mut shader = |lines: CodeLines, kind: ShaderKind| -> String {
+        let source = lines.join();
+        if source.trim().is_empty() {
+            return String::new();
+        }
+        match shader::convert(&source, kind) {
+            Ok(glsl) => glsl,
+            Err(error) => {
+                let name = match kind {
+                    ShaderKind::Warp => "bükme",
+                    ShaderKind::Comp => "birleştirme",
+                };
+                errors.push(format!("{name}: {error}"));
+                String::new()
+            }
+        }
+    };
+    let warp = shader(warp, ShaderKind::Warp);
+    let comp = shader(comp, ShaderKind::Comp);
     let preset = ButterchurnPreset {
         version,
         base_vals: base.0,
         shapes,
         waves,
-        init_eqs_eel: guarded(init, LoopPolicy::Capped)?,
-        frame_eqs_eel: guarded(frame, LoopPolicy::Capped)?,
-        pixel_eqs_eel: guarded(pixel, LoopPolicy::Forbidden)?,
-        warp: String::new(),
-        comp: String::new(),
+        init_eqs_eel,
+        frame_eqs_eel,
+        pixel_eqs_eel,
+        warp,
+        comp,
     };
-    Ok(Parsed { preset, simplified })
+    let shader_error = (!errors.is_empty()).then(|| errors.join("; "));
+    Ok(Parsed {
+        preset,
+        simplified: shader_error.is_some(),
+        shader_error,
+    })
 }
 
 /// `MILKDROP_PRESET_VERSION=201` (MilkDrop 2: 200 ve üstü) → 2; yoksa MilkDrop 1.
@@ -348,8 +388,11 @@ fn classify(key: &str) -> Key<'_> {
     if let Some(n) = numbered(key, "per_pixel_") {
         return Key::Main(MainCode::Pixel, n);
     }
-    if numbered(key, "warp_").is_some() || numbered(key, "comp_").is_some() {
-        return Key::Shader;
+    if let Some(n) = numbered(key, "warp_") {
+        return Key::Shader(ShaderKind::Warp, n);
+    }
+    if let Some(n) = numbered(key, "comp_") {
+        return Key::Shader(ShaderKind::Comp, n);
     }
     if let Some(rest) = key.strip_prefix("wavecode_") {
         return match indexed(rest, WAVES) {
@@ -565,8 +608,8 @@ mod tests {
         assert_eq!(classify("per_frame_init_3"), Key::Main(MainCode::Init, 3));
         assert_eq!(classify("per_frame_12"), Key::Main(MainCode::Frame, 12));
         assert_eq!(classify("per_pixel_1"), Key::Main(MainCode::Pixel, 1));
-        assert_eq!(classify("warp_1"), Key::Shader);
-        assert_eq!(classify("comp_20"), Key::Shader);
+        assert_eq!(classify("warp_1"), Key::Shader(ShaderKind::Warp, 1));
+        assert_eq!(classify("comp_20"), Key::Shader(ShaderKind::Comp, 20));
         assert_eq!(classify("warp"), Key::Base("warp"), "bükme miktarı ayardır");
         assert_eq!(
             classify("wavecode_2_bspectrum"),
@@ -645,11 +688,20 @@ comp_1=`shader_body { ret = 1; }\r\n";
 
     #[test]
     fn her_bolum_turu_dogru_yere_gider() {
-        let Parsed { preset, simplified } = parse_ok(FULL);
+        let Parsed {
+            preset,
+            simplified,
+            shader_error,
+        } = parse_ok(FULL);
         assert_eq!(preset.version, 2);
-        assert!(simplified, "gölgelendirici atıldı");
-        assert_eq!(preset.warp, "");
-        assert_eq!(preset.comp, "");
+        assert!(!simplified, "gölgelendiriciler çevrildi: {shader_error:?}");
+        assert!(
+            preset.warp.contains("texture(sampler_main, uv)"),
+            "{}",
+            preset.warp
+        );
+        assert!(preset.warp.ends_with("ret = lyraska_main(uv).rgb;\n}\n"));
+        assert!(preset.comp.contains("shader_body {"), "{}", preset.comp);
         assert_eq!(preset.base_vals.get("rating"), Some(&3.0));
         assert_eq!(
             preset.base_vals.get("decay"),
@@ -747,7 +799,9 @@ fZoomExponent=1.2\n\
 fShader=0.0\n\
 nMotionVectorsY=8\n\
 per_frame_1=wave_r = 0.5 + 0.5*sin(time);\n";
-        let Parsed { preset, simplified } = parse_ok(text);
+        let Parsed {
+            preset, simplified, ..
+        } = parse_ok(text);
         assert_eq!(preset.version, 1);
         assert!(!simplified);
         let expect = [
@@ -897,6 +951,40 @@ per_frame_1=wave_r = 0.5 + 0.5*sin(time);\n";
         // Yorumdaki ya da başka addaki döngü sayılmaz.
         let fine = parse_ok("per_pixel_1=myloop(1, 2); // loop(1e9, a)\n").preset;
         assert_eq!(fine.pixel_eqs_eel, "myloop(1, 2); // loop(1e9, a)");
+    }
+
+    #[test]
+    fn cevrilemeyen_golgelendirici_atilir_otekisi_kalir() {
+        let text = "[preset00]\nzoom=1\n\
+                    warp_1=`shader_body { ret = tanimsiz_islev(uv); }\n\
+                    comp_1=`shader_body\ncomp_2=`{ ret = GetPixel(uv); }\n";
+        let Parsed {
+            preset,
+            simplified,
+            shader_error,
+        } = parse_ok(text);
+        assert!(simplified);
+        assert_eq!(preset.warp, "", "çevrilemeyen bükme atıldı");
+        assert!(
+            preset.comp.contains("texture(sampler_main"),
+            "{}",
+            preset.comp
+        );
+        let error = shader_error.unwrap();
+        assert!(
+            error.starts_with("bükme: gölgelendirici çevrilemedi"),
+            "{error}"
+        );
+        assert!(error.contains("tanimsiz_islev"), "{error}");
+
+        // shader_body olmayan metin çeviriciye gitmez; boş satırlar gölgelendirici sayılmaz.
+        let parsed = parse_ok("[preset00]\nzoom=1\nwarp_1=`ret = 1;\ncomp_1=`\ncomp_2=` \n");
+        assert!(parsed.simplified);
+        assert_eq!(parsed.preset.comp, "");
+        assert_eq!(
+            parsed.shader_error.as_deref(),
+            Some("bükme: gölgelendiricide shader_body bloğu yok")
+        );
     }
 
     #[test]

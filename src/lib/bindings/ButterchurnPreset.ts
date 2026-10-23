@@ -21,6 +21,7 @@ shapes: Array<ButterchurnShape>,
  */
 waves: Array<ButterchurnWave>, init_eqs_eel: string, frame_eqs_eel: string, pixel_eqs_eel: string, 
 /**
- * Bükme ve birleştirme gölgelendiricileri: her zaman boş (Butterchurn varsayılanları).
+ * Bükme ve birleştirme gölgelendiricileri: Butterchurn'ün GLSL biçiminde (`shader.rs`);
+ * yoksa ya da çevrilemediyse boş (Butterchurn varsayılanı).
  */
 warp: string, comp: string, };

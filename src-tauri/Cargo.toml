@@ -1,6 +1,6 @@
 [package]
 name = "lyraska"
-version = "0.0.62"
+version = "0.0.63"
 description = "Görselleri şarkıyı önceden bilen, çevrimdışı müzik çalar"
 authors = ["Lyraska katkıcıları"]
 license = "GPL-3.0-only"
@@ -29,6 +29,15 @@ walkdir = "2"
 serde_json = { version = "1", features = ["float_roundtrip"] }
 rubato = "5"
 miniz_oxide = "0.8"
+# MilkDrop gölgelendirici çevirici (projectM hlslparser → WebAssembly) kum havuzunda: saf Rust
+# yorumlayıcı, yakıt ve bellek sınırıyla (milkdrop/shader.rs).
+# "portable-dispatch": komutlar döngüyle işlenir (kararlı Rust'ta kuyruk çağrısı yok; öteki yol
+# derin WebAssembly çağrılarında programın kendi yığınını taşırır).
+wasmi = { version = "2.0.0", default-features = false, features = [
+  "std",
+  "validate",
+  "portable-dispatch",
+] }
 # Uygulama veri klasörleri Tauri açılmadan önce bulunur (günlük ve tek örnek kilidi için); Tauri
 # de aynı crate'i aynı kuralla kullanır (yeni paket gelmez).
 dirs = "7"

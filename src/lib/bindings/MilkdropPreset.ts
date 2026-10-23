@@ -6,9 +6,13 @@ import type { ButterchurnPreset } from "./ButterchurnPreset";
  */
 export type MilkdropPreset = { name: string, 
 /**
- * Gölgelendiricileri (HLSL) desteklenmediği için atıldı: görsel sade hâliyle çalar.
+ * Gölgelendiricisi (HLSL) çevrilemediği için atıldı: görsel sade hâliyle çalar.
  */
 simplified: boolean, 
+/**
+ * Çevrilemeyen gölgelendiricinin nedeni (günlüğe yazılır, arayüzde ipucu olarak görünür).
+ */
+shaderError: string | null, 
 /**
  * Butterchurn'ün `loadPreset`'ine verilecek nesne.
  */
