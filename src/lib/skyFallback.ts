@@ -7,7 +7,7 @@ import { canvasScale } from "./gl";
  * bilgisayarlarda kullanılır: aynı gök, aynı Lyra takımyıldızı (gerçek gök
  * konumları, Vega en parlak), müziğe göre güçlenen üç ışık perdesi ve uzak tepeler.
  * Gölgelendiricideki kadar ayrıntılı değildir ama aynı durumu (`SkyState`) çizer;
- * parlaklık aynı hız sınırlı değerlerden gelir (epilepsi güvenliği korunur).
+ * parlaklık aynı yumuşak (güvenli modda hız sınırlı) değerlerden gelir.
  */
 export interface SkyFallback {
   draw(state: SkyState): void;

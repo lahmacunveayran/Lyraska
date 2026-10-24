@@ -851,10 +851,10 @@ async function flashGuardBundle() {
 /**
  * Zamana bağlı parlama ölçümü: bilerek parlayan desen (saniyede 10 ve 1 kez siyah ↔ beyaz, tam
  * ekran ve tek bölge) frenden geçirilir; her karede ekran okunur, en kötü WCAG penceresinin
- * parlaklık dizisi `countFlashes` ile sayılır. Frenli her durum saniyede ≤ 3 (güvenli modda ≤ 1)
+ * parlaklık dizisi `countFlashes` ile sayılır. Frenli her durum (güvenli mod) saniyede ≤ 1
  * parlamalı; frensiz denetim parlamayı görmeli (ölçümün çalıştığının kanıtı). İnce desen (1
  * piksellik şerit ve dama, blok ortalaması sabit) piksel başına `countChanges` ile sayılır: en
- * kötü blokta saniyede ≤ 3 (güvenli modda ≤ 1,05) tersine dönme; frensiz denetim görmeli.
+ * kötü blokta saniyede ≤ 1,05 tersine dönme (güvenli mod); frensiz denetim görmeli.
  */
 async function checkFlashGuard(browser, code) {
   const page = await browser.newPage({ viewport: { width: 400, height: 300 } });
