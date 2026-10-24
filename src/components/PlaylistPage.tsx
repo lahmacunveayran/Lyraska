@@ -83,6 +83,12 @@ export function PlaylistPage({
   useEffect(() => {
     headingRef.current?.focus();
   }, [playlist.id]);
+  // Ad değiştirme bitince (Kaydet, Vazgeç, Esc) odak başlığa döner; form kaybolunca boşa düşmesin.
+  const wasRenaming = useRef(false);
+  useEffect(() => {
+    if (wasRenaming.current && renaming === null) headingRef.current?.focus();
+    wasRenaming.current = renaming !== null;
+  }, [renaming]);
 
   // Süren düzenlemeler (çıkarma, taşıma): çekirdeğe sırayla gider. Satırlar sırayla bilindiği için
   // istekler yer değiştirirse yanlış şarkı çıkar; süren düzenleme varken okuma yapılmaz (yerel sırayı
@@ -185,7 +191,13 @@ export function PlaylistPage({
 
   const count = paths?.length ?? playlist.trackCount;
   return (
-    <div className="album-page" aria-labelledby={`${id}-title`} role="region">
+    <div
+      className="album-page"
+      role="region"
+      // Ad değiştirilirken başlık yerine form durur: bölgenin adı o sırada doğrudan verilir.
+      aria-labelledby={renaming === null ? `${id}-title` : undefined}
+      aria-label={renaming === null ? undefined : playlist.name}
+    >
       <button
         type="button"
         className="album-page__back"

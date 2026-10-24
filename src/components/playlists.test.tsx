@@ -288,6 +288,40 @@ describe("çalma listeleri", () => {
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
+  it("ad değiştirilirken sayfanın adı kaybolmaz, bitince odak başlığa döner", async () => {
+    backend.lists = [{ id: 1, name: "Eski", paths: [] }];
+    render(
+      <PlaylistPage
+        playlist={row(backend.lists[0]!)}
+        tracks={[]}
+        byPath={new Map()}
+        coverIndex={new Map()}
+        coverRevision={0}
+        refreshKey="k"
+        currentPath={null}
+        playing={false}
+        camelot={false}
+        onBack={vi.fn()}
+        onPlay={vi.fn()}
+        onRename={vi.fn(async () => true)}
+        onDelete={vi.fn()}
+        onChooseCover={vi.fn()}
+        onClearCover={vi.fn()}
+        onChanged={vi.fn()}
+      />,
+    );
+    await screen.findByText(/Liste boş/);
+    fireEvent.click(screen.getByRole("button", { name: "Adını değiştir…" }));
+    // Bölgenin adı var olan bir öğeye bağlı kalır.
+    expect(screen.getByRole("region", { name: "Eski" })).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+    expect(screen.getByRole("heading", { name: "Eski" })).toHaveFocus();
+
+    fireEvent.click(screen.getByRole("button", { name: "Adını değiştir…" }));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Kaydet" })));
+    expect(screen.getByRole("heading", { name: "Eski" })).toHaveFocus();
+  });
+
   it("kolaj: kütüphanede olmayan ve albümsüz şarkı atlanır, en çok dört kapak", () => {
     const tracks = [
       song("1", "a", "A"),
