@@ -27,6 +27,21 @@ export function barTargetsFromBands(bands: readonly number[], count: number): nu
   });
 }
 
+/**
+ * Bu karenin hedefleri: çekirdeğin çubukları (`core`, tam `count` seviye) varsa onlar, yoksa
+ * (istek sürüyor, tarayıcı önizlemesi, çalan oturum yokken çekirdeğin boş dizisi) analiz karesinin
+ * bantlarından. Sayısı tutmayan dizi kullanılmaz: boş dizi çizgiyi (sessizlik çentikleri dahil)
+ * tümden silerdi.
+ */
+export function barTargets(
+  core: readonly number[] | null,
+  bands: readonly number[],
+  count: number,
+): number[] {
+  if (!core || core.length !== count) return barTargetsFromBands(bands, count);
+  return core.map((v) => (Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0));
+}
+
 /** Çubukları `dt` saniye ilerletir: hedef yüksekse hemen ona çıkar, alçaksa üstel söner. */
 export function stepBars(
   prev: readonly number[],

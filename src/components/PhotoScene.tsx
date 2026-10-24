@@ -20,7 +20,7 @@ import {
   type BarColors,
   type LineMap,
 } from "../lib/photoScene";
-import { barTargetsFromBands, stepBars } from "../lib/spectrumBars";
+import { barTargets, stepBars } from "../lib/spectrumBars";
 import { useVisualFeed } from "../hooks/useVisualFeed";
 
 export interface PhotoSceneProps {
@@ -175,10 +175,10 @@ export function PhotoScene({
             feed.inFlight = false;
           });
       }
-      // Çekirdek yoksa (tarayıcı önizlemesi) analiz karesinin bantlarından.
+      // Çekirdeğin çubukları yoksa (istek sürüyor, tarayıcı önizlemesi, boş yanıt) bantlardan.
       const targets = !live
         ? levels.current.map(() => 0)
-        : (feed.levels ?? barTargetsFromBands(live.bands, PHOTO_BARS));
+        : barTargets(feed.levels, live.bands, PHOTO_BARS);
       levels.current = stepBars(levels.current, targets, dt);
       if (live && clockRef.current) clockRef.current.textContent = clockText(live.positionSecs);
 

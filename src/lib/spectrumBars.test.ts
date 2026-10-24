@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RELEASE_TAU, barTargetsFromBands, stepBars } from "./spectrumBars";
+import { RELEASE_TAU, barTargets, barTargetsFromBands, stepBars } from "./spectrumBars";
 
 describe("ince spektrum çubukları", () => {
   it("çekirdeğin çubukları yoksa 32 banttan soldan sağa ara değerle", () => {
@@ -18,5 +18,16 @@ describe("ince spektrum çubukları", () => {
     let level = [1];
     for (let i = 0; i < 6; i++) level = stepBars(level, [0], 1 / 60);
     expect(level[0]!).toBeLessThan(0.01); // 0,1 saniyede sönmüş
+  });
+
+  it("çekirdek boş ya da eksik dizi verirse bantlardan: çizgi hiç kaybolmaz", () => {
+    // Çalan oturum yokken çekirdek boş dizi döndürür; çubuk sayısı tutmayan dizi de kullanılmaz.
+    const bands = [1, 0];
+    expect(barTargets([], bands, 3)).toEqual(barTargetsFromBands(bands, 3));
+    expect(barTargets([0.5, 0.5], bands, 3)).toEqual(barTargetsFromBands(bands, 3));
+    expect(barTargets(null, bands, 3)).toEqual(barTargetsFromBands(bands, 3));
+    expect(barTargets([0.1, 0.2, 0.3], bands, 3)).toEqual([0.1, 0.2, 0.3]);
+    // Bozuk değerler 0..1'e sıkıştırılır.
+    expect(barTargets([Number.NaN, 2, -1], bands, 3)).toEqual([0, 1, 0]);
   });
 });
