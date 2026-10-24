@@ -3715,7 +3715,7 @@ mod tests {
 
     // --- "Kendi resmin" sahnesinin spektrum çubukları ---
 
-    /// Çubuğun (bas solda, logaritmik) hangi frekansta olduğu: en güçlü çubuğun sırası.
+    /// Çubuğun (bas solda, doğrusal frekans) hangi frekansta olduğu: en güçlü çubuğun sırası.
     fn loudest_bar(levels: &[f32]) -> usize {
         levels
             .iter()
