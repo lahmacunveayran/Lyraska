@@ -15,39 +15,55 @@ Proje sahibi (23 Ekim): "drop bazen yanlış yerde buluyor, bazen hiç bulmuyor"
   eşleşmeyi (±1 sn, güven ≥ 0,6: ekranda gösterilenler) ve yanlış alarmları yazar.
 
 ```
-python3 docs/arastirma/drop/uret.py /tmp/drop 1        # tohum 1; 4 ve 5 doğrulama seti
+python3 docs/arastirma/drop/uret.py /tmp/drop 1        # tohum 1; geliştirme 1–3, doğrulama 6–7, son sınama 8–9
 cd src-tauri && cargo run --example drop_olcum -- /tmp/drop
 ```
 
 ## Sonuç
 
-| Set                                         | Eski isabet | Eski yanlış alarm | Yeni isabet | Yeni yanlış alarm |
-| ------------------------------------------- | ----------- | ----------------- | ----------- | ----------------- |
-| Geliştirme (tohum 1–3, 33 şarkı)            | 31/57       | 11                | 49/57       | 3                 |
-| Doğrulama (tohum 4–5, 22 şarkı, görülmemiş) | 21/38       | 7                 | 32/38       | 2                 |
+Üç ayrı set (aynı üreticiyle, farklı tohumlar; yükselişlerin yarısı kick rulosuyla biter):
 
-Bulunan dropların zamanı: ortanca 6 ms, %90'ı 14 ms içinde (senkron hedefi ±20 ms).
+- **geliştirme** (tohum 1–3, 33 şarkı): ayarlar bunda yapıldı;
+- **doğrulama** (tohum 6–7, 22 şarkı): bir tur hatalarına bakıldı (rulo, bölüm sınırı);
+- **son sınama** (tohum 8–9, 22 şarkı): değişiklikler bittikten sonra üretildi, hiç bakılmadı.
+
+| Set        | Eski isabet | Eski yanlış alarm | Yeni isabet | Yeni yanlış alarm |
+| ---------- | ----------- | ----------------- | ----------- | ----------------- |
+| Geliştirme | 23/57       | 18                | 46/57       | 4                 |
+| Doğrulama  | 14/38       | 15                | 30/38       | 5                 |
+| Son sınama | 18/38       | 10                | 30/38       | 5                 |
+
+İsabet: ekranda gösterilen (güven ≥ 0,6) drop, işaretliye ±1 sn içinde. İsabetlerde zaman hatası ortanca
+6–8 ms, %90'ı 12–13 ms içinde. **Dürüstlük notu:** setlerin hepsi aynı üreticiden; doğru an basın döndüğü an olarak
+tanımlı ve yeni yöntem de onu arıyor (zaman hatası bu yüzden iyimser). Gerçek şarkılarda, özellikle drop'u
+crash/kick'in ve basın bir vuruş sonra geldiği şarkılarda, sonuç farklı olabilir; sahibinin şarkılarıyla
+doğrulanacak.
 
 ## Ne değişti (`analysis/structure.rs`)
 
-1. **An:** drop artık ölçü başına yapışmaz; ölçü başının bir ölçü öncesiyle bir ölçü sonrası arasında basın döndüğü
-   kareye (bas + basın kareden kareye oynaması) oturur. Vuruş ızgarası kaymış şarkılarda (yarım tempo, sessizlikle
-   kayan faz) eskiden 1–2,5 sn erken/geç çıkıyordu.
-2. **Davulun dönüşü:** bas yükselişte sürüyorsa drop'u kick'in gelmesi belli eder; aday olmak için bas ya da kick
-   sıçraması yeter.
-3. **Sakin giriş:** "öncesi sessiz olmamalı" kuralı şarkıya göre enerjiye (0,05) bakıyordu; çok sakin bir gitar
-   girişinden sonra grubun girişi kaçıyordu. Artık mutlak ses yüksekliğine bakılır (öncesindeki hiçbir ölçü
-   −50 dBFS'ten sessiz olmamalı).
-4. **Sıkıştırılmış kayıt:** yükselişin sonu droptan yüksekse sonraki enerji eşiği (0,65) tutmuyordu ve güven düşük
-   çıkıyordu. Eşik şarkının ortanca ölçü enerjisini geçmez; güvende "yükseliş" ya enerji artışından ya da önceki dört
-   ölçüdeki tırmanıştan gelir.
+1. **Aday:** bas ya da davul (kick) birden güçlü dönmeli. Önce/sonra farkında sonrası iki ölçünün **en zayıfı**
+   (drop süren bir düzeydir), öncesi iki pencerenin küçüğü: önceki dört ölçü ya da hemen önceki ölçüyü saymayan dört
+   ölçü (yükselişin son ölçüsündeki rulo drop kadar güçlü olabilir; sayılsaydı drop bir ölçü erkene kayardı).
+2. **Sıralama:** bas ve kick farkı ağır basar, enerji artışı az; bölüm sınırındaki ölçü öne geçer; neredeyse aynı
+   puandaki (%5) önceki ölçü seçilir (değişimin başladığı ölçü).
+3. **Sessizlik:** öncesindeki ölçülerden biri −50 dBFS'ten sessizse ya da şarkıya göre enerjisi neredeyse yoksa
+   (eski kayıtta cızırtı tabanı) şarkının başıdır. Eskiden "öncesi 0,05'ten sessiz olmasın" kuralı çok sakin bir
+   gitar girişinden sonra grubun girişini kaçırıyordu.
+4. **Sıkıştırılmış kayıt:** sonraki enerji eşiği (0,65) şarkının ortanca ölçü enerjisini geçmez; güvende
+   "yükseliş" enerji artışından ya da (yarı payla) önceki dört ölçüdeki tırmanıştan gelir; yalnızca kick dönüşü
+   %70 payla sayılır (pop'ta seyrek ön nakarattan nakarata geçiş de böyledir).
+5. **An:** ölçü başının yarım ölçü öncesiyle sonrası arasında basın döndüğü kareye oturur; bas farkı ölçü
+   başındakini açıkça (0,08) geçmiyorsa ölçü başı kalır (sürekli alt bas, rulo). Drop'un başlattığı bölüm de drop
+   anında başlar (MilkDrop iki kez geçiş yapmasın).
 
 ## Kalanlar
 
-- **Bas süren yükseliş** (davul ve bas yükselişte de tam sürüyor, yalnızca alt bas süzülüyor): bulunmuyor ya da bir
-  ölçü erken ve güveni düşük. Alt uçta neredeyse değişiklik yok; gerçek şarkılarda ne kadar sık olduğu sahibinin
+- **Bas süren yükseliş** (davul ve bas yükselişte de tam sürüyor, yalnızca alt bas süzülüyor): yeri çoğunlukla doğru
+  ama güveni 0,6'nın altında (gösterilmiyor). Alt uçta neredeyse değişiklik yok; gerçek şarkılarda ne kadar sık olduğu sahibinin
   şarkılarıyla görülecek.
 - **Dropsuz şarkıda** sakin aradan sonra grubun dönüşü drop sayılıyor. Bu, kurala göre bir drop (bas ve enerji
   sakin kısımdan sonra birden dönüyor); ayırmak için yükseliş belirtisi şart koşulursa uzun sakin girişten sonraki
   gerçek droplar kaçar. Sahibinin şarkılarıyla karar verilecek.
+- **Sahte drop** (yükseliş → kısa sessizlik → yine sakin → yeni yükseliş → drop): son sınamada ikisinde de drop bir
+  ölçü erken (rulolu ölçü) bulundu.
 - Ses dosyaları depoya girmez; üretilenler geçici klasörde kalır.

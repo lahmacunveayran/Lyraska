@@ -637,7 +637,7 @@ fn find_drops(signals: &BarSignals) -> Vec<usize> {
         .copied()
         .unwrap_or(DROP_AFTER_ENERGY)
         .min(DROP_AFTER_ENERGY);
-    let mut candidates: Vec<(usize, f64)> = (DROP_BEFORE_BARS
+    let candidates: Vec<(usize, f64)> = (DROP_BEFORE_BARS
         ..n.saturating_sub(DROP_AFTER_BARS - 1))
         .filter_map(|k| {
             let (bass, kick, rise) = drop_jumps(k, signals);
