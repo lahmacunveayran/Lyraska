@@ -205,6 +205,7 @@ pub fn run() {
             commands::playback_status,
             commands::visual_frame,
             commands::visual_waveform,
+            commands::visual_spectrum,
             commands::library_status,
             commands::library_add_folder,
             commands::library_add_dropped,

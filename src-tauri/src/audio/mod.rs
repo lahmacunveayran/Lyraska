@@ -21,6 +21,8 @@
 //! - [`player`]: yukarıdakileri bir araya getiren, arayüzün kullandığı oynatıcı.
 //! - [`waveform`]: görseller (MilkDrop) için ham dalga biçimi: çözme iş parçacığının yazdığı
 //!   44,1 kHz kopya; ses çıkışına dokunmaz.
+//! - [`spectrum`]: "Kendi resmin" sahnesinin ince spektrum çubukları (aynı kopyadan; bas uzun
+//!   pencereden, gerisi kısa pencereden).
 //! - [`abx`]: kör dinleme testi (iki dosyanın aynı bölümü, A/B/X; ses işlenmez).
 //!
 //! Bütün iç işlem [`Sample`] türüyle (64-bit) yapılır; yalnızca çıkışta aygıtın
@@ -44,6 +46,7 @@ pub mod player;
 pub mod punch;
 pub mod render;
 pub mod resample;
+pub mod spectrum;
 pub mod waveform;
 
 use thiserror::Error;

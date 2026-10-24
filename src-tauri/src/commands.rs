@@ -335,6 +335,13 @@ pub async fn visual_waveform(
     Ok(tauri::ipc::Response::new(bytes))
 }
 
+/// Şu an duyulan anın ince spektrum çubukları ("Kendi resmin" sahnesi): 200 seviye, 0..1, bas
+/// solda (40 Hz – 16 kHz, logaritmik). Duraklatılmışsa hepsi 0; çalan şarkı yoksa boş dizi.
+#[tauri::command]
+pub async fn visual_spectrum(player: State<'_, PlayerState>) -> Result<Vec<f32>, String> {
+    Ok(player.lock()?.visual_spectrum().unwrap_or_default())
+}
+
 /// Kütüphane durumu: klasörler, şarkı sayısı, tarama ilerlemesi.
 #[tauri::command]
 pub async fn library_status(library: State<'_, LibraryState>) -> Result<LibraryStatus, String> {

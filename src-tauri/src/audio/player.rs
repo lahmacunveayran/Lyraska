@@ -30,7 +30,8 @@ use super::output::{self, DeviceInfo, OutputMode, OutputSpec};
 use super::peq::{HeadphoneSettings, ParametricSettings, PeqControl};
 use super::render::RenderControls;
 use super::resample::Converter;
-use super::waveform::{self, Decimator, WaveformTap};
+use super::spectrum;
+use super::waveform::{self, Decimator, WaveformTap, Window};
 use super::{AudioError, Sample};
 use crate::analysis::annotation::Annotation;
 use crate::analysis::background::ForegroundGuard;
@@ -153,14 +154,21 @@ impl SharedState {
     /// değişir. Çözme henüz başlamadıysa `None`.
     fn waveform_at(&self, heard: u64, offset_secs: f64) -> Option<Vec<u8>> {
         let window = self.waveform.read(heard, offset_secs)?;
+        let gains = self.window_gains(&window)?;
+        Some(waveform::to_bytes(&window, &gains))
+    }
+
+    /// Pencereye düşen şarkıların (ilk örneğin sırası, doğrusal kazanç) çiftleri: her şarkının
+    /// −14 LUFS eşitleme kazancı ([`waveform::to_bytes`], [`waveform::mono_mix`]).
+    fn window_gains<const N: usize>(&self, window: &Window<N>) -> Option<Vec<(i64, f64)>> {
         let levels = &self.controls.levels;
-        let last = window.first + waveform::WINDOW as i64 - 1;
-        let gains: Vec<(i64, f64)> = {
-            let segments = self.segments.lock().ok()?;
-            let starts: Vec<i64> = segments
-                .iter()
-                .map(|s| window.index_at_frame(s.first_output_frame))
-                .collect();
+        let last = window.first + N as i64 - 1;
+        let segments = self.segments.lock().ok()?;
+        let starts: Vec<i64> = segments
+            .iter()
+            .map(|s| window.index_at_frame(s.first_output_frame))
+            .collect();
+        Some(
             starts
                 .iter()
                 .enumerate()
@@ -172,9 +180,20 @@ impl SharedState {
                     let gain_db = levels.level(i, true).gain_db;
                     (start, 10f64.powf(gain_db / 20.0))
                 })
-                .collect()
-        };
-        Some(waveform::to_bytes(&window, &gains))
+                .collect(),
+        )
+    }
+
+    /// Akışın `heard`. karesinden `offset_secs` ötedeki anın spektrum çubukları
+    /// ([`spectrum::bar_levels`]): pencere o anın üstüne ortalanır, her örneğe kendi şarkısının
+    /// eşitleme kazancı uygulanır ([`Self::waveform_at`] gibi). Çözme henüz başlamadıysa `None`.
+    fn spectrum_at(&self, heard: u64, offset_secs: f64) -> Option<Vec<f32>> {
+        let half = (spectrum::LONG / 2) as f64 / f64::from(waveform::WAVEFORM_RATE);
+        let window = self
+            .waveform
+            .read_window::<{ spectrum::LONG }>(heard, offset_secs + half)?;
+        let gains = self.window_gains(&window)?;
+        Some(spectrum::bar_levels(&waveform::mono_mix(&window, &gains)))
     }
 
     /// Şu an duyulan şarkının oturumdaki sırası.
@@ -1659,6 +1678,22 @@ impl Player {
         let heard = session.shared.output_heard.load(Ordering::Acquire);
         let offset = crate::visual_bridge::visual_offset_secs(self.audio_delay_ms);
         session.shared.waveform_at(heard, offset)
+    }
+
+    /// Şu an duyulan anın ince spektrum çubukları ("Kendi resmin" sahnesi): [`spectrum::BARS`]
+    /// seviye (0..1, bas solda; [`spectrum::bar_levels`]). Görsel karelerle aynı an (gecikme
+    /// telafili). Duraklatılmışsa ya da şarkı bittiyse hepsi 0; çalan oturum yoksa `None`.
+    pub fn visual_spectrum(&self) -> Option<Vec<f32>> {
+        let session = self.session.as_ref()?;
+        match session.state() {
+            PlaybackState::Playing => {}
+            PlaybackState::Paused | PlaybackState::Ended => return Some(spectrum::silence()),
+            PlaybackState::Idle | PlaybackState::Error => return None,
+        }
+        self.sync_levels();
+        let heard = session.shared.output_heard.load(Ordering::Acquire);
+        let offset = crate::visual_bridge::visual_offset_secs(self.audio_delay_ms);
+        session.shared.spectrum_at(heard, offset)
     }
 
     /// Ses aygıtının ek gecikmesi (ms).
@@ -3675,6 +3710,73 @@ mod tests {
         player.play().unwrap();
         assert!(wait_until(|| player.state() == PlaybackState::Ended));
         assert_eq!(player.visual_waveform(), Some(vec![128; WAVEFORM_BYTES]));
+        std::fs::remove_file(path).ok();
+    }
+
+    // --- "Kendi resmin" sahnesinin spektrum çubukları ---
+
+    /// Çubuğun (bas solda, logaritmik) hangi frekansta olduğu: en güçlü çubuğun sırası.
+    fn loudest_bar(levels: &[f32]) -> usize {
+        levels
+            .iter()
+            .enumerate()
+            .max_by(|a, b| a.1.total_cmp(b.1))
+            .map_or(0, |(i, _)| i)
+    }
+
+    #[test]
+    fn spektrum_bas_sesini_kendi_cubugunda_ve_duyulan_anda_gosterir() {
+        // 48 kHz aygıt; ilk 1 sn 60 Hz, sonrası 80 Hz sinüs (çubuğu doldurmayan genlikte).
+        let path = temp_path("spektrum-bas.wav");
+        write_wav(&path, 48_000, 2, 96_000, |f, _| {
+            let hz = if f < 48_000 { 60.0 } else { 80.0 };
+            0.02 * (2.0 * std::f64::consts::PI * hz * f as f64 / 48_000.0).sin()
+        });
+        let shared = decode_all(&[&path], 48_000);
+        shared.controls.levels.set_loudness(0, Some(NEUTRAL));
+        let first = shared.spectrum_at(24_000, 0.0).unwrap();
+        let second = shared.spectrum_at(72_000, 0.0).unwrap();
+        assert_eq!(first.len(), spectrum::BARS);
+        let (a, b) = (loudest_bar(&first), loudest_bar(&second));
+        assert!(b >= a + 8, "60 Hz {a}, 80 Hz {b}");
+        // Pencere duyulan ana ortalanır: geçişten 30 ms önce hâlâ 60 Hz baskın.
+        let before = shared.spectrum_at(48_000 - 1_440, 0.0).unwrap();
+        assert!(before[a] > before[b], "{} {}", before[a], before[b]);
+        // Kazanç uygulanır: şarkı 20 dB yüksek ölçülmüşse çubuk kısalır.
+        shared.controls.levels.set_loudness(
+            0,
+            Some(Loudness {
+                integrated_lufs: 6.0,
+                true_peak_dbtp: -6.0,
+            }),
+        );
+        let quiet = shared.spectrum_at(24_000, 0.0).unwrap();
+        assert!(quiet[a] < first[a], "{} {}", quiet[a], first[a]);
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn spektrum_sarki_yokken_bos_duraklatinca_ve_bitince_sifir() {
+        let path = ramp_song("spektrum-durum.wav");
+        let mut player = Player::new();
+        assert_eq!(player.visual_spectrum(), None, "şarkı yokken boş");
+        player.load(&path, false).unwrap();
+        assert_eq!(player.visual_spectrum(), Some(vec![0.0; spectrum::BARS]));
+        player.play().unwrap();
+        assert!(wait_until(|| player.state() == PlaybackState::Ended));
+        assert_eq!(player.visual_spectrum(), Some(vec![0.0; spectrum::BARS]));
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn spektrum_calarken_ses_gorunur() {
+        let path = split_song("spektrum-calar.wav");
+        let mut player = Player::new();
+        player.load(&path, true).unwrap();
+        assert!(wait_until(|| player.status().position_secs >= 0.5));
+        let levels = player.visual_spectrum().unwrap();
+        assert_eq!(levels.len(), spectrum::BARS);
+        assert!(levels.iter().all(|v| (0.0..=1.0).contains(v)));
         std::fs::remove_file(path).ok();
     }
 }

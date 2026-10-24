@@ -130,6 +130,7 @@ lyraska/
 │   │   │   ├── abx.rs        #   kör dinleme testi: iki sürümü hizalama, ses yüksekliği eşitleme, işlemsiz A/B/X
 │   │   │   ├── waveform.rs   #   görseller (MilkDrop) için ham dalga: çözme iş parçacığının yazdığı 44,1 kHz kopya,
 │   │   │   │                 #   önceden ayrılmış 4 sn halka; komut iş parçacığı duyulan ana kadarki 1024 örneği okur
+│   │   │   ├── spectrum.rs   #   "Kendi resmin" çubukları: aynı kopyadan 200 log çubuk; bas 4096, gerisi 1024 örnek pencere
 │   │   │   └── player.rs     #   oturumlar, iş parçacıkları, halka tampon (rtrb), boşluksuz geçiş
 │   │   ├── library/          # Müzik kütüphanesi (SQLite, uygulama veri klasöründe)
 │   │   │   ├── db.rs         #   kaynak (klasör ya da tek şarkı) ve şarkı tabloları, Türkçe arama, BPM
