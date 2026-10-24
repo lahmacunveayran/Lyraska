@@ -31,7 +31,8 @@ function release(source: BackgroundSource, own: string | null) {
  * Resmin (`data:` adresi) nasıl gösterileceği. Hareketli resim (GIF, APNG, hareketli WebP)
  * WebView'da kare kare çözülür; "animasyonları azalt" açıksa, `ImageDecoder` yoksa ya da resim
  * sınırları aşıyorsa yalnızca ilk karesi sabit gösterilir. Yeni resim çözülene dek eskisi yerinde
- * kalır (araya karanlık girip parlamasın); eskisinin kareleri yenisi gelince bırakılır.
+ * kalır (araya karanlık girip parlamasın); eskisinin kareleri yenisi ekrana geldikten sonra
+ * bırakılır (o ana dek sahne kapatılmış bir kareyi çizmeye çalışmasın).
  */
 export function useBackgroundSource(
   image: string | null | undefined,
@@ -43,11 +44,13 @@ export function useBackgroundSource(
     source: { kind: "pending" },
     own: null,
   });
+  // Yerini yenisine bırakmış, ekrandan kalkınca bırakılacak kaynaklar.
+  const replaced = useRef<{ source: BackgroundSource; own: string | null }[]>([]);
 
   useEffect(() => {
     let live = true;
     const show = (next: BackgroundSource, own: string | null = null) => {
-      release(shown.current.source, shown.current.own);
+      replaced.current.push(shown.current);
       shown.current = { source: next, own };
       setSource(next);
     };
@@ -81,9 +84,17 @@ export function useBackgroundSource(
     };
   }, [image, reducedMotion]);
 
+  // Yeni kaynak ekrana geldi (bu çizim işlendi): eskiler bırakılır.
+  useEffect(() => {
+    replaced.current.forEach((old) => release(old.source, old.own));
+    replaced.current = [];
+  }, [source]);
+
   // Sahneden çıkınca bellek bırakılır.
   useEffect(
     () => () => {
+      replaced.current.forEach((old) => release(old.source, old.own));
+      replaced.current = [];
       release(shown.current.source, shown.current.own);
       shown.current = { source: { kind: "pending" }, own: null };
     },

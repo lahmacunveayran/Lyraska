@@ -161,9 +161,14 @@ async function measureAnimation(
   // Renk birkaç kareden (en çok 8, eşit aralıklı).
   const sample: number[] = [];
   const every = Math.max(1, Math.floor(animation.frames.length / 8));
-  for (let i = 0; i < animation.frames.length; i += every) {
-    drawCover(ctx, animation.frames[i]!, animation.width, animation.height, mw, mh);
-    sampleColors(ctx.getImageData(0, 0, mw, mh).data, mw, mh, sample);
+  try {
+    for (let i = 0; i < animation.frames.length; i += every) {
+      drawCover(ctx, animation.frames[i]!, animation.width, animation.height, mw, mh);
+      sampleColors(ctx.getImageData(0, 0, mw, mh).data, mw, mh, sample);
+    }
+  } catch {
+    // Resim bu arada değişti, kareleri kapatıldı: ölçülmez.
+    return null;
   }
   const colors = barColors(dominantColor(sample));
   const job = measureFrames(mw, mh, colors);
@@ -433,14 +438,19 @@ export function PhotoScene({
           const task = still
             ? measureImage(want, width, height)
             : measureAnimation(want, width, height, () => pending.current !== job);
-          void task.then((result) => {
-            if (pending.current !== job) return;
-            pending.current = null;
-            if (result) {
-              measured.current = result;
-              lastColors.current = result.colors;
-            }
-          });
+          task
+            .then((result) => {
+              if (pending.current !== job) return;
+              pending.current = null;
+              if (result) {
+                measured.current = result;
+                lastColors.current = result.colors;
+              }
+            })
+            .catch(() => {
+              // Ölçülemedi: bir sonraki karede yeniden denenir (bilinmeyen zemin sınırı sürer).
+              if (pending.current === job) pending.current = null;
+            });
         }
         const of = want === null ? null : undefined;
         current = fits(fallback.current, of) ? fallback.current : null;
