@@ -194,6 +194,8 @@ pub fn run() {
             commands::library_search,
             commands::library_albums,
             commands::library_album_tracks,
+            commands::library_artists,
+            commands::library_artist_tracks,
             commands::album_cover_get,
             commands::album_cover_set,
             commands::album_cover_clear,

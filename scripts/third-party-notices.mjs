@@ -217,6 +217,31 @@ function embeddedPackages() {
   ];
 }
 
+/** Programa gömülü veri (kod değil): sanatçı levhalarının yıldız atlası (`src/lib/starAtlas.json`). */
+function embeddedData() {
+  const ccBySa = readFileSync(join(ROOT, "public", "lisanslar", "CC-BY-SA-4.0.txt"), "utf8");
+  const change =
+    "Değişiklik: Lyraska yalnızca çıplak göze görünen yıldızları (V ≤ 6,5; konum, kadir, HIP) ve takımyıldız çizgilerini alır, biçimini değiştirir (scripts/build-star-atlas.mjs); türetilen veri de CC BY-SA 4.0";
+  return [
+    {
+      name: "HYG yıldız kataloğu (David Nash, astronexus)",
+      version: "v4.0",
+      license: `CC-BY-SA-4.0 (https://creativecommons.org/licenses/by-sa/4.0/). ${change}`,
+      repository: "https://github.com/astronexus/HYG-Database",
+      credit: ["Atıf: HYG Database, David Nash (astronexus), https://www.astronexus.com/hyg"],
+      texts: new Map([["CC-BY-SA-4.0.txt", ccBySa]]),
+    },
+    {
+      name: "Stellarium modern gök kültürü çizgileri (Stellarium geliştiricileri)",
+      version: "ad4960210acc",
+      license: `CC-BY-SA-4.0 (https://creativecommons.org/licenses/by-sa/4.0/). ${change}`,
+      repository: "https://github.com/Stellarium/stellarium",
+      credit: ['Atıf: Stellarium, "modern" sky culture, Stellarium geliştiricileri'],
+      texts: new Map([["CC-BY-SA-4.0.txt", ccBySa]]),
+    },
+  ];
+}
+
 function normalize(text) {
   return text
     .replace(/\r\n?/g, "\n")
@@ -277,10 +302,11 @@ function build() {
       lines.push(`  Lisans: ${p.license}`);
       if (p.repository)
         lines.push(`  Kaynak: ${p.repository.replace(/^git\+/, "").replace(/\.git$/, "")}`);
-      const copyrights = new Set();
+      // Atıf satırı elle verilmişse (veri; lisans metni telif satırı taşımaz) o yazılır.
+      const copyrights = new Set(p.credit ?? []);
       const refs = [];
       for (const [file, text] of [...p.texts.entries()].sort()) {
-        for (const c of copyrightLines(text)) copyrights.add(c);
+        if (!p.credit) for (const c of copyrightLines(text)) copyrights.add(c);
         refs.push(`${file} → metin ${addText(text, `${p.name} ${p.version}`)}`);
       }
       for (const c of copyrights) lines.push(`  ${c}`);
@@ -316,6 +342,8 @@ function build() {
     `GÖMÜLÜ C/C++ KÜTÜPHANELERİ (${embedded.length}; MilkDrop gölgelendirici çeviricisi, WebAssembly)`,
     embedded,
   );
+  const data = embeddedData();
+  section(`GÖMÜLÜ VERİ (${data.length}; sanatçı levhalarının yıldız atlası)`, data);
 
   lines.push("=".repeat(78));
   lines.push(`LİSANS METİNLERİ (${texts.size} farklı metin)`);

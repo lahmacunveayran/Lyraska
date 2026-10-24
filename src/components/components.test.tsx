@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { PlaybackStatus, TrackInfo } from "../lib/backend";
 import { marqueeWindow } from "./Marquee";
+import { ArtistGrid } from "./ArtistGrid";
 import { spectrumColumns } from "./SpectrumDemo";
 import { textToColumns } from "../lib/dotFont";
 import { clearCoverCache } from "../hooks/useCover";
@@ -23,6 +24,8 @@ const backend = vi.hoisted(() => ({
   tracks: [] as import("../lib/backend").LibraryTrack[],
   search: vi.fn(),
   albums: [] as import("../lib/backend").LibraryAlbum[],
+  artists: [] as import("../lib/backend").LibraryArtist[],
+  artistTracks: vi.fn(),
   albumTracks: vi.fn(),
   pickImage: vi.fn(),
   setAlbumCover: vi.fn(),
@@ -190,6 +193,8 @@ vi.mock("../lib/backend", async (importOriginal) => {
       return backend.tracks;
     },
     libraryAlbums: async () => backend.albums,
+    libraryArtists: async () => backend.artists,
+    libraryArtistTracks: async (artist: string) => backend.artistTracks(artist) ?? [],
     pickImage: async () => backend.pickImage() ?? null,
     setAlbumCover: async (album: string, artist: string | null, path: string) =>
       backend.setAlbumCover(album, artist, path),
@@ -409,6 +414,7 @@ beforeEach(() => {
   backend.libraryFailure = null;
   backend.tracks = [];
   backend.albums = [];
+  backend.artists = [];
   backend.drag = null;
   backend.dragFailure = null;
   backend.dropOutcome = null;
@@ -1270,6 +1276,42 @@ describe("kütüphane", () => {
     });
     expect(backend.albumTracks).toHaveBeenCalledTimes(1);
     expect(backend.albumTracks).toHaveBeenCalledWith("Kelimeler", "Şebnem Ferah");
+    await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(backend.tracks[0]!.path));
+  });
+
+  it("sanatçının albüm sayısı değişince (tarama) levhası yeniden çizilir", async () => {
+    const artist = { name: "Şebnem Ferah", albumCount: 2, trackCount: 5, coverPath: "C:\\a.flac" };
+    const { container, rerender } = render(
+      <ArtistGrid artists={[artist]} current={null} onPlay={() => {}} />,
+    );
+    await screen.findByText(/^α \d\dh\d\dm/);
+    const before = container.querySelector(".artist__plate");
+    rerender(
+      <ArtistGrid artists={[{ ...artist, albumCount: 3 }]} current={null} onPlay={() => {}} />,
+    );
+    // Eski levha (2 halkalı) kalmaz: yenisi çizilir.
+    expect(container.querySelector(".artist__plate")).not.toBe(before);
+    expect(await screen.findByText(/^α \d\dh\d\dm/)).toBeInTheDocument();
+  });
+
+  it("sanatçılar görünümü: yıldız atlası levhaları; sanatçıya tıklayınca hepsini çalar", async () => {
+    backend.desktop = true;
+    backend.library = library;
+    backend.tracks = [song(1, "Mayın Tarlası"), song(2, "Bir Kedi Gördüm")];
+    backend.artists = [
+      { name: "Şebnem Ferah", albumCount: 1, trackCount: 2, coverPath: backend.tracks[0]!.path },
+    ];
+    backend.artistTracks.mockReturnValue([backend.tracks[0]!.path, backend.tracks[1]!.path]);
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Sanatçılar" })));
+    expect(screen.getByRole("heading", { name: /Sanatçılar/ })).toHaveTextContent("1 sanatçı");
+    const card = await screen.findByRole("button", { name: /Şebnem Ferah/ });
+    expect(card).toHaveTextContent("1 albüm · 2 şarkı");
+    // Levhanın künyesi (adın gökyüzündeki yeri) yazılır.
+    expect(await within(card).findByText(/^α \d\dh\d\dm · δ [+−]\d\d°$/)).toBeInTheDocument();
+    await act(async () => fireEvent.click(card));
+    expect(backend.artistTracks).toHaveBeenCalledWith("Şebnem Ferah");
     await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(backend.tracks[0]!.path));
   });
 

@@ -35,6 +35,7 @@ import type { KeyRelation } from "./bindings/KeyRelation";
 import type { LibraryFolder } from "./bindings/LibraryFolder";
 import type { LibraryStatus } from "./bindings/LibraryStatus";
 import type { LibraryAlbum } from "./bindings/LibraryAlbum";
+import type { LibraryArtist } from "./bindings/LibraryArtist";
 import type { LibraryTrack } from "./bindings/LibraryTrack";
 import type { LyricLine } from "./bindings/LyricLine";
 import type { LyricWord } from "./bindings/LyricWord";
@@ -91,6 +92,7 @@ export type {
   LibraryFolder,
   LibraryStatus,
   LibraryAlbum,
+  LibraryArtist,
   LibraryTrack,
   LyricLine,
   LyricWord,
@@ -445,6 +447,15 @@ export function searchLibrary(query: string): Promise<LibraryTrack[]> {
 
 export function libraryAlbums(query: string): Promise<LibraryAlbum[]> {
   return invoke<LibraryAlbum[]>("library_albums", { query });
+}
+
+export function libraryArtists(query: string): Promise<LibraryArtist[]> {
+  return invoke<LibraryArtist[]>("library_artists", { query });
+}
+
+/** Sanatçının şarkılarının yolları, çalma sırasıyla. */
+export function libraryArtistTracks(artist: string): Promise<string[]> {
+  return invoke<string[]>("library_artist_tracks", { artist });
 }
 
 /** Albüme kullanıcının seçtiği kapak (`data:` adresi); seçilmemişse `null`. */

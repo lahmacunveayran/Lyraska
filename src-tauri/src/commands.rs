@@ -30,7 +30,7 @@ use crate::audio::peq::{
 };
 use crate::audio::player::{PlaybackState, PlaybackStatus, Player, Transition};
 use crate::audio::PlaybackOptions;
-use crate::library::{AlbumRow, DropOutcome, LibraryService, LibraryStatus, TrackRow};
+use crate::library::{AlbumRow, ArtistRow, DropOutcome, LibraryService, LibraryStatus, TrackRow};
 use crate::milkdrop::{self, MilkdropFolder, MilkdropPreset};
 use crate::settings::SettingsStore;
 use crate::visual_bridge::VisualFrame;
@@ -386,6 +386,28 @@ pub async fn library_albums(
 ) -> Result<Vec<AlbumRow>, String> {
     library
         .run(move |service| service.albums(&query).map_err(reported))
+        .await
+}
+
+/// Kütüphanedeki sanatçılar (arama kutusundaki yazıyla süzülür).
+#[tauri::command]
+pub async fn library_artists(
+    query: String,
+    library: State<'_, LibraryState>,
+) -> Result<Vec<ArtistRow>, String> {
+    library
+        .run(move |service| service.artists(&query).map_err(reported))
+        .await
+}
+
+/// Sanatçının şarkılarının yolları, çalma sırasıyla.
+#[tauri::command]
+pub async fn library_artist_tracks(
+    artist: String,
+    library: State<'_, LibraryState>,
+) -> Result<Vec<String>, String> {
+    library
+        .run(move |service| service.artist_tracks(&artist).map_err(reported))
         .await
 }
 

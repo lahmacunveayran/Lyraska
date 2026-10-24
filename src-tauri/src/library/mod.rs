@@ -21,7 +21,7 @@ use std::path::{Component, Path};
 
 use thiserror::Error;
 
-pub use db::{AlbumRow, FolderRow, Library, TrackRow};
+pub use db::{AlbumRow, ArtistRow, FolderRow, Library, TrackRow};
 pub use service::{DropOutcome, LibraryService, LibraryStatus};
 
 /// Kütüphane hataları. Mesajlar doğrudan kullanıcıya gösterilir.
