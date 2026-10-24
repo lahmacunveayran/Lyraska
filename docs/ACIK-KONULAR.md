@@ -6,7 +6,7 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 ## İş sırası (proje sahibinin kararı, 23 Ekim 2026)
 
 1. Kütüphanenin baştan tasarımı; küçük PR'lar:
-   1. Tempo (0.0.74, PR açık); albüm sayfası ve kapak küçük resmi (0.0.75, hazır, sırada).
+   1. Albüm sayfası ve kapak küçük resmi (0.0.75, PR açık).
    2. Karışık çalma; sanatçı sayfası.
 2. Davul/bas/vokal ayrıştırma: Spleeter; önce eğitimsiz iyileştirmeler ölçülür.
 3. Otomatik DJ (Bölüm II), Aşama A'dan; her aşama ayrı oturumda (`docs/gorev/20-BOLUM-II-DJ.md`).
