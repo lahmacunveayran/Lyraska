@@ -516,10 +516,11 @@ async function checkFlashBound(browser, scene, variant, theme) {
     shots.push(await capture(page, stage));
     await page.close();
   }
+  const { budget, redBudget } = scene.limits ? await scene.limits() : scene;
   const page = await browser.newPage();
   const worst = await page.evaluate(worstWindowDifference, [...shots, SCALE]);
-  // Kırmızı parlama payı olan sahnede (ör. "Kendi resmin": 16, eşik 20) kırmızı ölçü de.
-  const redWorst = scene.redBudget
+  // Kırmızı parlama payı olan sahnede (ör. "Kendi resmin": güvenli modda 8, eşik 20) kırmızı ölçü de.
+  const redWorst = redBudget
     ? Math.max(
         await page.evaluate(worstWindowDifference, [...shots, SCALE, "red-gated"]),
         await page.evaluate(worstWindowDifference, [...shots, SCALE, "red-continuous"]),
@@ -528,17 +529,18 @@ async function checkFlashBound(browser, scene, variant, theme) {
   await page.close();
   console.log(
     `${name}: sessiz → tam ses en büyük parlaklık farkı ${worst.toFixed(4)}` +
-      (redWorst === null ? "" : ` · kırmızı ${redWorst.toFixed(2)}`),
+      (redWorst === null ? "" : ` · kırmızı ${redWorst.toFixed(2)}`) +
+      (budget === undefined ? "" : ` (pay ${budget} / ${redBudget})`),
   );
-  // Sahnenin kendi payı varsa (ör. "Kendi resmin": 0,08) o da aşılmamalı.
-  const limit = scene.budget ?? FLASH_DELTA;
+  // Sahnenin kendi payı varsa (ör. "Kendi resmin": güvenli modda 0,04) o da aşılmamalı.
+  const limit = budget ?? FLASH_DELTA;
   const problems =
     worst < limit
       ? []
       : [`${name}: parlaklık farkı ${worst.toFixed(3)} ≥ ${limit} (parlama riski)`];
-  if (redWorst !== null && !(redWorst < scene.redBudget)) {
+  if (redWorst !== null && !(redWorst < redBudget)) {
     problems.push(
-      `${name}: kırmızı fark ${redWorst.toFixed(2)} ≥ ${scene.redBudget} (kırmızı parlama riski)`,
+      `${name}: kırmızı fark ${redWorst.toFixed(2)} ≥ ${redBudget} (kırmızı parlama riski)`,
     );
   }
   return problems;
@@ -697,11 +699,11 @@ const ALL_SCENES = [
   {
     id: "photo",
     name: "Kendi resmin",
-    // Çubukların her karede pencereye ekleyebileceği ışık (src/lib/photoScene.ts FLASH_BUDGET)
-    // ve kırmızı değişim (RED_BUDGET: artış + azalış; eşik 20). Denetim çok koyu kırmızıda eski
-    // sınırla 21,1 ölçmüştü.
-    budget: 0.08,
-    redBudget: 16,
+    // Çubukların her karede pencereye ekleyebileceği ışık ve kırmızı değişim (artış + azalış;
+    // eşik 20), güvenli moddaki paylar (sınır yalnızca o modda): src/lib/photoScene.ts'ten
+    // (`flashBudget(true)` = 0,04, `RED_BUDGET / 2` = 8). Denetim çok koyu kırmızıda eski sınırla
+    // 21,1 ölçmüştü.
+    limits: photoSafeLimits,
     images: [
       null,
       { name: "orta gri resim", rgb: [90, 90, 90] },
@@ -711,6 +713,41 @@ const ALL_SCENES = [
   },
   ...SCENES.filter((s) => !s.timeBased),
 ];
+
+/**
+ * "Kendi resmin"in Epilepsi güvenli modundaki payları, programın kendi hesabından
+ * (src/lib/photoScene.ts ayrı derlenir, `dist/`e dokunmaz): `{ budget, redBudget }`.
+ */
+let photoLimits = null;
+async function photoSafeLimits() {
+  if (photoLimits) return photoLimits;
+  const result = await build({
+    logLevel: "warn",
+    build: {
+      write: false,
+      emptyOutDir: false,
+      copyPublicDir: false,
+      minify: false,
+      lib: {
+        entry: fileURLToPath(new URL("../src/lib/photoScene.ts", import.meta.url)),
+        formats: ["es"],
+        fileName: () => "photo-scene.js",
+      },
+    },
+  });
+  const outputs = Array.isArray(result) ? result : [result];
+  const chunk = outputs.flatMap((o) => o.output ?? []).find((c) => c.type === "chunk");
+  if (!chunk) throw new Error("photoScene.ts derlenemedi");
+  const photo = await import(
+    `data:text/javascript;base64,${Buffer.from(chunk.code).toString("base64")}`
+  );
+  const budgets = photo.flashBudgets(true, 0.5);
+  photoLimits = {
+    budget: photo.flashBudget(true),
+    redBudget: budgets.redIncrease + budgets.redDecrease,
+  };
+  return photoLimits;
+}
 
 /** Yalnızca bazı sahneleri denetlemek için (geliştirirken): `SCENE_ONLY=sea,nebula`. */
 const ONLY = process.env.SCENE_ONLY?.split(",").filter(Boolean) ?? null;
