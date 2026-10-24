@@ -39,7 +39,7 @@ export function bpmRadius(bpm: number): number {
   return INNER + t * (OUTER - INNER);
 }
 
-/** Camelot sayısı → açı (radyan; 12 yukarıda değil, 1 yukarıda; saat yönünde). Minör içte. */
+/** Camelot sayısı → açı (radyan; 12 yukarıda değil, 1 yukarıda; saat yönünde). Minör 7° önce, majör 7° sonra. */
 export function keyAngle(number: number, minor: boolean): number {
   return (((number - 1) * 30 - 90 + (minor ? -7 : 7)) * Math.PI) / 180;
 }
@@ -95,6 +95,16 @@ export function nearestStar(
     }
   }
   return best;
+}
+
+/**
+ * Klavyeyle dolaşma sırası: çarkta tondan tona saat yönünde (1A, 1B, 2A, …), her tonda yavaştan
+ * hızlıya (merkezden uzaklık).
+ */
+export function orderStars(stars: SkyStar[], cx: number, cy: number): SkyStar[] {
+  const rank = (s: SkyStar) => (s.hue - 1) * 2 + (s.minor ? 0 : 1);
+  const dist = (s: SkyStar) => (s.x - cx) ** 2 + (s.y - cy) ** 2;
+  return [...stars].sort((a, b) => rank(a) - rank(b) || dist(a) - dist(b));
 }
 
 /** Tempo halkalarının etiketleri (BPM). */

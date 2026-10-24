@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+  type PointerEvent,
+} from "react";
 import type { LibraryTrack } from "../lib/backend";
 import { bpmLabel } from "../lib/analysis";
 import { camelotName } from "../lib/librarySort";
@@ -8,6 +16,7 @@ import {
   keyAngle,
   layoutSky,
   nearestStar,
+  orderStars,
   type SkyStar,
 } from "../lib/skyMap";
 
@@ -53,7 +62,9 @@ export function SkyView({ tracks, currentPath, onPlay }: SkyViewProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [geometry, setGeometry] = useState<Geometry | null>(null);
-  const [hover, setHover] = useState<SkyStar | null>(null);
+  // Seçili yıldız, seçildiği yerleşimle birlikte: yerleşim değişince (boyut, yeni analiz) eski seçim
+  // kendiliğinden düşer, başka şarkı çalınmaz.
+  const [picked, setPicked] = useState<{ layout: unknown; star: SkyStar } | null>(null);
 
   // Alanın boyutu (pencere değişince).
   useEffect(() => {
@@ -73,10 +84,25 @@ export function SkyView({ tracks, currentPath, onPlay }: SkyViewProps) {
     return () => observer.disconnect();
   }, []);
 
-  const layout = useMemo(
-    () => (geometry ? layoutSky(tracks, geometry.cx, geometry.cy, geometry.radius) : null),
-    [tracks, geometry],
+  // Yerleşim birim çemberde bir kez (şarkılar değişince); pencere boyutu yalnızca ölçekler.
+  const unit = useMemo(() => layoutSky(tracks, 0, 0, 1), [tracks]);
+  const layout = useMemo(() => {
+    if (!geometry) return null;
+    const { cx, cy, radius } = geometry;
+    return {
+      stars: unit.stars.map((s) => ({ ...s, x: cx + s.x * radius, y: cy + s.y * radius })),
+      unplaced: unit.unplaced,
+    };
+  }, [unit, geometry]);
+  const order = useMemo(
+    () => (layout && geometry ? orderStars(layout.stars, geometry.cx, geometry.cy) : []),
+    [layout, geometry],
   );
+  const hover = picked && picked.layout === layout ? picked.star : null;
+  const setHover = (star: SkyStar | null) => {
+    // Aynı yıldızın üstünde gezinmek yeniden çizdirmez.
+    if (star !== hover) setPicked(star ? { layout, star } : null);
+  };
 
   // Çizim: ızgara, renkli bulutsu (sönük yıldızların toplamı), yıldızlar, çalan şarkı.
   useEffect(() => {
@@ -88,6 +114,8 @@ export function SkyView({ tracks, currentPath, onPlay }: SkyViewProps) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const colors = keyColors(canvas);
+    // Büyük kütüphanede yoğun kümeler beyaza doymasın: ışık yıldız sayısıyla azalır.
+    const density = Math.min(1, Math.max(0.25, Math.sqrt(500 / Math.max(1, layout.stars.length))));
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, geometry.width, geometry.height);
     const { cx, cy, radius } = geometry;
@@ -119,7 +147,10 @@ export function SkyView({ tracks, currentPath, onPlay }: SkyViewProps) {
     if (g) {
       g.globalCompositeOperation = "lighter";
       for (const star of layout.stars) {
-        g.fillStyle = withAlpha(colors[star.hue - 1] ?? "#9fb4ff", 0.05 * star.brightness);
+        g.fillStyle = withAlpha(
+          colors[star.hue - 1] ?? "#9fb4ff",
+          0.05 * star.brightness * density,
+        );
         g.beginPath();
         g.arc(star.x * scale, star.y * scale, 2.2, 0, Math.PI * 2);
         g.fill();
@@ -136,7 +167,7 @@ export function SkyView({ tracks, currentPath, onPlay }: SkyViewProps) {
     for (const star of layout.stars) {
       const color = colors[star.hue - 1] ?? "#9fb4ff";
       const size = 0.7 + star.brightness * 1.5;
-      ctx.fillStyle = withAlpha(color, 0.35 * star.brightness);
+      ctx.fillStyle = withAlpha(color, 0.35 * star.brightness * density);
       ctx.beginPath();
       ctx.arc(star.x, star.y, size * 2.2, 0, Math.PI * 2);
       ctx.fill();
@@ -168,10 +199,36 @@ export function SkyView({ tracks, currentPath, onPlay }: SkyViewProps) {
     }
   }, [geometry, layout, currentPath]);
 
-  const onMove = (event: PointerEvent<HTMLCanvasElement>) => {
-    if (!layout) return;
+  const starAt = (event: PointerEvent<HTMLCanvasElement> | MouseEvent<HTMLCanvasElement>) => {
+    if (!layout) return null;
     const box = event.currentTarget.getBoundingClientRect();
-    setHover(nearestStar(layout.stars, event.clientX - box.left, event.clientY - box.top, 10));
+    return nearestStar(layout.stars, event.clientX - box.left, event.clientY - box.top, 10);
+  };
+  const onMove = (event: PointerEvent<HTMLCanvasElement>) => setHover(starAt(event));
+  // Tıklanan yer (dokunmatik ekranda önce imleç hareketi gelmez).
+  const onClick = (event: MouseEvent<HTMLCanvasElement>) => {
+    const star = starAt(event);
+    if (star) onPlay(star.track);
+  };
+  // Klavye: oklar çarkta tondan tona dolaşır, Enter ya da boşluk çalar.
+  const onKey = (event: KeyboardEvent<HTMLCanvasElement>) => {
+    if (order.length === 0) return;
+    const steps: Record<string, number> = {
+      ArrowRight: 1,
+      ArrowDown: 1,
+      ArrowLeft: -1,
+      ArrowUp: -1,
+    };
+    const step = steps[event.key];
+    if (step !== undefined) {
+      event.preventDefault();
+      const at = hover ? order.findIndex((s) => s.track.path === hover.track.path) : -1;
+      const next = at < 0 ? (step > 0 ? 0 : order.length - 1) : at + step;
+      setHover(order[(next + order.length) % order.length] ?? null);
+    } else if ((event.key === "Enter" || event.key === " ") && hover) {
+      event.preventDefault();
+      onPlay(hover.track);
+    }
   };
 
   // Tempo halkalarının etiketleri: iki ton arasındaki soluk ışın üzerinde (yıldızların arasında).
@@ -205,15 +262,18 @@ export function SkyView({ tracks, currentPath, onPlay }: SkyViewProps) {
         className="sky-view__canvas"
         onPointerMove={onMove}
         onPointerLeave={() => setHover(null)}
-        onClick={() => hover && onPlay(hover.track)}
+        onClick={onClick}
+        onKeyDown={onKey}
+        tabIndex={0}
         style={{ cursor: hover ? "pointer" : "default" }}
-        aria-label="Gökyüzü: şarkılar tonlarına ve tempolarına göre yıldız olarak dizili"
+        aria-label="Gökyüzü: şarkılar tonlarına ve tempolarına göre yıldız olarak dizili. Ok tuşlarıyla yıldız seçin, Enter ile çalın."
         role="img"
       />
       {keyLabels.map((label) => (
         <span
           key={label.n}
           className="sky-view__key"
+          aria-hidden
           style={{ left: label.x, top: label.y, color: `var(--key-${label.n})` }}
         >
           {label.minor}
@@ -224,8 +284,12 @@ export function SkyView({ tracks, currentPath, onPlay }: SkyViewProps) {
       {hover && (
         <div
           className="sky-view__card"
+          role="status"
           style={{
-            left: geometry && hover.x > geometry.width - 300 ? hover.x - 294 : hover.x + 14,
+            left:
+              geometry && hover.x > geometry.width - 300
+                ? Math.max(4, hover.x - 294)
+                : hover.x + 14,
             top: geometry && hover.y > geometry.height - 110 ? hover.y - 100 : hover.y + 14,
           }}
         >
@@ -238,7 +302,12 @@ export function SkyView({ tracks, currentPath, onPlay }: SkyViewProps) {
         </div>
       )}
       {ringLabels.map((label) => (
-        <span key={label.bpm} className="sky-view__ring" style={{ left: label.x, top: label.y }}>
+        <span
+          key={label.bpm}
+          className="sky-view__ring"
+          aria-hidden
+          style={{ left: label.x, top: label.y }}
+        >
           {label.bpm}
         </span>
       ))}

@@ -1341,7 +1341,21 @@ describe("kütüphane", () => {
       fireEvent.pointerMove(sky, { clientX: star.x, clientY: star.y });
       expect(await screen.findByText("Çalmak için tıklayın")).toBeInTheDocument();
       expect(screen.getByText("La minör · 128 BPM")).toBeInTheDocument();
-      await act(async () => fireEvent.click(sky));
+      await act(async () => fireEvent.click(sky, { clientX: star.x, clientY: star.y }));
+      await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(backend.tracks[0]!.path));
+      // Dokunmatik ekranda önce imleç hareketi gelmez: tıklama yerinden bulunur.
+      backend.open.mockClear();
+      fireEvent.pointerLeave(sky);
+      expect(screen.queryByText("Çalmak için tıklayın")).not.toBeInTheDocument();
+      await act(async () => fireEvent.click(sky, { clientX: star.x, clientY: star.y }));
+      await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(backend.tracks[0]!.path));
+      // Klavyeyle: ok tuşu yıldız seçer (künye görünür), Enter çalar.
+      backend.open.mockClear();
+      fireEvent.pointerLeave(sky);
+      sky.focus();
+      fireEvent.keyDown(sky, { key: "ArrowRight" });
+      expect(screen.getByText("La minör · 128 BPM")).toBeInTheDocument();
+      await act(async () => fireEvent.keyDown(sky, { key: "Enter" }));
       await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(backend.tracks[0]!.path));
     } finally {
       width.mockRestore();
