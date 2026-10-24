@@ -91,6 +91,10 @@ vardır (`check:docs`; avenoxbeyin'den alınan fikir, 23 Ekim 2026): sınır aş
   adıyla yazar. Gömülü kapak yoksa yandaki resim (`Şarkı.jpg`, `Şarkı.opus.webp`, `cover.jpg`…) okunur.
 - **Sahibine dosya silen betik verilmez** (ya da önce işin başarısı denetlenir): başka bir sohbetin verdiği kapak
   gömme betiği ffmpeg hata verince yarım çıktıyı başarı sanıp sahibinin orijinal şarkılarını sildi.
+- **Windows'ta klasör izleme sessizce ölebilir** (24 Ekim 2026): `notify` klasör kaybolunca ya da G/Ç hatasında
+  izlemeyi haber vermeden bırakır, olay tamponu (16 KB) taşınca da haber vermez. Bu yüzden izleme kendini onarır
+  (2 dk), 30 dk'da bir güvenlik taraması vardır; bütün sürücü kaynakta yeni klasör ancak içinde şarkı varsa tarama
+  başlatır, yalnızca değişen alt klasör taranır.
 
 ## 6. Lisans dersleri
 

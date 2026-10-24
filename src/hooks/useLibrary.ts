@@ -7,6 +7,8 @@ import {
   errorMessage,
   getLibraryStatus,
   isDesktop,
+  logFrontendError,
+  onLibraryChanged,
   pickAudioFiles,
   pickFolder,
   removeLibraryFolder,
@@ -57,6 +59,9 @@ export function useLibrary(): LibraryControls {
   const [error, setError] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState<string | null>(null);
   const searchSeq = useRef(0);
+  // Çekirdek kütüphanenin kendiliğinden değiştiğini bildirdikçe artar: şarkı sayısı aynı kalsa da
+  // (ör. bir şarkının etiketi düzenlendi) liste tazelenir.
+  const [revision, setRevision] = useState(0);
 
   const refreshStatus = useCallback(async () => {
     try {
@@ -92,7 +97,29 @@ export function useLibrary(): LibraryControls {
         .catch((e) => setError(errorMessage(e)));
     }, SEARCH_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [available, unavailable, query, status.trackCount, analysisKey]);
+  }, [available, unavailable, query, status.trackCount, analysisKey, revision]);
+
+  // İzlenen klasörlere eklenen, silinen şarkılar: çekirdek taradıktan sonra haber verir; durum
+  // ve liste kullanıcı bir şey yapmadan tazelenir.
+  useEffect(() => {
+    if (!available || unavailable) return;
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    onLibraryChanged(() => {
+      setRevision((r) => r + 1);
+      void refreshStatus();
+    })
+      .then((fn) => (cancelled ? fn() : (unlisten = fn)))
+      .catch((e) => {
+        logFrontendError(`Kütüphane değişiklikleri dinlenemedi: ${errorMessage(e)}`).catch(() => {
+          /* Günlüğe yazılamazsa yapılacak bir şey yok. */
+        });
+      });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [available, unavailable, refreshStatus]);
 
   // Tarama sürerken ilerlemeyi izle.
   const scanning = status.scan.scanning;

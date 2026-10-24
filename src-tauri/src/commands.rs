@@ -169,10 +169,17 @@ impl LibraryState {
         blocking(move || work(&service)).await
     }
 
-    /// Program kapanırken süren taramayı durdurur.
+    /// Program kapanırken süren taramayı ve klasör izlemeyi durdurur.
     pub fn shutdown(&self) {
         if let Ok(service) = &self.service {
             service.shutdown();
+        }
+    }
+
+    /// Program penceresi odağa geldi (bkz. [`LibraryService::on_window_focus`]).
+    pub fn on_window_focus(&self) {
+        if let Ok(service) = &self.service {
+            service.on_window_focus();
         }
     }
 }

@@ -147,6 +147,25 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
   etiketleri varsa görünür.
 - Olmadıysa: dosyanın adını, ekrandaki mesajı ve hata günlüğünü gönderin.
 
+**A13. Klasöre sonradan eklenen şarkı kendiliğinden görünüyor (0.0.72)**
+
+- Nasıl: Lyraska açıkken, kütüphanedeki bir klasöre (ör. `D:\DLP`) yt-dlp ile bir şarkı indirin ya da Dosya
+  Gezgini'nden bir şarkı kopyalayın. Sonra o klasörden bir şarkıyı silin (Geri Dönüşüm Kutusu'na atmak yeter).
+- Neye bakılır: **Yeniden tara**'ya basmadan ve programı kapatıp açmadan, yeni şarkı birkaç saniye içinde listede
+  görünür; silinen şarkı birkaç saniye içinde listeden kalkar.
+- Olmadıysa: klasörün yerini (yerel disk mi, USB mi, ağ sürücüsü mü) ve hata günlüğünü gönderin.
+
+**A14. Kütüphanedeki USB bellek güvenle çıkarılabiliyor (0.0.72)**
+
+- Nasıl: Bir USB belleği (ya da harici diski) kütüphaneye klasör olarak ekleyin. Lyraska açıkken (şarkı çalmıyorken)
+  ekranın sağ altındaki USB simgesine tıklayıp **Donanımı güvenle kaldır**'ı seçin ve belleği çıkarın. Belleği iki
+  dakikadan uzun çıkarık bırakın, başka bir bilgisayarda içine bir şarkı ekleyin, sonra yeniden takın.
+- Neye bakılır: Windows "Donanım güvenle kaldırılabilir" der; "Bu aygıt şu anda kullanılıyor" uyarısı **çıkmaz**.
+  Bellek çıkarıkken şarkıları listeden **silinmez**. Yeniden takınca en geç birkaç dakikada, **Yeniden tara**'ya
+  basmadan, başka bilgisayarda eklenen şarkı listede görünür.
+- Olmadıysa: hangi adımda olmadığını (uyarı mı çıktı, şarkılar mı silindi, yeni şarkı mı gelmedi) ve hata günlüğünü
+  gönderin.
+
 ## B. Çalma ve ses
 
 **B1. Ses kalitesi (#25)**

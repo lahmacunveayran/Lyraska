@@ -6,7 +6,7 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 ## İş sırası (proje sahibinin kararı, 23 Ekim 2026)
 
 1. Kütüphanenin baştan tasarımı; küçük PR'lar:
-   1. Gökyüzü (0.0.71, PR açık).
+   1. Gökyüzü (0.0.71, PR açık); klasör izleme (0.0.72, PR açık; sahibinin bildirdiği hata).
    2. Albüm sayfası; şarkı satırında kapak küçük resmi.
 2. Davul/bas/vokal ayrıştırma: Spleeter; önce eğitimsiz iyileştirmeler ölçülür.
 3. Otomatik DJ (Bölüm II), Aşama A'dan; her aşama ayrı oturumda (`docs/gorev/20-BOLUM-II-DJ.md`).
