@@ -119,8 +119,13 @@ fn main() {
     }
 }
 
-/// Bütün drop adayları (saniye, güven) ve tempo (BPM, değişken mi).
-fn run(path: &Path) -> (Vec<(f64, f32)>, Option<(f64, bool)>) {
+/// Drop adayları (saniye, güven).
+type Drops = Vec<(f64, f32)>;
+/// Tempo (BPM, değişken mi).
+type Tempo = Option<(f64, bool)>;
+
+/// Bütün drop adayları ve tempo.
+fn run(path: &Path) -> (Drops, Tempo) {
     let Ok(decoder) = Decoder::open(path) else {
         return (Vec::new(), None);
     };
