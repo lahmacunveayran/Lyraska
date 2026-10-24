@@ -565,7 +565,7 @@ pub(crate) mod tests {
             while t < 39.5 {
                 let k = (t * FPS).round() as usize;
                 if k < frames {
-                    onset[k] = if eighth % 2 == 0 { 1.0 } else { 0.7 };
+                    onset[k] = if eighth.is_multiple_of(2) { 1.0 } else { 0.7 };
                 }
                 eighth += 1;
                 t += 30.0 / bpm;
@@ -589,7 +589,11 @@ pub(crate) mod tests {
                 while t < 39.5 {
                     let k = (t * FPS).round() as usize;
                     if k < frames {
-                        onset[k] = if eighth % 2 == 0 { 1.0 } else { offbeat };
+                        onset[k] = if eighth.is_multiple_of(2) {
+                            1.0
+                        } else {
+                            offbeat
+                        };
                     }
                     eighth += 1;
                     t += 30.0 / bpm;
