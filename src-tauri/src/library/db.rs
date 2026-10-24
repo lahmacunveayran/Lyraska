@@ -233,6 +233,27 @@ impl Library {
         Ok(())
     }
 
+    /// `dir` klasörünün altında (alt klasörler dahil) kütüphanede şarkı var mı? Klasör izleme,
+    /// silinen ya da dışarı taşınan bir klasörün kütüphaneyi ilgilendirip ilgilendirmediğine buna
+    /// bakarak karar verir. Yolun tekil dizininde ön ek aralığı aranır: büyük kütüphanede de hızlı.
+    pub fn has_tracks_under(&self, dir: &Path) -> Result<bool, LibraryError> {
+        let sep = std::path::MAIN_SEPARATOR;
+        let mut lower = dir.to_string_lossy().into_owned();
+        if !lower.ends_with(sep) {
+            lower.push(sep);
+        }
+        // "dir/" ile başlayan her metin "dir/" ≤ metin < "dir0" aralığındadır ('/' + 1 = '0',
+        // '\\' + 1 = ']'); SQLite metni de Rust gibi bayt bayt karşılaştırır.
+        let mut upper = lower.clone();
+        upper.pop();
+        upper.push(char::from_u32(u32::from(sep) + 1).unwrap_or(char::MAX));
+        Ok(self.conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM tracks WHERE path >= ?1 AND path < ?2)",
+            params![lower, upper],
+            |r| r.get(0),
+        )?)
+    }
+
     /// Kaynaklar, şarkı sayıları ve tek şarkı olup olmadıklarıyla (`tracks_folder` dizini).
     pub fn folders(&self) -> Result<Vec<FolderRow>, LibraryError> {
         let mut stmt = self.conn.prepare(
@@ -762,6 +783,32 @@ mod tests {
         size: 1000,
         modified: 1,
     };
+
+    #[test]
+    fn klasorun_altinda_sarki_olup_olmadigi_bilinir() {
+        let mut lib = Library::open_in_memory().unwrap();
+        let root = std::env::temp_dir().join("muzik");
+        let folder = lib.add_folder(&root.to_string_lossy()).unwrap();
+        let song = root.join("Albüm").join("Alt").join("a.flac");
+        lib.apply_changes(
+            folder.id,
+            &[(
+                track(&song.to_string_lossy(), None, None, None, None),
+                STAMP,
+            )],
+            &[],
+        )
+        .unwrap();
+        let under = |p: PathBuf| lib.has_tracks_under(&p).unwrap();
+        assert!(under(root.clone()));
+        assert!(under(root.join("Albüm")));
+        assert!(under(root.join("Albüm").join("Alt")));
+        // Adı aynı harflerle başlayan komşu klasör ve şarkının kendisi "altında" sayılmaz.
+        assert!(!under(root.join("Alb")));
+        assert!(!under(root.join("Albüm 2")));
+        assert!(!under(song.clone()));
+        assert!(!under(root.join("Başka")));
+    }
 
     fn sample() -> Library {
         let mut lib = Library::open_in_memory().unwrap();

@@ -7,6 +7,7 @@
 //! tek bir şarkı dosyası. İkisi de aynı şekilde taranır, güncellenir ve çıkarılır.
 //! - [`covers`]: kullanıcının albümlere seçtiği kapaklar (veri klasöründe; müzik dosyalarına dokunulmaz).
 //! - [`service`]: veritabanı + arka plan taraması; Tauri komutlarının kullandığı katman.
+//! - [`watch`]: klasör izleme; sonradan eklenen, değişen ya da silinen şarkılar kendiliğinden taranır.
 //!
 //! Veritabanı kullanıcının bilgisayarında, makineye özgü uygulama veri klasöründe durur
 //! (`%LOCALAPPDATA%\io.github.gozlemesevdalisi.lyraska\library.sqlite3`; bkz. `data_dirs`). İnternet
@@ -16,6 +17,7 @@ pub mod covers;
 pub mod db;
 pub mod scan;
 pub mod service;
+pub mod watch;
 
 use std::path::{Component, Path};
 

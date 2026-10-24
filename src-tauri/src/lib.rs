@@ -29,6 +29,9 @@ pub mod visual_bridge;
 
 use tauri::Manager;
 
+/// Kütüphane bir taramayla değişince arayüze gönderilen olay (`src/lib/backend.ts` dinler).
+pub const LIBRARY_CHANGED_EVENT: &str = "kutuphane-degisti";
+
 /// Programı başlatır.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -106,7 +109,16 @@ pub fn run() {
                     .map_err(|e| e.to_string())
             });
             match &service {
-                Ok(service) => service.request_scan(),
+                Ok(service) => {
+                    // Tarama kütüphaneyi değiştirince (ör. izlenen klasöre yeni şarkı indi)
+                    // arayüz listeyi kendiliğinden tazeler.
+                    let handle = app.handle().clone();
+                    service.set_on_change(move || {
+                        let _ = tauri::Emitter::emit(&handle, LIBRARY_CHANGED_EVENT, ());
+                    });
+                    service.request_scan();
+                    service.start_watching();
+                }
                 Err(error) => diagnostics::error(&format!("Kütüphane açılamadı: {error}")),
             }
             app.manage(commands::LibraryState::new(service));
@@ -162,7 +174,11 @@ pub fn run() {
         })
         // Sürükle-bırak sorunlarını ayırt etmek için: Windows dosyaları pencereye
         // ulaştırıyor mu? (Arayüzün bırakılanları işlediği ayrıca yazılır.)
-        .on_window_event(|_window, event| {
+        .on_window_event(|window, event| {
+            // Pencereye dönülünce izlenemeyen kaynaklar taranır (seyrek; bkz. on_window_focus).
+            if let tauri::WindowEvent::Focused(true) = event {
+                window.state::<commands::LibraryState>().on_window_focus();
+            }
             if let tauri::WindowEvent::DragDrop(drag) = event {
                 match drag {
                     tauri::DragDropEvent::Enter { paths, .. } => {

@@ -296,9 +296,12 @@ const SKIPPED_DIRS: &[&str] = &["$RECYCLE.BIN", "System Volume Information", "@e
 fn is_skipped_dir(entry: &walkdir::DirEntry) -> bool {
     entry.depth() > 0
         && entry.file_type().is_dir()
-        && entry.file_name().to_str().is_some_and(|name| {
-            name.starts_with('.') || SKIPPED_DIRS.iter().any(|s| s.eq_ignore_ascii_case(name))
-        })
+        && entry.file_name().to_str().is_some_and(is_skipped_dir_name)
+}
+
+/// Bu adlı klasör taranmaz mı? (Gizli klasörler ve [`SKIPPED_DIRS`]; klasör izleme de kullanır.)
+pub(super) fn is_skipped_dir_name(name: &str) -> bool {
+    name.starts_with('.') || SKIPPED_DIRS.iter().any(|s| s.eq_ignore_ascii_case(name))
 }
 
 /// Silme kararı şüpheli mi? `known` bilinen, `missing` diskte bulunamayan şarkı sayısı.

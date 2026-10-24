@@ -678,6 +678,19 @@ export async function pickSongMapFile(): Promise<string | null> {
   return typeof selected === "string" ? selected : null;
 }
 
+/** Çekirdeğin kütüphane bir taramayla değişince gönderdiği olay (`lib.rs`: LIBRARY_CHANGED_EVENT). */
+export const LIBRARY_CHANGED_EVENT = "kutuphane-degisti";
+
+/**
+ * Kütüphane kendiliğinden değişince (izlenen klasöre şarkı eklendi, silindi) haber verir.
+ * Dinlemeyi bırakmak için dönen fonksiyon çağrılır.
+ */
+export async function onLibraryChanged(handler: () => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen(LIBRARY_CHANGED_EVENT, () => handler());
+}
+
 /** Pencereye dosya sürükleme olaylarını dinleyen işlevler. */
 export interface DragDropHandlers {
   /** Dosyalar pencerenin üstüne geldi (`true`) ya da gitti/bırakıldı (`false`). */

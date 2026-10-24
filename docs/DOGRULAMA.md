@@ -147,6 +147,14 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
   etiketleri varsa görünür.
 - Olmadıysa: dosyanın adını, ekrandaki mesajı ve hata günlüğünü gönderin.
 
+**A13. Klasöre sonradan eklenen şarkı kendiliğinden görünüyor (0.0.72)**
+
+- Nasıl: Lyraska açıkken, kütüphanedeki bir klasöre (ör. `D:\DLP`) yt-dlp ile bir şarkı indirin ya da Dosya
+  Gezgini'nden bir şarkı kopyalayın. Sonra o klasörden bir şarkıyı silin (Geri Dönüşüm Kutusu'na atmak yeter).
+- Neye bakılır: **Yeniden tara**'ya basmadan ve programı kapatıp açmadan, yeni şarkı birkaç saniye içinde listede
+  görünür; silinen şarkı birkaç saniye içinde listeden kalkar.
+- Olmadıysa: klasörün yerini (yerel disk mi, USB mi, ağ sürücüsü mü) ve hata günlüğünü gönderin.
+
 ## B. Çalma ve ses
 
 **B1. Ses kalitesi (#25)**
