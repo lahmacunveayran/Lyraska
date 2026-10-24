@@ -45,11 +45,13 @@ fn main() {
             .iter()
             .filter(|&&d| truth.iter().all(|&m| (d - m).abs() > DROP_TOLERANCE))
             .count();
+        // Zaman hatası yalnızca isabetlerde (ekranda gösterilen, ±1 sn içindeki drop).
         for &m in &truth {
-            if let Some(e) = found
+            if let Some(e) = confident
                 .iter()
-                .map(|(t, _)| t - m)
-                .min_by(|a, b| a.abs().total_cmp(&b.abs()))
+                .map(|&t| (t - m).abs())
+                .filter(|&e| e <= DROP_TOLERANCE)
+                .min_by(f64::total_cmp)
             {
                 errors.push(e);
             }
@@ -71,10 +73,17 @@ fn main() {
             truth.len()
         );
     }
-    let near = errors.iter().filter(|e| e.abs() <= DROP_TOLERANCE).count();
+    errors.sort_by(f64::total_cmp);
+    let at = |q: f64| {
+        errors
+            .get(((errors.len() as f64 - 1.0) * q).round() as usize)
+            .copied()
+    };
+    let ms = |v: Option<f64>| v.map_or("-".to_owned(), |v| format!("{:.0} ms", v * 1000.0));
     println!(
-        "TOPLAM: isabet {hits_total}/{marked_total} · yanlış alarm {false_total} · en yakın aday ±1 sn içinde {near}/{}",
-        errors.len()
+        "TOPLAM: isabet {hits_total}/{marked_total} · yanlış alarm {false_total} · isabetlerde zaman hatası ortanca {} · %90 {}",
+        ms(at(0.5)),
+        ms(at(0.9))
     );
 }
 

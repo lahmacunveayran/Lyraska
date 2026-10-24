@@ -148,6 +148,10 @@ def section(song, t0, bars, el, bar_index=0):
             div = 1 if prog <= 0.5 else (2 if prog <= 0.75 else 4)
             for q in range(4 * div):
                 song.snare(tb + q * b / div, el["roll"] * (0.3 + 0.7 * prog))
+        if "kickroll" in el and k == bars - 1:
+            # Yükselişin son ölçüsünde on altılık kick rulosu (drop'tan hemen önce, çok yaygın).
+            for q in range(16):
+                song.kick(tb + q * b / 4, el["kickroll"] * (0.4 + 0.6 * q / 15))
         if "hat" in el:
             for q in range(8):
                 song.hat(tb + q * b / 2, el["hat"] * (1.0 if q % 2 else 0.5))
@@ -210,6 +214,9 @@ def build_song(kind, rng):
     groove = {"kick": 0.9, "hat": 0.7, "pad": 0.6, "bass": 0.7}
     calm = {"pad": 0.8, "lead": 0.5}
     build = {"pad": 0.6, "roll": 0.8, "riser": 1.0, "lead": 0.4}
+    # Türün yarısında yükseliş kick rulosuyla biter (tohuma göre).
+    if rng.random() < 0.5:
+        build["kickroll"] = 0.9
     bi = 0
 
     def sec(bars, el):
