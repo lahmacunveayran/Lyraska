@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { PlayIcon, ShuffleIcon } from "./icons";
 import { AlbumArt, albumKey, albumLength, isAlbumOf } from "./AlbumGrid";
 import { albumRows, REPEAT_PLAY_MS } from "./AlbumPage";
@@ -53,7 +53,7 @@ export interface ArtistPageProps {
   tracks: LibraryTrack[];
   /** Değişince (tarama, analiz) sanatçının şarkıları yeniden sorulur. */
   refreshKey: unknown;
-  /** Çalan şarkı (albümü vurgulanır); kütüphanede değilse `null`. */
+  /** Çalan şarkı, aramadan bağımsız listeden (albümü vurgulanır); kütüphanede değilse `null`. */
   current: LibraryTrack | null;
   currentPath: string | null;
   playing: boolean;
@@ -114,8 +114,12 @@ export function ArtistPage({
   }, [artist.name, refreshKey]);
 
   const paths = loaded?.name === artist.name ? loaded.paths : null;
-  const rows = paths ? albumRows(paths, tracks) : [];
-  const total = rows.reduce((sum, track) => sum + (track.durationSecs ?? 0), 0);
+  // Satırlar yalnızca yollar ya da kütüphane değişince kurulur (her durum sorgusunda değil).
+  const rows = useMemo(() => (paths ? albumRows(paths, tracks) : []), [paths, tracks]);
+  const total = useMemo(
+    () => rows.reduce((sum, track) => sum + (track.durationSecs ?? 0), 0),
+    [rows],
+  );
 
   // Son çalma isteğinin zamanı: üst üste gelen istek sanatçıyı ikinci kez başlatmaz.
   const lastPlay = useRef(-Infinity);
@@ -125,6 +129,12 @@ export function ArtistPage({
     lastPlay.current = time;
     onPlay(paths, start, order);
   };
+  // Satırların çalma işlevi kimliğini korur (liste `memo` ile yeniden çizilmez); en son `play`.
+  const playRef = useRef(play);
+  useEffect(() => {
+    playRef.current = play;
+  });
+  const playRow = useCallback((time: number, path: string) => playRef.current(time, path), []);
 
   return (
     <div className="album-page artist-page" aria-labelledby={`${id}-title`} role="region">
@@ -227,7 +237,8 @@ export function ArtistPage({
             camelot={camelot}
             label="Sanatçının şarkıları"
             showAlbum
-            onPlay={(time, path) => play(time, path)}
+            numbering="position"
+            onPlay={playRow}
           />
         </section>
       )}

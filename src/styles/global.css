@@ -3660,6 +3660,12 @@ kbd {
   box-shadow: inset 0 0 0 2px var(--vfd);
 }
 
+/* Uzun listede (yüzlerce şarkılı sanatçı) ekran dışındaki satırlar çizilmez. */
+.album-page__list .album-page__row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--row-height);
+}
+
 .album-page__list .album-page__row:hover {
   background: rgba(255, 255, 255, 0.04);
 }

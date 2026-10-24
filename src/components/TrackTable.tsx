@@ -1,4 +1,4 @@
-import { useId, useState, type KeyboardEvent } from "react";
+import { memo, useId, useState, type KeyboardEvent } from "react";
 import { PauseIcon, PlayIcon } from "./icons";
 import type { LibraryTrack } from "../lib/backend";
 import { bpmLabel } from "../lib/analysis";
@@ -15,21 +15,25 @@ export interface TrackTableProps {
   label: string;
   /** Albüm sütunu (sanatçı sayfasında şarkılar albüm albüm sıralı). */
   showAlbum?: boolean;
+  /** Sıra sütunu: albümün parça numarası ("track") ya da listedeki sıra ("position"). */
+  numbering?: "track" | "position";
   /** Şarkıyı çalar (çift tık, Enter); `time` üst üste gelen isteği ayıklamak için. */
   onPlay: (time: number, path: string) => void;
 }
 
 /**
  * Albüm ve sanatçı sayfasının şarkı listesi: tıklama seçer, çift tık ve Enter seçili şarkıdan
- * çalar, ok tuşları / Home / End seçimi taşır ve satırı görünür alana getirir.
+ * çalar, ok tuşları / Home / End seçimi taşır ve satırı görünür alana getirir. Değişmeyen
+ * özelliklerle yeniden çizilmez (`memo`): oynatıcının durum sorgusu uzun listeyi baştan kurmaz.
  */
-export function TrackTable({
+export const TrackTable = memo(function TrackTable({
   rows,
   currentPath,
   playing,
   camelot,
   label,
   showAlbum = false,
+  numbering = "track",
   onPlay,
 }: TrackTableProps) {
   const id = useId();
@@ -110,7 +114,7 @@ export function TrackTable({
                     <PauseIcon />
                   )
                 ) : (
-                  (track.trackNumber ?? index + 1)
+                  ((numbering === "track" ? track.trackNumber : null) ?? index + 1)
                 )}
               </span>
               <span className="library__cell library__title-cell" role="gridcell">
@@ -143,4 +147,4 @@ export function TrackTable({
       </div>
     </div>
   );
-}
+});
