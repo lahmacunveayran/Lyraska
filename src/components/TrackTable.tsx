@@ -19,8 +19,11 @@ export interface TrackTableProps {
   showArtist?: boolean;
   /** Sıra sütunu: albümün parça numarası ("track") ya da listedeki sıra ("position"). */
   numbering?: "track" | "position";
-  /** Şarkıyı çalar (çift tık, Enter); `time` üst üste gelen isteği ayıklamak için. */
-  onPlay: (time: number, path: string) => void;
+  /**
+   * Şarkıyı çalar (çift tık, Enter); `time` üst üste gelen isteği ayıklamak için, `index` satırın
+   * sırası (aynı şarkı listede iki kez olabilir).
+   */
+  onPlay: (time: number, path: string, index: number) => void;
   /**
    * Çalma listesinde: satırı çıkarır (satırdaki × ya da Delete). Verilirse satırlar Alt+↑/↓ ile
    * `onMove` üzerinden taşınır. Aynı şarkı listede iki kez olabilir: satır sırasıyla bilinir.
@@ -85,7 +88,7 @@ export const TrackTable = memo(function TrackTable({
       const track = rows[selected];
       if (!track) return;
       event.preventDefault();
-      onPlay(event.timeStamp, track.path);
+      onPlay(event.timeStamp, track.path, selected);
     }
   };
 
@@ -129,7 +132,7 @@ export const TrackTable = memo(function TrackTable({
               aria-selected={index === selected}
               className={`${rowClass}${isCurrent ? " is-current" : ""}${index === selected ? " is-selected" : ""}`}
               onClick={() => setSelected(index)}
-              onDoubleClick={(event) => onPlay(event.timeStamp, track.path)}
+              onDoubleClick={(event) => onPlay(event.timeStamp, track.path, index)}
               title={track.path}
             >
               <span className="library__no" role="gridcell">

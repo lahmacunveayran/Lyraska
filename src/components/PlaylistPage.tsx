@@ -39,7 +39,8 @@ export interface PlaylistPageProps {
   playing: boolean;
   camelot: boolean;
   onBack: () => void;
-  onPlay: (paths: string[], start?: string, order?: PlayOrder) => void;
+  /** `startIndex`: başlanan satırın sırası (aynı şarkı listede iki kez olabilir). */
+  onPlay: (paths: string[], start?: string, order?: PlayOrder, startIndex?: number) => void;
   onRename: (name: string) => Promise<boolean>;
   onDelete: () => void;
   onChooseCover: () => void;
@@ -116,17 +117,21 @@ export function PlaylistPage({
   const rows = useMemo(() => (paths ? albumRows(paths, tracks) : []), [paths, tracks]);
 
   const lastPlay = useRef(-Infinity);
-  const play = (time: number, start?: string, order?: PlayOrder) => {
+  const play = (time: number, start?: string, order?: PlayOrder, startIndex?: number) => {
     if (!paths || paths.length === 0) return;
     if (time - lastPlay.current < REPEAT_PLAY_MS) return;
     lastPlay.current = time;
-    onPlay(paths, start, order);
+    if (startIndex === undefined) onPlay(paths, start, order);
+    else onPlay(paths, start, order, startIndex);
   };
   const playRef = useRef(play);
   useEffect(() => {
     playRef.current = play;
   });
-  const playRow = useCallback((time: number, path: string) => playRef.current(time, path), []);
+  const playRow = useCallback(
+    (time: number, path: string, index: number) => playRef.current(time, path, undefined, index),
+    [],
+  );
 
   // Değişiklik hemen görünür (yerel sıra), sonra çekirdekten yeniden okunur.
   const edit = useCallback(

@@ -48,8 +48,9 @@ export interface PlaybackControls {
   /**
    * Listeyi sıra yapıp verilen şarkıdan çalmaya başlar. Şarkı verilmezse düz sırada ilk şarkı,
    * karışık sırada rastgele bir şarkı çalar. `order` verilirse "Karışık çal" düğmesi de ona uyar.
+   * `startIndex`: başlanan satırın sırası (aynı şarkı listede iki kez olabilir).
    */
-  playList: (paths: string[], start?: string, order?: PlayOrder) => void;
+  playList: (paths: string[], start?: string, order?: PlayOrder, startIndex?: number) => void;
   /** Karışık çal açık mı (düğmenin durumu; program yeniden açılınca hatırlanır). */
   shuffle: boolean;
   /** Karışık çalı açar/kapatır; çalan sıra da hemen karışır ya da asıl sırasına döner. */
@@ -159,14 +160,14 @@ export function usePlayback(
   const canNext = queueActive && nextInQueue(activeQueue) !== null;
 
   const playList = useCallback(
-    (paths: string[], start?: string, order?: PlayOrder) => {
+    (paths: string[], start?: string, order?: PlayOrder, startIndex?: number) => {
       const shuffled = order ? order === "shuffled" : shuffle;
       if (order) setShuffle(shuffled);
       if (shuffled) {
-        playQueue(shuffledQueueFrom(paths, start ?? null, random));
+        playQueue(shuffledQueueFrom(paths, start ?? null, random, startIndex));
       } else {
         const first = start ?? paths[0];
-        if (first !== undefined) playQueue(queueFrom(paths, first));
+        if (first !== undefined) playQueue(queueFrom(paths, first, startIndex));
       }
     },
     [playQueue, shuffle, setShuffle, random],

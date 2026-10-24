@@ -247,6 +247,35 @@ describe("çalma listeleri", () => {
     expect(backend.calls.at(-1)).toBe("remove 1");
   });
 
+  it("liste sayfası: aynı şarkının ikinci satırı kendi yerinden çalar", async () => {
+    backend.lists = [{ id: 1, name: "Karışık", paths: ["a.flac", "b.flac", "a.flac"] }];
+    const tracks = [song("a.flac", "Ay"), song("b.flac", "Bulut")];
+    const onPlay = vi.fn();
+    render(
+      <PlaylistPage
+        playlist={row(backend.lists[0]!)}
+        tracks={tracks}
+        byPath={new Map(tracks.map((t) => [t.path, t]))}
+        coverIndex={albumCoverIndex(tracks)}
+        coverRevision={0}
+        refreshKey="k"
+        currentPath={null}
+        playing={false}
+        camelot={false}
+        onBack={vi.fn()}
+        onPlay={onPlay}
+        onRename={vi.fn(async () => true)}
+        onDelete={vi.fn()}
+        onChooseCover={vi.fn()}
+        onClearCover={vi.fn()}
+        onChanged={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(4));
+    fireEvent.doubleClick(screen.getAllByRole("row")[3]!);
+    expect(onPlay).toHaveBeenCalledWith(["a.flac", "b.flac", "a.flac"], "a.flac", undefined, 2);
+  });
+
   it("liste sayfası: ad değişir, silme onay ister", async () => {
     backend.lists = [{ id: 1, name: "Eski", paths: [] }];
     const onRename = vi.fn(async () => true);

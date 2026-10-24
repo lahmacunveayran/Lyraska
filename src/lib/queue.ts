@@ -22,9 +22,17 @@ export type RandomSource = () => number;
 
 export const EMPTY_QUEUE: Queue = { paths: [], index: -1 };
 
-/** Listeden bir şarkı seçilince yeni sıra. */
-export function queueFrom(paths: string[], path: string): Queue {
-  const index = paths.indexOf(path);
+/**
+ * Verilen sıra yola uyuyorsa o, uymuyorsa yolun ilk geçtiği yer. Aynı şarkı listede iki kez
+ * olabilir (çalma listesi): tıklanan satırın sırası verilir.
+ */
+function startIndex(paths: string[], path: string, at?: number): number {
+  return at !== undefined && paths[at] === path ? at : paths.indexOf(path);
+}
+
+/** Listeden bir şarkı seçilince yeni sıra (`at`: seçilen satırın sırası, bkz. `startIndex`). */
+export function queueFrom(paths: string[], path: string, at?: number): Queue {
+  const index = startIndex(paths, path, at);
   return index < 0 ? { paths: [path], index: 0 } : { paths, index };
 }
 
@@ -58,13 +66,14 @@ export function shuffledQueueFrom(
   paths: string[],
   start: string | null,
   random: RandomSource = Math.random,
+  at?: number,
 ): Queue {
   if (start === null) {
     return paths.length === 0
       ? EMPTY_QUEUE
       : arranged(paths, shuffled(range(paths.length), random), 0);
   }
-  const first = paths.indexOf(start);
+  const first = startIndex(paths, start, at);
   if (first < 0) return arranged([start], [0], 0);
   const rest = range(paths.length).filter((i) => i !== first);
   return arranged(paths, [first, ...shuffled(rest, random)], 0);

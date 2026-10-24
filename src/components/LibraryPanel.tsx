@@ -84,7 +84,7 @@ export interface LibraryPanelProps {
   playing: boolean;
   onPlay: (track: LibraryTrack, list: LibraryTrack[]) => void;
   /** Albümü çalar (şarkı yolları çalma sırasıyla); `start` yoksa baştan. */
-  onPlayPaths: (paths: string[], start?: string, order?: PlayOrder) => void;
+  onPlayPaths: (paths: string[], start?: string, order?: PlayOrder, startIndex?: number) => void;
 }
 
 /** Klasör yolunun son parçası ("D:\Müzik\Rock" → "Rock"). */
@@ -1024,7 +1024,9 @@ export function LibraryPanel({
                   playing={playing}
                   camelot={camelot}
                   onBack={() => setOpenPlaylist(null)}
-                  onPlay={(paths, start, order) => onPlayPaths(paths, start, order)}
+                  onPlay={(paths, start, order, startIndex) =>
+                    onPlayPaths(paths, start, order, startIndex)
+                  }
                   onRename={(name) => playlists.rename(shownPlaylist.id, name)}
                   onDelete={() => {
                     setOpenPlaylist(null);

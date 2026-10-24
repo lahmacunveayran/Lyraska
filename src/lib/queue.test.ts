@@ -158,3 +158,17 @@ describe("karışık çalma", () => {
     }
   });
 });
+
+describe("aynı şarkı sırada iki kez", () => {
+  const list = ["a.flac", "b.flac", "a.flac", "c.flac"];
+
+  it("başlangıç sırası verilirse o satırdan başlar (ilk eşleşmeden değil)", () => {
+    expect(queueFrom(list, "a.flac", 2).index).toBe(2);
+    expect(queueFrom(list, "a.flac").index).toBe(0);
+    // Sıra yola uymuyorsa yol aranır.
+    expect(queueFrom(list, "b.flac", 2).index).toBe(1);
+    const shuffledQueue = shuffledQueueFrom(list, "a.flac", seededRandom(3), 2);
+    expect(currentPath(shuffledQueue)).toBe("a.flac");
+    expect(shuffledQueue.positions?.[0]).toBe(2);
+  });
+});
