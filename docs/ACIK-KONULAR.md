@@ -6,9 +6,9 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 ## İş sırası (proje sahibinin kararı, 23 Ekim 2026)
 
 1. Kütüphanenin baştan tasarımı; küçük PR'lar:
-   1. Listeyi taşıma (0.0.79, PR açık); dosya konumunu aç (0.0.80) sırada.
-   2. Sahibinin istekleri (24 Ekim): "Kendi resmin" sahnesi (örnek videolardan ölçülen model; bağımsız denetimde,
-      sahibinin üç test güncellemesi onayı var), şarkıya özel kapak (albüm kapağı zaten değişiyor).
+   1. Dosya konumunu aç (0.0.80, PR açık).
+   2. Sahibinin istekleri (24 Ekim): "Kendi resmin" sahnesi (örnek videolardan ölçülen model, iki denetimden geçti;
+      sırada kırmızı parlama sınırı ve hareketli arka plan), şarkıya özel kapak (albüm kapağı zaten değişiyor).
 2. Davul/bas/vokal ayrıştırma: Spleeter; önce eğitimsiz iyileştirmeler ölçülür.
 3. Otomatik DJ (Bölüm II), Aşama A'dan; her aşama ayrı oturumda (`docs/gorev/20-BOLUM-II-DJ.md`).
 
