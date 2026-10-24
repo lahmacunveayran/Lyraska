@@ -109,7 +109,7 @@ herhangi iki kare arasında 0,08'den fazla değişmez (eşik 0,1). Sınır:
   ve en açığıdır (tarayıcının ölçeklemesi ölçümden kayabilir). Özün dokunduğu piksel, üstüne
   binen ışıltılarla birlikte zeminin bütün payı kadar sayılır.
 - Pencereye ışığının bir kısmı bile düşebilen çubuğun bütün ışığı, bütün satırlar sayılır;
-  ışıltının dikey kuyrukları en parlak satırıyla.
+  ışıltının dikey kuyrukları çubuğun üstündeki ve ucunun altındaki gerçek satırlarla, kısa çubukta sönük ışıltıyla (`boxPeak`, `boxTail`).
 
 Ölçümler (1920×1080):
 
@@ -122,8 +122,110 @@ herhangi iki kare arasında 0,08'den fazla değişmez (eşik 0,1). Sınır:
 Koyu bant kaldırıldı: renk resmin rengi ve ışık eklendiği için açık yerlerde çubuk zaten az şey
 değiştirir; ek pay gerekmedi.
 
+### Kırmızı parlama (WCAG 2.3.1)
+
+Bağımsız denetim gerçek Chromium'da çok koyu doymuş kırmızı zeminde (40, 0, 0) sessizlikten bütün
+çubuklar doluya geçişte pencerenin kırmızı ölçüsünü **21,1** (eşik 20), (110, 10, 20)'de 15,6
+ölçtü. Ölçü: pencerede ortalama `320 · (R − G − B)` (doğrusal bileşenler), piksel doygun kırmızı
+değilse (`R/(R+G+B) < 0,8`) 0 ("kapılı", Trace Center / PEAT); WCAG'nin çalışma tanımında değer
+`320 · max(0, R − G − B)` ("sürekli"). Sınır ikisini birden kapsar.
+
+**Neden ikili pay.** Parlaklığın tersine kırmızı ölçü eklenen ışıkla tekdüze değil: kırmızı
+ışıltı koyu kırmızıyı daha kırmızı yapar (artış), beyaza yakın öz doymuş kırmızıyı doygunluktan
+çıkarır (değeri bütünüyle düşer), pembeyi doygun kırmızıya çevirebilir (0'dan sıçrar). "Her kare
+`[taban, taban + pay]`" burada ikili farkı sınırlamaz. Bu yüzden her karede çubukların çubuksuz
+resme göre pencerede yapabileceği en büyük **artış** `I_t` ve en büyük **azalış** `D_t` ayrı
+sınırlanır: `I_t ≤ I`, `D_t ≤ D`, `I + D = 16` (eşiğin %80'i; güvenli modda 8). Herhangi iki kare
+t, u için `R(t) − R(u) ≤ I_t + D_u ≤ 16 < 20`. Bölüşüm resmin ilk ölçümünden (bütün çubuklar
+doluyken artış/azalış oranı, `[0,1; 0,9]`) ve resim değişene dek sabit; bilinmezken ikisi de
+`0,1 · 16`: bölüşüm, güvenli mod ya da yeniden ölçüm değişse de her karenin artışıyla başka bir
+karenin azalışının toplamı 16'yı geçmez (test: `pay bölüşümü`).
+
+**Piksel sınırı** (`redChange`): eklemeden sonra kanal `min(255, b + a)`; doğrusal artışlar kanal
+başına aralıkta. `L = R − G − B` ve `Q = R/4 − G − B` (`Q ≥ 0` ⇔ doygun) doğrusal,
+`max(0, L)` 1-Lipschitz: artış ≤ `max(0, ΔR⁺ − ΔG⁻ − ΔB⁻)`, azalış ≤ `max(0, ΔG⁺ + ΔB⁺ − ΔR⁻)`;
+doygun olmayan renk doygunlaşabiliyorsa (`Q + ΔR⁺/4 − ΔG⁻ − ΔB⁻ ≥ 0`) sıçrama
+`L + ΔR⁺ − ΔG⁻ − ΔB⁻`, doygun renk doygunluğunu yitirebiliyorsa azalış önceki değerin tamamı.
+Tek renkli pikselde (sabit resim) ayrıca eklenen ışığın yolu boyunca ortalama değer kuramı
+(kanallar aynı `t` ile birlikte artar; eşit kanallı beyaz ışıkta tuvalin yuvarlaması da ortak):
+uydurma "kırmızı R, koyu G" karışımı yok. Her ekran pikseli, ölçülen 3×3 komşudan birinin
+**kendi** rengi sayılır (eski denemedeki gibi komşuların kanallarını karıştırıp hayalî kırmızı
+üretmez).
+
+**Pencere sınırı.** Bütün ışıltıların rengi aynı; bir piksele gelen ışıltı `τ · u`. Her piksel için
+`τ ≤ RED_LEVELS[l] · T` düzeylerinde (14 düzey, `T` en büyük toplam ışıltı) ve özün kapladığı
+pay aralıklarında (dörtte birlik, kaba düzeylerle) en büyük değişim ölçülür; her sütun bir şeride
+(en yakın çubuk) ait, şeridin satır satır birikimli tabloları tutulur. Bir karede şeridin her
+satırının düzeyi o satıra ışığı düşebilen çubukların boylarından bulunur: satırda ışıltı en çok
+`min(Σ_k τ_k · v_k, max v · T_m)` (`τ_k` çubuğun şeritteki en büyük ışıltısı, `v_k` dikey değeri:
+içeride `boxPeak(e_k)`, dışarıda kenara uzaklıkla `boxTail`); çubuğun kendi öz sütunlarında öz
+yalnız çubuk o satırdaysa. Her piksel bir kez sayılır (eski "her çubuğa ayrı pay" sınırı yoğun
+çubukta pikselleri çubuk sayısı kadar sayıyordu). Kuyruklar ölçümde, en uzun komşunun boyuna
+göre. Kare başına maliyet 1080p kırmızı resimde ~1 ms, ölçüm 1–3 sn (ayrı iş parçacığında).
+
+**Gerçekle karşılaştırma** (640×360, tarayıcı gibi model, pencerede en büyük artış): (40, 0, 0)
+sessiz 2,3 → sınır 6,5; yarı 115 → 137; tam 225 → 270. Proje sahibinin kırmızı resmi: sessiz
+2,4 → 10,1; tam 160 → 226. Sınır hiçbir durumda gerçeğin altında değil (testler: her desen,
+her pencere, iki tanım).
+
+**Gerçek tarayıcıda** (`check:scenes`, Chromium): sessiz → tam ses kırmızı farkı (40, 0, 0)'da
+**8,56** (önce 21,1), (110, 10, 20)'de **10,09** (önce 15,6); gri ve resimsizde 0.
+
+**Etki** (1080p, kaydın sesiyle 246 kare, bütün çubukların boyu, px, ortanca / %90 / %99):
+
+| Resim                        | Yalnız parlaklık    | Parlaklık + kırmızı |
+| ---------------------------- | ------------------- | ------------------- |
+| 2 (kırmızı, sahibinin resmi) | 39,2 / 95,6 / 193,6 | 11,0 / 22,0 / 49,8  |
+| 3 (mor)                      | 39,5 / 94,8 / 217,2 | aynı                |
+| 4 (çok renkli, beyaz çizgi)  | 35,2 / 83,5 / 203,5 | aynı                |
+| 5 (mavi)                     | 22,7 / 51,6 / 124,9 | aynı                |
+| düz (40, 0, 0)               | 26,3 / 60,4 / 146,0 | 8,9 / 16,9 / 39,9   |
+| düz (110, 10, 20)            | 24,2 / 55,3 / 133,6 | 7,8 / 14,2 / 31,7   |
+
+Bas çubukları (ilk 20) kırmızı resimde 20,2 / 67,0 / 140,8 → 7,2 / 15,1 / 36,9. Kırmızı olmayan
+resimler etkilenmez. Kırmızı resimde sınır gerçekten ~1,4× (tam çubuk) – ~4× (sessizlik)
+temkinli: tarayıcıda ölçülen fark payın (16) altında kaldığı için çubuklar fiziksel olarak
+gerekenden kısadır (kaydın sesiyle yaklaşık %40'ı yetecekken %28'i).
+
+### Hareketli arka plan (GIF, APNG, hareketli WebP)
+
+Kareler WebView'da çözülür (`ImageDecoder`, Chromium ≥ 94), WebGL tuvalinde **parlaklık freninden**
+(MilkDrop'unki; kırmızı kanalıyla) geçerek çizilir; hiçbir zaman `<img>` ile oynatılmaz. Fren ilk
+kareyle başlar (sabit resmin belirmesi gibi tek geçiş). Animasyon yalnız çalarken ilerler;
+"animasyonları azalt" açıksa, `ImageDecoder` yoksa, fren kurulamazsa ya da resim sınırları aşıyorsa
+(600 kare, 50 milyon piksel; çekirdek seçerken reddeder) ilk kare sabit gösterilir.
+
+- **Zarf.** Fren gösterilen pikseli önceki gösterilenle yeni karenin doğrusal ışıkta karışımı
+  olarak çizer: ekrandaki her renk karelerin renklerinin dışbükey zarfındadır. Çubukların sınırı
+  bu zarfla ölçülür (`FrameEnvelope`: kanal başına en koyu/en açık, `L` ve `Q`'nun uçları — doğrusal
+  oldukları için uçları karelerin uçları —, ekranın 8 biti için pay).
+- **Fren.** Parlaklıkta (`flashGuardMath.ts` 1.–8. adım) her pencerenin ortalaması saniyede en çok
+  `ρ_L = r_p · N⁺/N · (1 + GUARD_MAX_DT)` yol alır (normal r_p = 0,27); kırmızı kanalda
+  (9. adım) `ρ_R = 320 · r_r · N⁺/N · (1 + GUARD_MAX_DT)` (r_r = 0,09/sn; güvenli 0,03/sn).
+- **Birlikte.** Pencerenin görünen değeri `Y = S + e + A`: `S` frenin saklanan görüntüsü, `|e| ≤ ε`
+  ekranın 8 biti, çubuklar `A ∈ [0, a]` (kırmızıda `[−D, I]`). Bir değişim (eşik Δ = 0,1 ya da 20)
+  sayılması için `S` son değişimden bu yana en az `Δ − (a + 2ε)` yol almalı; 1 saniyede değişim
+  sayısı `N ≤ 1 + ρ / (Δ − a − 2ε)`. Bant `N ≤ 7` (saniyede ≤ 3 parlama; güvenli `N ≤ 3`, ≤ 1)
+  olacak biçimde %90 payla seçilir (`animatedBudgets`): 1080p'de parlaklık payı **0,035** (sabit
+  resimde 0,08), kırmızı **5,26** (16); güvenli modda yarısı.
+- **Denetim.** Tarayıcı gibi modelde (işlemcideki fren `guardStep` + çubuklar) bilerek parlayan
+  resim (siyah ↔ beyaz, kırmızı ↔ aynı parlaklıkta gri, koyu ↔ parlak kırmızı, 10 Hz) ve onunla aynı
+  ritimde yanıp sönen çubuklar: frenli ≤ 3/sn (güvenli ≤ 1) parlama, parlaklıkta da kırmızıda da;
+  frensiz denetim > 6/sn. Gerçek Chromium'da (`check:scenes`, projenin ürettiği APNG) frenli
+  **0** parlama/sn (güvenli de 0), frensiz 4,75/sn; görüntü hareket ediyor.
+- **Bedel.** Fren hızlı ve keskin hareketi yavaşlatır (iz bırakır; MilkDrop'taki gibi), kırmızı
+  içerik daha da yavaş değişir. Zarf her pikselin bütün karelerdeki en kötü rengini sayar: kırmızı
+  ya da parlak içerikli, çok hareketli resimde çubuklar sessizlik boyuna yakın kalabilir.
+
 ### Kalan farklar
 
+- **Kırmızı ölçünün süreksizliği**: kapılı PEAT ölçüsü doygunluk sınırında (`R/(R+G+B) = 0,8`)
+  sıçrar; hareketli arka planda renkler sınırın iki yanında gidip gelirse (gözle görülmeyecek bir
+  değişim) bu ölçü fark gösterebilir, hiçbir hız sınırı bunu önleyemez. Fren sürekli tanımı
+  sınırlar; çubukların sınırı iki tanımı da kapsar.
+- **Ekran ölçeklemesi**: ekrandaki pikselin ölçülen 3×3 komşudan birinin rengi olduğu varsayılır
+  (tarayıcının ölçeklemesi bir piksel kaydırabilir); sRGB'de iki rengin karışımı ölçülmemiş bir
+  kırmızılık verebilir (keskin beyaz–kırmızı kenarda). Gerçek tarayıcı denetimi düz renklerde.
 - **Fiziksel sınır**: çok koyu bir resimde uzun ve yoğun bas çubukları sınırı aşar. 1080p'de koyu
   zeminde kırmızı çubuklar: ilk 10 çubuk aynı anda en büyük boyda olabilir (486 px'in 347'si);
   ilk 20 çubuk birden dolarsa 171 px'te kalır. Örnek video bu kurala uymak zorunda değil; onun

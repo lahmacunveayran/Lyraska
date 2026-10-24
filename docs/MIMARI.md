@@ -269,9 +269,16 @@ alanının ~%25'i büyüklüğünde bir alanda; `lib/flash.ts` sayar). Güvenli 
     değişimi kadar değişir, o da pencereye dokunan blokların toplamıyla sınırlıdır:
     `|Δμ_W| ≤ r_p·dt·N⁺_W/N_W` (N⁺_W: pencereye dokunan blokların piksel sayısı). WCAG penceresinde 1080p'de
     `N⁺/N ≤ 1,06`: hücrelere hizasız her pencerede saniyede ≤ 1,57 parlama (güvenli ≤ 0,55).
-  - Bilinen sınırlar: (1) Aynı parlaklıkta kırmızı ↔ başka renk titreşimi (WCAG "red flash") parlaklık frenine
-    görünmez; doymuş kırmızı ↔ karanlık geçişleri sınırlıdır. Gerekirse bir "kırmızılık" kanalı aynı yöntemle
-    sınırlanır. (2) Fren hızlı hareketi de yavaşlatır (iz bırakır): desen sınırı piksel başına çalıştığı için ince
+  - Kırmızı kanal (isteğe bağlı, `createFlashGuard(gl, { red: true })`; "Kendi resmin" hareketli arka planı):
+    her blokta ortalama `|Δ(R − G − B)|` (doğrusal) da ölçülür, hücrenin payı onunla da sınırlanır (r_r = 0,09/sn,
+    güvenli 0,03/sn). `320 · max(0, R − G − B)` 1-Lipschitz: pencerenin kırmızı değeri bir karede en çok
+    `320 · s_r · N⁺/N` değişir (`flashGuardMath.ts` 9. adım; test: aynı parlaklıkta kırmızı ↔ gri 10 Hz).
+    `primeSource`: sahne ilk gösterilirken durum frensiz ilk kareye gelir (sabit resmin belirmesi gibi tek geçiş).
+  - Bilinen sınırlar: (1) MilkDrop'ta kırmızı kanal kapalı: aynı parlaklıkta kırmızı ↔ başka renk titreşimi
+    (WCAG "red flash") orada parlaklık frenine görünmez; doymuş kırmızı ↔ karanlık geçişleri sınırlıdır. Açmak tek
+    satır, ama kırmızı içerik daha yavaş değişir (proje sahibinin kararı bekleniyor). Kapılı PEAT ölçüsü (doygun
+    olmayan renk 0) süreksizdir: doygunluk sınırında görünmez bir renk değişimi değeri sıçratabilir; fren sürekli
+    (WCAG çalışma tanımı) değeri sınırlar. (2) Fren hızlı hareketi de yavaşlatır (iz bırakır): desen sınırı piksel başına çalıştığı için ince
     ve hızlı ayrıntı (keskin dalga çizgileri, ince doku) da yavaşlar; yavaş ya da yumuşak değişim (piksel başına
     saniyede `r_p`'den yavaş) değişmeden geçer. Gerçek presetlerdeki etkisi gerçek cihazda değerlendirilmeli.
   - Butterchurn kendi WebGL2 bağlamında çizer; çıktısı her karede `processSource` ile dokuya yüklenir
