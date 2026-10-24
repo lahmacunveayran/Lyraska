@@ -530,10 +530,8 @@ describe("MilkDrop sahnesi", () => {
     fake.guardOk = false;
     const { rerender } = render(<Harness />);
     await waitFor(() => expect(fake.visualizers[0]?.loadPreset).toHaveBeenCalledTimes(1));
-    const raw = document.querySelector<HTMLCanvasElement>(".milkdrop-scene__canvas--raw")!;
-    const guarded = document.querySelector<HTMLCanvasElement>(
-      ".milkdrop-scene__canvas:not(.milkdrop-scene__canvas--raw)",
-    )!;
+    const raw = document.querySelector<HTMLCanvasElement>(".milkdrop-scene__raw")!;
+    const guarded = document.querySelector<HTMLCanvasElement>(".milkdrop-scene__canvas")!;
     // Butterchurn her karede görünen 2D tuvale kopyalar: görüntü frensiz.
     const visualizer = fake.visualizers[0]!;
     expect(visualizer.canvas).toBe(raw);

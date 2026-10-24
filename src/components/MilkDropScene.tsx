@@ -487,7 +487,7 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
       {/* Fren kurulamadıysa varsayılan modda frensiz görüntü (güvenli modda gösterilmez). */}
       <canvas
         ref={rawRef}
-        className="milkdrop-scene__canvas milkdrop-scene__canvas--raw"
+        className="milkdrop-scene__raw"
         hidden={failure !== null || !unguarded || safe}
         aria-hidden={!unguarded || safe}
       />

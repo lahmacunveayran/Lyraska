@@ -14,8 +14,9 @@
  * butterchurn'ün çıktısı da böyle gelir (`processSource`). Zaman sanaldır: her kare 1/60 sn.
  *
  * Gerçek MilkDrop sahnesinin ölçümü için [`screenWindows`] ve [`flashRate`]: denetim, programın
- * kendi sayfasında her karede sahnenin görünen tuvalini (frenli) ve Butterchurn'ün görünmeyen
- * tuvalini (frensiz) okur, parlamaları aynı yöntemle sayar.
+ * kendi sayfasında her karede sahnenin görünen tuvalini (güvenli modda frenli, varsayılan modda
+ * olduğu gibi) ve Butterchurn'ün görünmeyen tuvalini (frensiz) okur, parlamaları aynı yöntemle
+ * sayar.
  */
 
 import { createChangeCounter, flashWindow, windowMeans, worstWindowFlashes } from "./flash";
@@ -74,8 +75,10 @@ export interface FlashCheckResult {
 }
 
 /**
- * Denetlenen durumlar. Frenli her durum saniyede ≤ 3 (güvenli modda ≤ 1) parlamalı; ince desen
- * piksel başına saniyede ≤ 3 (güvenli modda ≤ 1,05; `patternReversalBound`) tersine dönmeli.
+ * Denetlenen durumlar. Fren yalnızca Epilepsi güvenli modunda sınırlar (proje sahibinin kararı,
+ * 24 Ekim 2026; varsayılan modda kare olduğu gibi geçer): frenli her durum güvenli modda saniyede
+ * ≤ 1 parlamalı; ince desen piksel başına saniyede ≤ 1,05 (`patternReversalBound`) tersine
+ * dönmeli. Frensiz denetimler ölçümün parlamayı gördüğünü kanıtlar.
  */
 export const FLASH_CHECK_CASES: FlashCheckCase[] = [
   {
@@ -98,30 +101,23 @@ export const FLASH_CHECK_CASES: FlashCheckCase[] = [
   },
   {
     id: "full-10",
-    label: "Frenli, tam ekran 10 Hz",
+    label: "Frenli (güvenli mod), tam ekran 10 Hz",
     pattern: "full",
     hz: 10,
     guard: "float",
     seconds: 4,
-    maxPerSecond: 3,
+    safe: true,
+    maxPerSecond: 1,
   },
   {
     id: "region-10",
-    label: "Frenli, bölge 10 Hz",
+    label: "Frenli (güvenli mod), bölge 10 Hz",
     pattern: "region",
     hz: 10,
     guard: "float",
     seconds: 4,
-    maxPerSecond: 3,
-  },
-  {
-    id: "full-1",
-    label: "Frenli, tam ekran 1 Hz",
-    pattern: "full",
-    hz: 1,
-    guard: "float",
-    seconds: 6,
-    maxPerSecond: 3,
+    safe: true,
+    maxPerSecond: 1,
   },
   {
     id: "safe-1",
@@ -135,21 +131,23 @@ export const FLASH_CHECK_CASES: FlashCheckCase[] = [
   },
   {
     id: "packed-10",
-    label: "Frenli (RGBA8 yedeği), tam ekran 10 Hz",
+    label: "Frenli (güvenli mod, RGBA8 yedeği), tam ekran 10 Hz",
     pattern: "full",
     hz: 10,
     guard: "packed",
     seconds: 4,
-    maxPerSecond: 3,
+    safe: true,
+    maxPerSecond: 1,
   },
   {
     id: "packed-1",
-    label: "Frenli (RGBA8 yedeği), tam ekran 1 Hz",
+    label: "Frenli (güvenli mod, RGBA8 yedeği), tam ekran 1 Hz",
     pattern: "full",
     hz: 1,
     guard: "packed",
     seconds: 6,
-    maxPerSecond: 3,
+    safe: true,
+    maxPerSecond: 1,
   },
   {
     id: "control-stripes",
@@ -162,25 +160,15 @@ export const FLASH_CHECK_CASES: FlashCheckCase[] = [
     size: FINE_SIZE,
   },
   {
-    id: "stripes-60",
-    label: "Frenli, ince şerit her karede tersine",
-    pattern: "stripes",
-    hz: 60,
-    guard: "float",
-    seconds: 4,
-    maxPerSecond: 3,
-    maxReversals: 3,
-    size: FINE_SIZE,
-  },
-  {
     id: "checker-10",
-    label: "Frenli, ince dama saniyede 10 kez tersine",
+    label: "Frenli (güvenli mod), ince dama saniyede 10 kez tersine",
     pattern: "checker",
     hz: 10,
     guard: "float",
     seconds: 4,
-    maxPerSecond: 3,
-    maxReversals: 3,
+    safe: true,
+    maxPerSecond: 1,
+    maxReversals: 1.05,
     size: FINE_SIZE,
   },
   {
@@ -197,13 +185,14 @@ export const FLASH_CHECK_CASES: FlashCheckCase[] = [
   },
   {
     id: "checker-packed",
-    label: "Frenli (RGBA8 yedeği), ince dama her karede tersine",
+    label: "Frenli (güvenli mod, RGBA8 yedeği), ince dama her karede tersine",
     pattern: "checker",
     hz: 60,
     guard: "packed",
     seconds: 4,
-    maxPerSecond: 3,
-    maxReversals: 3,
+    safe: true,
+    maxPerSecond: 1,
+    maxReversals: 1.05,
     size: FINE_SIZE,
   },
 ];
