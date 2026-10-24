@@ -34,7 +34,7 @@ import {
 } from "./sky";
 
 export interface HighwayState {
-  /** Ufuk parıltısı (parlaklık; hız sınırlı). */
+  /** Ufuk parıltısı (parlaklık; güvenli modda hız sınırlı). */
   glow: number;
   /** Yolda alınan yol, şerit çizgisi aralığı biriminde (her vuruşta 1). */
   dash: number;
@@ -42,7 +42,7 @@ export interface HighwayState {
   lamp: number;
   /** Droptan önceki gerilim (0..1; yavaş). */
   tension: number;
-  /** Drop açılımı (0..1; parlaklığı etkiler, hız sınırlı). */
+  /** Drop açılımı (0..1; parlaklığı etkiler, güvenli modda hız sınırlı). */
   bloom: number;
   palette: Palette;
   /** Sahne saati (saniye; yolun kıvrılması ve şehir pencereleri için). */

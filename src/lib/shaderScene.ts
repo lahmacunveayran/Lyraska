@@ -3,9 +3,9 @@ import { AURORA_MAX_LUMINANCE, auroraLuminance, type SkyState } from "./sky";
 /**
  * Gölgelendirici sahneleri (galeri): her biri tek bir tam ekran parça gölgelendiricisinde çizilen
  * özgün sahneler. Hepsi gece göğünün saf hesabını (`stepSky`) paylaşır: parlaklığı değiştiren her
- * değer orada hız sınırlıdır (epilepsi güvenliği, güvenli modda yarı hız), müziğin vuruşları
- * parlaklığa değil akış hızına yansır. Sahnenin kendi kodu yalnızca görüntünün biçimini çizer;
- * parlaklığı tek bir çarpandan ([`sceneLevel`]) alır.
+ * değer orada yumuşatılır (Epilepsi güvenli modunda ayrıca yarı hızla sınırlı), müziğin vuruşları
+ * parlaklıktan çok akış hızına yansır. Sahnenin kendi kodu yalnızca görüntünün biçimini çizer;
+ * parlaklığı tek bir çarpandan ([`sceneLevel`]) alır; çarpanın dar bandı tasarımdır.
  */
 
 export type ShaderSceneId =
@@ -105,7 +105,7 @@ export const SHADER_LEVEL_FLOOR = 0.72;
 
 /**
  * Sahnelerin ışığının, parlama penceresi büyüklüğündeki bir alanda ulaşabileceği en büyük bağıl
- * parlaklık için güvenli üst sınır (parlama testinde kullanılır). Gerçek tarayıcıda
+ * parlaklık için tasarım üst sınırı (parlama testinde kullanılır). Gerçek tarayıcıda
  * `npm run check:scenes` ölçer: sessizden tam sese geçişte her sahnede ve temada fark < 0,10.
  */
 export const SHADER_MAX_WINDOW_LUMINANCE = 0.3;
@@ -114,8 +114,9 @@ const CALM_LUMINANCE = auroraLuminance([0, 0, 0], 0);
 
 /**
  * Sahnenin parlaklık çarpanının müzikle değişen kısmı (0..1): gece göğündeki perde parlaklığının
- * ([`auroraLuminance`]) kendi aralığına oranı. Enerjiler ve açılım hız sınırlı olduğundan bu
- * değer de hız sınırlıdır; tekdüze artan bir dönüşüm olduğu için parlama sayısını artıramaz.
+ * ([`auroraLuminance`]) kendi aralığına oranı. Güvenli modda enerjiler ve açılım hız sınırlı
+ * olduğundan bu değer de hız sınırlıdır; tekdüze artan bir dönüşüm olduğu için parlama sayısını
+ * artıramaz.
  */
 export function sceneLevel(state: Pick<SkyState, "energies" | "bloom">): number {
   const lum = auroraLuminance(state.energies, state.bloom);

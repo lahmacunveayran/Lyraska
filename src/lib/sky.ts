@@ -20,7 +20,7 @@ import { SCENE_CLOCK_PERIOD, foldTime } from "./sceneClock";
 export type Energies = [number, number, number];
 
 export interface SkyState {
-  /** Gösterilen perde enerjileri (parlaklık; hız sınırlı). */
+  /** Gösterilen perde enerjileri (parlaklık; güvenli modda hız sınırlı). */
   energies: Energies;
   /** Bas vuruşlarına hızlı tepki veren seviye (yalnızca akış hızını sürer). */
   pulse: number;
@@ -30,7 +30,7 @@ export interface SkyState {
   twinkleTime: number;
   /** Droptan önceki gerilim (0..1; yavaş). */
   tension: number;
-  /** Drop açılımı (0..1; parlaklığı etkiler, hız sınırlı). */
+  /** Drop açılımı (0..1; parlaklığı etkiler, güvenli modda hız sınırlı). */
   bloom: number;
   /** Renk teması geçişi: eski tema, yeni tema ve karışım (0 → 1). */
   palette: Palette;

@@ -89,7 +89,7 @@ describe("galeri sahnesinin görünümü", () => {
     ]);
   });
 
-  it("sabit paletler gece göğü temalarından parlak değil (parlama sınırı onlarda da geçerli)", () => {
+  it("sabit paletler gece göğü temalarından parlak değil (tasarım tavanı onlarda da geçerli)", () => {
     const maxLow = Math.max(...THEMES.map((t) => luminance(t.low)));
     const maxHigh = Math.max(...THEMES.map((t) => luminance(t.high)));
     for (const id of FIXED_PALETTES) {
@@ -266,7 +266,7 @@ describe("palet geçişi", () => {
     expect(jumped.mix).toBeCloseTo(fade.mix + 0.25, 9);
   });
 
-  it("paletler arasında hızlı gidip gelmek parlama üretmez", () => {
+  it("paletler arasında hızlı gidip gelmek parlama üretmez (tasarım: renkler karışarak geçer)", () => {
     // Sahnenin en kötü penceredeki parlaklığı renklerin parlaklığıyla orantılı varsayılır; en
     // parlak tema `SHADER_MAX_WINDOW_LUMINANCE`'a karşılık gelir.
     const brightest = Math.max(...THEMES.map((t) => luminance(t.low)));

@@ -32,11 +32,11 @@ export interface StageLightInput {
 }
 
 export interface StageLight {
-  /** Işığın gücü (0..1; parlaklık, hız sınırlı). */
+  /** Işığın gücü (0..1; parlaklık, güvenli modda hız sınırlı). */
   glow: number;
   /** Droptan önceki gerilim (0..1; yavaş). */
   tension: number;
-  /** Drop açılımı (0..1; hız sınırlı). */
+  /** Drop açılımı (0..1; güvenli modda hız sınırlı). */
   bloom: number;
   /** Ölçü başı kabarması (0..1; yalnızca halenin boyutu). */
   swell: number;

@@ -8,10 +8,10 @@ import { SHADER_LEVEL_FLOOR, type ShaderSceneId } from "./shaderScene";
  *
  * Değişkenler: `uv` 0..1 ekran konumu, `p` ekranın ortasına göre konum (yükseklik = 1).
  * `uTime` akış saati (vuruşlarla hızlanır, gerilimde yavaşlar), `uTwinkle` kırpışma saati,
- * `uEnergy` bas/orta/tiz (hız sınırlı), `uTension` drop öncesi gerilim, `uBloom` drop açılımı,
+ * `uEnergy` bas/orta/tiz (yumuşak; güvenli modda hız sınırlı), `uTension` drop öncesi gerilim, `uBloom` drop açılımı,
  * `uRipple` son ölçü başından beri geçen saniye, `uLow`/`uHigh` bölüm temasının renkleri.
  *
- * Kural (epilepsi güvenliği): sahne parlaklığı doğrudan müziğe bağlamaz. Enerjiler biçimi
+ * Kural (tasarım): sahne parlaklığı doğrudan müziğe bağlamaz. Enerjiler biçimi
  * (dalga boyu, yoğunluk) en fazla birkaç yüzde değiştirir; parlaklık çarpanı ortak gövdededir.
  * Ekranın büyük bir alanını kaplayan yüksek karşıtlıklı, yinelenen desen (halka, şerit) akmaz:
  * parlama penceresinde ortalama parlaklık sabit kalsın diye desenler ince ve düzensizdir.
