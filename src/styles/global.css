@@ -5590,9 +5590,16 @@ kbd {
   align-items: flex-end;
   justify-content: space-between;
   gap: 24px;
-  font-family: "Michroma", var(--font-display);
+  font-family: "Audiowide", var(--font-display);
   color: #fff;
-  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
+  /* Örnekteki gibi kalın harf (yazı tipinin tek kalınlığı biraz kalınlaştırılır) ve sıkı koyu
+     kenar: açık resimde de okunur. */
+  -webkit-text-stroke: 0.04em #fff;
+  text-shadow:
+    0 0 1px rgba(0, 0, 0, 0.85),
+    0 0 3px rgba(0, 0, 0, 0.6),
+    0 1px 8px rgba(0, 0, 0, 0.45),
+    0 2px 18px rgba(0, 0, 0, 0.35);
   pointer-events: none;
   /* Denetimler görünürken alttaki büyük başlık zaten şarkıyı söyler; yazı sinema görünümünde. */
   opacity: 0;

@@ -49,16 +49,18 @@ kuralları). Kod bağımlılıklarının lisanslarını CI denetler (`npm run ch
   denetlendi. Ayrılmış yazı tipi adı (Reserved Font Name) yok; dosyalar değiştirilmeden kullanılır.
 - **Lisans metni:** `public/lisanslar/BricolageGrotesque-OFL-1.1.txt`, `public/lisanslar/JetBrainsMono-OFL-1.1.txt`.
 
-## Michroma yazı tipi
+## Audiowide yazı tipi
 
-- **Ne için:** "Kendi resmin" sahnesinde şarkının adı ve süre (geniş, köşeli harfler; proje sahibinin gönderdiği
-  örnek görünüme en yakın serbest yazı tipi, 24 Ekim 2026).
-- **Kaynak:** The Michroma Project Authors, <https://github.com/googlefonts/Michroma-font>
-- **Paket:** `@fontsource/michroma` 5.3.0 (yalnızca 400, latin ve latin-ext: Türkçe harfler dahil). Dosyalar
+- **Ne için:** "Kendi resmin" sahnesinde şarkının adı ve süre (kalın, geniş, köşeleri yuvarlak harfler; proje
+  sahibinin gönderdiği örnek görünüme en yakın serbest yazı tipi, 24 Ekim 2026; Michroma ve Orbitron'la yan yana
+  karşılaştırıldı).
+- **Kaynak:** Brian J. Bonislawsky (Astigmatic), <https://github.com/google/fonts/tree/main/ofl/audiowide>
+- **Paket:** `@fontsource/audiowide` 5.3.0 (yalnızca 400, latin ve latin-ext: Türkçe harfler dahil). Dosyalar
   programın içine paketlenir; çalışırken internete bağlanılmaz.
 - **Lisans:** SIL Open Font License 1.1 (OFL-1.1); paketin `package.json` lisans alanı ve `LICENSE` dosyası
-  denetlendi. Ayrılmış yazı tipi adı (Reserved Font Name) yok; dosyalar değiştirilmeden kullanılır.
-- **Lisans metni:** `public/lisanslar/Michroma-OFL-1.1.txt`.
+  denetlendi. Ayrılmış yazı tipi adı "Audiowide": yalnızca değiştirilmiş sürümler bu adı taşıyamaz; Lyraska
+  Fontsource'un dosyalarını değiştirmeden kullanır (kalınlık CSS ile, dosyaya dokunmadan).
+- **Lisans metni:** `public/lisanslar/Audiowide-OFL-1.1.txt`.
 
 ## Yıldız atlası: HYG kataloğu ve Stellarium takımyıldız çizgileri
 
