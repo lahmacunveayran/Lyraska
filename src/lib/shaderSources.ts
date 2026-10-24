@@ -430,7 +430,43 @@ void main() {
   outColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }`;
 
-/** Sahnenin tam parça gölgelendiricisi. */
-export function fragmentSource(id: ShaderSceneId): string {
-  return `${PRELUDE}\n${SCENES[id]}\n${MAIN}`;
+/**
+ * Son işlem zincirinde sahnenin yazabileceği en büyük değer (sRGB kod değeri ölçeğinde; doğrusal
+ * ışıkta ~10). Bozuk bir değer (sonsuz) bloom'u bütün ekrana yaymasın diye sınırlanır.
+ */
+export const HDR_MAX_CODE = 2.5;
+
+/**
+ * Son işlem zinciriyle çizerken ortak gövde (`postProcess.ts`): renk sınırlanmaz ve
+ * titretilmez, doğrusal ışığa çevrilip kayan noktalı dokuya yazılır. 1'in üstündeki (bugün
+ * kırpılan) parlak noktalar korunur; onları ton eşleme yumuşakça sıkıştırır, bloom çevresine yayar.
+ * Parlaklık çarpanı aynı yerde, aynı biçimde uygulanır. Alfa kanalı bloom'un kaynağını taşır
+ * (parlaklık çarpanından bağımsız; bkz. `postProcess.ts`).
+ */
+const MAIN_HDR = `
+vec3 srgbToLinear(vec3 c) {
+  return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / uResolution;
+  vec2 p = (gl_FragCoord.xy - 0.5 * uResolution) / uResolution.y;
+  vec3 light = max(scene(uv, p), vec3(0.0));
+  float gain = ${SHADER_LEVEL_FLOOR.toFixed(4)} + ${(1 - SHADER_LEVEL_FLOOR).toFixed(4)} * uLevel;
+  vec3 col = srgbToLinear(clamp(uBack + light * gain, 0.0, ${HDR_MAX_CODE.toFixed(1)}));
+  // Bloom'un kaynağı müziğin parlaklık çarpanından bağımsızdır (sahne en sönük çarpanla):
+  // alfa, o kaynağın bu pikselin parlaklığına oranı (0..1). Bloom'un halesi böylece müzikle
+  // parlamaz; müzik yalnızca yarıçapını değiştirir.
+  vec3 calm = srgbToLinear(clamp(uBack + light * ${SHADER_LEVEL_FLOOR.toFixed(4)}, 0.0, ${HDR_MAX_CODE.toFixed(1)}));
+  float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+  float ratio = lum > 1e-6 ? clamp(dot(calm, vec3(0.2126, 0.7152, 0.0722)) / lum, 0.0, 1.0) : 1.0;
+  outColor = vec4(col, ratio);
+}`;
+
+/**
+ * Sahnenin tam parça gölgelendiricisi. `output`: `"display"` doğrudan tuvale (sınırlı, titretilmiş
+ * sRGB), `"hdr"` son işlem zincirinin dokusuna (doğrusal ışık, sınırlanmamış).
+ */
+export function fragmentSource(id: ShaderSceneId, output: "display" | "hdr" = "display"): string {
+  return `${PRELUDE}\n${SCENES[id]}\n${output === "hdr" ? MAIN_HDR : MAIN}`;
 }

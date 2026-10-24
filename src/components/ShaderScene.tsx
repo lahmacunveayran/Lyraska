@@ -65,7 +65,12 @@ export function ShaderScene({
         frame ? directorInput(frame) : null,
         safe,
       );
-      renderer.current?.draw(state.current, currentLook.current, dt);
+      renderer.current?.draw(state.current, currentLook.current, dt, {
+        warmth: frame?.director?.atmosphere.warmth ?? 0.5,
+        safe,
+        reducedMotion,
+        active: frame !== null,
+      });
     },
     [reducedMotion, safe],
   );

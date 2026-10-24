@@ -97,7 +97,9 @@ lyraska/
 │   │                         # (errorReporting.ts), parlama sayacı (flash.ts), WebGL2 çizimi (gl.ts ortak;
 │   │                         # skyRenderer.ts, highwayRenderer.ts; galeri: shaderScene.ts, shaderSources.ts
 │   │                         # gölgelendiriciler, shaderRenderer.ts, sceneLook.ts hız ve palet, scenePreset.ts hazır
-│   │                         # ayarlar; milkdrop.ts MilkDrop geçiş zamanı ve ses verisi; milkdropShaders.ts ekran
+│   │                         # ayarlar; galerinin son işlem zinciri: postProcess.ts bloom, ton eşleme, renk sıcaklığı,
+│   │                         # titretme ve dinamik çözünürlük hesapları + gölgelendiriciler, postChain.ts ekran kartında
+│   │                         # çalıştırır, blueNoise.ts void-and-cluster mavi gürültü; milkdrop.ts MilkDrop geçiş zamanı ve ses verisi; milkdropShaders.ts ekran
 │   │                         # kartında derlenemeyen MilkDrop gölgelendiricisini varsayılanla değiştirir), WebGL2
 │   │                         # açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts), parlaklık freni:
 │   │                         # güvenilmeyen sahnelerin (MilkDrop) son geçişi, bölge parlaklığı karede ≤ r·dt, blok
