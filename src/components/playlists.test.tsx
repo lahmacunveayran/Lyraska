@@ -306,3 +306,109 @@ describe("çalma listeleri", () => {
     expect(requests.map((r) => r.album)).toEqual(["A", "B", "D", "E"]);
   });
 });
+
+describe("liste sayfasında art arda düzenleme", () => {
+  const renderPage = (refreshKey = "k") => {
+    const tracks = [song("a.flac", "Ay"), song("b.flac", "Bulut"), song("c.flac", "Cam")];
+    const props = {
+      playlist: row(backend.lists[0]!),
+      tracks,
+      byPath: new Map(tracks.map((t) => [t.path, t])),
+      coverIndex: albumCoverIndex(tracks),
+      coverRevision: 0,
+      currentPath: null,
+      playing: false,
+      camelot: false,
+      onBack: vi.fn(),
+      onPlay: vi.fn(),
+      onRename: vi.fn(async () => true),
+      onDelete: vi.fn(),
+      onChooseCover: vi.fn(),
+      onClearCover: vi.fn(),
+      onChanged: vi.fn(),
+    };
+    const view = render(<PlaylistPage {...props} refreshKey={refreshKey} />);
+    return {
+      ...view,
+      props,
+      rerenderKey: (key: string) => view.rerender(<PlaylistPage {...props} refreshKey={key} />),
+    };
+  };
+  const titles = () =>
+    screen
+      .getAllByRole("row")
+      .slice(1)
+      .map((r) => r.querySelector(".library__title-cell")?.textContent);
+
+  it("taşıma bitmeden gelen çıkarma sırayı bozmaz (istekler sırayla gider)", async () => {
+    backend.lists = [{ id: 1, name: "Sıra", paths: ["a.flac", "b.flac", "c.flac"] }];
+    renderPage();
+    await waitFor(() => expect(titles()).toEqual(["Ay", "Bulut", "Cam"]));
+    // Taşıma isteği yavaş: çekirdek onu bitirmeden sonraki istek gelir.
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const backendModule = await import("../lib/backend");
+    const slowMove = vi
+      .spyOn(backendModule, "moveInPlaylist")
+      .mockImplementationOnce(async (id, from, to) => {
+        await gate;
+        backend.calls.push(`move ${from}→${to}`);
+        const list = backend.lists.find((l) => l.id === id)!;
+        const [moved] = list.paths.splice(from, 1);
+        list.paths.splice(to, 0, moved!);
+      });
+    const list = screen.getByRole("grid").querySelector(".album-page__list") as HTMLElement;
+    fireEvent.click(screen.getAllByRole("row")[1]!);
+    fireEvent.keyDown(list, { key: "ArrowDown", altKey: true }); // Ay aşağı: Bulut, Ay, Cam
+    fireEvent.keyDown(list, { key: "Delete" }); // seçili Ay çıkar: Bulut, Cam
+    expect(titles()).toEqual(["Bulut", "Cam"]);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(backend.calls).toEqual([]); // çıkarma taşımayı bekler
+    await act(async () => release());
+    await waitFor(() => expect(backend.calls).toEqual(["move 0→1", "remove 1"]));
+    expect(backend.lists[0]!.paths).toEqual(["b.flac", "c.flac"]);
+    await waitFor(() => expect(titles()).toEqual(["Bulut", "Cam"]));
+    slowMove.mockRestore();
+  });
+
+  it("düzenleme sırasında dönen eski okuma yerel sırayı ezmez", async () => {
+    backend.lists = [{ id: 1, name: "Sıra", paths: ["a.flac", "b.flac", "c.flac"] }];
+    const page = renderPage("k1");
+    await waitFor(() => expect(titles()).toEqual(["Ay", "Bulut", "Cam"]));
+    // Kütüphane tazelendi: okuma yavaş, eski sırayı döndürecek.
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const backendModule = await import("../lib/backend");
+    const stale = ["a.flac", "b.flac", "c.flac"];
+    const slowRead = vi.spyOn(backendModule, "playlistTracks").mockImplementationOnce(async () => {
+      await gate;
+      return stale;
+    });
+    let releaseRemove = () => {};
+    const removeGate = new Promise<void>((resolve) => (releaseRemove = resolve));
+    const slowRemove = vi
+      .spyOn(backendModule, "removeFromPlaylist")
+      .mockImplementationOnce(async (id, positions) => {
+        await removeGate;
+        const list = backend.lists.find((l) => l.id === id)!;
+        list.paths = list.paths.filter((_, i) => !positions.includes(i));
+      });
+    page.rerenderKey("k2");
+    // Okuma sürerken ilk satır çıkarılır; çıkarma da çekirdekte sürüyor.
+    const removes = screen.getAllByRole("button", { name: "Listeden çıkar: Ay" });
+    await act(async () => fireEvent.click(removes[0]!));
+    await act(async () => release());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    // Eski okuma çıkarılan satırı geri getirmez (getirseydi sonraki tuş yanlış satırı çıkarırdı).
+    expect(titles()).toEqual(["Bulut", "Cam"]);
+    await act(async () => releaseRemove());
+    await waitFor(() => expect(backend.lists[0]!.paths).toEqual(["b.flac", "c.flac"]));
+    expect(titles()).toEqual(["Bulut", "Cam"]);
+    slowRead.mockRestore();
+    slowRemove.mockRestore();
+  });
+});

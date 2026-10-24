@@ -84,7 +84,15 @@ export function PlaylistPage({
     headingRef.current?.focus();
   }, [playlist.id]);
 
+  // Süren düzenlemeler (çıkarma, taşıma): çekirdeğe sırayla gider. Satırlar sırayla bilindiği için
+  // istekler yer değiştirirse yanlış şarkı çıkar; süren düzenleme varken okuma yapılmaz (yerel sırayı
+  // eski sırayla ezmesin), son düzenleme bitince bir kez okunur.
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const pending = useRef(0);
+  const failed = useRef(false);
+
   const load = useCallback(() => {
+    if (pending.current > 0) return;
     const mine = ++seq.current;
     playlistTracks(playlist.id)
       .then((paths) => {
@@ -117,14 +125,25 @@ export function PlaylistPage({
   // Değişiklik hemen görünür (yerel sıra), sonra çekirdekten yeniden okunur.
   const edit = useCallback(
     (local: (paths: string[]) => string[], action: () => Promise<void>) => {
+      // Sürmekte olan okuma eski sırayı getirir: sonucu yok sayılır.
+      seq.current++;
       setLoaded((current) =>
         current && current.id === playlist.id
           ? { id: current.id, paths: local(current.paths) }
           : current,
       );
-      action()
-        .catch((e) => setError(errorMessage(e)))
+      pending.current++;
+      queue.current = queue.current
+        // Önceki düzenleme başarısızsa yerel sıra çekirdekten ayrılmıştır: sıradakiler gönderilmez.
+        .then(() => (failed.current ? undefined : action()))
+        .catch((e: unknown) => {
+          failed.current = true;
+          setError(errorMessage(e));
+        })
         .finally(() => {
+          pending.current--;
+          if (pending.current > 0) return;
+          failed.current = false;
           load();
           onChanged();
         });
