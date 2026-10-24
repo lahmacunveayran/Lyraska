@@ -101,10 +101,21 @@
  *    → saniyede ≤ 1,57 parlama (güvenli ≤ 0,55). Tarayıcı denetimi pencereleri 4 piksel adımla,
  *    hücrelere hizasız ölçer.
  *
- * Kırmızı parlama (WCAG "red flash"): doymuş kırmızı ↔ karanlık geçişleri parlaklık üzerinden
- * sınırlıdır (saf kırmızının parlaklığı 0,2126). Aynı parlaklıkta kırmızı ↔ başka renk titreşimi
- * bu frene görünmez; gerekirse ikinci bir "kırmızılık" kanalı aynı yöntemle sınırlanır (bilinen
- * boşluk, MIMARI.md).
+ * 9. Kırmızı (isteğe bağlı, `red: true`; "Kendi resmin" sahnesinin hareketli arka planı). WCAG'nin
+ *    kırmızı parlaması: pencerenin ortalama kırmızı değeri `320 · max(0, R − G − B)` (doğrusal)
+ *    20'den fazla değişip geri dönmesi. Parlaklık bunu görmez (aynı parlaklıkta kırmızı ↔ gri).
+ *    `max(0, ·)` 1-Lipschitz ve `L = R − G − B` doğrusal: pikselin kırmızı değeri bir karede en
+ *    çok `320 · a(b) · |L(X) − L(P)|` değişir. Her blokta `R_b = ortalama |L(X) − L(P)|` ölçülür,
+ *    hücrenin kırmızı payı `γ_c = min(1, s_r / max R_b)`, hücrenin payı `min(α_c, β_c, γ_c)`.
+ *    2. ve 8. adımdaki gibi her pencerenin kırmızı ortalaması bir karede en çok
+ *    `320 · s_r · N⁺/N` değişir (`s_r = r_r·dt − m_r`, `m_r` üç kanalın 16 bit payı). Sayım
+ *    (5. ve 6. adım): T saniyede kırmızı eğrisinin yolu en çok `320 · r_r · N⁺/N · T`; ekranın 8
+ *    biti kırmızı değeri en çok `ε_r = 320 · 3 · ε_q` saptırır. Kırmızı değerin doygun olmayan
+ *    renklerde 0 sayıldığı (kapılı) PEAT ölçüsü süreksizdir: doygunluk sınırında (`R/(R+G+B) = 0,8`)
+ *    gözle görülmeyecek kadar küçük bir renk değişimi değeri sıçratabilir; hiçbir hız sınırı bunu
+ *    önleyemez. Fren sürekli (WCAG çalışma tanımı) değeri sınırlar; kapılı ölçü ancak renkler
+ *    sınırın iki yanında gidip geliyorsa ayrışır (bilinen sınır, kendi-resmin/README.md).
+ *    Kapalıyken kırmızı aynen geçer (MilkDrop; bilinen boşluk, MIMARI.md).
  *
  * Bedel: hızlı ve ince ayrıntılı hareket (ince çizgiler, keskin doku) piksel başına çok değişir;
  * fren onu da yavaşlatır (iz bırakır). Yavaş ya da yumuşak değişen görüntü (piksel başına
@@ -152,16 +163,36 @@ export const SRGB_HALF_STEP_LUMINANCE = (0.5 / 255) * (2.4 / 1.055);
 /** Bağıl parlaklık ağırlıkları (doğrusal RGB). */
 export const LUMA: readonly [number, number, number] = [0.2126, 0.7152, 0.0722];
 
-/** Ortalama ve desen hızları (normal ya da güvenli mod). */
+/**
+ * Kırmızı kanalın en büyük hızı: bloğun piksellerinin ortalama `|ΔL|`'si (`L = R − G − B`,
+ * doğrusal) saniyede. Normal modda 0,09 (kırmızı değerde 28,8/sn), güvenli modda 0,03.
+ */
+export const GUARD_RED_RATE = 0.09;
+export const GUARD_RED_SAFE_RATE = 0.03;
+/** Kırmızı kanalın her karede düşülen payı: üç kanalın 16 bitlik yuvarlaması ve ara değerler. */
+export const GUARD_RED_MARGIN = 3e-5;
+/** Kırmızı değerin ölçeği (WCAG: `320 · (R − G − B)`). */
+export const RED_FLASH_SCALE = 320;
+
+/** Ortalama, desen ve kırmızı hızları (normal ya da güvenli mod; kırmızı kapalıysa sonsuz). */
 export interface GuardRates {
   mean: number;
   pattern: number;
+  red: number;
 }
 
-export function guardRates(safe: boolean): GuardRates {
+export function guardRates(safe: boolean, red = false): GuardRates {
+  const r = red ? (safe ? GUARD_RED_SAFE_RATE : GUARD_RED_RATE) : Infinity;
   return safe
-    ? { mean: GUARD_SAFE_RATE, pattern: GUARD_PATTERN_SAFE_RATE }
-    : { mean: GUARD_RATE, pattern: GUARD_PATTERN_RATE };
+    ? { mean: GUARD_SAFE_RATE, pattern: GUARD_PATTERN_SAFE_RATE, red: r }
+    : { mean: GUARD_RATE, pattern: GUARD_PATTERN_RATE, red: r };
+}
+
+/** Kırmızı kanalın bir karede izin verilen `|ΔL|` ortalaması (kapalıyken sonsuz). */
+export function redSlew(rate: number, dt: number): number {
+  if (!Number.isFinite(rate)) return Infinity;
+  const time = Number.isFinite(dt) ? Math.min(Math.max(dt, 0), GUARD_MAX_DT) : 0;
+  return Math.max(0, rate * time - GUARD_RED_MARGIN);
 }
 
 /** Bir karede izin verilen en büyük parlaklık değişimi. */
@@ -271,6 +302,8 @@ export function pixelBlocks(grid: GuardGrid): Int32Array {
 export interface BlockStats {
   delta: Float64Array;
   abs: Float64Array;
+  /** Bloğun piksellerinin ortalama `|ΔL|`'si (`L = R − G − B`, 9. adım). */
+  red: Float64Array;
 }
 
 /**
@@ -286,6 +319,7 @@ export function blockStats(
 ): BlockStats {
   const delta = new Float64Array(counts.length);
   const abs = new Float64Array(counts.length);
+  const red = new Float64Array(counts.length);
   const [lr, lg, lb] = LUMA;
   const pixels = grid.width * grid.height;
   for (let p = 0; p < pixels; p++) {
@@ -296,13 +330,20 @@ export function blockStats(
     const b = blocks[p]!;
     delta[b]! += d;
     abs[b]! += Math.abs(d);
+    red[b]! += Math.abs(
+      input[p * 3]! -
+        state[p * 3]! -
+        (input[p * 3 + 1]! - state[p * 3 + 1]!) -
+        (input[p * 3 + 2]! - state[p * 3 + 2]!),
+    );
   }
   for (let b = 0; b < counts.length; b++) {
     const n = counts[b]!;
     delta[b] = n > 0 ? delta[b]! / n : 0;
     abs[b] = n > 0 ? abs[b]! / n : 0;
+    red[b] = n > 0 ? red[b]! / n : 0;
   }
-  return { delta, abs };
+  return { delta, abs, red };
 }
 
 export interface GuardGains {
@@ -322,6 +363,7 @@ export function guardGains(
   stats: BlockStats,
   slew: number,
   patternSlew: number,
+  redSlewValue = Infinity,
 ): GuardGains {
   const { cols, rows, perCell } = grid;
   const bx = cols * perCell;
@@ -331,6 +373,7 @@ export function guardGains(
       const e = [0, 0, 0, 0];
       let total = 0;
       let worst = 0;
+      let worstRed = 0;
       for (let j = 0; j < perCell; j++) {
         for (let i = 0; i < perCell; i++) {
           const b = (cy * perCell + j) * bx + cx * perCell + i;
@@ -339,13 +382,17 @@ export function guardGains(
           const w = cornerWeights(i, j, perCell);
           for (let k = 0; k < 4; k++) e[k]! += n * w[k]! * dy;
           total += n;
-          if (n > 0) worst = Math.max(worst, stats.abs[b] ?? 0);
+          if (n > 0) {
+            worst = Math.max(worst, stats.abs[b] ?? 0);
+            worstRed = Math.max(worstRed, stats.red[b] ?? 0);
+          }
         }
       }
       const l1 = total > 0 ? e.reduce((sum, v) => sum + Math.abs(v), 0) / total : 0;
       const alpha = l1 <= slew ? 1 : slew / l1;
       const beta = worst <= patternSlew ? 1 : patternSlew / worst;
-      cellGains[cy * cols + cx] = Math.min(alpha, beta);
+      const gamma = worstRed <= redSlewValue ? 1 : redSlewValue / worstRed;
+      cellGains[cy * cols + cx] = Math.min(alpha, beta, gamma);
     }
   }
   const vertices = vertexGains(cellGains, cols, rows);
@@ -376,9 +423,10 @@ export function guardStep(
   slew: number,
   patternSlew: number,
   quantize = true,
+  redSlewValue = Infinity,
 ): GuardStep {
   const stats = blockStats(grid, blocks, counts, state, input);
-  const { gains, cellGains } = guardGains(grid, counts, stats, slew, patternSlew);
+  const { gains, cellGains } = guardGains(grid, counts, stats, slew, patternSlew, redSlewValue);
   const output = new Float64Array(state.length);
   const pixels = grid.width * grid.height;
   for (let p = 0; p < pixels; p++) {
