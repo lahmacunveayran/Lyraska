@@ -21,31 +21,40 @@ cd src-tauri && cargo run --example drop_olcum -- /tmp/drop
 
 ## Sonuç
 
-Üç ayrı set (aynı üreticiyle, farklı tohumlar; yükselişlerin yarısı kick rulosuyla biter):
+Dört ayrı set (aynı üreticiyle, farklı tohumlar; yükselişlerin yarısı kick rulosuyla biter):
 
 - **geliştirme** (tohum 1–3, 33 şarkı): ayarlar bunda yapıldı;
-- **doğrulama** (tohum 6–7, 22 şarkı): bir tur hatalarına bakıldı (rulo, bölüm sınırı);
-- **son sınama** (tohum 8–9, 22 şarkı): değişiklikler bittikten sonra üretildi, hiç bakılmadı.
+- **doğrulama** (tohum 6–7) ve **ilk sınama** (tohum 8–9): hatalarına bakılıp düzeltme yapıldı (rulo, bölüm sınırı);
+- **son sınama** (tohum 10–11, 22 şarkı): son değişiklikten sonra üretildi, ayar için kullanılmadı.
 
 | Set        | Eski isabet | Eski yanlış alarm | Yeni isabet | Yeni yanlış alarm |
 | ---------- | ----------- | ----------------- | ----------- | ----------------- |
-| Geliştirme | 23/57       | 18                | 46/57       | 4                 |
-| Doğrulama  | 14/38       | 15                | 30/38       | 5                 |
-| Son sınama | 18/38       | 10                | 30/38       | 5                 |
+| Geliştirme | 23/57       | 18                | 44/57       | 6                 |
+| Doğrulama  | 14/38       | 15                | 26/38       | 9                 |
+| İlk sınama | 18/38       | 10                | 30/38       | 5                 |
+| Son sınama | 11/38       | 17                | 22/38       | 9                 |
 
 İsabet: ekranda gösterilen (güven ≥ 0,6) drop, işaretliye ±1 sn içinde. İsabetlerde zaman hatası ortanca
-6–8 ms, %90'ı 12–13 ms içinde. **Dürüstlük notu:** setlerin hepsi aynı üreticiden; doğru an basın döndüğü an olarak
-tanımlı ve yeni yöntem de onu arıyor (zaman hatası bu yüzden iyimser). Gerçek şarkılarda, özellikle drop'u
-crash/kick'in ve basın bir vuruş sonra geldiği şarkılarda, sonuç farklı olabilir; sahibinin şarkılarıyla
-doğrulanacak.
+5–8 ms, %90'ı 11–18 ms içinde.
+
+**Seçim notu:** bir önceki sürüm (rulo yalnızca bölüm sınırıyla ayrılıyordu) son sınamada 25/38 · 7 yanlış alarm
+ölçtü, yani bu sentetik sette biraz daha iyi. Bağımsız inceleme ise onun rulo düzeltmesinin yalnızca test değerlerinde
+çalıştığını gösterdi: rulonun bası 0,65 yerine 0,66 olunca drop yine ruloya kayıyordu. Bu sürüm ruloyu ölçünün kendi
+içindeki yükselişinden tanır ve rulo gücü değişince de doğru kalır (testli). Sentetik üretici gerçek müziği ancak
+yaklaşık temsil ettiği için dayanıklı olan seçildi.
+
+**Dürüstlük notu:** setlerin hepsi aynı üreticiden; doğru an basın döndüğü an olarak tanımlı ve yeni yöntem de onu
+arıyor (zaman hatası bu yüzden iyimser). Gerçek şarkılarda, özellikle drop'u crash/kick'in ve basın bir vuruş sonra
+geldiği şarkılarda, sonuç farklı olabilir; sahibinin şarkılarıyla doğrulanacak.
 
 ## Ne değişti (`analysis/structure.rs`)
 
-1. **Aday:** bas ya da davul (kick) birden güçlü dönmeli. Önce/sonra farkında sonrası iki ölçünün **en zayıfı**
-   (drop süren bir düzeydir), öncesi iki pencerenin küçüğü: önceki dört ölçü ya da hemen önceki ölçüyü saymayan dört
-   ölçü (yükselişin son ölçüsündeki rulo drop kadar güçlü olabilir; sayılsaydı drop bir ölçü erkene kayardı).
-2. **Sıralama:** bas ve kick farkı ağır basar, enerji artışı az; bölüm sınırındaki ölçü öne geçer; neredeyse aynı
-   puandaki (%5) önceki ölçü seçilir (değişimin başladığı ölçü).
+1. **Aday:** bas ya da davul (kick) birden güçlü dönmeli. Sonrası: bu ölçünün ve sonraki iki ölçüden güçlü olanının
+   küçüğü (drop süren bir düzeydir; droptan sonraki bir ölçülük nefes dropu geciktirmez). Öncesi: önceki dört ölçü;
+   hemen önceki ölçü **kendi içinde yükseliyorsa** (rulo: ikinci yarısının bası ilkinden belirgin fazla) o ölçü
+   sayılmaz, yoksa drop bir ölçü erkene, ruloya kayardı.
+2. **Sıralama:** bas ve kick farkı ağır basar, enerji artışı az; kendi içinde yükselen ölçünün puanı kısılır; bölüm
+   sınırındaki ölçü öne geçer; neredeyse aynı puandaki (%5) önceki ölçü seçilir (rulo değilse).
 3. **Sessizlik:** öncesindeki ölçülerden biri −50 dBFS'ten sessizse ya da şarkıya göre enerjisi neredeyse yoksa
    (eski kayıtta cızırtı tabanı) şarkının başıdır. Eskiden "öncesi 0,05'ten sessiz olmasın" kuralı çok sakin bir
    gitar girişinden sonra grubun girişini kaçırıyordu.
@@ -64,6 +73,8 @@ doğrulanacak.
 - **Dropsuz şarkıda** sakin aradan sonra grubun dönüşü drop sayılıyor. Bu, kurala göre bir drop (bas ve enerji
   sakin kısımdan sonra birden dönüyor); ayırmak için yükseliş belirtisi şart koşulursa uzun sakin girişten sonraki
   gerçek droplar kaçar. Sahibinin şarkılarıyla karar verilecek.
-- **Sahte drop** (yükseliş → kısa sessizlik → yine sakin → yeni yükseliş → drop): son sınamada ikisinde de drop bir
-  ölçü erken (rulolu ölçü) bulundu.
+- **Rulo droptan güçlüyse** (yarım tempolu dubstep drop'u bas bantlarında rulodan zayıf) ve rulo kendi içinde az
+  yükseliyorsa drop bir ölçü erken çıkabiliyor.
+- **Vuruş ızgarası bozuksa** (ölçüler eşit uzunlukta değil; bir sentetik şarkıda görüldü) drop ölçüsü rulo ile drop'u
+  birlikte içerir ve an kayar. Bu, vuruş bulmanın işi; ayrıca ele alınmalı.
 - Ses dosyaları depoya girmez; üretilenler geçici klasörde kalır.

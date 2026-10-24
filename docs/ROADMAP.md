@@ -57,7 +57,7 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       şarkılarda doğruluk işaretleme aracıyla ölçülecek. 0.0.36: her drop'un güveni (bas dönüşü, enerji artışı,
       bölüm sınırı, sürme); drop sayacı yalnızca güveni yüksek droplar için. 0.0.39: aynı kural her yerde (şeritteki
       DROP, işaretleme, Görsel Yönetmen'in beklentisi ve açılımı). 0.0.73: drop anı basın döndüğü kareye oturur, rulo erkene çekmez,
-      davulun dönüşü, sakin girişten sonra grup, sıkıştırılmış kayıt; hiç bakılmamış sentetik sette 18/38 → 30/38
+      davulun dönüşü, sakin girişten sonra grup, sıkıştırılmış kayıt; ayar için kullanılmamış sentetik sette 11/38 → 22/38
       (`docs/arastirma/drop/`)
 - [x] Şarkı haritası önbelleği (0.0.20): analiz sonuçları (spektrum, beat, ölçü başı, bölümler, drop, enerji)
       SQLite'ta; anahtar yol + boyut + değiştirilme zamanı + analiz sürümü (algoritma değişince kendiliğinden yeniden
