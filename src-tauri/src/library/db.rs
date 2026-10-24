@@ -250,6 +250,16 @@ impl Library {
         )?)
     }
 
+    /// Yol kütüphanede ya da bir çalma listesinde var mı ("Dosya konumunu aç" yalnızca bunları açar).
+    pub fn knows_path(&self, path: &str) -> Result<bool, LibraryError> {
+        Ok(self.conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM tracks WHERE path = ?1)
+                 OR EXISTS(SELECT 1 FROM playlist_entries WHERE path = ?1)",
+            [path],
+            |r| r.get(0),
+        )?)
+    }
+
     /// Kaynaklar, şarkı sayıları ve tek şarkı olup olmadıklarıyla (`tracks_folder` dizini).
     pub fn folders(&self) -> Result<Vec<FolderRow>, LibraryError> {
         let mut stmt = self.conn.prepare(

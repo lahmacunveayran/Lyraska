@@ -1273,6 +1273,30 @@ pub fn log_frontend_error(message: String) {
     ));
 }
 
+/// Şarkının dosyasını dosya gezgininde seçili gösterir (Steam'deki "yerel dosyalara göz at" gibi).
+/// Yalnızca kütüphanedeki ya da bir çalma listesindeki yol açılır: arayüz rastgele bir yolu
+/// gezgine açtıramaz.
+#[tauri::command]
+pub async fn reveal_track(path: String, library: State<'_, LibraryState>) -> Result<(), String> {
+    let known = path.clone();
+    let allowed = library
+        .run(move |service| service.knows_path(&known).map_err(reported))
+        .await?;
+    if !allowed {
+        return Err("Bu şarkı kütüphanede yok.".to_owned());
+    }
+    blocking(move || {
+        let file = PathBuf::from(&path);
+        if !file.is_file() {
+            return Err(format!(
+                "Dosya bulunamadı (taşınmış, silinmiş ya da diski takılı değil): {path}"
+            ));
+        }
+        crate::file_manager::reveal(&file).map_err(|e| reported(format!("Klasör açılamadı: {e}")))
+    })
+    .await
+}
+
 /// Hata günlüğünü dosya gezgininde seçili olarak gösterir (hata kaydına eklemek için).
 #[tauri::command]
 pub fn open_log() -> Result<(), String> {

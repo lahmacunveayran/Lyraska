@@ -50,6 +50,8 @@ export interface AlbumPageProps {
   onClearCover: () => void;
   /** "Listeye ekle" menüsü (albümün bütün şarkıları için). */
   addToPlaylist?: (paths: string[]) => ReactNode;
+  /** Şarkının dosyasını dosya gezgininde gösterir. */
+  onReveal?: (path: string) => void;
 }
 
 /** Yolun dosya adı, uzantısız ("D:\Müzik\01 Gece.flac" → "01 Gece"). */
@@ -117,6 +119,7 @@ export function AlbumPage({
   onChooseCover,
   onClearCover,
   addToPlaylist,
+  onReveal,
 }: AlbumPageProps) {
   const id = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -252,6 +255,7 @@ export function AlbumPage({
         </p>
       )}
       <TrackTable
+        onReveal={onReveal}
         rows={rows}
         currentPath={currentPath}
         playing={playing}

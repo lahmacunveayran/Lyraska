@@ -5,7 +5,8 @@ kurallar değil, **deneyimle öğrenilenler** durur: nasıl çalışınca iş h�
 düşüldü, proje sahibi neye karar verdi. Yeni bir ders öğrenildiğinde ilgili bölüme kısa bir madde eklenir (tarihiyle).
 Kalıcı bir kural hâline gelmesi gereken şey proje sahibine sorulup `CLAUDE.md`'ye taşınır.
 Sıradaki işler ve cevap bekleyen sorular burada değil, `docs/ACIK-KONULAR.md`'de durur. İki dosyanın da satır sınırı
-vardır (`check:docs`; avenoxbeyin'den alınan fikir, 23 Ekim 2026): sınır aşılınca eski maddeler kısaltılır.
+vardır (`check:docs`; bu dosya 640, açık konular 60; sahibinin kararı, 24 Ekim 2026): sınır aşılınca eski maddeler
+kısaltılır.
 
 ## 1. Proje sahibiyle çalışma
 
@@ -15,8 +16,7 @@ vardır (`check:docs`; avenoxbeyin'den alınan fikir, 23 Ekim 2026): sınır aş
   kalındığı tek paragrafta yazılır. "Devam et" denince kalınan yerden sürülür (ajanlar `SendMessage` ile).
 - Karar gerekiyorsa seçenekler ve öneri birlikte sunulur; **sahibi "sorma" dediyse o konu bir daha sorulmaz**
   (örnek: kod imzalama, 22 Ekim 2026).
-- Sahibi bir öneri getirdiğinde (ör. bir GitHub reposu, bir özellik) önce lisans, telif ve "çevrimdışı" ilkesine
-  uygunluğu denetlenir; uygun değilse nedeni sade dille anlatılıp yasal bir alternatif önerilir.
+- Sahibinin önerisi (repo, özellik) önce lisans, telif ve "çevrimdışı" ilkesiyle denetlenir; uymuyorsa yasal seçenek.
 
 ## 2. İş akışı: küçük PR, paralel ajan, bağımsız inceleme
 
@@ -29,10 +29,9 @@ vardır (`check:docs`; avenoxbeyin'den alınan fikir, 23 Ekim 2026): sınır aş
 - **Ajan talimatında mutlaka:** CLAUDE.md'yi okusun; hangi commit'ten başlayacağı (`git checkout --detach <sha>`);
   yalnızca kendi çalışma kopyasında çalışsın; `CARGO_TARGET_DIR=/home/user/Lyraska/src-tauri/target` (disk);
   her hata için önce test; küçük commit'ler (duraklamada iş kaybolmasın); devir notuna dokunmasın; rapor biçimi.
-- **Bağımsız inceleme atlanmaz:** her büyük değişiklik ayrı bir ajana (kodu verip, sonucu vermeden) okutulur. Bu
-  oturumlarda gerçek hatalar buldu: galeri listesi çekmecenin arkasında kalıyordu; sınırsız EEL `loop` arayüzü
-  donduruyordu; çevrilen gölgelendiricilerde sınırsız GPU döngüsü vardı; parlaklık freni ince desen titremesini
-  geçiriyordu. Bulgular önce testle yakalanıp düzeltilir.
+- **Bağımsız inceleme atlanmaz:** her büyük değişiklik ayrı bir ajana (kodu verip, sonucu vermeden) okutulur; her
+  seferinde gerçek hata buldu (sınırsız döngüler, frenden kaçan desen, parlama kanıtındaki açık, yanlış satırı
+  silen hızlı düzenleme). Bulgular önce testle yakalanıp düzeltilir.
 - Kullanım limiti dolunca ajanlar yarıda kalır; limit yenilenince `SendMessage` ile kaldıkları yerden sürdürülür.
 
 ## 3. Ana dal başka oturumlarla ilerleyebilir
@@ -42,10 +41,8 @@ vardır (`check:docs`; avenoxbeyin'den alınan fikir, 23 Ekim 2026): sınır aş
 - Taşıma: dal `origin/main`'den yeniden kurulur, iş `git cherry-pick` ile alınır. Sürüm çakışmasında `main`'in
   sürümü alınıp bir sonrakine yükseltilir (`package.json`, `package-lock.json` iki kök alan, `Cargo.toml`,
   `Cargo.lock`'taki `lyraska`). `Cargo.lock` cargo ile yeniden üretilir; `UCUNCU-TARAF.txt` `npm run notices` ile.
-- **Dışarıda (derleyicisiz) yazılan yamalar eski `main`'e göre yazılmış olabilir** (23 Ekim 2026, yama 0001):
-  `git apply --reject` ile uyan parçalar alınır, reddedilenler `main`'deki hâliyle karşılaştırılıp yalnızca eksik
-  kalan elle taşınır. `files/` kopyasını üstüne yazmak yeni işleri siler. Yamanın testleri `main`'deki testlerle
-  aynı adı taşıyabilir: silinmez, yeniden adlandırılır.
+- **Dışarıda yazılan yamalar eski `main`'e göre olabilir** (23 Ekim 2026): `git apply --reject`, reddedilenler elle;
+  `files/` kopyasını üstüne yazmak yeni işleri siler; aynı adlı testler silinmez, yeniden adlandırılır.
 - Başka oturumun devir notu (`docs/devlog/` aynı gün) okunur: sahibinin yeni kararları orada olabilir (ör. depo adı
   `lahmacunveayran/Lyraska` oldu, "kod imzası olmayacak").
 
@@ -75,20 +72,14 @@ vardır (`check:docs`; avenoxbeyin'den alınan fikir, 23 Ekim 2026): sınır aş
   derlenmiş kod yalnızca kum havuzunda (`wasmi`: yakıt + bellek sınırı).
 - **Önce ölç, sonra değiştir:** kum tepelerindeki "basamak" hatası gürültü fonksiyonunda sanıldı; ekran kartındaki
   değerler okununca sorunun ışıklandırmada olduğu görüldü. Varsayımla kod değiştirmeden önce sayıya bakılır.
-- **Opus (23 Ekim 2026):** `symphonia-adapter-libopus` Ogg'da kusursuz. Symphonia'nın Matroska/WebM okuyucusu ise
-  süreyi ve sarmayı bilmiyor, ilk paketin zamanı eksi (−ön boşluk) ve hedefsiz etiketleri albüm düzeyi sayıyor; WebM
-  başlığı (Segment Title) hiç okunmuyor; Cues'lu dosyada sarma hata vermeden saniyelerce ileri gidiyor ve paket
-  zamanları 1,5 ms sapıyor. Çözüm `decode.rs`'te: Matroska'da sarma dosyayı baştan okuyarak, Opus zamanı paketlerin
-  TOC baytından sayılarak; Ogg Opus'ta ön boşluğu çözücü değil `trim` atar. Ders: kısa, tek kümeli test dosyası
-  sarma hatalarını gizledi (bağımsız inceleme buldu); sarma testi uzun, çok kümeli, tekrarsız sinyalle ve baştan
-  çözülen sesle örnek örnek karşılaştırılarak yapılır.
+- **Opus (23 Ekim 2026):** Symphonia'nın Matroska/WebM okuyucusu süreyi, sarmayı ve başlığı bilmiyor; çözüm
+  `decode.rs`'te (sarma baştan okuyarak, zaman TOC baytından). Kısa tek kümeli test dosyası sarma hatasını gizledi:
+  sarma uzun, tekrarsız sinyalle ve baştan çözülen sesle örnek örnek karşılaştırılır.
 - GLSL kaynakları TypeScript şablon metni içindeyse yorumlarda ters tırnak işareti kullanılmaz; şablon metnini kapatır.
-
 - **Dosya türü içinden tanınır, uzantısından değil** (23 Ekim 2026): sahibi yt-dlp'nin `.webm`'lerini elle `.opus`
   yaptı; içi Matroska kaldı, uzantıya bakan kod ön boşluğu iki kez attı (6 ms) ve sarma kaydı. EBML imzası
   (`1A 45 DF A3`) okunur; uzantı yalnızca dosya okunamazsa yedek.
-- **Kapak yalnızca dosyanın içinde değildir:** `.webm` kapak taşıyamaz; yt-dlp kapağı yanına `Şarkı.opus.webp`
-  adıyla yazar. Gömülü kapak yoksa yandaki resim (`Şarkı.jpg`, `Şarkı.opus.webp`, `cover.jpg`…) okunur.
+- **Kapak yalnızca dosyanın içinde değildir:** gömülü kapak yoksa yandaki resim (`Şarkı.jpg`, `Şarkı.opus.webp`) okunur.
 - **Sahibine dosya silen betik verilmez** (ya da önce işin başarısı denetlenir): başka bir sohbetin verdiği kapak
   gömme betiği ffmpeg hata verince yarım çıktıyı başarı sanıp sahibinin orijinal şarkılarını sildi.
 - **Windows'ta klasör izleme sessizce ölebilir** (24 Ekim 2026): `notify` klasör kaybolunca ya da G/Ç hatasında
@@ -101,6 +92,16 @@ vardır (`check:docs`; avenoxbeyin'den alınan fikir, 23 Ekim 2026): sınır aş
 - **Commit'ten önce `cargo clippy --all-targets`:** yalnızca kütüphaneyi derlemek örneklerdeki (`examples/`)
   uyarıyı göstermez; CI hepsini derler.
 - **Drop ölçü başına yapıştırılmaz:** vuruş ızgarası kayabilir (yarım tempo, sessizlik); an basın döndüğü karedir.
+- **Push'tan önce filtresiz `cargo test`** (24 Ekim 2026): yalnızca `library::` çalıştırınca göçün kırdığı
+  `storage` tablo listesi testi CI'da yakalandı. Yeni komut eklenince `check-scenes.mjs` sahte çekirdeğine de eklenir
+  (bilinmeyen komuta durum nesnesi döner, `.map` arayüzü çökertir).
+- **Parlama kanıtı çizilenin aynısını modellemeli** (24 Ekim 2026): "Kendi resmin"in ilk kanıtı ortalama arka plan ve
+  doğrusal karışım varsaydı; bağımsız denetim sRGB karışımı, en kötü piksel ve gölgeyle gerçek bir aşım buldu.
+  Doğrusu: tarayıcının çizdiği gibi çizen test + her karede ışık bütçesi (`limitExtents`).
+- **Görsel taklitte tahmin değil ölçüm:** sahibinin ekran kaydında ses de var; çubuklar kare kare ölçülüp sesle
+  hizalanınca eksen doğrusal 20–2000 Hz çıktı (tahminle logaritmik yapılmıştı, bas bu yüzden düzdü).
+- Betikle metin değiştirirken eşleşme sayısı denetlenir (`count == 1`): bir CSS değişikliği Ayarlar başlıklarının
+  büyük harfini de sildi.
 
 ## 6. Lisans dersleri
 
@@ -149,5 +150,11 @@ vardır (`check:docs`; avenoxbeyin'den alınan fikir, 23 Ekim 2026): sınır aş
   ekle" menüsünde, yeniden tarama kaynak menüsünde. Şarkı adı Martian Mono, sanatçı/albüm orantılı ve soluk.
 - **Kutucuk yok:** her klasör ya da tek eklenen şarkı için ayrı "çip" sahibi tarafından reddedildi. Kaynaklar
   başlığın yanında tek düğmede; tek tek eklenenler tek satır, seçilince liste süzülür; kaldırma önce sorar.
+- **Çalma listeleri (24 Ekim 2026):** kapak seçilebilir, yoksa ilk dört albümden kolaj; başka bilgisayara `.m3u8`
+  ile taşınır (şarkı yoldan, olmazsa sanatçı + ad + süreden bulunur). PR yalnızca bağımsız incelemeden sonra açılır
+  (sahibi istese de; "incelensin öyle PR edilsin").
+- **"Kendi resmin" sahnesi (24 Ekim 2026):** kullanıcının resmi + Nightcore videolarındaki ince çubuk çizgisi; renk
+  resmin baskın rengi "birebir" (tek renkliyse o ton tam canlı, karışıksa beyaz), yazı Michroma. Sahibi kararları
+  iki kez (biri tamamen bağımsız) denetlenerek verilsin istiyor.
 - Görsel tasarımda sahibi zor beğenir: seçenekleri gerçek boyutta, yan yana görsel olarak sun; bağımsız sanat
   yönetmeni denetimi işe yarıyor (puan 6 → hedef 8+).

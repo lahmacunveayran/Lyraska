@@ -70,6 +70,8 @@ export interface ArtistPageProps {
   onPlay: (paths: string[], start?: string, order?: PlayOrder) => void;
   /** "Listeye ekle" menüsü (sanatçının bütün şarkıları için). */
   addToPlaylist?: (paths: string[]) => ReactNode;
+  /** Şarkının dosyasını dosya gezgininde gösterir. */
+  onReveal?: (path: string) => void;
 }
 
 /**
@@ -91,6 +93,7 @@ export function ArtistPage({
   onOpenAlbum,
   onPlay,
   addToPlaylist,
+  onReveal,
 }: ArtistPageProps) {
   const id = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -235,6 +238,7 @@ export function ArtistPage({
             Şarkılar
           </h4>
           <TrackTable
+            onReveal={onReveal}
             rows={rows}
             currentPath={currentPath}
             playing={playing}

@@ -550,6 +550,11 @@ export async function pickPlaylistFile(): Promise<string | null> {
   return typeof selected === "string" ? selected : null;
 }
 
+/** Şarkının dosyasını dosya gezgininde seçili gösterir (yalnızca kütüphanedeki ve listelerdeki). */
+export function revealTrack(path: string): Promise<void> {
+  return invoke<void>("reveal_track", { path });
+}
+
 /** Kapak resmi seçme penceresi. */
 export async function pickImage(): Promise<string | null> {
   const selected = await open({
