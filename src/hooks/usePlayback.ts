@@ -174,29 +174,10 @@ export function usePlayback(
   const toggleShuffle = () => {
     const on = !shuffle;
     setShuffle(on);
-    // Çalan şarkı yerinde kalır (yeniden açılmaz); yalnızca sıradakiler değişir.
-    if (queueActive) setQueue(withShuffle(activeQueue, on, random));
+    // Çalan şarkı yerinde kalır (yeniden açılmaz); yalnızca sıradakiler değişir. Çekirdeğe
+    // bildirilmiş sıradaki şarkı yerinde kalır: çekirdek onu çoktan açmış olabilir.
+    if (queueActive) setQueue(withShuffle(activeQueue, on, random, upcoming !== null));
   };
-  // Klavye: S karışık çalı açar/kapatır (yazı yazılırken ve Ctrl/Alt ile değil).
-  const toggleRef = useRef(toggleShuffle);
-  useEffect(() => {
-    toggleRef.current = toggleShuffle;
-  });
-  const { available } = player;
-  useEffect(() => {
-    if (!available) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.repeat) return;
-      if (event.ctrlKey || event.metaKey || event.altKey) return;
-      if (event.key.toLowerCase() !== "s") return;
-      const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest("input, textarea, select, [contenteditable]")) return;
-      event.preventDefault();
-      toggleRef.current();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [available]);
   const next = () => {
     const target = queueActive ? nextInQueue(activeQueue) : null;
     if (target) playQueue(target);
@@ -222,4 +203,29 @@ export function usePlayback(
         : null,
     upcoming,
   };
+}
+
+/**
+ * Klavye: S karışık çalı açar/kapatır. Yazı yazılırken, Ctrl/Alt ile ve `enabled` kapalıyken
+ * (oynatıcı yok, işaretleme sürüyor) çalışmaz.
+ */
+export function useShuffleShortcut(onToggle: () => void, enabled: boolean) {
+  const toggleRef = useRef(onToggle);
+  useEffect(() => {
+    toggleRef.current = onToggle;
+  });
+  useEffect(() => {
+    if (!enabled) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat) return;
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.key.toLowerCase() !== "s") return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest("input, textarea, select, [contenteditable]")) return;
+      event.preventDefault();
+      toggleRef.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [enabled]);
 }

@@ -1,8 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LibraryAlbum, PlaybackStatus, TrackInfo } from "../lib/backend";
-import { seededRandom, shuffledQueueFrom } from "../lib/queue";
-import { usePlayback } from "../hooks/usePlayback";
+import { queueFrom, seededRandom, shuffledQueueFrom, withShuffle } from "../lib/queue";
+import { usePlayback, useShuffleShortcut } from "../hooks/usePlayback";
 import { AlbumPage } from "./AlbumPage";
 import { Dock } from "./Dock";
 
@@ -71,8 +71,9 @@ const album: LibraryAlbum = {
 const SEED = 4;
 
 /** Albüm sayfası ve alt çubuk gerçek çalma sırasına bağlı (tohumlu karıştırma). */
-function Harness() {
+function Harness({ recording = false }: { recording?: boolean }) {
   const playback = usePlayback(["flac"], { random: seededRandom(SEED) });
+  useShuffleShortcut(playback.toggleShuffle, playback.player.available && !recording);
   const { player } = playback;
   return (
     <>
@@ -163,19 +164,32 @@ describe("karışık çal", () => {
     expect(toggle).toHaveAttribute("title", "Karışık çal: kapalı (S)");
     await act(async () => fireEvent.click(toggle));
     expect(toggle).toHaveAttribute("aria-pressed", "true");
-    // Çalan şarkı yerinde kalır (yeniden açılmaz), sıradakiler karışır.
-    const expected = shuffledQueueFrom(ALBUM_PATHS, ALBUM_PATHS[0]!, seededRandom(SEED)).paths;
-    await waitFor(() => expect(backend.next.at(-1)).toBe(expected[1]));
+    // Çalan şarkı yerinde kalır (yeniden açılmaz). Çekirdeğe bildirilmiş sıradaki (2) de
+    // yerinde kalır; ondan sonrakiler karışır.
+    const expected = withShuffle(
+      queueFrom(ALBUM_PATHS, ALBUM_PATHS[0]!),
+      true,
+      seededRandom(SEED),
+      true,
+    ).paths;
+    expect(expected.slice(2)).not.toEqual(ALBUM_PATHS.slice(2));
     expect(backend.opened).toEqual([ALBUM_PATHS[0]]);
 
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Sonraki" })));
-    await waitFor(() => expect(backend.opened.at(-1)).toBe(expected[1]));
+    await waitFor(() => expect(backend.opened.at(-1)).toBe(ALBUM_PATHS[1]));
+    await waitFor(() => expect(backend.next.at(-1)).toBe(expected[2]));
+    expect(screen.getByTestId("label")).toHaveTextContent(`2 / ${ALBUM_PATHS.length}`);
 
-    // Kapatınca asıl sıraya dönülür, çalma çalan şarkıdan sürer.
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Sonraki" })));
+    await waitFor(() => expect(backend.opened.at(-1)).toBe(expected[2]));
+
+    // Kapatınca asıl sıraya dönülür; bildirilmiş sıradaki şarkı yerinde kalır.
+    const announced = expected[3]!;
     await act(async () => fireEvent.click(toggle));
     expect(toggle).toHaveAttribute("aria-pressed", "false");
-    const index = ALBUM_PATHS.indexOf(expected[1]!);
-    await waitFor(() => expect(backend.next.at(-1)).toBe(ALBUM_PATHS[index + 1] ?? null));
+    await waitFor(() => expect(backend.next.at(-1)).toBe(announced));
+    const restored = ALBUM_PATHS.filter((path) => path !== announced);
+    const index = restored.indexOf(expected[2]!);
     expect(screen.getByTestId("label")).toHaveTextContent(`${index + 1} / ${ALBUM_PATHS.length}`);
   });
 
@@ -195,5 +209,31 @@ describe("karışık çal", () => {
     expect(toggle).toHaveAttribute("aria-pressed", "true");
     fireEvent.keyDown(window, { key: "S" });
     expect(toggle).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("işaretleme sürerken S karışık çalı değiştirmez", async () => {
+    render(<Harness recording />);
+    const toggle = await screen.findByRole("button", { name: "Karışık çal", pressed: false });
+    fireEvent.keyDown(window, { key: "s" });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("tarayıcı deposu okunamaz ve yazılamazsa çökmez: karışık çal kapalı başlar, düğme çalışır", async () => {
+    const fail = () => {
+      throw new Error("depo kapalı");
+    };
+    const get = vi.spyOn(Storage.prototype, "getItem").mockImplementation(fail);
+    const set = vi.spyOn(Storage.prototype, "setItem").mockImplementation(fail);
+    try {
+      render(<Harness />);
+      const toggle = await screen.findByRole("button", { name: "Karışık çal", pressed: false });
+      await act(async () => fireEvent.click(toggle));
+      expect(toggle).toHaveAttribute("aria-pressed", "true");
+      expect(get).toHaveBeenCalled();
+      expect(set).toHaveBeenCalled();
+    } finally {
+      get.mockRestore();
+      set.mockRestore();
+    }
   });
 });

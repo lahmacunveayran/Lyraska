@@ -49,12 +49,20 @@ describe("karışık çalma", () => {
     expect(queue.original).toEqual(list);
   });
 
-  it("tekrarlanan yol bir kez çalar: art arda aynı şarkı yok", () => {
-    const queue = shuffledQueueFrom(["a", "b", "a", "c", "b"], "a", seededRandom(5));
-    expect([...queue.paths].sort()).toEqual(["a", "b", "c"]);
-    for (let i = 1; i < queue.paths.length; i++) {
-      expect(queue.paths[i]).not.toBe(queue.paths[i - 1]);
-    }
+  it("tekrarlanan yol düz sıradaki gibi kalır; kapatınca liste, sayı ve yer aynen döner", () => {
+    const withDupes = ["a", "b", "a", "c", "b"];
+    const queue = shuffledQueueFrom(withDupes, "a", seededRandom(5));
+    expect(queue.paths).toHaveLength(withDupes.length);
+    expect([...queue.paths].sort()).toEqual([...withDupes].sort());
+    // İkinci "a"ya kadar ilerle: kapatınca asıl listede ikinci "a"nın yerinden (2) sürer.
+    let at = queue;
+    while (!(currentPath(at) === "a" && at.index > 0)) at = nextInQueue(at)!;
+    const restored = withShuffle(at, false);
+    expect(restored.paths).toEqual(withDupes);
+    expect(restored.index).toBe(2);
+    // Düz sıradan açıp kapatınca da aynı yer.
+    const ordered = { paths: withDupes, index: 2 };
+    expect(withShuffle(withShuffle(ordered, true, seededRandom(1)), false)).toEqual(ordered);
   });
 
   it("sonraki ve önceki karışık sırayı izler", () => {
@@ -81,15 +89,46 @@ describe("karışık çalma", () => {
     expect(currentPath(nextInQueue(ordered)!)).toBe(list[list.indexOf(playing) + 1]);
   });
 
-  it("açınca çalan şarkı başa gelir, geri kalanlar karışır; durum aynıysa sıra değişmez", () => {
+  it("açınca çalınmışlar yerinde kalır, yalnızca sonrakiler karışır; durum aynıysa sıra değişmez", () => {
     const ordered = queueFrom(list, "06.flac");
     const on = withShuffle(ordered, true, seededRandom(2));
     expect(currentPath(on)).toBe("06.flac");
-    expect(on.index).toBe(0);
+    // Sayaç baştan başlamaz, "Önceki" çalınmış şarkılara gider.
+    expect(on.index).toBe(5);
+    expect(on.paths.slice(0, 6)).toEqual(list.slice(0, 6));
+    expect(currentPath(previousInQueue(on)!)).toBe("05.flac");
+    expect([...on.paths.slice(6)].sort()).toEqual(list.slice(6));
+    expect(on.paths.slice(6)).not.toEqual(list.slice(6));
     expect(on.original).toEqual(list);
     expect(withShuffle(on, true)).toBe(on);
     expect(withShuffle(ordered, false)).toBe(ordered);
-    expect(withShuffle(on, false).paths).toEqual(list);
+    expect(withShuffle(on, false)).toEqual(ordered);
+  });
+
+  it("bildirilmiş sıradaki şarkı açınca da kapatınca da hemen sıradaki kalır", () => {
+    // Açınca: 07 çekirdeğe bildirilmişti; o kalır, sonrası karışır.
+    const ordered = queueFrom(list, "06.flac");
+    const on = withShuffle(ordered, true, seededRandom(2), true);
+    expect(currentPath(nextInQueue(on)!)).toBe("07.flac");
+    expect(on.paths.slice(0, 7)).toEqual(list.slice(0, 7));
+    expect(on.paths.slice(7)).not.toEqual(list.slice(7));
+    expect([...on.paths.slice(7)].sort()).toEqual(list.slice(7));
+
+    // Kapatınca: karışık sırada bildirilen şarkı kalır, ardından asıl sıra çalan şarkıdan sürer.
+    const shuffledQueue = shuffledQueueFrom(list, "03.flac", seededRandom(9));
+    const announced = shuffledQueue.paths[1]!;
+    const off = withShuffle(shuffledQueue, false, Math.random, true);
+    expect(isShuffled(off)).toBe(false);
+    expect(currentPath(off)).toBe("03.flac");
+    expect(currentPath(nextInQueue(off)!)).toBe(announced);
+    expect(off.paths).toHaveLength(list.length);
+    expect([...off.paths].sort()).toEqual(list);
+    expect(off.paths.filter((path) => path !== announced)).toEqual(
+      list.filter((path) => path !== announced),
+    );
+    // Sıranın sonunda bildirilecek şarkı yoksa düz dönüş.
+    const last = { ...shuffledQueue, index: list.length - 1 };
+    expect(withShuffle(last, false, Math.random, true).paths).toEqual(list);
   });
 
   it("tek şarkı ve boş liste", () => {

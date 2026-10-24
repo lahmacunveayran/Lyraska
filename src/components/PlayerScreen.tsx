@@ -45,7 +45,7 @@ import { LyricsOverlay } from "./LyricsOverlay";
 import type { Lyrics } from "../lib/backend";
 import { useIdle } from "../hooks/useIdle";
 import { useKeyboardFocusWithin } from "../hooks/useKeyboardFocus";
-import { usePlayback, type PlayOrder } from "../hooks/usePlayback";
+import { usePlayback, useShuffleShortcut, type PlayOrder } from "../hooks/usePlayback";
 import { useLivePosition, type PlayerControls } from "../hooks/usePlayer";
 import { usePlaybackOptions } from "../hooks/usePlaybackOptions";
 import { useScene } from "../hooks/useScene";
@@ -122,6 +122,8 @@ export function PlayerScreen() {
   );
   const marker = useMarker(statusPath, playing, player.positionNow, songMap, sync.delayMs);
   const lyrics = useLyrics(statusPath);
+  // S karışık çalı açar/kapatır; işaretleme sürerken tuşlar işaretlemenindir.
+  useShuffleShortcut(playback.toggleShuffle, player.available && !marker.recording);
 
   // Panelden ayrılınca işaretleme biter (Boşluk yine çal/duraklat olur), senkron ölçümü de.
   const { setRecording } = marker;

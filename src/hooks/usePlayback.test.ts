@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlaybackStatus, TrackInfo } from "../lib/backend";
+import { queueFrom, seededRandom, withShuffle } from "../lib/queue";
 import { usePlayback } from "./usePlayback";
 
 // Şarkı açmak çekirdekte zaman alır: her açılış, test "bitir" diyene kadar bekler.
@@ -186,5 +187,53 @@ describe("çalma sırası", () => {
     await finishOpen("C");
     expect(backend.opens).toHaveLength(0);
     expect(result.current.queueLabel).toBe("3 / 3");
+  });
+});
+
+describe("karışık çal ve çalma sırası", () => {
+  beforeEach(() => window.localStorage.clear());
+
+  it("sıradaki bildirildikten sonra karıştırınca çekirdeğin açtığı şarkı sırada kalır, sıra sürer", async () => {
+    const random = seededRandom(3);
+    const list = ["A", "B", "C", "D", "E", "F", "G", "H"];
+    const { result } = renderHook(() => usePlayback(["flac"], { random }));
+    act(() => result.current.playList(list, "A"));
+    await finishOpen("A");
+    expect(result.current.upcoming).toBe("B");
+
+    // Çekirdek B'yi şarkı bitmeden önce almış olabilir: karıştırma B'yi sıradaki bırakır.
+    act(() => result.current.toggleShuffle());
+    expect(result.current.shuffle).toBe(true);
+    expect(result.current.upcoming).toBe("B");
+    expect(result.current.queueLabel).toBe("1 / 8");
+
+    // Çekirdek B'ye kendisi geçti: sıra etkin kalır, sonrası karışık.
+    backend.current = "B";
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    expect(result.current.queueLabel).toBe("2 / 8");
+    expect(result.current.canNext).toBe(true);
+    const expected = withShuffle(queueFrom(list, "A"), true, seededRandom(3), true).paths;
+    expect(result.current.upcoming).toBe(expected[2]);
+    expect(expected.slice(2)).not.toEqual(list.slice(2));
+
+    // Kapatınca: bildirilmiş sıradaki yine kalır, sonra asıl sıra.
+    const announced = result.current.upcoming!;
+    act(() => result.current.toggleShuffle());
+    expect(result.current.shuffle).toBe(false);
+    expect(result.current.upcoming).toBe(announced);
+    expect(result.current.canNext).toBe(true);
+  });
+
+  it("karıştırınca sayaç baştan başlamaz, Önceki çalınmış şarkıya gider", async () => {
+    const { result } = renderHook(() => usePlayback(["flac"], { random: seededRandom(1) }));
+    act(() => result.current.playList(["A", "B", "C", "D", "E"], "C"));
+    await finishOpen("C");
+    act(() => result.current.toggleShuffle());
+    expect(result.current.queueLabel).toBe("3 / 5");
+    act(() => result.current.previous());
+    await finishOpen("B");
+    expect(result.current.queueLabel).toBe("2 / 5");
   });
 });

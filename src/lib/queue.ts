@@ -10,6 +10,11 @@ export interface Queue {
    * karışık değilse yoktur.
    */
   original?: string[];
+  /**
+   * Karışık çalmada her sıra yerinin asıl listedeki yeri (`paths[i] === original[positions[i]]`).
+   * Aynı yol listede iki kez geçse de çalan şarkının asıl yeri bulunur.
+   */
+  positions?: number[];
 }
 
 /** 0 ile 1 arası (1 hariç) rastgele sayı üreten kaynak; testlerde tohumlu olanı verilir. */
@@ -23,14 +28,9 @@ export function queueFrom(paths: string[], path: string): Queue {
   return index < 0 ? { paths: [path], index: 0 } : { paths, index };
 }
 
-/** Tekrarlananları atar (ilk geçtiği yer kalır): karışık sırada aynı şarkı iki kez çalmaz. */
-function unique(paths: string[]): string[] {
-  return [...new Set(paths)];
-}
-
 /** Fisher–Yates karıştırması: her dizilişin olasılığı eşittir. Verilen dizi değişmez. */
-export function shuffled(paths: string[], random: RandomSource = Math.random): string[] {
-  const result = [...paths];
+export function shuffled<T>(items: T[], random: RandomSource = Math.random): T[] {
+  const result = [...items];
   for (let i = result.length - 1; i > 0; i--) {
     // Kaynak 1 döndürse bile dizinin dışına taşmasın.
     const j = Math.min(i, Math.floor(random() * (i + 1)));
@@ -39,24 +39,35 @@ export function shuffled(paths: string[], random: RandomSource = Math.random): s
   return result;
 }
 
+/** 0, 1, …, n − 1. */
+function range(n: number): number[] {
+  return Array.from({ length: n }, (_, i) => i);
+}
+
+/** Asıl listeden, verilen yerlerin sırasıyla karışık sıra. */
+function arranged(original: string[], positions: number[], index: number): Queue {
+  return { paths: positions.map((i) => original[i]!), index, original, positions };
+}
+
 /**
  * Karışık sıra: verilen şarkı başta, geri kalanlar karışık. Şarkı verilmezse (`null`) bütün liste
- * karışır, ilk şarkı da rastgele olur. Asıl sıra saklanır: karışık çal kapanınca ona dönülür.
+ * karışır, ilk şarkı da rastgele olur. Asıl sıra (tekrarlananlarla birlikte, düz sıradaki gibi)
+ * saklanır: karışık çal kapanınca ona dönülür.
  */
 export function shuffledQueueFrom(
   paths: string[],
   start: string | null,
   random: RandomSource = Math.random,
 ): Queue {
-  const list = unique(paths);
   if (start === null) {
-    return list.length === 0
+    return paths.length === 0
       ? EMPTY_QUEUE
-      : { paths: shuffled(list, random), index: 0, original: list };
+      : arranged(paths, shuffled(range(paths.length), random), 0);
   }
-  const original = list.includes(start) ? list : [start];
-  const rest = original.filter((path) => path !== start);
-  return { paths: [start, ...shuffled(rest, random)], index: 0, original };
+  const first = paths.indexOf(start);
+  if (first < 0) return arranged([start], [0], 0);
+  const rest = range(paths.length).filter((i) => i !== first);
+  return arranged(paths, [first, ...shuffled(rest, random)], 0);
 }
 
 /** Sıra karışık mı. */
@@ -65,16 +76,43 @@ export function isShuffled(queue: Queue): boolean {
 }
 
 /**
- * Karışık çalı açar ya da kapatır; çalan şarkı yerinde kalır. Açınca çalan şarkı başa gelir,
- * geri kalanlar karışır; kapatınca asıl sıraya dönülür ve çalma çalan şarkıdan sürer.
+ * Karışık çalı açar ya da kapatır; çalan şarkı yerinde kalır.
+ *
+ * - Açınca: çalınmış şarkılar ve çalan şarkı yerinde kalır ("Önceki" onlara gider, sayaç baştan
+ *   başlamaz); yalnızca sonrakiler karışır.
+ * - Kapatınca: asıl sıraya dönülür, çalma çalan şarkıdan sürer.
+ * - `keepNext`: sıradaki şarkı çekirdeğe önceden bildirildiyse (boşluksuz geçiş için çekirdek onu
+ *   şarkı bitmeden ~2 sn önce açmış olabilir) o şarkı hemen sıradaki olarak kalır; karıştırma ya
+ *   da asıl sıraya dönüş ondan sonrasına uygulanır. Yoksa çekirdeğin çaldığı şarkı sırada
+ *   tanınmaz ve çalma o şarkının sonunda durur.
  */
-export function withShuffle(queue: Queue, on: boolean, random: RandomSource = Math.random): Queue {
-  const path = currentPath(queue);
-  if (path === null || on === isShuffled(queue)) return queue;
-  if (on) return shuffledQueueFrom(queue.paths, path, random);
+export function withShuffle(
+  queue: Queue,
+  on: boolean,
+  random: RandomSource = Math.random,
+  keepNext = false,
+): Queue {
+  if (currentPath(queue) === null || on === isShuffled(queue)) return queue;
+  const { index } = queue;
+  const hasNext = keepNext && index + 1 < queue.paths.length;
+  if (on) {
+    const kept = index + 1 + (hasNext ? 1 : 0);
+    const all = range(queue.paths.length);
+    return arranged(
+      queue.paths,
+      [...all.slice(0, kept), ...shuffled(all.slice(kept), random)],
+      index,
+    );
+  }
   const original = queue.original ?? queue.paths;
-  const index = original.indexOf(path);
-  return index < 0 ? { paths: [path], index: 0 } : { paths: original, index };
+  const positions = queue.positions ?? range(queue.paths.length);
+  const current = positions[index] ?? 0;
+  if (!hasNext) return { paths: original, index: current };
+  // Bildirilen şarkı asıl sırada başka yerdeyse çalan şarkının hemen arkasına alınır.
+  const announced = positions[index + 1]!;
+  const order = range(original.length).filter((i) => i !== announced);
+  order.splice(order.indexOf(current) + 1, 0, announced);
+  return { paths: order.map((i) => original[i]!), index: order.indexOf(current) };
 }
 
 /**
