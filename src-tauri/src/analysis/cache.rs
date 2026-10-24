@@ -63,7 +63,8 @@ pub const VERSIONS: PartVersions = PartVersions {
     // 4: değişken tempo (parça parça tempo, ortanca BPM).
     // 5: drop bulma: davulun dönüşü, sakin girişten sonra grup, sıkıştırılmış kayıt, an basın
     // döndüğü kareye oturur.
-    rhythm: 5,
+    // 6: ritmi zayıf ya da basit oranlı (2/3, 3/2) parça sabit tempoyu "değişken" yapmaz.
+    rhythm: 6,
     loudness: 1,
     bass: 1,
     key: 1,
