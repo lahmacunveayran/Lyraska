@@ -590,11 +590,15 @@ struct BarSignals<'a> {
 }
 
 /// `k`. ölçünün öncesi ve sonrası arasındaki farklar: (bas, kick, enerji).
-/// Hemen önceki ölçü sayılmaz: yükselişin son ölçüsündeki kick ya da trampet rulosu drop kadar
-/// güçlü olabilir; sayılsaydı drop bir ölçü erkene, ruloya kayardı.
+/// Öncesi, önceki dört ölçünün ve bir ölçü daha geriden başlayan, hemen önceki ölçüyü saymayan dört
+/// ölçünün ortalamalarından küçük olanıdır: yükselişin son ölçüsündeki kick ya da trampet rulosu
+/// drop kadar güçlü olabilir (sayılsaydı drop bir ölçü erkene, ruloya kayardı), ama sakin kısım kısa
+/// olunca da geriye, önceki yüksek bölüme taşılmaz.
 fn drop_jumps(k: usize, signals: &BarSignals) -> (f64, f64, f64) {
     let n = signals.bass.len();
-    let before = k.saturating_sub(DROP_BEFORE_BARS + 1)..k.saturating_sub(1).max(1);
+    let near = k.saturating_sub(DROP_BEFORE_BARS)..k;
+    let skip = k.saturating_sub(DROP_BEFORE_BARS + 1)..k.saturating_sub(1).max(1);
+    let before = |v: &[f64]| mean(&v[near.clone()]).min(mean(&v[skip.clone()]));
     let after = k..(k + DROP_AFTER_BARS).min(n);
     // Sonrası en zayıf ölçüsüyle: drop süren bir düzeydir, tek ölçülük vurgu değil.
     let floor = |v: &[f64]| {
@@ -606,7 +610,7 @@ fn drop_jumps(k: usize, signals: &BarSignals) -> (f64, f64, f64) {
     let jump = |v: &[f64]| {
         let low = floor(v);
         if low.is_finite() {
-            low - mean(&v[before.clone()])
+            low - before(v)
         } else {
             0.0
         }
@@ -645,7 +649,7 @@ fn find_drops(signals: &BarSignals) -> Vec<usize> {
             let before_energy = mean(&signals.energy[k - DROP_BEFORE_BARS..k]);
             let silent = before_db <= DROP_SILENCE_DB || before_energy < DROP_SILENCE_ENERGY;
             (low_end && after_energy >= high && !silent)
-                .then_some((k, bass.max(0.0) + kick.max(0.0) + 0.5 * rise.max(0.0)))
+                .then_some((k, bass.max(0.0) + kick.max(0.0) + 0.25 * rise.max(0.0)))
         })
         .collect();
     // En güçlüsünden başlayarak, birbirine yakın adayları ele.
