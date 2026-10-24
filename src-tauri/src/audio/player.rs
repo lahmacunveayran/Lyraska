@@ -787,11 +787,16 @@ impl Player {
         // Açılamayan dosya çalan şarkıyı da susturmasın: yeni dosya önce yoklanır, eski oturum
         // ancak yoklama başarılıysa kapanır. Çalan oturum yoksa mevcut yol izlenir (hata durumu
         // gösterilir).
-        if self.session.is_some() {
+        if self.has_session() {
             Decoder::open(path)?;
         }
         self.device_recoveries = 0;
         self.restart(path, autoplay, None)
+    }
+
+    /// Açık bir şarkı oturumu var mı (çalıyor, duraklatılmış ya da bitmiş).
+    pub fn has_session(&self) -> bool {
+        self.session.is_some()
     }
 
     /// Oturumu yeniden kurar (yeni şarkı, sarma, durdurma için ortak yol): geçişin üç adımı

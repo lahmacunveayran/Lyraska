@@ -198,6 +198,17 @@ pub async fn open_track(
     path: PathBuf,
     player: State<'_, PlayerState>,
 ) -> Result<TrackInfo, String> {
+    open_on(&player, path).await
+}
+
+/// [`open_track`]'in gövdesi (testler `State` olmadan çağırır).
+async fn open_on(player: &PlayerState, path: PathBuf) -> Result<TrackInfo, String> {
+    // Açılamayan dosya çalan şarkıyı susturmasın (N1, `Player::load` ile aynı kural): yeni dosya
+    // kilit dışında yoklanır, eski oturum ancak yoklama başarılıysa kapanır.
+    if player.lock()?.has_session() {
+        let probe = path.clone();
+        blocking(move || Decoder::open(&probe).map(drop).map_err(reported)).await?;
+    }
     let transition = player.lock()?.begin_transition(&path, true, None);
     let prepared = tauri::async_runtime::spawn_blocking(move || Player::prepare(transition))
         .await
@@ -1397,6 +1408,34 @@ mod tests {
             Some(env!("CARGO_PKG_VERSION")),
             "package.json ile src-tauri/Cargo.toml sürümleri farklı"
         );
+    }
+
+    #[test]
+    fn arayuzden_acilamayan_dosya_calan_sarkiyi_susturmaz() {
+        // N1 arayüzün yolunda da geçerli: `Player::load` değil, `open_track` kullanılır.
+        use crate::audio::test_util::{temp_path, write_wav};
+        let calan = temp_path("n1-arayuz-calan.wav");
+        write_wav(&calan, 8_000, 1, 16_000, |frame, _| frame as f64 / 16_000.0);
+        let bozuk = temp_path("n1-arayuz-bozuk.wav");
+        std::fs::write(&bozuk, [0u8; 64]).unwrap();
+        let player = PlayerState::default();
+        tauri::async_runtime::block_on(open_on(&player, calan.clone())).unwrap();
+        player.lock().unwrap().pause();
+        let before = player.lock().unwrap().status();
+
+        for path in [PathBuf::from("/olmayan/sarki.flac"), bozuk.clone()] {
+            assert!(tauri::async_runtime::block_on(open_on(&player, path)).is_err());
+            let after = player.lock().unwrap().status();
+            assert_eq!(after.state, before.state);
+            assert!(after.error.is_none(), "{:?}", after.error);
+            assert_eq!(
+                after.track.as_ref().map(|t| &t.path),
+                before.track.as_ref().map(|t| &t.path)
+            );
+        }
+        player.lock().unwrap().shutdown();
+        std::fs::remove_file(calan).ok();
+        std::fs::remove_file(bozuk).ok();
     }
 
     #[test]
