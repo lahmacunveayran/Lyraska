@@ -119,13 +119,15 @@ fn from_file_url(line: &str) -> Option<String> {
         Some(tail) => format!("/{tail}"),
         None => format!("//{rest}"),
     };
+    // Baytlarla çözülür: metni dilimlemek çok baytlı harfin ortasına denk gelip programı düşürürdü.
+    let hex = |b: u8| (b as char).to_digit(16);
     let bytes = rest.as_bytes();
     let mut decoded = Vec::with_capacity(bytes.len());
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let Ok(byte) = u8::from_str_radix(&rest[i + 1..i + 3], 16) {
-                decoded.push(byte);
+            if let (Some(high), Some(low)) = (hex(bytes[i + 1]), hex(bytes[i + 2])) {
+                decoded.push((high * 16 + low) as u8);
                 i += 3;
                 continue;
             }
@@ -663,6 +665,24 @@ mod tests {
             ["/home/k/Müzik/Barış Manço/01.flac", "D:/Müzik/kayıp.mp3"]
         );
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn bozuk_file_adresi_programi_dusurmez() {
+        // "%" ardından tek onaltılık hane ve çok baytlı harf: bayt ortasından dilimlenmesin.
+        assert_eq!(
+            from_file_url("file:///C:/a%aü.mp3").as_deref(),
+            Some("C:/a%aü.mp3")
+        );
+        assert_eq!(
+            from_file_url("file:///C:/%ü%.mp3").as_deref(),
+            Some("C:/%ü%.mp3")
+        );
+        // "+1" onaltılık sayı değildir; sondaki "%41" de çözülür.
+        assert_eq!(
+            from_file_url("file:///C:/a%+1b%41").as_deref(),
+            Some("C:/a%+1bA")
+        );
     }
 
     #[test]
