@@ -48,7 +48,9 @@
   --font-figures: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
   --library-accent: #ff5a88;
   --library-menu: rgba(18, 24, 38, 0.97);
-  --library-panel: rgba(9, 12, 20, 0.7);
+  --library-panel: rgba(9, 12, 20, 0.74);
+  /* Kütüphane sayfasının en geniş hali */
+  --library-sheet-width: 1240px;
   --library-key-text: #b8c0c5;
   --library-placeholder: #8c95a8;
   /* Ton renkleri: Camelot çarkı renk çemberine oturur, uyumlu tonlar komşu renk alır (Gökyüzü ile aynı) */
@@ -1455,12 +1457,53 @@ kbd {
 }
 
 /* Kütüphane sekmesinde çekmece tam ekran açılır; alttaki çalma çubuğu görünür kalır. */
+/* Kütüphane sekmesinde çekmece ortada yüzen cam bir sayfaya dönüşür: dört yanından sahne görünür
+   (proje sahibinin seçimi, bağımsız arayüz denetiminin "B+" düzeni). */
 .drawer.is-full {
-  left: 20px;
+  top: 84px;
+  left: max(48px, calc((100vw - var(--library-sheet-width)) / 2));
+  right: max(48px, calc((100vw - var(--library-sheet-width)) / 2));
   width: auto;
-  bottom: calc(var(--dock-space) + 12px);
-  /* Arkadaki gökyüzü sezilsin */
+  bottom: calc(var(--dock-space) + 16px);
+  border-radius: 28px;
   background: var(--library-panel);
+}
+
+.drawer.is-full .drawer__head {
+  justify-content: space-between;
+}
+
+/* Panel sekmeleri sayfanın başlığıyla yarışmasın: sola yaslı, sade, küçük. */
+.drawer.is-full .drawer__tabs {
+  flex: 0 1 auto;
+  padding: 0;
+  background: transparent;
+}
+
+.drawer.is-full .drawer__tab {
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+
+/* Sayfanın dışında görünen sahneye tıklamak kütüphaneyi kapatır (alttaki çubuk kullanılabilir kalır). */
+.library-backdrop {
+  position: absolute;
+  inset: 76px 0 var(--dock-space) 0;
+  z-index: 5;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+}
+
+@media (max-width: 1200px) {
+  .drawer.is-full {
+    top: 76px;
+    left: 20px;
+    right: 20px;
+  }
 }
 
 .app.has-full-drawer .hero {
@@ -1470,8 +1513,6 @@ kbd {
 
 .drawer.is-full .library {
   width: 100%;
-  max-width: 1360px;
-  margin: 0 auto;
 }
 
 .drawer.is-full .library__table {
@@ -2577,9 +2618,10 @@ kbd {
 .library__sources summary {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 10px;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--glass-edge);
   border-radius: 8px;
   font-size: 13px;
   color: var(--ink-2);
@@ -2735,6 +2777,120 @@ kbd {
   border-color: var(--library-accent);
 }
 
+.library__skeleton .album__cover {
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: none;
+}
+
+.library__skeleton-line {
+  display: block;
+  width: 60%;
+  height: 12px;
+  margin-top: 14px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* "Müzik ekle" menüsü: klasör (önerilen) ya da tek tek şarkı; sürükle-bırak ipucu */
+.library__add-menu {
+  position: relative;
+  margin-left: auto;
+}
+
+.library__toggle ~ .library__add-menu {
+  margin-left: 0;
+}
+
+.library__add-menu summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.library__add-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.library__caret {
+  margin-left: 2px;
+  opacity: 0.7;
+}
+
+.library__menu-list {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 300px;
+  padding: 6px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 12px;
+  background: var(--library-menu);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+.library__menu-list button {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.library__menu-list button svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+}
+
+.library__menu-list button small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.library__menu-list button:hover,
+.library__menu-list button:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
+}
+
+.library__menu-list button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.library__menu-note {
+  margin: 4px 10px 6px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-3);
+}
+
+.library__source--action {
+  border-top: 1px solid var(--panel-edge);
+  border-radius: 0 0 8px 8px;
+  cursor: pointer;
+}
+
+.library__source--action svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
 /* Arama kutusundaki tek süzgeç etiketi (kaynak: tek eklenenler) */
 .library__filter {
   display: inline-flex;
@@ -2836,11 +2992,26 @@ kbd {
 }
 
 /* Şarkı satırları Martian Mono ile (proje sahibinin seçimi); başlık satırı ve sayılar ayrı. */
+/* Şarkı adı Martian Mono (proje sahibinin seçimi); sanatçı ve albüm orantılı yazıyla ve daha soluk,
+   böylece göz satırı kolay ayırır. Sayılar (sıra, tempo, süre) eşit genişlikli rakamla hizalanır. */
 .library__list .library__row {
+  font-size: 13px;
+}
+
+.library__list .library__row .library__title-cell {
   font-family: var(--font-songs);
   font-size: 12.5px;
   font-stretch: 87.5%;
   letter-spacing: -0.02em;
+}
+
+.library__list .library__row .library__muted {
+  color: var(--ink-3);
+}
+
+.library__no,
+.library__time {
+  font-variant-numeric: tabular-nums;
 }
 
 .library__list .library__row:hover {
@@ -2883,13 +3054,7 @@ kbd {
 }
 
 .library__add {
-  margin-left: auto;
   border-color: var(--library-accent);
-}
-
-/* DJ görünümü düğmesi varsa (Şarkılar) sağa o yaslar. */
-.library__toggle ~ .library__add {
-  margin-left: 0;
 }
 
 /* Sanatçılar: basılı yıldız atlası levhaları (krem kâğıt, mürekkep, pembe albüm halkaları) */

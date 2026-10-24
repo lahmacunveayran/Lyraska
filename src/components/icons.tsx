@@ -60,6 +60,14 @@ export function NextIcon() {
   );
 }
 
+export function FolderIcon() {
+  return (
+    <svg {...base}>
+      <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5v-11Z" />
+    </svg>
+  );
+}
+
 export function FolderPlusIcon() {
   return (
     <svg {...base}>

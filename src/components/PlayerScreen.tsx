@@ -426,6 +426,15 @@ export function PlayerScreen() {
         />
       </ErrorBoundary>
 
+      {libraryFull && (
+        <button
+          type="button"
+          className="library-backdrop"
+          aria-label="Kütüphaneyi kapat, sahneye dön"
+          tabIndex={-1}
+          onClick={drawer.close}
+        />
+      )}
       <aside
         id="drawer"
         className={`drawer${drawer.open ? " is-open" : ""}${

@@ -6,10 +6,9 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 ## İş sırası (proje sahibinin kararı, 23 Ekim 2026)
 
 1. Kütüphanenin baştan tasarımı; küçük PR'lar:
-   1. Sanatçılar (0.0.69, PR açık): yıldız atlası levhaları.
-   2. Ortada cam sayfa (B+, sahibinin seçimi) ve sade başlık (yerelde hazır).
-   3. Gökyüzü (renkli; taslak onaylandı; yerelde yapılıyor).
-   4. Albüm sayfası; şarkı satırında kapak küçük resmi.
+   1. Ortada cam sayfa (B+, sahibinin seçimi) ve sade başlık (0.0.70, PR açık).
+   2. Gökyüzü (renkli; taslak onaylandı; yerelde hazır).
+   3. Albüm sayfası; şarkı satırında kapak küçük resmi.
 2. Davul/bas/vokal ayrıştırma: Spleeter; önce eğitimsiz iyileştirmeler ölçülür.
 3. Otomatik DJ (Bölüm II), Aşama A'dan; her aşama ayrı oturumda (`docs/gorev/20-BOLUM-II-DJ.md`).
 
