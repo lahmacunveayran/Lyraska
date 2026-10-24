@@ -205,7 +205,14 @@ export function LibraryPanel({
   // sayfa (ve oradan açılan albüm) kapanır.
   const shownArtist =
     openArtist && (artists?.find((a) => a.name === openArtist.name) ?? openArtist);
-  if (openArtist && artists && query === "" && !artists.some((a) => a.name === openArtist.name)) {
+  // Aramada süzülmüş liste yetmez: sanatçı aramadan bağımsız şarkılarda da yoksa kapanır.
+  if (
+    openArtist &&
+    artists &&
+    !artists.some((a) => a.name === openArtist.name) &&
+    (query === "" ||
+      !library.allTracks.some((t) => (t.albumArtist ?? t.artist) === openArtist.name))
+  ) {
     setOpenArtist(null);
     setArtistAlbum(null);
   }
@@ -214,6 +221,11 @@ export function LibraryPanel({
   const shownArtistAlbums = useMemo(
     () => (shownArtistName === null ? [] : artistAlbums(library.allTracks, shownArtistName)),
     [library.allTracks, shownArtistName],
+  );
+  // Sanatçı sayfasındaki kapak vurgusu: çalan şarkı aramaya uymasa da bulunur.
+  const currentInAll = useMemo(
+    () => library.allTracks.find((track) => track.path === currentPath) ?? null,
+    [library.allTracks, currentPath],
   );
   const shownArtistAlbum =
     artistAlbum &&
@@ -882,7 +894,7 @@ export function LibraryPanel({
                       albums={shownArtistAlbums}
                       tracks={library.allTracks}
                       refreshKey={library.refreshKey}
-                      current={current}
+                      current={currentInAll}
                       currentPath={currentPath}
                       playing={playing}
                       camelot={camelot}

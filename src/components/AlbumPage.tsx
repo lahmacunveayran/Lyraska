@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent } from "react";
 import { PlayIcon, ShuffleIcon } from "./icons";
 import { AlbumArt, albumLength } from "./AlbumGrid";
 import { TrackTable } from "./TrackTable";
@@ -133,7 +133,8 @@ export function AlbumPage({
   }, [album.name, album.artist, albumId, refreshKey]);
 
   const paths = loaded?.key === albumId ? loaded.paths : null;
-  const rows = paths ? albumRows(paths, tracks) : [];
+  // Satırlar yalnızca yollar ya da kütüphane değişince kurulur (her durum sorgusunda değil).
+  const rows = useMemo(() => (paths ? albumRows(paths, tracks) : []), [paths, tracks]);
   const summary = albumSummary(album, camelot);
 
   // Son çalma isteğinin zamanı: üst üste gelen istek albümü ikinci kez başlatmaz.
@@ -144,6 +145,12 @@ export function AlbumPage({
     lastPlay.current = time;
     onPlay(paths, start, order);
   };
+  // Satırların çalma işlevi kimliğini korur (liste `memo` ile yeniden çizilmez); en son `play`.
+  const playRef = useRef(play);
+  useEffect(() => {
+    playRef.current = play;
+  });
+  const playRow = useCallback((time: number, path: string) => playRef.current(time, path), []);
 
   const choose = (event: MouseEvent<HTMLButtonElement>, action: () => void) => {
     const menu = event.currentTarget.closest("details");
@@ -237,7 +244,7 @@ export function AlbumPage({
         playing={playing}
         camelot={camelot}
         label="Albümün şarkıları"
-        onPlay={(time, path) => play(time, path)}
+        onPlay={playRow}
       />
     </div>
   );
