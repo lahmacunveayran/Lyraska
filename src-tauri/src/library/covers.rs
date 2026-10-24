@@ -268,7 +268,9 @@ fn animation_info(data: &[u8]) -> Option<(u64, u64, u64)> {
             while let (Some(len), Some(kind)) = (data.get(i..i + 4), data.get(i + 4..i + 8)) {
                 let body = data.get(i + 8..)?;
                 let be = |at: usize| -> Option<u64> {
-                    Some(u64::from(u32::from_be_bytes(body.get(at..at + 4)?.try_into().ok()?)))
+                    Some(u64::from(u32::from_be_bytes(
+                        body.get(at..at + 4)?.try_into().ok()?,
+                    )))
                 };
                 match kind {
                     b"IHDR" => {
@@ -640,28 +642,48 @@ mod tests {
         assert_eq!(animation_info(&gif(3)), Some((3, 1, 1)));
         assert_eq!(animation_info(&png(true)), Some((2, 1, 1)));
         assert_eq!(animation_info(&webp(true)), Some((2, 1, 1)));
-        assert_eq!(animation_info(&png_sized(10, 640, 480)), Some((10, 640, 480)));
+        assert_eq!(
+            animation_info(&png_sized(10, 640, 480)),
+            Some((10, 640, 480))
+        );
 
         let dir = temp_path("arkaplan-hareketli");
         let store = CoverStore::new(&dir);
         let source = dir.with_extension("img");
-        for data in [gif(2), png(true), webp(true), gif(1), png(false), webp(false)] {
+        for data in [
+            gif(2),
+            png(true),
+            webp(true),
+            gif(1),
+            png(false),
+            webp(false),
+        ] {
             std::fs::write(&source, &data).unwrap();
-            assert!(store.background_set(&source).is_ok(), "{:?}", image_type(&data));
+            assert!(
+                store.background_set(&source).is_ok(),
+                "{:?}",
+                image_type(&data)
+            );
             assert!(store.background_get().is_some());
         }
         // Çok kare (601) ya da çok piksel (600 × 1000 × 1000) reddedilir, iletisi açık.
         for data in [gif(601), png_sized(600, 1000, 1000)] {
             std::fs::write(&source, &data).unwrap();
             let error = store.background_set(&source).unwrap_err();
-            assert!(matches!(error, CoverError::AnimationTooLarge { .. }), "{error}");
+            assert!(
+                matches!(error, CoverError::AnimationTooLarge { .. }),
+                "{error}"
+            );
             assert!(error.to_string().contains("en çok 600 kare"), "{error}");
         }
         let error = CoverError::AnimationTooLarge {
             frames: 600,
             pixels: 600_000_000,
         };
-        assert!(error.to_string().contains("600 kare, 600 milyon piksel"), "{error}");
+        assert!(
+            error.to_string().contains("600 kare, 600 milyon piksel"),
+            "{error}"
+        );
         // Sınırda kabul (600 kare × 83 333 piksel ≤ 50 milyon).
         std::fs::write(&source, png_sized(600, 289, 288)).unwrap();
         assert!(store.background_set(&source).is_ok());
