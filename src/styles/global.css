@@ -5562,7 +5562,8 @@ kbd {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  /* Çok yavaş kayma: resim canlı dursun (parlaklık değişmez). */
+  /* Çok yavaş kayma: resim canlı dursun (parlaklık değişmez). Kayma payı parlama hesabında
+     (src/lib/photoScene.ts `DRIFT_X`, `DRIFT_Y`). */
   animation: photo-drift 90s ease-in-out infinite alternate;
   user-select: none;
 }
@@ -5583,7 +5584,8 @@ kbd {
   }
 }
 
-/* Kenarlar hafifçe kararır: yazı ve çizgi her resimde okunur. */
+/* Kenarlar hafifçe kararır: yazı ve çizgi her resimde okunur. Parlama hesabı bu katmanı bilir
+   (src/lib/photoScene.ts `shadeAlpha`); değişirse orası da değişir. */
 .photo-scene__shade {
   position: absolute;
   inset: 0;

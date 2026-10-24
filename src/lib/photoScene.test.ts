@@ -8,11 +8,17 @@ import {
   accentFromPixels,
   barRects,
   clockText,
+  coreColor,
   displayUpper,
+  lineExtent,
   maxBarExtent,
+  measureLine,
   meanLuminance,
+  pixelContrast,
   relativeLuminance,
+  shadeAlpha,
   type BarRect,
+  type Rgb,
 } from "./photoScene";
 
 /** Çubukları ve ışıltılarını (çubuğun çevresinde `GLOW_PX` taşan yarı saydam alan) çizer. */
@@ -151,5 +157,163 @@ describe("kendi resmin sahnesi", () => {
     expect(clockText(25.9)).toBe("00:25");
     expect(clockText(3725)).toBe("1:02:05");
     expect(clockText(Number.NaN)).toBe("00:00");
+  });
+});
+
+/*
+ * Tarayıcının gerçekten çizdiği gibi model: renkler sRGB uzayında karışır (doğrusal ışıkta değil),
+ * ışıltı vurgu renginde Gauss gölgesidir (σ = shadowBlur / 2), çubuklar sırayla gölge + öz olarak
+ * çizilir, kenarlar yumuşatılır, resmin üstünde kenar karartması (`.photo-scene__shade`) vardır.
+ * Resim RGB'dir: yarısı karanlık yarısı aydınlık resim, açık zeminde kırmızı ışıltı, ince desenler.
+ */
+let W = 640;
+let H = 360;
+
+function lin(v: number): number {
+  return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+}
+function erf(x: number): number {
+  const s = Math.sign(x);
+  const a = Math.abs(x);
+  const t = 1 / (1 + 0.3275911 * a);
+  const y =
+    1 -
+    ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) *
+      t *
+      Math.exp(-a * a);
+  return s * y;
+}
+/** Tarayıcı gibi: sRGB uzayında sırayla gölge (accent, GLOW_ALPHA, Gauss σ = GLOW_PX/2) ve çubuk. */
+function renderSrgb(rects: BarRect[], image: Float64Array, core: Rgb, accent: Rgb): Float64Array {
+  const layer = new Float64Array(W * H * 4);
+  const over = (i: number, c: Rgb, a: number) => {
+    for (let k = 0; k < 3; k++) layer[i * 4 + k] = (c[k]! / 255) * a + layer[i * 4 + k]! * (1 - a);
+    layer[i * 4 + 3] = a + layer[i * 4 + 3]! * (1 - a);
+  };
+  const sigma = GLOW_PX / 2;
+  const g = (p: number, a: number, b: number) =>
+    0.5 * (erf((b - p) / (sigma * Math.SQRT2)) - erf((a - p) / (sigma * Math.SQRT2)));
+  for (const r of rects) {
+    for (
+      let y = Math.max(0, Math.floor(r.y - 3 * sigma));
+      y < Math.min(H, Math.ceil(r.y + r.height + 3 * sigma));
+      y++
+    ) {
+      const gy = g(y + 0.5, r.y, r.y + r.height);
+      for (
+        let x = Math.max(0, Math.floor(r.x - 3 * sigma));
+        x < Math.min(W, Math.ceil(r.x + r.width + 3 * sigma));
+        x++
+      ) {
+        const a = GLOW_ALPHA * gy * g(x + 0.5, r.x, r.x + r.width);
+        if (a > 0) over(y * W + x, accent, a);
+      }
+    }
+    for (let y = Math.max(0, Math.floor(r.y)); y < Math.min(H, Math.ceil(r.y + r.height)); y++) {
+      const cy = Math.min(y + 1, r.y + r.height) - Math.max(y, r.y);
+      for (let x = Math.max(0, Math.floor(r.x)); x < Math.min(W, Math.ceil(r.x + r.width)); x++) {
+        const cx = Math.min(x + 1, r.x + r.width) - Math.max(x, r.x);
+        over(y * W + x, core, Math.max(0, cx) * Math.max(0, cy));
+      }
+    }
+  }
+  const out = new Float64Array(W * H);
+  for (let i = 0; i < W * H; i++) {
+    const s = 1 - shadeAlpha((i % W) / W, Math.floor(i / W) / H);
+    const a = layer[i * 4 + 3]!;
+    const c = [0, 1, 2].map((k) => layer[i * 4 + k]! + image[i * 3 + k]! * s * (1 - a));
+    out[i] = 0.2126 * lin(c[0]!) + 0.7152 * lin(c[1]!) + 0.0722 * lin(c[2]!);
+  }
+  return out;
+}
+
+function makeImage(at: (x: number, y: number) => Rgb): { srgb: Float64Array; rgba: number[] } {
+  const srgb = new Float64Array(W * H * 3);
+  const rgba: number[] = [];
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const c = at(x / W, y / H);
+      for (let k = 0; k < 3; k++) srgb[(y * W + x) * 3 + k] = c[k]! / 255;
+      rgba.push(c[0], c[1], c[2], 255);
+    }
+  return { srgb, rgba };
+}
+
+/** Bileşen gibi: vurgu bütün resimden, karşıtlık 2×2 blokların en koyusu ve en açığından. */
+function extentNow(rgba: number[], safe = false): { extent: number; core: Rgb; accent: Rgb } {
+  const accent = accentFromPixels(rgba);
+  const core = coreColor(accent);
+  const extent = lineExtent(measureLine(rgba, W, H, W, H, core, accent), safe);
+  return { extent, core, accent };
+}
+
+function worst(at: (x: number, y: number) => Rgb, safe = false) {
+  const img = makeImage(at);
+  const { extent, core, accent } = extentNow(img.rgba, safe);
+  const win = flashWindow(W, H);
+  const full = renderSrgb(
+    barRects(new Array(PHOTO_BARS).fill(1), W, H, extent),
+    img.srgb,
+    core,
+    accent,
+  );
+  const empty = renderSrgb(
+    barRects(new Array(PHOTO_BARS).fill(0), W, H, extent),
+    img.srgb,
+    core,
+    accent,
+  );
+  const a = windowMeans(full, W, H, win, 4);
+  const b = windowMeans(empty, W, H, win, 4);
+  let max = 0;
+  for (let i = 0; i < a.length; i++) max = Math.max(max, Math.abs(a[i]! - b[i]!));
+  return { extent, max, core };
+}
+
+const IMAGES: [string, (x: number, y: number) => Rgb][] = [
+  ["koyu", () => [10, 8, 14]],
+  // Ortalaması çubuğun parlaklığına yakın: eski hesap (bandın ortalaması) burada parlıyordu.
+  ["yarısı siyah yarısı beyaz", (x) => (x < 0.35 ? [0, 0, 0] : [255, 255, 255])],
+  ["açık bant, kırmızı resim", (_x, y) => (y > 0.38 && y < 0.8 ? [255, 255, 255] : [150, 20, 30])],
+  ["açık gri", () => [200, 200, 200]],
+  ["mavi", () => [20, 40, 200]],
+  ["çubukların altında açık şerit", (_x, y) => (y > 0.5 && y < 0.62 ? [255, 255, 255] : [0, 0, 0])],
+  ["ince dikey çizgiler", (x) => (Math.floor(x * W) % 2 ? [255, 255, 255] : [0, 0, 0])],
+  ["ince yatay çizgiler", (_x, y) => (Math.floor(y * H) % 2 ? [255, 255, 255] : [200, 0, 0])],
+];
+
+describe("kendi resmin sahnesi: tarayıcı gibi çizimde parlama yok", () => {
+  it.each(
+    IMAGES.flatMap(([name, at]) => [
+      { name, at, width: 640, height: 360, safe: false },
+      { name, at, width: 360, height: 640, safe: false },
+    ]).concat(
+      IMAGES.slice(0, 3).map(([name, at]) => ({ name, at, width: 640, height: 360, safe: true })),
+    ),
+  )("$name ($width×$height, güvenli $safe)", ({ at, width, height, safe }) => {
+    W = width;
+    H = height;
+    const r = worst(at, safe);
+    expect(r.extent).toBeGreaterThanOrEqual(2);
+    expect(r.max).toBeLessThan(0.1);
+  });
+
+  it("koyu resimde çubuklar belirgin iner; eski hesaptan kısalmaz", () => {
+    W = 640;
+    H = 360;
+    const { extent, core } = extentNow(makeImage(() => [10, 8, 14]).rgba);
+    expect(extent).toBeGreaterThan(0.8 * maxBarExtent(W, H, relativeLuminance(core), 0.004, false));
+  });
+
+  it("sRGB karışımı: açık zeminde yarı saydam koyu renk doğrusal hesaptan fazla karartır", () => {
+    const red: Rgb = [245, 61, 61];
+    const white: Rgb = [255, 255, 255];
+    const linear = 1 - relativeLuminance(red);
+    expect(pixelContrast(red, white)).toBeGreaterThan(1.5 * linear);
+    // Karanlık zeminde açık renk: tam kaplamadaki fark.
+    expect(pixelContrast(white, [0, 0, 0])).toBeCloseTo(1);
+    // Kenar karartması ortada yok, köşede en koyu.
+    expect(shadeAlpha(0.5, 0.5)).toBe(0);
+    expect(shadeAlpha(0, 0)).toBeGreaterThan(shadeAlpha(0, 0.5));
   });
 });

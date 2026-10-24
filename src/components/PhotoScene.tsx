@@ -11,9 +11,11 @@ import {
   clockText,
   coreColor,
   displayUpper,
-  maxBarExtent,
-  meanLuminance,
-  relativeLuminance,
+  lineExtent,
+  maxBarExtentForContrast,
+  measureLine,
+  pixelContrast,
+  worstContrast,
   type Rgb,
 } from "../lib/photoScene";
 import { barBands, barTargetsFromBands, barTargetsFromWave, stepBars } from "../lib/spectrumBars";
@@ -33,31 +35,83 @@ export interface PhotoSceneProps {
   onChooseImage?: () => void;
 }
 
-/** Resmin rengi ve çizgi bölgesinin parlaklığı (resim yüklenince küçültülmüş kopyasından). */
+/** Resmin rengi ve ölçülen ekran boyunda çubukların en büyük boyu (`lineExtent`). */
 interface ImageTone {
   accent: Rgb;
-  /** Çizginin geçtiği yatay bandın ortalama bağıl parlaklığı. */
-  lineLuminance: number;
+  /** Normal ve güvenli modda en büyük boy (CSS piksel). */
+  extent: number;
+  safeExtent: number;
+  /** Ölçüldüğü ekran boyu (CSS piksel). */
+  width: number;
+  height: number;
 }
 
-const NO_IMAGE_TONE: ImageTone = { accent: DEFAULT_ACCENT, lineLuminance: 0.02 };
+/** Çubuğun iki rengi: öz ve ışıltı. */
+function barColors(accent: Rgb): Rgb[] {
+  return [coreColor(accent), accent];
+}
 
-/** Resmi 64×36'ya küçültüp rengini ve orta bandın parlaklığını ölçer. */
-function measureImage(image: HTMLImageElement): ImageTone {
+/** Resimsiz zemin (`.photo-scene`: #1a1424'ten #07060b'ye; kenar karartmasıyla siyaha dek). */
+const NO_IMAGE_CONTRAST = Math.max(
+  ...barColors(DEFAULT_ACCENT).flatMap((c) => [
+    pixelContrast(c, [0, 0, 0]),
+    pixelContrast(c, [26, 20, 36]),
+  ]),
+);
+
+/** Aynı resmi yeniden ölçmeden önce beklenen süre (pencere boyutlanırken), ms. */
+const REMEASURE_MS = 300;
+
+/** Ölçüm genişliği (piksel): 2×2 blokların en koyusu ve en açığıyla 320 sütun. */
+const MEASURE_WIDTH = 640;
+
+/**
+ * Resmi ekrandaki gibi kırpıp küçültür; rengini ve bu ekran boyunda çubukların parlama sınırından
+ * en büyük boyunu ölçer (`measureLine`, `lineExtent`).
+ */
+function measureImage(image: HTMLImageElement, width: number, height: number): ImageTone {
+  const fallback = (accent: Rgb): ImageTone => {
+    // Ölçülemezse en kötü zemin.
+    const contrast = worstContrast(barColors(accent));
+    return {
+      accent,
+      extent: maxBarExtentForContrast(width, height, contrast, false),
+      safeExtent: maxBarExtentForContrast(width, height, contrast, true),
+      width,
+      height,
+    };
+  };
+  const mw = MEASURE_WIDTH;
+  const mh = Math.max(2, Math.round((mw * height) / width));
   const canvas = document.createElement("canvas");
-  canvas.width = 64;
-  canvas.height = 36;
+  canvas.width = mw;
+  canvas.height = mh;
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) return NO_IMAGE_TONE;
+  if (!ctx || image.naturalWidth === 0 || image.naturalHeight === 0)
+    return fallback(DEFAULT_ACCENT);
   // Ekrandaki gibi kırpılarak (object-fit: cover) çizilir.
-  const scale = Math.max(64 / image.naturalWidth, 36 / image.naturalHeight);
+  const scale = Math.max(mw / image.naturalWidth, mh / image.naturalHeight);
   const w = image.naturalWidth * scale;
   const h = image.naturalHeight * scale;
-  ctx.drawImage(image, (64 - w) / 2, (36 - h) / 2, w, h);
-  const all = ctx.getImageData(0, 0, 64, 36).data;
-  // Çizgi ve ışıltısı ortadaki banttadır (yüksekliğin %40–%60'ı).
-  const band = ctx.getImageData(0, 14, 64, 8).data;
-  return { accent: accentFromPixels(all), lineLuminance: meanLuminance(band) };
+  ctx.drawImage(image, (mw - w) / 2, (mh - h) / 2, w, h);
+  const all = ctx.getImageData(0, 0, mw, mh).data;
+  // Renk için her onuncu sütun ve satır yeter (64 sütun).
+  const sample: number[] = [];
+  for (let y = 0; y < mh; y += 10) {
+    for (let x = 0; x < mw; x += 10) {
+      const i = (y * mw + x) * 4;
+      sample.push(all[i]!, all[i + 1]!, all[i + 2]!, all[i + 3]!);
+    }
+  }
+  const accent = accentFromPixels(sample);
+  const map = measureLine(all, mw, mh, width, height, coreColor(accent), accent);
+  return {
+    accent,
+    extent: lineExtent(map, false),
+    safeExtent: lineExtent(map, true),
+    width,
+    height,
+  };
 }
 
 /**
@@ -65,7 +119,7 @@ function measureImage(image: HTMLImageElement): ImageTone {
  * şarkıyla oynayan ışık çizgisi: ince spektrum çubukları, bas solda, çizgiden aşağı sarkar. Çizginin rengi resmin
  * baskın renginden. Üstünde şarkının adı (geniş harfler) ve geçen süre; bu yazılar sinema
  * görünümünde (denetimler gizliyken) görünür. Resim sabit kalır; çubukların boyu parlama
- * sınırından hesaplanır (`maxBarExtent`).
+ * sınırından hesaplanır (`lineExtent`).
  */
 export function PhotoScene({
   playing,
@@ -84,15 +138,22 @@ export function PhotoScene({
     bytes: null,
     inFlight: false,
   });
-  const tone = useRef<ImageTone>(NO_IMAGE_TONE);
+  // Ölçülmemişse `null` (resim yükleniyor ya da pencere boyutlandı): en kötü karşıtlıkla çizilir.
+  const tone = useRef<ImageTone | null>(null);
+  const loaded = useRef<HTMLImageElement | null>(null);
+  const measuredAt = useRef(-Infinity);
+  // Son ölçülen renk: pencere boyutlanırken yeniden ölçülene dek çubuk rengini değiştirmez.
+  const lastAccent = useRef<Rgb>(DEFAULT_ACCENT);
 
   useEffect(() => {
-    tone.current = NO_IMAGE_TONE;
+    loaded.current = null;
+    tone.current = null;
+    lastAccent.current = DEFAULT_ACCENT;
     if (!image) return;
     const element = new Image();
     let live = true;
     element.onload = () => {
-      if (live) tone.current = measureImage(element);
+      if (live) loaded.current = element;
     };
     element.src = image;
     return () => {
@@ -141,10 +202,37 @@ export function PhotoScene({
       }
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
-      const { accent, lineLuminance } = tone.current;
+      const element = loaded.current;
+      const measured = tone.current;
+      const stale =
+        !measured ||
+        Math.abs(measured.width - width) > 0.01 * width ||
+        Math.abs(measured.height - height) > 0.01 * height;
+      if (element && stale) {
+        // Resim yeni yüklendi ya da pencere boyutlandı: kırpılan yer değişir, yeniden ölçülür.
+        tone.current = null;
+        const now = performance.now();
+        if (now - measuredAt.current >= REMEASURE_MS) {
+          measuredAt.current = now;
+          tone.current = measureImage(element, width, height);
+        }
+      }
+      const current = element ? tone.current : null;
+      if (current) lastAccent.current = current.accent;
+      const accent = lastAccent.current;
       const core = coreColor(accent);
-      // Parlama hesabı özün (en parlak kısım) parlaklığıyla; ışıltı ondan koyu, pay kalır.
-      const maxExtent = maxBarExtent(width, height, relativeLuminance(core), lineLuminance, safe);
+      // Parlama sınırı resmin en kötü yerine göre (`lineExtent`); resim yokken koyu zemin,
+      // resim ölçülmemişken (yükleniyor, pencere boyutlanıyor) en kötü zemin.
+      const maxExtent = current
+        ? safe
+          ? current.safeExtent
+          : current.extent
+        : maxBarExtentForContrast(
+            width,
+            height,
+            image ? worstContrast(barColors(accent)) : NO_IMAGE_CONTRAST,
+            safe,
+          );
       const rects = barRects(levels.current, width, height, maxExtent);
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
       ctx.clearRect(0, 0, width, height);
@@ -158,7 +246,7 @@ export function PhotoScene({
       const lift = (maxExtent * UP_SHARE) / (1 + UP_SHARE) + GLOW_PX + 10;
       textRef.current?.style.setProperty("--photo-lift", `${Math.ceil(lift)}px`);
     },
-    [playing, safe],
+    [playing, safe, image],
   );
   useVisualFeed(playing, onTick);
 
