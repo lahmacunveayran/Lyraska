@@ -1,11 +1,13 @@
 import { DriveScene } from "./DriveScene";
 import { HighwayScene } from "./HighwayScene";
 import { MilkDropScene } from "./MilkDropScene";
+import { PhotoScene } from "./PhotoScene";
 import { ShaderScene } from "./ShaderScene";
 import { SkyScene } from "./SkyScene";
 import { SpectrumDemo } from "./SpectrumDemo";
 import { SpectrumView } from "./SpectrumView";
 import { VuScene } from "./VuScene";
+import type { BackgroundImageControls } from "../hooks/useBackgroundImage";
 import type { MilkdropControls } from "../hooks/useMilkdrop";
 import type { Scene } from "../lib/scene";
 import type { SceneLooks } from "../lib/sceneLook";
@@ -29,6 +31,10 @@ export interface SceneStageProps {
   looks?: SceneLooks;
   /** MilkDrop sahnesinin denetimleri (klasör, görseller); galeri paneliyle paylaşılır. */
   milkdrop: MilkdropControls;
+  /** "Kendi resmin" sahnesinin resmi ve çalan şarkının adı ile sanatçısı. */
+  background?: BackgroundImageControls;
+  songTitle?: string | null;
+  songArtist?: string | null;
 }
 
 /** Tüm pencereyi kaplayan görsel sahne. Sahne değişince yenisi yavaşça belirir. */
@@ -41,12 +47,24 @@ export function SceneStage({
   title = null,
   looks,
   milkdrop,
+  background,
+  songTitle = null,
+  songArtist = null,
 }: SceneStageProps) {
   return (
     <div className="stage" data-scene={scene}>
       {isShaderScene(scene) ? (
         // Her sahne kendi tuvalinde açılır: yenisi yavaşça belirir.
         <ShaderScene key={scene} id={scene} playing={playing} safe={safe} look={looks?.[scene]} />
+      ) : scene === "photo" ? (
+        <PhotoScene
+          playing={playing}
+          safe={safe}
+          image={background ? background.url : null}
+          title={songTitle}
+          artist={songArtist}
+          onChooseImage={background ? () => void background.choose() : undefined}
+        />
       ) : scene === "milkdrop" ? (
         <MilkDropScene playing={playing} safe={safe} controls={milkdrop} />
       ) : scene === "vu" ? (

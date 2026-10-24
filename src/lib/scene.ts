@@ -4,7 +4,8 @@ import { SHADER_SCENES, type ShaderSceneId } from "./shaderScene";
  * Ekrandaki görsel sahneler: beş klasik sahne, galerideki gölgelendirici sahneleri ve
  * kullanıcının kendi `.milk` dosyalarını çalan MilkDrop sahnesi.
  */
-export type Scene = "sky" | "highway" | "vu" | "spectrum" | "drive" | ShaderSceneId | "milkdrop";
+export type Scene =
+  "sky" | "highway" | "vu" | "spectrum" | "drive" | ShaderSceneId | "milkdrop" | "photo";
 
 /** Üst çubukta tek tek görünen klasik sahneler. */
 export const CLASSIC_SCENES: { id: Scene; name: string }[] = [
@@ -26,9 +27,17 @@ export const MILKDROP_SCENE = {
   hint: "Kendi .milk görselleriniz; parlaklık freniyle.",
 } as const;
 
+/** Kullanıcının seçtiği resim ve ortada şarkıyla oynayan ışık çizgisi. */
+export const PHOTO_SCENE = {
+  id: "photo",
+  name: "Kendi resmin",
+  hint: "Seçtiğiniz resim, ortada şarkıyla oynayan ışık çizgisi.",
+} as const;
+
 /** Galerideki sahneler (üst çubukta "Galeri" düğmesinin altında). */
 export const GALLERY_SCENES: { id: Scene; name: string; hint: string }[] = [
   ...SHADER_SCENES.map(({ id, name, hint }) => ({ id, name, hint })),
+  PHOTO_SCENE,
   MILKDROP_SCENE,
 ];
 

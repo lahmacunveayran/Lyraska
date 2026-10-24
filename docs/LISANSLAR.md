@@ -49,6 +49,17 @@ kuralları). Kod bağımlılıklarının lisanslarını CI denetler (`npm run ch
   denetlendi. Ayrılmış yazı tipi adı (Reserved Font Name) yok; dosyalar değiştirilmeden kullanılır.
 - **Lisans metni:** `public/lisanslar/BricolageGrotesque-OFL-1.1.txt`, `public/lisanslar/JetBrainsMono-OFL-1.1.txt`.
 
+## Michroma yazı tipi
+
+- **Ne için:** "Kendi resmin" sahnesinde şarkının adı ve süre (geniş, köşeli harfler; proje sahibinin gönderdiği
+  örnek görünüme en yakın serbest yazı tipi, 24 Ekim 2026).
+- **Kaynak:** The Michroma Project Authors, <https://github.com/googlefonts/Michroma-font>
+- **Paket:** `@fontsource/michroma` 5.3.0 (yalnızca 400, latin ve latin-ext: Türkçe harfler dahil). Dosyalar
+  programın içine paketlenir; çalışırken internete bağlanılmaz.
+- **Lisans:** SIL Open Font License 1.1 (OFL-1.1); paketin `package.json` lisans alanı ve `LICENSE` dosyası
+  denetlendi. Ayrılmış yazı tipi adı (Reserved Font Name) yok; dosyalar değiştirilmeden kullanılır.
+- **Lisans metni:** `public/lisanslar/Michroma-OFL-1.1.txt`.
+
 ## Yıldız atlası: HYG kataloğu ve Stellarium takımyıldız çizgileri
 
 - **Ne için:** Sanatçılar görünümünde her sanatçının "basılı yıldız atlası levhası" (adı gökyüzünde sabit bir yere

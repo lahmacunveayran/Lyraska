@@ -112,6 +112,8 @@ const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama") => `
         drops: [], dropConfidence: [],
         energy: [], sections: [{ start: 0, end: 240, energy: 0.8, label: ${theme} }] };
       case "annotation_get": case "song_key": case "track_lyrics": case "song_map_imported": return null;
+      // "Kendi resmin": resim seçilmemiş (koyu zemin, vurgu yeşili çizgi: en yüksek karşıtlık).
+      case "background_image_get": return null;
       // Şarkıya seçilmiş kapak yok (çalan şarkının kapağı şarkının kendisinden).
       case "song_cover_get": return null;
       // Çalma listeleri: denetimde liste yok (kütüphane panelindeki "Listeye ekle" menüsü boş).
@@ -593,6 +595,9 @@ const ALL_SCENES = [
   // Halesi bölüm temasının renginde (`--aurora`).
   { id: "spectrum", name: "Nokta matris spektrum", themed: true },
   { id: "vu", name: "VU ibreleri", themed: true },
+  // Kullanıcının resmi ve ortada ışık çizgisi (2D tuval): çubukların boyu parlama sınırından
+  // hesaplanır (src/lib/photoScene.ts); resim yokken koyu zeminde en parlak çizgiyle ölçülür.
+  { id: "photo", name: "Kendi resmin" },
   ...SCENES.filter((s) => !s.timeBased),
 ];
 

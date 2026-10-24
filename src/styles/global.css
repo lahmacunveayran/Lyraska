@@ -1636,7 +1636,6 @@ kbd {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.2em;
-  text-transform: uppercase;
   color: var(--ink-3);
 }
 
@@ -5547,4 +5546,140 @@ kbd {
 .album__menu-list.library__cover-list {
   position: fixed;
   z-index: 50;
+}
+
+/* "Kendi resmin" sahnesi: kullanıcının resmi, ortada ışık çizgisi, geniş harflerle şarkı adı */
+.photo-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 45%, #1a1424, #07060b 70%);
+}
+
+.photo-scene__image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Çok yavaş kayma: resim canlı dursun (parlaklık değişmez). */
+  animation: photo-drift 90s ease-in-out infinite alternate;
+  user-select: none;
+}
+
+@keyframes photo-drift {
+  from {
+    transform: scale(1.04) translate(-0.8%, -0.4%);
+  }
+  to {
+    transform: scale(1.08) translate(0.8%, 0.4%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo-scene__image {
+    animation: none;
+    transform: scale(1.04);
+  }
+}
+
+/* Kenarlar hafifçe kararır: yazı ve çizgi her resimde okunur. */
+.photo-scene__shade {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.45)),
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.18),
+      transparent 30%,
+      transparent 70%,
+      rgba(0, 0, 0, 0.25)
+    );
+  pointer-events: none;
+}
+
+.photo-scene__bars {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.photo-scene__text {
+  --photo-lift: 40px;
+  position: absolute;
+  left: 2.5%;
+  right: 2.5%;
+  bottom: calc(50% + var(--photo-lift));
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  font-family: "Michroma", var(--font-display);
+  color: #fff;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  /* Denetimler görünürken alttaki büyük başlık zaten şarkıyı söyler; yazı sinema görünümünde. */
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+.app.is-cinema .photo-scene__text {
+  opacity: 1;
+}
+
+.photo-scene__song {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.photo-scene__title {
+  overflow: hidden;
+  font-size: clamp(16px, 1.7vw, 30px);
+  letter-spacing: 0.14em;
+  line-height: 1.1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.photo-scene__artist {
+  overflow: hidden;
+  font-size: clamp(9px, 0.75vw, 13px);
+  letter-spacing: 0.2em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0.85;
+}
+
+.photo-scene__clock {
+  flex: none;
+  align-self: flex-start;
+  font-size: clamp(16px, 1.6vw, 28px);
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+}
+
+.photo-scene__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding-bottom: 22vh;
+  color: var(--ink-2);
+  text-align: center;
+}
+
+.photo-scene__empty p {
+  margin: 0;
+}
+
+.photo-scene__hint {
+  font-size: 12px;
+  color: var(--ink-3);
 }

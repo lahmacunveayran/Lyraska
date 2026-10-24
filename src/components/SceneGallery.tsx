@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import type { BackgroundImageControls } from "../hooks/useBackgroundImage";
 import type { MilkdropControls } from "../hooks/useMilkdrop";
 import type { ScenePresetControls } from "../hooks/useScenePresets";
 import { GALLERY_SCENES, sceneKey, type Scene } from "../lib/scene";
@@ -21,6 +22,8 @@ export interface SceneGalleryProps {
   presets: ScenePresetControls;
   /** MilkDrop sahnesinin denetimleri (sahne seçiliyken listenin altında görünür). */
   milkdrop?: MilkdropControls;
+  /** "Kendi resmin" sahnesinin resmi (sahne seçiliyken listenin altında). */
+  background?: BackgroundImageControls;
 }
 
 /** Ok tuşlarıyla gezilen düğmeler: sahneler ve hazır ayarlar. */
@@ -32,7 +35,13 @@ const NAVIGABLE = ".scene-gallery__item, .scene-gallery__preset";
  * (sahne ve görünüm birlikte; kullanıcı kendi ayarını kaydedip silebilir). Liste dışarı tıklayınca,
  * Esc'ye basınca ya da bir sahne seçilince kapanır; görünüm ve hazır ayarlar listeyi kapatmaz.
  */
-export function SceneGallery({ scene, onChoose, presets, milkdrop }: SceneGalleryProps) {
+export function SceneGallery({
+  scene,
+  onChoose,
+  presets,
+  milkdrop,
+  background,
+}: SceneGalleryProps) {
   const [open, setOpen] = useState(false);
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
@@ -172,6 +181,7 @@ export function SceneGallery({ scene, onChoose, presets, milkdrop }: SceneGaller
           </div>
 
           {scene === "milkdrop" && milkdrop && <MilkdropSection controls={milkdrop} />}
+          {scene === "photo" && background && <PhotoSection controls={background} />}
 
           {shader && look && (
             <section
@@ -308,6 +318,41 @@ export function SceneGallery({ scene, onChoose, presets, milkdrop }: SceneGaller
 function folderName(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean);
   return parts[parts.length - 1] ?? path;
+}
+
+/** "Kendi resmin" sahnesinin denetimleri: resim seçme ve kaldırma. */
+function PhotoSection({ controls }: { controls: BackgroundImageControls }) {
+  return (
+    <section className="scene-gallery__section" role="group" aria-label="Arka plan resmi">
+      <h3 className="scene-gallery__heading">Arka plan resmi</h3>
+      <p className="scene-gallery__milk-line">
+        {controls.url ? "Seçtiğiniz resim gösteriliyor." : "Resim seçilmedi."} Kopyası Lyraska'da
+        saklanır; özgün dosyaya dokunulmaz.
+      </p>
+      <div className="scene-gallery__chips">
+        <button
+          type="button"
+          className="scene-gallery__button"
+          onClick={() => void controls.choose()}
+        >
+          Resim seç…
+        </button>
+        <button
+          type="button"
+          className="scene-gallery__button"
+          disabled={!controls.url}
+          onClick={() => void controls.clear()}
+        >
+          Resmi kaldır
+        </button>
+      </div>
+      {controls.error && (
+        <p className="scene-gallery__notice" role="alert">
+          {controls.error}
+        </p>
+      )}
+    </section>
+  );
 }
 
 /**

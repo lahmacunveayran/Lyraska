@@ -714,6 +714,27 @@ pub async fn playlist_import(
     Ok(imported)
 }
 
+/// "Kendi resmin" sahnesinin arka planı (`data:` adresi); seçilmemişse `null`.
+#[tauri::command]
+pub async fn background_image_get(big: State<'_, BigDataDir>) -> Result<Option<String>, String> {
+    let store = cover_store(&big)?;
+    blocking(move || Ok(store.background_get().map(|cover| cover.data_url()))).await
+}
+
+/// Resmi arka plan yapar; kopyası Lyraska'nın veri klasöründe saklanır.
+#[tauri::command]
+pub async fn background_image_set(path: PathBuf, big: State<'_, BigDataDir>) -> Result<(), String> {
+    let store = cover_store(&big)?;
+    blocking(move || store.background_set(&path).map_err(|e| e.to_string())).await
+}
+
+/// Arka plan resmini kaldırır.
+#[tauri::command]
+pub async fn background_image_clear(big: State<'_, BigDataDir>) -> Result<(), String> {
+    let store = cover_store(&big)?;
+    blocking(move || store.background_clear().map_err(reported)).await
+}
+
 /// Albümün şarkılarının yolları, çalma sırasıyla.
 #[tauri::command]
 pub async fn library_album_tracks(

@@ -70,6 +70,9 @@ pub fn playlist_stem(id: i64) -> String {
     format!("liste-{id}")
 }
 
+/// "Kendi resmin" sahnesinin arka plan resminin dosya adı (uzantısız).
+const BACKGROUND_STEM: &str = "arkaplan";
+
 pub struct CoverStore {
     dir: PathBuf,
 }
@@ -147,6 +150,20 @@ impl CoverStore {
                     .then(|| stem.to_owned())
             })
             .collect()
+    }
+
+    /// "Kendi resmin" sahnesinin arka planı; seçilmemişse `None`.
+    pub fn background_get(&self) -> Option<Cover> {
+        self.get_stem(BACKGROUND_STEM)
+    }
+
+    /// Resmi arka plan yapar (kopyası saklanır).
+    pub fn background_set(&self, source: &Path) -> Result<(), CoverError> {
+        self.set_stem(BACKGROUND_STEM, source)
+    }
+
+    pub fn background_clear(&self) -> Result<(), CoverError> {
+        self.clear_stem(BACKGROUND_STEM)
     }
 
     fn get_stem(&self, stem: &str) -> Option<Cover> {
@@ -337,6 +354,22 @@ mod tests {
         store.playlist_clear(7).unwrap();
         assert!(store.playlist_get(7).is_none());
         store.playlist_clear(7).unwrap(); // yoksa da hata değil
+        std::fs::remove_file(source).ok();
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn arka_plan_resmi_kapaklardan_ayri_saklanir_ve_kaldirilir() {
+        let dir = temp_path("arkaplan-deposu");
+        let store = CoverStore::new(&dir);
+        assert!(store.background_get().is_none());
+        let source = dir.with_extension("png");
+        std::fs::write(&source, PNG).unwrap();
+        store.background_set(&source).unwrap();
+        assert_eq!(store.background_get().unwrap().media_type, "image/png");
+        assert!(store.playlist_get(1).is_none());
+        store.background_clear().unwrap();
+        assert!(store.background_get().is_none());
         std::fs::remove_file(source).ok();
         std::fs::remove_dir_all(dir).ok();
     }

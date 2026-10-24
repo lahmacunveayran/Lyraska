@@ -575,6 +575,21 @@ export function revealTrack(path: string): Promise<void> {
   return invoke<void>("reveal_track", { path });
 }
 
+/** "Kendi resmin" sahnesinin arka planı (`data:` adresi); seçilmemişse `null`. */
+export async function getBackgroundImage(): Promise<string | null> {
+  if (!isTauri()) return null;
+  return invoke<string | null>("background_image_get");
+}
+
+/** Resmi arka plan yapar (kopyası Lyraska'da saklanır). */
+export function setBackgroundImage(path: string): Promise<void> {
+  return invoke<void>("background_image_set", { path });
+}
+
+export function clearBackgroundImage(): Promise<void> {
+  return invoke<void>("background_image_clear");
+}
+
 /** Kapak resmi seçme penceresi. */
 export async function pickImage(): Promise<string | null> {
   const selected = await open({
