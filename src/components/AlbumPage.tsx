@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
-import { PauseIcon, PlayIcon } from "./icons";
+import { PauseIcon, PlayIcon, ShuffleIcon } from "./icons";
 import { AlbumArt, albumLength } from "./AlbumGrid";
 import {
   errorMessage,
@@ -11,6 +11,7 @@ import { albumCoverRequest } from "../lib/albumCovers";
 import { bpmLabel } from "../lib/analysis";
 import { keyHue, keyText } from "../lib/librarySort";
 import { formatTime } from "../lib/format";
+import type { PlayOrder } from "../hooks/usePlayback";
 
 const NUMBER = new Intl.NumberFormat("tr-TR");
 
@@ -28,8 +29,11 @@ export interface AlbumPageProps {
   /** DJ görünümü: ton Camelot koduyla. */
   camelot: boolean;
   onBack: () => void;
-  /** Albümü albüm sırasıyla çalar; `start` verilirse o şarkıdan başlar. */
-  onPlay: (paths: string[], start?: string) => void;
+  /**
+   * Albümü çalar; `start` verilirse o şarkıdan başlar. `order`: "Çal" albüm sırasıyla, "Karışık
+   * çal" karışık; şarkıya çift tıklayınca (verilmez) Karışık çal düğmesinin durumu geçerlidir.
+   */
+  onPlay: (paths: string[], start?: string, order?: PlayOrder) => void;
   onChooseCover: () => void;
   onClearCover: () => void;
 }
@@ -131,11 +135,11 @@ export function AlbumPage({
 
   // Son çalma isteğinin zamanı: üst üste gelen istek albümü ikinci kez başlatmaz.
   const lastPlay = useRef(-Infinity);
-  const play = (time: number, start?: string) => {
+  const play = (time: number, start?: string, order?: PlayOrder) => {
     if (!paths || paths.length === 0) return;
     if (time - lastPlay.current < REPEAT_PLAY_MS) return;
     lastPlay.current = time;
-    onPlay(paths, start);
+    onPlay(paths, start, order);
   };
 
   /** Satırı seçer ve görünür alana getirir (uzun albümde ok tuşları listeyi kaydırır). */
@@ -200,13 +204,24 @@ export function AlbumPage({
             <button
               type="button"
               className="hw-button hw-button--primary album-page__play"
-              onClick={(event) => play(event.timeStamp)}
+              onClick={(event) => play(event.timeStamp, undefined, "ordered")}
               disabled={!paths || paths.length === 0}
               aria-label="Albümü çal"
               title="Albümü baştan çal"
             >
               <PlayIcon />
               <span>Çal</span>
+            </button>
+            <button
+              type="button"
+              className="hw-button hw-button--small album-page__shuffle"
+              onClick={(event) => play(event.timeStamp, undefined, "shuffled")}
+              disabled={!paths || paths.length === 0}
+              aria-label="Albümü karışık çal"
+              title="Albümü karışık sırayla çal"
+            >
+              <ShuffleIcon />
+              <span>Karışık çal</span>
             </button>
             <details
               className="album-page__menu"

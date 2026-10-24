@@ -45,7 +45,7 @@ import { LyricsOverlay } from "./LyricsOverlay";
 import type { Lyrics } from "../lib/backend";
 import { useIdle } from "../hooks/useIdle";
 import { useKeyboardFocusWithin } from "../hooks/useKeyboardFocus";
-import { usePlayback } from "../hooks/usePlayback";
+import { usePlayback, useShuffleShortcut, type PlayOrder } from "../hooks/usePlayback";
 import { useLivePosition, type PlayerControls } from "../hooks/usePlayer";
 import { usePlaybackOptions } from "../hooks/usePlaybackOptions";
 import { useScene } from "../hooks/useScene";
@@ -122,6 +122,8 @@ export function PlayerScreen() {
   );
   const marker = useMarker(statusPath, playing, player.positionNow, songMap, sync.delayMs);
   const lyrics = useLyrics(statusPath);
+  // S karışık çalı açar/kapatır; işaretleme sürerken tuşlar işaretlemenindir.
+  useShuffleShortcut(playback.toggleShuffle, player.available && !marker.recording);
 
   // Panelden ayrılınca işaretleme biter (Boşluk yine çal/duraklat olur), senkron ölçümü de.
   const { setRecording } = marker;
@@ -145,16 +147,15 @@ export function PlayerScreen() {
   // Çalmaya başlayınca sahne ortaya çıksın; kütüphane düğmesiyle geri açılır.
   const { close: closeDrawer } = drawer;
   const playAndReveal = useCallback(
-    (paths: string[], start: string) => {
-      playList(paths, start);
+    (paths: string[], start?: string, order?: PlayOrder) => {
+      if (paths.length === 0 && start === undefined) return;
+      playList(paths, start, order);
       closeDrawer();
     },
     [playList, closeDrawer],
   );
-  const playPaths = (paths: string[], start?: string) => {
-    const first = start ?? paths[0];
-    if (first) playAndReveal(paths, first);
-  };
+  const playPaths = (paths: string[], start?: string, order?: PlayOrder) =>
+    playAndReveal(paths, start, order);
   const playFromLibrary = (track: LibraryTrack, list: LibraryTrack[]) =>
     playAndReveal(
       list.map((t) => t.path),
@@ -424,6 +425,8 @@ export function PlayerScreen() {
           canNext={playback.canNext}
           onPrevious={playback.previous}
           onNext={playback.next}
+          shuffle={playback.shuffle}
+          onToggleShuffle={playback.toggleShuffle}
         />
       </ErrorBoundary>
 
@@ -601,6 +604,8 @@ interface LiveChromeProps {
   canNext: boolean;
   onPrevious: () => void;
   onNext: () => void;
+  shuffle: boolean;
+  onToggleShuffle: () => void;
 }
 
 /**
@@ -623,6 +628,8 @@ function LiveChrome({
   canNext,
   onPrevious,
   onNext,
+  shuffle,
+  onToggleShuffle,
 }: LiveChromeProps) {
   const position = useLivePosition(player);
   const { status } = player;
@@ -657,6 +664,8 @@ function LiveChrome({
           canNext={canNext}
           onPrevious={onPrevious}
           onNext={onNext}
+          shuffle={shuffle}
+          onToggleShuffle={onToggleShuffle}
         />
       </div>
     </>

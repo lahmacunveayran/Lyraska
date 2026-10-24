@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { setNextTrack, type PlaybackStatus } from "../lib/backend";
 import {
   EMPTY_QUEUE,
@@ -8,15 +8,52 @@ import {
   nextInQueue,
   previousInQueue,
   queueFrom,
+  shuffledQueueFrom,
   upcomingPath,
+  withShuffle,
   type Queue,
+  type RandomSource,
 } from "../lib/queue";
 import { usePlayer, type PlayerControls } from "./usePlayer";
 
+/** Listenin çalınış sırası: verilmezse "Karışık çal" düğmesinin durumu geçerlidir. */
+export type PlayOrder = "ordered" | "shuffled";
+
+/** Karışık çal tercihinin tarayıcı deposundaki adı (program yeniden açılınca hatırlanır). */
+export const SHUFFLE_KEY = "lyraska.playback.shuffle";
+
+function loadShuffle(): boolean {
+  try {
+    return window.localStorage.getItem(SHUFFLE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveShuffle(value: boolean) {
+  try {
+    window.localStorage.setItem(SHUFFLE_KEY, value ? "1" : "0");
+  } catch {
+    // Depo kapalıysa tercih yalnızca bu oturumda geçerli olur.
+  }
+}
+
+export interface PlaybackSetup {
+  /** Karışık sıranın rastgele kaynağı (testlerde tohumlu). */
+  random?: RandomSource;
+}
+
 export interface PlaybackControls {
   player: PlayerControls;
-  /** Listeyi sıra yapıp verilen şarkıdan çalmaya başlar. */
-  playList: (paths: string[], start: string) => void;
+  /**
+   * Listeyi sıra yapıp verilen şarkıdan çalmaya başlar. Şarkı verilmezse düz sırada ilk şarkı,
+   * karışık sırada rastgele bir şarkı çalar. `order` verilirse "Karışık çal" düğmesi de ona uyar.
+   */
+  playList: (paths: string[], start?: string, order?: PlayOrder) => void;
+  /** Karışık çal açık mı (düğmenin durumu; program yeniden açılınca hatırlanır). */
+  shuffle: boolean;
+  /** Karışık çalı açar/kapatır; çalan sıra da hemen karışır ya da asıl sırasına döner. */
+  toggleShuffle: () => void;
   next: () => void;
   /** Önceki şarkı; şarkının ortasındaysa önce başa sarar. */
   previous: () => void;
@@ -32,8 +69,16 @@ export interface PlaybackControls {
  * sıra olur. Sıradaki şarkı çekirdeğe önceden bildirilir, şarkı bitince ses kesilmeden
  * ona geçilir; boşluksuz geçiş olamazsa şarkı sonunda sıradaki açılır.
  */
-export function usePlayback(extensions: string[]): PlaybackControls {
+export function usePlayback(
+  extensions: string[],
+  { random = Math.random }: PlaybackSetup = {},
+): PlaybackControls {
   const [queue, setQueue] = useState<Queue>(EMPTY_QUEUE);
+  const [shuffle, setShuffleState] = useState(loadShuffle);
+  const setShuffle = useCallback((on: boolean) => {
+    setShuffleState(on);
+    saveShuffle(on);
+  }, []);
 
   // Sıradan en son açılması istenen şarkı. Açılamazsa (bozuk ya da silinmiş dosya) çalan şarkı
   // kalmaz ama sıra bu şarkıda durur: Önceki/Sonraki çalışmayı sürdürür (#74).
@@ -114,9 +159,25 @@ export function usePlayback(extensions: string[]): PlaybackControls {
   const canNext = queueActive && nextInQueue(activeQueue) !== null;
 
   const playList = useCallback(
-    (paths: string[], start: string) => playQueue(queueFrom(paths, start)),
-    [playQueue],
+    (paths: string[], start?: string, order?: PlayOrder) => {
+      const shuffled = order ? order === "shuffled" : shuffle;
+      if (order) setShuffle(shuffled);
+      if (shuffled) {
+        playQueue(shuffledQueueFrom(paths, start ?? null, random));
+      } else {
+        const first = start ?? paths[0];
+        if (first !== undefined) playQueue(queueFrom(paths, first));
+      }
+    },
+    [playQueue, shuffle, setShuffle, random],
   );
+  const toggleShuffle = () => {
+    const on = !shuffle;
+    setShuffle(on);
+    // Çalan şarkı yerinde kalır (yeniden açılmaz); yalnızca sıradakiler değişir. Çekirdeğe
+    // bildirilmiş sıradaki şarkı yerinde kalır: çekirdek onu çoktan açmış olabilir.
+    if (queueActive) setQueue(withShuffle(activeQueue, on, random, upcoming !== null));
+  };
   const next = () => {
     const target = queueActive ? nextInQueue(activeQueue) : null;
     if (target) playQueue(target);
@@ -131,6 +192,8 @@ export function usePlayback(extensions: string[]): PlaybackControls {
   return {
     player,
     playList,
+    shuffle,
+    toggleShuffle,
     next,
     previous,
     canNext,
@@ -140,4 +203,29 @@ export function usePlayback(extensions: string[]): PlaybackControls {
         : null,
     upcoming,
   };
+}
+
+/**
+ * Klavye: S karışık çalı açar/kapatır. Yazı yazılırken, Ctrl/Alt ile ve `enabled` kapalıyken
+ * (oynatıcı yok, işaretleme sürüyor) çalışmaz.
+ */
+export function useShuffleShortcut(onToggle: () => void, enabled: boolean) {
+  const toggleRef = useRef(onToggle);
+  useEffect(() => {
+    toggleRef.current = onToggle;
+  });
+  useEffect(() => {
+    if (!enabled) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat) return;
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.key.toLowerCase() !== "s") return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest("input, textarea, select, [contenteditable]")) return;
+      event.preventDefault();
+      toggleRef.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [enabled]);
 }

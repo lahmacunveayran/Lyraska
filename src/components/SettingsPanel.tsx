@@ -23,6 +23,7 @@ const SHORTCUTS: [string, string][] = [
   ["← →", "5 saniye geri / ileri"],
   ["1 – 9, 0", "Sahne seç"],
   ["PageDown / PageUp", "Sonraki / önceki sahne"],
+  ["S", "Karışık çal aç / kapat"],
   ["Ctrl + O", "Dosya aç"],
   ["Esc", "Paneli kapat"],
 ];

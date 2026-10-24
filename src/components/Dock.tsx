@@ -1,5 +1,13 @@
 import { SeekBar } from "./SeekBar";
-import { EjectIcon, NextIcon, PauseIcon, PlayIcon, PreviousIcon, StopIcon } from "./icons";
+import {
+  EjectIcon,
+  NextIcon,
+  PauseIcon,
+  PlayIcon,
+  PreviousIcon,
+  ShuffleIcon,
+  StopIcon,
+} from "./icons";
 import { formatTime } from "../lib/format";
 import type { TimelineLayout } from "../lib/timeline";
 import type { PlayerControls } from "../hooks/usePlayer";
@@ -13,10 +21,22 @@ export interface DockProps {
   canNext: boolean;
   onPrevious: () => void;
   onNext: () => void;
+  /** Karışık çal açık mı. */
+  shuffle: boolean;
+  onToggleShuffle: () => void;
 }
 
 /** Alttaki cam: şarkı haritası şeridi, süre ve çalma düğmeleri. */
-export function Dock({ player, position, layout, canNext, onPrevious, onNext }: DockProps) {
+export function Dock({
+  player,
+  position,
+  layout,
+  canNext,
+  onPrevious,
+  onNext,
+  shuffle,
+  onToggleShuffle,
+}: DockProps) {
   const { status, available } = player;
   const hasTrack = status.track !== null;
   const playing = status.state === "playing";
@@ -73,6 +93,17 @@ export function Dock({ player, position, layout, canNext, onPrevious, onNext }: 
             aria-label="Sonraki"
           >
             <NextIcon />
+          </button>
+          <button
+            type="button"
+            className={`round-button round-button--toggle${shuffle ? " is-on" : ""}`}
+            onClick={onToggleShuffle}
+            disabled={!available}
+            aria-pressed={shuffle}
+            title={shuffle ? "Karışık çal: açık (S)" : "Karışık çal: kapalı (S)"}
+            aria-label="Karışık çal"
+          >
+            <ShuffleIcon />
           </button>
           <button
             type="button"

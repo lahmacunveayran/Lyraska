@@ -1201,6 +1201,28 @@ kbd {
   background: rgba(255, 255, 255, 0.1);
 }
 
+.round-button--toggle.is-on {
+  /* Karışık çal açık: vurgu rengi yalnızca simgede ve altındaki küçük noktada. */
+  position: relative;
+  color: var(--accent);
+}
+
+.round-button--toggle.is-on::after {
+  content: "";
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.round-button--toggle.is-on:hover:not(:disabled) {
+  color: var(--accent);
+}
+
 .round-button:disabled {
   color: rgba(255, 255, 255, 0.2);
   cursor: default;
@@ -3585,7 +3607,8 @@ kbd {
   margin-top: 18px;
 }
 
-.album-page__play svg {
+.album-page__play svg,
+.album-page__shuffle svg {
   width: 14px;
   height: 14px;
 }
