@@ -109,6 +109,15 @@ fn is_absolute(path: &str) -> bool {
             && (bytes[2] == b'\\' || bytes[2] == b'/'))
 }
 
+/// Şarkı bu bilgisayarın diskinde var mı. Ağ yolları ("\\sunucu\…", "//sunucu/…") hiç
+/// denenmez: başkasından gelen listedeki erişilemeyen sunucu her şarkıda saniyelerce bekletir,
+/// Windows da sunucuya kullanıcının parola özetini gönderir. Kütüphanedeki ağ yolu yine bulunur.
+pub fn on_disk(path: &str) -> bool {
+    let mut start = path.chars().take(2);
+    let network = start.all(|c| c == '\\' || c == '/') && path.len() >= 2;
+    !network && Path::new(path).is_file()
+}
+
 /// `file:///C:/M%C3%BCzik/a.flac` → `C:/Müzik/a.flac`. Bozuk kodlama olduğu gibi kalır.
 fn from_file_url(line: &str) -> Option<String> {
     let rest = line
@@ -771,6 +780,23 @@ mod tests {
         assert_eq!(norm("İSTANBUL"), norm("istanbul"));
         assert_eq!(norm("I Will Survive"), norm("i will survive"));
         assert_eq!(norm("IRMAK"), norm("ırmak"));
+    }
+
+    #[test]
+    fn ag_yollari_diskte_aranmaz() {
+        // Başkasının listesindeki "\\sunucu\…" yolu içe aktarırken ağa bağlanılmasın: erişilemeyen
+        // sunucu her şarkıda saniyelerce bekletir (kütüphane kilitliyken), Windows da sunucuya
+        // kullanıcının parola özetini gönderir.
+        assert!(!on_disk(r"\\sunucu\paylaşım\a.mp3"));
+        assert!(!on_disk("//sunucu/paylaşım/a.mp3"));
+        assert!(!on_disk(r"\\?\UNC\sunucu\a.mp3"));
+        let dir = std::env::temp_dir().join(format!("lyraska-disk-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let song = dir.join("a.flac");
+        std::fs::write(&song, b"x").unwrap();
+        assert!(on_disk(&song.to_string_lossy()));
+        assert!(!on_disk(&dir.join("yok.flac").to_string_lossy()));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

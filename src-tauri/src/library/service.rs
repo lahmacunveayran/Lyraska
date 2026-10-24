@@ -275,7 +275,7 @@ impl LibraryService {
         file: &crate::library::playlist_file::PlaylistFile,
     ) -> Result<crate::library::playlist_file::PlaylistImport, LibraryError> {
         self.lock()?
-            .import_playlist(file, |path| std::path::Path::new(path).is_file())
+            .import_playlist(file, crate::library::playlist_file::on_disk)
     }
 
     pub fn move_in_playlist(&self, id: i64, from: u32, to: u32) -> Result<(), LibraryError> {
