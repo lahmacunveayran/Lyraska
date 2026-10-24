@@ -191,7 +191,9 @@ const initScript = (
     image = null,
   } = {},
 ) =>
+  // İlk açılış uyarısı (FlashWarning) görülmüş sayılır: sahnenin önüne geçmesin.
   `try { localStorage.setItem("lyraska.scene", "${sceneId}");` +
+  ` localStorage.setItem("lyraska.flashWarning.seen", "1");` +
   (look ? ` localStorage.setItem("lyraska.skyLook", "${look}");` : "") +
   (sceneLook
     ? ` localStorage.setItem("lyraska.sceneLooks", ${JSON.stringify(
@@ -1325,7 +1327,9 @@ async function checkPhotoMotion(browser, safe) {
     );
   }
   if (!safe && lum < 4) {
-    problems.push(`${label}: güvenli mod kapalıyken hareketli resim frenlenmiş (${lum.toFixed(2)})`);
+    problems.push(
+      `${label}: güvenli mod kapalıyken hareketli resim frenlenmiş (${lum.toFixed(2)})`,
+    );
   }
   if (motion < 0.005) problems.push(`${label}: görüntü hareket etmiyor (${motion.toFixed(4)})`);
   return problems;

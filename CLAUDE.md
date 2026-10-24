@@ -73,7 +73,7 @@ lyraska/
 │   │                         # Klasik sahneler SkyScene, HighwayScene, DriveScene, VuScene (VuMeter), SpectrumView
 │   │                         # (DotMatrix, SpectrumDemo karşılama gösterisi); paneller LibraryPanel (AlbumGrid albüm ızgarası, AlbumPage albüm sayfası: kapak, Çal, albüm sırasıyla şarkılar, ArtistGrid sanatçı levhaları, ArtistPage sanatçı sayfası: levha, albümler, şarkılar, TrackTable sayfaların şarkı listesi, SkyView gökyüzü: ton ve tempoya göre yıldızlar, PlaylistGrid ve PlaylistPage çalma listeleri, PlaylistCover kapak ya da kolaj, AddToPlaylist "Listeye ekle" menüsü, RevealButton şarkı satırında "dosya konumunu aç", SongCoverMenu şarkı satırında kapak seçme, songCoverContext onun işlemleri), EqualizerPanel
 │   │                         # (CrossfeedStrip, ParametricEq), MarkerPanel, SyncPanel, AbxPanel, SettingsPanel;
-│   │                         # Dock alttaki cam (şerit, süre, çalma düğmeleri), DropOverlay sürükle-bırak, Marquee kayan
+│   │                         # Dock alttaki cam (şerit, süre, çalma düğmeleri), DropOverlay sürükle-bırak, FlashWarning ilk açılışta ışığa duyarlılık uyarısı, Marquee kayan
 │   │                         # yazı, icons simgeler
 │   ├── hooks/                # usePlayer (oynatıcı: aç, çal, sar), usePlayback (oynatıcı + çalma sırası), useLibrary,
 │   │                         # useEqualizer, useHeadphone, useMarker (işaretleme), useSync (ses–görüntü senkronu),

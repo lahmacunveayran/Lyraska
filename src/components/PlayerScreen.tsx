@@ -9,6 +9,7 @@ import {
 } from "react";
 import { Dock } from "./Dock";
 import { DropOverlay } from "./DropOverlay";
+import { FlashWarning } from "./FlashWarning";
 import { EqualizerPanel } from "./EqualizerPanel";
 import { InfoStack, type UpNext } from "./InfoStack";
 import { LibraryPanel } from "./LibraryPanel";
@@ -595,6 +596,7 @@ export function PlayerScreen() {
       </aside>
 
       <DropOverlay dragging={drop.dragging} notice={drop.notice} />
+      <FlashWarning safe={visualSafe.safe} onEnableSafe={() => void visualSafe.setSafe(true)} />
     </main>
   );
 }
