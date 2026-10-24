@@ -46,24 +46,42 @@ pub struct DropOutcome {
     pub problems: Vec<String>,
 }
 
-/// Bekleyen tarama isteği: bütün kaynaklar ya da yalnızca yeni eklenenler.
+/// Bekleyen tarama isteği: bütün kaynaklar, yalnızca bazı kaynaklar ya da kaynakların bazı alt
+/// klasörleri (klasör izleme).
 #[derive(Debug, Default)]
 struct ScanRequest {
     all: bool,
     folders: Vec<i64>,
+    /// Kaynak ve taranacak alt klasörü.
+    parts: Vec<(i64, PathBuf)>,
 }
 
 impl ScanRequest {
     fn is_empty(&self) -> bool {
-        !self.all && self.folders.is_empty()
+        !self.all && self.folders.is_empty() && self.parts.is_empty()
+    }
+
+    /// Kaynağın taranacak alt klasörleri; bütün kaynak taranacaksa ya da hiç taranmayacaksa boş.
+    /// İç içe olanlardan dıştaki kalır.
+    fn parts_of(&self, folder: &FolderRow) -> Vec<&Path> {
+        if self.all || self.folders.contains(&folder.id) {
+            return Vec::new();
+        }
+        let mut kept: Vec<&Path> = Vec::new();
+        for (_, part) in self.parts.iter().filter(|(id, _)| *id == folder.id) {
+            if kept.iter().any(|k| path_covers(k, part)) {
+                continue;
+            }
+            kept.retain(|k| !path_covers(part, k));
+            kept.push(part);
+        }
+        kept
     }
 }
 
-/// Pencereye dönülünce izlenemeyen kaynaklar en sık bu aralıkla taranır.
+/// Pencereye dönülünce izlenemeyen kaynaklar en sık bu aralıkla taranır. (Kaçırılan olaylara
+/// karşı bütün kaynakların düzenli taraması pencereden bağımsızdır: [`watch::DEFAULT_TIMING`].)
 const FOCUS_RESCAN_INTERVAL: Duration = Duration::from_secs(60);
-/// Pencereye dönülünce bütün kaynaklar en sık bu aralıkla taranır: izleyicinin sessizce
-/// kaçırdığı değişiklikler (ör. Windows'un olay arabelleği taştı) de en geç böyle bulunur.
-const FOCUS_FULL_RESCAN_INTERVAL: Duration = Duration::from_secs(15 * 60);
 
 /// Kütüphaneyi değiştiren taramadan sonra çağrılan bildirim (arayüz listeyi tazelesin).
 type ChangeListener = Box<dyn Fn() + Send + Sync>;
@@ -80,12 +98,6 @@ struct ScanQueue {
     on_change: OnceLock<ChangeListener>,
 }
 
-/// Pencereye dönüşte taramanın son zamanları.
-struct FocusClock {
-    last: Option<Instant>,
-    last_full: Instant,
-}
-
 /// Kopyası aynı kütüphaneyi paylaşır (alanlar `Arc`): komutlar işi engellenebilir iş parçacığına
 /// taşırken kopyayı götürür.
 #[derive(Clone)]
@@ -94,7 +106,8 @@ pub struct LibraryService {
     scan: Arc<ScanState>,
     queue: Arc<ScanQueue>,
     watcher: Arc<FolderWatcher>,
-    focus: Arc<Mutex<FocusClock>>,
+    /// Pencereye dönüş taramasının son anı.
+    focus: Arc<Mutex<Option<Instant>>>,
     /// Açılışta bozuk veritabanı kenara alındıysa açıklaması; oturum boyunca sorunların başında
     /// gösterilir (tam tarama sorun listesini yenilese de silinmez).
     recovery_notice: Option<String>,
@@ -133,10 +146,7 @@ impl LibraryService {
             library,
             scan,
             watcher: Arc::new(FolderWatcher::default()),
-            focus: Arc::new(Mutex::new(FocusClock {
-                last: None,
-                last_full: Instant::now(),
-            })),
+            focus: Arc::new(Mutex::new(None)),
             recovery_notice: None,
             crash_notices: Vec::new(),
         }
@@ -312,8 +322,8 @@ impl LibraryService {
     }
 
     /// Kütüphane klasörlerini izlemeye başlar: sonradan eklenen, değişen ya da silinen şarkılar
-    /// kendiliğinden taranır (bkz. [`watch`]). Klasörler arka planda izlemeye alınır (ağ
-    /// sürücüsü yavaş yanıt verse de açılış beklemez).
+    /// kendiliğinden taranır (bkz. [`watch`]). Klasörler izleme iş parçacığında izlemeye alınır
+    /// (ağ sürücüsü yavaş yanıt verse de açılış beklemez).
     pub fn start_watching(&self) {
         self.start_watching_with(watch::DEFAULT_TIMING);
     }
@@ -321,21 +331,21 @@ impl LibraryService {
     fn start_watching_with(&self, timing: watch::Timing) {
         let queue = Arc::clone(&self.queue);
         self.watcher
-            .start(timing, Arc::clone(&self.library), move |sources| {
-                queue.request(|r| r.folders.extend(sources));
+            .start(timing, Arc::clone(&self.library), move |due| {
+                queue.request(|r| {
+                    for watch::Due { source, within } in due {
+                        match within {
+                            Some(within) => r.parts.push((source, within)),
+                            None => r.folders.push(source),
+                        }
+                    }
+                });
             });
-        let service = self.clone();
-        let spawned = std::thread::Builder::new()
-            .name("lyraska-izleme-baslat".to_owned())
-            .spawn(move || service.sync_watches());
-        if spawned.is_err() {
-            self.sync_watches();
-        }
     }
 
-    /// İzlenen klasörleri kaynaklarla eşitler (izleme başlatılmadıysa bir şey yapmaz).
+    /// İzlenen klasörleri kaynaklarla eşitler (beklemez; izleme başlatılmadıysa bir şey yapmaz).
     fn sync_watches(&self) {
-        self.watcher.sync(|| self.lock()?.folders());
+        self.watcher.request_sync();
     }
 
     /// Kütüphaneyi değiştiren her taramadan sonra çağrılacak bildirimi kurar (bir kez).
@@ -343,43 +353,32 @@ impl LibraryService {
         let _ = self.queue.on_change.set(Box::new(listener));
     }
 
-    /// Program penceresi odağa geldi. İzlenemeyen kaynaklar (tek şarkılar, izlenemeyen
-    /// klasörler) en çok dakikada bir, bütün kaynaklar en çok 15 dakikada bir taranır;
-    /// izlenemeyen klasörler yeniden izlenmeye çalışılır. İş arka planda yapılır: ağ sürücüsü
-    /// yavaş yanıt verse de pencere donmaz.
+    /// Program penceresi odağa geldi. En çok dakikada bir: izlenemeyen kaynaklar (tek şarkılar,
+    /// izlenemeyen klasörler) taranır, izlemeler onarılır. Beklemez: izleme iş parçacığı ve
+    /// tarayıcı arka planda çalışır (ağ sürücüsü yavaş yanıt verse de pencere donmaz).
     pub fn on_window_focus(&self) {
-        if let Some(full) = self.focus_due(Instant::now()) {
-            let service = self.clone();
-            let _ = std::thread::Builder::new()
-                .name("lyraska-odak-tarama".to_owned())
-                .spawn(move || service.focus_rescan(full));
+        if self.focus_due(Instant::now()) {
+            self.focus_rescan();
         }
     }
 
-    /// Pencereye dönüşte tarama vakti geldi mi? `Some(true)`: bütün kaynaklar taranır.
-    fn focus_due(&self, now: Instant) -> Option<bool> {
-        let mut clock = self.focus.lock().ok()?;
-        if clock
-            .last
-            .is_some_and(|last| now.duration_since(last) < FOCUS_RESCAN_INTERVAL)
-        {
-            return None;
+    /// Pencereye dönüşte tarama vakti geldi mi?
+    fn focus_due(&self, now: Instant) -> bool {
+        let Ok(mut last) = self.focus.lock() else {
+            return false;
+        };
+        if last.is_some_and(|last| now.duration_since(last) < FOCUS_RESCAN_INTERVAL) {
+            return false;
         }
-        clock.last = Some(now);
-        let full = now.duration_since(clock.last_full) >= FOCUS_FULL_RESCAN_INTERVAL;
-        if full {
-            clock.last_full = now;
-        }
-        Some(full)
+        *last = Some(now);
+        true
     }
 
-    fn focus_rescan(&self, full: bool) {
-        let before = self.watcher.unwatched();
-        self.sync_watches();
-        if full {
-            self.request_scan();
-        } else if !before.is_empty() {
-            self.request(|r| r.folders.extend(before));
+    fn focus_rescan(&self) {
+        let unwatched = self.watcher.unwatched();
+        self.watcher.request_heal();
+        if !unwatched.is_empty() {
+            self.request(|r| r.folders.extend(unwatched));
         }
     }
 
@@ -472,17 +471,24 @@ fn run_scan(
     };
     scan.set_scanning(true);
     let mut changed = false;
-    let problems = folders
-        .iter()
-        .filter(|folder| request.all || request.folders.contains(&folder.id))
-        .flat_map(|folder| match scan::scan_folder(library, folder, scan) {
-            Ok(summary) => {
-                changed |= summary.updated + summary.removed > 0;
-                scan_problems(&folder.path, &summary)
+    let mut problems = Vec::new();
+    for folder in &folders {
+        // `None`: bütün kaynak; `Some`: yalnızca o alt klasör.
+        let scopes: Vec<Option<&Path>> = if request.all || request.folders.contains(&folder.id) {
+            vec![None]
+        } else {
+            request.parts_of(folder).into_iter().map(Some).collect()
+        };
+        for within in scopes {
+            match scan::scan_folder_within(library, folder, within, scan) {
+                Ok(summary) => {
+                    changed |= summary.updated + summary.removed > 0;
+                    problems.extend(scan_problems(&folder.path, &summary));
+                }
+                Err(e) => problems.push(e.to_string()),
             }
-            Err(e) => vec![e.to_string()],
-        })
-        .collect();
+        }
+    }
     scan.set_scanning(false);
     (problems, changed)
 }
@@ -773,10 +779,15 @@ mod tests {
         assert_eq!(service.status().unwrap().track_count, 2);
     }
 
-    /// Testlerde kısa biriktirme süreleri (programda 2 sn / 10 sn).
+    /// Testlerde kısa süreler (programdakiler: [`watch::DEFAULT_TIMING`]).
     const FAST: watch::Timing = watch::Timing {
         quiet: Duration::from_millis(150),
         cap: Duration::from_secs(1),
+        slow_after: Duration::from_secs(2),
+        slow_quiet: Duration::from_secs(3),
+        slow_cap: Duration::from_secs(10),
+        heal: Duration::from_secs(600),
+        backstop: Duration::from_secs(600),
     };
 
     /// Koşul sağlanana kadar bekler (en çok 10 sn; sağlanır sağlanmaz döner).
@@ -788,15 +799,19 @@ mod tests {
         }
     }
 
-    fn watching_service() -> LibraryService {
+    fn watching_service(timing: watch::Timing) -> LibraryService {
         let service = LibraryService::new(Library::open_in_memory().unwrap());
-        service.start_watching_with(FAST);
+        service.start_watching_with(timing);
         service
+    }
+
+    fn track_count(service: &LibraryService) -> usize {
+        service.status().unwrap().track_count
     }
 
     #[test]
     fn izlenen_klasore_eklenen_ve_silinen_sarki_kendiliginden_islenir() {
-        let service = watching_service();
+        let service = watching_service(FAST);
         let changes = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let counter = Arc::clone(&changes);
         service.set_on_change(move || {
@@ -805,8 +820,8 @@ mod tests {
         let dir = folder_with_songs();
         service.add_folder(&dir).unwrap();
         wait_idle(&service);
-        assert_eq!(service.status().unwrap().track_count, 2);
-        assert_eq!(service.watcher.watched_count(), 1);
+        assert_eq!(track_count(&service), 2);
+        wait_until("klasör izleniyor", || service.watcher.watched_count() == 1);
         let after_add = changes.load(Ordering::Relaxed);
         assert!(after_add >= 1, "ilk tarama da bildirilir");
 
@@ -817,40 +832,117 @@ mod tests {
         let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data");
         std::fs::copy(data.join("uc-uc-ton.mp3"), &part).unwrap();
         std::fs::rename(&part, sub.join("yeni şarkı.mp3")).unwrap();
-        wait_until("yeni şarkı kütüphanede", || {
-            service.status().unwrap().track_count == 3
-        });
+        wait_until("yeni şarkı kütüphanede", || track_count(&service) == 3);
         wait_until("değişiklik arayüze bildirildi", || {
             changes.load(Ordering::Relaxed) > after_add
         });
 
         // Silinen şarkı kütüphaneden çıkar.
         std::fs::remove_file(dir.join("uc-uc-ton.flac")).unwrap();
-        wait_until("silinen şarkı çıktı", || {
-            service.status().unwrap().track_count == 2
-        });
+        wait_until("silinen şarkı çıktı", || track_count(&service) == 2);
 
         // İçi şarkı dolu bir klasör içeri taşınır (tek bir ad değişikliği olayı).
         let outside = temp_path("servis-tasinan");
-        std::fs::create_dir_all(&outside).unwrap();
-        std::fs::copy(data.join("uc-uc-ton.flac"), outside.join("albüm.flac")).unwrap();
+        std::fs::create_dir_all(outside.join("CD1")).unwrap();
+        std::fs::copy(data.join("uc-uc-ton.flac"), outside.join("CD1/albüm.flac")).unwrap();
         std::fs::rename(&outside, dir.join("Taşınan Albüm")).unwrap();
         wait_until("taşınan klasörün şarkısı kütüphanede", || {
-            service.status().unwrap().track_count == 3
+            track_count(&service) == 3
         });
         service.shutdown();
     }
 
     #[test]
-    fn cikarilan_klasor_artik_izlenmez() {
-        let service = watching_service();
+    fn izleme_yalnizca_degisen_alt_klasoru_tarar() {
+        let service = watching_service(FAST);
+        let dir = folder_with_songs();
+        let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data");
+        std::fs::create_dir_all(dir.join("DLP")).unwrap();
+        service.add_folder(&dir).unwrap();
+        wait_idle(&service);
+        wait_until("klasör izleniyor", || service.watcher.watched_count() == 1);
+
+        // Kökteki bir şarkının kaydı kütüphaneden silinir (bütün kaynak taranırsa geri gelirdi);
+        // DLP'ye şarkı inince yalnızca DLP taranır, kök dolaşılmaz.
+        service
+            .lock()
+            .unwrap()
+            .execute_for_test("DELETE FROM tracks WHERE path LIKE '%uc-uc-ton.flac'");
+        assert_eq!(track_count(&service), 1);
+        std::fs::copy(data.join("uc-uc-ton.mp3"), dir.join("DLP/indirilen.mp3")).unwrap();
+        wait_until("indirilen şarkı kütüphanede", || {
+            track_count(&service) == 2
+        });
+        wait_idle(&service);
+        let paths: Vec<String> = service
+            .search("", None)
+            .unwrap()
+            .into_iter()
+            .map(|t| t.path)
+            .collect();
+        assert!(
+            !paths.iter().any(|p| p.ends_with("uc-uc-ton.flac")),
+            "kök taranmadı: {paths:?}"
+        );
+        service.shutdown();
+    }
+
+    #[test]
+    fn guvenlik_agi_taramasi_kacirilan_degisikligi_bulur() {
+        // Olay kaybolmuş gibi (Windows arabelleği taştı): kütüphane diskten geri kalır.
+        let service = watching_service(watch::Timing {
+            backstop: Duration::from_millis(400),
+            ..FAST
+        });
+        service.add_folder(&folder_with_songs()).unwrap();
+        wait_idle(&service);
+        service
+            .lock()
+            .unwrap()
+            .execute_for_test("DELETE FROM tracks WHERE path LIKE '%uc-uc-ton.flac'");
+        assert_eq!(track_count(&service), 1);
+        wait_until("güvenlik ağı taraması şarkıyı geri getirdi", || {
+            track_count(&service) == 2
+        });
+        service.shutdown();
+    }
+
+    #[test]
+    fn kaybolup_geri_gelen_klasor_yeniden_izlenir_ve_taranir() {
+        // USB çıkarılıp yeniden takıldı: izleme (Windows'ta sessizce) düştü.
+        let service = watching_service(watch::Timing {
+            heal: Duration::from_millis(200),
+            ..FAST
+        });
         let dir = folder_with_songs();
         let folder = service.add_folder(&dir).unwrap();
         wait_idle(&service);
-        assert_eq!(service.watcher.watched_count(), 1);
+        wait_until("klasör izleniyor", || service.watcher.watched_count() == 1);
+
+        let unplugged = temp_path("servis-usb-cikarildi");
+        std::fs::rename(&dir, &unplugged).unwrap();
+        wait_until("kaybolan klasör izlenemiyor", || {
+            service.watcher.unwatched().contains(&folder.id)
+        });
+        // Bu arada bir şarkı eklenmişti; geri takıldı.
+        let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data");
+        std::fs::copy(data.join("uc-uc-ton.mp3"), unplugged.join("yeni.mp3")).unwrap();
+        std::fs::rename(&unplugged, &dir).unwrap();
+        wait_until("yeniden izleniyor", || service.watcher.watched_count() == 1);
+        wait_until("geri gelen klasör tarandı", || track_count(&service) == 3);
+        service.shutdown();
+    }
+
+    #[test]
+    fn cikarilan_klasor_artik_izlenmez() {
+        let service = watching_service(FAST);
+        let dir = folder_with_songs();
+        let folder = service.add_folder(&dir).unwrap();
+        wait_idle(&service);
+        wait_until("klasör izleniyor", || service.watcher.watched_count() == 1);
 
         service.remove_folder(folder.id).unwrap();
-        assert_eq!(service.watcher.watched_count(), 0);
+        wait_until("izleme bitti", || service.watcher.watched_count() == 0);
         let flushes = service.watcher.flush_count();
         let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data");
         std::fs::copy(data.join("uc-uc-ton.mp3"), dir.join("sonradan.mp3")).unwrap();
@@ -866,17 +958,19 @@ mod tests {
 
     #[test]
     fn tek_sarki_kaynaklari_izlenmez_pencereye_donunce_taranir() {
-        let service = watching_service();
+        let service = watching_service(FAST);
         let dir = folder_with_songs();
         let song = service.add_folder(&dir.join("uc-uc-ton.mp3")).unwrap();
         wait_idle(&service);
+        wait_until("tek şarkı izlenmiyor", || {
+            service.watcher.unwatched() == vec![song.id]
+        });
         assert_eq!(service.watcher.watched_count(), 0);
-        assert_eq!(service.watcher.unwatched(), vec![song.id]);
         assert!(service.status().unwrap().problems.is_empty());
 
         // Şarkı diskten kalkar; pencereye dönüş taraması onu yeniden tarar ve durumu bildirir.
         std::fs::remove_file(dir.join("uc-uc-ton.mp3")).unwrap();
-        service.focus_rescan(false);
+        service.focus_rescan();
         wait_until("tek şarkı kaynağı tarandı", || {
             let problems = service.status().unwrap().problems;
             problems.iter().any(|p| p.contains("uc-uc-ton.mp3"))
@@ -888,20 +982,39 @@ mod tests {
     fn pencereye_donus_taramasi_seyrek_yapilir() {
         let service = LibraryService::new(Library::open_in_memory().unwrap());
         let start = Instant::now();
-        assert_eq!(service.focus_due(start), Some(false));
+        assert!(service.focus_due(start));
         // Bir dakika içinde yeniden odak: tarama yok.
-        assert_eq!(service.focus_due(start + Duration::from_secs(30)), None);
+        assert!(!service.focus_due(start + Duration::from_secs(30)));
+        assert!(service.focus_due(start + Duration::from_secs(61)));
+    }
+
+    #[test]
+    fn alt_klasor_istekleri_birlesir() {
+        let folder = FolderRow {
+            id: 1,
+            path: "/d".to_owned(),
+            track_count: 0,
+            single: false,
+        };
+        let request = ScanRequest {
+            parts: vec![
+                (1, PathBuf::from("/d/DLP/alt")),
+                (2, PathBuf::from("/e/x")),
+                (1, PathBuf::from("/d/DLP")),
+                (1, PathBuf::from("/d/Müzik")),
+            ],
+            ..ScanRequest::default()
+        };
         assert_eq!(
-            service.focus_due(start + Duration::from_secs(61)),
-            Some(false)
+            request.parts_of(&folder),
+            vec![Path::new("/d/DLP"), Path::new("/d/Müzik")]
         );
-        // 15 dakika sonra bütün kaynaklar taranır, ardından yine yalnızca izlenemeyenler.
-        let later = start + FOCUS_FULL_RESCAN_INTERVAL + Duration::from_secs(1);
-        assert_eq!(service.focus_due(later), Some(true));
-        assert_eq!(
-            service.focus_due(later + Duration::from_secs(61)),
-            Some(false)
-        );
+        // Bütün kaynak da isteniyorsa alt klasörler ayrıca taranmaz.
+        let whole = ScanRequest {
+            folders: vec![1],
+            ..request
+        };
+        assert!(whole.parts_of(&folder).is_empty());
     }
 
     #[test]

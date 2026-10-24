@@ -176,8 +176,11 @@ pub fn run() {
         // ulaştırıyor mu? (Arayüzün bırakılanları işlediği ayrıca yazılır.)
         .on_window_event(|window, event| {
             // Pencereye dönülünce izlenemeyen kaynaklar taranır (seyrek; bkz. on_window_focus).
+            // `try_state`: kurulum bitmeden gelen odak olayında kütüphane henüz yönetilmiyor olabilir.
             if let tauri::WindowEvent::Focused(true) = event {
-                window.state::<commands::LibraryState>().on_window_focus();
+                if let Some(library) = window.try_state::<commands::LibraryState>() {
+                    library.on_window_focus();
+                }
             }
             if let tauri::WindowEvent::DragDrop(drag) = event {
                 match drag {

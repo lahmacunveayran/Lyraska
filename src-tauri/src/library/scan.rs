@@ -157,15 +157,32 @@ pub fn scan_folder(
     folder: &FolderRow,
     state: &ScanState,
 ) -> Result<ScanSummary, LibraryError> {
+    scan_folder_within(library, folder, None, state)
+}
+
+/// [`scan_folder`] gibi; `within` verilirse yalnızca kaynağın o alt klasörü dolaşılır ve yalnızca
+/// oradaki bilinen şarkılar silinmiş sayılabilir (klasör izleme: `D:\` gibi bütün bir sürücüde
+/// tek bir indirme bütün diski dolaştırmasın). Alt klasör artık yoksa kaynağın içindeki en yakın
+/// var olan üst klasör taranır; kaynağın dışındaysa ya da kökün kendisiyse bütün kaynak.
+pub fn scan_folder_within(
+    library: &Mutex<Library>,
+    folder: &FolderRow,
+    within: Option<&Path>,
+    state: &ScanState,
+) -> Result<ScanSummary, LibraryError> {
     state.begin(&folder.path);
     let root = Path::new(&folder.path);
     if !(root.is_dir() || root.is_file() && is_audio(root)) {
         return Err(LibraryError::FolderMissing(folder.path.clone()));
     }
+    let scope = within.and_then(|within| subtree_scope(root, within));
 
-    let (files, unreadable, skipped) = find_audio_files(root);
+    let (files, unreadable, skipped) = find_audio_files(scope.unwrap_or(root));
     state.found.store(files.len(), Ordering::Relaxed);
-    let known = lock(library)?.known_files(folder.id)?;
+    let mut known = lock(library)?.known_files(folder.id)?;
+    if let Some(scope) = scope {
+        known.retain(|path, _| Path::new(path).starts_with(scope));
+    }
 
     let on_disk: HashSet<String> = files
         .iter()
@@ -177,7 +194,9 @@ pub fn scan_folder(
     // Kütüphanede şarkı vardı ama diskte hiçbiri (büyük kaynakta çoğu) yok: büyük olasılıkla
     // disk takılı değil, ağ paylaşımı bağlı değil ya da sürücü harfini başka disk aldı. Hepsini silmek, geri gelince bütün kütüphaneyi (analizleriyle)
     // baştan kurdurur; onun yerine hiçbirine dokunulmaz ve kullanıcıya söylenir.
-    let suspicious = if is_suspicious_removal(known.len(), removed.len()) {
+    // Alt klasör taramasında uygulanmaz: kök de alt klasör de yerinde (disk takılı); bir albüm
+    // klasöründeki bütün şarkıların silinmesi gerçek bir silmedir.
+    let suspicious = if scope.is_none() && is_suspicious_removal(known.len(), removed.len()) {
         std::mem::take(&mut removed).len()
     } else {
         0
@@ -271,6 +290,16 @@ pub fn scan_folder(
     });
     write_result?;
     Ok(summary)
+}
+
+/// Alt klasör taramasında dolaşılacak yer: `within` ya da (silinmişse) kaynağın içindeki en yakın
+/// var olan üst klasörü. Kökün kendisine varılırsa ya da yol kaynağın dışındaysa `None` (bütün
+/// kaynak taranır).
+fn subtree_scope<'a>(root: &Path, within: &'a Path) -> Option<&'a Path> {
+    within
+        .ancestors()
+        .take_while(|dir| super::path_covers(root, dir) && !super::path_covers(dir, root))
+        .find(|dir| dir.is_dir())
 }
 
 /// Kütüphaneden çıkarılacak yollar: bilinen ama diskte bulunmayanlar. Okunamayan bir klasörün
@@ -410,6 +439,57 @@ mod tests {
         let found = lib.search("deneme albümü", 10).unwrap();
         assert_eq!(found.len(), 4);
         assert!(found.iter().all(|t| t.title == "Üç Ton"));
+    }
+
+    #[test]
+    fn alt_klasor_taramasi_yalnizca_orayi_dolasir() {
+        let (library, folder, dir) = setup();
+        let state = ScanState::default();
+        scan_folder(&library, &folder, &state).unwrap();
+        let count = || library.lock().unwrap().track_count().unwrap();
+        assert_eq!(count(), 4);
+        let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data");
+        let sub = dir.join("Alt Klasör");
+
+        // Kökteki bir şarkı silinir, alt klasöre şarkı eklenir; yalnızca alt klasör taranır.
+        std::fs::remove_file(dir.join("uc-uc-ton.mp3")).unwrap();
+        std::fs::copy(data.join("uc-uc-ton.mp3"), sub.join("yeni.mp3")).unwrap();
+        let summary = scan_folder_within(&library, &folder, Some(&sub), &state).unwrap();
+        assert_eq!((summary.found, summary.updated, summary.removed), (2, 1, 0));
+        assert_eq!(
+            count(),
+            5,
+            "kökteki silinen şarkıya dokunulmadı (dolaşılmadı)"
+        );
+
+        // Alt klasörün bütün şarkıları silinir: alt klasör taramasında bu gerçek bir silmedir
+        // (bütün kaynak taramasındaki "disk takılı değil" kuşkusu uygulanmaz).
+        std::fs::remove_file(sub.join("yeni.mp3")).unwrap();
+        std::fs::remove_file(sub.join("şarkı.FLAC")).unwrap();
+        let summary = scan_folder_within(&library, &folder, Some(&sub), &state).unwrap();
+        assert_eq!((summary.removed, summary.suspicious), (2, 0));
+        assert_eq!(count(), 3);
+
+        // Alt klasör de silindi: en yakın var olan üst klasör (burada kök, yani bütün kaynak)
+        // taranır; kökteki silinen şarkı da çıkar.
+        std::fs::remove_dir_all(&sub).unwrap();
+        scan_folder_within(&library, &folder, Some(&sub.join("x.mp3")), &state).unwrap();
+        assert_eq!(count(), 2);
+    }
+
+    #[test]
+    fn alt_klasor_kapsami_kaynagin_icinde_kalir() {
+        let root = temp_path("kapsam");
+        let sub = root.join("A").join("B");
+        std::fs::create_dir_all(&sub).unwrap();
+        assert_eq!(subtree_scope(&root, &sub), Some(sub.as_path()));
+        assert_eq!(
+            subtree_scope(&root, &sub.join("silinmiş").join("x.mp3")),
+            Some(sub.as_path())
+        );
+        assert_eq!(subtree_scope(&root, &root), None, "kökün kendisi");
+        assert_eq!(subtree_scope(&root, &root.join("yok")), None);
+        assert_eq!(subtree_scope(&root, &temp_path("başka")), None);
     }
 
     #[test]
