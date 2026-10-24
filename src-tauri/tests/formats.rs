@@ -332,3 +332,34 @@ fn uzun_opus_sarma_ornek_hassasiyetinde() {
         "webm ↔ opus: {lag} örnek (ilinti {corr:.3})"
     );
 }
+
+#[test]
+fn webm_opus_kabin_yazdigi_hizdan_bagimsiz_48_khz_cozulur() {
+    // Matroska'da SamplingFrequency kodlayıcının giriş hızı olabiliyor (ör. 44 100); Opus ise
+    // her zaman 48 kHz çözülür. libopus 44 100'ü kabul etmez: şarkı hiç açılmıyordu.
+    let mut bytes = std::fs::read(fixture("webm")).unwrap();
+    let mut from = vec![0xB5, 0x88];
+    from.extend_from_slice(&48_000f64.to_be_bytes());
+    let at = bytes
+        .windows(from.len())
+        .position(|w| w == from.as_slice())
+        .expect("örnek dosyada SamplingFrequency 48 000 yazılı");
+    bytes[at + 2..at + 10].copy_from_slice(&44_100f64.to_be_bytes());
+    let dir = std::env::temp_dir().join(format!("lyraska-formats-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("hiz-44100.webm");
+    std::fs::write(&path, &bytes).unwrap();
+
+    let mut decoder = Decoder::open(&path).unwrap_or_else(|e| panic!("açılmadı: {e}"));
+    assert_eq!(decoder.info().sample_rate, 48_000);
+    let duration = decoder.info().duration_secs.unwrap();
+    assert!((duration - 3.0).abs() < 0.03, "süre {duration}");
+    decoder.seek(1.2).unwrap();
+    let after = read_seconds_at(&mut decoder, 0.4, OPUS_RATE);
+    assert_near(
+        dominant_frequency_at(&after, OPUS_RATE),
+        880.0,
+        "44 100 yazılı webm",
+    );
+    std::fs::remove_file(path).ok();
+}

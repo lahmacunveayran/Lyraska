@@ -122,7 +122,7 @@ impl Decoder {
         let num_frames = track.num_frames;
         let start_ts = track.start_ts.get().max(0) as u64;
         let time_base = track.time_base;
-        let params = track
+        let mut params = track
             .codec_params
             .as_ref()
             .and_then(|p| p.audio())
@@ -131,6 +131,12 @@ impl Decoder {
 
         let is_matroska = is_matroska_file(path);
         let opus = params.codec == CODEC_ID_OPUS;
+        if opus {
+            // Opus her zaman 48 kHz çözülür (ön boşluk, paket süreleri de 48 kHz'de). Matroska'da
+            // kabın yazdığı hız kodlayıcının giriş hızı olabiliyor (ör. 44 100): libopus onu
+            // kabul etmez, şarkı hiç açılmazdı.
+            params.sample_rate = Some(48_000);
+        }
         // Opus'un baştaki ön boşluğu (pre-skip): Ogg'da onu çözücü değil biz atarız (boşluksuz
         // çalma dolgusu gibi, aşağıda `trim`); çözücü yalnızca ilk çözdüğü pakette attığı için
         // sarmadan sonra hesap kayardı. Matroska'da paket zamanları zaten ön boşluk kadar geriden
@@ -187,7 +193,7 @@ impl Decoder {
         let playable_frames = trim
             .and_then(|t| t.frames)
             .or(num_frames)
-            .or_else(|| media_duration(format.as_ref()))
+            .or_else(|| media_duration(format.as_ref(), sample_rate))
             .or_else(|| {
                 is_matroska
                     .then(|| matroska_duration(path, track_id))
@@ -629,15 +635,10 @@ fn opus_pre_skip(params: &AudioCodecParameters) -> u64 {
         })
 }
 
-/// Kabın bildirdiği süre (kare); bildirmiyorsa `None`.
-fn media_duration(format: &dyn FormatReader) -> Option<u64> {
+/// Kabın bildirdiği süre (`rate` hızında kare); bildirmiyorsa `None`.
+fn media_duration(format: &dyn FormatReader, rate: u32) -> Option<u64> {
     let info = format.media_info();
     let seconds = info.time_base?.calc_duration(info.duration?)?.as_secs_f64();
-    let rate = format
-        .default_track(TrackType::Audio)
-        .and_then(|t| t.codec_params.as_ref())
-        .and_then(|p| p.audio())
-        .and_then(|p| p.sample_rate)?;
     (seconds > 0.0).then(|| (seconds * f64::from(rate)).round() as u64)
 }
 
