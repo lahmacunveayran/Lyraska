@@ -98,6 +98,8 @@ vardır (`check:docs`; avenoxbeyin'den alınan fikir, 23 Ekim 2026): sınır aş
 - **Analiz, doğrusu bilinen seste ölçülmeden değiştirilmez** (24 Ekim 2026): oturumda gerçek şarkı yok (ağ yalnızca
   GitHub). Drop için `docs/arastirma/drop/uret.py` yeri tam bilinen deneme şarkıları üretir; geliştirme ve
   görülmemiş doğrulama seti (ayrı tohumlar) ayrı tutulur, eski algoritma da aynı sette ölçülür (ezber olmasın).
+- **Commit'ten önce `cargo clippy --all-targets`:** yalnızca kütüphaneyi derlemek örneklerdeki (`examples/`)
+  uyarıyı göstermez; CI hepsini derler.
 - **Drop ölçü başına yapıştırılmaz:** vuruş ızgarası kayabilir (yarım tempo, sessizlik); an basın döndüğü karedir.
 
 ## 6. Lisans dersleri

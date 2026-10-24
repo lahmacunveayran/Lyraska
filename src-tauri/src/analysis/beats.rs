@@ -26,6 +26,8 @@ const ONSET_COMPRESSION: f64 = 1000.0;
 const MIN_BPM: f64 = 60.0;
 const MAX_BPM: f64 = 200.0;
 const PREFERRED_BPM: f64 = 120.0;
+/// 2/3 tempo denetiminde başlangıç gücünün yumuşatılması (σ, kare).
+const ACF_SMOOTHING: f64 = 2.5;
 /// Tempo tercihinin genişliği (oktav).
 const TEMPO_PRIOR_OCTAVES: f64 = 1.0;
 /// Vuruş aralığının tempodan sapmasına verilen ceza (Ellis'teki "tightness").
@@ -69,6 +71,13 @@ pub struct BeatGrid {
 const TEMPO_SEGMENT_SECONDS: f64 = 20.0;
 /// Parça tempoları birbirinden bu orandan çok ayrılıyorsa tempo "değişken" sayılır (%8).
 const VARIABLE_TEMPO_RATIO: f64 = 1.08;
+/// Parçanın kendi tempo kestirimi ancak ritmi bu kadar belirginse (öz-ilinti / enerji) sayılır.
+const SEGMENT_MIN_CLARITY: f64 = 0.2;
+/// Basit oranlı parça, bütünün periyodunda ritmi en az bu kadar belirginse (öz-ilinti / enerji)
+/// bütünün temposunda sayılır.
+const GLOBAL_PULSE_MIN_CLARITY: f64 = 0.2;
+/// Parça periyodu bütünün periyoduyla basit oranlıysa (bu payla) aynı tempo sayılır.
+const SIMPLE_RATIO_TOLERANCE: f64 = 0.03;
 
 /// Bir anın vuruş ızgarasındaki yeri.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -240,13 +249,29 @@ fn segment_periods(
         } else {
             start + segment
         };
-        let mut period = estimate_period(&strength[start..end], fps).unwrap_or(global);
+        // Ritmi zayıf parça (davulsuz ara, yükseliş) kendi tempo kestirimini taşımaz: bütünün
+        // periyodu geçerlidir. Yoksa sakin bir ara sabit tempolu şarkıyı "değişken" yapıp ortanca
+        // tempoyu bozardı.
+        let mut period = match estimate_period_with_strength(&strength[start..end], fps) {
+            Some((period, clarity)) if clarity >= SEGMENT_MIN_CLARITY => period,
+            _ => global,
+        };
         // Parça kestirimi oktav atlamış olabilir (yarım/iki kat): bütünün oktavına çekilir.
         while period > global * 1.5 {
             period /= 2.0;
         }
         while period < global / 1.5 {
             period *= 2.0;
+        }
+        // Bütünle basit oranlı (2/3, 3/2, 3/4, 4/3) parça, bütünün nabzı içinde de sürüyorsa
+        // (yarım tempo kalıbında hi-hat ana tempoda çalmaya devam eder) aynı tempodadır. Nabız
+        // sürmüyorsa gerçek bir tempo değişimidir (ör. 120'den 80'e).
+        let ratio = period / global;
+        let simple = [2.0 / 3.0, 1.5, 0.75, 4.0 / 3.0]
+            .iter()
+            .any(|r| (ratio / r - 1.0).abs() <= SIMPLE_RATIO_TOLERANCE);
+        if simple && pulse_clarity(&strength[start..end], global) >= GLOBAL_PULSE_MIN_CLARITY {
+            period = global;
         }
         segments.push((start..end, period));
     }
@@ -334,11 +359,83 @@ fn normalize(onset: &[f32], fps: f64) -> Option<Vec<f64>> {
 
 /// Vuruş aralığı (kare; kesirli). Ritim belirgin değilse `None`.
 fn estimate_period(strength: &[f64], fps: f64) -> Option<f64> {
+    estimate_period_with_strength(strength, fps).map(|(period, _)| period)
+}
+
+/// [`estimate_period`] ve ritmin belirginliği (öz-ilintinin tepedeki değeri / enerji, 0..1).
+fn estimate_period_with_strength(strength: &[f64], fps: f64) -> Option<(f64, f64)> {
     let min_lag = (fps * 60.0 / MAX_BPM).floor() as usize;
     let max_lag = (fps * 60.0 / MIN_BPM).ceil() as usize;
     let mean = strength.iter().sum::<f64>() / strength.len() as f64;
     let centered: Vec<f64> = strength.iter().map(|x| x - mean).collect();
-    let acf: Vec<f64> = (0..=2 * max_lag + 2)
+    let acf = autocorrelation(&centered, 2 * max_lag + 2);
+    let energy = acf[0];
+    if energy <= 0.0 {
+        return None;
+    }
+
+    let preferred = fps * 60.0 / PREFERRED_BPM;
+    let prior =
+        |lag: usize| (-0.5 * ((lag as f64 / preferred).log2() / TEMPO_PRIOR_OCTAVES).powi(2)).exp();
+    let comb = |acf: &[f64], lag: usize| {
+        prior(lag) * (acf[lag] + 0.5 * acf[2 * lag] + 0.25 * (acf[2 * lag - 1] + acf[2 * lag + 1]))
+    };
+    let lags = min_lag.max(2)..=max_lag;
+    let pick = |acf: &[f64]| {
+        lags.clone()
+            .max_by(|&a, &b| comb(acf, a).total_cmp(&comb(acf, b)))
+    };
+    let sharp = pick(&acf)?;
+    // Belirginlik keskin seçimde ölçülür: 2/3 tempoya kaymışsa oradaki tepe gerçek vuruşunkinden
+    // düşüktür, yani denetim daha sıkı olur, gevşemez.
+    let clarity = acf[sharp] / energy;
+    if clarity < MIN_RHYTHM_STRENGTH {
+        return None;
+    }
+    // Periyot kesirliyse (126 BPM = 28,57 kare) vuruşlar 28 ve 29 kare arayla gelir; öz-ilintinin
+    // keskin tepeleri tam sayı kareye denk gelmez, vuruş zayıf görünür ve bir buçuk vuruşluk aralık
+    // (2/3 tempo) seçilebilir. Yumuşatılmış başlangıç gücünün öz-ilintisi bu tuzağa düşmez ama
+    // yarım tempoya (oktav) daha çok kayar. İkisi 3:2 ayrılırsa hızlısı (yumuşatılmışın seçtiği)
+    // vuruştur; yoksa keskin seçim geçerlidir.
+    let soft = {
+        let smooth = smooth(strength, ACF_SMOOTHING);
+        let mean = smooth.iter().sum::<f64>() / smooth.len() as f64;
+        let centered: Vec<f64> = smooth.iter().map(|x| x - mean).collect();
+        pick(&autocorrelation(&centered, 2 * max_lag + 2))
+    };
+    // Yumuşatılmış seçim yarım tempoda olabilir: onun iki katı tempo da aday.
+    let three_halves =
+        |fast: f64| ((sharp as f64 / fast) / 1.5 - 1.0).abs() <= SIMPLE_RATIO_TOLERANCE;
+    let best = soft
+        .and_then(|soft| {
+            [soft as f64, soft as f64 / 2.0]
+                .into_iter()
+                .find(|&fast| three_halves(fast))
+        })
+        .map(|fast| fast.round() as usize)
+        .filter(|&fast| fast >= min_lag.max(2))
+        .unwrap_or(sharp);
+    // Kare altı tempo: öz-ilinti tepesine parabol.
+    let refined = best as f64 + parabola(acf[best - 1], acf[best], acf[best + 1]);
+    Some((refined, clarity))
+}
+
+/// Verilen periyotta (kare; kesirli) ritmin belirginliği: o gecikmedeki öz-ilinti / enerji. Kesirli
+/// periyotta tepe iki kareye bölünür; iki komşu kareden büyük olanı alınır.
+fn pulse_clarity(strength: &[f64], period: f64) -> f64 {
+    let mean = strength.iter().sum::<f64>() / strength.len().max(1) as f64;
+    let centered: Vec<f64> = strength.iter().map(|x| x - mean).collect();
+    let lag = period.floor() as usize;
+    let acf = autocorrelation(&centered, lag + 1);
+    match acf.first() {
+        Some(&energy) if energy > 0.0 => acf[lag].max(acf[lag + 1]) / energy,
+        _ => 0.0,
+    }
+}
+
+/// Öz-ilinti, 0..=`max_lag` gecikmeler için (örnek başına ortalama).
+fn autocorrelation(centered: &[f64], max_lag: usize) -> Vec<f64> {
+    (0..=max_lag)
         .map(|lag| {
             if lag >= centered.len() {
                 return 0.0;
@@ -351,24 +448,7 @@ fn estimate_period(strength: &[f64], fps: f64) -> Option<f64> {
                 .sum::<f64>()
                 / n as f64
         })
-        .collect();
-    let energy = acf[0];
-    if energy <= 0.0 {
-        return None;
-    }
-
-    let preferred = fps * 60.0 / PREFERRED_BPM;
-    let score = |lag: usize| {
-        let prior = (-0.5 * ((lag as f64 / preferred).log2() / TEMPO_PRIOR_OCTAVES).powi(2)).exp();
-        prior * (acf[lag] + 0.5 * acf[2 * lag] + 0.25 * (acf[2 * lag - 1] + acf[2 * lag + 1]))
-    };
-    let best = (min_lag.max(2)..=max_lag).max_by(|&a, &b| score(a).total_cmp(&score(b)))?;
-    if acf[best] / energy < MIN_RHYTHM_STRENGTH {
-        return None;
-    }
-    // Kare altı tempo: öz-ilinti tepesine parabol.
-    let refined = best as f64 + parabola(acf[best - 1], acf[best], acf[best + 1]);
-    Some(refined)
+        .collect()
 }
 
 /// Gauss çekirdeğiyle yumuşatma (σ kare cinsinden).
@@ -507,6 +587,43 @@ pub(crate) mod tests {
             let f = f_measure(&grid.beats, &truth, 0.07);
             assert!(f > 0.95, "{bpm} BPM: F = {f}");
         }
+    }
+
+    #[test]
+    fn hicbir_tempoda_iki_ucte_bire_kaymaz() {
+        // 70–190 BPM arası her tempo, iki kalıp (yalnız vuruş; vuruş + hafif sekizlik). 60 kare/sn'de
+        // vuruş aralığı çoğu tempoda kesirli (126 BPM = 28,57 kare). Bulunan tempo gerçeğin 2/3'ü
+        // ya da 3/2'si olmaz. (Yarısı ya da iki katı belirsizdir; sayılmaz.)
+        let mut wrong = Vec::new();
+        for b in 70..=190 {
+            let bpm = f64::from(b);
+            let frames = (40.0 * FPS) as usize;
+            for offbeat in [0.0f32, 0.7] {
+                let mut onset = vec![0.0f32; frames];
+                let (mut t, mut eighth) = (0.5, 0usize);
+                while t < 39.5 {
+                    let k = (t * FPS).round() as usize;
+                    if k < frames {
+                        onset[k] = if eighth.is_multiple_of(2) {
+                            1.0
+                        } else {
+                            offbeat
+                        };
+                    }
+                    eighth += 1;
+                    t += 30.0 / bpm;
+                }
+                let Some(grid) = track(&onset, FPS, 0.0) else {
+                    wrong.push(format!("{bpm}: yok"));
+                    continue;
+                };
+                let ratio = grid.bpm / bpm;
+                if (ratio - 2.0 / 3.0).abs() < 0.03 || (ratio - 1.5).abs() < 0.05 {
+                    wrong.push(format!("{bpm} → {:.1}", grid.bpm));
+                }
+            }
+        }
+        assert!(wrong.is_empty(), "{wrong:?}");
     }
 
     #[test]
@@ -710,6 +827,71 @@ pub(crate) mod tests {
             })
             .filter(|e| e.abs() < 0.07)
             .collect()
+    }
+
+    #[test]
+    fn yarim_tempo_kalibindaki_ara_sabit_tempoyu_degisken_yapmaz() {
+        // 120 BPM'lik şarkının ortasında 24 sn'lik yarım tempo kalıbı: davul 2/3 tempoda (80 BPM)
+        // ama hi-hat 120'de sürüyor. Tempo değişmiyor: "değişken" sanılmamalı, tempo 120 kalmalı.
+        let rate = 22_050;
+        let (mut samples, _) = drum_track(120.0, 0.5, 24.0, rate, 21);
+        let (mut middle, _) = drum_track(80.0, 0.5, 24.0, rate, 22);
+        for (m, c) in middle.iter_mut().zip(clicks(120.0, 0.5, 24.0, rate, 24)) {
+            *m += c;
+        }
+        let (end, _) = drum_track(120.0, 0.5, 24.0, rate, 23);
+        samples.extend(middle);
+        samples.extend(end);
+        let grid = analyze_samples(&samples, rate).expect("ritim bulunmalı");
+        assert!(
+            !grid.variable_tempo,
+            "sabit tempo değişken sanıldı: {}",
+            grid.bpm
+        );
+        assert!((grid.bpm - 120.0).abs() < 2.0, "tempo: {}", grid.bpm);
+    }
+
+    #[test]
+    fn gercek_basit_oranli_tempo_degisimi_fark_edilir() {
+        // 40 sn bir tempo, sonra 40 sn bütünle basit oranlı başka bir tempo (gerçek değişim: 3:2,
+        // 4:3): yarım tempo kalıbıyla karıştırılmamalı, tempo değişken sayılmalı ve iki yarının
+        // vuruşları da bulunmalı.
+        let rate = 22_050;
+        for (first, second) in [(120.0, 80.0), (90.0, 120.0), (100.0, 150.0)] {
+            let (mut samples, mut truth) = drum_track(first, 0.5, 40.0, rate, 31);
+            let (tail, truth2) = drum_track(second, 0.5, 40.0, rate, 32);
+            let offset = samples.len() as f64 / f64::from(rate);
+            samples.extend(tail);
+            truth.extend(truth2.iter().map(|t| t + offset));
+            let grid = analyze_samples(&samples, rate).expect("ritim bulunmalı");
+            assert!(
+                grid.variable_tempo,
+                "{first}→{second}: değişim fark edilmeli ({})",
+                grid.bpm
+            );
+            let f = f_measure(&grid.beats, &truth, 0.07);
+            assert!(f > 0.9, "{first}→{second}: F = {f}");
+        }
+    }
+
+    /// Her vuruşta kısa, tiz bir tık (hi-hat benzeri gürültü); `drum_track` ile karıştırmak için.
+    fn clicks(bpm: f64, start: f64, seconds: f64, rate: u32, seed: u64) -> Vec<f64> {
+        let n = (seconds * f64::from(rate)) as usize;
+        let mut out = vec![0.0f64; n];
+        let mut noise = Lcg(seed);
+        let mut t = start;
+        while t < seconds - 0.1 {
+            let s0 = (t * f64::from(rate)) as usize;
+            let mut previous = 0.0;
+            for i in 0..((0.04 * f64::from(rate)) as usize).min(n.saturating_sub(s0)) {
+                let v = noise.next();
+                let x = i as f64 / f64::from(rate);
+                out[s0 + i] += 0.3 * (v - previous) * (-x * 60.0).exp();
+                previous = v;
+            }
+            t += 60.0 / bpm;
+        }
+        out
     }
 
     #[test]
