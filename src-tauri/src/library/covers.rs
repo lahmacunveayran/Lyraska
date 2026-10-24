@@ -26,6 +26,10 @@ pub enum CoverError {
     TooLarge,
     #[error("Kapak kaydedilemedi: {0}")]
     Write(std::io::Error),
+    #[error(
+        "Hareketli resim (GIF, APNG ya da WebP) arka plan olamaz: parlama güvenliği için resim sabit olmalı."
+    )]
+    Animated,
 }
 
 /// Albümün kapak dosyasının adı (uzantısız): kimliğin 64 bitlik FNV-1a özeti, onaltılık.
@@ -152,14 +156,18 @@ impl CoverStore {
             .collect()
     }
 
-    /// "Kendi resmin" sahnesinin arka planı; seçilmemişse `None`.
+    /// "Kendi resmin" sahnesinin arka planı; seçilmemişse `None`. Hareketli resim (klasöre elle
+    /// konmuş olsa bile) verilmez: bkz. [`Self::background_set`].
     pub fn background_get(&self) -> Option<Cover> {
         self.get_stem(BACKGROUND_STEM)
+            .filter(|cover| !is_animated(&cover.data))
     }
 
-    /// Resmi arka plan yapar (kopyası saklanır).
+    /// Resmi arka plan yapar (kopyası saklanır). Hareketli resim kabul edilmez: sahnenin parlama
+    /// sınırı resmi bir kez, sabit sayarak ölçer (src/lib/photoScene.ts) ve hareketli resmin
+    /// kendisi de denetimsiz parlayabilir.
     pub fn background_set(&self, source: &Path) -> Result<(), CoverError> {
-        self.set_stem(BACKGROUND_STEM, source)
+        self.set_stem_checked(BACKGROUND_STEM, source, true)
     }
 
     pub fn background_clear(&self) -> Result<(), CoverError> {
@@ -175,6 +183,11 @@ impl CoverStore {
     }
 
     fn set_stem(&self, stem: &str, source: &Path) -> Result<(), CoverError> {
+        self.set_stem_checked(stem, source, false)
+    }
+
+    /// `still`: hareketli resim reddedilir ([`is_animated`]).
+    fn set_stem_checked(&self, stem: &str, source: &Path, still: bool) -> Result<(), CoverError> {
         let size = std::fs::metadata(source).map_err(CoverError::Read)?.len();
         if size > MAX_COVER_BYTES as u64 {
             return Err(CoverError::TooLarge);
@@ -186,6 +199,9 @@ impl CoverStore {
             "image/gif" => "gif",
             _ => "jpg",
         };
+        if still && is_animated(&data) {
+            return Err(CoverError::Animated);
+        }
         std::fs::create_dir_all(&self.dir).map_err(CoverError::Write)?;
         let target = self.dir.join(format!("{stem}.{ext}"));
         crate::atomic_file::write(&target, &data).map_err(CoverError::Write)?;
@@ -206,6 +222,93 @@ impl CoverStore {
         }
         Ok(())
     }
+}
+
+/// Resim hareketli mi: birden çok kareli GIF, APNG (`acTL` parçası) ya da hareketli WebP
+/// (`VP8X` hareket bayrağı, `ANIM`/`ANMF` parçası). Kareleri sayılamayan bozuk GIF hareketli
+/// sayılır (güvenli yan); PNG ve WebP'de parça yapısı bozuksa okunabilen kısma bakılır.
+fn is_animated(data: &[u8]) -> bool {
+    match image_type(data) {
+        Some("image/gif") => !matches!(gif_frames(data), Some(0 | 1)),
+        Some("image/png") => png_animated(data),
+        Some("image/webp") => webp_animated(data),
+        _ => false,
+    }
+}
+
+/// GIF'in kare sayısı (ikiyi bulunca durur); yapı bozuksa `None`.
+fn gif_frames(data: &[u8]) -> Option<usize> {
+    let table = |flags: u8| {
+        if flags & 0x80 != 0 {
+            3usize << ((flags & 0x07) + 1)
+        } else {
+            0
+        }
+    };
+    let mut i = 13 + table(*data.get(10)?);
+    let mut frames = 0;
+    loop {
+        match data.get(i) {
+            // Dosya sonu ya da sonlandırıcı.
+            None | Some(0x3b) => return Some(frames),
+            // Uzantı: tür baytı ve alt bloklar.
+            Some(0x21) => i = skip_gif_blocks(data, i + 2)?,
+            // Kare: 9 bayt tanım, yerel renk tablosu, LZW kod boyu, alt bloklar.
+            Some(0x2c) => {
+                frames += 1;
+                if frames > 1 {
+                    return Some(frames);
+                }
+                i += 10 + table(*data.get(i + 9)?);
+                i = skip_gif_blocks(data, i + 1)?;
+            }
+            Some(_) => return None,
+        }
+    }
+}
+
+/// GIF alt bloklarını (uzunluk baytı + veri, 0 ile biter) atlar.
+fn skip_gif_blocks(data: &[u8], mut i: usize) -> Option<usize> {
+    loop {
+        let len = usize::from(*data.get(i)?);
+        i += 1;
+        if len == 0 {
+            return Some(i);
+        }
+        i += len;
+    }
+}
+
+/// APNG: görüntü verisinden (`IDAT`) önce `acTL` parçası.
+fn png_animated(data: &[u8]) -> bool {
+    let mut i = 8usize;
+    while let (Some(len), Some(kind)) = (data.get(i..i + 4), data.get(i + 4..i + 8)) {
+        match kind {
+            b"acTL" => return true,
+            b"IDAT" => return false,
+            _ => {}
+        }
+        let len = u32::from_be_bytes([len[0], len[1], len[2], len[3]]) as usize;
+        i = i.saturating_add(12).saturating_add(len);
+    }
+    false
+}
+
+/// Hareketli WebP: `VP8X` parçasında hareket bayrağı ya da `ANIM`/`ANMF` parçası.
+fn webp_animated(data: &[u8]) -> bool {
+    let mut i = 12usize;
+    while let (Some(kind), Some(len)) = (data.get(i..i + 4), data.get(i + 4..i + 8)) {
+        match kind {
+            b"ANIM" | b"ANMF" => return true,
+            b"VP8X" if data.get(i + 8).is_some_and(|flags| flags & 0x02 != 0) => return true,
+            _ => {}
+        }
+        let len = u32::from_le_bytes([len[0], len[1], len[2], len[3]]) as usize;
+        i = i
+            .saturating_add(8)
+            .saturating_add(len.saturating_add(len & 1));
+    }
+    false
 }
 
 #[cfg(test)]
@@ -369,6 +472,103 @@ mod tests {
         assert_eq!(store.background_get().unwrap().media_type, "image/png");
         assert!(store.playlist_get(1).is_none());
         store.background_clear().unwrap();
+        assert!(store.background_get().is_none());
+        std::fs::remove_file(source).ok();
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// PNG parçası (CRC denetlenmez; sıfır).
+    fn png_chunk(kind: &[u8; 4], body: &[u8]) -> Vec<u8> {
+        let mut out = (body.len() as u32).to_be_bytes().to_vec();
+        out.extend_from_slice(kind);
+        out.extend_from_slice(body);
+        out.extend_from_slice(&[0; 4]);
+        out
+    }
+
+    fn png(animated: bool) -> Vec<u8> {
+        let mut out = b"\x89PNG\r\n\x1a\n".to_vec();
+        out.extend(png_chunk(b"IHDR", &[0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 0, 0, 0]));
+        if animated {
+            out.extend(png_chunk(b"acTL", &[0, 0, 0, 2, 0, 0, 0, 0]));
+        }
+        out.extend(png_chunk(b"IDAT", &[0x78, 0x9c, 0x63, 0, 0, 0, 1, 0, 1]));
+        out.extend(png_chunk(b"IEND", &[]));
+        out
+    }
+
+    /// 1×1 GIF, `frames` kare (hareketliyse NETSCAPE döngü uzantısıyla).
+    fn gif(frames: usize) -> Vec<u8> {
+        let mut out = b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff".to_vec();
+        if frames > 1 {
+            out.extend_from_slice(b"\x21\xff\x0bNETSCAPE2.0\x03\x01\x00\x00\x00");
+        }
+        for _ in 0..frames {
+            // Kare gecikmesi (grafik denetim uzantısı) ve kare: 1×1, LZW en küçük kod 2.
+            out.extend_from_slice(b"\x21\xf9\x04\x00\x0a\x00\x00\x00");
+            out.extend_from_slice(b"\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00");
+        }
+        out.push(0x3b);
+        out
+    }
+
+    fn webp(animated: bool) -> Vec<u8> {
+        let mut body = b"WEBP".to_vec();
+        if animated {
+            body.extend_from_slice(b"VP8X\x0a\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00");
+            body.extend_from_slice(b"ANIM\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00");
+        } else {
+            body.extend_from_slice(b"VP8L\x05\x00\x00\x00\x2f\x00\x00\x00\x00\x00");
+        }
+        let mut out = b"RIFF".to_vec();
+        out.extend_from_slice(&(body.len() as u32).to_le_bytes());
+        out.extend(body);
+        out
+    }
+
+    #[test]
+    fn hareketli_resim_arka_plan_olamaz() {
+        // Arka plan sabit olmalı: parlama sınırı resmi bir kez ölçer (src/lib/photoScene.ts) ve
+        // hareketli resmin kendisi de parlayabilir.
+        assert!(!is_animated(&png(false)));
+        assert!(is_animated(&png(true)));
+        assert!(!is_animated(&gif(1)));
+        assert!(is_animated(&gif(2)));
+        assert!(!is_animated(&webp(false)));
+        assert!(is_animated(&webp(true)));
+        assert!(!is_animated(JPEG));
+        assert!(!is_animated(PNG), "kısa PNG sabit sayılır");
+        // Kareleri sayılamayan bozuk GIF hareketli sayılır (güvenli yan).
+        let mut broken = gif(1);
+        broken.truncate(30);
+        broken.push(0x99);
+        assert!(is_animated(&broken));
+
+        let dir = temp_path("arkaplan-hareketli");
+        let store = CoverStore::new(&dir);
+        let source = dir.with_extension("img");
+        for (data, ok) in [
+            (gif(2), false),
+            (png(true), false),
+            (webp(true), false),
+            (gif(1), true),
+            (png(false), true),
+            (webp(false), true),
+        ] {
+            std::fs::write(&source, &data).unwrap();
+            let result = store.background_set(&source);
+            assert_eq!(result.is_ok(), ok, "{:?}", image_type(&data));
+            if !ok {
+                assert!(matches!(result, Err(CoverError::Animated)));
+            }
+        }
+        // Albüm kapakları değişmez: küçük ve sahne değil.
+        std::fs::write(&source, gif(2)).unwrap();
+        store.set("Kum", Some("Ada"), &source).unwrap();
+        // Klasöre elle konmuş hareketli arka plan da gösterilmez.
+        store.background_clear().unwrap();
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("arkaplan.gif"), gif(2)).unwrap();
         assert!(store.background_get().is_none());
         std::fs::remove_file(source).ok();
         std::fs::remove_dir_all(dir).ok();
