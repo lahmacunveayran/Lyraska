@@ -14,6 +14,9 @@ import { formatTime } from "../lib/format";
 
 const NUMBER = new Intl.NumberFormat("tr-TR");
 
+/** Bu süre içinde ikinci çalma isteği (çift tık, tık + Enter) yok sayılır: şarkı iki kez açılmaz. */
+export const REPEAT_PLAY_MS = 600;
+
 export interface AlbumPageProps {
   album: LibraryAlbum;
   /** Kütüphanenin şarkıları: albümün yollarını satırlara çevirmek için. */
@@ -101,6 +104,7 @@ export function AlbumPage({
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState(-1);
   const seq = useRef(0);
+  const rowId = (index: number) => `${id}-row-${index}`;
   const albumId = `${album.artist ?? ""}\u0000${album.name}`;
 
   // Açılınca odak başlığa: ekran okuyucu sayfanın adını okur, Tab sayfanın düğmelerine gider.
@@ -125,8 +129,19 @@ export function AlbumPage({
   const rows = paths ? albumRows(paths, tracks) : [];
   const summary = albumSummary(album, camelot);
 
-  const play = (start?: string) => {
-    if (paths && paths.length > 0) onPlay(paths, start);
+  // Son çalma isteğinin zamanı: üst üste gelen istek albümü ikinci kez başlatmaz.
+  const lastPlay = useRef(-Infinity);
+  const play = (time: number, start?: string) => {
+    if (!paths || paths.length === 0) return;
+    if (time - lastPlay.current < REPEAT_PLAY_MS) return;
+    lastPlay.current = time;
+    onPlay(paths, start);
+  };
+
+  /** Satırı seçer ve görünür alana getirir (uzun albümde ok tuşları listeyi kaydırır). */
+  const selectRow = (index: number) => {
+    setSelected(index);
+    document.getElementById(rowId(index))?.scrollIntoView?.({ block: "nearest" });
   };
 
   const onListKey = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -135,15 +150,15 @@ export function AlbumPage({
     if (event.key in moves) {
       event.preventDefault();
       const from = selected < 0 ? -1 : selected;
-      setSelected(Math.max(0, Math.min(rows.length - 1, from + moves[event.key]!)));
+      selectRow(Math.max(0, Math.min(rows.length - 1, from + moves[event.key]!)));
     } else if (event.key === "Home" || event.key === "End") {
       event.preventDefault();
-      setSelected(event.key === "Home" ? 0 : rows.length - 1);
+      selectRow(event.key === "Home" ? 0 : rows.length - 1);
     } else if (event.key === "Enter") {
       const track = rows[selected];
       if (!track) return;
       event.preventDefault();
-      play(track.path);
+      play(event.timeStamp, track.path);
     }
   };
 
@@ -152,8 +167,6 @@ export function AlbumPage({
     if (menu) menu.open = false;
     action();
   };
-
-  const rowId = (index: number) => `${id}-row-${index}`;
 
   return (
     <div className="album-page" aria-labelledby={`${id}-title`} role="region">
@@ -187,7 +200,7 @@ export function AlbumPage({
             <button
               type="button"
               className="hw-button hw-button--primary album-page__play"
-              onClick={() => play()}
+              onClick={(event) => play(event.timeStamp)}
               disabled={!paths || paths.length === 0}
               aria-label="Albümü çal"
               title="Albümü baştan çal"
@@ -260,7 +273,7 @@ export function AlbumPage({
                   aria-selected={index === selected}
                   className={`album-page__row${isCurrent ? " is-current" : ""}${index === selected ? " is-selected" : ""}`}
                   onClick={() => setSelected(index)}
-                  onDoubleClick={() => play(track.path)}
+                  onDoubleClick={(event) => play(event.timeStamp, track.path)}
                   title={track.path}
                 >
                   <span className="library__no" role="gridcell">

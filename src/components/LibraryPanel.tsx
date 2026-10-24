@@ -26,7 +26,7 @@ import { AlbumPage } from "./AlbumPage";
 import { ArtistGrid } from "./ArtistGrid";
 import { SkyView } from "./SkyView";
 import { useArtists } from "../hooks/useArtists";
-import { indexAlbums, invalidateAlbumCover, trackCoverRequest } from "../lib/albumCovers";
+import { albumCoverIndex, invalidateAlbumCover, trackCoverRequest } from "../lib/albumCovers";
 import { useAlbums } from "../hooks/useAlbums";
 import { analysisPending, bpmLabel } from "../lib/analysis";
 import {
@@ -171,17 +171,26 @@ export function LibraryPanel({
     setViewState(next);
     setOpenAlbum(null);
   };
-  // Albüm listesi şarkılarda da sorulur: satırlardaki küçük kapaklar albümün kapağını paylaşır.
-  const {
-    albums,
-    latest: latestAlbums,
-    error: albumsError,
-  } = useAlbums(view === "albums" || view === "songs", query, library.tracks);
-  const albumIndex = useMemo(
-    () => (latestAlbums ? indexAlbums(latestAlbums) : null),
-    [latestAlbums],
+  const { albums, error: albumsError } = useAlbums(view === "albums", query, library.refreshKey);
+  // Şarkı satırlarındaki küçük kapaklar: albümün ilk şarkısından (albüm listesi sorulmadan).
+  const albumIndex = useMemo(() => albumCoverIndex(library.allTracks), [library.allTracks]);
+  // Açık albüm sayfasının başlığı tazelenen albüm listesinden (tarama, analiz); albüm aramasız
+  // listede artık yoksa sayfa kapanır (aramada yalnızca süzülmüş olabilir).
+  const shownAlbum =
+    openAlbum && (albums?.find((a) => albumKey(a) === albumKey(openAlbum)) ?? openAlbum);
+  if (
+    openAlbum &&
+    albums &&
+    query === "" &&
+    !albums.some((a) => albumKey(a) === albumKey(openAlbum))
+  ) {
+    setOpenAlbum(null);
+  }
+  const { artists, error: artistsError } = useArtists(
+    view === "artists",
+    query,
+    library.refreshKey,
   );
-  const { artists, error: artistsError } = useArtists(view === "artists", query, library.tracks);
   const current = useMemo(
     () => library.tracks.find((track) => track.path === currentPath) ?? null,
     [library.tracks, currentPath],
@@ -795,19 +804,19 @@ export function LibraryPanel({
                   {albumsError ?? albumError}
                 </p>
               ) : null}
-              {openAlbum !== null ? (
+              {shownAlbum !== null ? (
                 <AlbumPage
-                  key={albumKey(openAlbum)}
-                  album={openAlbum}
-                  tracks={library.tracks}
-                  refreshKey={library.tracks}
+                  key={albumKey(shownAlbum)}
+                  album={shownAlbum}
+                  tracks={library.allTracks}
+                  refreshKey={library.refreshKey}
                   currentPath={currentPath}
                   playing={playing}
                   camelot={camelot}
                   onBack={() => setOpenAlbum(null)}
                   onPlay={(paths, start) => onPlayPaths(paths, start)}
-                  onChooseCover={() => chooseCover(openAlbum)}
-                  onClearCover={() => changeCover(openAlbum, null)}
+                  onChooseCover={() => chooseCover(shownAlbum)}
+                  onClearCover={() => changeCover(shownAlbum, null)}
                 />
               ) : albums === null ? (
                 <LoadingGrid label="Albümler yükleniyor" />
@@ -895,7 +904,7 @@ export function LibraryPanel({
                         </span>
                         <span className="library__cell library__title-cell" role="gridcell">
                           <AlbumArt
-                            request={trackCoverRequest(track, albumIndex, albums !== null)}
+                            request={trackCoverRequest(track, albumIndex)}
                             className="library__thumb"
                           />
                           <span className="library__title-text">{track.title}</span>

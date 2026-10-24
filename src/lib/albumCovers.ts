@@ -38,30 +38,51 @@ export function albumCoverRequest(album: LibraryAlbum): AlbumCoverRequest {
   };
 }
 
-/** Albümleri kimliklerine göre dizinler (şarkı satırları kendi albümünü bulsun diye). */
-export function indexAlbums(albums: readonly LibraryAlbum[]): Map<string, LibraryAlbum> {
-  return new Map(albums.map((album) => [albumId(album.name, album.artist), album]));
+/**
+ * Şarkılardan albümlerin kapak istekleri (albüm kimliği → istek). Çekirdeğin albüm listesiyle
+ * aynı kural: albüm sanatçısıyla (yoksa sanatçıyla) gruplanır, kapak ve ton/tempo albümün ilk
+ * şarkısından (liste çekirdekten albüm sırasıyla gelir). Böylece şarkı satırı ızgarayla aynı
+ * kapağı paylaşır ve albüm listesi ayrıca sorulmaz.
+ */
+export function albumCoverIndex(tracks: readonly LibraryTrack[]): Map<string, AlbumCoverRequest> {
+  const index = new Map<string, AlbumCoverRequest>();
+  for (const track of tracks) {
+    if (!track.album) continue;
+    const artist = track.albumArtist ?? track.artist;
+    const id = albumId(track.album, artist);
+    if (index.has(id)) continue;
+    index.set(id, {
+      album: track.album,
+      artist,
+      key: track.key,
+      bpm: track.bpm,
+      coverPath: track.path,
+    });
+  }
+  return index;
 }
 
 /**
- * Şarkı satırındaki küçük kapağın isteği: şarkının albümü listede varsa albümün kendi isteği
- * (bir albümün bütün şarkıları tek kapak işi paylaşır, ızgarayla aynı önbellek). Albüm listesi
- * henüz gelmediyse `null` (yer tutucu; önce yanlış kimlikle istenip sonra ikinci kez istenmesin).
- * Liste bu aramanın listesiyse (`complete`) ve albüm içinde yoksa ton ve tempo olmadan şarkıdan
- * istenir; eski aramanın listesinde yoksa yenisi gelene kadar yer tutucu kalır. Albüm etiketi
- * olmayan şarkının kapağı yoktur (`null`: yer tutucu).
+ * Şarkı satırındaki küçük kapağın isteği: albümün ilk şarkısından (bir albümün bütün şarkıları
+ * tek kapak işi paylaşır, ızgarayla aynı önbellek). Albüm etiketi olmayan şarkının kapağı yoktur
+ * (`null`: yer tutucu). Dizinde olmayan albüm (bütün şarkılar henüz gelmedi) şarkının kendisinden,
+ * ton ve tempo olmadan istenir.
  */
 export function trackCoverRequest(
   track: LibraryTrack,
-  albums: ReadonlyMap<string, LibraryAlbum> | null,
-  complete = true,
+  index: ReadonlyMap<string, AlbumCoverRequest>,
 ): AlbumCoverRequest | null {
-  if (!track.album || albums === null) return null;
+  if (!track.album) return null;
   const artist = track.albumArtist ?? track.artist;
-  const album = albums.get(albumId(track.album, artist));
-  if (album) return albumCoverRequest(album);
-  if (!complete) return null;
-  return { album: track.album, artist, key: null, bpm: null, coverPath: track.path };
+  return (
+    index.get(albumId(track.album, artist)) ?? {
+      album: track.album,
+      artist,
+      key: null,
+      bpm: null,
+      coverPath: track.path,
+    }
+  );
 }
 
 /** Kapağı değişen albümlerin sürümü: yeni kimlik eski kapağı önbellekten düşürür. */

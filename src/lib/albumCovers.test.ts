@@ -16,7 +16,8 @@ import {
   albumCoverKey,
   cachedAlbumCover,
   clearAlbumCovers,
-  indexAlbums,
+  albumCoverIndex,
+  albumCoverRequest,
   invalidateAlbumCover,
   requestAlbumCover,
   trackCoverRequest,
@@ -109,36 +110,38 @@ describe("albüm kapakları", () => {
       key: `${n}A`,
       ...over,
     });
-    const albums = indexAlbums([
-      {
-        name: "Kum",
-        artist: "Ada",
-        trackCount: 2,
-        durationSecs: 400,
-        coverPath: "/m/1.flac",
-        bpm: 91,
-        key: "1A",
-      },
-    ]);
-    const a = trackCoverRequest(track(1), albums)!;
-    const b = trackCoverRequest(track(2), albums)!;
-    // Şarkıların kendi ton ve tempoları farklı; kimlik albümün ilk şarkısından (ızgarayla aynı).
-    expect(albumCoverKey(a)).toBe(albumCoverKey(b));
-    expect(b).toEqual({ album: "Kum", artist: "Ada", key: "1A", bpm: 91, coverPath: "/m/1.flac" });
+    // Liste çekirdekten albüm sırasıyla gelir: albümün ilk şarkısı kapağın ve tonun kaynağı
+    // (çekirdeğin albüm listesindeki gibi).
+    const tracks = [track(1), track(2), track(3, { artist: "Konuk", albumArtist: "Ada" })];
+    const index = albumCoverIndex(tracks);
+    const first = { album: "Kum", artist: "Ada", key: "1A", bpm: 91, coverPath: "/m/1.flac" };
+    expect(trackCoverRequest(tracks[1]!, index)).toEqual(first);
     // Albüm sanatçısıyla gruplanır.
-    expect(trackCoverRequest(track(3, { artist: "Konuk", albumArtist: "Ada" }), albums)).toEqual(b);
-    // Albüm listesi gelmediyse, albüm etiketi yoksa: yer tutucu.
-    expect(trackCoverRequest(track(1), null)).toBeNull();
-    expect(trackCoverRequest(track(1, { album: null }), albums)).toBeNull();
-    // Listede olmayan albüm: tam listede şarkıdan (ton ve tempo olmadan), eski listede bekler.
-    const loose = track(4, { album: "Yön" });
-    expect(trackCoverRequest(loose, albums)).toEqual({
+    expect(trackCoverRequest(tracks[2]!, index)).toEqual(first);
+    // Izgaradaki albümle aynı kimlik: tek kapak işi, tek önbellek.
+    expect(albumCoverKey(trackCoverRequest(tracks[1]!, index)!)).toBe(
+      albumCoverKey(
+        albumCoverRequest({
+          name: "Kum",
+          artist: "Ada",
+          trackCount: 3,
+          durationSecs: 600,
+          coverPath: "/m/1.flac",
+          bpm: 91,
+          key: "1A",
+        }),
+      ),
+    );
+    // Albüm etiketi yoksa yer tutucu.
+    expect(trackCoverRequest(track(1, { album: null }), index)).toBeNull();
+    expect(albumCoverIndex([track(1, { album: "" })]).size).toBe(0);
+    // Dizinde olmayan albüm: şarkının kendisinden, ton ve tempo olmadan.
+    expect(trackCoverRequest(track(4, { album: "Yön" }), index)).toEqual({
       album: "Yön",
       artist: "Ada",
       key: null,
       bpm: null,
       coverPath: "/m/4.flac",
     });
-    expect(trackCoverRequest(loose, albums, false)).toBeNull();
   });
 });
