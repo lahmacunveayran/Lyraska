@@ -1336,10 +1336,11 @@ describe("kütüphane", () => {
       const sky = screen.getByRole("img", { name: /Gökyüzü/ });
       expect(within(sky.parentElement!).getByText("La minör")).toBeInTheDocument();
       // Yıldızın yeri saf hesaptan (skyMap testleri); üstüne gelip tıklayınca çalar.
-      const { stars } = layoutSky(backend.tracks, 300, 200, 400 / 2 - 36);
+      const { stars } = layoutSky(backend.tracks, 300, 200, 400 / 2 - 40);
       const star = stars[0]!;
       fireEvent.pointerMove(sky, { clientX: star.x, clientY: star.y });
-      expect(await screen.findByText(/çalmak için/)).toHaveTextContent("La minör · 128 BPM");
+      expect(await screen.findByText("Çalmak için tıklayın")).toBeInTheDocument();
+      expect(screen.getByText("La minör · 128 BPM")).toBeInTheDocument();
       await act(async () => fireEvent.click(sky));
       await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(backend.tracks[0]!.path));
     } finally {

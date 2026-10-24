@@ -63,7 +63,7 @@ export function SkyView({ tracks, currentPath, onPlay }: SkyViewProps) {
       const width = wrap.clientWidth;
       const height = wrap.clientHeight;
       if (width < 50 || height < 50) return;
-      const radius = Math.min(width, height) / 2 - 36;
+      const radius = Math.min(width, height) / 2 - 40;
       setGeometry({ width, height, cx: width / 2, cy: height / 2, radius });
     };
     update();
@@ -174,6 +174,15 @@ export function SkyView({ tracks, currentPath, onPlay }: SkyViewProps) {
     setHover(nearestStar(layout.stars, event.clientX - box.left, event.clientY - box.top, 10));
   };
 
+  // Tempo halkalarının etiketleri: iki ton arasındaki soluk ışın üzerinde (yıldızların arasında).
+  const ringLabels = geometry
+    ? [80, 120, 160].map((bpm) => {
+        const a = keyAngle(1, true) + (22 * Math.PI) / 180;
+        const r = bpmRadius(bpm) * geometry.radius;
+        return { bpm, x: geometry.cx + Math.cos(a) * r, y: geometry.cy + Math.sin(a) * r };
+      })
+    : [];
+
   const keyLabels = geometry
     ? Array.from({ length: 12 }, (_, i) => {
         const n = i + 1;
@@ -217,21 +226,25 @@ export function SkyView({ tracks, currentPath, onPlay }: SkyViewProps) {
           className="sky-view__card"
           style={{
             left: geometry && hover.x > geometry.width - 300 ? hover.x - 294 : hover.x + 14,
-            top: geometry && hover.y > geometry.height - 100 ? hover.y - 86 : hover.y + 14,
+            top: geometry && hover.y > geometry.height - 110 ? hover.y - 100 : hover.y + 14,
           }}
         >
           <b>{hover.track.title}</b>
           <span>{[hover.track.artist, hover.track.album].filter(Boolean).join(" · ")}</span>
           <span className="sky-view__facts">
-            {camelotName(hover.track.key ?? "") ?? ""} · {bpmLabel(hover.track)} BPM · çalmak için
-            tıklayın
+            {camelotName(hover.track.key ?? "") ?? ""} · {bpmLabel(hover.track)} BPM
           </span>
+          <small>Çalmak için tıklayın</small>
         </div>
       )}
+      {ringLabels.map((label) => (
+        <span key={label.bpm} className="sky-view__ring" style={{ left: label.x, top: label.y }}>
+          {label.bpm}
+        </span>
+      ))}
       {layout && (
         <p className="sky-view__legend">
-          Yer: ton (çark) ve tempo (içeride yavaş, dışarıda hızlı) · renk: ton ·{" "}
-          {NUMBER.format(layout.stars.length)} yıldız
+          Çarkta ton, içeriden dışarıya tempo (BPM) · {NUMBER.format(layout.stars.length)} yıldız
           {layout.unplaced > 0 &&
             ` · ${NUMBER.format(layout.unplaced)} şarkı gökyüzünde yok (tonu ya da temposu bilinmiyor)`}
         </p>
