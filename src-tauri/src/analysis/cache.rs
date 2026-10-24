@@ -61,7 +61,9 @@ pub const VERSIONS: PartVersions = PartVersions {
     spectrum: 2,
     // 2: şarkı haritasında drop güveni. 3: aksak ölçü (9/8, 7/8, 5/8) ve ölçü güveni.
     // 4: değişken tempo (parça parça tempo, ortanca BPM).
-    rhythm: 4,
+    // 5: drop bulma: davulun dönüşü, sakin girişten sonra grup, sıkıştırılmış kayıt, an basın
+    // döndüğü kareye oturur.
+    rhythm: 5,
     loudness: 1,
     bass: 1,
     key: 1,

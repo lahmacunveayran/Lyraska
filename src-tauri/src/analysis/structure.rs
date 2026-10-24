@@ -40,6 +40,34 @@ const DROP_SURE_BASS_JUMP: f64 = 0.30;
 const DROP_SURE_ENERGY_RISE: f64 = 0.40;
 /// Drop'tan sonra yüksek enerjinin sürdüğüne bakılan ölçü sayısı.
 const DROP_SUSTAIN_BARS: usize = 8;
+/// Drop için davul (kick) gücündeki en az artış: bas sürerken davulun dönüşü de drop'tur.
+const DROP_MIN_KICK_JUMP: f64 = 0.08;
+/// Drop güveninde kick artışı bu kadar olunca tam puan.
+const DROP_SURE_KICK_JUMP: f64 = 0.20;
+/// Adaylar sıralanırken bölüm sınırındaki ölçünün puanına eklenen.
+const DROP_CUT_BONUS: f64 = 0.15;
+/// Ölçünün ikinci yarısının bası ilk yarısından bu kadar (bant ölçeği) fazlaysa ölçü kendi içinde
+/// yükseliyor sayılır (rulo).
+const DROP_CRESCENDO: f64 = 0.08;
+/// Kendi içinde yükselen ölçünün aday puanı bu oranla çarpılır.
+const DROP_CRESCENDO_PENALTY: f64 = 0.8;
+/// Bir önceki ölçünün puanı en az bu oranda ise drop o ölçüdür.
+const DROP_TIE: f64 = 0.95;
+/// Güvende yalnızca kick dönüşünün ve yalnızca tırmanışın payı (bas dönüşüne ve enerji artışına göre).
+const DROP_KICK_ONLY_WEIGHT: f64 = 0.7;
+const DROP_CLIMB_WEIGHT: f64 = 0.5;
+/// Öncesindeki ölçülerden biri bundan sessizse (dBFS, ölçü ortalaması) şarkının başı sayılır,
+/// drop değil.
+const DROP_SILENCE_DB: f64 = -50.0;
+/// Öncesinin şarkıya göre enerjisi (0..1) bundan azsa sessizlik sayılır.
+const DROP_SILENCE_ENERGY: f64 = 0.02;
+/// Drop'tan sonraki iki ölçünün enerjisi en az bu kadar (şarkıya göre 0..1) olmalı.
+const DROP_AFTER_ENERGY: f64 = 0.65;
+/// Drop anı ölçü başından en çok bu kadar (ölçü) önceye ya da sonraya kayar: vuruş ızgarası kaymış
+/// olabilir (yarım tempo, sessizlikten sonra kayan faz); an, basın döndüğü kareye oturur.
+const DROP_REFINE_BARS: f64 = 0.5;
+/// Kaymak için bas farkı ölçü başındakinden en az bu kadar (bant ölçeği) büyük olmalı.
+const DROP_REFINE_MIN_GAIN: f64 = 0.08;
 
 /// Şarkının yapısı.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -328,15 +356,72 @@ pub fn map_song(
         section.label = label;
     }
 
-    let (drops, drop_confidence) = find_drops(&bar_bass, &bar_energy)
-        .into_iter()
-        .map(|k| {
-            (
+    // Ölçü başına kick gücü ve mutlak ses yüksekliği (dBFS; sessizlik eşiği için).
+    // Vuruşlar ve ölçüler zamanda sıralı: tek geçişte (uzun miksajlarda da doğrusal).
+    let mut bar_kick = vec![0.0; bars.len()];
+    let mut beat = 0;
+    for (slot, &(s, e)) in bar_kick.iter_mut().zip(&bars) {
+        while beat_frames.get(beat).is_some_and(|&(start, _)| start < s) {
+            beat += 1;
+        }
+        let (mut sum, mut count) = (0.0, 0usize);
+        while let Some(&kick) = beat_frames
+            .get(beat)
+            .filter(|&&(start, _)| start < e)
+            .and(kicks.get(beat))
+        {
+            sum += kick;
+            count += 1;
+            beat += 1;
+        }
+        *slot = if count > 0 { sum / count as f64 } else { 0.0 };
+    }
+    let bar_trend: Vec<f64> = bars
+        .iter()
+        .map(|&(s, e)| {
+            let mid = s + (e - s) / 2;
+            let half = |a: usize, b: usize| {
+                if b > a {
+                    (a..b).map(bass_at).sum::<f64>() / (b - a) as f64
+                } else {
+                    0.0
+                }
+            };
+            half(mid, e) - half(s, mid)
+        })
+        .collect();
+    let bar_db: Vec<f64> = bars
+        .iter()
+        .map(|&(s, e)| {
+            loudness_db[s..e].iter().map(|&d| f64::from(d)).sum::<f64>() / (e - s) as f64
+        })
+        .collect();
+    let bar_signals = BarSignals {
+        bass: &bar_bass,
+        kick: &bar_kick,
+        energy: &bar_energy,
+        db: &bar_db,
+        cuts: &cuts,
+        trend: &bar_trend,
+    };
+    let beat_seconds = 60.0 / beats.bpm.max(1.0);
+    let drop_bars = find_drops(&bar_signals);
+    let (drops, drop_confidence): (Vec<f64>, Vec<f32>) = drop_bars
+        .iter()
+        .map(|&k| {
+            let bar_seconds = beat_seconds * meter.max(1) as f64;
+            let at = refine_drop(
                 bar_time(k),
-                drop_confidence(k, &bar_bass, &bar_energy, &cuts),
-            )
+                bar_seconds,
+                beat_seconds,
+                fps,
+                frames,
+                &bass_at,
+            );
+            (at, drop_confidence(k, &bar_signals, &cuts))
         })
         .unzip();
+    align_sections_to_drops(&mut sections, &cuts, &drop_bars, &drops);
 
     Some(SongMap {
         meter,
@@ -517,26 +602,124 @@ fn average(rows: &[Vec<f64>]) -> Vec<f64> {
         .collect()
 }
 
+/// Ölçü başına drop işaretleri.
+struct BarSignals<'a> {
+    /// Bas bantlarının ortalaması (0..1).
+    bass: &'a [f64],
+    /// Vuruş başındaki bas sıçraması, yani kick gücü (0..1).
+    kick: &'a [f64],
+    /// Şarkıya göre ses yüksekliği (0..1).
+    energy: &'a [f64],
+    /// Mutlak ses yüksekliği (dBFS).
+    db: &'a [f64],
+    /// Bölüm sınırı olan ölçüler.
+    cuts: &'a [usize],
+    /// Ölçünün ikinci yarısıyla ilk yarısının bas farkı (rulo, kendi içinde yükselme).
+    trend: &'a [f64],
+}
+
+/// Ölçü kendi içinde gittikçe yükseliyor mu (rulo, yükselişin sonu): ikinci yarısının bası ilk
+/// yarısınınkinden belirgin fazla. Drop ölçüsü kendi içinde düzdür.
+fn is_crescendo(k: usize, signals: &BarSignals) -> bool {
+    signals.trend.get(k).is_some_and(|&t| t > DROP_CRESCENDO)
+}
+
+/// `k`. ölçünün öncesi ve sonrası arasındaki farklar: (bas, kick, enerji).
+/// - Öncesi önceki dört ölçünün ortalaması; hemen önceki ölçü kendi içinde yükselen bir ölçüyse
+///   (yükselişin sonundaki kick ya da trampet rulosu, drop kadar güçlü olabilir) o ölçü sayılmaz,
+///   yoksa drop bir ölçü erkene, ruloya kayardı.
+/// - Sonrası, bu ölçünün ve sonraki iki ölçüden güçlü olanının küçüğü: drop süren bir düzeydir
+///   (tek ölçülük vurgu değil), ama droptan sonraki bir ölçülük durma (nefes) dropu geciktirmez.
+fn drop_jumps(k: usize, signals: &BarSignals) -> (f64, f64, f64) {
+    let n = signals.bass.len();
+    let near = k.saturating_sub(DROP_BEFORE_BARS)..k;
+    let skip = k.saturating_sub(DROP_BEFORE_BARS + 1)..k.saturating_sub(1).max(1);
+    let roll_before = k.checked_sub(1).is_some_and(|p| is_crescendo(p, signals));
+    let before = |v: &[f64]| {
+        let near = mean(&v[near.clone()]);
+        if roll_before {
+            near.min(mean(&v[skip.clone()]))
+        } else {
+            near
+        }
+    };
+    let after = |v: &[f64]| {
+        let next = (k + 1..(k + 3).min(n))
+            .map(|i| v[i])
+            .fold(f64::NEG_INFINITY, f64::max);
+        if next.is_finite() {
+            v[k].min(next)
+        } else {
+            v[k]
+        }
+    };
+    let jump = |v: &[f64]| if k < n { after(v) - before(v) } else { 0.0 };
+    (jump(signals.bass), jump(signals.kick), jump(signals.energy))
+}
+
 /// Drop olan ölçüler (sırası).
-fn find_drops(bar_bass: &[f64], bar_energy: &[f64]) -> Vec<usize> {
-    let n = bar_bass.len();
-    let mut candidates: Vec<(usize, f64)> = (DROP_BEFORE_BARS
-        ..n.saturating_sub(DROP_AFTER_BARS - 1))
+fn find_drops(signals: &BarSignals) -> Vec<usize> {
+    let n = signals.bass.len();
+    // Sonrası şarkının yüksek kısmı olmalı. Sıkıştırılmış kayıtta yükseliş droptan yüksek olabilir:
+    // eşik, şarkının ortanca ölçü enerjisinden yüksek değildir.
+    let mut sorted = signals.energy.to_vec();
+    sorted.sort_by(f64::total_cmp);
+    let high = sorted
+        .get(sorted.len() / 2)
+        .copied()
+        .unwrap_or(DROP_AFTER_ENERGY)
+        .min(DROP_AFTER_ENERGY);
+    let candidates: Vec<(usize, f64)> = (DROP_BEFORE_BARS..n.saturating_sub(DROP_AFTER_BARS - 1))
         .filter_map(|k| {
-            let before_bass = mean(&bar_bass[k - DROP_BEFORE_BARS..k]);
-            let after_bass = mean(&bar_bass[k..(k + DROP_AFTER_BARS).min(n)]);
-            let before_energy = mean(&bar_energy[k - DROP_BEFORE_BARS..k]);
-            let after_energy = mean(&bar_energy[k..(k + DROP_AFTER_BARS).min(n)]);
-            let jump = after_bass - before_bass;
-            // Bas birden güçlü dönmeli, sonrası şarkının yüksek kısmı olmalı, öncesi sessiz olmamalı.
-            (jump >= DROP_MIN_BASS_JUMP && after_energy >= 0.65 && before_energy > 0.05)
-                .then_some((k, jump + (after_energy - before_energy)))
+            let (bass, kick, rise) = drop_jumps(k, signals);
+            let after_energy = mean(&signals.energy[k..(k + DROP_AFTER_BARS).min(n)]);
+            // Öncesindeki ölçülerin hiçbiri sessiz olmamalı: şarkının başındaki sessizlikten
+            // birkaç ölçü sonrası da drop değildir.
+            let before_db = signals.db[k - DROP_BEFORE_BARS..k]
+                .iter()
+                .copied()
+                .fold(f64::INFINITY, f64::min);
+            // Bas ya da davul birden güçlü dönmeli, sonrası şarkının yüksek kısmı olmalı, öncesi
+            // sessizlik olmamalı (sakin bir giriş olabilir: rock'ta grubun büyük girişi drop'tur).
+            let low_end = bass >= DROP_MIN_BASS_JUMP || kick >= DROP_MIN_KICK_JUMP;
+            // Sessizlik iki türlü: mutlak (−50 dBFS altı) ya da şarkıya göre neredeyse hiç (eski
+            // kayıtta cızırtı tabanı −50 dBFS'ten yüksek olabilir).
+            let before_energy = mean(&signals.energy[k - DROP_BEFORE_BARS..k]);
+            let silent = before_db <= DROP_SILENCE_DB || before_energy < DROP_SILENCE_ENERGY;
+            // Bölüm sınırındaki ölçü öne geçer: rulolu ölçü drop'tan yüksek olabilir, ama yeni
+            // bölümü drop başlatır.
+            let boundary = if signals.cuts.contains(&k) {
+                DROP_CUT_BONUS
+            } else {
+                0.0
+            };
+            // Kendi içinde yükselen ölçü (rulo) drop'un kendisi değil, öncesidir.
+            let roll = if is_crescendo(k, signals) {
+                DROP_CRESCENDO_PENALTY
+            } else {
+                1.0
+            };
+            (low_end && after_energy >= high && !silent).then_some((
+                k,
+                roll * (bass.max(0.0) + kick.max(0.0) + 0.25 * rise.max(0.0)) + boundary,
+            ))
         })
         .collect();
+    let score_of = |k: usize| candidates.iter().find(|c| c.0 == k).map(|c| c.1);
     // En güçlüsünden başlayarak, birbirine yakın adayları ele.
-    candidates.sort_by(|a, b| b.1.total_cmp(&a.1));
+    let mut ranked = candidates.clone();
+    ranked.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
     let mut chosen: Vec<usize> = Vec::new();
-    for (k, _) in candidates {
+    for (mut k, score) in ranked {
+        // Bir önceki ölçü neredeyse aynı puandaysa (%5) o seçilir: değişimin başladığı ölçü
+        // (sonraki ölçünün öncesinde de sakin kısım kalır, puanı ancak denk gelir).
+        // Önceki ölçü rulo ise geri gidilmez.
+        while let Some(prev) = k.checked_sub(1).and_then(score_of) {
+            if prev < DROP_TIE * score || is_crescendo(k - 1, signals) {
+                break;
+            }
+            k -= 1;
+        }
         if chosen.iter().all(|&c| c.abs_diff(k) >= DROP_MIN_GAP_BARS) {
             chosen.push(k);
         }
@@ -545,28 +728,118 @@ fn find_drops(bar_bass: &[f64], bar_energy: &[f64]) -> Vec<usize> {
     chosen
 }
 
+/// Drop'un başlattığı bölüm (sınırı drop ölçüsüne ±1 ölçü) drop anında başlar: bölüm ve drop aynı
+/// an olur (ör. MilkDrop görsel geçişi bir kez yapar, iki ayrı geçiş değil).
+fn align_sections_to_drops(
+    sections: &mut [Section],
+    cuts: &[usize],
+    drop_bars: &[usize],
+    drops: &[f64],
+) {
+    for (&k, &at) in drop_bars.iter().zip(drops) {
+        let Some(i) = cuts.iter().position(|&c| c > 0 && c.abs_diff(k) <= 1) else {
+            continue;
+        };
+        // Komşu bölümlerin içine taşmaz (bölümler en az dört ölçü).
+        let (Some(prev), Some(next)) = (i.checked_sub(1), sections.get(i)) else {
+            continue;
+        };
+        if at <= sections[prev].start || at >= next.end {
+            continue;
+        }
+        sections[prev].end = at;
+        sections[i].start = at;
+    }
+}
+
+/// Drop anını ölçü başından basın gerçekten döndüğü kareye oturtur. Vuruş ızgarası kaymış olabilir
+/// (yarım tempo, sessizlikle kayan faz): ölçü başının yarım ölçü öncesiyle yarım ölçü sonrası
+/// arasında, bir vuruş sonrasıyla bir vuruş öncesi arasındaki bas farkının en büyük olduğu kareye
+/// bakılır. Ölçü başındaki farkı açıkça geçmiyorsa (sürekli alt bas, yerinde drop) ölçü başı kalır.
+/// Yalnızca bas düzeyine bakılır: yükselişin sonundaki kick ya da trampet rulosu yoğun vuruşludur
+/// ama drop'un sürekli basına yetişmez; ses yüksekliğine de bakılmaz (sıkıştırılmış kayıtta
+/// yükselişin sonu droptan yüksek olabilir).
+fn refine_drop(
+    bar_start: f64,
+    bar_seconds: f64,
+    beat_seconds: f64,
+    fps: f64,
+    frames: usize,
+    bass_at: &dyn Fn(usize) -> f64,
+) -> f64 {
+    let window = ((beat_seconds * fps).round() as usize).max(1);
+    if frames <= 2 * window {
+        return bar_start;
+    }
+    let frame = |t: f64| (t * fps).round().max(0.0) as usize;
+    let first = frame(bar_start - DROP_REFINE_BARS * bar_seconds).max(window);
+    let last = frame(bar_start + DROP_REFINE_BARS * bar_seconds).min(frames - window);
+    let start = frame(bar_start).clamp(first.min(last), last.max(first));
+    if first >= last {
+        return bar_start;
+    }
+    // Yalnızca bakılan aralığın bas düzeyi (kayan toplam).
+    let lo = first - window;
+    let mut prefix = vec![0.0; last + window - lo + 1];
+    for f in lo..last + window {
+        prefix[f - lo + 1] = prefix[f - lo] + bass_at(f);
+    }
+    let w = window as f64;
+    let contrast = |f: usize| {
+        (prefix[f + window - lo] - prefix[f - lo]) / w
+            - (prefix[f - lo] - prefix[f - window - lo]) / w
+    };
+    // Eşitlikte ölçü başına yakın olan seçilir.
+    let best =
+        (first..=last)
+            .map(|f| (f, contrast(f)))
+            .fold((start, f64::MIN), |(bf, bv), (f, v)| {
+                let closer = f.abs_diff(start) < bf.abs_diff(start);
+                if v > bv || (v == bv && closer) {
+                    (f, v)
+                } else {
+                    (bf, bv)
+                }
+            });
+    if best.1 - contrast(start) < DROP_REFINE_MIN_GAIN {
+        return bar_start;
+    }
+    best.0 as f64 / fps
+}
+
 /// `k`. ölçüdeki drop'un güveni (0..1). Dört işaret, ağırlıklarıyla:
-/// - bas ne kadar güçlü döndü (%35; eşikte 0, 18 dB'de tam),
-/// - enerji önceki dört ölçüye göre ne kadar arttı (%30),
+/// - alt uç ne kadar güçlü döndü (%35): bas sıçraması (eşikte 0, 18 dB'de tam) ya da davulun
+///   dönüşü (bas sürerken kick'in gelmesi; %70 payla), hangisi büyükse,
+/// - yükseliş (%30): enerji önceki dört ölçüye göre arttı mı, ya da önceki dört ölçüde enerji
+///   tırmandı mı (%50 payla; sıkıştırılmış kayıtta yükseliş droptan yüksek olabilir),
 /// - bölüm sınırına (±1 ölçü) denk geliyor mu (%20): gerçek droplar yeni bölüm başlatır,
 /// - yüksek enerji sonraki sekiz ölçü boyunca sürüyor mu (%15): tek bir vurgu drop değildir.
-fn drop_confidence(k: usize, bar_bass: &[f64], bar_energy: &[f64], cuts: &[usize]) -> f32 {
-    let n = bar_bass.len();
-    let before = k.saturating_sub(DROP_BEFORE_BARS)..k;
-    let after = k..(k + DROP_AFTER_BARS).min(n);
-    let jump = mean(&bar_bass[after.clone()]) - mean(&bar_bass[before.clone()]);
-    let rise = mean(&bar_energy[after]) - mean(&bar_energy[before]);
+fn drop_confidence(k: usize, signals: &BarSignals, cuts: &[usize]) -> f32 {
+    let n = signals.bass.len();
+    let (jump, kick_jump, rise) = drop_jumps(k, signals);
     let unit = |x: f64| x.clamp(0.0, 1.0);
     let bass = unit((jump - DROP_MIN_BASS_JUMP) / (DROP_SURE_BASS_JUMP - DROP_MIN_BASS_JUMP));
-    let energy = unit(rise / DROP_SURE_ENERGY_RISE);
+    let kick = unit((kick_jump - DROP_MIN_KICK_JUMP) / (DROP_SURE_KICK_JUMP - DROP_MIN_KICK_JUMP));
+    // Yalnızca davulun dönüşü (bas zaten sürüyor) bas dönüşünden zayıf işarettir: pop'ta seyrek
+    // ön nakarattan tam davullu nakarata geçiş de böyledir.
+    let low_end = bass.max(DROP_KICK_ONLY_WEIGHT * kick);
+    let before = &signals.energy[k.saturating_sub(DROP_BEFORE_BARS)..k];
+    let climb = match (before.first(), before.last()) {
+        (Some(first), Some(last)) if before.len() >= 2 => last - first,
+        _ => 0.0,
+    };
+    // Tırmanış (önceki dört ölçüde enerji artışı) enerji artışından zayıf işarettir: her ön nakarat
+    // da tırmanır.
+    let lift = unit(rise / DROP_SURE_ENERGY_RISE)
+        .max(DROP_CLIMB_WEIGHT * unit(climb / DROP_SURE_ENERGY_RISE));
     let boundary = if cuts.iter().any(|&c| c > 0 && c.abs_diff(k) <= 1) {
         1.0
     } else {
         0.0
     };
-    let sustained = mean(&bar_energy[k..(k + DROP_SUSTAIN_BARS).min(n)]);
+    let sustained = mean(&signals.energy[k..(k + DROP_SUSTAIN_BARS).min(n)]);
     let sustain = unit((sustained - 0.45) / 0.3);
-    (0.35 * bass + 0.30 * energy + 0.20 * boundary + 0.15 * sustain) as f32
+    (0.35 * low_end + 0.30 * lift + 0.20 * boundary + 0.15 * sustain) as f32
 }
 
 fn distance(a: &[f64], b: &[f64]) -> f64 {
@@ -877,6 +1150,320 @@ mod tests {
         assert_eq!(map.energy_at(9.0), None);
     }
 
+    /// Bas ve enerjiden ölçü işaretleri: kick sabit (değişmiyor), ses yüksekliği duyulur düzeyde.
+    fn bars<'a>(bass: &'a [f64], energy: &'a [f64]) -> BarSignals<'a> {
+        let kick: &'static [f64] = &[0.1; 64];
+        let db: &'static [f64] = &[-20.0; 64];
+        BarSignals {
+            bass,
+            kick: &kick[..bass.len()],
+            energy,
+            db: &db[..bass.len()],
+            cuts: &[],
+            trend: &[],
+        }
+    }
+
+    #[test]
+    fn sakin_giristen_sonra_grubun_girisi_drop_sessizlikten_sonraki_degil() {
+        // Rock: dört ölçü yalnız gitar (bas bantlarında biraz gitar, şarkıya göre çok sessiz ama
+        // duyulur), sonra bütün grup. Sakin giriş drop'u engellemez.
+        let mut bass = vec![0.40; 4];
+        bass.extend([0.65; 12]);
+        let mut energy = vec![0.04; 4];
+        energy.extend([0.80; 12]);
+        let kick = [0.1; 16];
+        let mut db = vec![-35.0; 4];
+        db.extend([-10.0; 12]);
+        let signals = BarSignals {
+            bass: &bass,
+            kick: &kick,
+            energy: &energy,
+            db: &db,
+            cuts: &[],
+            trend: &[],
+        };
+        assert_eq!(find_drops(&signals), [4]);
+        // Öncesi gerçekten sessizse (şarkının başı) drop değildir.
+        let mut silent = vec![-70.0; 4];
+        silent.extend([-10.0; 12]);
+        let signals = BarSignals {
+            db: &silent,
+            ..signals
+        };
+        assert!(find_drops(&signals).is_empty());
+    }
+
+    #[test]
+    fn bas_surerken_davulun_donusu_drop_sayilir() {
+        // Melodik drop: yükselişte bas uzun notalarla sürüyor, davul yok; drop davulu getiriyor.
+        let bass = [0.55; 20];
+        let mut kick = vec![0.03; 8];
+        kick.extend([0.30; 12]);
+        let mut energy = vec![0.50, 0.50, 0.50, 0.50, 0.55, 0.62, 0.70, 0.76];
+        energy.extend([0.80; 12]);
+        let db = [-12.0; 20];
+        let signals = BarSignals {
+            bass: &bass,
+            kick: &kick,
+            energy: &energy,
+            db: &db,
+            cuts: &[],
+            trend: &[],
+        };
+        assert_eq!(find_drops(&signals), [8]);
+        let confidence = drop_confidence(8, &signals, &[0, 8]);
+        assert!(confidence >= DROP_CONFIDENCE_MIN, "{confidence}");
+    }
+
+    #[test]
+    fn yukselis_droptan_yuksekse_de_drop_bulunur_ve_guvenilir() {
+        // Sıkıştırılmış kayıt: 8 ölçü sakin, 8 ölçü gittikçe yükselen yükseliş (en yüksek yeri
+        // yükselişin sonu), sonra bas gelen ama yükselişten biraz kısık drop.
+        let mut bass = vec![0.10; 8];
+        bass.extend([0.10, 0.12, 0.15, 0.18, 0.20, 0.24, 0.26, 0.30]);
+        bass.extend([0.60; 12]);
+        let mut energy = vec![0.30; 8];
+        energy.extend([0.50, 0.55, 0.60, 0.70, 0.78, 0.85, 0.93, 1.0]);
+        energy.extend([0.64; 12]);
+        let signals = bars(&bass, &energy);
+        assert_eq!(find_drops(&signals), [16]);
+        let confidence = drop_confidence(16, &signals, &[0, 8, 16]);
+        assert!(confidence >= DROP_CONFIDENCE_MIN, "{confidence}");
+    }
+
+    #[test]
+    fn drop_ani_olcu_basindan_basin_dondugu_kareye_oturur() {
+        // Saniyede 60 kare, 120 BPM (vuruş 0,5 sn, ölçü 2 sn). Bas 20,3. saniyede dönüyor (ızgara
+        // kaymış: ölçü başı yarım ölçüye kadar önde ya da geride sanılıyor) ve vuruşlarda atıyor.
+        let fps = 60.0;
+        let onset = (20.3 * fps) as usize;
+        let bass = |f: usize| {
+            if f < onset {
+                0.2
+            } else if (f - onset) % 30 < 6 {
+                0.8
+            } else {
+                0.6
+            }
+        };
+        for bar_start in [19.4, 20.0, 21.2] {
+            let at = refine_drop(bar_start, 2.0, 0.5, fps, 3600, &bass);
+            assert!((at - 20.3).abs() <= 1.5 / fps, "{bar_start} → {at}");
+        }
+        // Drop tam ölçü başındaysa yerinde kalır.
+        let on_grid = |f: usize| if f < 1200 { 0.2 } else { 0.7 };
+        assert!((refine_drop(20.0, 2.0, 0.5, fps, 3600, &on_grid) - 20.0).abs() <= 1.5 / fps);
+        // Pencere şarkının başına ya da sonuna taşmaz.
+        assert!(refine_drop(0.2, 2.0, 0.5, fps, 3600, &bass) >= 0.0);
+        assert!(refine_drop(59.9, 2.0, 0.5, fps, 3600, &bass) <= 60.0);
+    }
+
+    #[test]
+    fn yukselisin_sonundaki_kick_rulosu_dropu_erkene_cekmez() {
+        // 120 BPM, drop 40,0 sn'de (ölçü başı). Önceki ölçüde (38–40 sn) on altılık kick rulosu:
+        // bas bantlarında yoğun, drop kadar güçlü vuruşlar. An ruloya kaymaz.
+        let fps = 60.0;
+        let drop = (40.0 * fps) as usize;
+        let roll = (38.0 * fps) as usize;
+        let bass = |f: usize| {
+            if f >= drop {
+                if (f - drop) % 30 < 6 {
+                    0.85
+                } else {
+                    0.65
+                }
+            } else if f >= roll {
+                if (f - roll) % 7 < 3 {
+                    0.70
+                } else {
+                    0.35
+                }
+            } else {
+                0.25
+            }
+        };
+        let at = refine_drop(40.0, 2.0, 0.5, fps, 4800, &bass);
+        assert!((at - 40.0).abs() <= 0.1, "{at}");
+    }
+
+    #[test]
+    fn drop_bolumu_drop_aninda_baslar() {
+        // Ölçü 2 sn; bölümler 0, 8 ve 16. ölçüde. Drop 8. ölçüde ama an 16,3 sn'ye oturdu.
+        let section = |start: f64, end: f64| Section {
+            start,
+            end,
+            energy: 0.5,
+            label: 0,
+        };
+        let mut sections = vec![section(0.0, 16.0), section(16.0, 32.0), section(32.0, 48.0)];
+        align_sections_to_drops(&mut sections, &[0, 8, 16], &[8], &[16.3]);
+        assert_eq!((sections[0].end, sections[1].start), (16.3, 16.3));
+        assert_eq!((sections[1].end, sections[2].start), (32.0, 32.0));
+        // Sınırı drop'a uzak bölüm (drop 12. ölçüde) ve ilk bölüm kıpırdamaz.
+        let mut far = vec![section(0.0, 16.0), section(16.0, 32.0)];
+        align_sections_to_drops(&mut far, &[0, 8], &[12, 0], &[24.0, 0.2]);
+        assert_eq!((far[0].start, far[0].end, far[1].start), (0.0, 16.0, 16.0));
+    }
+
+    #[test]
+    fn rulolu_olcu_degil_ardindan_gelen_olcu_drop_secilir() {
+        // 8 ölçü bassız yükseliş, 8. ölçüde gittikçe güçlenen kick rulosu (bas bantlarında drop
+        // kadar güçlü), drop 9.
+        let mut bass = vec![0.20; 8];
+        bass.push(0.65);
+        bass.extend([0.70; 12]);
+        let mut kick = vec![0.05; 8];
+        kick.push(0.30);
+        kick.extend([0.28; 12]);
+        let mut energy = vec![0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90];
+        energy.extend([0.85; 12]);
+        let db = [-12.0; 21];
+        // Rulo kendi içinde yükselir (ikinci yarısı ilkinden güçlü).
+        let mut trend = [0.0; 21];
+        trend[8] = 0.20;
+        let signals = BarSignals {
+            bass: &bass,
+            kick: &kick,
+            energy: &energy,
+            db: &db,
+            cuts: &[],
+            trend: &trend,
+        };
+        assert_eq!(find_drops(&signals), [9]);
+    }
+
+    #[test]
+    fn rulo_droptan_yuksekse_bolum_sinirindaki_olcu_drop_secilir() {
+        // Dubstep: rulolu ölçü (8) bas bantlarında yarım tempo droptan (9) bile güçlü; yeni bölüm
+        // 9. ölçüde başlıyor (bölüm sınırı). Drop 9.
+        let mut bass = vec![0.20; 8];
+        bass.push(0.62);
+        bass.extend([0.55; 12]);
+        let mut kick = vec![0.10; 8];
+        kick.push(0.18);
+        kick.extend([0.10; 12]);
+        let mut energy = vec![0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.80, 1.0];
+        energy.extend([0.75; 12]);
+        let db = [-12.0; 21];
+        let cuts = [0, 9];
+        let mut trend = [0.0; 21];
+        trend[8] = 0.20;
+        let signals = BarSignals {
+            bass: &bass,
+            kick: &kick,
+            energy: &energy,
+            db: &db,
+            cuts: &cuts,
+            trend: &trend,
+        };
+        assert_eq!(find_drops(&signals), [9]);
+        // Rulonun kendi içinde yükseldiği bilinmeseydi yalnızca bölüm sınırı drop'u doğru ölçüde
+        // tutar; sınır da yoksa rulolu ölçü seçilirdi (sınırın ağırlığı sınansın).
+        let flat = BarSignals {
+            trend: &[],
+            ..signals
+        };
+        assert_eq!(find_drops(&flat), [9]);
+        assert_eq!(find_drops(&BarSignals { cuts: &[], ..flat }), [8]);
+    }
+
+    #[test]
+    fn droptan_sonra_bir_olculuk_nefes_dropu_geciktirmez() {
+        // Drop 8. ölçüde, 9. ölçüde bir ölçülük durma (dubstep, trap), sonra sürüyor.
+        let mut bass = vec![0.15; 8];
+        bass.extend([0.65, 0.25]);
+        bass.extend([0.65; 10]);
+        let mut energy = vec![0.35; 8];
+        energy.extend([0.90, 0.50]);
+        energy.extend([0.90; 10]);
+        assert_eq!(find_drops(&bars(&bass, &energy)), [8]);
+    }
+
+    #[test]
+    fn rulonun_gucu_biraz_degisince_de_drop_rulodan_sonraki_olcu() {
+        // Kaydırılan rulolu ölçü testinin değerleri: rulonun basını ve kick'ini biraz oynat.
+        for roll_bass in [0.55, 0.60, 0.65, 0.66, 0.68] {
+            let mut bass = vec![0.20; 8];
+            bass.push(roll_bass);
+            bass.extend([0.70; 12]);
+            let mut kick = vec![0.05; 8];
+            kick.push(0.30);
+            kick.extend([0.28; 12]);
+            let mut energy = vec![0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90];
+            energy.extend([0.85; 12]);
+            let db = [-12.0; 21];
+            let mut trend = [0.0; 21];
+            trend[8] = 0.20;
+            let signals = BarSignals {
+                bass: &bass,
+                kick: &kick,
+                energy: &energy,
+                db: &db,
+                cuts: &[],
+                trend: &trend,
+            };
+            assert_eq!(find_drops(&signals), [9], "rulo bası {roll_bass}");
+        }
+    }
+
+    #[test]
+    fn yarim_olculuk_rulo_dropu_erkene_cekmez() {
+        // 120 BPM, drop 40,0 sn'de; yükselişin son yarım ölçüsünde (39–40 sn) on altılık rulo.
+        let fps = 60.0;
+        let drop = (40.0 * fps) as usize;
+        let roll = (39.0 * fps) as usize;
+        let bass = |f: usize| {
+            if f >= drop {
+                if (f - drop) % 30 < 6 {
+                    0.85
+                } else {
+                    0.65
+                }
+            } else if f >= roll {
+                if (f - roll) % 7 < 3 {
+                    0.70
+                } else {
+                    0.35
+                }
+            } else {
+                0.25
+            }
+        };
+        let at = refine_drop(40.0, 2.0, 0.5, fps, 4800, &bass);
+        assert!((at - 40.0).abs() <= 0.1, "{at}");
+    }
+
+    #[test]
+    fn bolum_siniri_bir_olcu_gec_bulunsa_da_drop_yerinde() {
+        // Drop 8. ölçüde; bölüm sınırı (benzerlik eğrisi) 9. ölçüye düşmüş.
+        let mut bass = vec![0.15; 8];
+        bass.extend([0.60; 12]);
+        let mut kick = vec![0.05; 8];
+        kick.extend([0.25; 12]);
+        let mut energy = vec![0.40; 8];
+        energy.extend([0.85; 12]);
+        let db = [-12.0; 20];
+        let cuts = [0, 9];
+        let signals = BarSignals {
+            bass: &bass,
+            kick: &kick,
+            energy: &energy,
+            db: &db,
+            cuts: &cuts,
+            trend: &[],
+        };
+        assert_eq!(find_drops(&signals), [8]);
+    }
+
+    #[test]
+    fn belirgin_bas_donusu_yoksa_drop_olcu_basinda_kalir() {
+        // Bas baştan sona aynı (sürekli alt bas): kayacak bir an yok, ölçü başı korunur.
+        let flat = |f: usize| if f % 30 < 6 { 0.7 } else { 0.6 };
+        let at = refine_drop(40.0, 2.0, 0.5, 60.0, 4800, &flat);
+        assert!((at - 40.0).abs() <= 1.5 / 60.0, "{at}");
+    }
+
     #[test]
     fn belirgin_drop_yuksek_sinirda_aday_dusuk_guven_alir() {
         // Ölçü başına bas ve enerji: 8 ölçü sakin (bas yok), sonra 12 ölçü tam drop.
@@ -884,9 +1471,9 @@ mod tests {
         bass.extend([0.55; 12]);
         let mut energy = vec![0.35; 8];
         energy.extend([0.95; 12]);
-        let drops = find_drops(&bass, &energy);
+        let drops = find_drops(&bars(&bass, &energy));
         assert_eq!(drops, [8]);
-        let strong = drop_confidence(8, &bass, &energy, &[0, 8]);
+        let strong = drop_confidence(8, &bars(&bass, &energy), &[0, 8]);
         assert!(strong > 0.95, "belirgin drop: {strong}");
 
         // Zaten yüksek bir kısımda bas biraz artıyor (eşiğin hemen üstünde), bölüm sınırı yok,
@@ -895,8 +1482,8 @@ mod tests {
         bass.extend([0.53, 0.53, 0.40, 0.40, 0.40, 0.40, 0.40, 0.40, 0.40, 0.40]);
         let mut energy = vec![0.60; 8];
         energy.extend([0.72, 0.72, 0.40, 0.40, 0.40, 0.40, 0.40, 0.40, 0.40, 0.40]);
-        assert_eq!(find_drops(&bass, &energy), [8]);
-        let weak = drop_confidence(8, &bass, &energy, &[0]);
+        assert_eq!(find_drops(&bars(&bass, &energy)), [8]);
+        let weak = drop_confidence(8, &bars(&bass, &energy), &[0]);
         assert!(weak < 0.4, "sınırdaki aday: {weak}");
         // Güven her zaman 0..1.
         assert!((0.0..=1.0).contains(&strong) && (0.0..=1.0).contains(&weak));
