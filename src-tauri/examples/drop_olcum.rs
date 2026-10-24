@@ -1,7 +1,8 @@
-//! Drop bulmayı bilinen sonuçlu şarkılarda ölçer (araştırma aracı; ses depoya girmez).
+//! Drop bulmayı ve tempoyu bilinen sonuçlu şarkılarda ölçer (araştırma aracı; ses depoya girmez).
 //!
 //! Kullanım: `cargo run --release --example drop_olcum -- <klasör>`. Klasörde her `ad.wav`
-//! (ya da başka bir ses dosyası) için `ad.json`: `{"drops": [saniye, ...]}`. Her şarkı için
+//! (ya da başka bir ses dosyası) için `ad.json`: `{"drops": [saniye, ...], "bpm": tempo}`
+//! (tempo isteğe bağlı). Her şarkı için
 //! bulunan dropları (güveniyle) ve işaretlilerle eşleşmeyi, sonda toplamı yazar.
 
 use lyraska_lib::analysis::evaluate::DROP_TOLERANCE;
@@ -18,6 +19,7 @@ fn main() {
     entries.sort();
     let (mut marked_total, mut hits_total, mut false_total) = (0usize, 0usize, 0usize);
     let mut errors: Vec<f64> = Vec::new();
+    let (mut bpm_total, mut bpm_ok, mut bpm_octave, mut bpm_variable) = (0usize, 0, 0, 0);
     for path in entries {
         if path.extension().is_some_and(|e| e == "json") {
             continue;
@@ -31,7 +33,10 @@ fn main() {
             .and_then(|v| v.get("drops").cloned())
             .and_then(|v| serde_json::from_value(v).ok())
             .unwrap_or_default();
-        let found = run(&path);
+        let truth_bpm = serde_json::from_str::<serde_json::Value>(&text)
+            .ok()
+            .and_then(|v| v.get("bpm").and_then(serde_json::Value::as_f64));
+        let (found, grid) = run(&path);
         let confident: Vec<f64> = found
             .iter()
             .filter(|(_, c)| *c >= DROP_CONFIDENCE_MIN)
@@ -67,8 +72,30 @@ fn main() {
             .iter()
             .map(|(t, c)| format!("{t:.2}({c:.2})"))
             .collect();
+        // Tempo: bilinen tempoya ±%2 içinde mi (yarısı ya da iki katı ayrı sayılır).
+        let tempo = match (grid, truth_bpm) {
+            (Some((bpm, variable)), Some(want)) => {
+                bpm_total += 1;
+                let ratio = bpm / want;
+                let ok = (ratio - 1.0).abs() <= 0.02;
+                let octave = (ratio - 2.0).abs() <= 0.04 || (ratio - 0.5).abs() <= 0.01;
+                bpm_ok += usize::from(ok);
+                bpm_octave += usize::from(octave);
+                bpm_variable += usize::from(variable);
+                let verdict = if ok {
+                    ""
+                } else if octave {
+                    " (oktav)"
+                } else {
+                    " (YANLIŞ)"
+                };
+                let changing = if variable { " değişken" } else { "" };
+                format!(" · tempo {bpm:.1}/{want:.0}{verdict}{changing}")
+            }
+            _ => String::new(),
+        };
         println!(
-            "{name}: işaretli {truth:?} · bulunan {} · isabet {hits}/{} · yanlış {false_alarms}",
+            "{name}: işaretli {truth:?} · bulunan {} · isabet {hits}/{} · yanlış {false_alarms}{tempo}",
             list.join(" "),
             truth.len()
         );
@@ -85,16 +112,21 @@ fn main() {
         ms(at(0.5)),
         ms(at(0.9))
     );
+    if bpm_total > 0 {
+        println!(
+            "TEMPO: doğru {bpm_ok}/{bpm_total} · oktav {bpm_octave} · değişken sanılan {bpm_variable}"
+        );
+    }
 }
 
-/// Bütün drop adayları (saniye, güven).
-fn run(path: &Path) -> Vec<(f64, f32)> {
+/// Bütün drop adayları (saniye, güven) ve tempo (BPM, değişken mi).
+fn run(path: &Path) -> (Vec<(f64, f32)>, Option<(f64, bool)>) {
     let Ok(decoder) = Decoder::open(path) else {
-        return Vec::new();
+        return (Vec::new(), None);
     };
     let spectrogram = Spectrogram::new();
     analyze(decoder, &spectrogram);
-    spectrogram
+    let drops = spectrogram
         .song_map()
         .map(|m| {
             m.drops
@@ -103,5 +135,7 @@ fn run(path: &Path) -> Vec<(f64, f32)> {
                 .zip(m.drop_confidence.iter().copied())
                 .collect()
         })
-        .unwrap_or_default()
+        .unwrap_or_default();
+    let grid = spectrogram.beat_grid().map(|g| (g.bpm, g.variable_tempo));
+    (drops, grid)
 }
