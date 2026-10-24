@@ -11,6 +11,7 @@ import {
   clockText,
   coreColor,
   displayUpper,
+  isTurkishText,
   lineExtent,
   maxBarExtentForContrast,
   measureBest,
@@ -282,6 +283,7 @@ export function PhotoScene({
     [playing, safe, image],
   );
   useVisualFeed(playing, onTick);
+  const turkish = isTurkishText(title, artist);
 
   return (
     <div className="photo-scene" ref={rootRef}>
@@ -322,8 +324,8 @@ export function PhotoScene({
       />
       <div className="photo-scene__text" ref={textRef} aria-hidden>
         <div className="photo-scene__song">
-          <span className="photo-scene__title">{displayUpper(title || "Lyraska")}</span>
-          {artist && <span className="photo-scene__artist">{displayUpper(artist)}</span>}
+          <span className="photo-scene__title">{displayUpper(title || "Lyraska", turkish)}</span>
+          {artist && <span className="photo-scene__artist">{displayUpper(artist, turkish)}</span>}
         </div>
         <span className="photo-scene__clock" ref={clockRef}>
           00:00

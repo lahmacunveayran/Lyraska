@@ -609,15 +609,21 @@ export function meanLuminance(rgba: ArrayLike<number>): number {
   return count === 0 ? 0 : sum / count;
 }
 
-/** Türkçeye özgü harfler: adda biri varsa büyük harfe Türkçe kuralıyla çevrilir. */
+/** Türkçeye özgü harfler: şarkının adında ya da sanatçısında biri varsa Türkçe kuralı. */
 const TURKISH_LETTERS = /[çğıöşüÇĞİÖŞÜ]/;
 
+/** Yazılardan biri Türkçeye özgü harf içeriyor mu (büyük harfe çevirme kuralı için). */
+export function isTurkishText(...texts: readonly (string | null | undefined)[]): boolean {
+  return texts.some((t) => !!t && TURKISH_LETTERS.test(t));
+}
+
 /**
- * Yazının büyük harflisi. "Flying" → "FLYING" (İngilizce kural), "Gülpembe" → "GÜLPEMBE";
- * Türkçe harf içeren adda i → İ ("Şirin" → "ŞİRİN").
+ * Yazının büyük harflisi: `turkish` ise Türkçe kuralıyla (i → İ, ı → I), değilse İngilizce
+ * kuralıyla. Kural şarkının adı ve sanatçısı birlikte bakılarak seçilir (`isTurkishText`):
+ * "Kelimeler" tek başına Türkçe harf taşımaz, ama sanatçısı "Şebnem Ferah" ise "KELİMELER".
  */
-export function displayUpper(text: string): string {
-  return text.toLocaleUpperCase(TURKISH_LETTERS.test(text) ? "tr" : "en");
+export function displayUpper(text: string, turkish = isTurkishText(text)): string {
+  return text.toLocaleUpperCase(turkish ? "tr" : "en");
 }
 
 /** Süre "00:25" biçiminde; bir saati geçince "1:02:05". */

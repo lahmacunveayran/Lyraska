@@ -10,6 +10,7 @@ import {
   clockText,
   coreColor,
   displayUpper,
+  isTurkishText,
   lineExtent,
   maxBarExtent,
   measureBest,
@@ -151,6 +152,19 @@ describe("kendi resmin sahnesi", () => {
     expect(displayUpper("DJ Splash Remix")).toBe("DJ SPLASH REMIX");
     expect(displayUpper("Şirin")).toBe("ŞİRİN");
     expect(displayUpper("Gülpembe")).toBe("GÜLPEMBE");
+  });
+
+  it("büyük harf kuralı adla sanatçı birlikte seçilir", () => {
+    // "Kelimeler"de Türkçeye özgü harf yok; sanatçısı Türkçe harfliyse Türkçe kural.
+    const turkish = isTurkishText("Kelimeler", "Şebnem Ferah");
+    expect(turkish).toBe(true);
+    expect(displayUpper("Kelimeler", turkish)).toBe("KELİMELER");
+    expect(displayUpper("Şebnem Ferah", turkish)).toBe("ŞEBNEM FERAH");
+    // İkisinde de yoksa İngilizce kural.
+    const english = isTurkishText("Flying High", "DJ Splash Remix");
+    expect(english).toBe(false);
+    expect(displayUpper("Flying High", english)).toBe("FLYING HIGH");
+    expect(isTurkishText(null, undefined, "")).toBe(false);
   });
 
   it("parlaklık ve süre yazısı", () => {

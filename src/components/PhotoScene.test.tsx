@@ -23,10 +23,18 @@ describe("Kendi resmin sahnesi", () => {
 
   it("şarkının adı ve sanatçısı büyük harfle (İngilizce adda I)", () => {
     const { container } = render(
-      <PhotoScene playing={false} image={null} title="Flying High" artist="Şebnem Ferah" />,
+      <PhotoScene playing={false} image={null} title="Flying High" artist="DJ Splash Remix" />,
     );
     expect(container.querySelector(".photo-scene__title")).toHaveTextContent("FLYING HIGH");
-    expect(container.querySelector(".photo-scene__artist")).toHaveTextContent("ŞEBNEM FERAH");
+    expect(container.querySelector(".photo-scene__artist")).toHaveTextContent("DJ SPLASH REMIX");
     expect(container.querySelector(".photo-scene__clock")).toHaveTextContent("00:00");
+  });
+
+  it("sanatçısı Türkçe harfliyse addaki i de İ olur", () => {
+    const { container } = render(
+      <PhotoScene playing={false} image={null} title="Kelimeler" artist="Şebnem Ferah" />,
+    );
+    expect(container.querySelector(".photo-scene__title")).toHaveTextContent("KELİMELER");
+    expect(container.querySelector(".photo-scene__artist")).toHaveTextContent("ŞEBNEM FERAH");
   });
 });
