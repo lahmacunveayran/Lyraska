@@ -1,4 +1,10 @@
-import { getAlbumCover, getTrackCover, type LibraryAlbum, type LibraryTrack } from "./backend";
+import {
+  getAlbumCover,
+  getSongCover,
+  getTrackCover,
+  type LibraryAlbum,
+  type LibraryTrack,
+} from "./backend";
 import { drawPrintCover, readPrintColors, type CoverInput, type PrintColors } from "./printCover";
 
 /**
@@ -20,11 +26,26 @@ const MAX_REAL_COVER_CHARS = 12 * 1024 * 1024;
 export interface AlbumCoverRequest extends CoverInput {
   /** Kapak resminin okunacağı şarkı. */
   coverPath: string;
+  /**
+   * Kullanıcı bu şarkıya kapak seçti: albümün değil şarkının kendi kapağı (önce seçilen, yoksa
+   * şarkının içindeki, o da yoksa baskı kapağı).
+   */
+  song?: string;
 }
 
 /** Albümün kimliği (albüm sanatçısı, yoksa sanatçı + albüm adı). */
 function albumId(album: string, artist: string | null): string {
   return `${artist ?? "\u0001"}\u0000${album}`;
+}
+
+/** Kapağı seçilmiş şarkının kimliği (albüm kimlikleriyle karışmaz). */
+function songId(path: string): string {
+  return `\u0002${path}`;
+}
+
+/** İsteğin kimliği: şarkının kendi kapağıysa şarkı, değilse albüm. */
+function requestId(request: AlbumCoverRequest): string {
+  return request.song !== undefined ? songId(request.song) : albumId(request.album, request.artist);
 }
 
 /** Albümün kapak isteği (ızgara, albüm sayfası ve şarkı satırı aynı kimliği kullanır). */
@@ -72,8 +93,20 @@ export function trackCoverRequest(
   track: LibraryTrack,
   index: ReadonlyMap<string, AlbumCoverRequest>,
 ): AlbumCoverRequest | null {
-  if (!track.album) return null;
   const artist = track.albumArtist ?? track.artist;
+  // Kullanıcının şarkıya seçtiği kapak: albümünkini değil kendisininkini gösterir (albüm etiketi
+  // olmasa da; baskı kapağı şarkının adıyla çizilir).
+  if (track.customCover) {
+    return {
+      album: track.album || track.title,
+      artist,
+      key: track.key,
+      bpm: track.bpm,
+      coverPath: track.path,
+      song: track.path,
+    };
+  }
+  if (!track.album) return null;
   return (
     index.get(albumId(track.album, artist)) ?? {
       album: track.album,
@@ -93,13 +126,19 @@ const revisions = new Map<string, number>();
  * kapak değişikliği.
  */
 export function albumCoverKey(request: AlbumCoverRequest): string {
-  const id = albumId(request.album, request.artist);
+  const id = requestId(request);
   return [id, request.key ?? "", request.bpm ?? "", revisions.get(id) ?? 0].join("\u0000");
 }
 
 /** Kullanıcı albümün kapağını seçti ya da kaldırdı: kapak yeniden hazırlanır. */
 export function invalidateAlbumCover(album: string, artist: string | null) {
   const id = albumId(album, artist);
+  revisions.set(id, (revisions.get(id) ?? 0) + 1);
+}
+
+/** Kullanıcı şarkının kapağını seçti ya da kaldırdı: şarkının küçük kapağı yeniden hazırlanır. */
+export function invalidateSongCover(path: string) {
+  const id = songId(path);
   revisions.set(id, (revisions.get(id) ?? 0) + 1);
 }
 
@@ -176,7 +215,11 @@ function printed(request: AlbumCoverRequest): string {
 }
 
 async function prepare(request: AlbumCoverRequest): Promise<string> {
-  const chosen = await getAlbumCover(request.album, request.artist).catch(() => null);
+  const chosen = await (
+    request.song !== undefined
+      ? getSongCover(request.song)
+      : getAlbumCover(request.album, request.artist)
+  ).catch(() => null);
   const real = chosen ?? (await getTrackCover(request.coverPath).catch(() => null));
   if (real && real.length <= MAX_REAL_COVER_CHARS) {
     const small = await shrink(real);

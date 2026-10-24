@@ -10,6 +10,10 @@ vi.mock("./backend", () => ({
     covers.calls.push(path);
     return null;
   },
+  getSongCover: async (path: string) => {
+    covers.calls.push(`şarkıya seçilen:${path}`);
+    return null;
+  },
 }));
 
 import {
@@ -19,6 +23,7 @@ import {
   albumCoverIndex,
   albumCoverRequest,
   invalidateAlbumCover,
+  invalidateSongCover,
   requestAlbumCover,
   trackCoverRequest,
 } from "./albumCovers";
@@ -35,7 +40,7 @@ const album = (name: string, key: string | null = null, bpm: number | null = nul
 const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
 /** Şarkı kapağı okumaları (kullanıcının seçtiği kapağa bakış ayrı sayılır). */
-const trackReads = () => covers.calls.filter((c) => !c.startsWith("seçilen:"));
+const trackReads = () => covers.calls.filter((c) => !c.includes("seçilen:"));
 
 afterEach(() => {
   clearAlbumCovers();
@@ -143,5 +148,53 @@ describe("albüm kapakları", () => {
       bpm: null,
       coverPath: "/m/4.flac",
     });
+  });
+
+  it("şarkıya kapak seçildiyse satır o şarkının kendi kapağını ister", async () => {
+    const own = {
+      id: 7,
+      path: "/m/7.flac",
+      title: "Yedi",
+      artist: "Konuk",
+      album: "Kum",
+      albumArtist: "Ada",
+      trackNumber: 7,
+      durationSecs: 200,
+      codec: "flac",
+      bpm: 120,
+      analyzed: true,
+      key: "4B",
+      customCover: true,
+    };
+    const index = albumCoverIndex([{ ...own, id: 1, path: "/m/1.flac", customCover: undefined }]);
+    const request = trackCoverRequest(own, index)!;
+    expect(request).toEqual({
+      album: "Kum",
+      artist: "Ada",
+      key: "4B",
+      bpm: 120,
+      coverPath: "/m/7.flac",
+      song: "/m/7.flac",
+    });
+    // Albümün kapağıyla aynı kimliği paylaşmaz; albüm etiketi olmasa da kapağı olur (başlığıyla).
+    expect(albumCoverKey(request)).not.toBe(
+      albumCoverKey(albumCoverIndex([{ ...own, customCover: undefined }]).get("Ada\u0000Kum")!),
+    );
+    expect(trackCoverRequest({ ...own, album: null }, index)).toMatchObject({
+      album: "Yedi",
+      song: "/m/7.flac",
+    });
+
+    // Önce şarkıya seçilen kapağa, yoksa şarkının içindekine bakılır (albümün seçtiğine değil).
+    requestAlbumCover(request, () => undefined);
+    await settle();
+    expect(covers.calls).toEqual(["şarkıya seçilen:/m/7.flac", "/m/7.flac"]);
+
+    // Kapak değişince yeniden hazırlanır; başka şarkı etkilenmez.
+    const key = albumCoverKey(request);
+    const other = albumCoverKey({ ...request, song: "/m/8.flac", coverPath: "/m/8.flac" });
+    invalidateSongCover("/m/7.flac");
+    expect(albumCoverKey(request)).not.toBe(key);
+    expect(albumCoverKey({ ...request, song: "/m/8.flac", coverPath: "/m/8.flac" })).toBe(other);
   });
 });

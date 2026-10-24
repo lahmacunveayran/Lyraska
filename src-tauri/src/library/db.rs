@@ -56,6 +56,11 @@ pub struct TrackRow {
     pub analyzed: bool,
     /// Tonun Camelot kodu (ör. "8A"; geçerli ton analizinden, güveni yeterliyse).
     pub key: Option<String>,
+    /// Kullanıcı şarkıya kapak seçtiyse `Some(true)`; yoksa alan gönderilmez (veritabanında değil;
+    /// kapak deposundan komut doldurur).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub custom_cover: Option<bool>,
 }
 
 /// Kütüphanedeki bir albüm (albüm sanatçısı, yoksa sanatçı + albüm adıyla gruplanır).
@@ -470,6 +475,7 @@ impl Library {
                 bpm: r.get(9)?,
                 analyzed: r.get(10)?,
                 key: r.get(11)?,
+                custom_cover: None,
             })
         })?;
         Ok(rows.collect::<Result<_, _>>()?)

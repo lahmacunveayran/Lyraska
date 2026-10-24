@@ -51,6 +51,8 @@ export interface LibraryControls {
   addDropped: (paths: string[]) => Promise<DropOutcome>;
   removeFolder: (id: number) => Promise<void>;
   rescan: () => Promise<void>;
+  /** Listeyi yeniden sorar (ör. şarkıya kapak seçildi: satırların bilgisi değişti). */
+  refresh: () => void;
 }
 
 /**
@@ -225,6 +227,7 @@ export function useLibrary(): LibraryControls {
 
   const removeFolder = useCallback((id: number) => apply(() => removeLibraryFolder(id)), [apply]);
   const rescan = useCallback(() => apply(rescanLibrary), [apply]);
+  const refresh = useCallback(() => setRevision((r) => r + 1), []);
 
   return {
     status,
@@ -241,5 +244,6 @@ export function useLibrary(): LibraryControls {
     addDropped,
     removeFolder,
     rescan,
+    refresh,
   };
 }

@@ -11,6 +11,7 @@ import {
 } from "./icons";
 import {
   clearAlbumCover,
+  clearSongCover,
   errorMessage,
   libraryAlbumTracks,
   libraryArtistTracks,
@@ -18,6 +19,7 @@ import {
   playlistTracks,
   revealTrack,
   setAlbumCover,
+  setSongCover,
   type LibraryAlbum,
   type LibraryArtist,
   type LibraryFolder,
@@ -30,12 +32,20 @@ import { ArtistGrid } from "./ArtistGrid";
 import { ArtistPage, artistAlbums } from "./ArtistPage";
 import { SkyView } from "./SkyView";
 import { RevealButton } from "./RevealButton";
+import { SongCoverSlot } from "./SongCoverMenu";
+import { SongCoverContext, type SongCoverActions } from "./songCoverContext";
+import { invalidateCover } from "../hooks/useCover";
 import { AddToPlaylist } from "./AddToPlaylist";
 import { PlaylistGrid, importSummary } from "./PlaylistGrid";
 import { PlaylistPage } from "./PlaylistPage";
 import { usePlaylists } from "../hooks/usePlaylists";
 import { useArtists } from "../hooks/useArtists";
-import { albumCoverIndex, invalidateAlbumCover, trackCoverRequest } from "../lib/albumCovers";
+import {
+  albumCoverIndex,
+  invalidateAlbumCover,
+  invalidateSongCover,
+  trackCoverRequest,
+} from "../lib/albumCovers";
 import { useAlbums } from "../hooks/useAlbums";
 import { analysisPending, bpmLabel } from "../lib/analysis";
 import {
@@ -285,6 +295,29 @@ export function LibraryPanel({
     setRevealError(null);
     revealTrack(path).catch((e) => setRevealError(errorMessage(e)));
   }, []);
+  // Şarkıya kapak seçme/kaldırma: küçük kapak, çalan şarkının kapağı ve satırların "seçilmiş
+  // kapak" bilgisi (liste yeniden sorulur) tazelenir. Hata uyarıda yazar.
+  const [songCoverError, setSongCoverError] = useState<string | null>(null);
+  const refreshLibrary = library.refresh;
+  const songCover = useMemo<SongCoverActions>(() => {
+    const apply = (path: string, action: Promise<void>) =>
+      action
+        .then(() => {
+          invalidateSongCover(path);
+          invalidateCover(path);
+          refreshLibrary();
+          setSongCoverError(null);
+        })
+        .catch((e) => setSongCoverError(errorMessage(e)));
+    return {
+      choose: (path) => {
+        void pickImage()
+          .then((image) => (image ? apply(path, setSongCover(path, image)) : undefined))
+          .catch((e) => setSongCoverError(errorMessage(e)));
+      },
+      clear: (path) => void apply(path, clearSongCover(path)),
+    };
+  }, [refreshLibrary]);
   // Albüm açılırken ikinci tık (çift tık) albümü ikinci kez başlatmasın.
   const startingAlbum = useRef(false);
   // Kapak seçilince ızgara yeniden çizilsin (kapağın kimliği değişti).
@@ -657,9 +690,10 @@ export function LibraryPanel({
     ...status.problems,
     ...(library.error && usable ? [library.error] : []),
     ...(revealError ? [revealError] : []),
+    ...(songCoverError ? [songCoverError] : []),
   ];
 
-  return (
+  const panel = (
     <section className="library" aria-label="Kütüphane" ref={sectionRef}>
       <header className="library__header">
         <h2 className="library__title">
@@ -1192,6 +1226,7 @@ export function LibraryPanel({
                           />
                           <span className="library__title-text">{track.title}</span>
                           <RevealButton title={track.title} onReveal={() => reveal(track.path)} />
+                          <SongCoverSlot track={track} />
                         </span>
                         <span className="library__cell library__muted" role="gridcell">
                           {track.artist ?? "—"}
@@ -1240,4 +1275,6 @@ export function LibraryPanel({
       )}
     </section>
   );
+  // Şarkı satırlarının kapak menüsü (şarkılar, albüm, sanatçı ve liste sayfaları) işlemleri buradan alır.
+  return <SongCoverContext.Provider value={songCover}>{panel}</SongCoverContext.Provider>;
 }

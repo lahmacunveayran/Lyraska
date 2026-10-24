@@ -37,6 +37,9 @@ const backend = vi.hoisted(() => ({
   pickImage: vi.fn(),
   setAlbumCover: vi.fn(),
   clearAlbumCover: vi.fn(),
+  setSongCover: vi.fn(),
+  clearSongCover: vi.fn(),
+  songCoverAsked: vi.fn(),
   addFolder: vi.fn(),
   removeFolder: vi.fn(),
   pickFolder: vi.fn(),
@@ -233,6 +236,12 @@ vi.mock("../lib/backend", async (importOriginal) => {
     clearAlbumCover: async (album: string, artist: string | null) =>
       backend.clearAlbumCover(album, artist),
     getAlbumCover: async () => null,
+    getSongCover: async (path: string) => {
+      backend.songCoverAsked(path);
+      return null;
+    },
+    setSongCover: async (path: string, image: string) => backend.setSongCover(path, image),
+    clearSongCover: async (path: string) => backend.clearSongCover(path),
     libraryAlbumTracks: async (album: string, artist: string | null) =>
       backend.albumTracks(album, artist) ?? [],
     pickFolder: async () => backend.pickFolder(),
@@ -1191,6 +1200,39 @@ describe("kütüphane", () => {
       fireEvent.click(screen.getByRole("button", { name: /Kaynak: tek eklenenler/ })),
     );
     expect(rows()).toBe(3);
+  });
+
+  it("şarkı satırından şarkıya kapak seçilir ve kaldırılır; liste yeniden sorulur", async () => {
+    backend.desktop = true;
+    backend.library = library;
+    backend.tracks = [song(1, "Mayın Tarlası"), { ...song(2, "Fırtına"), customCover: true }];
+    backend.pickImage.mockReturnValue("C:\\Resimler\\sarki.png");
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    // Kapağı seçilmiş şarkının küçük kapağı şarkıya seçilenden istenir (albümünkinden değil).
+    await waitFor(() => expect(backend.songCoverAsked).toHaveBeenCalledWith(song(2, "").path));
+    expect(backend.songCoverAsked).not.toHaveBeenCalledWith(song(1, "").path);
+    const openMenu = async (title: string) =>
+      act(async () =>
+        fireEvent.click(screen.getByRole("button", { name: `Şarkının kapağı: ${title}` })),
+      );
+    const asked = backend.search.mock.calls.length;
+    await openMenu("Mayın Tarlası");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Kapak seç…" })));
+    await waitFor(() =>
+      expect(backend.setSongCover).toHaveBeenCalledWith(
+        song(1, "").path,
+        "C:\\Resimler\\sarki.png",
+      ),
+    );
+    // Satırların "seçilmiş kapak" bilgisi değişti: liste yeniden sorulur.
+    await waitFor(() => expect(backend.search.mock.calls.length).toBeGreaterThan(asked));
+
+    await openMenu("Fırtına");
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Seçtiğim kapağı kaldır" })),
+    );
+    await waitFor(() => expect(backend.clearSongCover).toHaveBeenCalledWith(song(2, "").path));
   });
 
   it("sütun başlığıyla sıralar; liste yeniden gelse de seçim aynı şarkıda kalır", async () => {

@@ -1,10 +1,11 @@
-//! Kullanıcının albümlere seçtiği kapaklar.
+//! Kullanıcının albümlere, şarkılara ve çalma listelerine seçtiği kapaklar.
 //!
 //! Seçilen resmin kopyası Lyraska'nın veri klasöründe (`kapaklar/`) durur; müzik dosyalarına ve
 //! klasörlerine dokunulmaz (proje sahibinin kararı, 23 Ekim 2026). Dosya adı albümün kimliğinden
 //! (albüm sanatçısı, yoksa sanatçı + albüm adı) türetilir: veritabanına tablo gerekmez, kapak
 //! kaldırılınca dosya silinir.
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use crate::audio::decode::{image_type, Cover, MAX_COVER_BYTES};
@@ -30,13 +31,26 @@ pub enum CoverError {
 /// Albümün kapak dosyasının adı (uzantısız): kimliğin 64 bitlik FNV-1a özeti, onaltılık.
 /// Sabittir: aynı albüm her sürümde aynı dosyayı bulur (test dondurur).
 pub fn stem(album: &str, artist: Option<&str>) -> String {
+    fnv(&format!("{}\u{0}{album}", artist.unwrap_or("\u{1}")))
+}
+
+/// 64 bitlik FNV-1a özeti, 16 haneli onaltılık.
+fn fnv(text: &str) -> String {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-    let id = format!("{}\u{0}{album}", artist.unwrap_or("\u{1}"));
-    for byte in id.as_bytes() {
+    for byte in text.as_bytes() {
         h ^= u64::from(*byte);
         h = h.wrapping_mul(0x0000_0100_0000_01b3);
     }
     format!("{h:016x}")
+}
+
+/// Şarkıların kapak dosyalarının ön eki.
+const TRACK_PREFIX: &str = "sarki-";
+
+/// Şarkının kapak dosyasının adı (uzantısız): yolunun özeti. Albüm adları 16 haneli onaltılık
+/// özet, liste adları `liste-` ile başlar; bu ad ikisiyle de karışmaz. Sabittir (test dondurur).
+pub fn track_stem(path: &str) -> String {
+    format!("{TRACK_PREFIX}{}", fnv(path))
 }
 
 /// Çalma listesinin kapak dosyasının adı (uzantısız). Albüm adları 16 haneli onaltılık özettir;
@@ -91,6 +105,37 @@ impl CoverStore {
     /// Çalma listesinin kapağını kaldırır (liste silinince de çağrılır).
     pub fn playlist_clear(&self, id: i64) -> Result<(), CoverError> {
         self.clear_stem(&playlist_stem(id))
+    }
+
+    /// Şarkıya seçilmiş kapak; yoksa `None` (şarkının kendi kapağı ya da albümünki gösterilir).
+    pub fn track_get(&self, path: &str) -> Option<Cover> {
+        self.get_stem(&track_stem(path))
+    }
+
+    /// Resmi şarkının kapağı yapar (kopyası saklanır; müzik dosyasına dokunulmaz).
+    pub fn track_set(&self, path: &str, source: &Path) -> Result<(), CoverError> {
+        self.set_stem(&track_stem(path), source)
+    }
+
+    /// Şarkıya seçilmiş kapağı kaldırır.
+    pub fn track_clear(&self, path: &str) -> Result<(), CoverError> {
+        self.clear_stem(&track_stem(path))
+    }
+
+    /// Kapağı seçilmiş şarkıların dosya adları (uzantısız, [`track_stem`]): şarkı listesi her
+    /// şarkı için dosya aramasın diye klasör bir kez okunur. Klasör yoksa boş.
+    pub fn track_stems(&self) -> HashSet<String> {
+        let Ok(entries) = std::fs::read_dir(&self.dir) else {
+            return HashSet::new();
+        };
+        entries
+            .filter_map(|entry| {
+                let name = entry.ok()?.file_name().into_string().ok()?;
+                let (stem, ext) = name.rsplit_once('.')?;
+                (stem.starts_with(TRACK_PREFIX) && EXTENSIONS.contains(&ext))
+                    .then(|| stem.to_owned())
+            })
+            .collect()
     }
 
     fn get_stem(&self, stem: &str) -> Option<Cover> {
@@ -157,6 +202,51 @@ mod tests {
         );
         assert_ne!(stem("Kelimeler", None), stem("Kelimeler", Some("")));
         assert_eq!(stem("Kelimeler", Some("Şebnem Ferah")), "2d02bacf43c0b19f");
+    }
+
+    #[test]
+    fn sarkinin_kapak_adi_sabittir_ve_albumlerle_karismaz() {
+        // Değişirse kullanıcıların şarkılara seçtiği kapaklar kaybolur.
+        assert_eq!(
+            track_stem("C:\\Müzik\\Kum.flac"),
+            track_stem("C:\\Müzik\\Kum.flac")
+        );
+        assert_ne!(track_stem("a.flac"), track_stem("b.flac"));
+        assert!(track_stem("a.flac").starts_with("sarki-"));
+        assert_eq!(track_stem("C:\\Müzik\\Kum.flac"), "sarki-3551f4d9fb69d90b");
+    }
+
+    #[test]
+    fn sarkiya_kapak_secilir_listelenir_ve_kaldirilir() {
+        let dir = temp_path("sarki-kapak-deposu");
+        let store = CoverStore::new(&dir);
+        assert!(store.track_stems().is_empty(), "klasör yokken boş");
+        let source = dir.with_extension("png");
+        std::fs::write(&source, PNG).unwrap();
+
+        store.track_set("/m/kum.flac", &source).unwrap();
+        // Aynı adlı albüm ve liste kapakları şarkınınkiyle karışmaz.
+        store.set("/m/kum.flac", None, &source).unwrap();
+        store.playlist_set(1, &source).unwrap();
+        assert_eq!(
+            store.track_get("/m/kum.flac").unwrap().media_type,
+            "image/png"
+        );
+        assert!(store.track_get("/m/ada.flac").is_none());
+        assert_eq!(
+            store.track_stems(),
+            HashSet::from([track_stem("/m/kum.flac")])
+        );
+
+        store.track_clear("/m/kum.flac").unwrap();
+        assert!(store.track_get("/m/kum.flac").is_none());
+        assert!(store.track_stems().is_empty());
+        assert!(
+            store.get("/m/kum.flac", None).is_some(),
+            "albüm kapağı yerinde"
+        );
+        std::fs::remove_file(source).ok();
+        std::fs::remove_dir_all(dir).ok();
     }
 
     #[test]

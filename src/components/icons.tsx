@@ -103,6 +103,18 @@ export function MusicPlusIcon() {
   );
 }
 
+/** Resim (çerçeve içinde dağ ve güneş): kapak seçme. */
+export function ImageIcon() {
+  return (
+    <svg {...base}>
+      <path
+        fillRule="evenodd"
+        d="M3 6.5A2.5 2.5 0 0 1 5.5 4h13A2.5 2.5 0 0 1 21 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5v-11Zm2.5-.5a.5.5 0 0 0-.5.5v8.6l3.6-3.8a1 1 0 0 1 1.45 0l2.2 2.3 3.1-3.4a1 1 0 0 1 1.47 0L19 13v-6.5a.5.5 0 0 0-.5-.5h-13ZM9 10.25a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5Z"
+      />
+    </svg>
+  );
+}
+
 export function RefreshIcon() {
   return (
     <svg {...base} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
