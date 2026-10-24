@@ -609,6 +609,72 @@ pub async fn playlist_cover_clear(id: i64, big: State<'_, BigDataDir>) -> Result
     blocking(move || store.playlist_clear(id).map_err(reported)).await
 }
 
+/// Listeyi `.m3u8` dosyasına aktarır (kapak yanına); kaydedilen dosyanın yolu, vazgeçilirse `null`.
+#[tauri::command]
+pub async fn playlist_export(
+    id: i64,
+    app: tauri::AppHandle,
+    library: State<'_, LibraryState>,
+    big: State<'_, BigDataDir>,
+) -> Result<Option<String>, String> {
+    let file = library
+        .run(move |service| service.playlist_file(id).map_err(reported))
+        .await?;
+    let name: String = file
+        .name
+        .as_deref()
+        .unwrap_or("liste")
+        .chars()
+        .map(|c| {
+            if "<>:\"/\\|?*".contains(c) || c.is_control() {
+                '-'
+            } else {
+                c
+            }
+        })
+        .collect();
+    let Some(target) = ask_save_path(
+        app,
+        "Çalma listesini kaydet",
+        format!("{}.m3u8", name.trim()),
+        ("Çalma listesi", "m3u8"),
+    )
+    .await?
+    else {
+        return Ok(None);
+    };
+    let store = cover_store(&big)?;
+    blocking(move || {
+        let cover = store.playlist_get(id);
+        crate::library::playlist_file::export(file, cover, &target)
+            .map_err(|e| reported(format!("Liste kaydedilemedi: {e}")))?;
+        Ok(Some(target.to_string_lossy().into_owned()))
+    })
+    .await
+}
+
+/// `.m3u8`/`.m3u` dosyasından yeni liste kurar; şarkılar bu bilgisayarın kütüphanesinde aranır.
+#[tauri::command]
+pub async fn playlist_import(
+    file: PathBuf,
+    library: State<'_, LibraryState>,
+    big: State<'_, BigDataDir>,
+) -> Result<crate::library::playlist_file::PlaylistImport, String> {
+    let parsed =
+        blocking(move || crate::library::playlist_file::read(&file).map_err(|e| e.to_string()))
+            .await?;
+    let imported = library
+        .run(move |service| service.import_playlist(&parsed).map_err(reported))
+        .await?;
+    if let Some(cover) = imported.cover.clone() {
+        let store = cover_store(&big)?;
+        let id = imported.playlist.id;
+        // Kapak konamazsa liste yine kurulmuş olur; neden günlüğe yazılır.
+        let _ = blocking(move || store.playlist_set(id, &cover).map_err(reported)).await;
+    }
+    Ok(imported)
+}
+
 /// Albümün şarkılarının yolları, çalma sırasıyla.
 #[tauri::command]
 pub async fn library_album_tracks(

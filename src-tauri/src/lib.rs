@@ -229,6 +229,8 @@ pub fn run() {
             commands::playlist_cover_get,
             commands::playlist_cover_set,
             commands::playlist_cover_clear,
+            commands::playlist_export,
+            commands::playlist_import,
             commands::equalizer_get,
             commands::equalizer_set,
             commands::set_next_track,
