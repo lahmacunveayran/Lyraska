@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { PlayIcon } from "./icons";
 import type { LibraryArtist, LibraryTrack } from "../lib/backend";
 import {
@@ -94,7 +94,14 @@ export function clearArtistPlates() {
   plates.clear();
 }
 
-function ArtistPlate({ artist }: { artist: LibraryArtist }) {
+/** Sanatçının yıldız atlası levhası (ızgarada ve sanatçı sayfasında aynı çizim ve önbellek). */
+export function ArtistPlate({
+  artist,
+  className = "artist__plate",
+}: {
+  artist: LibraryArtist;
+  className?: string;
+}) {
   const [plate, setPlate] = useState<{ url: string; coordinates: string } | null>(
     () => plates.get(`${artist.name}\u0000${artist.albumCount}`) ?? null,
   );
@@ -137,7 +144,7 @@ function ArtistPlate({ artist }: { artist: LibraryArtist }) {
   }, [plate, artist]);
 
   return (
-    <div ref={ref} className="artist__plate">
+    <div ref={ref} className={className}>
       {plate?.url && <img src={plate.url} alt="" draggable={false} />}
       {plate && <span className="artist__coordinates">{plate.coordinates}</span>}
     </div>
@@ -148,31 +155,49 @@ export interface ArtistGridProps {
   artists: LibraryArtist[];
   /** Çalan şarkı (sanatçısı vurgulanır); kütüphanede değilse `null`. */
   current: LibraryTrack | null;
+  /** Karta tıklayınca sanatçı sayfası açılır. */
+  onOpen: (artist: LibraryArtist) => void;
+  /** Levhanın üstündeki çal düğmesi sanatçının bütün şarkılarını hemen baştan çalar. */
   onPlay: (artist: LibraryArtist) => void;
 }
 
-/** Sanatçılar: her sanatçı için basılı bir yıldız atlası levhası. Tıklamak hepsini çalar. */
-export function ArtistGrid({ artists, current, onPlay }: ArtistGridProps) {
+/**
+ * Sanatçılar: her sanatçı için basılı bir yıldız atlası levhası. Karta tıklamak sanatçı sayfasını
+ * açar; levhanın üstündeki çal düğmesi bütün şarkılarını hemen baştan çalar.
+ */
+export function ArtistGrid({ artists, current, onOpen, onPlay }: ArtistGridProps) {
+  const id = useId();
   const playingArtist = current ? (current.albumArtist ?? current.artist) : null;
   return (
     <ul className="artists" aria-label="Sanatçılar">
-      {artists.map((artist) => (
+      {artists.map((artist, index) => (
         <li key={artist.name} className="artist">
           <button
             type="button"
             className={`artist__button${artist.name === playingArtist ? " is-current" : ""}`}
-            onClick={() => onPlay(artist)}
-            title={`Sanatçının bütün şarkılarını çal: ${artist.name}`}
+            onClick={() => onOpen(artist)}
+            title={`Sanatçıyı aç: ${artist.name}`}
+            data-artist={artist.name}
           >
             {/* Albüm sayısı değişince (tarama) levha yeniden çizilir: halka sayısı ona bağlı. */}
             <ArtistPlate key={artist.albumCount} artist={artist} />
-            <span className="album__play" aria-hidden>
-              <PlayIcon />
+            <span className="artist__name" id={`${id}-${index}`}>
+              {artist.name}
             </span>
-            <span className="artist__name">{artist.name}</span>
             <span className="album__meta">
               {NUMBER.format(artist.albumCount)} albüm · {NUMBER.format(artist.trackCount)} şarkı
             </span>
+          </button>
+          {/* Ayrı düğme (düğme içinde düğme olmaz); adı kısa, sanatçı adı açıklamada. */}
+          <button
+            type="button"
+            className="album__play"
+            onClick={() => onPlay(artist)}
+            aria-label="Baştan çal"
+            aria-describedby={`${id}-${index}`}
+            title={`Sanatçının bütün şarkılarını baştan çal: ${artist.name}`}
+          >
+            <PlayIcon />
           </button>
         </li>
       ))}

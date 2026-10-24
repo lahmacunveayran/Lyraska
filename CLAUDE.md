@@ -71,7 +71,7 @@ lyraska/
 │   │                         # şeridi, LyricsOverlay kinetik sözler; sahneler SceneStage'de, galeri ShaderScene + SceneGallery, MilkDropScene kullanıcının .milk görselleri; sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
 │   │                         # ayarlar; her panel ve sahne bir ErrorBoundary içinde: hata yalnızca o bölümü kapatır).
 │   │                         # Klasik sahneler SkyScene, HighwayScene, DriveScene, VuScene (VuMeter), SpectrumView
-│   │                         # (DotMatrix, SpectrumDemo karşılama gösterisi); paneller LibraryPanel (AlbumGrid albüm ızgarası, AlbumPage albüm sayfası: kapak, Çal, albüm sırasıyla şarkılar, ArtistGrid sanatçı levhaları, SkyView gökyüzü: ton ve tempoya göre yıldızlar), EqualizerPanel
+│   │                         # (DotMatrix, SpectrumDemo karşılama gösterisi); paneller LibraryPanel (AlbumGrid albüm ızgarası, AlbumPage albüm sayfası: kapak, Çal, albüm sırasıyla şarkılar, ArtistGrid sanatçı levhaları, ArtistPage sanatçı sayfası: levha, albümler, şarkılar, TrackTable iki sayfanın şarkı listesi, SkyView gökyüzü: ton ve tempoya göre yıldızlar), EqualizerPanel
 │   │                         # (CrossfeedStrip, ParametricEq), MarkerPanel, SyncPanel, AbxPanel, SettingsPanel;
 │   │                         # Dock alttaki cam (şerit, süre, çalma düğmeleri), DropOverlay sürükle-bırak, Marquee kayan
 │   │                         # yazı, icons simgeler

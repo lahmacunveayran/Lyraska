@@ -24,6 +24,7 @@ import {
 import { AlbumArt, AlbumGrid, albumKey } from "./AlbumGrid";
 import { AlbumPage } from "./AlbumPage";
 import { ArtistGrid } from "./ArtistGrid";
+import { ArtistPage, artistAlbums } from "./ArtistPage";
 import { SkyView } from "./SkyView";
 import { useArtists } from "../hooks/useArtists";
 import { albumCoverIndex, invalidateAlbumCover, trackCoverRequest } from "../lib/albumCovers";
@@ -168,9 +169,17 @@ export function LibraryPanel({
   const [view, setViewState] = useState<"songs" | "albums" | "artists" | "sky">("songs");
   // Açık albüm sayfası (Albümler görünümünde); görünüm değişince kapanır.
   const [openAlbum, setOpenAlbum] = useState<LibraryAlbum | null>(null);
+  // Açık sanatçı sayfası (Sanatçılar görünümünde) ve oradan açılan albüm sayfası.
+  const [openArtist, setOpenArtist] = useState<LibraryArtist | null>(null);
+  const [artistAlbum, setArtistAlbum] = useState<LibraryAlbum | null>(null);
+  const closePages = () => {
+    setOpenAlbum(null);
+    setOpenArtist(null);
+    setArtistAlbum(null);
+  };
   const setView = (next: "songs" | "albums" | "artists" | "sky") => {
     setViewState(next);
-    setOpenAlbum(null);
+    closePages();
   };
   const { albums, error: albumsError } = useAlbums(view === "albums", query, library.refreshKey);
   // Şarkı satırlarındaki küçük kapaklar: albümün ilk şarkısından (albüm listesi sorulmadan).
@@ -192,6 +201,35 @@ export function LibraryPanel({
     query,
     library.refreshKey,
   );
+  // Açık sanatçı sayfasının başlığı da tazelenen listeden; sanatçı aramasız listede artık yoksa
+  // sayfa (ve oradan açılan albüm) kapanır.
+  const shownArtist =
+    openArtist && (artists?.find((a) => a.name === openArtist.name) ?? openArtist);
+  // Aramada süzülmüş liste yetmez: sanatçı aramadan bağımsız şarkılarda da yoksa kapanır.
+  if (
+    openArtist &&
+    artists &&
+    !artists.some((a) => a.name === openArtist.name) &&
+    (query === "" ||
+      !library.allTracks.some((t) => (t.albumArtist ?? t.artist) === openArtist.name))
+  ) {
+    setOpenArtist(null);
+    setArtistAlbum(null);
+  }
+  // Sanatçının albümleri aramadan bağımsız bütün şarkılardan; oradan açılan albümün başlığı da.
+  const shownArtistName = shownArtist?.name ?? null;
+  const shownArtistAlbums = useMemo(
+    () => (shownArtistName === null ? [] : artistAlbums(library.allTracks, shownArtistName)),
+    [library.allTracks, shownArtistName],
+  );
+  // Sanatçı sayfasındaki kapak vurgusu: çalan şarkı aramaya uymasa da bulunur.
+  const currentInAll = useMemo(
+    () => library.allTracks.find((track) => track.path === currentPath) ?? null,
+    [library.allTracks, currentPath],
+  );
+  const shownArtistAlbum =
+    artistAlbum &&
+    (shownArtistAlbums.find((a) => albumKey(a) === albumKey(artistAlbum)) ?? artistAlbum);
   const current = useMemo(
     () => library.tracks.find((track) => track.path === currentPath) ?? null,
     [library.tracks, currentPath],
@@ -297,6 +335,8 @@ export function LibraryPanel({
         event.preventDefault();
         setViewState(view);
         setOpenAlbum(null);
+        setOpenArtist(null);
+        setArtistAlbum(null);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -360,18 +400,76 @@ export function LibraryPanel({
   // Esc sırası: önce arama temizlenir (arama kutusu), sonra albüm sayfası kapanır, en son kütüphane
   // (çekmece, pencerede dinler). Belge düzeyinde dinlenir: React'in olaylarından sonra, pencereden
   // önce çalışır; olayı kullanan önceki adım `preventDefault` ile işaretler.
+  // Sanatçılarda sıra: sanatçı sayfasından açılan albüm sayfası, sonra sanatçı sayfası.
+  const pageOpen = openAlbum !== null || openArtist !== null;
+  const artistAlbumOpen = artistAlbum !== null;
   useEffect(() => {
-    if (openAlbum === null) return;
+    if (!pageOpen) return;
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
       const section = sectionRef.current;
       if (!section || section.closest("[hidden], [inert]")) return;
       event.preventDefault();
-      setOpenAlbum(null);
+      if (artistAlbumOpen) {
+        setArtistAlbum(null);
+      } else {
+        setOpenAlbum(null);
+        setOpenArtist(null);
+      }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [openAlbum]);
+  }, [pageOpen, artistAlbumOpen]);
+
+  // Sanatçı sayfası: albüm sayfasındaki gibi ızgaranın kaydırma yeri ve kart hatırlanır. Oradan
+  // açılan albüm sayfası kapanınca sanatçı sayfasının kaydırma yeri geri gelir, odak kapağa döner
+  // (sanatçı sayfası albüm açıkken gizli durur: şarkıları yeniden sorulmaz).
+  const artistsRef = useRef<HTMLDivElement>(null);
+  const artistReturn = useRef<{ name: string; scrollTop: number } | null>(null);
+  const artistAlbumReturn = useRef<{ key: string; scrollTop: number } | null>(null);
+  const showArtist = (artist: LibraryArtist) => {
+    artistReturn.current = { name: artist.name, scrollTop: artistsRef.current?.scrollTop ?? 0 };
+    setOpenArtist(artist);
+  };
+  const showArtistAlbum = (album: LibraryAlbum) => {
+    artistAlbumReturn.current = {
+      key: albumKey(album),
+      scrollTop: artistsRef.current?.scrollTop ?? 0,
+    };
+    setArtistAlbum(album);
+  };
+  useEffect(() => {
+    if (openArtist !== null && artistsRef.current) artistsRef.current.scrollTop = 0;
+  }, [openArtist]);
+  useEffect(() => {
+    if (artistAlbum !== null && artistsRef.current) artistsRef.current.scrollTop = 0;
+  }, [artistAlbum]);
+  useEffect(() => {
+    const back = artistAlbumReturn.current;
+    if (artistAlbum !== null || !back) return;
+    artistAlbumReturn.current = null;
+    const container = artistsRef.current;
+    if (openArtist === null || !container) return;
+    container.scrollTop = back.scrollTop;
+    const cover = Array.from(container.querySelectorAll<HTMLElement>(".artist-page__album")).find(
+      (button) => button.dataset.album === back.key,
+    );
+    cover?.focus({ preventScroll: true });
+  }, [artistAlbum, openArtist]);
+  useEffect(() => {
+    const back = artistReturn.current;
+    if (openArtist !== null || !back) return;
+    const container = artistsRef.current;
+    // Arama değiştiyse ızgara yeniden yükleniyordur: liste gelince odak verilir.
+    if (container && artists === null) return;
+    artistReturn.current = null;
+    if (!container) return;
+    container.scrollTop = back.scrollTop;
+    const card = Array.from(container.querySelectorAll<HTMLElement>(".artist__button")).find(
+      (button) => button.dataset.artist === back.name,
+    );
+    card?.focus({ preventScroll: true });
+  }, [openArtist, artists]);
 
   // Liste yüksekliğini izle (pencere boyutu değişince).
   useEffect(() => {
@@ -781,20 +879,64 @@ export function LibraryPanel({
             />
           )}
           {view === "artists" && (
-            <div className="library__albums">
+            <div className="library__albums" ref={artistsRef}>
               {artistsError || albumError ? (
                 <p className="library__problem" role="alert">
                   {artistsError ?? albumError}
                 </p>
               ) : null}
-              {artists === null ? (
+              {shownArtist !== null ? (
+                <>
+                  <div hidden={shownArtistAlbum !== null}>
+                    <ArtistPage
+                      key={shownArtist.name}
+                      artist={shownArtist}
+                      albums={shownArtistAlbums}
+                      tracks={library.allTracks}
+                      refreshKey={library.refreshKey}
+                      current={currentInAll}
+                      currentPath={currentPath}
+                      playing={playing}
+                      camelot={camelot}
+                      onBack={() => {
+                        setOpenArtist(null);
+                        setArtistAlbum(null);
+                      }}
+                      onOpenAlbum={showArtistAlbum}
+                      onPlay={(paths, start, order) => onPlayPaths(paths, start, order)}
+                    />
+                  </div>
+                  {shownArtistAlbum !== null && (
+                    <AlbumPage
+                      key={albumKey(shownArtistAlbum)}
+                      album={shownArtistAlbum}
+                      tracks={library.allTracks}
+                      refreshKey={library.refreshKey}
+                      currentPath={currentPath}
+                      playing={playing}
+                      camelot={camelot}
+                      onBack={() => setArtistAlbum(null)}
+                      backText={`← ${shownArtist.name}`}
+                      backLabel={`${shownArtist.name} sayfasına dön`}
+                      onPlay={(paths, start, order) => onPlayPaths(paths, start, order)}
+                      onChooseCover={() => chooseCover(shownArtistAlbum)}
+                      onClearCover={() => changeCover(shownArtistAlbum, null)}
+                    />
+                  )}
+                </>
+              ) : artists === null ? (
                 <LoadingGrid label="Sanatçılar yükleniyor" />
               ) : artists.length === 0 ? (
                 <p className="library__none">
                   {query ? `“${query}” için sanatçı yok.` : "Sanatçı etiketi olan şarkı yok."}
                 </p>
               ) : (
-                <ArtistGrid artists={artists} current={current} onPlay={playArtist} />
+                <ArtistGrid
+                  artists={artists}
+                  current={current}
+                  onOpen={showArtist}
+                  onPlay={playArtist}
+                />
               )}
             </div>
           )}

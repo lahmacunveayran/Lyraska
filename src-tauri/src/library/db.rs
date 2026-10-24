@@ -527,7 +527,7 @@ impl Library {
     pub fn artists(&self, query: &str, limit: usize) -> Result<Vec<ArtistRow>, LibraryError> {
         let (filter, words) = search_filter(query, 1);
         let sql = format!(
-            "SELECT COALESCE(album_artist, artist) AS who, COUNT(DISTINCT album), COUNT(*),
+            "SELECT COALESCE(album_artist, artist) AS who, COUNT(DISTINCT NULLIF(album, '')), COUNT(*),
                     path, MIN(sort_key)
              FROM tracks WHERE COALESCE(album_artist, artist) IS NOT NULL
              GROUP BY who HAVING SUM(CASE WHEN 1{filter} THEN 1 ELSE 0 END) > 0
@@ -1427,6 +1427,36 @@ mod tests {
         let found = lib.artists("rüzgar", 10).unwrap();
         assert_eq!(found.len(), 1);
         assert_eq!((found[0].name.as_str(), found[0].track_count), ("Ece", 3));
+    }
+
+    #[test]
+    fn sanatcinin_album_sayisi_bos_albumu_saymaz() {
+        // Albüm listesi boş adlı albümü göstermez; sanatçının albüm sayısı da saymamalı.
+        let mut lib = Library::open_in_memory().unwrap();
+        let folder = lib.add_folder("/m").unwrap();
+        lib.apply_changes(
+            folder.id,
+            &[
+                (
+                    track("/m/a.flac", Some("A"), Some("Ece"), Some("İlk"), Some(1)),
+                    STAMP,
+                ),
+                (
+                    track("/m/b.flac", Some("B"), Some("Ece"), Some(""), Some(1)),
+                    STAMP,
+                ),
+                (
+                    track("/m/c.flac", Some("C"), Some("Ece"), None, Some(1)),
+                    STAMP,
+                ),
+            ],
+            &[],
+        )
+        .unwrap();
+        let ece = &lib.artists("", 10).unwrap()[0];
+        assert_eq!((ece.album_count, ece.track_count), (1, 3));
+        let albums = lib.albums("", 10).unwrap();
+        assert_eq!(albums.len() as u32, ece.album_count);
     }
 
     #[test]

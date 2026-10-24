@@ -1696,19 +1696,24 @@ describe("kütüphane", () => {
   it("sanatçının albüm sayısı değişince (tarama) levhası yeniden çizilir", async () => {
     const artist = { name: "Şebnem Ferah", albumCount: 2, trackCount: 5, coverPath: "C:\\a.flac" };
     const { container, rerender } = render(
-      <ArtistGrid artists={[artist]} current={null} onPlay={() => {}} />,
+      <ArtistGrid artists={[artist]} current={null} onOpen={() => {}} onPlay={() => {}} />,
     );
     await screen.findByText(/^α \d\dh\d\dm/);
     const before = container.querySelector(".artist__plate");
     rerender(
-      <ArtistGrid artists={[{ ...artist, albumCount: 3 }]} current={null} onPlay={() => {}} />,
+      <ArtistGrid
+        artists={[{ ...artist, albumCount: 3 }]}
+        current={null}
+        onOpen={() => {}}
+        onPlay={() => {}}
+      />,
     );
     // Eski levha (2 halkalı) kalmaz: yenisi çizilir.
     expect(container.querySelector(".artist__plate")).not.toBe(before);
     expect(await screen.findByText(/^α \d\dh\d\dm/)).toBeInTheDocument();
   });
 
-  it("sanatçılar görünümü: yıldız atlası levhaları; sanatçıya tıklayınca hepsini çalar", async () => {
+  it("sanatçılar görünümü: yıldız atlası levhaları; levhadaki çal düğmesi hepsini çalar", async () => {
     backend.desktop = true;
     backend.library = library;
     backend.tracks = [song(1, "Mayın Tarlası"), song(2, "Bir Kedi Gördüm")];
@@ -1724,9 +1729,255 @@ describe("kütüphane", () => {
     expect(card).toHaveTextContent("1 albüm · 2 şarkı");
     // Levhanın künyesi (adın gökyüzündeki yeri) yazılır.
     expect(await within(card).findByText(/^α \d\dh\d\dm · δ [+−]\d\d°$/)).toBeInTheDocument();
-    await act(async () => fireEvent.click(card));
+    // Kart sanatçı sayfasını açar; hepsini hemen çalmak levhanın üstündeki ayrı düğmede.
+    const play = within(card.closest("li")!).getByRole("button", { name: "Baştan çal" });
+    expect(play).toHaveAccessibleDescription("Şebnem Ferah");
+    await act(async () => fireEvent.click(play));
     expect(backend.artistTracks).toHaveBeenCalledWith("Şebnem Ferah");
     await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(backend.tracks[0]!.path));
+  });
+
+  // Sanatçı sayfası: iki albüm. Çekirdeğin sanatçı sırası (albüm, disk, parça) listedeki sıradan
+  // bağımsızdır: "Sigara" diskte "Ayna"dan önce.
+  const setupArtist = () => {
+    backend.desktop = true;
+    backend.library = { ...library, trackCount: 4 };
+    backend.tracks = [
+      song(1, "Mayın Tarlası"),
+      song(2, "Bir Kedi Gördüm"),
+      { ...song(4, "Ayna"), album: "Perdeler", trackNumber: 2, bpm: 90, key: "10B" },
+      { ...song(5, "Sigara"), album: "Perdeler", trackNumber: 1 },
+    ];
+    const [t1, t2, t4, t5] = backend.tracks.map((t) => t.path);
+    backend.artists = [{ name: "Şebnem Ferah", albumCount: 2, trackCount: 4, coverPath: t1! }];
+    const order = [t1!, t2!, t5!, t4!];
+    backend.artistTracks.mockReturnValue(order);
+    backend.albumTracks.mockImplementation((album: string) =>
+      album === "Perdeler" ? [t5, t4] : [t1, t2],
+    );
+    return order;
+  };
+
+  const openArtistPage = async () => {
+    await screen.findByText("Mayın Tarlası");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Sanatçılar" })));
+    await act(async () =>
+      fireEvent.click(await screen.findByRole("button", { name: /Şebnem Ferah/ })),
+    );
+    return screen.getByRole("region", { name: "Şebnem Ferah" });
+  };
+
+  it("sanatçı sayfası: karta tıklayınca açılır; levha, ad, özet, albümler ve şarkılar", async () => {
+    const order = setupArtist();
+    render(<App />);
+    const page = await openArtistPage();
+    // Kart çalmaz; odak sayfanın başlığında.
+    expect(backend.open).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { level: 3, name: "Şebnem Ferah" })).toHaveFocus();
+    expect(page.querySelector(".artist-page__plate")).not.toBeNull();
+    expect(await within(page).findByText(/^α \d\dh\d\dm · δ [+−]\d\d°$/)).toBeInTheDocument();
+    await waitFor(() => expect(page).toHaveTextContent("2 albüm · 4 şarkı · 13 dk"));
+    // Albümler küçük kapaklarla, kütüphane sırasıyla.
+    const covers = within(page)
+      .getAllByRole("button", { name: /^(Kelimeler|Perdeler)/ })
+      .map((button) => button.textContent);
+    expect(covers).toEqual(["Kelimeler2 şarkı · 7 dk", "Perdeler2 şarkı · 7 dk"]);
+    // Şarkılar çekirdeğin sırasıyla; albüm sütunuyla; ton Türkçe.
+    const list = await within(page).findByLabelText("Sanatçının şarkıları");
+    const cells = (index: number) =>
+      within(list)
+        .getAllByRole("row")
+        .map((row) => row.querySelectorAll("[role=gridcell]")[index]?.textContent);
+    expect(cells(1)).toEqual(["Mayın Tarlası", "Bir Kedi Gördüm", "Sigara", "Ayna"]);
+    expect(cells(2)).toEqual(["Kelimeler", "Kelimeler", "Perdeler", "Perdeler"]);
+    // Sıra sütunu sayfadaki sıra (albümün parça numarası değil).
+    expect(cells(0)).toEqual(["1", "2", "3", "4"]);
+    expect(within(list).getByText("Mayın Tarlası").closest("[role=row]")).toHaveTextContent(
+      "La minör",
+    );
+    // Çift tık o şarkıdan sanatçının sırasıyla çalar: sırada 3 / 4, sıradaki "Ayna".
+    backend.open.mockImplementation((path: string) => {
+      const found = backend.tracks.find((t) => t.path === path)!;
+      backend.status = {
+        ...playing,
+        state: "paused",
+        track: { ...playing.track!, path, title: found.title, durationSecs: 200 },
+      };
+    });
+    await act(async () => fireEvent.doubleClick(within(list).getByText("Sigara")));
+    await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(order[2]));
+    expect(await screen.findByText("Duraklatıldı · 3 / 4")).toBeInTheDocument();
+    expect(screen.getByText("Ayna · Şebnem Ferah")).toBeInTheDocument();
+    expect(backend.open).toHaveBeenCalledTimes(1);
+  });
+
+  it("sanatçı sayfasında 'Çal' baştan sırayla, 'Karışık çal' karışık çalar; çift tık bir kez", async () => {
+    const order = setupArtist();
+    render(<App />);
+    await openArtistPage();
+    const playAll = screen.getByRole("button", { name: "Sanatçıyı çal" });
+    await waitFor(() => expect(playAll).toBeEnabled());
+    await act(async () => {
+      fireEvent.click(playAll);
+      fireEvent.click(playAll);
+    });
+    await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(order[0]));
+    expect(backend.open).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Karışık çal", pressed: false })).toBeInTheDocument();
+
+    // Çalınca kütüphane kapanır; yeniden açılır, sayfa yerinde.
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Kütüphane" })));
+    await new Promise((resolve) => setTimeout(resolve, 650));
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Sanatçıyı karışık çal" })),
+    );
+    await waitFor(() => expect(backend.open).toHaveBeenCalledTimes(2));
+    expect(order).toContain(backend.open.mock.calls[1]![0]);
+    expect(screen.getByRole("button", { name: "Karışık çal", pressed: true })).toBeInTheDocument();
+  });
+
+  it("sanatçı sayfasından albüm açılır; Esc sanatçı sayfasına, ikinci Esc ızgaraya döndürür", async () => {
+    setupArtist();
+    render(<App />);
+    const artistPage = await openArtistPage();
+    const cover = await within(artistPage).findByRole("button", { name: /^Perdeler/ });
+    await act(async () => fireEvent.click(cover));
+    // Albüm sayfası: albümün kendi sırası; geri düğmesi sanatçıya döner.
+    const heading = screen.getByRole("heading", { level: 3, name: "Perdeler" });
+    expect(heading).toHaveFocus();
+    expect(backend.albumTracks).toHaveBeenCalledWith("Perdeler", "Şebnem Ferah");
+    expect(screen.getByRole("region", { name: "Perdeler" })).toHaveTextContent("2 şarkı · 7 dk");
+    expect(screen.getByRole("button", { name: "Şebnem Ferah sayfasına dön" })).toHaveTextContent(
+      "← Şebnem Ferah",
+    );
+    expect(screen.queryByRole("heading", { level: 3, name: "Şebnem Ferah" })).toBeNull();
+    const list = await screen.findByLabelText("Albümün şarkıları");
+    const titles = within(list)
+      .getAllByRole("row")
+      .map((row) => row.querySelectorAll("[role=gridcell]")[1]?.textContent);
+    expect(titles).toEqual(["Sigara", "Ayna"]);
+
+    const drawer = document.getElementById("drawer")!;
+    await act(async () => fireEvent.keyDown(document.body, { key: "Escape" }));
+    expect(screen.queryByRole("heading", { level: 3, name: "Perdeler" })).toBeNull();
+    expect(screen.getByRole("heading", { level: 3, name: "Şebnem Ferah" })).toBeInTheDocument();
+    // Odak açılan albümün kapağına döner; sanatçının şarkıları yeniden sorulmaz.
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Perdeler/ })).toHaveFocus());
+    expect(backend.artistTracks).toHaveBeenCalledTimes(1);
+    expect(drawer).toHaveAttribute("aria-hidden", "false");
+
+    await act(async () => fireEvent.keyDown(document.body, { key: "Escape" }));
+    expect(screen.queryByRole("region", { name: "Şebnem Ferah" })).toBeNull();
+    await waitFor(() => expect(screen.getByRole("button", { name: /Şebnem Ferah/ })).toHaveFocus());
+    expect(drawer).toHaveAttribute("aria-hidden", "false");
+
+    await act(async () => fireEvent.keyDown(document.body, { key: "Escape" }));
+    expect(drawer).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("sanatçı sayfasının geri düğmeleri: albümden sanatçıya, sanatçıdan ızgaraya", async () => {
+    setupArtist();
+    render(<App />);
+    const artistPage = await openArtistPage();
+    await act(async () =>
+      fireEvent.click(await within(artistPage).findByRole("button", { name: /^Kelimeler/ })),
+    );
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Şebnem Ferah sayfasına dön" })),
+    );
+    expect(screen.getByRole("heading", { level: 3, name: "Şebnem Ferah" })).toBeInTheDocument();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Sanatçılara dön" })));
+    expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: /Şebnem Ferah/ })).toHaveFocus());
+  });
+
+  it("sanatçı sayfası aramadan bağımsız: süzülen şarkılar ve albümler de tam görünür", async () => {
+    backend.searchFilters = true;
+    setupArtist();
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Sanatçılar" })));
+    const search = screen.getByRole("searchbox", { name: "Kütüphanede ara" });
+    await act(async () => fireEvent.change(search, { target: { value: "kedi" } }));
+    await waitFor(() => expect(backend.search).toHaveBeenLastCalledWith("kedi"));
+    await act(async () =>
+      fireEvent.click(await screen.findByRole("button", { name: /Şebnem Ferah/ })),
+    );
+    const page = screen.getByRole("region", { name: "Şebnem Ferah" });
+    await waitFor(() => expect(page).toHaveTextContent("2 albüm · 4 şarkı · 13 dk"));
+    expect(within(page).getAllByRole("button", { name: /^(Kelimeler|Perdeler)/ })).toHaveLength(2);
+    const list = await within(page).findByLabelText("Sanatçının şarkıları");
+    const row = within(list).getByText("Ayna").closest("[role=row]")!;
+    expect(row).toHaveTextContent("90");
+    expect(row).toHaveTextContent("Re majör");
+    expect(row).toHaveTextContent("03:20");
+    // Arama değişince sanatçının şarkıları yeniden sorulmaz (kütüphane değişmedi).
+    await act(async () => fireEvent.change(search, { target: { value: "ked" } }));
+    await waitFor(() => expect(backend.search).toHaveBeenLastCalledWith("ked"));
+    expect(backend.artistTracks).toHaveBeenCalledTimes(1);
+  });
+
+  it("arama sürerken çalan şarkının albümü sanatçı sayfasında vurgulanır", async () => {
+    backend.searchFilters = true;
+    setupArtist();
+    // Çalan "Ayna" aramaya uymuyor (süzülen listede yok).
+    backend.status = { ...playing, track: { ...track, path: backend.tracks[2]!.path } };
+    render(<App />);
+    await act(async () => fireEvent.keyDown(window, { code: "Space", key: " " }));
+    await screen.findByText("Mayın Tarlası");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Sanatçılar" })));
+    const search = screen.getByRole("searchbox", { name: "Kütüphanede ara" });
+    await act(async () => fireEvent.change(search, { target: { value: "kedi" } }));
+    await waitFor(() => expect(backend.search).toHaveBeenLastCalledWith("kedi"));
+    await act(async () =>
+      fireEvent.click(await screen.findByRole("button", { name: /Şebnem Ferah/ })),
+    );
+    const page = screen.getByRole("region", { name: "Şebnem Ferah" });
+    await waitFor(() =>
+      expect(within(page).getByRole("button", { name: /^Perdeler/ })).toHaveClass("is-current"),
+    );
+    expect(within(page).getByRole("button", { name: /^Kelimeler/ })).not.toHaveClass("is-current");
+  });
+
+  it("arama sürerken sanatçı kütüphaneden çıkarsa sayfası kapanır", async () => {
+    backend.searchFilters = true;
+    setupArtist();
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Sanatçılar" })));
+    const search = screen.getByRole("searchbox", { name: "Kütüphanede ara" });
+    await act(async () => fireEvent.change(search, { target: { value: "kedi" } }));
+    await waitFor(() => expect(backend.search).toHaveBeenLastCalledWith("kedi"));
+    await act(async () =>
+      fireEvent.click(await screen.findByRole("button", { name: /Şebnem Ferah/ })),
+    );
+    expect(screen.getByRole("region", { name: "Şebnem Ferah" })).toBeInTheDocument();
+    await waitFor(() => expect(backend.libraryChanged).not.toBeNull());
+    backend.tracks = [{ ...song(6, "Kedi"), artist: "Defne Ak", album: "Ayna" }];
+    backend.artists = [];
+    backend.library = { ...library, trackCount: 1 };
+    await act(async () => backend.libraryChanged?.());
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Şebnem Ferah" })).toBeNull());
+  });
+
+  it("açık sanatçı sayfası tazelenen listeyi izler; sanatçı kaybolursa kapanır", async () => {
+    setupArtist();
+    render(<App />);
+    const page = await openArtistPage();
+    await waitFor(() => expect(page).toHaveTextContent("2 albüm · 4 şarkı"));
+    await waitFor(() => expect(backend.libraryChanged).not.toBeNull());
+    backend.artists = [{ ...backend.artists[0]!, albumCount: 3, trackCount: 5 }];
+    backend.library = { ...library, trackCount: 5 };
+    await act(async () => backend.libraryChanged?.());
+    await waitFor(() =>
+      expect(screen.getByRole("region", { name: "Şebnem Ferah" })).toHaveTextContent(
+        "3 albüm · 5 şarkı",
+      ),
+    );
+    backend.artists = [];
+    backend.library = { ...library, trackCount: 0 };
+    await act(async () => backend.libraryChanged?.());
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Şebnem Ferah" })).toBeNull());
   });
 
   it("gökyüzü görünümü: tonu ve temposu bilinen şarkı yıldız olur, tıklayınca çalar", async () => {
