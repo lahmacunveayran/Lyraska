@@ -480,15 +480,25 @@ pub async fn playlists_list(
         .await
 }
 
-/// Yeni, boş çalma listesi.
+/// Yeni, boş çalma listesi. Kütüphane dosyası bozulup yeniden kurulduysa (ya da silindiyse) kimlikler
+/// baştan başlar: eski listenin `kapaklar/` altında kalan kapağı yeni listeye geçmesin diye silinir.
 #[tauri::command]
 pub async fn playlist_create(
     name: String,
     library: State<'_, LibraryState>,
+    big: State<'_, BigDataDir>,
 ) -> Result<crate::library::playlists::PlaylistRow, String> {
-    library
+    let created = library
         .run(move |service| service.create_playlist(&name).map_err(|e| e.to_string()))
-        .await
+        .await?;
+    if let Ok(store) = cover_store(&big) {
+        let id = created.id;
+        // Kalıntı kapak silinemese de liste kuruldu: yalnızca günlüğe yazılır.
+        blocking(move || store.playlist_clear(id).map_err(reported))
+            .await
+            .ok();
+    }
+    Ok(created)
 }
 
 #[tauri::command]
