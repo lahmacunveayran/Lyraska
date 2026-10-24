@@ -89,6 +89,13 @@ describe("şarkının kapağı", () => {
     expect(screen.queryByRole("button", { name: "Kapak seç…" })).toBeNull();
   });
 
+  it("seçenek seçilince odak düğmeye döner (klavyeyle gezen yerini kaybetmez)", () => {
+    setup({ choose: vi.fn(), clear: vi.fn() });
+    open("Bulut");
+    fireEvent.click(screen.getByRole("button", { name: "Seçtiğim kapağı kaldır" }));
+    expect(screen.getByRole("button", { name: "Şarkının kapağı: Bulut" })).toHaveFocus();
+  });
+
   it("kütüphane paneli işlemleri vermediyse satırda kapak menüsü yok", () => {
     setup(null);
     expect(screen.queryByLabelText("Şarkının kapağı: Ay")).toBeNull();

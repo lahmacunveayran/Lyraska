@@ -70,6 +70,8 @@ export function SongCoverMenu({
   const pick = (event: MouseEvent<HTMLButtonElement>, action: () => void) => {
     event.stopPropagation();
     setAt(null);
+    // Seçenek kaybolunca odak sayfanın başına düşmesin: düğmeye döner.
+    button.current?.focus();
     action();
   };
   const stop = (event: MouseEvent) => event.stopPropagation();
