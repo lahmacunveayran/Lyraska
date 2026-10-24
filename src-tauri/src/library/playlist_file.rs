@@ -10,6 +10,7 @@
 //! Bulunamayan şarkı özgün yoluyla listede kalır (disk takılınca çalar).
 
 use std::collections::HashMap;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use rusqlite::OptionalExtension;
@@ -22,6 +23,8 @@ use crate::audio::decode::Cover;
 
 /// İçe aktarmada kabul edilen en büyük dosya: bundan büyüğü liste değildir.
 pub const MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
+/// İçe aktarılan listede en çok şarkı: her biri veritabanına yazılır, sınırsız olamaz.
+pub const MAX_ENTRIES: usize = 50_000;
 /// Etiketle eşlemede süre farkı (saniye): aynı kaydın farklı kodlaması birkaç yüz ms oynar.
 const DURATION_TOLERANCE_SECS: f64 = 3.0;
 
@@ -373,18 +376,24 @@ pub fn export(mut file: PlaylistFile, cover: Option<Cover>, dest: &Path) -> std:
 
 /// İçe aktarılacak dosyayı okur. UTF-8 değilse (eski `.m3u`) Türkçe kodlamalar denenir.
 pub fn read(src: &Path) -> Result<PlaylistFile, LibraryError> {
-    let size = std::fs::metadata(src)
-        .map_err(|e| LibraryError::PlaylistFile(e.to_string()))?
-        .len();
-    if size > MAX_FILE_BYTES {
+    // Okuma sınırlı: boyutu bildirilmeyen (aygıt, boru) ya da bu arada büyüyen dosya da.
+    let mut bytes = Vec::new();
+    std::fs::File::open(src)
+        .and_then(|f| f.take(MAX_FILE_BYTES + 1).read_to_end(&mut bytes))
+        .map_err(|e| LibraryError::PlaylistFile(e.to_string()))?;
+    if bytes.len() as u64 > MAX_FILE_BYTES {
         return Err(LibraryError::PlaylistFile(
             "dosya bir çalma listesi için çok büyük".into(),
         ));
     }
-    let bytes = std::fs::read(src).map_err(|e| LibraryError::PlaylistFile(e.to_string()))?;
     let text = crate::audio::lyrics::decode_text(&bytes);
     let base = src.parent().map(Path::to_path_buf).unwrap_or_default();
     let mut file = parse(&text, &base);
+    if file.entries.len() > MAX_ENTRIES {
+        return Err(LibraryError::PlaylistFile(format!(
+            "listede çok fazla şarkı var (en çok {MAX_ENTRIES})"
+        )));
+    }
     // Kapak yalnızca listenin yanındaki dosya olabilir: başka bir dosyanın içine yazılmış yol
     // bilgisayardaki herhangi bir resmi Lyraska'ya kopyalatamasın.
     file.cover = file
@@ -796,6 +805,19 @@ mod tests {
         std::fs::write(&song, b"x").unwrap();
         assert!(on_disk(&song.to_string_lossy()));
         assert!(!on_disk(&dir.join("yok.flac").to_string_lossy()));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn cok_sarkili_liste_reddedilir() {
+        // 16 MB'lık dosyada milyonlarca satır olabilir: her biri veritabanına yazılmasın.
+        let dir = std::env::temp_dir().join(format!("lyraska-buyuk-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let list = dir.join("Buyuk.m3u8");
+        std::fs::write(&list, "a.flac\n".repeat(MAX_ENTRIES + 1)).unwrap();
+        assert!(matches!(read(&list), Err(LibraryError::PlaylistFile(_))));
+        std::fs::write(&list, "a.flac\n".repeat(MAX_ENTRIES)).unwrap();
+        assert_eq!(read(&list).unwrap().entries.len(), MAX_ENTRIES);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
