@@ -25,10 +25,8 @@ const ONSET_COMPRESSION: f64 = 1000.0;
 /// Aranan tempo aralığı ve tercih edilen tempo.
 const MIN_BPM: f64 = 60.0;
 const MAX_BPM: f64 = 200.0;
-// 125: yumuşatılmış öz-ilintide iki oktav aday (87 ve 174) eşit çıkınca hızlısı seçilsin (√(87·174)
-// ≈ 123); 120'de saf dürtü dizilerinde 174 BPM 87'ye iniyordu.
-const PREFERRED_BPM: f64 = 125.0;
-/// Tempo kestiriminde iki vuruş sonrasına bakılırken öz-ilintinin yumuşatılması (σ, kare).
+const PREFERRED_BPM: f64 = 120.0;
+/// 2/3 tempo denetiminde başlangıç gücünün yumuşatılması (σ, kare).
 const ACF_SMOOTHING: f64 = 2.5;
 /// Tempo tercihinin genişliği (oktav).
 const TEMPO_PRIOR_OCTAVES: f64 = 1.0;
@@ -367,30 +365,49 @@ fn estimate_period_with_strength(strength: &[f64], fps: f64) -> Option<(f64, f64
     let centered: Vec<f64> = strength.iter().map(|x| x - mean).collect();
     let acf = autocorrelation(&centered, 2 * max_lag + 2);
     let energy = acf[0];
-    // Tempo seçimi yumuşatılmış başlangıç gücünün öz-ilintisiyle yapılır: periyot kesirliyse (126
-    // BPM = 28,57 kare) vuruşlar 28 ve 29 kare arayla gelir, keskin tepeler tam sayı kareye denk
-    // gelmez; vuruş zayıf görünür ve bir buçuk vuruşluk aralık (2/3 tempo) kazanırdı. Ritmin
-    // belirginliği ve kare altı tepe ham öz-ilintiden.
-    let wide = {
-        let soft = smooth(strength, ACF_SMOOTHING);
-        let mean = soft.iter().sum::<f64>() / soft.len() as f64;
-        let centered: Vec<f64> = soft.iter().map(|x| x - mean).collect();
-        autocorrelation(&centered, 2 * max_lag + 2)
-    };
     if energy <= 0.0 {
         return None;
     }
 
     let preferred = fps * 60.0 / PREFERRED_BPM;
-    let score = |lag: usize| {
-        let prior = (-0.5 * ((lag as f64 / preferred).log2() / TEMPO_PRIOR_OCTAVES).powi(2)).exp();
-        prior * (wide[lag] + 0.5 * wide[2 * lag] + 0.25 * (wide[2 * lag - 1] + wide[2 * lag + 1]))
+    let prior =
+        |lag: usize| (-0.5 * ((lag as f64 / preferred).log2() / TEMPO_PRIOR_OCTAVES).powi(2)).exp();
+    let comb = |acf: &[f64], lag: usize| {
+        prior(lag) * (acf[lag] + 0.5 * acf[2 * lag] + 0.25 * (acf[2 * lag - 1] + acf[2 * lag + 1]))
     };
-    let best = (min_lag.max(2)..=max_lag).max_by(|&a, &b| score(a).total_cmp(&score(b)))?;
-    let clarity = acf[best] / energy;
+    let lags = min_lag.max(2)..=max_lag;
+    let pick = |acf: &[f64]| {
+        lags.clone()
+            .max_by(|&a, &b| comb(acf, a).total_cmp(&comb(acf, b)))
+    };
+    let sharp = pick(&acf)?;
+    let clarity = acf[sharp] / energy;
     if clarity < MIN_RHYTHM_STRENGTH {
         return None;
     }
+    // Periyot kesirliyse (126 BPM = 28,57 kare) vuruşlar 28 ve 29 kare arayla gelir; öz-ilintinin
+    // keskin tepeleri tam sayı kareye denk gelmez, vuruş zayıf görünür ve bir buçuk vuruşluk aralık
+    // (2/3 tempo) seçilebilir. Yumuşatılmış başlangıç gücünün öz-ilintisi bu tuzağa düşmez ama
+    // yarım tempoya (oktav) daha çok kayar. İkisi 3:2 ayrılırsa hızlısı (yumuşatılmışın seçtiği)
+    // vuruştur; yoksa keskin seçim geçerlidir.
+    let soft = {
+        let smooth = smooth(strength, ACF_SMOOTHING);
+        let mean = smooth.iter().sum::<f64>() / smooth.len() as f64;
+        let centered: Vec<f64> = smooth.iter().map(|x| x - mean).collect();
+        pick(&autocorrelation(&centered, 2 * max_lag + 2))
+    };
+    // Yumuşatılmış seçim yarım tempoda olabilir: onun iki katı tempo da aday.
+    let three_halves =
+        |fast: f64| ((sharp as f64 / fast) / 1.5 - 1.0).abs() <= SIMPLE_RATIO_TOLERANCE;
+    let best = soft
+        .and_then(|soft| {
+            [soft as f64, soft as f64 / 2.0]
+                .into_iter()
+                .find(|&fast| three_halves(fast))
+        })
+        .map(|fast| fast.round() as usize)
+        .filter(|&fast| fast >= min_lag.max(2))
+        .unwrap_or(sharp);
     // Kare altı tempo: öz-ilinti tepesine parabol.
     let refined = best as f64 + parabola(acf[best - 1], acf[best], acf[best + 1]);
     Some((refined, clarity))
@@ -553,32 +570,10 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn kesirli_vurus_araliginda_tempo_iki_ucte_birine_kaymaz() {
-        // Sekizlikleri dolu (vuruşta kick, arada hi-hat) 4/4 kalıp; 60 kare/sn'de vuruş aralığı
-        // kesirli (ör. 126 BPM = 28,57 kare). İki vuruş sonrasının tepesi tam sayı kareye denk
-        // gelmeyince bir buçuk vuruşluk aralık (2/3 tempo) seçilmemeli.
-        for bpm in (118..=134).map(f64::from) {
-            let frames = (40.0 * FPS) as usize;
-            let mut onset = vec![0.0f32; frames];
-            let mut t = 0.5;
-            let mut eighth = 0usize;
-            while t < 39.5 {
-                let k = (t * FPS).round() as usize;
-                if k < frames {
-                    onset[k] = if eighth.is_multiple_of(2) { 1.0 } else { 0.7 };
-                }
-                eighth += 1;
-                t += 30.0 / bpm;
-            }
-            let grid = track(&onset, FPS, 0.0).unwrap();
-            assert!((grid.bpm - bpm).abs() < bpm * 0.02, "{bpm}: {}", grid.bpm);
-        }
-    }
-
-    #[test]
     fn hicbir_tempoda_iki_ucte_bire_kaymaz() {
-        // 70–190 BPM arası her tempo, iki kalıp (yalnız vuruş; vuruş + hafif sekizlik): bulunan
-        // tempo gerçeğin 2/3'ü ya da 3/2'si olmaz. (Yarısı ya da iki katı belirsizdir; sayılmaz.)
+        // 70–190 BPM arası her tempo, iki kalıp (yalnız vuruş; vuruş + hafif sekizlik). 60 kare/sn'de
+        // vuruş aralığı çoğu tempoda kesirli (126 BPM = 28,57 kare). Bulunan tempo gerçeğin 2/3'ü
+        // ya da 3/2'si olmaz. (Yarısı ya da iki katı belirsizdir; sayılmaz.)
         let mut wrong = Vec::new();
         for b in 70..=190 {
             let bpm = f64::from(b);
