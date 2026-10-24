@@ -96,8 +96,8 @@ describe("gece otoyolu", () => {
     expect(phaseDistance(b.dash, fract(4 * 2 * 2))).toBeLessThan(0.02);
   });
 
-  it("lambalar en hızlı tempoda bile saniyede en fazla 2 geçer; güvenli modda 1", () => {
-    for (const safe of [false, true]) {
+  it("güvenli modda lambalar en hızlı tempoda bile saniyede en fazla 1 geçer", () => {
+    for (const safe of [true]) {
       let s = HIGHWAY_AT_REST;
       for (let i = 1; i <= 600; i++) {
         const t = i * DT;
@@ -114,8 +114,27 @@ describe("gece otoyolu", () => {
           safe,
         );
       }
-      expect(s.lamp / 10, `güvenli: ${safe}`).toBeLessThanOrEqual(safe ? 1.05 : 2.05);
+      expect(s.lamp / 10, `güvenli: ${safe}`).toBeLessThanOrEqual(1.05);
     }
+  });
+
+  it("varsayılan modda lambaların geçiş hızı sınırsızdır (ölçü başına kilitli kalır)", () => {
+    // Aynı en kötü senaryo: varsayılan modda lambalar ölçü başlarını yakalar, saniyede 2'yi aşar.
+    let s = HIGHWAY_AT_REST;
+    for (let i = 1; i <= 600; i++) {
+      const t = i * DT;
+      const beats = t * 10;
+      s = stepHighway(
+        s,
+        {
+          energies: [1, 1, 1],
+          beat: { bpm: 600, phase: beats % 1 },
+          director: { mood: 1, theme: 0, barPhase: (beats / 4) % 1, anticipation: 0, release: 1 },
+        },
+        DT,
+      );
+    }
+    expect(s.lamp / 10).toBeGreaterThan(2.05);
   });
 
   it("ritim yokken ve çalmıyorken yol yavaşça akar", () => {
@@ -152,8 +171,8 @@ describe("gece otoyolu", () => {
     expect(highwayLuminance(5, 5)).toBeCloseTo(HIGHWAY_MAX_LUMINANCE, 10);
   });
 
-  it("parıltı saniyede ENERGY_SLEW_PER_SECOND'dan hızlı değişmez; güvenli modda yarısı", () => {
-    for (const safe of [false, true]) {
+  it("güvenli modda parıltı saniyede ENERGY_SLEW_PER_SECOND'ın yarısından hızlı değişmez", () => {
+    for (const safe of [true]) {
       let s = HIGHWAY_AT_REST;
       for (let i = 0; i < 600; i++) {
         const loud = i % 2 === 0;
@@ -166,7 +185,7 @@ describe("gece otoyolu", () => {
           false,
           safe,
         );
-        const limit = (safe ? 0.5 : 1) * ENERGY_SLEW_PER_SECOND * DT + 1e-12;
+        const limit = 0.5 * ENERGY_SLEW_PER_SECOND * DT + 1e-12;
         expect(Math.abs(next.glow - s.glow)).toBeLessThanOrEqual(limit);
         expect(Math.abs(next.bloom - s.bloom)).toBeLessThanOrEqual(limit);
         s = next;
@@ -174,12 +193,16 @@ describe("gece otoyolu", () => {
     }
   });
 
-  it("en kötü durumda bile saniyede 3'ten fazla parlamaz (epilepsi güvenliği)", () => {
-    // Güvenli mod ve "animasyonları azalt" tercihi de ölçüme girer (ARA-07).
+  it("varsayılan modda parıltının hız sınırı yoktur (yalnızca yumuşatılır)", () => {
+    const next = stepHighway(HIGHWAY_AT_REST, music(0, { release: 1 }), DT);
+    expect(next.bloom).toBe(1);
+    expect(next.glow).toBeGreaterThan(5 * 0.5 * ENERGY_SLEW_PER_SECOND * DT);
+  });
+
+  it("güvenli modda en kötü durumda bile saniyede 3'ten fazla parlamaz (epilepsi güvenliği)", () => {
+    // "Animasyonları azalt" tercihi de ölçüme girer (ARA-07).
     for (const [safe, reduced] of [
-      [false, false],
       [true, false],
-      [false, true],
       [true, true],
     ] as const) {
       for (const hz of [0.5, 1, 1.5, 2, 3, 4, 6, 8, 12, 20, 30]) {
@@ -211,9 +234,11 @@ describe("gece otoyolu", () => {
   });
 
   it("uzun bir sekme aradan sonra sıçramaz", () => {
-    const after = stepHighway(HIGHWAY_AT_REST, music(1, { release: 1 }), 30);
-    expect(after.glow).toBeLessThanOrEqual(ENERGY_SLEW_PER_SECOND * 0.25 + 1e-12);
+    const after = stepHighway(HIGHWAY_AT_REST, music(1, { release: 1 }), 30, false, true);
+    expect(after.glow).toBeLessThanOrEqual(0.5 * ENERGY_SLEW_PER_SECOND * 0.25 + 1e-12);
     expect(after.dash).toBeLessThan(2);
+    // Varsayılan modda da adım 0,25 sn'ye kırpılır: yol sıçramaz.
+    expect(stepHighway(HIGHWAY_AT_REST, music(1, { release: 1 }), 30).dash).toBeLessThan(2);
   });
 });
 

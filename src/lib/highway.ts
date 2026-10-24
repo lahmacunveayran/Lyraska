@@ -15,14 +15,15 @@ import { SCENE_CLOCK_PERIOD, foldTime } from "./sceneClock";
  * - Doku katmanı: vuruş yoğunluğu yolun kıvrılmasını ve şehir pencerelerinin değişimini
  *   hızlandırır (yoğun bölümde şehir daha canlı).
  *
- * Epilepsi güvenliği: ekranın parlaklığını değiştiren tek değer (parıltı ve
- * açılım) saniyede en fazla `ENERGY_SLEW_PER_SECOND` kadar değişir (güvenli
- * modda yarısı). Vuruşlar parlaklığa değil, yolun akışına yansır.
+ * Parlaklık hızı: ekranın parlaklığını değiştiren tek değer (parıltı ve açılım) varsayılan
+ * modda yalnızca yumuşatılır, hız sınırı yoktur; Epilepsi güvenli modunda saniyede en fazla
+ * `ENERGY_SLEW_PER_SECOND`'ın yarısı kadar değişir (`brightnessSlew`) ve lambalar saniyede en
+ * fazla bir geçer. Vuruşlar parlaklıktan çok yolun akışına yansır.
  */
 
 import {
   BLOOM_LUMINANCE,
-  ENERGY_SLEW_PER_SECOND,
+  brightnessSlew,
   clamp01,
   slew,
   smooth,
@@ -87,13 +88,12 @@ const IDLE_DASH_RATE = 1.2;
 const LOCK_SECONDS = 0.2;
 /** Kilitlenirken bile yol bu orandan yavaş akmaz (geri gitmez). */
 const MIN_ADVANCE = 0.3;
-/**
- * Drop açılımı bu değerin üstündeyken çizgiler (ve lambalar) iki kat hızla geçer.
- * En hızlı tempoda (240 BPM) bile lambalar saniyede en fazla 2 geçer; güvenli modda 1.
- */
+/** Drop açılımı bu değerin üstündeyken çizgiler (ve lambalar) iki kat hızla geçer. */
 const DOUBLE_TIME_BLOOM = 0.5;
-/** Lambaların geçiş sıklığı için üst sınır (lamba / saniye), yakalarken bile. */
-const MAX_LAMP_RATE = 2;
+/**
+ * Güvenli modda lambaların geçiş sıklığı için üst sınır (lamba / saniye), yakalarken bile.
+ * Varsayılan modda sınır yoktur.
+ */
 const SAFE_LAMP_RATE = 1;
 /** "Animasyonları azalt" açıkken hareket bu oranda yavaşlar (ve vuruşa kilitlenmez). */
 const REDUCED_MOTION_SPEED = 0.25;
@@ -122,7 +122,7 @@ export function stepHighway(
   safe = false,
 ): HighwayState {
   const step = Math.max(0, Math.min(dt, 0.25)); // sekme/uyku sonrası sıçramayı sınırla
-  const slewRate = (safe ? 0.5 : 1) * ENERGY_SLEW_PER_SECOND * step;
+  const slewRate = brightnessSlew(step, safe);
   const director = input?.director ?? null;
 
   // Parıltı: bas ağırlıklı enerji; sakin bölümde sönük, yoğun bölümde canlı.
@@ -161,7 +161,7 @@ export function stepHighway(
     (dashRate / DASHES_PER_LAMP) * motion * step,
     locked && beat && director?.barPhase != null ? director.barPhase * multiple : null,
     step,
-    (safe ? SAFE_LAMP_RATE : MAX_LAMP_RATE) * step,
+    safe ? SAFE_LAMP_RATE * step : Number.POSITIVE_INFINITY,
   );
 
   const textureMotion = smoothTexture(prev.motion, input ? director?.motion : undefined, step);

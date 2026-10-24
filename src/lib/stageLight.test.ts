@@ -88,8 +88,8 @@ describe("sahne ışığı", () => {
     expect(busy.motion).toBeGreaterThan(0.95);
   });
 
-  it("parlaklık her karede hız sınırı içinde değişir; güvenli modda yarı hızda", () => {
-    for (const safe of [false, true]) {
+  it("güvenli modda parlaklık her karede yarı hız sınırı içinde değişir", () => {
+    for (const safe of [true]) {
       let light = STAGE_LIGHT_AT_REST;
       for (let i = 0; i < 600; i++) {
         const loud = Math.floor(i / 7) % 2 === 0;
@@ -100,7 +100,7 @@ describe("sahne ışığı", () => {
           false,
           safe,
         );
-        const limit = (safe ? 0.5 : 1) * ENERGY_SLEW_PER_SECOND * DT + 1e-12;
+        const limit = 0.5 * ENERGY_SLEW_PER_SECOND * DT + 1e-12;
         expect(Math.abs(next.glow - light.glow)).toBeLessThanOrEqual(limit);
         expect(Math.abs(next.bloom - light.bloom)).toBeLessThanOrEqual(limit);
         light = next;
@@ -108,8 +108,14 @@ describe("sahne ışığı", () => {
     }
   });
 
-  it("en kötü durumda bile saniyede 3'ten fazla parlamaz (epilepsi güvenliği)", () => {
-    for (const safe of [false, true]) {
+  it("varsayılan modda parlaklığın hız sınırı yoktur (yalnızca yumuşatılır)", () => {
+    const next = stepStageLight(STAGE_LIGHT_AT_REST, note({ mood: 1, release: 1 }), DT);
+    expect(next.bloom).toBe(1);
+    expect(next.glow).toBeGreaterThan(5 * 0.5 * ENERGY_SLEW_PER_SECOND * DT);
+  });
+
+  it("güvenli modda en kötü durumda bile saniyede 3'ten fazla parlamaz (epilepsi güvenliği)", () => {
+    for (const safe of [true]) {
       for (const hz of [0.5, 1, 1.5, 2, 3, 4, 6, 8, 12, 20, 30]) {
         let light = STAGE_LIGHT_AT_REST;
         const luminance: number[] = [];
@@ -148,8 +154,14 @@ describe("sahne ışığı", () => {
   });
 
   it("uzun bir sekme aradan sonra sıçramaz", () => {
-    const after = stepStageLight(STAGE_LIGHT_AT_REST, note({ mood: 1, release: 1 }), 30);
-    expect(after.glow).toBeLessThanOrEqual(ENERGY_SLEW_PER_SECOND * 0.25 + 1e-12);
+    const after = stepStageLight(
+      STAGE_LIGHT_AT_REST,
+      note({ mood: 1, release: 1 }),
+      30,
+      false,
+      true,
+    );
+    expect(after.glow).toBeLessThanOrEqual(0.5 * ENERGY_SLEW_PER_SECOND * 0.25 + 1e-12);
   });
 
   it("yönetmen notunun gerekli kısmını alır; not yoksa ışık dinlenir", () => {

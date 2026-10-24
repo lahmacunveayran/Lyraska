@@ -1,6 +1,6 @@
 import { PEAK_FALL_PER_SECOND, PEAK_HOLD_SECONDS, type PeakBallistics } from "./meter";
 import { SCENE_CLOCK_PERIOD } from "./sceneClock";
-import { ENERGY_SLEW_PER_SECOND, clamp01, slew, smooth, smoothTexture } from "./sky";
+import { brightnessSlew, clamp01, slew, smooth, smoothTexture } from "./sky";
 
 /**
  * "Sahne ışığı": VU ibreleri ve spektrum sahnelerinin Görsel Yönetmen'e bağlanan arka ışığı
@@ -15,9 +15,10 @@ import { ENERGY_SLEW_PER_SECOND, clamp01, slew, smooth, smoothTexture } from "./
  * - **Doku:** halenin süzülme hızı vuruş yoğunluğundan (hareket), spektrumda tepe noktalarının
  *   düşüş hızı tizlerin canlılığından (ayrıntı) gelir.
  *
- * Epilepsi güvenliği: ekranın parlaklığını değiştiren tek değer (`glow`) saniyede en fazla
- * `ENERGY_SLEW_PER_SECOND` kadar değişir (güvenli modda yarısı). Kabarma ve süzülme parlaklığa
- * dokunmaz; "animasyonları azalt" açıkken ikisi de durur.
+ * Parlaklık hızı: ekranın parlaklığını değiştiren tek değer (`glow`) varsayılan modda yalnızca
+ * yumuşatılır, hız sınırı yoktur; Epilepsi güvenli modunda saniyede en fazla
+ * `ENERGY_SLEW_PER_SECOND`'ın yarısı kadar değişir (`brightnessSlew`). Kabarma ve süzülme
+ * parlaklığa dokunmaz; "animasyonları azalt" açıkken ikisi de durur.
  */
 
 /** Sahne ışığının Görsel Yönetmen'den kullandığı değerler (`DirectorFrame`'in alt kümesi). */
@@ -92,7 +93,7 @@ export function stepStageLight(
   safe = false,
 ): StageLight {
   const step = Math.max(0, Math.min(dt, 0.25)); // sekme/uyku sonrası sıçramayı sınırla
-  const slewRate = (safe ? 0.5 : 1) * ENERGY_SLEW_PER_SECOND * step;
+  const slewRate = brightnessSlew(step, safe);
 
   const tension = slew(
     prev.tension,
