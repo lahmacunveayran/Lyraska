@@ -188,10 +188,10 @@ impl SharedState {
     /// ([`spectrum::bar_levels`]): pencere o anın üstüne ortalanır, her örneğe kendi şarkısının
     /// eşitleme kazancı uygulanır ([`Self::waveform_at`] gibi). Çözme henüz başlamadıysa `None`.
     fn spectrum_at(&self, heard: u64, offset_secs: f64) -> Option<Vec<f32>> {
-        let half = (spectrum::LONG / 2) as f64 / f64::from(waveform::WAVEFORM_RATE);
+        let half = (spectrum::WINDOW / 2) as f64 / f64::from(waveform::WAVEFORM_RATE);
         let window = self
             .waveform
-            .read_window::<{ spectrum::LONG }>(heard, offset_secs + half)?;
+            .read_window::<{ spectrum::WINDOW }>(heard, offset_secs + half)?;
         let gains = self.window_gains(&window)?;
         Some(spectrum::bar_levels(&waveform::mono_mix(&window, &gains)))
     }
@@ -3738,7 +3738,8 @@ mod tests {
         let second = shared.spectrum_at(72_000, 0.0).unwrap();
         assert_eq!(first.len(), spectrum::BARS);
         let (a, b) = (loudest_bar(&first), loudest_bar(&second));
-        assert!(b >= a + 8, "60 Hz {a}, 80 Hz {b}");
+        // Doğrusal eksende 9,9 Hz aralık: 60 Hz 4., 80 Hz 6. çubuk.
+        assert_eq!((a, b), (4, 6), "60 Hz {a}, 80 Hz {b}");
         // Pencere duyulan ana ortalanır: geçişten 30 ms önce hâlâ 60 Hz baskın.
         let before = shared.spectrum_at(48_000 - 1_440, 0.0).unwrap();
         assert!(before[a] > before[b], "{} {}", before[a], before[b]);

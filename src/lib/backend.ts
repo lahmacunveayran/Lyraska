@@ -352,7 +352,7 @@ export async function getVisualWaveform(): Promise<Uint8Array | null> {
 
 /**
  * Şu an duyulan anın ince spektrum çubukları ("Kendi resmin" sahnesi): `bars` seviye, 0..1, bas
- * solda (40 Hz – 16 kHz, logaritmik; çekirdekte bas uzun, gerisi kısa pencereden). Görsel
+ * solda (20 Hz – 2 kHz, doğrusal; genlikle doğru orantılı, src-tauri/src/audio/spectrum.rs). Görsel
  * karelerle aynı an. Duraklatılmışsa hepsi 0; çalan şarkı yoksa, yanıt beklenen uzunlukta
  * değilse ya da tarayıcı önizlemesinde `null`.
  */

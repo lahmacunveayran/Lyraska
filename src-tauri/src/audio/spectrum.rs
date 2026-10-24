@@ -1,31 +1,28 @@
 //! İnce spektrum çubukları ("Kendi resmin" sahnesi): çalan sesin o an duyulan kısmının Fourier
-//! dönüşümünden 200 çubuk, 40 Hz – 16 kHz arasında logaritmik (bas solda).
+//! dönüşümünden 200 çubuk, 20 Hz – 2 kHz arasında **doğrusal** frekansla (bas solda).
 //!
-//! **İki çözünürlük.** Logaritmik dizilişte bir çubuk komşusundan yalnızca ~%3 yüksek frekanstadır:
-//! 60 Hz'te çubuk ~1,8 Hz genişliğindedir. 1024 örneklik pencerenin kutusu ise 43 Hz'tir; bas
-//! çubuklarının çoğu aynı kutuyu paylaşır, bas tek düzgün bir tümsek gibi görünür. Bu yüzden
-//! ~500 Hz'in altındaki çubuklar 4096 örneklik pencereden (10,8 Hz kutu; 4 kat sıfır
-//! dolgusuyla 2,7 Hz aralıklı örneklenir) okunur: 60 Hz ile 80 Hz ayrı çubuklarda tepe yapar,
-//! bas çubukları birbirinden bağımsız iner kalkar. Üstündeki çubuklar zaten birkaç kutu
-//! genişliğindedir; onlar kısa (1024 örnek) pencereden okunur ve tizler çabuk tepki verir.
+//! Model, proje sahibinin örnek videolarından ölçülerek çıkarıldı (docs/arastirma/kendi-resmin/):
+//! her karede her çubuğun boyu ölçüldü, kaydın sesiyle hizalandı; frekans ekseni, pencere,
+//! genlik ölçeği ve zaman davranışı ölçümle seçildi.
 //!
-//! **Zaman.** İki pencere de duyulan anın üstüne ortalanır (dokunuşta duyulan andan 2 sn öndeki
-//! örnekler de vardır): uzun pencere bası geciktirmez, kısa pencereyle aynı ana bakar. Hann
-//! penceresiyle uzun pencerenin etkin süresi ~±25 ms'dir.
+//! - **Frekans ekseni doğrusal, 20 Hz'ten 2 kHz'e**: `k`. çubuk `20 + k · 1980 / 200` Hz'i
+//!   (9,9 Hz aralık) gösterir. İki farklı videoda (200 ve 220 çubuk) en iyi uyan uçlar aynıydı:
+//!   20 Hz ve 2000 Hz; logaritmik eksen ölçümle çok daha kötü uydu. Bas (20–200 Hz) soldaki ilk
+//!   ~18 çubuktur; orta sesler çizginin geri kalanını kaplar.
+//! - **Çubuk tek bir frekanstır** (aralığın en büyüğü ya da ortalaması değil): spektrum o
+//!   frekansta okunur. Komşu çubuklar 9,9 Hz aralıklı, pencerenin kutusu 10,8 Hz: her çubuk kendi
+//!   tepe ve çukurunu gösterir; çizgi tırtıklı, ince, bağımsız sivri çubuklardan oluşur.
+//! - **Pencere 4096 örnek Hann** (~93 ms; duyulan anın üstüne ortalanır). Daha kısa ya da uzun
+//!   pencereler ölçümle daha kötü uydu.
+//! - **Genlik doğrusal** (dB değil): boy genlikle doğru orantılıdır (ölçülen boy ile doğrusal
+//!   genlik arasında r ≈ 0,92; dB ile 0,50). Frekansa göre ağırlık yok. [`FULL_AMPLITUDE`]
+//!   genlik çubuğu en büyük boyuna (arayüzde ekran yüksekliğinin %45'i) çıkarır: −14 LUFS'e
+//!   eşitlenmiş seste ölçülen eğimle aynı.
+//! - Zamanda yumuşatma neredeyse yoktur: her kare kendi spektrumudur (sönme ≤ 20 ms; arayüzde,
+//!   `src/lib/spectrumBars.ts`).
 //!
-//! İki pencerenin geçişi [`BLEND_FROM_HZ`]–[`BLEND_TO_HZ`] arasında yumuşaktır (dB'de karışım):
-//! gürültü gibi sesler uzun pencerede ~6 dB zayıf görünür (sinüse göre ölçeklenen spektrumda
-//! gürültünün kutu başına payı pencere uzadıkça azalır); tek sınırda çubuk sırası basamak yapardı.
-//!
-//! **Seviye.** Her çubuk kendi frekans aralığının en güçlü bileşenini gösterir. Tizler doğal
-//! olarak zayıf olduğundan oktav başına +2 dB eğimle dengelenir; genlik [`REF_DB`]'ye göre
-//! doğrusal olarak 0..1'e eşlenir (dB ölçeği değil): güçlü bileşenler belirgin iner, zayıflar
-//! çizgide kısa uçlar olarak kalır; çubuklar ayrı ayrı, tırtıklı görünür (müzik görselleştirme
-//! videolarındaki gibi; proje sahibinin örneği). Sesler −14 LUFS eşitleme kazancıyla gelir
-//! (`player`), şarkıdan şarkıya ölçek aynı kalır. Çubuğun sönmesi arayüzde yapılır
-//! (`src/lib/spectrumBars.ts`).
-//!
-//! Komut iş parçacığında çalışır (ses çıkışına dokunmaz); FFT planları bir kez kurulur.
+//! Sesler −14 LUFS eşitleme kazancıyla gelir (`player`): şarkıdan şarkıya ölçek aynı kalır.
+//! Komut iş parçacığında çalışır (ses çıkışına dokunmaz); FFT planı bir kez kurulur.
 
 use std::sync::{Arc, OnceLock};
 
@@ -37,52 +34,44 @@ use super::Sample;
 
 /// Çubuk sayısı (arayüzde `PHOTO_BARS`).
 pub const BARS: usize = 200;
-/// Uzun pencere (bas çubukları) ve kısa pencere (geri kalanı), örnek.
-pub const LONG: usize = 4096;
-pub const SHORT: usize = 1024;
-/// Uzun pencerenin sıfır dolgusu: spektrum 10,8 / 4 = 2,7 Hz aralıkla örneklenir.
-const LONG_PAD: usize = 4;
-/// Çubukların kapsadığı frekans aralığı (Hz).
-const MIN_HZ: f64 = 40.0;
-const MAX_HZ: f64 = 16_000.0;
-/// Bu frekansın altındaki çubuklar yalnızca uzun pencereden, [`BLEND_TO_HZ`]'in üstündekiler
-/// yalnızca kısa pencereden okunur; arada ikisi dB'de karışır (Hz). 500 Hz'te çubuk ~15 Hz
-/// genişliğinde: uzun pencerenin kutusundan geniş, kısa pencerenin kutusunun üçte biri.
-pub const BLEND_FROM_HZ: f64 = 350.0;
-pub const BLEND_TO_HZ: f64 = 700.0;
-/// Çubuğu dolduran genlik (dB, tam ölçekli sinüs 0 dB; eğimden sonra).
-const REF_DB: f64 = -18.0;
-/// Oktav başına eğim (dB), 1 kHz'e göre.
-const TILT_DB_PER_OCTAVE: f64 = 2.0;
+/// Pencere boyu (örnek, 44,1 kHz'te ~93 ms).
+pub const WINDOW: usize = 4096;
+/// Sıfır dolgusu: spektrum 10,8 / 4 = 2,7 Hz aralıkla örneklenir; çubuğun frekansındaki değer
+/// komşu iki örnek arasından okunur.
+const PAD: usize = 4;
+/// İlk çubuğun frekansı ve çubukların kapladığı aralığın üst ucu (Hz): `k`. çubuk
+/// `START_HZ + k · (END_HZ − START_HZ) / BARS`.
+pub const START_HZ: f64 = 20.0;
+pub const END_HZ: f64 = 2000.0;
+/// Çubuğu dolduran genlik (sol ve sağın ortalaması; tam ölçekli sinüs 1). Örnek videolarda
+/// −14 LUFS'e göre ölçülen eğim: boy ≈ 1,58 · genlik · ekran yüksekliği; arayüzün en büyük boyu
+/// ekranın %45'i: 0,45 / 1,58 ≈ 0,285.
+pub const FULL_AMPLITUDE: f64 = 0.285;
 
-/// Bir çubuğun frekans aralığı.
-#[derive(Debug, Clone, Copy)]
-struct Band {
-    lo_hz: f64,
-    hi_hz: f64,
-    /// Aralığın (logaritmik) ortası: eğim için.
-    hz: f64,
+/// `k`. çubuğun frekansı (Hz).
+pub fn bar_hz(k: usize) -> f64 {
+    START_HZ + (END_HZ - START_HZ) * k as f64 / BARS as f64
 }
 
-/// Bir pencere boyu için FFT planı, Hann penceresi ve genlik ölçeği.
+/// FFT planı, Hann penceresi ve genlik ölçeği.
 struct Transform {
     fft: Arc<dyn Fft<Sample>>,
     window: Vec<Sample>,
     /// Dolgulu FFT uzunluğu.
     padded: usize,
-    /// Tam ölçekli sinüs kendi kutusunda 1 versin: 2 / Σw.
+    /// Tam ölçekli sinüs kendi frekansında 1 versin: 2 / Σw.
     scale: Sample,
 }
 
 impl Transform {
-    fn new(planner: &mut FftPlanner<Sample>, len: usize, pad: usize) -> Self {
+    fn new(len: usize, pad: usize) -> Self {
         let window: Vec<Sample> = (0..len)
             .map(|i| 0.5 - 0.5 * (2.0 * std::f64::consts::PI * i as f64 / (len - 1) as f64).cos())
             .collect();
         let sum: Sample = window.iter().sum();
         let padded = len * pad;
         Self {
-            fft: planner.plan_fft_forward(padded),
+            fft: FftPlanner::new().plan_fft_forward(padded),
             window,
             padded,
             scale: 2.0 / sum.max(f64::MIN_POSITIVE),
@@ -103,40 +92,15 @@ impl Transform {
             .collect()
     }
 
-    /// Kutu genişliği (Hz).
+    /// Kutu aralığı (Hz).
     fn bin_hz(&self) -> f64 {
         f64::from(WAVEFORM_RATE) / self.padded as f64
     }
 }
 
-struct Plans {
-    long: Transform,
-    short: Transform,
-    bands: Vec<Band>,
-}
-
-fn plans() -> &'static Plans {
-    static PLANS: OnceLock<Plans> = OnceLock::new();
-    PLANS.get_or_init(|| {
-        let mut planner = FftPlanner::new();
-        let ratio = MAX_HZ / MIN_HZ;
-        let bands = (0..BARS)
-            .map(|i| {
-                let lo_hz = MIN_HZ * ratio.powf(i as f64 / BARS as f64);
-                let hi_hz = MIN_HZ * ratio.powf((i + 1) as f64 / BARS as f64);
-                Band {
-                    lo_hz,
-                    hi_hz,
-                    hz: (lo_hz * hi_hz).sqrt(),
-                }
-            })
-            .collect();
-        Plans {
-            long: Transform::new(&mut planner, LONG, LONG_PAD),
-            short: Transform::new(&mut planner, SHORT, 1),
-            bands,
-        }
-    })
+fn transform() -> &'static Transform {
+    static PLAN: OnceLock<Transform> = OnceLock::new();
+    PLAN.get_or_init(|| Transform::new(WINDOW, PAD))
 }
 
 /// Kesirli kutudaki genlik (komşu iki kutu arası doğrusal).
@@ -149,69 +113,26 @@ fn at(spectrum: &[Sample], bin: f64) -> Sample {
         + spectrum.get(hi).copied().unwrap_or(0.0) * t
 }
 
-/// `lo_hz`–`hi_hz` aralığının en güçlü bileşeni: uçlardaki (kesirli) değerler ve aradaki kutular.
-fn peak(spectrum: &[Sample], bin_hz: f64, band: &Band) -> Sample {
-    let from = band.lo_hz / bin_hz;
-    let to = band.hi_hz / bin_hz;
-    let mut peak = at(spectrum, from).max(at(spectrum, to));
-    let first = from.ceil() as usize;
-    let last = (to.floor() as usize).min(spectrum.len().saturating_sub(1));
-    if first <= last {
-        for &v in &spectrum[first..=last] {
-            peak = peak.max(v);
-        }
+/// Genlikten çubuk seviyesi (0..1): doğrusal.
+fn level(amplitude: Sample) -> f32 {
+    if amplitude.is_finite() {
+        (amplitude / FULL_AMPLITUDE).clamp(0.0, 1.0) as f32
+    } else {
+        0.0
     }
-    peak
 }
 
-/// Bunun altı sessizlik (dB): çubuk tam 0.
-const SILENT_DB: f64 = -120.0;
-
-fn to_db(amplitude: Sample) -> f64 {
-    20.0 * amplitude.max(1e-9).log10()
-}
-
-/// Uzun pencerenin payı: [`BLEND_FROM_HZ`] altında 1, [`BLEND_TO_HZ`] üstünde 0, arada
-/// logaritmik frekansta doğrusal.
-fn long_share(hz: f64) -> f64 {
-    1.0 - ((hz / BLEND_FROM_HZ).ln() / (BLEND_TO_HZ / BLEND_FROM_HZ).ln()).clamp(0.0, 1.0)
-}
-
-/// Genlikten (dB) çubuk seviyesi (0..1).
-fn level(db: f64, hz: f64) -> f32 {
-    if db <= SILENT_DB {
-        return 0.0;
-    }
-    let db = db + TILT_DB_PER_OCTAVE * (hz / 1000.0).log2();
-    10f64.powf((db - REF_DB) / 20.0).clamp(0.0, 1.0) as f32
-}
-
-/// [`BARS`] çubuğun seviyesi (0..1, bas solda). `signal`: 44,1 kHz tek kanallı [`LONG`] örnek,
-/// duyulan an tam ortada (`LONG / 2`. örnek); kısa pencere de aynı ana ortalanır. Daha kısa
-/// gelen sinyalin eksiği sessizlik sayılır.
+/// [`BARS`] çubuğun seviyesi (0..1, bas solda). `signal`: 44,1 kHz tek kanallı [`WINDOW`] örnek,
+/// duyulan an tam ortada. Daha kısa gelen sinyalin eksiği sessizlik sayılır.
 pub fn bar_levels(signal: &[Sample]) -> Vec<f32> {
-    let plans = plans();
-    let mut long = vec![0.0; LONG];
-    let n = signal.len().min(LONG);
-    long[..n].copy_from_slice(&signal[..n]);
-    let start = (LONG - SHORT) / 2;
-    let long_spectrum = plans.long.magnitudes(&long);
-    let short_spectrum = plans.short.magnitudes(&long[start..start + SHORT]);
-    let (long_bin, short_bin) = (plans.long.bin_hz(), plans.short.bin_hz());
-    plans
-        .bands
-        .iter()
-        .map(|band| {
-            let share = long_share(band.hz);
-            let mut db = 0.0;
-            if share > 0.0 {
-                db += share * to_db(peak(&long_spectrum, long_bin, band));
-            }
-            if share < 1.0 {
-                db += (1.0 - share) * to_db(peak(&short_spectrum, short_bin, band));
-            }
-            level(db, band.hz)
-        })
+    let plan = transform();
+    let mut padded = vec![0.0; WINDOW];
+    let n = signal.len().min(WINDOW);
+    padded[..n].copy_from_slice(&signal[..n]);
+    let spectrum = plan.magnitudes(&padded);
+    let bin_hz = plan.bin_hz();
+    (0..BARS)
+        .map(|k| level(at(&spectrum, bar_hz(k) / bin_hz)))
         .collect()
 }
 
@@ -225,9 +146,9 @@ mod tests {
     use super::*;
     use std::f64::consts::PI;
 
-    /// `parts` (frekans, genlik) sinüslerinin toplamı, [`LONG`] örnek.
+    /// `parts` (frekans, genlik) sinüslerinin toplamı, [`WINDOW`] örnek.
     fn tones(parts: &[(f64, f64)]) -> Vec<Sample> {
-        (0..LONG)
+        (0..WINDOW)
             .map(|n| {
                 parts
                     .iter()
@@ -240,12 +161,9 @@ mod tests {
             .collect()
     }
 
+    /// Frekansı `hz`'e en yakın çubuk.
     fn bar_of(hz: f64) -> usize {
-        plans()
-            .bands
-            .iter()
-            .position(|b| b.lo_hz <= hz && hz < b.hi_hz)
-            .unwrap()
+        ((hz - START_HZ) * BARS as f64 / (END_HZ - START_HZ)).round() as usize
     }
 
     fn peak_bar(levels: &[f32]) -> usize {
@@ -258,52 +176,58 @@ mod tests {
     }
 
     #[test]
-    fn bas_cubuklari_bagimsiz_60_ve_80_hz_ayri_cubukta_tepe_yapar() {
-        // Çubuğu doldurmayan genlik (−34 dB): tepe kırpılmaz, komşular karşılaştırılabilir.
-        let low = bar_levels(&tones(&[(60.0, 0.02)]));
-        let high = bar_levels(&tones(&[(80.0, 0.02)]));
-        assert_eq!(low.len(), BARS);
-        let (a, b) = (peak_bar(&low), peak_bar(&high));
-        assert!(a.abs_diff(bar_of(60.0)) <= 1, "60 Hz tepesi {a}");
-        assert!(b.abs_diff(bar_of(80.0)) <= 1, "80 Hz tepesi {b}");
-        assert!(b >= a + 8, "ayrı çubuklar: {a}, {b}");
-        // Bağımsız: 60 Hz'lik ses 80 Hz'in çubuğunda ~20 dB zayıf (1024 örneklik pencerede
-        // ikisi aynı kutudaydı, çubuk tepenin ~%95'i olurdu).
-        assert!(
-            low[b] < 0.2 * low[a],
-            "60 Hz → 80 Hz çubuğu {} / {}",
-            low[b],
-            low[a]
-        );
-        assert!(
-            high[a] < 0.2 * high[b],
-            "80 Hz → 60 Hz çubuğu {} / {}",
-            high[a],
-            high[b]
-        );
-        // Birlikte çalınan 60 ve 90 Hz arasında çukur kalır: iki ayrı tepe.
-        let both = bar_levels(&tones(&[(60.0, 0.02), (90.0, 0.02)]));
-        let (p, q) = (bar_of(60.0), bar_of(90.0));
-        let dip = both[p + 2..q - 1].iter().copied().fold(f32::MAX, f32::min);
-        assert!(dip < 0.6 * both[p].min(both[q]), "çukur {dip}");
+    fn frekans_ekseni_dogrusal_20_hz_ile_2_khz_arasi() {
+        assert_eq!(bar_hz(0), 20.0);
+        assert!((bar_hz(1) - bar_hz(0) - 9.9).abs() < 1e-9);
+        assert!((bar_hz(100) - 1010.0).abs() < 1e-9);
+        assert!((bar_hz(BARS - 1) - 1990.1).abs() < 1e-9);
+        // Her ses kendi çubuğunda tepe yapar: çubuklar eşit aralıklı.
+        for hz in [50.0, 120.0, 515.0, 1010.0, 1504.0, 1940.0] {
+            let levels = bar_levels(&tones(&[(hz, 0.05)]));
+            assert_eq!(levels.len(), BARS);
+            assert_eq!(peak_bar(&levels), bar_of(hz), "{hz} Hz");
+        }
+        // 2 kHz'in üstü çizgide görünmez; 20 Hz'in çok altı da.
+        let high = bar_levels(&tones(&[(5_000.0, 0.5)]));
+        assert!(high.iter().all(|&v| v < 0.01), "5 kHz");
+        let low = bar_levels(&tones(&[(5.0, 0.5)]));
+        assert!(low[3..].iter().all(|&v| v < 0.01), "5 Hz");
     }
 
     #[test]
-    fn orta_ve_tiz_kendi_cubugunda_uzak_cubuklar_sessiz() {
-        for hz in [1_000.0, 8_000.0] {
-            let levels = bar_levels(&tones(&[(hz, 0.8)]));
-            let top = peak_bar(&levels);
-            assert!(top.abs_diff(bar_of(hz)) <= 3, "{hz} Hz tepesi {top}");
-            assert!(levels[top] > 0.8, "{hz} Hz seviyesi {}", levels[top]);
-            assert!(levels[bar_of(100.0)] < 0.15, "{hz} Hz → 100 Hz");
-        }
-        let mid = bar_levels(&tones(&[(1_000.0, 0.8)]));
-        assert!(mid[bar_of(8_000.0)] < 0.15);
+    fn genlik_dogrusal_yari_genlik_yari_boy() {
+        let k = bar_of(1_010.0);
+        let full = bar_levels(&tones(&[(1_010.0, 0.2)]));
+        let half = bar_levels(&tones(&[(1_010.0, 0.1)]));
+        // Tam ölçekli sinüs kendi frekansında 1: 0,2 genlik 0,2 / FULL_AMPLITUDE.
+        assert!(
+            (f64::from(full[k]) - 0.2 / FULL_AMPLITUDE).abs() < 0.01,
+            "{}",
+            full[k]
+        );
+        assert!((f64::from(half[k]) * 2.0 - f64::from(full[k])).abs() < 0.005);
+        // Dolduran genlikte 1'de kırpılır.
+        let loud = bar_levels(&tones(&[(1_010.0, 0.9)]));
+        assert_eq!(loud[k], 1.0);
+    }
+
+    #[test]
+    fn cubuklar_bagimsiz_komsu_sesler_ayri_tepe_yapar() {
+        // 60 ve 90 Hz üç çubuk arayla ayrı tepe; arada çukur kalır.
+        let both = bar_levels(&tones(&[(60.0, 0.02), (90.0, 0.02)]));
+        let (p, q) = (bar_of(60.0), bar_of(90.0));
+        assert_eq!((p, q), (4, 7));
+        let dip = both[p + 1..q].iter().copied().fold(f32::MAX, f32::min);
+        assert!(dip < 0.7 * both[p].min(both[q]), "çukur {dip}");
+        // Tek ses üç çubuk ötede sönmüştür (Hann ana lobu ±21,5 Hz).
+        let one = bar_levels(&tones(&[(1_010.0, 0.1)]));
+        let k = bar_of(1_010.0);
+        assert!(one[k + 3] < 0.05 * one[k] && one[k - 3] < 0.05 * one[k]);
     }
 
     #[test]
     fn sessizlik_sifir_seviyeler_0_ile_1_arasinda() {
-        assert!(bar_levels(&vec![0.0; LONG]).iter().all(|&v| v == 0.0));
+        assert!(bar_levels(&vec![0.0; WINDOW]).iter().all(|&v| v == 0.0));
         assert!(
             bar_levels(&[]).iter().all(|&v| v == 0.0),
             "eksik sinyal sessiz"
@@ -311,7 +235,7 @@ mod tests {
         assert_eq!(silence(), vec![0.0; BARS]);
         // Taşan gürültü ve bozuk örnekler de 0..1'de kalır.
         let mut seed = 1u64;
-        let mut noise: Vec<Sample> = (0..LONG)
+        let mut noise: Vec<Sample> = (0..WINDOW)
             .map(|_| {
                 seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
                 ((seed >> 33) as f64 / f64::from(u32::MAX) - 0.25) * 8.0
@@ -322,28 +246,25 @@ mod tests {
         let levels = bar_levels(&noise);
         assert_eq!(levels.len(), BARS);
         assert!(levels.iter().all(|v| (0.0..=1.0).contains(v)));
-        assert!(levels.iter().any(|&v| v > 0.5));
+        assert!(levels.iter().any(|&v| v > 0.1));
     }
 
     #[test]
-    fn pencereler_duyulan_ana_ortalanir() {
-        // Yalnızca uzun pencerenin başında (duyulan andan 40 ms önce) çalan 60 Hz ses
-        // yarı kalır; duyulan anda çalan tam görünür. 1 kHz ses kısa pencerenin dışında kalırsa
-        // görünmez.
-        let mut early = tones(&[(60.0, 0.05), (1_000.0, 0.05)]);
-        for x in &mut early[LONG / 2 - 300..] {
+    fn pencere_duyulan_ana_ortalanir() {
+        // Yalnızca pencerenin ilk yarısında (duyulan andan önce) çalan ses yarı görünür.
+        let k = bar_of(1_010.0);
+        let centred = bar_levels(&tones(&[(1_010.0, 0.05)]));
+        let mut early = tones(&[(1_010.0, 0.05)]);
+        for x in &mut early[WINDOW / 2..] {
             *x = 0.0;
         }
-        let centred = bar_levels(&tones(&[(60.0, 0.05), (1_000.0, 0.05)]));
-        let levels = bar_levels(&early);
-        let bass = bar_of(60.0);
-        assert!(
-            levels[bass] < centred[bass],
-            "{} {}",
-            levels[bass],
-            centred[bass]
-        );
-        assert!(levels[bass] > 0.2 * centred[bass]);
-        assert!(levels[bar_of(1_000.0)] < 0.5 * centred[bar_of(1_000.0)]);
+        let ratio = f64::from(bar_levels(&early)[k]) / f64::from(centred[k]);
+        assert!((ratio - 0.5).abs() < 0.05, "{ratio}");
+        // Duyulan andan 30 ms önce bitmiş ses çok zayıf görünür.
+        let mut old = tones(&[(1_010.0, 0.05)]);
+        for x in &mut old[WINDOW / 2 - 1_323..] {
+            *x = 0.0;
+        }
+        assert!(bar_levels(&old)[k] < 0.15 * centred[k]);
     }
 }
