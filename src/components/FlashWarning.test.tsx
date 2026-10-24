@@ -41,4 +41,22 @@ describe("ışığa duyarlılık uyarısı", () => {
     rerender(<FlashWarning safe={false} ready onEnableSafe={vi.fn()} />);
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
   });
+
+  it("açılınca odak güvenli mod düğmesinde; kalıcı diyalog", () => {
+    render(<FlashWarning safe={false} onEnableSafe={vi.fn()} />);
+    expect(screen.getByRole("alertdialog")).toHaveAttribute("aria-modal", "true");
+    expect(screen.getByRole("button", { name: "Epilepsi güvenli modunu aç" })).toHaveFocus();
+  });
+
+  it('Esc "Anladım" gibi kapatır ve bir daha göstermez', () => {
+    const onEnableSafe = vi.fn();
+    const { unmount } = render(<FlashWarning safe={false} onEnableSafe={onEnableSafe} />);
+    fireEvent.keyDown(screen.getByRole("alertdialog"), { key: "Escape" });
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(onEnableSafe).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(FLASH_WARNING_KEY)).toBe("1");
+    unmount();
+    render(<FlashWarning safe={false} onEnableSafe={onEnableSafe} />);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
 });
