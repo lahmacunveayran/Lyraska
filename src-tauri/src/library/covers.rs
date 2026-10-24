@@ -39,6 +39,12 @@ pub fn stem(album: &str, artist: Option<&str>) -> String {
     format!("{h:016x}")
 }
 
+/// Çalma listesinin kapak dosyasının adı (uzantısız). Albüm adları 16 haneli onaltılık özettir;
+/// bu ad onlarla karışmaz.
+pub fn playlist_stem(id: i64) -> String {
+    format!("liste-{id}")
+}
+
 pub struct CoverStore {
     dir: PathBuf,
 }
@@ -50,8 +56,8 @@ impl CoverStore {
         }
     }
 
-    fn files(&self, album: &str, artist: Option<&str>) -> impl Iterator<Item = PathBuf> + '_ {
-        let stem = stem(album, artist);
+    fn files(&self, stem: &str) -> impl Iterator<Item = PathBuf> + '_ {
+        let stem = stem.to_owned();
         EXTENSIONS
             .iter()
             .map(move |ext| self.dir.join(format!("{stem}.{ext}")))
@@ -59,15 +65,43 @@ impl CoverStore {
 
     /// Albümün seçilmiş kapağı; yoksa (ya da okunamıyorsa) `None`.
     pub fn get(&self, album: &str, artist: Option<&str>) -> Option<Cover> {
-        self.files(album, artist).find_map(|path| {
+        self.get_stem(&stem(album, artist))
+    }
+
+    /// Resmi albümün kapağı yapar (kopyası saklanır; asıl dosyaya dokunulmaz).
+    pub fn set(&self, album: &str, artist: Option<&str>, source: &Path) -> Result<(), CoverError> {
+        self.set_stem(&stem(album, artist), source)
+    }
+
+    /// Seçilmiş kapağı kaldırır (albüm yine kendi kapağını ya da baskı kapağını gösterir).
+    pub fn clear(&self, album: &str, artist: Option<&str>) -> Result<(), CoverError> {
+        self.clear_stem(&stem(album, artist))
+    }
+
+    /// Çalma listesinin kapağı; yoksa `None` (arayüz kolaj gösterir).
+    pub fn playlist_get(&self, id: i64) -> Option<Cover> {
+        self.get_stem(&playlist_stem(id))
+    }
+
+    /// Resmi çalma listesinin kapağı yapar (kopyası saklanır).
+    pub fn playlist_set(&self, id: i64, source: &Path) -> Result<(), CoverError> {
+        self.set_stem(&playlist_stem(id), source)
+    }
+
+    /// Çalma listesinin kapağını kaldırır (liste silinince de çağrılır).
+    pub fn playlist_clear(&self, id: i64) -> Result<(), CoverError> {
+        self.clear_stem(&playlist_stem(id))
+    }
+
+    fn get_stem(&self, stem: &str) -> Option<Cover> {
+        self.files(stem).find_map(|path| {
             let data = std::fs::read(path).ok()?;
             let media_type = image_type(&data)?;
             Some(Cover { media_type, data })
         })
     }
 
-    /// Resmi albümün kapağı yapar (kopyası saklanır; asıl dosyaya dokunulmaz).
-    pub fn set(&self, album: &str, artist: Option<&str>, source: &Path) -> Result<(), CoverError> {
+    fn set_stem(&self, stem: &str, source: &Path) -> Result<(), CoverError> {
         let size = std::fs::metadata(source).map_err(CoverError::Read)?.len();
         if size > MAX_COVER_BYTES as u64 {
             return Err(CoverError::TooLarge);
@@ -80,18 +114,17 @@ impl CoverStore {
             _ => "jpg",
         };
         std::fs::create_dir_all(&self.dir).map_err(CoverError::Write)?;
-        let target = self.dir.join(format!("{}.{ext}", stem(album, artist)));
+        let target = self.dir.join(format!("{stem}.{ext}"));
         crate::atomic_file::write(&target, &data).map_err(CoverError::Write)?;
         // Başka türdeki eski kapak kalmasın.
-        for old in self.files(album, artist).filter(|p| *p != target) {
+        for old in self.files(stem).filter(|p| *p != target) {
             std::fs::remove_file(old).ok();
         }
         Ok(())
     }
 
-    /// Seçilmiş kapağı kaldırır (albüm yine kendi kapağını ya da baskı kapağını gösterir).
-    pub fn clear(&self, album: &str, artist: Option<&str>) -> Result<(), CoverError> {
-        for path in self.files(album, artist) {
+    fn clear_stem(&self, stem: &str) -> Result<(), CoverError> {
+        for path in self.files(stem) {
             match std::fs::remove_file(&path) {
                 Ok(()) => {}
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
@@ -162,6 +195,27 @@ mod tests {
             Err(CoverError::NotImage)
         ));
         assert_eq!(std::fs::read(&source).unwrap(), b"resim degil");
+        std::fs::remove_file(source).ok();
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn calma_listesi_kapagi_albumlerden_ayri_saklanir() {
+        let dir = temp_path("liste-kapak-deposu");
+        let store = CoverStore::new(&dir);
+        assert!(store.playlist_get(7).is_none());
+        let source = dir.with_extension("png");
+        std::fs::write(&source, PNG).unwrap();
+        store.playlist_set(7, &source).unwrap();
+        assert_eq!(store.playlist_get(7).unwrap().media_type, "image/png");
+        // Başka liste ve albümler etkilenmez.
+        assert!(store.playlist_get(8).is_none());
+        assert!(store.get("7", None).is_none());
+        // Dosya adı albüm özetleriyle karışmaz (16 haneli onaltılık değil).
+        assert_eq!(playlist_stem(7), "liste-7");
+        store.playlist_clear(7).unwrap();
+        assert!(store.playlist_get(7).is_none());
+        store.playlist_clear(7).unwrap(); // yoksa da hata değil
         std::fs::remove_file(source).ok();
         std::fs::remove_dir_all(dir).ok();
     }

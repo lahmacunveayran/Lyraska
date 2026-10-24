@@ -132,8 +132,27 @@ ALTER TABLE analyses ADD COLUMN camelot TEXT;
 ALTER TABLE analyses ADD COLUMN key_version INTEGER NOT NULL DEFAULT 0;
 ";
 
+/// 8: kullanıcının çalma listeleri. Şarkılar yoluyla tutulur (kimlikle değil): disk bir süre
+/// takılı değilken şarkı kütüphaneden çıksa da listede kalır, geri gelince yine çalar. Liste
+/// silinince şarkı sırası da silinir; kapak dosyası `kapaklar/` altında (bkz. `library::covers`).
+/// Kimlik yeniden kullanılmaz (AUTOINCREMENT): silinen listenin kapağı yeni listeye geçmesin.
+const V8: &str = "
+CREATE TABLE IF NOT EXISTS playlists (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    name     TEXT NOT NULL,
+    created  INTEGER NOT NULL,
+    modified INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS playlist_entries (
+    playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+    position    INTEGER NOT NULL,
+    path        TEXT NOT NULL,
+    PRIMARY KEY (playlist_id, position)
+);
+";
+
 /// Sıralı göç adımları (bkz. modül belgesi). Yalnızca sona eklenir.
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8];
 
 /// Bu sürümün bildiği en yeni şema.
 pub const SCHEMA_VERSION: i64 = MIGRATIONS.len() as i64;
@@ -307,7 +326,18 @@ mod tests {
         let mut conn = Connection::open_in_memory().unwrap();
         migrate(&mut conn).unwrap();
         assert_eq!(version(&conn), SCHEMA_VERSION);
-        assert_eq!(tables(&conn), ["analyses", "folders", "tracks"]);
+        // V8: çalma listeleri; `sqlite_sequence` listelerin AUTOINCREMENT sayacı (SQLite'ın kendi tablosu).
+        assert_eq!(
+            tables(&conn),
+            [
+                "analyses",
+                "folders",
+                "playlist_entries",
+                "playlists",
+                "sqlite_sequence",
+                "tracks"
+            ]
+        );
     }
 
     #[test]

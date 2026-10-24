@@ -470,6 +470,145 @@ pub async fn album_cover_clear(
     blocking(move || store.clear(&album, artist.as_deref()).map_err(reported)).await
 }
 
+/// Çalma listeleri, en son değişen önce.
+#[tauri::command]
+pub async fn playlists_list(
+    library: State<'_, LibraryState>,
+) -> Result<Vec<crate::library::playlists::PlaylistRow>, String> {
+    library
+        .run(move |service| service.playlists().map_err(reported))
+        .await
+}
+
+/// Yeni, boş çalma listesi. Kütüphane dosyası bozulup yeniden kurulduysa (ya da silindiyse) kimlikler
+/// baştan başlar: eski listenin `kapaklar/` altında kalan kapağı yeni listeye geçmesin diye silinir.
+#[tauri::command]
+pub async fn playlist_create(
+    name: String,
+    library: State<'_, LibraryState>,
+    big: State<'_, BigDataDir>,
+) -> Result<crate::library::playlists::PlaylistRow, String> {
+    let created = library
+        .run(move |service| service.create_playlist(&name).map_err(|e| e.to_string()))
+        .await?;
+    if let Ok(store) = cover_store(&big) {
+        let id = created.id;
+        // Kalıntı kapak silinemese de liste kuruldu: yalnızca günlüğe yazılır.
+        blocking(move || store.playlist_clear(id).map_err(reported))
+            .await
+            .ok();
+    }
+    Ok(created)
+}
+
+#[tauri::command]
+pub async fn playlist_rename(
+    id: i64,
+    name: String,
+    library: State<'_, LibraryState>,
+) -> Result<(), String> {
+    library
+        .run(move |service| {
+            service
+                .rename_playlist(id, &name)
+                .map_err(|e| e.to_string())
+        })
+        .await
+}
+
+/// Listeyi ve seçilmiş kapağını siler; şarkı dosyalarına dokunulmaz.
+#[tauri::command]
+pub async fn playlist_delete(
+    id: i64,
+    library: State<'_, LibraryState>,
+    big: State<'_, BigDataDir>,
+) -> Result<(), String> {
+    library
+        .run(move |service| service.delete_playlist(id).map_err(reported))
+        .await?;
+    let store = cover_store(&big)?;
+    blocking(move || store.playlist_clear(id).map_err(reported)).await
+}
+
+/// Listedeki şarkıların yolları, sırasıyla (aynı şarkı birden çok kez olabilir).
+#[tauri::command]
+pub async fn playlist_tracks(
+    id: i64,
+    library: State<'_, LibraryState>,
+) -> Result<Vec<String>, String> {
+    library
+        .run(move |service| service.playlist_tracks(id).map_err(reported))
+        .await
+}
+
+/// Şarkıları listenin sonuna ekler; listenin yeni şarkı sayısını döndürür.
+#[tauri::command]
+pub async fn playlist_add(
+    id: i64,
+    paths: Vec<String>,
+    library: State<'_, LibraryState>,
+) -> Result<u32, String> {
+    library
+        .run(move |service| service.add_to_playlist(id, &paths).map_err(reported))
+        .await
+}
+
+/// Verilen sıralardaki şarkıları listeden çıkarır.
+#[tauri::command]
+pub async fn playlist_remove(
+    id: i64,
+    positions: Vec<u32>,
+    library: State<'_, LibraryState>,
+) -> Result<(), String> {
+    library
+        .run(move |service| {
+            service
+                .remove_from_playlist(id, &positions)
+                .map_err(reported)
+        })
+        .await
+}
+
+/// Bir şarkıyı listede başka bir sıraya taşır.
+#[tauri::command]
+pub async fn playlist_move(
+    id: i64,
+    from: u32,
+    to: u32,
+    library: State<'_, LibraryState>,
+) -> Result<(), String> {
+    library
+        .run(move |service| service.move_in_playlist(id, from, to).map_err(reported))
+        .await
+}
+
+/// Listeye seçilmiş kapak (`data:` adresi); seçilmemişse `null`.
+#[tauri::command]
+pub async fn playlist_cover_get(
+    id: i64,
+    big: State<'_, BigDataDir>,
+) -> Result<Option<String>, String> {
+    let store = cover_store(&big)?;
+    blocking(move || Ok(store.playlist_get(id).map(|cover| cover.data_url()))).await
+}
+
+/// Resmi listenin kapağı yapar; kopyası Lyraska'nın veri klasöründe saklanır.
+#[tauri::command]
+pub async fn playlist_cover_set(
+    id: i64,
+    path: PathBuf,
+    big: State<'_, BigDataDir>,
+) -> Result<(), String> {
+    let store = cover_store(&big)?;
+    blocking(move || store.playlist_set(id, &path).map_err(|e| e.to_string())).await
+}
+
+#[tauri::command]
+pub async fn playlist_cover_clear(id: i64, big: State<'_, BigDataDir>) -> Result<(), String> {
+    let store = cover_store(&big)?;
+    blocking(move || store.playlist_clear(id).map_err(reported)).await
+}
+
 /// Albümün şarkılarının yolları, çalma sırasıyla.
 #[tauri::command]
 pub async fn library_album_tracks(

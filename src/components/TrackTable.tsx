@@ -1,5 +1,5 @@
 import { memo, useId, useState, type KeyboardEvent } from "react";
-import { PauseIcon, PlayIcon } from "./icons";
+import { CloseIcon, PauseIcon, PlayIcon } from "./icons";
 import type { LibraryTrack } from "../lib/backend";
 import { bpmLabel } from "../lib/analysis";
 import { keyHue, keyText } from "../lib/librarySort";
@@ -15,10 +15,21 @@ export interface TrackTableProps {
   label: string;
   /** Albüm sütunu (sanatçı sayfasında şarkılar albüm albüm sıralı). */
   showAlbum?: boolean;
+  /** Sanatçı sütunu (çalma listesinde şarkılar farklı sanatçılardan). */
+  showArtist?: boolean;
   /** Sıra sütunu: albümün parça numarası ("track") ya da listedeki sıra ("position"). */
   numbering?: "track" | "position";
-  /** Şarkıyı çalar (çift tık, Enter); `time` üst üste gelen isteği ayıklamak için. */
-  onPlay: (time: number, path: string) => void;
+  /**
+   * Şarkıyı çalar (çift tık, Enter); `time` üst üste gelen isteği ayıklamak için, `index` satırın
+   * sırası (aynı şarkı listede iki kez olabilir).
+   */
+  onPlay: (time: number, path: string, index: number) => void;
+  /**
+   * Çalma listesinde: satırı çıkarır (satırdaki × ya da Delete). Verilirse satırlar Alt+↑/↓ ile
+   * `onMove` üzerinden taşınır. Aynı şarkı listede iki kez olabilir: satır sırasıyla bilinir.
+   */
+  onRemove?: (index: number) => void;
+  onMove?: (from: number, to: number) => void;
 }
 
 /**
@@ -34,12 +45,15 @@ export const TrackTable = memo(function TrackTable({
   label,
   showAlbum = false,
   numbering = "track",
+  showArtist = false,
   onPlay,
+  onRemove,
+  onMove,
 }: TrackTableProps) {
   const id = useId();
   const [selected, setSelected] = useState(-1);
   const rowId = (index: number) => `${id}-row-${index}`;
-  const rowClass = `album-page__row${showAlbum ? " album-page__row--album" : ""}`;
+  const rowClass = `album-page__row${showAlbum || showArtist ? " album-page__row--album" : ""}${onRemove ? " album-page__row--edit" : ""}`;
 
   /** Satırı seçer ve görünür alana getirir (uzun listede ok tuşları listeyi kaydırır). */
   const selectRow = (index: number) => {
@@ -50,18 +64,31 @@ export const TrackTable = memo(function TrackTable({
   const onListKey = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.target !== event.currentTarget || rows.length === 0) return;
     const moves: Record<string, number> = { ArrowDown: 1, ArrowUp: -1 };
-    if (event.key in moves) {
+    if (event.key in moves && event.altKey && onMove) {
+      event.preventDefault();
+      if (selected < 0) return;
+      const to = selected + moves[event.key]!;
+      if (to < 0 || to >= rows.length) return;
+      onMove(selected, to);
+      selectRow(to);
+    } else if (event.key in moves) {
       event.preventDefault();
       const from = selected < 0 ? -1 : selected;
       selectRow(Math.max(0, Math.min(rows.length - 1, from + moves[event.key]!)));
     } else if (event.key === "Home" || event.key === "End") {
       event.preventDefault();
       selectRow(event.key === "Home" ? 0 : rows.length - 1);
+    } else if (event.key === "Delete" && onRemove) {
+      if (selected < 0 || !rows[selected]) return;
+      event.preventDefault();
+      onRemove(selected);
+      // Seçim yerinde kalır (bir sonraki şarkıya geçer); son satır çıktıysa bir yukarı.
+      setSelected(Math.min(selected, rows.length - 2));
     } else if (event.key === "Enter") {
       const track = rows[selected];
       if (!track) return;
       event.preventDefault();
-      onPlay(event.timeStamp, track.path);
+      onPlay(event.timeStamp, track.path, selected);
     }
   };
 
@@ -74,6 +101,7 @@ export const TrackTable = memo(function TrackTable({
         </span>
         <span role="columnheader">Başlık</span>
         {showAlbum && <span role="columnheader">Albüm</span>}
+        {showArtist && <span role="columnheader">Sanatçı</span>}
         <span role="columnheader" className="library__time library__bpm">
           BPM
         </span>
@@ -83,6 +111,7 @@ export const TrackTable = memo(function TrackTable({
         <span role="columnheader" className="library__time">
           Süre
         </span>
+        {onRemove && <span role="columnheader" aria-label="Çıkar" />}
       </div>
       <div
         className="album-page__list"
@@ -96,14 +125,14 @@ export const TrackTable = memo(function TrackTable({
           const hue = keyHue(track.key);
           return (
             <div
-              key={track.path}
+              key={`${index}\u0000${track.path}`}
               id={rowId(index)}
               role="row"
               aria-rowindex={index + 1}
               aria-selected={index === selected}
               className={`${rowClass}${isCurrent ? " is-current" : ""}${index === selected ? " is-selected" : ""}`}
               onClick={() => setSelected(index)}
-              onDoubleClick={(event) => onPlay(event.timeStamp, track.path)}
+              onDoubleClick={(event) => onPlay(event.timeStamp, track.path, index)}
               title={track.path}
             >
               <span className="library__no" role="gridcell">
@@ -125,6 +154,11 @@ export const TrackTable = memo(function TrackTable({
                   {track.album ?? "—"}
                 </span>
               )}
+              {showArtist && (
+                <span className="library__cell library__muted" role="gridcell">
+                  {track.artist ?? "—"}
+                </span>
+              )}
               <span className="library__time library__bpm" role="gridcell">
                 {bpmLabel(track)}
               </span>
@@ -141,6 +175,25 @@ export const TrackTable = memo(function TrackTable({
               <span className="library__time" role="gridcell">
                 {track.durationSecs ? formatTime(track.durationSecs) : ""}
               </span>
+              {onRemove && (
+                <span role="gridcell">
+                  <button
+                    type="button"
+                    className="library__remove"
+                    onDoubleClick={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRemove(index);
+                      // Üstteki satır çıkınca seçili şarkı bir yukarı kayar; seçim onunla gider.
+                      if (index < selected) setSelected(selected - 1);
+                    }}
+                    aria-label={`Listeden çıkar: ${track.title}`}
+                    title="Listeden çıkar (dosya silinmez)"
+                  >
+                    <CloseIcon />
+                  </button>
+                </span>
+              )}
             </div>
           );
         })}

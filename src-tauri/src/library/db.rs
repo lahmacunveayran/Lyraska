@@ -137,6 +137,11 @@ impl Library {
         Ok(library)
     }
 
+    /// Veritabanı bağlantısı (kütüphanenin alt modülleri için; ör. çalma listeleri).
+    pub(crate) fn conn(&self) -> &Connection {
+        &self.conn
+    }
+
     /// Açılışta bozuk dosya kenara alındıysa kullanıcıya gösterilecek açıklama.
     pub fn recovery_notice(&self) -> Option<&str> {
         self.recovery_notice.as_deref()

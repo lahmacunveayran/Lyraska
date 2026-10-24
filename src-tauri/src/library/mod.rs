@@ -15,6 +15,7 @@
 
 pub mod covers;
 pub mod db;
+pub mod playlists;
 pub mod scan;
 pub mod service;
 pub mod watch;
@@ -43,6 +44,10 @@ pub enum LibraryError {
     FolderMissing(String),
     #[error("Bu dosya türü desteklenmiyor: {0}")]
     UnsupportedFile(String),
+    #[error("Çalma listesi bulunamadı (silinmiş olabilir).")]
+    PlaylistMissing,
+    #[error("Çalma listesinin adı boş olamaz.")]
+    PlaylistNameEmpty,
 }
 
 /// `parent` yolu `child` yolunu kapsıyor mu (aynı yol ya da onun içinde mi)?

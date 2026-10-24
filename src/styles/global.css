@@ -3720,6 +3720,140 @@ kbd {
   grid-template-columns: 44px minmax(0, 1fr) minmax(0, 0.7fr) 56px 150px 64px;
 }
 
+/* Çalma listeleri */
+.album-page__row--album.album-page__row--edit {
+  grid-template-columns: 44px minmax(0, 1fr) minmax(0, 0.7fr) 56px 150px 64px 28px;
+}
+
+.album-page__row:hover .library__remove,
+.album-page__row.is-selected .library__remove {
+  opacity: 1;
+}
+
+.playlist__collage {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  overflow: hidden;
+}
+
+.playlist__tile {
+  min-width: 0;
+  min-height: 0;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.playlist__tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.playlist__new-cover {
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--glass-edge);
+  box-shadow: none;
+  font-size: 44px;
+  font-weight: 200;
+  color: var(--ink-2);
+}
+
+.playlist__new .album__button:hover .playlist__new-cover,
+.playlist__new .album__button:focus-visible .playlist__new-cover {
+  color: var(--ink);
+  border-color: rgba(70, 240, 166, 0.5);
+}
+
+.playlist__new-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.playlist__new-form input,
+.playlist__rename input,
+.playlist-add__form input {
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 8px;
+  outline: none;
+  background: rgba(0, 0, 0, 0.3);
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.playlist__new-form input:focus-visible,
+.playlist__rename input:focus-visible,
+.playlist-add__form input:focus-visible {
+  border-color: rgba(70, 240, 166, 0.6);
+}
+
+.playlist__new-actions,
+.playlist__rename {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.playlist__rename {
+  margin: 4px 0 6px;
+}
+
+.playlist__rename input {
+  flex: 1;
+  font-size: 18px;
+}
+
+.playlist-add {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.playlist-add__menu {
+  position: relative;
+}
+
+.playlist-add summary {
+  list-style: none;
+}
+
+.playlist-add summary::-webkit-details-marker {
+  display: none;
+}
+
+.playlist-add summary.is-disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.playlist-add__list {
+  left: 0;
+  right: auto;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.playlist-add__form {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+}
+
+.playlist-add__form input {
+  flex: 1;
+}
+
+.playlist-add__notice {
+  font-size: 12px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
 @container (max-width: 560px) {
   .album-page__hero {
     flex-direction: column;
@@ -3730,6 +3864,9 @@ kbd {
   }
   .album-page__row--album {
     grid-template-columns: 32px minmax(0, 1fr) minmax(0, 0.6fr) 40px 96px 52px;
+  }
+  .album-page__row--album.album-page__row--edit {
+    grid-template-columns: 32px minmax(0, 1fr) minmax(0, 0.6fr) 40px 96px 52px 28px;
   }
 }
 

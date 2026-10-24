@@ -147,15 +147,15 @@ export function PlayerScreen() {
   // Çalmaya başlayınca sahne ortaya çıksın; kütüphane düğmesiyle geri açılır.
   const { close: closeDrawer } = drawer;
   const playAndReveal = useCallback(
-    (paths: string[], start?: string, order?: PlayOrder) => {
+    (paths: string[], start?: string, order?: PlayOrder, startIndex?: number) => {
       if (paths.length === 0 && start === undefined) return;
-      playList(paths, start, order);
+      playList(paths, start, order, startIndex);
       closeDrawer();
     },
     [playList, closeDrawer],
   );
-  const playPaths = (paths: string[], start?: string, order?: PlayOrder) =>
-    playAndReveal(paths, start, order);
+  const playPaths = (paths: string[], start?: string, order?: PlayOrder, startIndex?: number) =>
+    playAndReveal(paths, start, order, startIndex);
   const playFromLibrary = (track: LibraryTrack, list: LibraryTrack[]) =>
     playAndReveal(
       list.map((t) => t.path),

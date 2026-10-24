@@ -15,17 +15,23 @@ import {
   libraryAlbumTracks,
   libraryArtistTracks,
   pickImage,
+  playlistTracks,
   setAlbumCover,
   type LibraryAlbum,
   type LibraryArtist,
   type LibraryFolder,
   type LibraryTrack,
+  type Playlist,
 } from "../lib/backend";
 import { AlbumArt, AlbumGrid, albumKey } from "./AlbumGrid";
 import { AlbumPage } from "./AlbumPage";
 import { ArtistGrid } from "./ArtistGrid";
 import { ArtistPage, artistAlbums } from "./ArtistPage";
 import { SkyView } from "./SkyView";
+import { AddToPlaylist } from "./AddToPlaylist";
+import { PlaylistGrid } from "./PlaylistGrid";
+import { PlaylistPage } from "./PlaylistPage";
+import { usePlaylists } from "../hooks/usePlaylists";
 import { useArtists } from "../hooks/useArtists";
 import { albumCoverIndex, invalidateAlbumCover, trackCoverRequest } from "../lib/albumCovers";
 import { useAlbums } from "../hooks/useAlbums";
@@ -78,7 +84,7 @@ export interface LibraryPanelProps {
   playing: boolean;
   onPlay: (track: LibraryTrack, list: LibraryTrack[]) => void;
   /** Albümü çalar (şarkı yolları çalma sırasıyla); `start` yoksa baştan. */
-  onPlayPaths: (paths: string[], start?: string, order?: PlayOrder) => void;
+  onPlayPaths: (paths: string[], start?: string, order?: PlayOrder, startIndex?: number) => void;
 }
 
 /** Klasör yolunun son parçası ("D:\Müzik\Rock" → "Rock"). */
@@ -139,7 +145,10 @@ const VIEW_TITLES = {
   albums: "Albümler",
   artists: "Sanatçılar",
   sky: "Gökyüzü",
+  playlists: "Listeler",
 } as const;
+
+type LibraryView = keyof typeof VIEW_TITLES;
 
 /** Kaynakların kısa özeti: "Müzik klasörü · 5 tek şarkı", "3 klasör". */
 export function sourcesLabel(folders: LibraryFolder[], files: number): string {
@@ -166,18 +175,21 @@ export function LibraryPanel({
   onPlayPaths,
 }: LibraryPanelProps) {
   const { status, query } = library;
-  const [view, setViewState] = useState<"songs" | "albums" | "artists" | "sky">("songs");
+  const [view, setViewState] = useState<LibraryView>("songs");
   // Açık albüm sayfası (Albümler görünümünde); görünüm değişince kapanır.
   const [openAlbum, setOpenAlbum] = useState<LibraryAlbum | null>(null);
   // Açık sanatçı sayfası (Sanatçılar görünümünde) ve oradan açılan albüm sayfası.
   const [openArtist, setOpenArtist] = useState<LibraryArtist | null>(null);
   const [artistAlbum, setArtistAlbum] = useState<LibraryAlbum | null>(null);
+  // Açık çalma listesi sayfası (kimliğiyle: ad ve sayılar tazelenen listeden okunur).
+  const [openPlaylist, setOpenPlaylist] = useState<number | null>(null);
   const closePages = () => {
     setOpenAlbum(null);
     setOpenArtist(null);
     setArtistAlbum(null);
+    setOpenPlaylist(null);
   };
-  const setView = (next: "songs" | "albums" | "artists" | "sky") => {
+  const setView = (next: LibraryView) => {
     setViewState(next);
     closePages();
   };
@@ -234,6 +246,35 @@ export function LibraryPanel({
     () => library.tracks.find((track) => track.path === currentPath) ?? null,
     [library.tracks, currentPath],
   );
+  const playlists = usePlaylists(library.refreshKey);
+  // Listeye ekleme liste sayfasının şarkılarını da tazeler.
+  const [playlistEdits, setPlaylistEdits] = useState(0);
+  const addToPlaylist = async (id: number, paths: string[]) => {
+    const added = await playlists.add(id, paths);
+    setPlaylistEdits((n) => n + 1);
+    return added;
+  };
+  const shownPlaylist =
+    openPlaylist === null
+      ? null
+      : (playlists.playlists?.find((p) => p.id === openPlaylist) ?? null);
+  // Silinen listenin sayfası kapanır.
+  if (openPlaylist !== null && playlists.playlists && shownPlaylist === null) {
+    setOpenPlaylist(null);
+  }
+  const addMenu = (label: string) => (paths: string[]) => (
+    <AddToPlaylist
+      playlists={playlists.playlists}
+      paths={paths}
+      label={label}
+      onAdd={addToPlaylist}
+      onCreate={playlists.create}
+    />
+  );
+  const tracksByPath = useMemo(
+    () => new Map(library.allTracks.map((track) => [track.path, track])),
+    [library.allTracks],
+  );
   const [albumError, setAlbumError] = useState<string | null>(null);
   // Albüm açılırken ikinci tık (çift tık) albümü ikinci kez başlatmasın.
   const startingAlbum = useRef(false);
@@ -276,6 +317,8 @@ export function LibraryPanel({
     playGroup(() => libraryAlbumTracks(album.name, album.artist), album.name);
   const playArtist = (artist: LibraryArtist) =>
     playGroup(() => libraryArtistTracks(artist.name), artist.name);
+  const playPlaylist = (playlist: Playlist) =>
+    playGroup(() => playlistTracks(playlist.id), playlist.name);
   const [sort, setSort] = useState<LibrarySort>(DEFAULT_SORT);
   const [camelot, setCamelot] = useState(loadCamelot);
   const sources = useMemo(
@@ -315,7 +358,7 @@ export function LibraryPanel({
   const searchRef = useRef<HTMLInputElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
 
-  // Kısayollar (yalnızca kütüphane görünürken): Ctrl+F / Ctrl+K arama, Ctrl+1–4 görünüm.
+  // Kısayollar (yalnızca kütüphane görünürken): Ctrl+F / Ctrl+K arama, Ctrl+1–5 görünüm.
   // Rakam tuşları tek başına sahne değiştirir; burada yalnızca Ctrl ile birlikte kullanılır.
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
@@ -329,7 +372,7 @@ export function LibraryPanel({
         searchRef.current?.select();
         return;
       }
-      const views = ["songs", "albums", "artists", "sky"] as const;
+      const views = ["songs", "albums", "artists", "sky", "playlists"] as const;
       const view = views[Number(event.key) - 1];
       if (view) {
         event.preventDefault();
@@ -337,6 +380,7 @@ export function LibraryPanel({
         setOpenAlbum(null);
         setOpenArtist(null);
         setArtistAlbum(null);
+        setOpenPlaylist(null);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -401,7 +445,7 @@ export function LibraryPanel({
   // (çekmece, pencerede dinler). Belge düzeyinde dinlenir: React'in olaylarından sonra, pencereden
   // önce çalışır; olayı kullanan önceki adım `preventDefault` ile işaretler.
   // Sanatçılarda sıra: sanatçı sayfasından açılan albüm sayfası, sonra sanatçı sayfası.
-  const pageOpen = openAlbum !== null || openArtist !== null;
+  const pageOpen = openAlbum !== null || openArtist !== null || openPlaylist !== null;
   const artistAlbumOpen = artistAlbum !== null;
   useEffect(() => {
     if (!pageOpen) return;
@@ -415,11 +459,18 @@ export function LibraryPanel({
       } else {
         setOpenAlbum(null);
         setOpenArtist(null);
+        setOpenPlaylist(null);
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [pageOpen, artistAlbumOpen]);
+
+  // Liste sayfası açılınca kaydırma başa döner (ızgarada aşağıdaysa sayfanın başı görünsün).
+  const playlistsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (openPlaylist !== null && playlistsRef.current) playlistsRef.current.scrollTop = 0;
+  }, [openPlaylist]);
 
   // Sanatçı sayfası: albüm sayfasındaki gibi ızgaranın kaydırma yeri ve kart hatırlanır. Oradan
   // açılan albüm sayfası kapanınca sanatçı sayfasının kaydırma yeri geri gelir, odak kapağa döner
@@ -609,7 +660,11 @@ export function LibraryPanel({
                 ? artists === null
                   ? "…"
                   : `${NUMBER.format(artists.length)} sanatçı`
-                : `${NUMBER.format(status.trackCount)} şarkı`}
+                : view === "playlists"
+                  ? playlists.playlists === null
+                    ? "…"
+                    : `${NUMBER.format(playlists.playlists.length)} liste`
+                  : `${NUMBER.format(status.trackCount)} şarkı`}
           </span>
         </h2>
         <div className="library__views" role="group" aria-label="Kütüphane görünümü">
@@ -619,6 +674,7 @@ export function LibraryPanel({
               ["albums", "Albümler"],
               ["artists", "Sanatçılar"],
               ["sky", "Gökyüzü"],
+              ["playlists", "Listeler"],
             ] as const
           ).map(([id, label], index) => (
             <button
@@ -718,6 +774,12 @@ export function LibraryPanel({
             </div>
           </details>
         )}
+        {view === "songs" &&
+          addMenu(
+            tracks[selected]
+              ? `Seçili şarkıyı listeye ekle: ${tracks[selected].title}`
+              : "Listeye eklemek için önce bir şarkı seçin",
+          )(tracks[selected] ? [tracks[selected].path] : [])}
         {view === "songs" && (
           <button
             type="button"
@@ -904,6 +966,7 @@ export function LibraryPanel({
                       }}
                       onOpenAlbum={showArtistAlbum}
                       onPlay={(paths, start, order) => onPlayPaths(paths, start, order)}
+                      addToPlaylist={addMenu("Sanatçıyı listeye ekle")}
                     />
                   </div>
                   {shownArtistAlbum !== null && (
@@ -921,6 +984,7 @@ export function LibraryPanel({
                       onPlay={(paths, start, order) => onPlayPaths(paths, start, order)}
                       onChooseCover={() => chooseCover(shownArtistAlbum)}
                       onClearCover={() => changeCover(shownArtistAlbum, null)}
+                      addToPlaylist={addMenu("Albümü listeye ekle")}
                     />
                   )}
                 </>
@@ -936,6 +1000,53 @@ export function LibraryPanel({
                   current={current}
                   onOpen={showArtist}
                   onPlay={playArtist}
+                />
+              )}
+            </div>
+          )}
+          {view === "playlists" && (
+            <div className="library__albums" ref={playlistsRef}>
+              {playlists.error || albumError ? (
+                <p className="library__problem" role="alert">
+                  {playlists.error ?? albumError}
+                </p>
+              ) : null}
+              {shownPlaylist !== null ? (
+                <PlaylistPage
+                  key={shownPlaylist.id}
+                  playlist={shownPlaylist}
+                  tracks={library.allTracks}
+                  byPath={tracksByPath}
+                  coverIndex={albumIndex}
+                  coverRevision={playlists.coverRevision}
+                  refreshKey={`${library.refreshKey}:${playlistEdits}`}
+                  currentPath={currentPath}
+                  playing={playing}
+                  camelot={camelot}
+                  onBack={() => setOpenPlaylist(null)}
+                  onPlay={(paths, start, order, startIndex) =>
+                    onPlayPaths(paths, start, order, startIndex)
+                  }
+                  onRename={(name) => playlists.rename(shownPlaylist.id, name)}
+                  onDelete={() => {
+                    setOpenPlaylist(null);
+                    void playlists.remove(shownPlaylist.id);
+                  }}
+                  onChooseCover={() => void playlists.chooseCover(shownPlaylist.id)}
+                  onClearCover={() => void playlists.clearCover(shownPlaylist.id)}
+                  onChanged={playlists.refresh}
+                />
+              ) : playlists.playlists === null ? (
+                <LoadingGrid label="Çalma listeleri yükleniyor" />
+              ) : (
+                <PlaylistGrid
+                  playlists={playlists.playlists}
+                  byPath={tracksByPath}
+                  coverIndex={albumIndex}
+                  coverRevision={playlists.coverRevision}
+                  onOpen={(playlist) => setOpenPlaylist(playlist.id)}
+                  onPlay={playPlaylist}
+                  onCreate={playlists.create}
                 />
               )}
             </div>
@@ -960,6 +1071,7 @@ export function LibraryPanel({
                   onPlay={(paths, start, order) => onPlayPaths(paths, start, order)}
                   onChooseCover={() => chooseCover(shownAlbum)}
                   onClearCover={() => changeCover(shownAlbum, null)}
+                  addToPlaylist={addMenu("Albümü listeye ekle")}
                 />
               ) : albums === null ? (
                 <LoadingGrid label="Albümler yükleniyor" />

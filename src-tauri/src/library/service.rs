@@ -222,6 +222,49 @@ impl LibraryService {
         self.lock()?.artist_tracks(artist)
     }
 
+    /// Çalma listeleri, en son değişen önce.
+    pub fn playlists(&self) -> Result<Vec<crate::library::playlists::PlaylistRow>, LibraryError> {
+        self.lock()?.playlists()
+    }
+
+    /// Yeni, boş çalma listesi.
+    pub fn create_playlist(
+        &self,
+        name: &str,
+    ) -> Result<crate::library::playlists::PlaylistRow, LibraryError> {
+        self.lock()?.create_playlist(name)
+    }
+
+    /// Çalma listesinin adını değiştirir.
+    pub fn rename_playlist(&self, id: i64, name: &str) -> Result<(), LibraryError> {
+        self.lock()?.rename_playlist(id, name)
+    }
+
+    /// Çalma listesini siler.
+    pub fn delete_playlist(&self, id: i64) -> Result<(), LibraryError> {
+        self.lock()?.delete_playlist(id)
+    }
+
+    /// Çalma listesinin şarkıları, sırasıyla.
+    pub fn playlist_tracks(&self, id: i64) -> Result<Vec<String>, LibraryError> {
+        self.lock()?.playlist_tracks(id)
+    }
+
+    /// Şarkıları çalma listesinin sonuna ekler; yeni şarkı sayısı.
+    pub fn add_to_playlist(&self, id: i64, paths: &[String]) -> Result<u32, LibraryError> {
+        self.lock()?.add_to_playlist(id, paths)
+    }
+
+    /// Verilen sıralardaki şarkıları çalma listesinden çıkarır.
+    pub fn remove_from_playlist(&self, id: i64, positions: &[u32]) -> Result<(), LibraryError> {
+        self.lock()?.remove_from_playlist(id, positions)
+    }
+
+    /// Çalma listesinde bir şarkıyı başka sıraya taşır.
+    pub fn move_in_playlist(&self, id: i64, from: u32, to: u32) -> Result<(), LibraryError> {
+        self.lock()?.move_in_playlist(id, from, to)
+    }
+
     /// Albümün şarkıları, çalma sırasıyla.
     pub fn album_tracks(
         &self,

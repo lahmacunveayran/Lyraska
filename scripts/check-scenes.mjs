@@ -112,6 +112,8 @@ const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama") => `
         drops: [], dropConfidence: [],
         energy: [], sections: [{ start: 0, end: 240, energy: 0.8, label: ${theme} }] };
       case "annotation_get": case "song_key": case "track_lyrics": case "song_map_imported": return null;
+      // Çalma listeleri: denetimde liste yok (kütüphane panelindeki "Listeye ekle" menüsü boş).
+      case "playlists_list": return [];
       // Ham dalga biçimi (karışım, sol, sağ; 128 = sessizlik): 441 Hz sinüs, LEVEL verilirse o genlikte.
       case "visual_waveform": {
         const bytes = new Uint8Array(3 * 1024);
