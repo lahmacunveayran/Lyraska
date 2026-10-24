@@ -1,4 +1,4 @@
-import { getAlbumCover, getTrackCover } from "./backend";
+import { getAlbumCover, getTrackCover, type LibraryAlbum, type LibraryTrack } from "./backend";
 import { drawPrintCover, readPrintColors, type CoverInput, type PrintColors } from "./printCover";
 
 /**
@@ -25,6 +25,43 @@ export interface AlbumCoverRequest extends CoverInput {
 /** Albümün kimliği (albüm sanatçısı, yoksa sanatçı + albüm adı). */
 function albumId(album: string, artist: string | null): string {
   return `${artist ?? "\u0001"}\u0000${album}`;
+}
+
+/** Albümün kapak isteği (ızgara, albüm sayfası ve şarkı satırı aynı kimliği kullanır). */
+export function albumCoverRequest(album: LibraryAlbum): AlbumCoverRequest {
+  return {
+    album: album.name,
+    artist: album.artist,
+    key: album.key,
+    bpm: album.bpm,
+    coverPath: album.coverPath,
+  };
+}
+
+/** Albümleri kimliklerine göre dizinler (şarkı satırları kendi albümünü bulsun diye). */
+export function indexAlbums(albums: readonly LibraryAlbum[]): Map<string, LibraryAlbum> {
+  return new Map(albums.map((album) => [albumId(album.name, album.artist), album]));
+}
+
+/**
+ * Şarkı satırındaki küçük kapağın isteği: şarkının albümü listede varsa albümün kendi isteği
+ * (bir albümün bütün şarkıları tek kapak işi paylaşır, ızgarayla aynı önbellek). Albüm listesi
+ * henüz gelmediyse `null` (yer tutucu; önce yanlış kimlikle istenip sonra ikinci kez istenmesin).
+ * Liste bu aramanın listesiyse (`complete`) ve albüm içinde yoksa ton ve tempo olmadan şarkıdan
+ * istenir; eski aramanın listesinde yoksa yenisi gelene kadar yer tutucu kalır. Albüm etiketi
+ * olmayan şarkının kapağı yoktur (`null`: yer tutucu).
+ */
+export function trackCoverRequest(
+  track: LibraryTrack,
+  albums: ReadonlyMap<string, LibraryAlbum> | null,
+  complete = true,
+): AlbumCoverRequest | null {
+  if (!track.album || albums === null) return null;
+  const artist = track.albumArtist ?? track.artist;
+  const album = albums.get(albumId(track.album, artist));
+  if (album) return albumCoverRequest(album);
+  if (!complete) return null;
+  return { album: track.album, artist, key: null, bpm: null, coverPath: track.path };
 }
 
 /** Kapağı değişen albümlerin sürümü: yeni kimlik eski kapağı önbellekten düşürür. */

@@ -16,8 +16,10 @@ import {
   albumCoverKey,
   cachedAlbumCover,
   clearAlbumCovers,
+  indexAlbums,
   invalidateAlbumCover,
   requestAlbumCover,
+  trackCoverRequest,
 } from "./albumCovers";
 
 const album = (name: string, key: string | null = null, bpm: number | null = null) => ({
@@ -89,5 +91,54 @@ describe("albüm kapakları", () => {
     expect(cachedAlbumCover(albumCoverKey(album("Tuz")))).toBeNull();
     // Başka albüm etkilenmez.
     expect(albumCoverKey(album("Kıyı"))).toBe(albumCoverKey(album("Kıyı")));
+  });
+
+  it("şarkı satırının kapağı albümün kapağıdır: aynı albümün şarkıları aynı kimliği paylaşır", () => {
+    const track = (n: number, over: Record<string, unknown> = {}) => ({
+      id: n,
+      path: `/m/${n}.flac`,
+      title: `Şarkı ${n}`,
+      artist: "Ada",
+      album: "Kum",
+      albumArtist: null,
+      trackNumber: n,
+      durationSecs: 200,
+      codec: "flac",
+      bpm: 90 + n,
+      analyzed: true,
+      key: `${n}A`,
+      ...over,
+    });
+    const albums = indexAlbums([
+      {
+        name: "Kum",
+        artist: "Ada",
+        trackCount: 2,
+        durationSecs: 400,
+        coverPath: "/m/1.flac",
+        bpm: 91,
+        key: "1A",
+      },
+    ]);
+    const a = trackCoverRequest(track(1), albums)!;
+    const b = trackCoverRequest(track(2), albums)!;
+    // Şarkıların kendi ton ve tempoları farklı; kimlik albümün ilk şarkısından (ızgarayla aynı).
+    expect(albumCoverKey(a)).toBe(albumCoverKey(b));
+    expect(b).toEqual({ album: "Kum", artist: "Ada", key: "1A", bpm: 91, coverPath: "/m/1.flac" });
+    // Albüm sanatçısıyla gruplanır.
+    expect(trackCoverRequest(track(3, { artist: "Konuk", albumArtist: "Ada" }), albums)).toEqual(b);
+    // Albüm listesi gelmediyse, albüm etiketi yoksa: yer tutucu.
+    expect(trackCoverRequest(track(1), null)).toBeNull();
+    expect(trackCoverRequest(track(1, { album: null }), albums)).toBeNull();
+    // Listede olmayan albüm: tam listede şarkıdan (ton ve tempo olmadan), eski listede bekler.
+    const loose = track(4, { album: "Yön" });
+    expect(trackCoverRequest(loose, albums)).toEqual({
+      album: "Yön",
+      artist: "Ada",
+      key: null,
+      bpm: null,
+      coverPath: "/m/4.flac",
+    });
+    expect(trackCoverRequest(loose, albums, false)).toBeNull();
   });
 });

@@ -6,6 +6,7 @@ import { spectrumColumns } from "./SpectrumDemo";
 import { textToColumns } from "../lib/dotFont";
 import { clearCoverCache } from "../hooks/useCover";
 import { layoutSky } from "../lib/skyMap";
+import { clearAlbumCovers } from "../lib/albumCovers";
 
 // Rust çekirdeğini taklit eden sahte arka uç.
 const backend = vi.hoisted(() => ({
@@ -95,6 +96,20 @@ vi.mock("./InfoStack", async (importOriginal) => {
     InfoStack: (props: Parameters<typeof actual.InfoStack>[0]) => {
       if (backend.infoStackFails) throw new Error("sahte çizim hatası");
       return createElement(actual.InfoStack, props);
+    },
+  };
+});
+
+// Baskı kapağı aynen çizilir; istenirse (jsdom'da 2D tuval yok) çizilmiş sayılır ve çağrılar izlenir.
+const print = vi.hoisted(() => ({ fake: false, inputs: [] as { album: string; key: unknown }[] }));
+vi.mock("../lib/printCover", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/printCover")>();
+  return {
+    ...actual,
+    drawPrintCover: (...args: Parameters<typeof actual.drawPrintCover>) => {
+      if (!print.fake) return actual.drawPrintCover(...args);
+      print.inputs.push({ album: args[1].album, key: args[1].key });
+      return "A" as const;
     },
   };
 });
@@ -1220,7 +1235,7 @@ describe("kütüphane", () => {
     expect(backend.open).not.toHaveBeenCalled();
   });
 
-  it("albümler görünümü: kapak ızgarası; albüme tıklayınca baştan çalar", async () => {
+  it("albümler görünümü: kapak ızgarası; albüme tıklayınca albüm sayfası açılır, oradan baştan çalar", async () => {
     backend.desktop = true;
     backend.library = library;
     backend.tracks = [song(1, "Mayın Tarlası"), song(2, "Bir Kedi Gördüm")];
@@ -1277,7 +1292,242 @@ describe("kütüphane", () => {
     });
     expect(backend.albumTracks).toHaveBeenCalledTimes(1);
     expect(backend.albumTracks).toHaveBeenCalledWith("Kelimeler", "Şebnem Ferah");
+    // Karta tıklamak artık albüm sayfasını açar; "Çal" albümü baştan çalar.
+    await act(async () =>
+      fireEvent.click(await screen.findByRole("button", { name: "Albümü çal" })),
+    );
     await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(backend.tracks[0]!.path));
+  });
+
+  const kelimeler = (tracks: { path: string }[]) => ({
+    name: "Kelimeler",
+    artist: "Şebnem Ferah",
+    trackCount: tracks.length,
+    durationSecs: 200 * tracks.length,
+    coverPath: tracks[0]!.path,
+    bpm: 128,
+    key: "8A",
+  });
+
+  it("albüm sayfası: büyük kapak, özet ve albüm sırasıyla şarkılar; çift tık o şarkıdan çalar", async () => {
+    backend.desktop = true;
+    backend.library = library;
+    backend.status = { ...playing, track: { ...track, path: "C:\\Müzik\\2.flac" } };
+    backend.tracks = [song(1, "Mayın Tarlası"), song(2, "Bir Kedi Gördüm"), song(3, "Fırtına")];
+    backend.albums = [kelimeler(backend.tracks)];
+    // Albüm sırası çekirdekten: listedeki sıradan bağımsız.
+    const order = [backend.tracks[0]!.path, backend.tracks[2]!.path, backend.tracks[1]!.path];
+    backend.albumTracks.mockReturnValue(order);
+    render(<App />);
+    await act(async () => fireEvent.keyDown(window, { code: "Space", key: " " }));
+    await screen.findByText("Mayın Tarlası");
+    await act(async () => fireEvent.keyDown(window, { key: "2", ctrlKey: true }));
+    const card = await screen.findByRole("button", { name: /Kelimeler/ });
+    await act(async () => fireEvent.click(card));
+    // Odak sayfanın başlığında; ad, sanatçı, şarkı sayısı, süre, ton (Türkçe) ve tempo.
+    const heading = screen.getByRole("heading", { level: 3, name: "Kelimeler" });
+    expect(heading).toHaveFocus();
+    const page = screen.getByRole("region", { name: "Kelimeler" });
+    expect(page).toHaveTextContent("Şebnem Ferah");
+    expect(page).toHaveTextContent("3 şarkı · 10 dk · La minör · 128 BPM");
+    expect(page.querySelector(".album-page__cover")).not.toBeNull();
+    const list = await within(page).findByLabelText("Albümün şarkıları");
+    const titles = within(list)
+      .getAllByRole("row")
+      .map((row) => row.querySelectorAll("[role=gridcell]")[1]?.textContent);
+    expect(titles).toEqual(["Mayın Tarlası", "Fırtına", "Bir Kedi Gördüm"]);
+    // Çalan şarkı vurgulanır.
+    await waitFor(() =>
+      expect(within(list).getByText("Bir Kedi Gördüm").closest("[role=row]")).toHaveClass(
+        "is-current",
+      ),
+    );
+    // Çift tık o şarkıdan albüm sırasıyla çalar: sırada 2 / 3, sıradaki albümün 3. şarkısı.
+    backend.open.mockClear();
+    backend.open.mockImplementation((path: string) => {
+      const found = backend.tracks.find((t) => t.path === path)!;
+      backend.status = {
+        ...playing,
+        state: "paused",
+        track: { ...playing.track!, path, title: found.title, durationSecs: 200 },
+      };
+    });
+    await act(async () => fireEvent.doubleClick(within(list).getByText("Fırtına")));
+    await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(order[1]));
+    expect(await screen.findByText("Duraklatıldı · 2 / 3")).toBeInTheDocument();
+    expect(screen.getByText("Bir Kedi Gördüm · Şebnem Ferah")).toBeInTheDocument();
+  });
+
+  it("albüm sayfası klavyeyle: ok ve Enter çalar; geri düğmesi odağı karta verir", async () => {
+    backend.desktop = true;
+    backend.library = library;
+    backend.tracks = [song(1, "Mayın Tarlası"), song(2, "Bir Kedi Gördüm")];
+    backend.albums = [kelimeler(backend.tracks)];
+    backend.albumTracks.mockReturnValue(backend.tracks.map((t) => t.path));
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Albümler" })));
+    const card = await screen.findByRole("button", { name: /Kelimeler/ });
+    await act(async () => fireEvent.click(card));
+    const list = await screen.findByLabelText("Albümün şarkıları");
+    list.focus();
+    fireEvent.keyDown(list, { key: "ArrowDown" });
+    fireEvent.keyDown(list, { key: "ArrowDown" });
+    await act(async () => fireEvent.keyDown(list, { key: "Enter" }));
+    await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(backend.tracks[1]!.path));
+    // Çalınca kütüphane kapanır (her yerden çalmada olduğu gibi); yeniden açılır, sayfa yerinde.
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Kütüphane" })));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Albümlere dön" })));
+    expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: /Kelimeler/ })).toHaveFocus());
+  });
+
+  it("kapaktaki çal düğmesi albümü sayfayı açmadan hemen çalar", async () => {
+    backend.desktop = true;
+    backend.library = library;
+    backend.tracks = [song(1, "Mayın Tarlası"), song(2, "Bir Kedi Gördüm")];
+    backend.albums = [kelimeler(backend.tracks)];
+    backend.albumTracks.mockReturnValue(backend.tracks.map((t) => t.path));
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Albümler" })));
+    const play = await screen.findByRole("button", { name: "Baştan çal" });
+    expect(play).toHaveAccessibleDescription("Kelimeler");
+    await act(async () => fireEvent.click(play));
+    await waitFor(() => expect(backend.open).toHaveBeenLastCalledWith(backend.tracks[0]!.path));
+    expect(backend.albumTracks).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
+  });
+
+  it("Esc sırası: önce arama temizlenir, sonra albüm sayfası kapanır, en son kütüphane", async () => {
+    backend.desktop = true;
+    backend.library = library;
+    backend.tracks = [song(1, "Mayın Tarlası"), song(2, "Bir Kedi Gördüm")];
+    backend.albums = [kelimeler(backend.tracks)];
+    backend.albumTracks.mockReturnValue(backend.tracks.map((t) => t.path));
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Albümler" })));
+    const search = screen.getByRole("searchbox", { name: "Kütüphanede ara" });
+    await act(async () => fireEvent.change(search, { target: { value: "kel" } }));
+    await act(async () =>
+      fireEvent.click(await screen.findByRole("button", { name: /Kelimeler/ })),
+    );
+    const drawer = document.getElementById("drawer")!;
+    const pageOpen = () => screen.queryByRole("heading", { level: 3, name: "Kelimeler" }) !== null;
+    expect(pageOpen()).toBe(true);
+
+    search.focus();
+    await act(async () => fireEvent.keyDown(search, { key: "Escape" }));
+    expect(search).toHaveValue("");
+    expect(pageOpen()).toBe(true);
+    expect(drawer).toHaveAttribute("aria-hidden", "false");
+
+    await act(async () => fireEvent.keyDown(document.body, { key: "Escape" }));
+    expect(pageOpen()).toBe(false);
+    expect(drawer).toHaveAttribute("aria-hidden", "false");
+    // Arama değiştiği için ızgara yeniden yüklenir; gelince odak karta döner.
+    await waitFor(() => expect(screen.getByRole("button", { name: /Kelimeler/ })).toHaveFocus());
+
+    await act(async () => fireEvent.keyDown(document.body, { key: "Escape" }));
+    expect(drawer).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("albüm sayfasında kapak değiştirilebilir; Esc önce açık kapak menüsünü kapatır", async () => {
+    backend.desktop = true;
+    backend.library = library;
+    backend.tracks = [song(1, "Mayın Tarlası")];
+    backend.albums = [kelimeler(backend.tracks)];
+    backend.albumTracks.mockReturnValue(backend.tracks.map((t) => t.path));
+    backend.pickImage.mockReturnValue("C:\\Resimler\\kapak.jpg");
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Albümler" })));
+    await act(async () =>
+      fireEvent.click(await screen.findByRole("button", { name: /Kelimeler/ })),
+    );
+    const page = screen.getByRole("region", { name: "Kelimeler" });
+    const menu = page.querySelector<HTMLDetailsElement>(".album-page__menu")!;
+    menu.open = true;
+    await act(async () =>
+      fireEvent.click(within(page).getByRole("button", { name: "Kapak seç…" })),
+    );
+    await waitFor(() =>
+      expect(backend.setAlbumCover).toHaveBeenCalledWith(
+        "Kelimeler",
+        "Şebnem Ferah",
+        "C:\\Resimler\\kapak.jpg",
+      ),
+    );
+    expect(menu.open).toBe(false);
+    menu.open = true;
+    const remove = within(page).getByRole("button", { name: "Seçtiğim kapağı kaldır" });
+    await act(async () => fireEvent.keyDown(remove, { key: "Escape" }));
+    expect(menu.open).toBe(false);
+    expect(screen.getByRole("heading", { level: 3, name: "Kelimeler" })).toBeInTheDocument();
+    await act(async () => fireEvent.click(remove));
+    expect(backend.clearAlbumCover).toHaveBeenCalledWith("Kelimeler", "Şebnem Ferah");
+  });
+
+  it("şarkı satırında albüm kapağı: albüm başına tek istek, kapak yoksa baskı kapağı", async () => {
+    // Önceki testlerden yarım kalan kapak işleri bitsin (sayıma karışmasın).
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    clearAlbumCovers();
+    print.fake = true;
+    print.inputs = [];
+    const toDataURL = vi
+      .spyOn(HTMLCanvasElement.prototype, "toDataURL")
+      .mockReturnValue("data:image/jpeg;base64,YmFza2k=");
+    try {
+      backend.desktop = true;
+      backend.library = { ...library, trackCount: 16 };
+      const own = Array.from({ length: 12 }, (_, i) => song(i + 1, `Kelime ${i + 1}`));
+      const other = Array.from({ length: 3 }, (_, i) => ({
+        ...song(20 + i, `Ayna ${i + 1}`),
+        album: "Ayna",
+        artist: "Defne Ak",
+      }));
+      const loose = { ...song(30, "Etiketsiz"), album: null };
+      backend.tracks = [...own, ...other, loose];
+      backend.albums = [
+        kelimeler(own),
+        { ...kelimeler(other), name: "Ayna", artist: "Defne Ak", bpm: null, key: null },
+      ];
+      render(<App />);
+      await screen.findByText("Kelime 1");
+      await waitFor(() =>
+        expect(
+          screen.getByText("Kelime 7").closest("[role=gridcell]")!.querySelector("img"),
+        ).toHaveAttribute("src", "data:image/jpeg;base64,YmFza2k="),
+      );
+      await waitFor(() =>
+        expect(
+          screen.getByText("Ayna 2").closest("[role=gridcell]")!.querySelector("img"),
+        ).not.toBeNull(),
+      );
+      // 12 + 3 satır, iki albüm: iki kapak okuması ve iki baskı kapağı (albümün tonuyla).
+      expect(backend.coverAsked.mock.calls.map(([p]) => p).sort()).toEqual(
+        [own[0]!.path, other[0]!.path].sort(),
+      );
+      expect(print.inputs).toEqual(
+        expect.arrayContaining([
+          { album: "Kelimeler", key: "8A" },
+          { album: "Ayna", key: null },
+        ]),
+      );
+      expect(print.inputs).toHaveLength(2);
+      // Albüm etiketi olmayan şarkıda düz yer tutucu; başlık hücresinin metni yalnızca şarkı adı.
+      const looseCell = screen.getByText("Etiketsiz").closest("[role=gridcell]")!;
+      expect(looseCell.querySelector(".library__thumb")).not.toBeNull();
+      expect(looseCell.querySelector("img")).toBeNull();
+      expect(looseCell.textContent).toBe("Etiketsiz");
+      // Sütun başlıkları yerinde.
+      expect(screen.getByRole("button", { name: /^Başlık/ })).toBeInTheDocument();
+    } finally {
+      print.fake = false;
+      toDataURL.mockRestore();
+      clearAlbumCovers();
+    }
   });
 
   it("sanatçının albüm sayısı değişince (tarama) levhası yeniden çizilir", async () => {

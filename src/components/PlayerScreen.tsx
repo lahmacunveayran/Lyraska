@@ -151,8 +151,9 @@ export function PlayerScreen() {
     },
     [playList, closeDrawer],
   );
-  const playPaths = (paths: string[]) => {
-    if (paths[0]) playAndReveal(paths, paths[0]);
+  const playPaths = (paths: string[], start?: string) => {
+    const first = start ?? paths[0];
+    if (first) playAndReveal(paths, first);
   };
   const playFromLibrary = (track: LibraryTrack, list: LibraryTrack[]) =>
     playAndReveal(

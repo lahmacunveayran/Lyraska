@@ -4,12 +4,14 @@ import { errorMessage, isDesktop, libraryAlbums, type LibraryAlbum } from "../li
 /**
  * Albüm listesi (yalnızca albümler görünümü açıkken sorulur). Arama ya da şarkı listesi
  * değişince (tarama, analiz ilerledi) tazelenir; yalnızca en son sorgunun sonucu uygulanır.
+ * `latest` en son gelen listedir (arama değişip yenisi gelene kadar eski aramanınki): şarkı
+ * satırlarındaki küçük kapaklar her tuşta yer tutucuya dönmesin.
  */
 export function useAlbums(
   enabled: boolean,
   query: string,
   refreshKey: unknown,
-): { albums: LibraryAlbum[] | null; error: string | null } {
+): { albums: LibraryAlbum[] | null; latest: LibraryAlbum[] | null; error: string | null } {
   // Bu aramanın sonucu gelene kadar `null` (yükleniyor): boş liste yanlışlıkla "albüm yok" demesin.
   const [loaded, setLoaded] = useState<{ query: string; albums: LibraryAlbum[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -29,5 +31,9 @@ export function useAlbums(
       });
   }, [enabled, query, refreshKey]);
 
-  return { albums: loaded && loaded.query === query ? loaded.albums : null, error };
+  return {
+    albums: loaded && loaded.query === query ? loaded.albums : null,
+    latest: loaded?.albums ?? null,
+    error,
+  };
 }
