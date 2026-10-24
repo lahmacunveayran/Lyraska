@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
-import { PauseIcon, PlayIcon, ShuffleIcon } from "./icons";
+import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
+import { PlayIcon, ShuffleIcon } from "./icons";
 import { AlbumArt, albumLength } from "./AlbumGrid";
+import { TrackTable } from "./TrackTable";
 import {
   errorMessage,
   libraryAlbumTracks,
@@ -9,8 +10,7 @@ import {
 } from "../lib/backend";
 import { albumCoverRequest } from "../lib/albumCovers";
 import { bpmLabel } from "../lib/analysis";
-import { keyHue, keyText } from "../lib/librarySort";
-import { formatTime } from "../lib/format";
+import { keyText } from "../lib/librarySort";
 import type { PlayOrder } from "../hooks/usePlayback";
 
 const NUMBER = new Intl.NumberFormat("tr-TR");
@@ -29,6 +29,9 @@ export interface AlbumPageProps {
   /** DJ görünümü: ton Camelot koduyla. */
   camelot: boolean;
   onBack: () => void;
+  /** Geri düğmesinin yazısı ve adı (sanatçı sayfasından açılınca o sayfaya döner). */
+  backText?: string;
+  backLabel?: string;
   /**
    * Albümü çalar; `start` verilirse o şarkıdan başlar. `order`: "Çal" albüm sırasıyla, "Karışık
    * çal" karışık; şarkıya çift tıklayınca (verilmez) Karışık çal düğmesinin durumu geçerlidir.
@@ -97,6 +100,8 @@ export function AlbumPage({
   playing,
   camelot,
   onBack,
+  backText = "← Albümler",
+  backLabel = "Albümlere dön",
   onPlay,
   onChooseCover,
   onClearCover,
@@ -106,9 +111,7 @@ export function AlbumPage({
   const menuRef = useRef<HTMLDetailsElement>(null);
   const [loaded, setLoaded] = useState<{ key: string; paths: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState(-1);
   const seq = useRef(0);
-  const rowId = (index: number) => `${id}-row-${index}`;
   const albumId = `${album.artist ?? ""}\u0000${album.name}`;
 
   // Açılınca odak başlığa: ekran okuyucu sayfanın adını okur, Tab sayfanın düğmelerine gider.
@@ -142,30 +145,6 @@ export function AlbumPage({
     onPlay(paths, start, order);
   };
 
-  /** Satırı seçer ve görünür alana getirir (uzun albümde ok tuşları listeyi kaydırır). */
-  const selectRow = (index: number) => {
-    setSelected(index);
-    document.getElementById(rowId(index))?.scrollIntoView?.({ block: "nearest" });
-  };
-
-  const onListKey = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.target !== event.currentTarget || rows.length === 0) return;
-    const moves: Record<string, number> = { ArrowDown: 1, ArrowUp: -1 };
-    if (event.key in moves) {
-      event.preventDefault();
-      const from = selected < 0 ? -1 : selected;
-      selectRow(Math.max(0, Math.min(rows.length - 1, from + moves[event.key]!)));
-    } else if (event.key === "Home" || event.key === "End") {
-      event.preventDefault();
-      selectRow(event.key === "Home" ? 0 : rows.length - 1);
-    } else if (event.key === "Enter") {
-      const track = rows[selected];
-      if (!track) return;
-      event.preventDefault();
-      play(event.timeStamp, track.path);
-    }
-  };
-
   const choose = (event: MouseEvent<HTMLButtonElement>, action: () => void) => {
     const menu = event.currentTarget.closest("details");
     if (menu) menu.open = false;
@@ -178,10 +157,10 @@ export function AlbumPage({
         type="button"
         className="album-page__back"
         onClick={onBack}
-        aria-label="Albümlere dön"
-        title="Albümlere dön (Esc)"
+        aria-label={backLabel}
+        title={`${backLabel} (Esc)`}
       >
-        ← Albümler
+        {backText}
       </button>
       <div className="album-page__hero">
         <AlbumArt request={albumCoverRequest(album)} className="album__cover album-page__cover" />
@@ -252,81 +231,14 @@ export function AlbumPage({
           {error}
         </p>
       )}
-      {rows.length > 0 && (
-        <div className="album-page__table" role="grid" aria-rowcount={rows.length}>
-          <div className="album-page__row library__row--head" role="row">
-            <span role="columnheader" className="library__no">
-              #
-            </span>
-            <span role="columnheader">Başlık</span>
-            <span role="columnheader" className="library__time library__bpm">
-              BPM
-            </span>
-            <span role="columnheader" className="library__key">
-              Ton
-            </span>
-            <span role="columnheader" className="library__time">
-              Süre
-            </span>
-          </div>
-          <div
-            className="album-page__list"
-            tabIndex={0}
-            onKeyDown={onListKey}
-            aria-label="Albümün şarkıları"
-            aria-activedescendant={selected >= 0 && rows[selected] ? rowId(selected) : undefined}
-          >
-            {rows.map((track, index) => {
-              const isCurrent = track.path === currentPath;
-              const hue = keyHue(track.key);
-              return (
-                <div
-                  key={track.path}
-                  id={rowId(index)}
-                  role="row"
-                  aria-rowindex={index + 1}
-                  aria-selected={index === selected}
-                  className={`album-page__row${isCurrent ? " is-current" : ""}${index === selected ? " is-selected" : ""}`}
-                  onClick={() => setSelected(index)}
-                  onDoubleClick={(event) => play(event.timeStamp, track.path)}
-                  title={track.path}
-                >
-                  <span className="library__no" role="gridcell">
-                    {isCurrent ? (
-                      playing ? (
-                        <PlayIcon />
-                      ) : (
-                        <PauseIcon />
-                      )
-                    ) : (
-                      (track.trackNumber ?? index + 1)
-                    )}
-                  </span>
-                  <span className="library__cell library__title-cell" role="gridcell">
-                    {track.title}
-                  </span>
-                  <span className="library__time library__bpm" role="gridcell">
-                    {bpmLabel(track)}
-                  </span>
-                  <span className="library__key" role="gridcell">
-                    {hue !== null && (
-                      <i
-                        className="library__key-dot"
-                        style={{ background: `var(--key-${hue})` }}
-                        aria-hidden
-                      />
-                    )}
-                    {keyText(track, camelot)}
-                  </span>
-                  <span className="library__time" role="gridcell">
-                    {track.durationSecs ? formatTime(track.durationSecs) : ""}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      <TrackTable
+        rows={rows}
+        currentPath={currentPath}
+        playing={playing}
+        camelot={camelot}
+        label="Albümün şarkıları"
+        onPlay={(time, path) => play(time, path)}
+      />
     </div>
   );
 }
