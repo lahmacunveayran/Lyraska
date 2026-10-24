@@ -15,6 +15,7 @@
 
 pub mod covers;
 pub mod db;
+pub mod playlist_file;
 pub mod playlists;
 pub mod scan;
 pub mod service;
@@ -48,6 +49,8 @@ pub enum LibraryError {
     PlaylistMissing,
     #[error("Çalma listesinin adı boş olamaz.")]
     PlaylistNameEmpty,
+    #[error("Çalma listesi dosyası okunamadı: {0}")]
+    PlaylistFile(String),
 }
 
 /// `parent` yolu `child` yolunu kapsıyor mu (aynı yol ya da onun içinde mi)?

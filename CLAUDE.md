@@ -134,6 +134,7 @@ lyraska/
 │   │   ├── library/          # Müzik kütüphanesi (SQLite, uygulama veri klasöründe)
 │   │   │   ├── db.rs         #   kaynak (klasör ya da tek şarkı) ve şarkı tabloları, Türkçe arama, BPM
 │   │   │   ├── scan.rs       #   paralel etiket okuma, değişmeyeni atlama, silineni çıkarma
+│   │   │   ├── playlist_file.rs # çalma listesini taşıma: .m3u8 yazma/okuma, şarkıyı yol/etiket/dosya adıyla bulma
 │   │   │   ├── playlists.rs  #   çalma listeleri: ad, sıra (yolla; aynı şarkı iki kez olabilir), kolaj için albümler
 │   │   │   ├── covers.rs     #   kullanıcının albüme ve çalma listesine seçtiği kapaklar (veri klasöründe `kapaklar/`; müzik dosyalarına dokunulmaz)
 │   │   │   ├── service.rs    #   arka plan taraması; komutların kullandığı katman

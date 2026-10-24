@@ -29,7 +29,7 @@ import { ArtistGrid } from "./ArtistGrid";
 import { ArtistPage, artistAlbums } from "./ArtistPage";
 import { SkyView } from "./SkyView";
 import { AddToPlaylist } from "./AddToPlaylist";
-import { PlaylistGrid } from "./PlaylistGrid";
+import { PlaylistGrid, importSummary } from "./PlaylistGrid";
 import { PlaylistPage } from "./PlaylistPage";
 import { usePlaylists } from "../hooks/usePlaylists";
 import { useArtists } from "../hooks/useArtists";
@@ -247,6 +247,7 @@ export function LibraryPanel({
     [library.tracks, currentPath],
   );
   const playlists = usePlaylists(library.refreshKey);
+  const [importNotice, setImportNotice] = useState<string | null>(null);
   // Listeye ekleme liste sayfasının şarkılarını da tazeler.
   const [playlistEdits, setPlaylistEdits] = useState(0);
   const addToPlaylist = async (id: number, paths: string[]) => {
@@ -1034,6 +1035,7 @@ export function LibraryPanel({
                   }}
                   onChooseCover={() => void playlists.chooseCover(shownPlaylist.id)}
                   onClearCover={() => void playlists.clearCover(shownPlaylist.id)}
+                  onExport={() => playlists.exportList(shownPlaylist.id)}
                   onChanged={playlists.refresh}
                 />
               ) : playlists.playlists === null ? (
@@ -1047,7 +1049,17 @@ export function LibraryPanel({
                   onOpen={(playlist) => setOpenPlaylist(playlist.id)}
                   onPlay={playPlaylist}
                   onCreate={playlists.create}
+                  onImport={() =>
+                    void playlists.importList().then((result) => {
+                      if (result) setImportNotice(importSummary(result));
+                    })
+                  }
                 />
+              )}
+              {importNotice && shownPlaylist === null && (
+                <p className="library__note" role="status">
+                  {importNotice}
+                </p>
               )}
             </div>
           )}

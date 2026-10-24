@@ -260,6 +260,23 @@ impl LibraryService {
         self.lock()?.remove_from_playlist(id, positions)
     }
 
+    /// Listenin dışa aktarılacak içeriği.
+    pub fn playlist_file(
+        &self,
+        id: i64,
+    ) -> Result<crate::library::playlist_file::PlaylistFile, LibraryError> {
+        self.lock()?.playlist_file(id)
+    }
+
+    /// Dosyadan liste kurar; şarkılar kütüphanede (olmazsa diskte) aranır.
+    pub fn import_playlist(
+        &self,
+        file: &crate::library::playlist_file::PlaylistFile,
+    ) -> Result<crate::library::playlist_file::PlaylistImport, LibraryError> {
+        self.lock()?
+            .import_playlist(file, crate::library::playlist_file::on_disk)
+    }
+
     /// Çalma listesinde bir şarkıyı başka sıraya taşır.
     pub fn move_in_playlist(&self, id: i64, from: u32, to: u32) -> Result<(), LibraryError> {
         self.lock()?.move_in_playlist(id, from, to)

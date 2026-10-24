@@ -45,6 +45,8 @@ export interface PlaylistPageProps {
   onDelete: () => void;
   onChooseCover: () => void;
   onClearCover: () => void;
+  /** Listeyi başka bilgisayara taşımak için `.m3u8` dosyasına aktarır; kaydedilen yol. */
+  onExport?: () => Promise<string | null>;
   /** Liste değişti (çıkarma, taşıma): ızgaradaki sayı ve kolaj tazelenir. */
   onChanged: () => void;
 }
@@ -70,6 +72,7 @@ export function PlaylistPage({
   onDelete,
   onChooseCover,
   onClearCover,
+  onExport,
   onChanged,
 }: PlaylistPageProps) {
   const id = useId();
@@ -78,6 +81,7 @@ export function PlaylistPage({
   const [loaded, setLoaded] = useState<{ id: number; paths: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
+  const [exported, setExported] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const seq = useRef(0);
 
@@ -310,6 +314,21 @@ export function PlaylistPage({
                 <button type="button" onClick={(e) => choose(e, onClearCover)}>
                   Seçtiğim kapağı kaldır
                 </button>
+                {onExport && (
+                  <button
+                    type="button"
+                    onClick={(e) =>
+                      choose(e, () => {
+                        setExported(null);
+                        void onExport().then((path) => {
+                          if (path) setExported(path);
+                        });
+                      })
+                    }
+                  >
+                    Başka bilgisayara aktar (.m3u8)…
+                  </button>
+                )}
                 {confirmDelete ? (
                   <span className="library__confirm">
                     Liste silinsin mi?
@@ -330,6 +349,12 @@ export function PlaylistPage({
           </div>
         </div>
       </div>
+      {exported && (
+        <p className="library__note" role="status">
+          Kaydedildi: {exported}. Bu dosyayı (kapağı da yanındadır) öbür bilgisayara taşıyıp orada
+          Listeler › “İçe aktar” ile açın; şarkılar o bilgisayarın kütüphanesinde bulunur.
+        </p>
+      )}
       {error && (
         <p className="library__problem" role="alert">
           {error}

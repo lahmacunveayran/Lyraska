@@ -4,7 +4,7 @@ import type { LibraryTrack, Playlist } from "../lib/backend";
 import { albumCoverIndex } from "../lib/albumCovers";
 import { usePlaylists } from "../hooks/usePlaylists";
 import { AddToPlaylist } from "./AddToPlaylist";
-import { PlaylistGrid } from "./PlaylistGrid";
+import { PlaylistGrid, importSummary } from "./PlaylistGrid";
 import { PlaylistPage } from "./PlaylistPage";
 import { collageRequests } from "./PlaylistCover";
 
@@ -61,6 +61,16 @@ vi.mock("../lib/backend", async (importOriginal) => {
       const list = find(id);
       const [moved] = list.paths.splice(from, 1);
       list.paths.splice(to, 0, moved!);
+    },
+    pickPlaylistFile: async () => "E:\\Yolculuk.m3u8",
+    importPlaylist: async (file: string) => {
+      const list = {
+        id: backend.nextId++,
+        name: file.includes("Yolculuk") ? "Yolculuk" : "?",
+        paths: ["a"],
+      };
+      backend.lists.unshift(list);
+      return { playlist: row(list), samePath: 1, byTags: 0, byFileName: 0, missing: 0 };
     },
     getPlaylistCover: async () => null,
     albumCoverUrl: async () => null,
@@ -520,5 +530,89 @@ describe("liste sayfasında art arda düzenleme", () => {
     expect(titles()).toEqual(["Bulut", "Cam"]);
     slowRead.mockRestore();
     slowRemove.mockRestore();
+  });
+});
+
+describe("listeyi başka bilgisayara taşıma", () => {
+  const result = (same: number, tags: number, name: number, missing: number) => ({
+    playlist: row({ id: 9, name: "Yolculuk", paths: [] }),
+    samePath: same,
+    byTags: tags,
+    byFileName: name,
+    missing,
+  });
+
+  it("içe aktarılan liste hemen listelere girer", async () => {
+    const { result } = renderHook(() => usePlaylists("k"));
+    await waitFor(() => expect(result.current.playlists).toEqual([]));
+    let imported = null as Awaited<ReturnType<typeof result.current.importList>>;
+    await act(async () => {
+      imported = await result.current.importList();
+    });
+    expect(imported?.playlist.name).toBe("Yolculuk");
+    expect(result.current.playlists?.map((p) => p.name)).toEqual(["Yolculuk"]);
+  });
+
+  it("içe aktarma özeti bulunanı, taşınanı ve eksiği söyler", () => {
+    expect(importSummary(result(3, 0, 0, 0))).toBe(
+      "“Yolculuk” içe aktarıldı: 3 şarkının hepsi bulundu.",
+    );
+    expect(importSummary(result(5, 3, 2, 2))).toBe(
+      "“Yolculuk” içe aktarıldı: 12 şarkının 10 tanesi bulundu. 3 şarkı bu bilgisayarda başka bir yerde, adından ve sanatçısından bulundu. 2 şarkı dosya adından bulundu. 2 şarkı bu bilgisayarda yok; listede kalır, eklenince çalar.",
+    );
+    // Dosya adıyla bulunan, adından ve sanatçısından bulunmuş sayılmaz.
+    expect(importSummary(result(0, 0, 1, 0))).toBe(
+      "“Yolculuk” içe aktarıldı: 1 şarkının hepsi bulundu. 1 şarkı dosya adından bulundu.",
+    );
+    expect(importSummary(result(0, 0, 0, 0))).toBe("“Yolculuk” içe aktarıldı; dosyada şarkı yok.");
+  });
+
+  it("ızgaradaki 'İçe aktar' kartı içe aktarmayı başlatır; liste sayfası dışa aktarır", async () => {
+    const onImport = vi.fn();
+    render(
+      <PlaylistGrid
+        playlists={[]}
+        byPath={new Map()}
+        coverIndex={new Map()}
+        coverRevision={0}
+        onOpen={vi.fn()}
+        onPlay={vi.fn()}
+        onCreate={vi.fn()}
+        onImport={onImport}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /İçe aktar/ }));
+    expect(onImport).toHaveBeenCalledTimes(1);
+  });
+
+  it("liste sayfasından dışa aktarınca kaydedilen yer söylenir", async () => {
+    backend.lists = [{ id: 1, name: "L", paths: [] }];
+    const onExport = vi.fn(async () => "D:\\Listeler\\L.m3u8");
+    render(
+      <PlaylistPage
+        playlist={row(backend.lists[0]!)}
+        tracks={[]}
+        byPath={new Map()}
+        coverIndex={new Map()}
+        coverRevision={0}
+        refreshKey="k"
+        currentPath={null}
+        playing={false}
+        camelot={false}
+        onBack={vi.fn()}
+        onPlay={vi.fn()}
+        onRename={vi.fn(async () => true)}
+        onDelete={vi.fn()}
+        onChooseCover={vi.fn()}
+        onClearCover={vi.fn()}
+        onExport={onExport}
+        onChanged={vi.fn()}
+      />,
+    );
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Başka bilgisayara aktar (.m3u8)…" })),
+    );
+    expect(onExport).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole("status")).toHaveTextContent("Kaydedildi: D:\\Listeler\\L.m3u8");
   });
 });

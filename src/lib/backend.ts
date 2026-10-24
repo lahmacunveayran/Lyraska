@@ -38,6 +38,7 @@ import type { LibraryAlbum } from "./bindings/LibraryAlbum";
 import type { LibraryArtist } from "./bindings/LibraryArtist";
 import type { LibraryTrack } from "./bindings/LibraryTrack";
 import type { Playlist } from "./bindings/Playlist";
+import type { PlaylistImport } from "./bindings/PlaylistImport";
 import type { LyricLine } from "./bindings/LyricLine";
 import type { LyricWord } from "./bindings/LyricWord";
 import type { Lyrics } from "./bindings/Lyrics";
@@ -96,6 +97,7 @@ export type {
   LibraryArtist,
   LibraryTrack,
   Playlist,
+  PlaylistImport,
   LyricLine,
   LyricWord,
   Lyrics,
@@ -524,6 +526,28 @@ export function setPlaylistCover(id: number, path: string): Promise<void> {
 
 export function clearPlaylistCover(id: number): Promise<void> {
   return invoke<void>("playlist_cover_clear", { id });
+}
+
+/** Listeyi `.m3u8` dosyasına aktarır (kapak yanına); kaydedilen yol, vazgeçilirse `null`. */
+export async function exportPlaylist(id: number): Promise<string | null> {
+  if (!isTauri()) return null;
+  return invoke<string | null>("playlist_export", { id });
+}
+
+/** `.m3u8`/`.m3u` dosyasından yeni liste kurar; şarkılar bu bilgisayarda aranır. */
+export function importPlaylist(file: string): Promise<PlaylistImport> {
+  return invoke<PlaylistImport>("playlist_import", { file });
+}
+
+/** Çalma listesi dosyası seçme penceresi. */
+export async function pickPlaylistFile(): Promise<string | null> {
+  const selected = await open({
+    title: "Çalma listesi dosyası seçin",
+    multiple: false,
+    directory: false,
+    filters: [{ name: "Çalma listeleri", extensions: ["m3u8", "m3u"] }],
+  });
+  return typeof selected === "string" ? selected : null;
 }
 
 /** Kapak resmi seçme penceresi. */
