@@ -13,6 +13,11 @@ const backend = vi.hoisted(() => ({
   broken: [] as string[],
   /** Çalan şarkı bitti mi (çekirdek "ended" bildirir). */
   ended: false,
+  /**
+   * Çekirdek açılamayan dosyayı önce yoklar: çalan şarkı varsa çalmaya devam eder (N1). `false`:
+   * çalan şarkı yokken (ya da eski çekirdekte) oturum kapanır.
+   */
+  keepPlayingOnError: false,
 }));
 
 const track = (path: string): TrackInfo => ({
@@ -50,10 +55,13 @@ vi.mock("../lib/backend", async (importOriginal) => {
         backend.opens.push({
           path,
           finish: () => {
+            const wasEnded = backend.ended;
             backend.ended = false;
             if (backend.broken.includes(path)) {
-              // Çekirdek: açılamayan şarkıda oturum kapanır, çalan şarkı kalmaz.
-              backend.current = null;
+              // Çekirdek: açılamayan şarkıda oturum kapanır, çalan şarkı kalmaz (çalan şarkı
+              // yoklamayla korunuyorsa o çalmaya devam eder).
+              if (!backend.keepPlayingOnError || backend.current === null) backend.current = null;
+              else backend.ended = wasEnded;
               reject(new Error(`Dosya açılamadı: ${path}`));
               return;
             }
@@ -85,6 +93,7 @@ beforeEach(() => {
   backend.next = [];
   backend.broken = [];
   backend.ended = false;
+  backend.keepPlayingOnError = false;
 });
 
 describe("çalma sırası", () => {
@@ -176,6 +185,63 @@ describe("çalma sırası", () => {
     await finishOpen("B");
     await finishOpen("C");
     expect(result.current.player.status.track?.path).toBe("C");
+  });
+
+  it("açılamayan şarkıda çalan şarkı sürerse sıra yine işler: Sonraki, boşluksuz geçiş, şarkı sonu (N1, #74)", async () => {
+    backend.broken = ["B"];
+    backend.keepPlayingOnError = true;
+    const { result } = renderHook(() => usePlayback(["flac"]));
+    act(() => result.current.playList(["A", "B", "C", "D"], "A"));
+    await finishOpen("A");
+    act(() => result.current.next());
+    await finishOpen("B");
+    // B açılamadı, A çalmaya devam ediyor: sıra B'de durur, Sonraki C'ye götürür.
+    expect(result.current.player.status.track?.path).toBe("A");
+    expect(result.current.canNext).toBe(true);
+    expect(result.current.queueLabel).toBe("2 / 4");
+    // A bitince ses kesilmeden C gelsin diye çekirdeğe C bildirilir.
+    expect(result.current.upcoming).toBe("C");
+    // Çekirdek A'dan C'ye kendisi geçer: sıra C'ye ilerler.
+    backend.current = "C";
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    expect(result.current.queueLabel).toBe("3 / 4");
+    expect(result.current.upcoming).toBe("D");
+  });
+
+  it("açılamayan şarkıda çalan şarkı sürer; o şarkı bitince sıranın bir sonrakine geçilir (N1, #74)", async () => {
+    backend.broken = ["B"];
+    backend.keepPlayingOnError = true;
+    const { result } = renderHook(() => usePlayback(["flac"]));
+    act(() => result.current.playList(["A", "B", "C"], "A"));
+    await finishOpen("A");
+    act(() => result.current.next());
+    await finishOpen("B");
+    // Boşluksuz geçiş olamadı (ör. kanal sayısı farklı): A biter, arayüz C'yi açar.
+    backend.ended = true;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+    await finishOpen("C");
+    expect(result.current.player.status.track?.path).toBe("C");
+    expect(result.current.queueLabel).toBe("3 / 3");
+  });
+
+  it("açılamayan şarkıdan sonra 'Dosya aç' ile açılan şarkıda sıra etkin değildir", async () => {
+    backend.broken = ["B"];
+    backend.keepPlayingOnError = true;
+    const { result } = renderHook(() => usePlayback(["flac"]));
+    act(() => result.current.playList(["A", "B", "C"], "A"));
+    await finishOpen("A");
+    act(() => result.current.next());
+    await finishOpen("B");
+    act(() => void result.current.player.openPath("X"));
+    await finishOpen("X");
+    expect(result.current.player.status.track?.path).toBe("X");
+    expect(result.current.canNext).toBe(false);
+    expect(result.current.queueLabel).toBeNull();
+    expect(result.current.upcoming).toBeNull();
   });
 
   it("açılış sürerken art arda seçilenlerden yalnızca sonuncusu açılır", async () => {

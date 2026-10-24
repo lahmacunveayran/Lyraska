@@ -6,8 +6,7 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 ## İş sırası (proje sahibinin kararı, 23 Ekim 2026)
 
 1. Kütüphanenin baştan tasarımı; küçük PR'lar:
-   1. Dosya konumunu aç (0.0.80, PR açık).
-   2. Sahibinin istekleri (24 Ekim): "Kendi resmin" sahnesi (örnek videolardan ölçülen model, iki denetimden geçti;
+   1. Sahibinin istekleri (24 Ekim): "Kendi resmin" sahnesi (örnek videolardan ölçülen model, iki denetimden geçti;
       sırada kırmızı parlama sınırı ve hareketli arka plan), şarkıya özel kapak (albüm kapağı zaten değişiyor).
 2. Davul/bas/vokal ayrıştırma: Spleeter; önce eğitimsiz iyileştirmeler ölçülür.
 3. Otomatik DJ (Bölüm II), Aşama A'dan; her aşama ayrı oturumda (`docs/gorev/20-BOLUM-II-DJ.md`).
@@ -18,6 +17,9 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
   kendi şarkılarında (0.0.73).
 
 ## Ele alınmayı bekleyen geri bildirim ve bulgular
+
+- Toplu silme koruması (#105): 20+ şarkılık kaynakta yarıdan fazlası program kapalıyken gerçekten silinirse şarkılar
+  hiç çıkarılmaz, her taramada uyarı çıkar. Öneri: uyarının yanında "Yine de çıkar" düğmesi. Sahibine sorulacak.
 
 - Sahneler "yavan" (sahibi, 23 Ekim): tepki zayıf, detay az, tekrar ediyor, renkler cansız. Araştırma
   `docs/arastirma/gorsel-vay-arastirma.md`: ortak son işlem zinciri, şarkı haritasıyla koreografi, tondan palet.

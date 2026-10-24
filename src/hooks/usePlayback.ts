@@ -84,6 +84,9 @@ export function usePlayback(
   // Sıradan en son açılması istenen şarkı. Açılamazsa (bozuk ya da silinmiş dosya) çalan şarkı
   // kalmaz ama sıra bu şarkıda durur: Önceki/Sonraki çalışmayı sürdürür (#74).
   const [requested, setRequested] = useState<string | null>(null);
+  // Sıranın açılamayan şarkısı. Çekirdek çalan şarkıyı korur (N1): o çalmaya devam ederken sıra
+  // açılamayan şarkıda durur; Sonraki, boşluksuz geçiş ve şarkı sonu oradan sürer.
+  const [stalled, setStalled] = useState<string | null>(null);
   // Sıradaki şarkıyı çalmak için oynatıcıya ihtiyaç var; oynatıcı da şarkı bitince
   // sırayı soruyor. Döngüyü kırmak için açma işlevi sonradan bağlanır.
   const [openPathRef] = useState<{
@@ -97,7 +100,9 @@ export function usePlayback(
       if (!path) return;
       setQueue(next);
       setRequested(path);
+      setStalled(null);
       void openPathRef.current(path).then((opened) => {
+        if (opened === false) setStalled(path);
         // Şarkı sonunda kendiliğinden geçilen şarkı açılamadıysa bir sonrakine geçilir
         // (kullanıcının seçtiği şarkı açılamazsa hata gösterilir, sıra beklemede kalır).
         if (opened === false && automatic) {
@@ -113,11 +118,12 @@ export function usePlayback(
       // Yalnızca sıradan çalınan şarkı bittiyse sonrakine geç (boşluksuz geçiş
       // olamadıysa: ör. kanal sayısı farklı ya da şarkı açılamadı).
       const current = followQueue(queue, ended.track?.path ?? null);
-      if (currentPath(current) !== ended.track?.path) return;
+      const position = currentPath(current);
+      if (position !== ended.track?.path && (stalled === null || position !== stalled)) return;
       const next = nextInQueue(current);
       if (next) playQueue(next, true);
     },
-    [queue, playQueue],
+    [queue, playQueue, stalled],
   );
 
   const player = usePlayer(extensions, { onEnded });
@@ -129,11 +135,18 @@ export function usePlayback(
   // (yoksa "Önceki"de sıra yeniden çalan şarkıya ilerler, #51).
   const [seenPath, setSeenPath] = useState<string | null>(null);
   let activeQueue = queue;
+  let stalledNow = stalled;
   if (statusPath !== seenPath) {
-    if (seenPath !== null && seenPath === currentPath(queue)) {
+    const stalledHere = stalled !== null && stalled === currentPath(queue);
+    if (seenPath !== null && (seenPath === currentPath(queue) || stalledHere)) {
       activeQueue = followQueue(queue, statusPath);
     }
     setSeenPath(statusPath);
+    // Başka bir şarkı çalmaya başladı: açılamayan şarkıda bekleyiş biter.
+    if (stalled !== null) {
+      stalledNow = null;
+      setStalled(null);
+    }
   }
   // İlerleyen sıra saklanır: yoksa ikinci geçişte sıra eski yerinden bakar, çalan
   // şarkıyı tanımaz ve çalma o şarkının sonunda durur. (Çizim sırasında güncellenir;
@@ -141,7 +154,9 @@ export function usePlayback(
   if (activeQueue !== queue) setQueue(activeQueue);
 
   // Sıradaki şarkı çekirdeğe önceden bildirilir: şarkı bitince ses kesilmeden ona geçer.
-  const upcoming = upcomingPath(activeQueue, statusPath);
+  // Sıra açılamayan şarkıda bekliyorsa çalan şarkıdan sonra onun ardındaki gelir.
+  const stalledActive = stalledNow !== null && stalledNow === currentPath(activeQueue);
+  const upcoming = upcomingPath(activeQueue, stalledActive ? stalledNow : statusPath);
   useEffect(() => {
     setNextTrack(upcoming).catch(() => {
       /* Bildirilemezse şarkı sonunda normal geçiş yapılır. */
@@ -156,7 +171,8 @@ export function usePlayback(
   const queueCurrent = currentPath(activeQueue);
   const queueActive =
     queueCurrent !== null &&
-    (status.track === null ? queueCurrent === requested : queueCurrent === status.track.path);
+    (stalledActive ||
+      (status.track === null ? queueCurrent === requested : queueCurrent === status.track.path));
   const canNext = queueActive && nextInQueue(activeQueue) !== null;
 
   const playList = useCallback(

@@ -63,6 +63,10 @@ kısaltılır.
 
 ## 5. Teknik dersler
 
+- **Oynatıcı düzeltmesi arayüzün yolunda sınanır:** arayüz şarkıyı `Player::load` ile değil `open_track`'in üç
+  adımıyla (`begin_transition` → `prepare` → `install`) açar. Yalnızca `load`'a konan bir koruma programda
+  çalışmaz (#105'te öyle oldu); test komut gövdesini (`commands::open_on`) çağırır.
+
 - **Epilepsi güvenliği yapının içinde olmalı:** kendi sahnelerimizde parlaklık tek bir hız sınırlı çarpandan gelir
   (`sceneLevel`); güvenilmeyen içerik (MilkDrop) her karede parlaklık freninden geçer (`flashGuard.ts`, kanıtı
   `flashGuardMath.ts`). Her yeni sahne gerçek tarayıcıda ölçülür (`check:scenes`): durağan iki görüntü yetmez,
