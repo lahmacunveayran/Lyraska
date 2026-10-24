@@ -590,11 +590,27 @@ struct BarSignals<'a> {
 }
 
 /// `k`. ölçünün öncesi ve sonrası arasındaki farklar: (bas, kick, enerji).
+/// Hemen önceki ölçü sayılmaz: yükselişin son ölçüsündeki kick ya da trampet rulosu drop kadar
+/// güçlü olabilir; sayılsaydı drop bir ölçü erkene, ruloya kayardı.
 fn drop_jumps(k: usize, signals: &BarSignals) -> (f64, f64, f64) {
     let n = signals.bass.len();
-    let before = k.saturating_sub(DROP_BEFORE_BARS)..k;
+    let before = k.saturating_sub(DROP_BEFORE_BARS + 1)..k.saturating_sub(1).max(1);
     let after = k..(k + DROP_AFTER_BARS).min(n);
-    let jump = |v: &[f64]| mean(&v[after.clone()]) - mean(&v[before.clone()]);
+    // Sonrası en zayıf ölçüsüyle: drop süren bir düzeydir, tek ölçülük vurgu değil.
+    let floor = |v: &[f64]| {
+        v[after.clone()]
+            .iter()
+            .copied()
+            .fold(f64::INFINITY, f64::min)
+    };
+    let jump = |v: &[f64]| {
+        let low = floor(v);
+        if low.is_finite() {
+            low - mean(&v[before.clone()])
+        } else {
+            0.0
+        }
+    };
     (jump(signals.bass), jump(signals.kick), jump(signals.energy))
 }
 
@@ -633,7 +649,9 @@ fn find_drops(signals: &BarSignals) -> Vec<usize> {
         })
         .collect();
     // En güçlüsünden başlayarak, birbirine yakın adayları ele.
-    candidates.sort_by(|a, b| b.1.total_cmp(&a.1));
+    // Puanı (yuvarlama payıyla) eşit adaylardan önce geleni: değişimin başladığı ölçü.
+    let level = |score: f64| (score * 1e6).round();
+    candidates.sort_by(|a, b| level(b.1).total_cmp(&level(a.1)).then(a.0.cmp(&b.0)));
     let mut chosen: Vec<usize> = Vec::new();
     for (k, _) in candidates {
         if chosen.iter().all(|&c| c.abs_diff(k) >= DROP_MIN_GAP_BARS) {
@@ -1214,6 +1232,27 @@ mod tests {
         let mut far = vec![section(0.0, 16.0), section(16.0, 32.0)];
         align_sections_to_drops(&mut far, &[0, 8], &[12, 0], &[24.0, 0.2]);
         assert_eq!((far[0].start, far[0].end, far[1].start), (0.0, 16.0, 16.0));
+    }
+
+    #[test]
+    fn rulolu_olcu_degil_ardindan_gelen_olcu_drop_secilir() {
+        // 8 ölçü bassız yükseliş, 8. ölçüde kick rulosu (bas bantlarında drop kadar güçlü), drop 9.
+        let mut bass = vec![0.20; 8];
+        bass.push(0.65);
+        bass.extend([0.70; 12]);
+        let mut kick = vec![0.05; 8];
+        kick.push(0.30);
+        kick.extend([0.28; 12]);
+        let mut energy = vec![0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90];
+        energy.extend([0.85; 12]);
+        let db = [-12.0; 21];
+        let signals = BarSignals {
+            bass: &bass,
+            kick: &kick,
+            energy: &energy,
+            db: &db,
+        };
+        assert_eq!(find_drops(&signals), [9]);
     }
 
     #[test]
