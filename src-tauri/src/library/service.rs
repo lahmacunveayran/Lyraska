@@ -260,7 +260,6 @@ impl LibraryService {
         self.lock()?.remove_from_playlist(id, positions)
     }
 
-    /// Çalma listesinde bir şarkıyı başka sıraya taşır.
     /// Listenin dışa aktarılacak içeriği.
     pub fn playlist_file(
         &self,
@@ -278,6 +277,7 @@ impl LibraryService {
             .import_playlist(file, crate::library::playlist_file::on_disk)
     }
 
+    /// Çalma listesinde bir şarkıyı başka sıraya taşır.
     pub fn move_in_playlist(&self, id: i64, from: u32, to: u32) -> Result<(), LibraryError> {
         self.lock()?.move_in_playlist(id, from, to)
     }
