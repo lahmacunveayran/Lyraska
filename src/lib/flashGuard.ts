@@ -70,11 +70,15 @@ export interface FlashGuard {
     dt: number,
     target?: WebGLFramebuffer | null,
   ): boolean;
-  /** Başka bir tuvalin (ör. butterchurn'ün) görüntüsünü yükleyip `process` eder. */
+  /**
+   * Başka bir tuvalin (ör. butterchurn'ün) görüntüsünü yükleyip `process` eder. `reuse`: kaynak
+   * bir önceki çağrıdan beri değişmedi, aynı boydaki yüklü doku yeniden kullanılır (yükleme yok).
+   */
   processSource(
     source: HTMLCanvasElement | OffscreenCanvas | ImageBitmap,
     dt: number,
     target?: WebGLFramebuffer | null,
+    reuse?: boolean,
   ): boolean;
   /**
    * Durumu fren olmadan doğrudan `source`'un görüntüsüne getirir ve çizer: yalnızca sahne ilk kez
@@ -650,8 +654,15 @@ function build(
     return {
       storage,
       process,
-      processSource(source, dt, to = null) {
-        const texture = upload(source);
+      processSource(source, dt, to = null, reuse = false) {
+        const same =
+          reuse &&
+          !!sourceTexture &&
+          sourceSize.width === source.width &&
+          sourceSize.height === source.height &&
+          !disposed &&
+          !gl.isContextLost();
+        const texture = same ? sourceTexture : upload(source);
         return texture ? process(texture, source.width, source.height, dt, to) : false;
       },
       primeSource(source, to = null) {

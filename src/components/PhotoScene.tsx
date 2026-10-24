@@ -17,6 +17,7 @@ import {
   limitExtents,
   lineRows,
   measureLine,
+  presentMotion,
   redSplit,
   targetExtents,
   uniformBackground,
@@ -193,7 +194,8 @@ interface Motion {
   index: number;
   /** Oynatma saati (ms): yalnız çalarken ilerler. */
   clock: number;
-  primed: boolean;
+  /** Ekrandaki görüntünün durumu (`presentMotion`). */
+  shown: { primed: boolean; raw: boolean };
 }
 
 /**
@@ -301,7 +303,14 @@ export function PhotoScene({
       typeof OffscreenCanvas === "function"
         ? new OffscreenCanvas(1, 1)
         : document.createElement("canvas");
-    motion.current = { animation, guard: setup.guard, frame, index: -1, clock: 0, primed: false };
+    motion.current = {
+      animation,
+      guard: setup.guard,
+      frame,
+      index: -1,
+      clock: 0,
+      shown: { primed: false, raw: false },
+    };
     const onLost = (event: Event) => {
       event.preventDefault();
       // Bağlam geri gelse de durum kayboldu: ilk kare sabit (güvenli yan).
@@ -330,7 +339,8 @@ export function PhotoScene({
       if (playing) m.clock += Math.max(0, Math.min(dt, 0.25)) * 1000;
       const { frames, durations, repetitions } = m.animation;
       const index = frameAt(m.clock, durations, repetitions);
-      if (m.frame.width !== width || m.frame.height !== height || index !== m.index) {
+      const changed = m.frame.width !== width || m.frame.height !== height || index !== m.index;
+      if (changed) {
         m.frame.width = width;
         m.frame.height = height;
         const ctx = m.frame.getContext("2d") as
@@ -343,12 +353,9 @@ export function PhotoScene({
         }
         m.index = index;
       }
-      // Fren yalnızca Epilepsi güvenli modunda (proje sahibinin kararı, 24 Ekim 2026); kapalıyken
-      // her kare olduğu gibi çizilir (açılınca fren o anki kareden sürer).
-      const ok =
-        m.primed && safeRef.current
-          ? m.guard.processSource(m.frame, dt)
-          : (m.primed = m.guard.primeSource(m.frame));
+      // Fren yalnızca Epilepsi güvenli modunda; kapalıyken her kare olduğu gibi ve yalnızca
+      // değişince çizilir (açılınca fren o anki kareden sürer).
+      const ok = presentMotion(m.guard, m.frame, m.shown, changed, safeRef.current, dt);
       return ok ? { width, height } : null;
     },
     [playing],

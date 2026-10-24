@@ -23,6 +23,7 @@ import {
   FrameEnvelope,
   PHOTO_BARS,
   animatedBudgets,
+  presentMotion,
   barColors,
   barGeometry,
   blurredBox,
@@ -219,4 +220,59 @@ describe("kendi resmin sahnesi: hareketli arka plan + çubuklar, parlama yok", (
       expect(r.red).toBeLessThanOrEqual(limit);
     },
   );
+});
+
+describe("kendi resmin sahnesi: hareketli arka planın ekrana yüklenmesi", () => {
+  const fakeGuard = () => {
+    const calls = { prime: 0, process: 0, reused: 0 };
+    return {
+      calls,
+      guard: {
+        primeSource: () => {
+          calls.prime++;
+          return true;
+        },
+        processSource: (_source: unknown, _dt: number, _target?: null, reuse = false) => {
+          calls.process++;
+          if (reuse) calls.reused++;
+          return true;
+        },
+      },
+    };
+  };
+  const frame = {} as OffscreenCanvas;
+
+  it("varsayılan modda kare değişmedikçe yeniden yüklenmez (tuval son kareyi gösterir)", () => {
+    const { calls, guard } = fakeGuard();
+    const state = { primed: false, raw: false };
+    for (let tick = 0; tick < 10; tick++) {
+      expect(presentMotion(guard, frame, state, tick === 0, false, 1 / 60)).toBe(true);
+    }
+    expect(calls.prime).toBe(1);
+    expect(calls.process).toBe(0);
+    expect(presentMotion(guard, frame, state, true, false, 1 / 60)).toBe(true);
+    expect(calls.prime).toBe(2);
+  });
+
+  it("güvenli modda fren her karede ilerler, doku yalnızca kare değişince yüklenir", () => {
+    const { calls, guard } = fakeGuard();
+    const state = { primed: false, raw: false };
+    for (let tick = 0; tick < 10; tick++) {
+      presentMotion(guard, frame, state, tick === 0 || tick === 5, true, 1 / 60);
+    }
+    // İlk kare frensiz belirir; sonraki 9 karede fren, 8'inde doku aynı.
+    expect(calls.prime).toBe(1);
+    expect(calls.process).toBe(9);
+    expect(calls.reused).toBe(8);
+  });
+
+  it("güvenli mod kapanınca sabit karede de frensiz görüntüye bir kez döner", () => {
+    const { calls, guard } = fakeGuard();
+    const state = { primed: false, raw: false };
+    presentMotion(guard, frame, state, true, true, 1 / 60);
+    presentMotion(guard, frame, state, false, true, 1 / 60);
+    for (let tick = 0; tick < 5; tick++) presentMotion(guard, frame, state, false, false, 1 / 60);
+    expect(calls.prime).toBe(2);
+    expect(calls.process).toBe(1);
+  });
 });

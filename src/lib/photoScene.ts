@@ -1639,6 +1639,43 @@ export function animatedBudgets(
   };
 }
 
+/** Hareketli arka planı ekrana getiren fren (`FlashGuard`'ın kullanılan kısmı). */
+export interface MotionGuard {
+  primeSource(source: OffscreenCanvas | HTMLCanvasElement): boolean;
+  processSource(
+    source: OffscreenCanvas | HTMLCanvasElement,
+    dt: number,
+    target?: null,
+    reuse?: boolean,
+  ): boolean;
+}
+
+/**
+ * Hareketli arka planın bir ekran karesi. `changed`: resmin karesi ya da tuvalin boyu değişti.
+ * Fren yalnızca Epilepsi güvenli modunda (proje sahibinin kararı, 24 Ekim 2026): o modda fren her
+ * karede ilerler, ama doku yalnızca kare değişince yüklenir (`reuse`). Mod kapalıyken kare olduğu
+ * gibi çizilir (`primeSource`) ve kare değişmedikçe yeniden yüklenmez: WebGL tuvali son çizilen
+ * kareyi gösterir. `state.raw`: ekranda frensiz kare var mı (mod kapanınca frenli görüntü bir kez
+ * frensize döner). Çizilemezse `false`.
+ */
+export function presentMotion(
+  guard: MotionGuard,
+  frame: OffscreenCanvas | HTMLCanvasElement,
+  state: { primed: boolean; raw: boolean },
+  changed: boolean,
+  safe: boolean,
+  dt: number,
+): boolean {
+  if (state.primed && safe) {
+    state.raw = false;
+    return guard.processSource(frame, dt, null, !changed);
+  }
+  if (state.primed && state.raw && !changed) return true;
+  state.primed = guard.primeSource(frame);
+  state.raw = state.primed;
+  return state.primed;
+}
+
 /** Çubuğun ekrandaki dikdörtgeni. */
 export interface BarRect {
   x: number;
