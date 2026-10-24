@@ -61,11 +61,13 @@ impl ScanRequest {
         !self.all && self.folders.is_empty() && self.parts.is_empty()
     }
 
-    /// Kaynağın taranacak alt klasörleri; bütün kaynak taranacaksa ya da hiç taranmayacaksa boş.
-    /// İç içe olanlardan dıştaki kalır.
-    fn parts_of(&self, folder: &FolderRow) -> Vec<&Path> {
+    /// Kaynağın nasıl taranacağı: `[None]` bütün kaynak, `Some` alt klasörler (iç içe olanlardan
+    /// dıştaki kalır), boş: hiç. Alt klasörler uzun bir tarama sürerken birçok istekte birikebilir;
+    /// [`watch::MAX_SCOPES`]'tan fazlası bütün kaynağın tek bir taramasına döner (yüzlerce ayrı
+    /// alt klasör taraması yapılmasın).
+    fn scopes_of(&self, folder: &FolderRow) -> Vec<Option<&Path>> {
         if self.all || self.folders.contains(&folder.id) {
-            return Vec::new();
+            return vec![None];
         }
         let mut kept: Vec<&Path> = Vec::new();
         for (_, part) in self.parts.iter().filter(|(id, _)| *id == folder.id) {
@@ -75,7 +77,10 @@ impl ScanRequest {
             kept.retain(|k| !path_covers(part, k));
             kept.push(part);
         }
-        kept
+        if kept.len() > watch::MAX_SCOPES {
+            return vec![None];
+        }
+        kept.into_iter().map(Some).collect()
     }
 }
 
@@ -474,12 +479,7 @@ fn run_scan(
     let mut problems = Vec::new();
     for folder in &folders {
         // `None`: bütün kaynak; `Some`: yalnızca o alt klasör.
-        let scopes: Vec<Option<&Path>> = if request.all || request.folders.contains(&folder.id) {
-            vec![None]
-        } else {
-            request.parts_of(folder).into_iter().map(Some).collect()
-        };
-        for within in scopes {
+        for within in request.scopes_of(folder) {
             match scan::scan_folder_within(library, folder, within, scan) {
                 Ok(summary) => {
                     changed |= summary.updated + summary.removed > 0;
@@ -805,6 +805,17 @@ mod tests {
         service
     }
 
+    /// Klasörün adını değiştirir; Windows'ta bir dosya kısa süre açık kalırsa (tarayıcı,
+    /// virüs tarayıcısı, dizin izleme) birkaç kez yeniden dener.
+    fn rename_retrying(from: &Path, to: &Path) {
+        let mut tries = 0;
+        while let Err(error) = std::fs::rename(from, to) {
+            tries += 1;
+            assert!(tries < 20, "ad değiştirilemedi: {error}");
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    }
+
     fn track_count(service: &LibraryService) -> usize {
         service.status().unwrap().track_count
     }
@@ -920,14 +931,14 @@ mod tests {
         wait_until("klasör izleniyor", || service.watcher.watched_count() == 1);
 
         let unplugged = temp_path("servis-usb-cikarildi");
-        std::fs::rename(&dir, &unplugged).unwrap();
+        rename_retrying(&dir, &unplugged);
         wait_until("kaybolan klasör izlenemiyor", || {
             service.watcher.unwatched().contains(&folder.id)
         });
         // Bu arada bir şarkı eklenmişti; geri takıldı.
         let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data");
         std::fs::copy(data.join("uc-uc-ton.mp3"), unplugged.join("yeni.mp3")).unwrap();
-        std::fs::rename(&unplugged, &dir).unwrap();
+        rename_retrying(&unplugged, &dir);
         wait_until("yeniden izleniyor", || service.watcher.watched_count() == 1);
         wait_until("geri gelen klasör tarandı", || track_count(&service) == 3);
         service.shutdown();
@@ -1006,15 +1017,61 @@ mod tests {
             ..ScanRequest::default()
         };
         assert_eq!(
-            request.parts_of(&folder),
-            vec![Path::new("/d/DLP"), Path::new("/d/Müzik")]
+            request.scopes_of(&folder),
+            vec![Some(Path::new("/d/DLP")), Some(Path::new("/d/Müzik"))]
         );
+        // İsteği olmayan kaynak taranmaz.
+        let other = FolderRow {
+            id: 3,
+            path: "/f".to_owned(),
+            ..folder.clone()
+        };
+        assert!(request.scopes_of(&other).is_empty());
         // Bütün kaynak da isteniyorsa alt klasörler ayrıca taranmaz.
         let whole = ScanRequest {
             folders: vec![1],
             ..request
         };
-        assert!(whole.parts_of(&folder).is_empty());
+        assert_eq!(whole.scopes_of(&folder), vec![None]);
+    }
+
+    #[test]
+    fn biriken_alt_klasor_istekleri_sinirda_butun_kaynaga_doner() {
+        let folder = FolderRow {
+            id: 1,
+            path: "/d".to_owned(),
+            track_count: 0,
+            single: false,
+        };
+        // Uzun bir tarama sürerken izleyici her seferinde sınırın altında alt klasör gönderir;
+        // istekler birikir.
+        let mut request = ScanRequest::default();
+        let mut batch = 0;
+        while request.parts.len() <= watch::MAX_SCOPES {
+            for i in 0..watch::MAX_SCOPES / 2 {
+                request
+                    .parts
+                    .push((1, PathBuf::from(format!("/d/{batch}-{i}"))));
+            }
+            batch += 1;
+        }
+        assert!(batch > 1, "birden çok istekte birikti");
+        assert_eq!(
+            request.scopes_of(&folder),
+            vec![None],
+            "tek bir bütün tarama"
+        );
+        // Sınırda (iç içe olanlar sayılmadan) alt klasörler ayrı ayrı taranır.
+        let mut request = ScanRequest::default();
+        for i in 0..watch::MAX_SCOPES {
+            request.parts.push((1, PathBuf::from(format!("/d/{i}"))));
+            request
+                .parts
+                .push((1, PathBuf::from(format!("/d/{i}/alt"))));
+        }
+        let scopes = request.scopes_of(&folder);
+        assert_eq!(scopes.len(), watch::MAX_SCOPES);
+        assert!(scopes.iter().all(Option::is_some));
     }
 
     #[test]

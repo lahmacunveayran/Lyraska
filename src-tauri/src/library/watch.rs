@@ -15,12 +15,20 @@
 //!   başlatır. Taranmayan sistem klasörlerindeki ([`scan::is_skipped_dir_name`]) olaylar yok
 //!   sayılır.
 //! - Kendini onaran izleme: Windows, izlenen klasör kaybolunca (USB çıkarıldı, ağ koptu) ya da
-//!   G/Ç hatasında izlemeyi **sessizce** bırakır; hiçbir olay gelmez. Bu yüzden izlemeler her
-//!   [`Timing::heal`] aralığında yeniden kurulur; kaybolup geri gelen klasör yeniden izlenir ve
-//!   taranır. Pencere küçültülmüş olsa da (müzik çalarken) çalışır.
+//!   G/Ç hatasında izlemeyi **sessizce** bırakır; hiçbir olay gelmez. Bu yüzden her
+//!   [`Timing::heal`] aralığında izlenen köklerin yerinde olup olmadığına bakılır (bir `stat`).
+//!   Sağlam izlemelere dokunulmaz: izlemeyi kapatıp açmak (Windows'ta `CancelIo`) o anda
+//!   arabellekteki olayları atar. Kaybolan kökün izlemesi bırakılır; geri gelince yeniden kurulur
+//!   ve kaynak **bütünüyle** taranır (arada başka bilgisayarda değişmiş olabilir; bütün kaynak
+//!   taramasında "disk takılı değil" kuşkusu geçerlidir). İzleyici hata bildirdiyse ya da kökün
+//!   kendisi silindiyse o izleme de yeniden kurulur ve kaynak bütünüyle taranır. Pencere
+//!   küçültülmüş olsa da (müzik çalarken) çalışır.
 //! - Güvenlik ağı: Windows olay arabelleği (16 KB) taşınca olaylar da sessizce kaybolur (notify
-//!   Windows'ta "yeniden tara" işareti vermez). Bu yüzden bütün kaynaklar ayrıca her
-//!   [`Timing::backstop`] aralığında taranır.
+//!   Windows'ta "yeniden tara" işareti vermez). Kök iki bakış arasında kaybolup geri geldiyse
+//!   (USB iki dakikadan kısa sürede çıkarılıp takıldı) ya da ağ hatası izlemeyi kök yerindeyken
+//!   düşürdüyse bu da görünmez. Bu yüzden her [`Timing::backstop`] aralığında bütün izlemeler
+//!   yenilenir ve hemen ardından bütün kaynaklar taranır (yenileme arasında kaçan olayı da bu
+//!   tarama bulur).
 //! - İzlenemeyen klasör bir kez günlüğe yazılır; pencereye dönülünce de taranır
 //!   ([`super::service::LibraryService::on_window_focus`]).
 //! - Bütün yavaş işler (izleme kurma, disk ve kütüphane soruları) tek bir iş parçacığında yapılır;
@@ -54,19 +62,20 @@ pub struct Timing {
     pub slow_quiet: Duration,
     /// Yavaş yazılan dosya için en fazla bekleme (yazma hiç bitmese de bir kez taranır).
     pub slow_cap: Duration,
-    /// İzlemelerin yeniden kurulma aralığı (sessizce düşen izleme en geç bu sürede onarılır).
+    /// İzlenen köklerin yerinde olup olmadığına bakılma, hatalı izlemelerin yeniden kurulma ve
+    /// izlenemeyenlerin yeniden denenme aralığı.
     pub heal: Duration,
-    /// Bütün kaynakların güvenlik ağı taramasının aralığı.
+    /// Bütün izlemelerin yenilenip bütün kaynakların taranma (güvenlik ağı) aralığı.
     pub backstop: Duration,
 }
 
 /// Programın kullandığı süreler.
 ///
-/// - `heal` 2 dk: izlemeyi yeniden kurmak yerel diskte milisaniyeler sürer; çıkarılıp yeniden
-///   takılan bir USB diski ya da geri gelen bir ağ sürücüsü en geç iki dakikada yeniden izlenir.
-/// - `backstop` 30 dk: tarama değişmeyen dosyaları yalnızca listeler (etiket okumaz); büyük bir
-///   sürücüde bile birkaç saniyelik disk okuması, yarım saatte bir yapılınca disk zamanının
-///   binde birkaçı. Kaybolan bir olay (arabellek taşması, onarılana kadar düşük izleme) program
+/// - `heal` 2 dk: her kök için bir `stat`; çıkarılıp yeniden takılan bir USB diski ya da geri gelen
+///   bir ağ sürücüsü en geç iki dakikada yeniden izlenir ve taranır.
+/// - `backstop` 30 dk: tarama değişmeyen dosyaları yalnızca listeler (etiket okumaz); yerel bir
+///   SSD'de saniyeler sürer, ama yüz binlerce dosyalı bütün bir sabit diskte ya da ağ sürücüsünde
+///   (NAS) birkaç dakika sürebilir (arka planda; arayüz beklemez). Kaybolan bir olay (arabellek taşması, iki bakış arasında düşen izleme) program
 ///   küçültülmüşken bile en geç yarım saatte yakalanır.
 pub const DEFAULT_TIMING: Timing = Timing {
     quiet: Duration::from_secs(2),
@@ -78,8 +87,9 @@ pub const DEFAULT_TIMING: Timing = Timing {
     backstop: Duration::from_secs(30 * 60),
 };
 
-/// Bir alt kaynakta en fazla bu kadar ayrı alt klasör taranır; fazlası bütün kaynağın taranması.
-const MAX_SCOPES: usize = 8;
+/// Bir kaynakta en fazla bu kadar ayrı alt klasör taranır; fazlası bütün kaynağın taranması
+/// (tarama kuyruğu da aynı sınırı uygular: [`super::service`]).
+pub(super) const MAX_SCOPES: usize = 8;
 /// İçeri gelen klasörde şarkı ararken bakılan en fazla girdi ve derinlik (büyük bir klasör
 /// taşınsa da bakış kısa sürer; daha derindeki şarkıları güvenlik ağı taraması bulur).
 const DIR_PROBE_ENTRIES: usize = 2000;
@@ -300,13 +310,17 @@ pub fn classify(kind: &EventKind, path: &Path, root: &Path, probe: &impl Probe) 
         EventKind::Create(_) | EventKind::Modify(ModifyKind::Name(RenameMode::To)) => {
             audio || probe.dir_has_audio(path)
         }
-        // Silinen ya da dışarı taşınan: artık diskte yok, kütüphaneye sorulur.
+        // Silinen ya da dışarı taşınan: artık diskte yok, kütüphaneye sorulur (dosya uzantılı
+        // ses dışı yollar sorulmadan elenir: bütün bir sürücüde her silinen geçici dosya
+        // kütüphane kilidini almasın).
         EventKind::Remove(_) | EventKind::Modify(ModifyKind::Name(RenameMode::From)) => {
-            audio || probe.has_tracks_under(path)
+            audio || may_be_folder(path) && probe.has_tracks_under(path)
         }
         // Yönü belli olmayan ad değişikliği: iki ihtimale de bakılır.
         EventKind::Modify(ModifyKind::Name(_)) => {
-            audio || probe.dir_has_audio(path) || probe.has_tracks_under(path)
+            audio
+                || probe.dir_has_audio(path)
+                || may_be_folder(path) && probe.has_tracks_under(path)
         }
         // Başka içerik değişiklikleri: yalnızca şarkılar.
         EventKind::Modify(_) | EventKind::Any | EventKind::Other => {
@@ -314,6 +328,21 @@ pub fn classify(kind: &EventKind, path: &Path, root: &Path, probe: &impl Probe) 
         }
     };
     relevant.then_some(Change::Structure)
+}
+
+/// Artık diskte olmayan (silinen) bir yol klasör olabilir mi? Uzantısı dosya uzantısına benzeyen
+/// (1–5 ASCII harf/rakam, en az bir harf: `.jpg`, `.tmp`, `.mp3x`) yol klasör sayılmaz.
+/// Uzantısız yollar ve "Vol. 2", "Mr. Bungle", "2023.05" gibi noktalı klasör adları klasör
+/// olabilir. Nadiren adı dosyaya benzeyen bir klasör ("Disc.One") silinirse güvenlik ağı
+/// taraması onu yakalar.
+fn may_be_folder(path: &Path) -> bool {
+    let Some(ext) = path.extension().and_then(|e| e.to_str()) else {
+        return true;
+    };
+    let file_like = (1..=5).contains(&ext.len())
+        && ext.chars().all(|c| c.is_ascii_alphanumeric())
+        && ext.chars().any(|c| c.is_ascii_alphabetic());
+    !file_like
 }
 
 /// Değişikliğin taranacağı alt klasör: yolun bulunduğu klasör (içeri gelen bir klasörün kendisi
@@ -348,7 +377,8 @@ fn in_skipped_dir(path: &Path, root: &Path, audio: bool) -> bool {
 pub struct SyncPlan {
     /// İzlemesi bırakılacak kökler.
     pub unwatch: Vec<PathBuf>,
-    /// İzlenecek klasörler; üçüncü değer: izlenince taransın mı (izlenemezken kaçırılmış olabilir).
+    /// İzlenecek klasörler; üçüncü değer: izlenince bütünüyle taransın mı (izlenemezken ya da
+    /// izleme bozukken değişiklik kaçırılmış olabilir).
     pub watch: Vec<(i64, PathBuf, bool)>,
     /// Bulunamayan (kaybolan ya da hiç olmayan) klasörler: izlenemiyor.
     pub missing: Vec<i64>,
@@ -356,14 +386,31 @@ pub struct SyncPlan {
     pub files: Vec<i64>,
 }
 
+/// Eşitlemenin izlenen köklere ne yapacağı.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SyncMode {
+    /// Yalnızca kaynak listesindeki değişiklikler (eklenen, çıkarılan); izlenenlere dokunulmaz.
+    Sources,
+    /// Onarma: kaybolan kökün izlemesi bırakılır; hata bildiren (`suspect`) izleme yeniden kurulur.
+    /// Sağlam izlemelere dokunulmaz (yeniden kurmak arabellekteki olayları atar).
+    Heal,
+    /// Yenileme (güvenlik ağı taramasından hemen önce): yerinde olan bütün izlemeler yeniden
+    /// kurulur. Gerekçe: Windows'ta notify, kök kaybolup iki bakış arasında geri geldiğinde ya da
+    /// bilinmeyen bir G/Ç hatasında (ağ kopması) izlemeyi kök yerindeyken sessizce bırakır ve
+    /// bunu soracak bir yol yoktur. Arada kaçan olayları ardından gelen bütün kaynak taraması
+    /// bulur; bu yüzden sağlam izlemeler burada ayrıca taranmak üzere işaretlenmez.
+    Refresh,
+}
+
 /// İzlemeleri kaynaklarla eşitleme planı (saf). `roots`: şu an izlenenler; `failed`: izlenemeyen
-/// klasör kaynakları. `heal`: izlenenler de yeniden kurulur (Windows sessizce bırakmış olabilir);
-/// kaybolan kökün izlemesi bırakılır.
+/// (izlenince bütünüyle taranacak) klasör kaynakları; `suspect`: izleyicisi hata bildiren ya da
+/// kökü silinen kaynaklar (bkz. [`SyncMode`]).
 pub fn plan_sync(
     folders: &[FolderRow],
     roots: &[(i64, PathBuf)],
     failed: &HashSet<i64>,
-    heal: bool,
+    suspect: &HashSet<i64>,
+    mode: SyncMode,
     exists: impl Fn(&Path) -> bool,
     is_file: impl Fn(&Path) -> bool,
 ) -> SyncPlan {
@@ -382,13 +429,17 @@ pub fn plan_sync(
             .iter()
             .any(|(id, root)| *id == folder.id && *root == path);
         if watched {
-            if heal {
+            if mode == SyncMode::Sources {
+                continue;
+            }
+            let suspect = suspect.contains(&folder.id);
+            if !exists(&path) {
+                // Kaybolan kök: izleme bırakılır; geri gelince yeniden kurulur ve taranır.
+                plan.unwatch.push(path);
+                plan.missing.push(folder.id);
+            } else if suspect || mode == SyncMode::Refresh {
                 plan.unwatch.push(path.clone());
-                if exists(&path) {
-                    plan.watch.push((folder.id, path, false));
-                } else {
-                    plan.missing.push(folder.id);
-                }
+                plan.watch.push((folder.id, path, suspect));
             }
         } else if folder.single || is_file(&path) {
             // Tek şarkı kaynağı (yeni eklenende `single` taramadan sonra dolar: diske bakılır).
@@ -407,7 +458,7 @@ enum Message {
     Event(notify::Result<Event>),
     /// Kaynaklar değişti: izlemeleri eşitle.
     Sync,
-    /// İzlemeleri onar (pencereye dönüldü).
+    /// İzlemeleri onar, izlenemeyenleri yeniden dene (pencereye dönüldü).
     Heal,
     Stop,
 }
@@ -465,6 +516,7 @@ impl FolderWatcher {
             probe: LiveProbe { library },
             roots: Vec::new(),
             failed: HashSet::new(),
+            suspect: HashSet::new(),
             logged: HashSet::new(),
             debouncer: Debouncer::new(timing),
             published: Arc::clone(&self.published),
@@ -498,7 +550,8 @@ impl FolderWatcher {
         self.send(Message::Sync);
     }
 
-    /// İzlemeleri arka planda yeniden kurar ve izlenemeyenleri yeniden dener (beklemez).
+    /// İzlemeleri arka planda onarır ve izlenemeyenleri yeniden dener (beklemez; bkz.
+    /// [`SyncMode::Heal`]).
     pub fn request_heal(&self) {
         self.send(Message::Heal);
     }
@@ -538,8 +591,11 @@ struct Worker {
     probe: LiveProbe,
     /// İzlenen klasörler: kaynak kimliği ve kök yolu.
     roots: Vec<(i64, PathBuf)>,
-    /// İzlenemeyen klasör kaynakları.
+    /// İzlenemeyen klasör kaynakları (izlenince bütünüyle taranır).
     failed: HashSet<i64>,
+    /// İzleyicisi hata bildiren ya da kökü silinen kaynaklar: bir sonraki onarmada izlemesi
+    /// yeniden kurulur ve bütünüyle taranır.
+    suspect: HashSet<i64>,
     /// Günlüğe bir kez yazılan izleme sorunları (her denemede yinelenmesin).
     logged: HashSet<PathBuf>,
     debouncer: Debouncer,
@@ -568,26 +624,32 @@ impl Worker {
             match message {
                 Some(Message::Stop) => return,
                 Some(Message::Event(Ok(event))) => self.handle(&event),
-                // Hata bir kez günlüğe yazılır (yinelenen hata günlüğü doldurmasın).
-                Some(Message::Event(Err(error))) if !error_logged => {
-                    error_logged = true;
-                    diagnostics::error(&format!("Klasör izleme hatası: {error}"));
+                Some(Message::Event(Err(error))) => {
+                    self.mark_suspect(&error.paths);
+                    // Hata bir kez günlüğe yazılır (yinelenen hata günlüğü doldurmasın).
+                    if !error_logged {
+                        error_logged = true;
+                        diagnostics::error(&format!("Klasör izleme hatası: {error}"));
+                    }
                 }
-                Some(Message::Sync) => self.sync(false),
+                Some(Message::Sync) => self.sync(SyncMode::Sources),
                 Some(Message::Heal) => {
-                    self.sync(true);
+                    self.sync(SyncMode::Heal);
                     next_heal = Instant::now() + self.timing.heal;
                 }
-                Some(Message::Event(Err(_))) | None => {}
+                None => {}
             }
             let now = Instant::now();
-            if now >= next_heal {
-                self.sync(true);
-                next_heal = Instant::now() + self.timing.heal;
-            }
             if now >= next_backstop {
+                // Önce izlemeler yenilenir, sonra taranır: yenileme arasında kaçan olay da
+                // taramada bulunur (bkz. [`SyncMode::Refresh`]).
+                self.sync(SyncMode::Refresh);
+                next_heal = Instant::now() + self.timing.heal;
                 self.backstop();
                 next_backstop = Instant::now() + self.timing.backstop;
+            } else if now >= next_heal {
+                self.sync(SyncMode::Heal);
+                next_heal = Instant::now() + self.timing.heal;
             }
             let due = self.debouncer.take_due(Instant::now());
             if !due.is_empty() {
@@ -610,9 +672,32 @@ impl Worker {
             else {
                 continue;
             };
+            // Kökün kendisi silindi ya da taşındı: izleme düşmüş olabilir (onarmada bakılır).
+            if path_covers(path, root)
+                && matches!(
+                    event.kind,
+                    EventKind::Remove(_) | EventKind::Modify(ModifyKind::Name(_))
+                )
+            {
+                self.suspect.insert(*id);
+            }
             if let Some(change) = classify(&event.kind, path, root, &self.probe) {
                 let written = (change == Change::Write).then_some(path.as_path());
                 self.debouncer.note(*id, scope_of(path, root), written, now);
+            }
+        }
+    }
+
+    /// İzleyici hata bildirdi: yolları verilmişse onları kapsayan izlemeler, verilmemişse hepsi
+    /// bir sonraki onarmada yeniden kurulur ve taranır.
+    fn mark_suspect(&mut self, paths: &[PathBuf]) {
+        for (id, root) in &self.roots {
+            if paths.is_empty()
+                || paths
+                    .iter()
+                    .any(|p| path_covers(root, p) || path_covers(p, root))
+            {
+                self.suspect.insert(*id);
             }
         }
     }
@@ -628,7 +713,7 @@ impl Worker {
     }
 
     /// İzlemeleri kaynaklarla eşitler (bkz. [`plan_sync`]); sonucu yayımlar.
-    fn sync(&mut self, heal: bool) {
+    fn sync(&mut self, mode: SyncMode) {
         let Some(folders) = self.folders() else {
             return;
         };
@@ -636,7 +721,8 @@ impl Worker {
             &folders,
             &self.roots,
             &self.failed,
-            heal,
+            &self.suspect,
+            mode,
             Path::exists,
             Path::is_file,
         );
@@ -668,10 +754,16 @@ impl Worker {
             }
         }
         for id in plan.missing {
+            // Geri gelince bütünüyle taranır (`failed`).
             self.failed.insert(id);
             if let Some(folder) = folders.iter().find(|f| f.id == id) {
                 self.log_once(Path::new(&folder.path), "klasör bulunamadı");
             }
+        }
+        if mode != SyncMode::Sources {
+            // Hepsi ele alındı: yeniden kuruldu (taranacak), kayboldu ya da kurulamadı (ikisi
+            // de `failed`: izlenince taranır).
+            self.suspect.clear();
         }
         self.failed.retain(|id| folders.iter().any(|f| f.id == *id));
         if let Ok(mut published) = self.published.lock() {
@@ -980,7 +1072,8 @@ mod tests {
             &folders,
             &roots,
             &failed,
-            false,
+            &HashSet::new(),
+            SyncMode::Sources,
             |p| p != Path::new("/usb"),
             |p| p == Path::new("/tek.mp3"),
         );
@@ -997,38 +1090,199 @@ mod tests {
     }
 
     #[test]
-    fn onarma_dusen_izlemeleri_yeniden_kurar_kaybolani_birakir() {
-        // Windows izlemeyi sessizce bırakmış olabilir: izlenen her kök yeniden kurulur.
+    fn onarma_saglam_izlemeye_dokunmaz_kaybolani_birakir() {
+        // Sağlam izlemeyi kapatıp açmak (Windows'ta CancelIo) arabellekteki olayları atar:
+        // onarmada yalnızca kaybolan köke dokunulur.
         let folders = vec![folder(1, "/muzik", false), folder(2, "/usb", false)];
         let roots = vec![(1, PathBuf::from("/muzik")), (2, PathBuf::from("/usb"))];
+        let none = HashSet::new();
         let plan = plan_sync(
             &folders,
             &roots,
-            &HashSet::new(),
-            true,
+            &none,
+            &none,
+            SyncMode::Heal,
             |p| p != Path::new("/usb"),
             |_| false,
         );
         assert_eq!(
             plan,
             SyncPlan {
-                unwatch: vec![PathBuf::from("/muzik"), PathBuf::from("/usb")],
-                watch: vec![(1, PathBuf::from("/muzik"), false)],
+                unwatch: vec![PathBuf::from("/usb")],
+                watch: vec![],
                 missing: vec![2],
                 files: vec![],
             }
         );
-        // USB geri takıldı: bir sonraki eşitlemede yeniden izlenir ve taranır.
+        // Kaynak listesi eşitlemesi de izlenen köklere dokunmaz.
         let plan = plan_sync(
             &folders,
-            &[(1, PathBuf::from("/muzik"))],
-            &HashSet::from([2]),
-            false,
+            &roots,
+            &none,
+            &none,
+            SyncMode::Sources,
+            |_| false,
+            |_| false,
+        );
+        assert_eq!(plan, SyncPlan::default());
+    }
+
+    #[test]
+    fn kaybolup_geri_gelen_kok_yeniden_izlenir_ve_butunuyle_taranir() {
+        let folders = vec![folder(1, "/muzik", false), folder(2, "/usb", false)];
+        // USB çıkarıldı: onarma izlemeyi bıraktı, kaynak izlenemeyenlere (`failed`) geçti.
+        let roots = vec![(1, PathBuf::from("/muzik"))];
+        let failed = HashSet::from([2]);
+        // Geri takıldı: hangi kipte olursa olsun yeniden izlenir ve bütünüyle taranır (`true`);
+        // sağlam izleme yeniden kurulmaz.
+        for mode in [SyncMode::Sources, SyncMode::Heal] {
+            let plan = plan_sync(
+                &folders,
+                &roots,
+                &failed,
+                &HashSet::new(),
+                mode,
+                |_| true,
+                |_| false,
+            );
+            assert_eq!(
+                plan.watch,
+                vec![(2, PathBuf::from("/usb"), true)],
+                "{mode:?}"
+            );
+            assert!(plan.unwatch.is_empty(), "{mode:?}");
+        }
+    }
+
+    #[test]
+    fn hata_bildiren_izleme_yeniden_kurulur_ve_butunuyle_taranir() {
+        let folders = vec![folder(1, "/muzik", false), folder(2, "/nas", false)];
+        let roots = vec![(1, PathBuf::from("/muzik")), (2, PathBuf::from("/nas"))];
+        let suspect = HashSet::from([2]);
+        let plan = plan_sync(
+            &folders,
+            &roots,
+            &HashSet::new(),
+            &suspect,
+            SyncMode::Heal,
             |_| true,
             |_| false,
         );
-        assert_eq!(plan.watch, vec![(2, PathBuf::from("/usb"), true)]);
-        // Onarma olmadan izlenen köke dokunulmaz.
-        assert!(plan.unwatch.is_empty());
+        assert_eq!(
+            plan,
+            SyncPlan {
+                unwatch: vec![PathBuf::from("/nas")],
+                watch: vec![(2, PathBuf::from("/nas"), true)],
+                missing: vec![],
+                files: vec![],
+            }
+        );
+        // Hata bildiren kök kaybolmuşsa yalnızca bırakılır (geri gelince taranır).
+        let plan = plan_sync(
+            &folders,
+            &roots,
+            &HashSet::new(),
+            &suspect,
+            SyncMode::Heal,
+            |p| p != Path::new("/nas"),
+            |_| false,
+        );
+        assert_eq!(plan.unwatch, vec![PathBuf::from("/nas")]);
+        assert!(plan.watch.is_empty());
+        assert_eq!(plan.missing, vec![2]);
+    }
+
+    #[test]
+    fn yenileme_butun_izlemeleri_yeniden_kurar() {
+        // Güvenlik ağı taramasından hemen önce: sessizce düşmüş olabilecek izlemeler yenilenir;
+        // ardından bütün kaynaklar zaten taranır, yalnızca hata bildiren ayrıca işaretlenir.
+        let folders = vec![
+            folder(1, "/muzik", false),
+            folder(2, "/nas", false),
+            folder(3, "/usb", false),
+        ];
+        let roots = vec![
+            (1, PathBuf::from("/muzik")),
+            (2, PathBuf::from("/nas")),
+            (3, PathBuf::from("/usb")),
+        ];
+        let plan = plan_sync(
+            &folders,
+            &roots,
+            &HashSet::new(),
+            &HashSet::from([2]),
+            SyncMode::Refresh,
+            |p| p != Path::new("/usb"),
+            |_| false,
+        );
+        assert_eq!(
+            plan,
+            SyncPlan {
+                unwatch: vec![
+                    PathBuf::from("/muzik"),
+                    PathBuf::from("/nas"),
+                    PathBuf::from("/usb"),
+                ],
+                watch: vec![
+                    (1, PathBuf::from("/muzik"), false),
+                    (2, PathBuf::from("/nas"), true),
+                ],
+                missing: vec![3],
+                files: vec![],
+            }
+        );
+    }
+
+    #[test]
+    fn silinen_yolun_klasor_olabilecegi_uzantisindan_anlasilir() {
+        for folder in [
+            "Albüm",
+            "Vol. 2",
+            "Mr. Bungle",
+            "2023.05",
+            "R.E.M.",
+            "Kayıtlar.yedekler",
+        ] {
+            assert!(may_be_folder(Path::new(folder)), "{folder}");
+        }
+        for file in [
+            "kapak.jpg",
+            "notlar.TXT",
+            "x.tmp",
+            "a.part",
+            "web.mp3x",
+            "yedek.7z",
+        ] {
+            assert!(!may_be_folder(Path::new(file)), "{file}");
+        }
+    }
+
+    #[test]
+    fn silinen_ses_disi_dosya_kutuphaneye_sorulmaz() {
+        struct CountingProbe(std::cell::Cell<usize>);
+        impl Probe for CountingProbe {
+            fn dir_has_audio(&self, _: &Path) -> bool {
+                false
+            }
+            fn has_tracks_under(&self, _: &Path) -> bool {
+                self.0.set(self.0.get() + 1);
+                true
+            }
+        }
+        let root = Path::new("/d");
+        let probe = CountingProbe(std::cell::Cell::new(0));
+        let remove = EventKind::Remove(RemoveKind::Any);
+        let renamed = EventKind::Modify(ModifyKind::Name(RenameMode::Any));
+        for name in ["önbellek.tmp", "kapak.jpg", "Thumbs.db"] {
+            assert_eq!(classify(&remove, &root.join(name), root, &probe), None);
+            assert_eq!(classify(&renamed, &root.join(name), root, &probe), None);
+        }
+        assert_eq!(probe.0.get(), 0, "kütüphane kilidi alınmadı");
+        // Uzantısız yol klasör olabilir: sorulur.
+        assert_eq!(
+            classify(&remove, &root.join("Albüm"), root, &probe),
+            Some(Change::Structure)
+        );
+        assert_eq!(probe.0.get(), 1);
     }
 }

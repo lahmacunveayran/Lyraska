@@ -179,10 +179,16 @@ pub fn scan_folder_within(
 
     let (files, unreadable, skipped) = find_audio_files(scope.unwrap_or(root));
     state.found.store(files.len(), Ordering::Relaxed);
-    let mut known = lock(library)?.known_files(folder.id)?;
-    if let Some(scope) = scope {
-        known.retain(|path, _| Path::new(path).starts_with(scope));
-    }
+    // Alt klasör taramasında yalnızca oradaki bilinen şarkılar yüklenir (bütün bir sürücünün
+    // kaydı kütüphane kilidi altında yüklenmesin).
+    let known = match scope {
+        Some(scope) => {
+            let mut known = lock(library)?.known_files_under(folder.id, scope)?;
+            known.retain(|path, _| Path::new(path).starts_with(scope));
+            known
+        }
+        None => lock(library)?.known_files(folder.id)?,
+    };
 
     let on_disk: HashSet<String> = files
         .iter()

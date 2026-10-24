@@ -137,7 +137,7 @@ lyraska/
 │   │   │   ├── covers.rs     #   kullanıcının albüme seçtiği kapaklar (veri klasöründe `kapaklar/`; müzik dosyalarına dokunulmaz)
 │   │   │   ├── service.rs    #   arka plan taraması; komutların kullandığı katman
 │   │   │   └── watch.rs      #   klasör izleme (notify): eklenen/silinen şarkıda yalnızca o alt klasör taranır (2 sn
-│   │   │                     #   sessizlik; yazılan dosya bitene kadar beklenir); izlemeler 2 dk'da bir onarılır, 30 dk'da bir tam tarama
+│   │   │                     #   sessizlik; yazılan dosya bitene kadar beklenir); kaybolan kök 2 dk'da bir aranır, 30 dk'da bir izleme yenileme + tam tarama
 │   │   ├── data_dirs.rs      # veri klasörleri (Roaming küçük, Local büyük; eskiyi bir kez taşır), tek örnek kilidi
 │   │   ├── atomic_file.rs    # bölünmez dosya yazma (geçici dosya + sync_all + ad değiştirme): ayarlar, işaretler
 │   │   ├── file_manager.rs   # dosya gezginini açma (günlük, işaret klasörü); Windows'ta dosyayı seçili gösterir

@@ -237,16 +237,7 @@ impl Library {
     /// silinen ya da dışarı taşınan bir klasörün kütüphaneyi ilgilendirip ilgilendirmediğine buna
     /// bakarak karar verir. Yolun tekil dizininde ön ek aralığı aranır: büyük kütüphanede de hızlı.
     pub fn has_tracks_under(&self, dir: &Path) -> Result<bool, LibraryError> {
-        let sep = std::path::MAIN_SEPARATOR;
-        let mut lower = dir.to_string_lossy().into_owned();
-        if !lower.ends_with(sep) {
-            lower.push(sep);
-        }
-        // "dir/" ile başlayan her metin "dir/" ≤ metin < "dir0" aralığındadır ('/' + 1 = '0',
-        // '\\' + 1 = ']'); SQLite metni de Rust gibi bayt bayt karşılaştırır.
-        let mut upper = lower.clone();
-        upper.pop();
-        upper.push(char::from_u32(u32::from(sep) + 1).unwrap_or(char::MAX));
+        let (lower, upper) = prefix_range(dir);
         Ok(self.conn.query_row(
             "SELECT EXISTS(SELECT 1 FROM tracks WHERE path >= ?1 AND path < ?2)",
             params![lower, upper],
@@ -320,14 +311,24 @@ impl Library {
         let mut stmt = self.conn.prepare(
             "SELECT path, file_size, modified, tags_version FROM tracks WHERE folder_id = ?1",
         )?;
-        let rows = stmt.query_map([folder_id], |r| {
-            let stamp = FileStamp {
-                size: r.get::<_, i64>(1)? as u64,
-                modified: r.get(2)?,
-            };
-            let current = r.get::<_, i64>(3)? >= TAGS_VERSION;
-            Ok((r.get::<_, String>(0)?, current.then_some(stamp)))
-        })?;
+        let rows = stmt.query_map([folder_id], known_file)?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// [`Self::known_files`] gibi; yalnızca `dir` klasörünün altındakiler (alt klasör taraması:
+    /// bütün bir sürücünün kaydı kütüphane kilidi altında yüklenmesin). Ön ek aralığı yolun tekil
+    /// dizininde aranır.
+    pub fn known_files_under(
+        &self,
+        folder_id: i64,
+        dir: &Path,
+    ) -> Result<HashMap<String, Option<FileStamp>>, LibraryError> {
+        let (lower, upper) = prefix_range(dir);
+        let mut stmt = self.conn.prepare(
+            "SELECT path, file_size, modified, tags_version FROM tracks \
+             WHERE path >= ?1 AND path < ?2 AND folder_id = ?3",
+        )?;
+        let rows = stmt.query_map(params![lower, upper, folder_id], known_file)?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
@@ -688,6 +689,31 @@ fn move_corrupt_aside(path: &Path) -> Result<PathBuf, LibraryError> {
     Ok(target)
 }
 
+/// `path, file_size, modified, tags_version` satırı: yol ve (etiketleri güncelse) dosya damgası.
+fn known_file(r: &rusqlite::Row<'_>) -> rusqlite::Result<(String, Option<FileStamp>)> {
+    let stamp = FileStamp {
+        size: r.get::<_, i64>(1)? as u64,
+        modified: r.get(2)?,
+    };
+    let current = r.get::<_, i64>(3)? >= TAGS_VERSION;
+    Ok((r.get::<_, String>(0)?, current.then_some(stamp)))
+}
+
+/// `dir` klasörünün altındaki yolların aralığı: alt sınır dahil, üst sınır hariç.
+fn prefix_range(dir: &Path) -> (String, String) {
+    let sep = std::path::MAIN_SEPARATOR;
+    let mut lower = dir.to_string_lossy().into_owned();
+    if !lower.ends_with(sep) {
+        lower.push(sep);
+    }
+    // "dir/" ile başlayan her metin "dir/" ≤ metin < "dir0" aralığındadır ('/' + 1 = '0',
+    // '\\' + 1 = ']'); SQLite metni de Rust gibi bayt bayt karşılaştırır.
+    let mut upper = lower.clone();
+    upper.pop();
+    upper.push(char::from_u32(u32::from(sep) + 1).unwrap_or(char::MAX));
+    (lower, upper)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -808,6 +834,46 @@ mod tests {
         assert!(!under(root.join("Albüm 2")));
         assert!(!under(song.clone()));
         assert!(!under(root.join("Başka")));
+    }
+
+    #[test]
+    fn alt_klasordeki_bilinen_sarkilar_yuklenir() {
+        let mut lib = Library::open_in_memory().unwrap();
+        let root = std::env::temp_dir().join("muzik");
+        let other = std::env::temp_dir().join("başka");
+        let folder = lib.add_folder(&root.to_string_lossy()).unwrap();
+        let second = lib.add_folder(&other.to_string_lossy()).unwrap();
+        let song = |p: PathBuf| (track(&p.to_string_lossy(), None, None, None, None), STAMP);
+        let inside = root.join("Albüm").join("CD1").join("a.flac");
+        lib.apply_changes(
+            folder.id,
+            &[
+                song(inside.clone()),
+                song(root.join("Albüm 2").join("b.flac")),
+                song(root.join("c.flac")),
+            ],
+            &[],
+        )
+        .unwrap();
+        lib.apply_changes(second.id, &[song(other.join("Albüm").join("d.flac"))], &[])
+            .unwrap();
+        let known = lib
+            .known_files_under(folder.id, &root.join("Albüm"))
+            .unwrap();
+        assert_eq!(
+            known.keys().cloned().collect::<Vec<_>>(),
+            vec![inside.to_string_lossy().into_owned()]
+        );
+        assert_eq!(known.values().next(), Some(&Some(STAMP)));
+        assert_eq!(
+            lib.known_files_under(folder.id, &root).unwrap().len(),
+            3,
+            "kökün altı: kaynağın hepsi"
+        );
+        assert!(lib
+            .known_files_under(folder.id, &other.join("Albüm"))
+            .unwrap()
+            .is_empty());
     }
 
     fn sample() -> Library {
