@@ -220,6 +220,9 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
       canvas.dataset.webgl = "off";
       raw.dataset.guard = "off";
       raw.dataset.guardError = setup.reason;
+      // Yazılımsal WebGL'de frensiz tuval (Butterchurn'ün boyu) da küçük boy sınırını alır.
+      if (canvas.dataset.gpuCaveat) raw.dataset.gpuCaveat = canvas.dataset.gpuCaveat;
+      else delete raw.dataset.gpuCaveat;
       logFrontendError(
         `${SCENE_NAME}: parlaklık freni kurulamadı (${setup.reason}); varsayılan modda frensiz ` +
           "gösteriliyor",

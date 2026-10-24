@@ -10,6 +10,7 @@ const fake = vi.hoisted(() => ({
   loadFails: new Set<string>(),
   setFolder: vi.fn(),
   webgl: true,
+  software: false,
   guardOk: true,
   guard: null as null | {
     storage: string;
@@ -84,7 +85,11 @@ vi.mock("../lib/gl", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/gl")>();
   return {
     ...actual,
-    getWebGl2: () => (fake.webgl ? ({ isContextLost: () => false } as never) : null),
+    getWebGl2: (canvas: HTMLCanvasElement) => {
+      if (!fake.webgl) return null;
+      if (fake.software) canvas.dataset.gpuCaveat = "software";
+      return { isContextLost: () => false } as never;
+    },
     gpuName: () => "deneme kartı",
     fitCanvas: () => ({ width: 320, height: 180, pixel: 1 }),
   };
@@ -175,6 +180,7 @@ beforeEach(() => {
   fake.loadFails = new Set();
   fake.setFolder.mockReset();
   fake.webgl = true;
+  fake.software = false;
   fake.guardOk = true;
   fake.guard = null;
   fake.guardOptions = [];
@@ -556,6 +562,18 @@ describe("MilkDrop sahnesi", () => {
     await waitFor(() => expect(fake.visualizers).toHaveLength(2));
     await waitFor(() => expect(raw).not.toHaveAttribute("hidden"));
     expect(screen.queryByText(/Parlaklık freni bu ekran kartında kurulamadı/)).toBeNull();
+  });
+
+  it("fren kurulamazsa frensiz tuval yazılımsal ekran kartının boyut sınırını da alır", async () => {
+    // Fren en çok yazılımsal WebGL'de kurulamaz: frensiz tuval (Butterchurn'ün boyu) o sınırla
+    // ölçülmeli (`fitCanvas` → `isSoftwareGl`), yoksa tam çözünürlükte işlemcide çizilir.
+    fake.folder = FOLDER;
+    fake.guardOk = false;
+    fake.software = true;
+    render(<Harness />);
+    await waitFor(() => expect(fake.visualizers[0]?.loadPreset).toHaveBeenCalledTimes(1));
+    const raw = document.querySelector<HTMLCanvasElement>(".milkdrop-scene__raw")!;
+    expect(raw.dataset.gpuCaveat).toBe("software");
   });
 
   it("güvenli modda fren sıkı çalışır", async () => {
