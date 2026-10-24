@@ -2435,7 +2435,7 @@ describe("sahneler", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     await act(async () => fireEvent.click(toggle));
     const list = screen.getByRole("group", { name: "Galeri" });
-    expect(within(list).getAllByRole("button")).toHaveLength(11);
+    expect(within(list).getAllByRole("button")).toHaveLength(12);
     // Esc listeyi kapatır, çekmeceye dokunmaz.
     await act(async () => fireEvent.keyDown(list, { key: "Escape" }));
     expect(screen.queryByRole("group", { name: "Galeri" })).not.toBeInTheDocument();
@@ -2466,8 +2466,12 @@ describe("sahneler", () => {
       await screen.findByText("MilkDrop görsellerinizin (.milk) bulunduğu klasörü seçin."),
     ).toBeInTheDocument();
     expect(screen.getByText(/Lyraska hazır görsel içermez/)).toBeInTheDocument();
+    // MilkDrop'tan önce "Kendi resmin" (resim seçilmemişken "Resim seç…").
+    await act(async () => fireEvent.keyDown(window, { key: "PageUp" }));
+    expect(screen.getByRole("img", { name: "Şarkıyla oynayan ışık çizgisi" })).toBeInTheDocument();
     await act(async () => fireEvent.keyDown(window, { key: "PageUp" }));
     expect(screen.getByRole("img", { name: /Kristal ağ/ })).toBeInTheDocument();
+    await act(async () => fireEvent.keyDown(window, { key: "PageDown" }));
     await act(async () => fireEvent.keyDown(window, { key: "PageDown" }));
     await act(async () => fireEvent.keyDown(window, { key: "PageDown" }));
     expect(screen.getByRole("button", { name: "Gece göğü" })).toHaveAttribute(

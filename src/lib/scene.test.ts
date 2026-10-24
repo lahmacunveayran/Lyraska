@@ -36,10 +36,11 @@ describe("sahneler", () => {
       "Kum tepeleri",
       "Yağmurlu cam",
       "Kristal ağ",
+      "Kendi resmin",
       "MilkDrop",
     ]);
-    expect(SCENES).toHaveLength(16);
-    expect(new Set(SCENES.map((s) => s.id)).size).toBe(16);
+    expect(SCENES).toHaveLength(17);
+    expect(new Set(SCENES.map((s) => s.id)).size).toBe(17);
     expect(["1", "2", "3", "4", "5", "6", "0"].map(sceneForKey)).toEqual([
       "sky",
       "highway",
@@ -61,7 +62,8 @@ describe("sahneler", () => {
     expect(nextScene("sky", 1)).toBe("highway");
     expect(nextScene("drive", 1)).toBe("sea");
     expect(nextScene("kaleido", 1)).toBe("ribbons");
-    expect(nextScene("crystal", 1)).toBe("milkdrop");
+    expect(nextScene("crystal", 1)).toBe("photo");
+    expect(nextScene("photo", 1)).toBe("milkdrop");
     expect(nextScene("milkdrop", 1)).toBe("sky");
     expect(nextScene("sky", -1)).toBe("milkdrop");
     // Bütün sahneleri bir kez dolaşıp başa döner.
