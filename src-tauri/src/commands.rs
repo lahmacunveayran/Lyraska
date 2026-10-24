@@ -741,6 +741,21 @@ pub async fn library_rescan(library: State<'_, LibraryState>) -> Result<LibraryS
         .await
 }
 
+/// Kullanıcı kaynağın bulunamayan şarkılarını gerçekten sildiğini onayladı ("Yine de çıkar"):
+/// kaynak arka planda taranır, bulunamayanlar kütüphaneden çıkar. Müzik dosyalarına dokunulmaz.
+#[tauri::command]
+pub async fn library_remove_missing(
+    folder_id: i64,
+    library: State<'_, LibraryState>,
+) -> Result<LibraryStatus, String> {
+    library
+        .run(move |service| {
+            service.remove_missing(folder_id);
+            service.status().map_err(reported)
+        })
+        .await
+}
+
 /// Kütüphanede arar; boş arama bütün şarkıları döndürür.
 #[tauri::command]
 pub async fn library_search(

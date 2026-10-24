@@ -938,11 +938,27 @@ export function LibraryPanel({
               şarkı analiz edildi
             </span>
           )}
-          {problems.map((problem) => (
-            <span key={problem} className="library__problem">
-              {problem}
-            </span>
-          ))}
+          {problems.map((problem) => {
+            // Şarkılarının çoğu bulunamayan kaynak: disk takılı değilse beklenir; şarkılar
+            // gerçekten silindiyse kullanıcı çıkarır.
+            const missing = status.suspicious?.find((s) => s.message === problem);
+            return (
+              <span key={problem} className="library__problem">
+                {problem}
+                {missing && (
+                  <button
+                    type="button"
+                    className="hw-button hw-button--small library__problem-action"
+                    onClick={() => void library.removeMissing(missing.folderId)}
+                    aria-label={`Bulunamayan ${NUMBER.format(missing.missing)} şarkıyı kütüphaneden çıkar: ${missing.path}`}
+                    title="Şarkılar gerçekten silindiyse kütüphaneden çıkarır (dosyalara dokunulmaz). Disk yalnızca takılı değilse çıkarmayın: geri takınca yeniden taramak gerekir."
+                  >
+                    Yine de çıkar
+                  </button>
+                )}
+              </span>
+            );
+          })}
         </div>
       )}
 

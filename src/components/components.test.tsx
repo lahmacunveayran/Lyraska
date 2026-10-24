@@ -39,6 +39,7 @@ const backend = vi.hoisted(() => ({
   clearAlbumCover: vi.fn(),
   setSongCover: vi.fn(),
   clearSongCover: vi.fn(),
+  removeMissing: vi.fn(),
   songCoverAsked: vi.fn(),
   addFolder: vi.fn(),
   removeFolder: vi.fn(),
@@ -256,6 +257,10 @@ vi.mock("../lib/backend", async (importOriginal) => {
       return backend.library ?? actual.EMPTY_LIBRARY;
     },
     rescanLibrary: async () => backend.library ?? actual.EMPTY_LIBRARY,
+    removeMissingTracks: async (folderId: number) => {
+      backend.removeMissing(folderId);
+      return backend.library ?? actual.EMPTY_LIBRARY;
+    },
     setEqualizer: async (settings: import("../lib/backend").EqSettings) => {
       backend.setEq(settings);
       return actual.setEqualizer(settings);
@@ -732,6 +737,26 @@ describe("kütüphane", () => {
     scan: { scanning: false, found: 3, processed: 3, current: null },
     problems: [],
   };
+
+  it('şarkılarının çoğu bulunamayan klasör için uyarının yanında "Yine de çıkar" düğmesi var', async () => {
+    backend.desktop = true;
+    const message =
+      "C:\\Müzik: kütüphanedeki 3 şarkı bulunamadı (disk takılı değil); şarkılar kütüphaneden çıkarılmadı.";
+    backend.library = {
+      ...library,
+      problems: [message, "D:\\Arşiv: 1 dosya açılamadı."],
+      suspicious: [{ folderId: 7, path: "C:\\Müzik", missing: 3, message }],
+    };
+    render(<App />);
+    const panel = await screen.findByRole("region", { name: "Kütüphane" });
+    const button = await within(panel).findByRole("button", {
+      name: "Bulunamayan 3 şarkıyı kütüphaneden çıkar: C:\\Müzik",
+    });
+    // Yalnızca şüpheli silme uyarısının yanında (öteki sorunlarda düğme yok).
+    expect(within(panel).getAllByRole("button", { name: /Bulunamayan/ })).toHaveLength(1);
+    await act(async () => fireEvent.click(button));
+    expect(backend.removeMissing).toHaveBeenCalledWith(7);
+  });
 
   it("kütüphane açılamazsa uyarı panelde ve çekmece kapalıyken ana ekranda görünür", async () => {
     // 0.0.33'te eski kütüphane dosyaları açılamıyordu; hata yalnızca günlüğe yazılıyordu.

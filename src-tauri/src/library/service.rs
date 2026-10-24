@@ -27,6 +27,25 @@ pub struct LibraryStatus {
     pub scan: ScanProgress,
     /// Son taramadaki sorunlar (ör. "Klasör bulunamadı: D:\Müzik").
     pub problems: Vec<String>,
+    /// Şarkılarının çoğu bulunamadığı için korunan kaynaklar: kullanıcı gerçekten sildiyse
+    /// "Yine de çıkar" ile çıkarabilir ([`LibraryService::remove_missing`]). Yoksa alan gönderilmez.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub suspicious: Option<Vec<SuspiciousFolder>>,
+}
+
+/// Şarkılarının çoğu bir anda bulunamayan kaynak (disk takılı değil ya da şarkılar gerçekten silindi).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
+pub struct SuspiciousFolder {
+    #[cfg_attr(test, ts(type = "number"))]
+    pub folder_id: i64,
+    pub path: String,
+    /// Bulunamayan şarkı sayısı.
+    pub missing: usize,
+    /// Sorunlar listesindeki uyarının metni (arayüz düğmeyi onun yanına koyar).
+    pub message: String,
 }
 
 /// Pencereye bırakılanların sonucu.
@@ -54,11 +73,13 @@ struct ScanRequest {
     folders: Vec<i64>,
     /// Kaynak ve taranacak alt klasörü.
     parts: Vec<(i64, PathBuf)>,
+    /// Kullanıcının bulunamayan şarkılarını çıkarmayı onayladığı kaynaklar ("Yine de çıkar").
+    confirmed: Vec<i64>,
 }
 
 impl ScanRequest {
     fn is_empty(&self) -> bool {
-        !self.all && self.folders.is_empty() && self.parts.is_empty()
+        !self.all && self.folders.is_empty() && self.parts.is_empty() && self.confirmed.is_empty()
     }
 
     /// Kaynağın nasıl taranacağı: `[None]` bütün kaynak, `Some` alt klasörler (iç içe olanlardan
@@ -66,7 +87,7 @@ impl ScanRequest {
     /// [`watch::MAX_SCOPES`]'tan fazlası bütün kaynağın tek bir taramasına döner (yüzlerce ayrı
     /// alt klasör taraması yapılmasın).
     fn scopes_of(&self, folder: &FolderRow) -> Vec<Option<&Path>> {
-        if self.all || self.folders.contains(&folder.id) {
+        if self.all || self.folders.contains(&folder.id) || self.confirmed.contains(&folder.id) {
             return vec![None];
         }
         let mut kept: Vec<&Path> = Vec::new();
@@ -100,6 +121,7 @@ struct ScanQueue {
     pending: Mutex<ScanRequest>,
     worker_running: AtomicBool,
     problems: Mutex<Vec<String>>,
+    suspicious: Mutex<Vec<SuspiciousFolder>>,
     on_change: OnceLock<ChangeListener>,
 }
 
@@ -146,6 +168,7 @@ impl LibraryService {
                 pending: Mutex::new(ScanRequest::default()),
                 worker_running: AtomicBool::new(false),
                 problems: Mutex::new(Vec::new()),
+                suspicious: Mutex::new(Vec::new()),
                 on_change: OnceLock::new(),
             }),
             library,
@@ -200,7 +223,21 @@ impl LibraryService {
                         .unwrap_or_default(),
                 )
                 .collect(),
+            suspicious: self
+                .queue
+                .suspicious
+                .lock()
+                .ok()
+                .filter(|s| !s.is_empty())
+                .map(|s| s.clone()),
         })
+    }
+
+    /// Kullanıcı kaynağın bulunamayan şarkılarını gerçekten sildiğini onayladı ("Yine de çıkar"):
+    /// kaynak arka planda taranır ve bulunamayanlar kütüphaneden çıkarılır (kök hiç yoksa hiçbir
+    /// şeye dokunulmaz).
+    pub fn remove_missing(&self, folder_id: i64) {
+        self.request(|r| r.confirmed.push(folder_id));
     }
 
     pub fn search(&self, query: &str, limit: Option<usize>) -> Result<Vec<TrackRow>, LibraryError> {
@@ -491,23 +528,40 @@ impl ScanQueue {
                 let take = || pending.lock().map(|mut p| std::mem::take(&mut *p)).ok();
                 loop {
                     while let Some(request) = take().filter(|r| !r.is_empty()) {
-                        let (found, changed) = run_scan(&queue.library, &queue.scan, &request);
-                        if changed {
+                        let outcome = run_scan(&queue.library, &queue.scan, &request);
+                        if outcome.changed {
                             if let Some(listener) = queue.on_change.get() {
                                 listener();
                             }
                         }
                         if let Ok(mut p) = queue.problems.lock() {
                             if request.all {
-                                *p = found;
+                                *p = outcome.problems;
                             } else {
-                                // Yeni kaynağın sorunları öncekilere eklenir.
-                                for problem in found {
+                                // Baştan taranan kaynağın eski sorunları kalkar; yeni sorunlar
+                                // öncekilere eklenir.
+                                p.retain(|problem| {
+                                    !outcome
+                                        .whole
+                                        .iter()
+                                        .any(|(_, path)| problem.starts_with(&format!("{path}: ")))
+                                });
+                                for problem in outcome.problems {
                                     if !p.contains(&problem) {
                                         p.push(problem);
                                     }
                                 }
                             }
+                        }
+                        if let Ok(mut s) = queue.suspicious.lock() {
+                            if request.all {
+                                s.clear();
+                            } else {
+                                s.retain(|f| {
+                                    !outcome.whole.iter().any(|(id, _)| *id == f.folder_id)
+                                });
+                            }
+                            s.extend(outcome.suspicious);
                         }
                     }
                     running.store(false, Ordering::Release);
@@ -524,38 +578,69 @@ impl ScanQueue {
     }
 }
 
+/// Bir taramanın sonucu.
+#[derive(Default)]
+struct ScanOutcome {
+    problems: Vec<String>,
+    suspicious: Vec<SuspiciousFolder>,
+    /// Baştan taranan kaynaklar (kimlik, yol): eski sorunları ve uyarıları kalkar.
+    whole: Vec<(i64, String)>,
+    /// Kütüphane değişti mi (şarkı eklendi, güncellendi ya da çıktı).
+    changed: bool,
+}
+
 /// İstenen klasörleri (ya da hepsini) tarar; bir klasördeki sorun diğerlerini durdurmaz.
 /// Bütün klasörler tek bir tarama sayılır: `scanning` bayrağı klasörler arasında düşmez (KUT-09).
-/// Döner: sorunlar ve kütüphanenin değişip değişmediği (şarkı eklendi, güncellendi ya da çıktı).
-fn run_scan(
-    library: &Mutex<Library>,
-    scan: &ScanState,
-    request: &ScanRequest,
-) -> (Vec<String>, bool) {
+fn run_scan(library: &Mutex<Library>, scan: &ScanState, request: &ScanRequest) -> ScanOutcome {
+    let mut outcome = ScanOutcome::default();
     let folders = match library.lock() {
         Ok(lib) => match lib.folders() {
             Ok(folders) => folders,
-            Err(e) => return (vec![e.to_string()], false),
+            Err(e) => {
+                outcome.problems.push(e.to_string());
+                return outcome;
+            }
         },
-        Err(_) => return (vec!["Kütüphane kilitlenemedi".to_owned()], false),
+        Err(_) => {
+            outcome.problems.push("Kütüphane kilitlenemedi".to_owned());
+            return outcome;
+        }
     };
     scan.set_scanning(true);
-    let mut changed = false;
-    let mut problems = Vec::new();
     for folder in &folders {
+        let confirmed = request.confirmed.contains(&folder.id);
         // `None`: bütün kaynak; `Some`: yalnızca o alt klasör.
         for within in request.scopes_of(folder) {
-            match scan::scan_folder_within(library, folder, within, scan) {
+            if within.is_none() {
+                outcome.whole.push((folder.id, folder.path.clone()));
+            }
+            let result = if confirmed {
+                scan::scan_folder_confirmed(library, folder, scan)
+            } else {
+                scan::scan_folder_within(library, folder, within, scan)
+            };
+            match result {
                 Ok(summary) => {
-                    changed |= summary.updated + summary.removed > 0;
-                    problems.extend(scan_problems(&folder.path, &summary));
+                    outcome.changed |= summary.updated + summary.removed > 0;
+                    let problems = scan_problems(&folder.path, &summary);
+                    if summary.suspicious > 0 {
+                        if let Some(message) = problems.first() {
+                            outcome.suspicious.push(SuspiciousFolder {
+                                folder_id: folder.id,
+                                path: folder.path.clone(),
+                                missing: summary.suspicious,
+                                message: message.clone(),
+                            });
+                        }
+                    }
+                    outcome.problems.extend(problems);
                 }
-                Err(e) => problems.push(e.to_string()),
+                Err(e) => outcome.problems.push(e.to_string()),
             }
         }
     }
     scan.set_scanning(false);
-    (problems, changed)
+    outcome
 }
 
 /// Bir klasör taramasının kullanıcıya gösterilecek sorunları; sorun yoksa boş döner.
@@ -674,6 +759,33 @@ mod tests {
         assert_eq!(status.track_count, 2);
         assert_eq!(status.problems.len(), 1);
         assert!(status.problems[0].contains("/olmayan/klasor"));
+    }
+
+    #[test]
+    fn bulunamayan_sarkilar_onayla_cikarilir_ve_uyari_kalkar() {
+        let service = LibraryService::new(Library::open_in_memory().unwrap());
+        let dir = folder_with_songs();
+        service.add_folder(&dir).unwrap();
+        wait_idle(&service);
+        for ext in ["mp3", "flac"] {
+            std::fs::remove_file(dir.join(format!("uc-uc-ton.{ext}"))).unwrap();
+        }
+        service.request_scan();
+        wait_idle(&service);
+        let status = service.status().unwrap();
+        assert_eq!(status.track_count, 2, "şüpheli silme: şarkılar korunur");
+        let [suspicious] = status.suspicious.as_deref().unwrap_or_default() else {
+            panic!("{:?}", status.suspicious);
+        };
+        assert_eq!(suspicious.missing, 2);
+        assert_eq!(status.problems, vec![suspicious.message.clone()]);
+
+        service.remove_missing(suspicious.folder_id);
+        wait_idle(&service);
+        let status = service.status().unwrap();
+        assert_eq!(status.track_count, 0);
+        assert!(status.suspicious.is_none(), "{:?}", status.suspicious);
+        assert!(status.problems.is_empty(), "{:?}", status.problems);
     }
 
     #[test]

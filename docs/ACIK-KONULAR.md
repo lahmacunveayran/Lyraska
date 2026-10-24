@@ -21,9 +21,6 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 - Şarkı kapağı (0.0.82) küçükleri: kütüphaneden çıkan şarkının kapağı `kapaklar/`'da kalır (temizlik yok); arama
   süzgeci açıkken "sıradaki" kapağı albümsüz anahtarla okunur, şarkı başlayınca bir kez daha okunur.
 
-- Toplu silme koruması (#105): 20+ şarkılık kaynakta yarıdan fazlası program kapalıyken gerçekten silinirse şarkılar
-  hiç çıkarılmaz, her taramada uyarı çıkar. Öneri: uyarının yanında "Yine de çıkar" düğmesi. Sahibine sorulacak.
-
 - Sahneler "yavan" (sahibi, 23 Ekim): tepki zayıf, detay az, tekrar ediyor, renkler cansız. Araştırma
   `docs/arastirma/gorsel-vay-arastirma.md`: ortak son işlem zinciri, şarkı haritasıyla koreografi, tondan palet.
   Kütüphaneden sonra.
