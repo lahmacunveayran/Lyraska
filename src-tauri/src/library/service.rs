@@ -73,8 +73,9 @@ struct ScanRequest {
     folders: Vec<i64>,
     /// Kaynak ve taranacak alt klasörü.
     parts: Vec<(i64, PathBuf)>,
-    /// Kullanıcının bulunamayan şarkılarını çıkarmayı onayladığı kaynaklar ("Yine de çıkar").
-    confirmed: Vec<i64>,
+    /// Kullanıcının bulunamayan şarkılarını çıkarmayı onayladığı kaynaklar ("Yine de çıkar") ve
+    /// onayladığı şarkı sayısı (tarama anında daha fazlası yoksa koruma yine uygulanır).
+    confirmed: Vec<(i64, usize)>,
 }
 
 impl ScanRequest {
@@ -82,12 +83,20 @@ impl ScanRequest {
         !self.all && self.folders.is_empty() && self.parts.is_empty() && self.confirmed.is_empty()
     }
 
+    /// Kullanıcının bu kaynakta çıkarmayı onayladığı şarkı sayısı.
+    fn confirmed_of(&self, id: i64) -> Option<usize> {
+        self.confirmed
+            .iter()
+            .find(|(confirmed, _)| *confirmed == id)
+            .map(|(_, missing)| *missing)
+    }
+
     /// Kaynağın nasıl taranacağı: `[None]` bütün kaynak, `Some` alt klasörler (iç içe olanlardan
     /// dıştaki kalır), boş: hiç. Alt klasörler uzun bir tarama sürerken birçok istekte birikebilir;
     /// [`watch::MAX_SCOPES`]'tan fazlası bütün kaynağın tek bir taramasına döner (yüzlerce ayrı
     /// alt klasör taraması yapılmasın).
     fn scopes_of(&self, folder: &FolderRow) -> Vec<Option<&Path>> {
-        if self.all || self.folders.contains(&folder.id) || self.confirmed.contains(&folder.id) {
+        if self.all || self.folders.contains(&folder.id) || self.confirmed_of(folder.id).is_some() {
             return vec![None];
         }
         let mut kept: Vec<&Path> = Vec::new();
@@ -235,9 +244,17 @@ impl LibraryService {
 
     /// Kullanıcı kaynağın bulunamayan şarkılarını gerçekten sildiğini onayladı ("Yine de çıkar"):
     /// kaynak arka planda taranır ve bulunamayanlar kütüphaneden çıkarılır (kök hiç yoksa hiçbir
-    /// şeye dokunulmaz).
+    /// şeye dokunulmaz). Onay yalnızca o kaynağın şu anki uyarısındaki kadar şarkıyı kapsar;
+    /// uyarısı olmayan kaynak için (eski düğme, çıkarılmış kaynak) bir şey yapılmaz.
     pub fn remove_missing(&self, folder_id: i64) {
-        self.request(|r| r.confirmed.push(folder_id));
+        let missing = self.queue.suspicious.lock().ok().and_then(|s| {
+            s.iter()
+                .find(|f| f.folder_id == folder_id)
+                .map(|f| f.missing)
+        });
+        if let Some(missing) = missing {
+            self.request(|r| r.confirmed.push((folder_id, missing)));
+        }
     }
 
     pub fn search(&self, query: &str, limit: Option<usize>) -> Result<Vec<TrackRow>, LibraryError> {
@@ -423,7 +440,16 @@ impl LibraryService {
     }
 
     pub fn remove_folder(&self, id: i64) -> Result<(), LibraryError> {
-        self.lock()?.remove_folder(id)?;
+        let path = {
+            let lib = self.lock()?;
+            let path = lib.folder(id)?.map(|f| f.path);
+            lib.remove_folder(id)?;
+            path
+        };
+        // Çıkarılan kaynağın uyarıları (ve "Yine de çıkar" düğmesi) kalmasın.
+        if let Some(path) = path {
+            self.queue.forget(&[(id, path)]);
+        }
         self.sync_watches();
         Ok(())
     }
@@ -512,6 +538,25 @@ impl LibraryService {
 }
 
 impl ScanQueue {
+    /// Kaynakların (kimlik, yol) eski sorunlarını ve uyarılarını unutur: yolla başlayan sorunlar
+    /// (`"{yol}: "`; "D:\Müzik 2" "D:\Müzik"inkine karışmaz) ve kaynağın bulunamadı uyarısı.
+    fn forget(&self, folders: &[(i64, String)]) {
+        if folders.is_empty() {
+            return;
+        }
+        if let Ok(mut p) = self.problems.lock() {
+            p.retain(|problem| {
+                !folders.iter().any(|(_, path)| {
+                    problem.starts_with(&format!("{path}: "))
+                        || *problem == LibraryError::FolderMissing(path.clone()).to_string()
+                })
+            });
+        }
+        if let Ok(mut s) = self.suspicious.lock() {
+            s.retain(|f| !folders.iter().any(|(id, _)| *id == f.folder_id));
+        }
+    }
+
     /// Tarama isteğini bekleyenlere ekler ve gerekirse tarayıcıyı başlatır.
     fn request(self: &Arc<Self>, add: impl FnOnce(&mut ScanRequest)) {
         if let Ok(mut pending) = self.pending.lock() {
@@ -534,34 +579,37 @@ impl ScanQueue {
                                 listener();
                             }
                         }
+                        if request.all {
+                            if let Ok(mut p) = queue.problems.lock() {
+                                p.clear();
+                            }
+                            if let Ok(mut s) = queue.suspicious.lock() {
+                                s.clear();
+                            }
+                        } else {
+                            // Baştan taranan kaynağın eski sorunları kalkar.
+                            queue.forget(&outcome.whole);
+                        }
                         if let Ok(mut p) = queue.problems.lock() {
-                            if request.all {
-                                *p = outcome.problems;
-                            } else {
-                                // Baştan taranan kaynağın eski sorunları kalkar; yeni sorunlar
-                                // öncekilere eklenir.
-                                p.retain(|problem| {
-                                    !outcome
-                                        .whole
-                                        .iter()
-                                        .any(|(_, path)| problem.starts_with(&format!("{path}: ")))
-                                });
-                                for problem in outcome.problems {
-                                    if !p.contains(&problem) {
-                                        p.push(problem);
-                                    }
+                            // Yeni sorunlar öncekilere eklenir.
+                            for problem in outcome.problems {
+                                if !p.contains(&problem) {
+                                    p.push(problem);
                                 }
                             }
                         }
+                        // Tarama sürerken çıkarılan kaynağın uyarısı eklenmez.
+                        let existing: Option<Vec<i64>> = queue
+                            .library
+                            .lock()
+                            .ok()
+                            .and_then(|lib| lib.folders().ok())
+                            .map(|folders| folders.iter().map(|f| f.id).collect());
                         if let Ok(mut s) = queue.suspicious.lock() {
-                            if request.all {
-                                s.clear();
-                            } else {
-                                s.retain(|f| {
-                                    !outcome.whole.iter().any(|(id, _)| *id == f.folder_id)
-                                });
-                            }
                             s.extend(outcome.suspicious);
+                            if let Some(existing) = existing {
+                                s.retain(|f| existing.contains(&f.folder_id));
+                            }
                         }
                     }
                     running.store(false, Ordering::Release);
@@ -608,14 +656,14 @@ fn run_scan(library: &Mutex<Library>, scan: &ScanState, request: &ScanRequest) -
     };
     scan.set_scanning(true);
     for folder in &folders {
-        let confirmed = request.confirmed.contains(&folder.id);
+        let confirmed = request.confirmed_of(folder.id);
         // `None`: bütün kaynak; `Some`: yalnızca o alt klasör.
         for within in request.scopes_of(folder) {
             if within.is_none() {
                 outcome.whole.push((folder.id, folder.path.clone()));
             }
-            let result = if confirmed {
-                scan::scan_folder_confirmed(library, folder, scan)
+            let result = if let Some(missing) = confirmed {
+                scan::scan_folder_confirmed(library, folder, scan, missing)
             } else {
                 scan::scan_folder_within(library, folder, within, scan)
             };
@@ -785,6 +833,72 @@ mod tests {
         let status = service.status().unwrap();
         assert_eq!(status.track_count, 0);
         assert!(status.suspicious.is_none(), "{:?}", status.suspicious);
+        assert!(status.problems.is_empty(), "{:?}", status.problems);
+    }
+
+    /// Şarkılarının hepsi silinmiş, korunan (şüpheli) bir kaynak kurar.
+    fn suspicious_service() -> (LibraryService, std::path::PathBuf, SuspiciousFolder) {
+        let service = LibraryService::new(Library::open_in_memory().unwrap());
+        let dir = folder_with_songs();
+        service.add_folder(&dir).unwrap();
+        wait_idle(&service);
+        for ext in ["mp3", "flac"] {
+            std::fs::remove_file(dir.join(format!("uc-uc-ton.{ext}"))).unwrap();
+        }
+        service.request_scan();
+        wait_idle(&service);
+        let status = service.status().unwrap();
+        let [suspicious] = status.suspicious.as_deref().unwrap_or_default() else {
+            panic!("{:?}", status.suspicious);
+        };
+        let suspicious = suspicious.clone();
+        (service, dir, suspicious)
+    }
+
+    #[test]
+    fn uyarisi_olmayan_kaynak_icin_onay_bir_sey_silmez() {
+        // Eski bir düğmeye basıldı ya da kimlik yanlış: koruma uyarısı olmayan kaynak korumasız
+        // taranmaz.
+        let (service, dir, suspicious) = suspicious_service();
+        let other = folder_with_songs();
+        let other_row = service.add_folder(&other).unwrap();
+        wait_idle(&service);
+        for ext in ["mp3", "flac"] {
+            std::fs::remove_file(other.join(format!("uc-uc-ton.{ext}"))).unwrap();
+        }
+        service.remove_missing(other_row.id);
+        wait_idle(&service);
+        assert_eq!(
+            service.status().unwrap().track_count,
+            4,
+            "{dir:?} {suspicious:?}"
+        );
+    }
+
+    #[test]
+    fn kaynak_cikarilinca_uyarisi_ve_dugmesi_kalkar() {
+        let (service, _dir, suspicious) = suspicious_service();
+        service.remove_folder(suspicious.folder_id).unwrap();
+        let status = service.status().unwrap();
+        assert!(status.suspicious.is_none(), "{:?}", status.suspicious);
+        assert!(status.problems.is_empty(), "{:?}", status.problems);
+    }
+
+    #[test]
+    fn geri_gelen_kaynagin_bulunamadi_uyarisi_kaynak_taraninca_kalkar() {
+        let service = LibraryService::new(Library::open_in_memory().unwrap());
+        let dir = folder_with_songs();
+        let folder = service.add_folder(&dir).unwrap();
+        wait_idle(&service);
+        let moved = dir.with_extension("tasindi");
+        std::fs::rename(&dir, &moved).unwrap();
+        service.request(|r| r.folders.push(folder.id));
+        wait_idle(&service);
+        assert_eq!(service.status().unwrap().problems.len(), 1);
+        std::fs::rename(&moved, &dir).unwrap();
+        service.request(|r| r.folders.push(folder.id));
+        wait_idle(&service);
+        let status = service.status().unwrap();
         assert!(status.problems.is_empty(), "{:?}", status.problems);
     }
 
