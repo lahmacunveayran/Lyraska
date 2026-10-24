@@ -339,6 +339,11 @@ pub fn read(src: &Path) -> Result<PlaylistFile, LibraryError> {
     let text = crate::audio::lyrics::decode_text(&bytes);
     let base = src.parent().map(Path::to_path_buf).unwrap_or_default();
     let mut file = parse(&text, &base);
+    // Kapak yalnızca listenin yanındaki dosya olabilir: başka bir dosyanın içine yazılmış yol
+    // bilgisayardaki herhangi bir resmi Lyraska'ya kopyalatamasın.
+    file.cover = file
+        .cover
+        .filter(|cover| Path::new(cover).parent() == Some(base.as_path()));
     if file.name.is_none() {
         file.name = src.file_stem().map(|s| s.to_string_lossy().into_owned());
     }
@@ -666,5 +671,22 @@ mod tests {
             read(Path::new("/olmayan/liste.m3u8")),
             Err(LibraryError::PlaylistFile(_))
         ));
+    }
+
+    #[test]
+    fn kapak_yalnizca_listenin_yanindaki_dosya_olabilir() {
+        let dir = std::env::temp_dir().join(format!("lyraska-kapak-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let list = dir.join("Uzak.m3u8");
+        std::fs::write(&list, "#EXTM3U\r\n#EXTIMG:../baska/gizli.png\r\na.flac\r\n").unwrap();
+        assert_eq!(read(&list).unwrap().cover, None);
+        std::fs::write(&list, "#EXTM3U\r\n#EXTIMG:/etc/gizli.png\r\na.flac\r\n").unwrap();
+        assert_eq!(read(&list).unwrap().cover, None);
+        std::fs::write(&list, "#EXTM3U\r\n#EXTIMG:Uzak-kapak.jpg\r\na.flac\r\n").unwrap();
+        assert_eq!(
+            read(&list).unwrap().cover.map(PathBuf::from),
+            Some(dir.join("Uzak-kapak.jpg"))
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }
