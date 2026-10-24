@@ -36,12 +36,17 @@ export function useBackgroundImage(enabled: boolean): BackgroundImageControls {
         setUrl(null);
         setError(errorMessage(e));
       });
+    // Yeni resim gelene kadar eskisi yerinde kalır: araya karanlık girip parlamasın.
     return () => {
       live = false;
-      // Sahneden çıkınca resim bellekten bırakılır.
-      setUrl(undefined);
     };
   }, [enabled, revision]);
+
+  // Sahneden çıkınca resim bellekten bırakılır.
+  useEffect(() => {
+    if (!enabled) return;
+    return () => setUrl(undefined);
+  }, [enabled]);
 
   const choose = useCallback(async () => {
     try {
