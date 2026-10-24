@@ -422,6 +422,11 @@ export interface RedTables {
   withCore: Float32Array;
   /** Şeridin tam öz sütunlarında, kaplaması bilinmeyen (yarı) satırın en büyük toplamı, düzey başına. */
   any: Float64Array;
+  /**
+   * Şeridin dikey kuyrukları (çizginin üstü ve en uzun komşunun ucunun altı), en uzun komşunun
+   * boy adımına göre: `[m · (TAIL_STEPS + 1) + ⌈e⌉]` (sonuncusu daha uzun bütün boylar).
+   */
+  tail: Float64Array;
 }
 
 /** Şeritlere ışığı düşen çubuklar ve her birinin şeritteki en büyük ışıltısı. */
@@ -1061,11 +1066,13 @@ export function measureLine(
     glow: new Float32Array(PHOTO_BARS * LEVELS * stride),
     withCore: new Float32Array(PHOTO_BARS * LEVELS * stride),
     any: new Float64Array(PHOTO_BARS * LEVELS),
+    tail: new Float64Array(PHOTO_BARS * (TAIL_STEPS + 1)),
   };
   const dec: RedTables = {
     glow: new Float32Array(PHOTO_BARS * LEVELS * stride),
     withCore: new Float32Array(PHOTO_BARS * LEVELS * stride),
     any: new Float64Array(PHOTO_BARS * LEVELS),
+    tail: new Float64Array(PHOTO_BARS * (TAIL_STEPS + 1)),
   };
   const headroom = (i: number) =>
     LUMA[0] * HEADROOM[darkRow[i]!]! +
@@ -1135,6 +1142,56 @@ export function measureLine(
   // çubuk boyuna göre. Satır y'de ışıltı kenardan d uzakta en çok `boxTail(d, e)` kadar; pikselin
   // katkısı hem tam ışıltıdakini hem de doğrusal sınır × kuyruğu geçmez. Boy adımı i: e ∈ (i−1, i];
   // son adım (uzun çubuk): ucun altındaki satır her yerde olabilir, aşağısının en büyükleri.
+  // Kırmızı kuyruklar (şerit başına, en uzun komşunun boy adımına göre): kuyruk satırında
+  // pikselin ışıltısı en çok `boxTail(d, e_max) · min(Σ τ_k, T_m)` (her komşunun ucu en uzununkinden
+  // uzak değil, kutusu ondan kısa). Satırlar yukarıdaki gibi gerçek satırlar.
+  const glowSrgbMax = Math.max(...glowSrgb);
+  const redTail = (t: RedTables, m: number, scale: number) => {
+    const level = (y: number, v: number) => {
+      const r = y - firstRow;
+      if (r < 0 || r >= rows || v * scale * glowSrgbMax < 0.5) return 0;
+      const at = (m * LEVELS + redLevel(v * scale, tauMax)) * stride + r;
+      return t.glow[at + 1]! - t.glow[at]! + 2 ** -22 * t.glow[at + 1]!;
+    };
+    for (let i = 0; i <= TAIL_STEPS; i++) {
+      const e = i === TAIL_STEPS ? Infinity : i;
+      let sum = 0;
+      for (let j = 0; j <= tailRowsRed; j++) {
+        sum += level(topRowRed - 1 - j, boxTail(Math.max(0, top0 - (topRowRed - j)), e, sigma));
+      }
+      if (i < TAIL_STEPS) {
+        for (let y = Math.ceil(top0 + Math.max(0, i - 1)); y - (top0 + i) <= tailRowsRed; y++) {
+          sum += level(y, boxTail(Math.max(0, y - (top0 + i)), e, sigma));
+        }
+      } else {
+        // Uzun çubuk: ucun altındaki satır her yerde olabilir; her uzaklık için aşağısının en büyüğü.
+        const r0 = Math.max(0, Math.min(rows, Math.ceil(top0 + TAIL_STEPS - 1) - firstRow));
+        for (let d = 0; d <= tailRowsRed; d++) {
+          const v = boxTail(d, e, sigma);
+          if (v * scale * glowSrgbMax < 0.5) break;
+          const l = redLevel(v * scale, tauMax);
+          let best = 0;
+          for (let r = r0; r < rows; r++) {
+            const at = (m * LEVELS + l) * stride + r;
+            best = Math.max(best, t.glow[at + 1]! - t.glow[at]! + 2 ** -22 * t.glow[at + 1]!);
+          }
+          sum += best;
+        }
+      }
+      t.tail[m * (TAIL_STEPS + 1) + i] = sum;
+    }
+  };
+  const top0 = barGeometry(width, height).top;
+  const topRowRed = Math.floor(top0);
+  const tailRowsRed = Math.ceil(TAIL_SIGMAS * sigma) + 1;
+  for (let m = 0; m < PHOTO_BARS; m++) {
+    let sumTau = 0;
+    for (let i = start[m]!; i < start[m + 1]!; i++) sumTau += tauList[i]!;
+    const scale = Math.min(sumTau, bandTotal[m]!);
+    redTail(inc, m, scale);
+    redTail(dec, m, scale);
+  }
+
   const glowTail = new Float64Array(PHOTO_BARS * (TAIL_STEPS + 1));
   const top = barGeometry(width, height).top;
   const topRow = Math.floor(top);
@@ -1221,7 +1278,13 @@ export interface FlashBounds {
 const lightScratch = new Float64Array(PHOTO_BARS);
 const prefixIncrease = new Float64Array(PHOTO_BARS + 1);
 const prefixDecrease = new Float64Array(PHOTO_BARS + 1);
-const neighbourOrder = new Int32Array(PHOTO_BARS);
+const barExtent = new Float64Array(PHOTO_BARS);
+const barStep = new Int32Array(PHOTO_BARS);
+const barPeak = new Float64Array(PHOTO_BARS);
+const sortedExtent = new Float64Array(PHOTO_BARS);
+const sortedTau = new Float64Array(PHOTO_BARS);
+const sortedStep = new Int32Array(PHOTO_BARS);
+const sortedPeak = new Float64Array(PHOTO_BARS);
 /** `boxTail(d, e)` tablosu (σ'ya göre; son ölçülen σ için). */
 let tailTable: { sigma: number; rows: number; values: Float64Array } | null = null;
 
@@ -1252,7 +1315,11 @@ function tails(sigma: number) {
  * (`T_m` şeritteki en büyük toplam ışıltı); o düzeyin tablosu okunur. Komşuların boylarına göre
  * satırlar parçalara bölünür, kuyruklar satır satır.
  */
-export function flashBounds(map: LineMap, extents: readonly number[]): FlashBounds {
+export function flashBounds(
+  map: LineMap,
+  extents: readonly number[],
+  luminanceOnly = false,
+): FlashBounds {
   const { geometry, firstRow, rows, bands, tauMax } = map;
   const { width, height, top, sigma, pitch } = geometry;
   if (rows === 0 || width <= 0 || height <= 0) {
@@ -1277,9 +1344,9 @@ export function flashBounds(map: LineMap, extents: readonly number[]): FlashBoun
       map.glowTail[k * (TAIL_STEPS + 1) + Math.min(TAIL_STEPS, Math.ceil(e))]!;
   }
   const luminance = worstWindow(map, light);
+  if (luminanceOnly) return { luminance, redIncrease: 0, redDecrease: 0 };
 
   const table = tails(sigma);
-  const maxGlow = map.maxGlow;
   // Çizgi bir piksel satırına denk geliyorsa ilk satır tam kaplanır; yalnız son satır yarım.
   const partialRows = Number.isInteger(top) ? 1 : 2;
   const T1 = TAIL_STEPS + 1;
@@ -1297,74 +1364,71 @@ export function flashBounds(map: LineMap, extents: readonly number[]): FlashBoun
   };
   prefixIncrease[0] = 0;
   prefixDecrease[0] = 0;
+  // Çubuk başına boy, kuyruk adımı ve ışıltının dikey tepesi (bir kez).
+  for (let k = 0; k < PHOTO_BARS; k++) {
+    const e = Math.max(0, extents[k] ?? 0);
+    barExtent[k] = e;
+    barStep[k] = Math.min(TAIL_STEPS, Math.ceil(e));
+    barPeak[k] = boxPeak(e, sigma);
+  }
+  const values = table.values;
+  const maxDistance = table.rows;
   for (let m = 0; m < PHOTO_BARS; m++) {
     incSum = 0;
     decSum = 0;
     const from = bands.start[m]!;
-    const to = bands.start[m + 1]!;
-    const n = to - from;
+    const n = bands.start[m + 1]! - from;
     const total = bands.total[m]!;
-    // Komşular boylarına göre (artan) sıralı.
+    // Komşular boylarına göre (artan) sıralı, düz dizilerde.
     for (let i = 0; i < n; i++) {
       const k = bands.list[from + i]!;
-      const e = Math.max(0, extents[k] ?? 0);
+      const e = barExtent[k]!;
       let j = i;
-      while (j > 0 && Math.max(0, extents[bands.list[from + neighbourOrder[j - 1]!]!] ?? 0) > e) {
-        neighbourOrder[j] = neighbourOrder[j - 1]!;
+      while (j > 0 && sortedExtent[j - 1]! > e) {
+        sortedExtent[j] = sortedExtent[j - 1]!;
+        sortedTau[j] = sortedTau[j - 1]!;
+        sortedStep[j] = sortedStep[j - 1]!;
+        sortedPeak[j] = sortedPeak[j - 1]!;
         j--;
       }
-      neighbourOrder[j] = i;
+      sortedExtent[j] = e;
+      sortedTau[j] = bands.tau[from + i]!;
+      sortedStep[j] = barStep[k]!;
+      sortedPeak[j] = barPeak[k]!;
     }
-    const extentOf = (i: number) =>
-      Math.max(0, extents[bands.list[from + neighbourOrder[i]!]!] ?? 0);
-    const tauOf = (i: number) => bands.tau[from + neighbourOrder[i]!]!;
-    const step = (e: number) => Math.min(TAIL_STEPS, Math.ceil(e));
+    const own = barExtent[m]!;
     // Çubukların içi: parça parça (her parçada boyu parçayı kapsayanlar içeride, kısalar bitmiş).
     let previous = 0;
     let rowFrom = c0;
     let firstLevel = -1;
     for (let i = 0; i < n; i++) {
-      const e = extentOf(i);
+      const e = sortedExtent[i]!;
       const rowTo = row(Math.ceil(top + e));
       if (rowTo > rowFrom) {
         let tau = 0;
         let vMax = 0;
         for (let q = 0; q < n; q++) {
-          const eq = extentOf(q);
           const v =
-            eq >= e
-              ? boxPeak(eq, sigma)
-              : table.values[Math.min(table.rows, Math.floor(previous - eq)) * T1 + step(eq)]!;
-          tau += tauOf(q) * v;
-          vMax = Math.max(vMax, v);
+            q >= i
+              ? sortedPeak[q]!
+              : values[
+                  Math.min(maxDistance, Math.floor(previous - sortedExtent[q]!)) * T1 +
+                    sortedStep[q]!
+                ]!;
+          tau += sortedTau[q]! * v;
+          if (v > vMax) vMax = v;
         }
         const l = redLevel(Math.min(tau, vMax * total), tauMax);
         if (firstLevel < 0) firstLevel = l;
-        addRows(m, l, rowFrom, rowTo, Math.max(0, extents[m] ?? 0) >= e);
+        addRows(m, l, rowFrom, rowTo, own >= e);
         rowFrom = rowTo;
       }
       previous = e;
     }
-    // Kuyruklar: en uzun çubuğun ucunun altı ve çizginin üstü, satır satır.
-    const longest = n > 0 ? extentOf(n - 1) : 0;
-    for (let d = 0; d <= table.rows; d++) {
-      for (const below of [true, false]) {
-        const r = below ? rowFrom + d : c0 - 1 - d;
-        if (r < 0 || r >= rows) continue;
-        let tau = 0;
-        let vMax = 0;
-        for (let q = 0; q < n; q++) {
-          const eq = extentOf(q);
-          const dist = below ? Math.floor(longest - eq) + d : d;
-          const v = dist > table.rows ? 0 : table.values[dist * T1 + step(eq)]!;
-          tau += tauOf(q) * v;
-          vMax = Math.max(vMax, v);
-        }
-        // Tuvalde 0'a yuvarlanan ışıltı hiçbir şey eklemez.
-        if (tau * maxGlow < 0.5) continue;
-        addRows(m, redLevel(Math.min(tau, vMax * total), tauMax), r, r + 1, false);
-      }
-    }
+    // Kuyruklar (en uzun komşunun boyuna göre, ölçümde hesaplanmış).
+    const tailStep = Math.min(TAIL_STEPS, Math.ceil(n > 0 ? sortedExtent[n - 1]! : 0));
+    incSum += map.redIncrease.tail[m * T1 + tailStep]!;
+    decSum += map.redDecrease.tail[m * T1 + tailStep]!;
     // Tam öz sütunlarında kaplaması bilinmeyen ilk ve son satır (en parlak parçanın düzeyinde).
     if (firstLevel >= 0) {
       incSum += partialRows * map.redIncrease.any[m * LEVELS + firstLevel]!;
@@ -1426,23 +1490,44 @@ export function limitExtents(
     typeof budget === "number"
       ? { luminance: budget, redIncrease: Infinity, redDecrease: Infinity }
       : budget;
-  const fits = (extents: readonly number[]) => {
-    const b = flashBounds(map, extents);
-    return (
-      b.luminance <= budgets.luminance &&
-      b.redIncrease <= budgets.redIncrease &&
-      b.redDecrease <= budgets.redDecrease
+  // Sınırların paylarına oranının en büyüğü: ≤ 1 ise sığar. Oran ölçekle artar (her sınır
+  // çubuk boylarıyla artar).
+  const ratio = (extents: readonly number[]) => {
+    const b = flashBounds(map, extents, budgets.redIncrease === Infinity);
+    const part = (value: number, budget: number) =>
+      budget === Infinity ? 0 : budget > 0 ? value / budget : value > 0 ? Infinity : 0;
+    return Math.max(
+      part(b.luminance, budgets.luminance),
+      part(b.redIncrease, budgets.redIncrease),
+      part(b.redDecrease, budgets.redDecrease),
     );
   };
   const rest = map.geometry.rest;
   const scaled = (s: number) => targets.map((t) => rest + Math.max(0, t - rest) * s);
-  if (fits(targets)) return [...targets];
-  let lo = 0;
   let hi = 1;
-  for (let i = 0; i < 16; i++) {
-    const mid = (lo + hi) / 2;
-    if (fits(scaled(mid))) lo = mid;
-    else hi = mid;
+  let rHi = ratio(targets);
+  if (rHi <= 1) return [...targets];
+  let lo = 0;
+  let rLo = ratio(scaled(0));
+  if (rLo > 1) return scaled(0);
+  // Doğrusal ara değerle daraltma (Illinois): sığan en büyük ölçeğe birkaç ölçümde yaklaşır;
+  // sonuç her zaman sığdığı ölçülmüş `lo`.
+  let side = 0;
+  for (let i = 0; i < 8 && hi - lo > 1 / 512; i++) {
+    const t = Number.isFinite(rHi) ? (1 - rLo) / (rHi - rLo) : 0.5;
+    const s = lo + (hi - lo) * Math.min(0.95, Math.max(0.05, t));
+    const r = ratio(scaled(s));
+    if (r <= 1) {
+      lo = s;
+      rLo = r;
+      if (side === 1) rHi = 1 + (rHi - 1) / 2;
+      side = 1;
+    } else {
+      hi = s;
+      rHi = r;
+      if (side === -1) rLo = 1 - (1 - rLo) / 2;
+      side = -1;
+    }
   }
   return scaled(lo);
 }

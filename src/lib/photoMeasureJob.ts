@@ -38,9 +38,11 @@ export function transferables(map: LineMap): ArrayBuffer[] {
     map.redIncrease.glow,
     map.redIncrease.withCore,
     map.redIncrease.any,
+    map.redIncrease.tail,
     map.redDecrease.glow,
     map.redDecrease.withCore,
     map.redDecrease.any,
+    map.redDecrease.tail,
   ];
   return [...new Set(arrays.map((a) => a.buffer as ArrayBuffer))];
 }
