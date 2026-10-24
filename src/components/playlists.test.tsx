@@ -558,7 +558,11 @@ describe("listeyi başka bilgisayara taşıma", () => {
       "“Yolculuk” içe aktarıldı: 3 şarkının hepsi bulundu.",
     );
     expect(importSummary(result(5, 3, 2, 2))).toBe(
-      "“Yolculuk” içe aktarıldı: 12 şarkının 10 tanesi bulundu. 5 şarkı bu bilgisayarda başka bir yerde, adından ve sanatçısından bulundu. 2 şarkı bu bilgisayarda yok; listede kalır, eklenince çalar.",
+      "“Yolculuk” içe aktarıldı: 12 şarkının 10 tanesi bulundu. 3 şarkı bu bilgisayarda başka bir yerde, adından ve sanatçısından bulundu. 2 şarkı dosya adından bulundu. 2 şarkı bu bilgisayarda yok; listede kalır, eklenince çalar.",
+    );
+    // Dosya adıyla bulunan, adından ve sanatçısından bulunmuş sayılmaz.
+    expect(importSummary(result(0, 0, 1, 0))).toBe(
+      "“Yolculuk” içe aktarıldı: 1 şarkının hepsi bulundu. 1 şarkı dosya adından bulundu.",
     );
     expect(importSummary(result(0, 0, 0, 0))).toBe("“Yolculuk” içe aktarıldı; dosyada şarkı yok.");
   });

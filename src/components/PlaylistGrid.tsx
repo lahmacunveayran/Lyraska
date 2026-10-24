@@ -9,7 +9,8 @@ const NUMBER = new Intl.NumberFormat("tr-TR");
 
 /**
  * İçe aktarmanın özeti: "“Yolculuk” içe aktarıldı: 12 şarkının 10 tanesi bulundu. 3 şarkı bu
- * bilgisayarda başka bir yerde, adından ve sanatçısından bulundu. 2 şarkı bu bilgisayarda yok …".
+ * bilgisayarda başka bir yerde, adından ve sanatçısından bulundu. 1 şarkı dosya adından bulundu.
+ * 2 şarkı bu bilgisayarda yok …".
  */
 export function importSummary(result: PlaylistImport): string {
   const found = result.samePath + result.byTags + result.byFileName;
@@ -21,9 +22,13 @@ export function importSummary(result: PlaylistImport): string {
         ? `“${result.playlist.name}” içe aktarıldı: ${total} şarkının hepsi bulundu`
         : `“${result.playlist.name}” içe aktarıldı: ${total} şarkının ${found} tanesi bulundu`;
   const parts = [head];
-  const moved = result.byTags + result.byFileName;
-  if (moved > 0) {
-    parts.push(`${moved} şarkı bu bilgisayarda başka bir yerde, adından ve sanatçısından bulundu`);
+  if (result.byTags > 0) {
+    parts.push(
+      `${result.byTags} şarkı bu bilgisayarda başka bir yerde, adından ve sanatçısından bulundu`,
+    );
+  }
+  if (result.byFileName > 0) {
+    parts.push(`${result.byFileName} şarkı dosya adından bulundu`);
   }
   if (result.missing > 0) {
     parts.push(`${result.missing} şarkı bu bilgisayarda yok; listede kalır, eklenince çalar`);
