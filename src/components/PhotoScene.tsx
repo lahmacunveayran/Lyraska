@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getVisualSpectrum, type VisualFrame } from "../lib/backend";
 import {
   DEFAULT_ACCENT,
@@ -9,11 +9,12 @@ import {
   coreRects,
   displayUpper,
   dominantColor,
+  animatedBudgets,
   flashBudgets,
   glowRects,
-  imageBackground,
   isTurkishText,
   limitExtents,
+  lineRows,
   measureLine,
   redSplit,
   targetExtents,
@@ -22,6 +23,12 @@ import {
   type LineMap,
 } from "../lib/photoScene";
 import { barTargets, stepBars } from "../lib/spectrumBars";
+import { frameAt, type Animation } from "../lib/animatedImage";
+import { createFlashGuard, type FlashGuard } from "../lib/flashGuard";
+import { fitCanvas, getWebGl2 } from "../lib/gl";
+import { measureFrames, measureStill } from "../lib/photoMeasure";
+import { usePrefersReducedMotion } from "../lib/usePrefersReducedMotion";
+import { useBackgroundSource } from "../hooks/useBackgroundSource";
 import { useVisualFeed } from "../hooks/useVisualFeed";
 
 export interface PhotoSceneProps {
@@ -40,8 +47,11 @@ export interface PhotoSceneProps {
 interface Measured {
   colors: BarColors;
   map: LineMap;
-  /** Neye göre ölçüldü: resim (`null`: resimsiz koyu zemin, `undefined`: bilinmeyen resim). */
-  source: HTMLImageElement | null | undefined;
+  /**
+   * Neye göre ölçüldü: resim, hareketli resim (`null`: resimsiz koyu zemin, `undefined`:
+   * bilinmeyen resim).
+   */
+  source: HTMLImageElement | Animation | null | undefined;
   /** Ölçüldüğü ekran boyu (CSS piksel). */
   width: number;
   height: number;
@@ -60,53 +70,144 @@ const REMEASURE_MS = 300;
 
 /** Ölçümün en büyük genişliği (CSS piksel): daha geniş ekranda resim küçültülerek ölçülür. */
 const MEASURE_MAX_WIDTH = 1920;
+/** Hareketli resmin ölçümünün en büyük genişliği (her kare ayrı çizilir). */
+const MEASURE_MAX_WIDTH_ANIMATED = 960;
+
+/** Resmi (ya da kareyi) ekrandaki gibi kırpıp (object-fit: cover) `w × h` tuvale çizer. */
+function drawCover(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  image: CanvasImageSource,
+  naturalWidth: number,
+  naturalHeight: number,
+  w: number,
+  h: number,
+) {
+  const fit = Math.max(w / naturalWidth, h / naturalHeight);
+  const dw = naturalWidth * fit;
+  const dh = naturalHeight * fit;
+  // Saydam yerler siyah (ekranda da öyle: tuval siyahla başlar).
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(image, (w - dw) / 2, (h - dh) / 2, dw, dh);
+}
+
+/** Seyrek örnekten (~64 sütun) baskın renk (`dominantColor`) için pikseller. */
+function sampleColors(all: ArrayLike<number>, mw: number, mh: number, into: number[]) {
+  const step = Math.max(1, Math.round(mw / 64));
+  for (let y = 0; y < mh; y += step) {
+    for (let x = 0; x < mw; x += step) {
+      const i = (y * mw + x) * 4;
+      into.push(all[i]!, all[i + 1]!, all[i + 2]!, all[i + 3]!);
+    }
+  }
+}
+
+/** Ölçüm boyu: çok geniş ekranda küçültülmüş (ışık ölçüm pikseli başına sayılır, alan oranı aynı). */
+function measureSize(width: number, height: number, max: number) {
+  const scale = Math.min(1, max / width);
+  return {
+    mw: Math.max(2, Math.round(width * scale)),
+    mh: Math.max(2, Math.round(height * scale)),
+  };
+}
 
 /**
- * Resmi ekrandaki gibi kırpıp (object-fit: cover) ekran boyunda çizer; baskın rengini ve çizgi
- * bölgesinin her pikselini ölçer (`dominantColor`, `measureLine`).
+ * Sabit resmi ekrandaki gibi kırpıp ölçer: baskın rengi burada, çizgi bölgesinin her pikseli ayrı
+ * iş parçacığında (`measureStill`).
  */
-function measureImage(image: HTMLImageElement, width: number, height: number): Measured | null {
+async function measureImage(
+  image: HTMLImageElement,
+  width: number,
+  height: number,
+): Promise<Measured | null> {
   if (image.naturalWidth === 0 || image.naturalHeight === 0) return null;
-  // Çok geniş ekranda küçültülmüş ölçüm: ışık ölçüm pikseli başına sayılır, alan oranı aynı.
-  const scale = Math.min(1, MEASURE_MAX_WIDTH / width);
-  const mw = Math.max(2, Math.round(width * scale));
-  const mh = Math.max(2, Math.round(height * scale));
+  const { mw, mh } = measureSize(width, height, MEASURE_MAX_WIDTH);
   const canvas = document.createElement("canvas");
   canvas.width = mw;
   canvas.height = mh;
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) return null;
-  const fit = Math.max(mw / image.naturalWidth, mh / image.naturalHeight);
-  const w = image.naturalWidth * fit;
-  const h = image.naturalHeight * fit;
-  ctx.drawImage(image, (mw - w) / 2, (mh - h) / 2, w, h);
+  drawCover(ctx, image, image.naturalWidth, image.naturalHeight, mw, mh);
   const all = ctx.getImageData(0, 0, mw, mh).data;
-  // Renk için ~64 sütunluk seyrek örnek yeter.
-  const step = Math.max(1, Math.round(mw / 64));
   const sample: number[] = [];
-  for (let y = 0; y < mh; y += step) {
-    for (let x = 0; x < mw; x += step) {
-      const i = (y * mw + x) * 4;
-      sample.push(all[i]!, all[i + 1]!, all[i + 2]!, all[i + 3]!);
-    }
-  }
+  sampleColors(all, mw, mh, sample);
   const colors = barColors(dominantColor(sample));
-  return {
-    colors,
-    map: measureLine(imageBackground(all, mw, mh), mw, mh, colors),
-    source: image,
-    width,
-    height,
-  };
+  const map = await measureStill(all, mw, mh, colors);
+  return map ? { colors, map, source: image, width, height } : null;
 }
 
 /**
- * "Kendi resmin" sahnesi: kullanıcının seçtiği resim arka planda (sabit), ortada şarkıyla oynayan
- * ışık çizgisi: 200 ince çubuk (20 Hz – 2 kHz, bas solda), çizgiden aşağı sarkar. Çubuğun özü
- * beyaza yakın, ışıltısı resmin baskın renginde; ışık resme eklenir (`plus-lighter`). Üstünde
- * şarkının adı (geniş harfler) ve geçen süre; bu yazılar sinema görünümünde (denetimler gizliyken)
- * görünür. Her karede çubukların ekleyebileceği ışık resmin pikselleriyle sınırlanır
- * (`limitExtents`): hiçbir pencerenin parlaklığı 0,08'den fazla değişmez.
+ * Hareketli resmin bütün karelerini ekrandaki gibi kırpıp ölçer: zarfı (her pikselin bütün
+ * karelerdeki renkleri) ayrı iş parçacığı toplar (`measureFrames`). Kareler arasında arayüze
+ * zaman bırakılır.
+ */
+async function measureAnimation(
+  animation: Animation,
+  width: number,
+  height: number,
+  cancelled: () => boolean,
+): Promise<Measured | null> {
+  const { mw, mh } = measureSize(width, height, MEASURE_MAX_WIDTH_ANIMATED);
+  const canvas = document.createElement("canvas");
+  canvas.width = mw;
+  canvas.height = mh;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+  const { firstRow, lastRow } = lineRows(mw, mh);
+  const from = Math.max(0, firstRow - 1);
+  const to = Math.min(mh, lastRow + 1);
+  // Renk birkaç kareden (en çok 8, eşit aralıklı).
+  const sample: number[] = [];
+  const every = Math.max(1, Math.floor(animation.frames.length / 8));
+  for (let i = 0; i < animation.frames.length; i += every) {
+    drawCover(ctx, animation.frames[i]!, animation.width, animation.height, mw, mh);
+    sampleColors(ctx.getImageData(0, 0, mw, mh).data, mw, mh, sample);
+  }
+  const colors = barColors(dominantColor(sample));
+  const job = measureFrames(mw, mh, colors);
+  for (let i = 0; i < animation.frames.length; i++) {
+    if (cancelled()) {
+      job.cancel();
+      return null;
+    }
+    try {
+      drawCover(ctx, animation.frames[i]!, animation.width, animation.height, mw, mh);
+    } catch {
+      job.cancel();
+      return null;
+    }
+    if (to > from) job.add(ctx.getImageData(0, from, mw, to - from).data);
+    if (i % 8 === 7) await new Promise((done) => setTimeout(done, 0));
+  }
+  const map = await job.finish();
+  return map ? { colors, map, source: animation, width, height } : null;
+}
+
+/** Hareketli arka planın çizimi: görünen tuvalde fren, kareler görünmeyen tuvalde. */
+interface Motion {
+  animation: Animation;
+  guard: FlashGuard;
+  /** Ekrandaki gibi kırpılmış kare (fren buradan okur). */
+  frame: OffscreenCanvas | HTMLCanvasElement;
+  index: number;
+  /** Oynatma saati (ms): yalnız çalarken ilerler. */
+  clock: number;
+  primed: boolean;
+}
+
+/**
+ * "Kendi resmin" sahnesi: kullanıcının seçtiği resim arka planda, ortada şarkıyla oynayan ışık
+ * çizgisi: 200 ince çubuk (20 Hz – 2 kHz, bas solda), çizgiden aşağı sarkar. Çubuğun özü beyaza
+ * yakın, ışıltısı resmin baskın renginde; ışık resme eklenir (`plus-lighter`). Üstünde şarkının
+ * adı (geniş harfler) ve geçen süre; bu yazılar sinema görünümünde (denetimler gizliyken)
+ * görünür. Her karede çubukların ekleyebileceği ışık ve kırmızı değişim resmin pikselleriyle
+ * sınırlanır (`limitExtents`, `flashBudgets`).
+ *
+ * Hareketli resim (GIF, APNG, hareketli WebP) kare kare çözülür ve parlaklık freninden (kırmızı
+ * kanalıyla) geçerek çizilir: parlayan bir resim yumuşar, olağan hareket görünür. Çubukların
+ * sınırı bütün karelerin zarfıyla ölçülür, payları frenle birlikte hesaplanır (`animatedBudgets`).
+ * Animasyon yalnız çalarken ilerler; "animasyonları azalt" açıksa, fren kurulamazsa ya da kareler
+ * çözülemezse ilk kare sabit gösterilir.
  */
 export function PhotoScene({
   playing,
@@ -116,7 +217,21 @@ export function PhotoScene({
   artist = null,
   onChooseImage,
 }: PhotoSceneProps) {
+  const reducedMotion = usePrefersReducedMotion();
+  const source = useBackgroundSource(image, reducedMotion);
+  // Freni kurulamayan hareketli resim: ilk karesi sabit.
+  const [motionFailed, setMotionFailed] = useState<Animation | null>(null);
+  const animation =
+    source.kind === "animated" && motionFailed !== source.animation ? source.animation : null;
+  const stillUrl =
+    source.kind === "still"
+      ? source.url
+      : source.kind === "animated" && !animation
+        ? source.still
+        : null;
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const motionRef = useRef<HTMLCanvasElement>(null);
+  const motion = useRef<Motion | null>(null);
   const clockRef = useRef<HTMLSpanElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const levels = useRef<number[]>(new Array<number>(PHOTO_BARS).fill(0));
@@ -128,9 +243,13 @@ export function PhotoScene({
   // Ekrandaki resim: ölçüm de bundan yapılır (resim bir kez çözülür).
   const imageRef = useRef<HTMLImageElement>(null);
   // Son ölçüm; ekran boyu ya da resim değişince yeniden ölçülür. O arada (resim yükleniyor,
-  // pencere boyutlanıyor) bilinmeyen zemine göre ölçülmüş harita kullanılır.
+  // pencere boyutlanıyor, ölçüm sürüyor) bilinmeyen zemine göre ölçülmüş harita kullanılır.
   const measured = useRef<Measured | null>(null);
   const loaded = useRef<HTMLImageElement | null>(null);
+  // Süren ölçüm (neyin, hangi boyda).
+  const pending = useRef<{ source: Measured["source"]; width: number; height: number } | null>(
+    null,
+  );
   // Ekran boyu ve ne zamandan beri bu boyda olduğu.
   const size = useRef({ width: 0, height: 0, since: -Infinity });
   // Son ölçülen renk: pencere boyutlanırken yeniden ölçülene dek çubuk rengini değiştirmez.
@@ -140,30 +259,103 @@ export function PhotoScene({
   // Kırmızı payın artış/azalış bölüşümü: resmin ilk ölçümünden, resim değişene dek sabit
   // (pencere boyutlansa da): böylece herhangi iki karenin farkı payı geçmez (`flashBudgets`).
   const split = useRef<number | null>(null);
+  const safeRef = useRef(safe);
 
   useEffect(() => {
     loaded.current = null;
     measured.current = null;
+    pending.current = null;
     split.current = null;
     lastColors.current = NO_IMAGE_COLORS;
     // Önbellekten hemen gelen resimde `load` olayı React bağlanmadan geçmiş olabilir.
     const element = imageRef.current;
-    if (image && element?.complete && element.naturalWidth > 0) loaded.current = element;
-  }, [image]);
+    if (stillUrl && element?.complete && element.naturalWidth > 0) loaded.current = element;
+  }, [stillUrl, animation]);
 
   const onImageLoad = useCallback(() => {
     const element = imageRef.current;
     if (element && element.naturalWidth > 0) {
       loaded.current = element;
       measured.current = null;
+      pending.current = null;
       split.current = null;
     }
   }, []);
+
+  // Hareketli arka plan: görünen tuvalde parlaklık freni (kırmızı kanalıyla).
+  useEffect(() => {
+    const canvas = motionRef.current;
+    if (!animation || !canvas) return;
+    const gl = getWebGl2(canvas);
+    const setup = gl ? createFlashGuard(gl, { safe: safeRef.current, red: true }) : null;
+    if (!gl || !setup?.ok) {
+      canvas.dataset.webgl = "off";
+      setMotionFailed(animation);
+      return;
+    }
+    canvas.dataset.webgl = "on";
+    canvas.dataset.guard = setup.guard.storage;
+    canvas.dataset.frames = String(animation.frames.length);
+    const frame =
+      typeof OffscreenCanvas === "function"
+        ? new OffscreenCanvas(1, 1)
+        : document.createElement("canvas");
+    motion.current = { animation, guard: setup.guard, frame, index: -1, clock: 0, primed: false };
+    const onLost = (event: Event) => {
+      event.preventDefault();
+      // Bağlam geri gelse de durum kayboldu: ilk kare sabit (güvenli yan).
+      setMotionFailed(animation);
+    };
+    canvas.addEventListener("webglcontextlost", onLost);
+    return () => {
+      canvas.removeEventListener("webglcontextlost", onLost);
+      motion.current = null;
+      setup.guard.dispose();
+    };
+  }, [animation]);
+
+  useEffect(() => {
+    safeRef.current = safe;
+    motion.current?.guard.setSafe(safe);
+  }, [safe]);
+
+  /** Hareketli arka planın bir karesi; çizildiyse tuvalin boyu (`null`: çizilemedi). */
+  const drawMotion = useCallback(
+    (dt: number): { width: number; height: number } | null => {
+      const m = motion.current;
+      const canvas = motionRef.current;
+      if (!m || !canvas) return null;
+      const { width, height } = fitCanvas(canvas);
+      if (playing) m.clock += Math.max(0, Math.min(dt, 0.25)) * 1000;
+      const { frames, durations, repetitions } = m.animation;
+      const index = frameAt(m.clock, durations, repetitions);
+      if (m.frame.width !== width || m.frame.height !== height || index !== m.index) {
+        m.frame.width = width;
+        m.frame.height = height;
+        const ctx = m.frame.getContext("2d") as
+          CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+        if (!ctx) return null;
+        try {
+          drawCover(ctx, frames[index]!, m.animation.width, m.animation.height, width, height);
+        } catch {
+          return null;
+        }
+        m.index = index;
+      }
+      const ok = m.primed
+        ? m.guard.processSource(m.frame, dt)
+        : (m.primed = m.guard.primeSource(m.frame));
+      return ok ? { width, height } : null;
+    },
+    [playing],
+  );
 
   const onTick = useCallback(
     (frame: VisualFrame | null, dt: number) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
+      // Hareketli arka plan çubuklardan önce (aynı karede).
+      const motionSize = animation ? drawMotion(dt) : null;
       const live = playing ? frame : null;
       const feed = spectrum.current;
       if (!live) {
@@ -201,48 +393,64 @@ export function PhotoScene({
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      // Ölçüm: resmin kendisi (yüklendiyse), resimsiz koyu zemin ya da (resim yüklenirken,
-      // pencere boyutlanırken) bilinmeyen zemin. Her biri ekran boyuna göre bir kez ölçülür.
-      const element = loaded.current;
-      const want: HTMLImageElement | null | undefined = image ? (element ?? undefined) : null;
-      const fits = (m: Measured | null, source: Measured["source"]) =>
-        !!m && m.source === source && m.width === width && m.height === height;
-      // Pencere boyutlanırken ölçüm (çizgi bölgesinin her pikseli, ~0,2 sn) boy durulunca yapılır.
+      // Ölçüm: resmin ya da hareketli resmin kendisi, resimsiz koyu zemin ya da (resim
+      // yüklenirken, pencere boyutlanırken, ölçüm sürerken) bilinmeyen zemin. Her biri ekran boyuna
+      // göre bir kez ölçülür; resmin ölçümü ayrı iş parçacığında.
+      const want: Measured["source"] = animation
+        ? animation
+        : stillUrl
+          ? (loaded.current ?? undefined)
+          : source.kind === "none"
+            ? null
+            : undefined;
+      const fits = (m: Measured | null, of: Measured["source"]) =>
+        !!m && m.source === of && m.width === width && m.height === height;
+      // Pencere boyutlanırken ölçüm boy durulunca yapılır.
       const now = performance.now();
       if (size.current.width !== width || size.current.height !== height) {
         size.current = { width, height, since: now };
       }
       let current = measured.current;
       if (!fits(current, want)) {
-        current = null;
-        if (want && now - size.current.since >= REMEASURE_MS) {
-          current = measureImage(want, width, height);
+        const busy = pending.current;
+        const stale =
+          !busy || busy.source !== want || busy.width !== width || busy.height !== height;
+        if (want && stale && now - size.current.since >= REMEASURE_MS) {
+          const job = { source: want, width, height };
+          pending.current = job;
+          const still = want instanceof HTMLImageElement;
+          const task = still
+            ? measureImage(want, width, height)
+            : measureAnimation(want, width, height, () => pending.current !== job);
+          void task.then((result) => {
+            if (pending.current !== job) return;
+            pending.current = null;
+            if (result) {
+              measured.current = result;
+              lastColors.current = result.colors;
+            }
+          });
         }
-        if (current) {
-          measured.current = current;
-          lastColors.current = current.colors;
-        } else {
-          const source = want === null ? null : undefined;
-          current = fits(fallback.current, source) ? fallback.current : null;
-          if (
-            !current ||
-            current.colors !== (source === null ? NO_IMAGE_COLORS : lastColors.current)
-          ) {
-            const colors = source === null ? NO_IMAGE_COLORS : lastColors.current;
-            current = {
-              colors,
-              map: measureLine(source === null ? NO_IMAGE : UNKNOWN, width, height, colors),
-              source,
-              width,
-              height,
-            };
-            fallback.current = current;
-          }
-          if (source === null) measured.current = current;
+        const of = want === null ? null : undefined;
+        current = fits(fallback.current, of) ? fallback.current : null;
+        const colors = of === null ? NO_IMAGE_COLORS : lastColors.current;
+        if (!current || current.colors !== colors) {
+          current = {
+            colors,
+            map: measureLine(of === null ? NO_IMAGE : UNKNOWN, width, height, colors),
+            source: of,
+            width,
+            height,
+          };
+          fallback.current = current;
         }
+        if (of === null) measured.current = current;
       }
       if (!current) return;
       const { colors, map } = current;
+      // Ölçüm hazır mı (denetim için): resme ya da resimsiz zemine göre.
+      const ready = current.source === undefined ? "off" : "on";
+      if (canvas.dataset.measured !== ready) canvas.dataset.measured = ready;
       // Bölüşüm yalnızca gerçek zemine göre ölçülmüş haritadan (resim ya da resimsiz zemin).
       if (split.current === null && current.source !== undefined) split.current = redSplit(map);
       // Ölçüm pikseli CSS pikselinden küçük olabilir (çok geniş ekran).
@@ -250,10 +458,20 @@ export function PhotoScene({
       const geometry = barGeometry(width, height);
       // Hedef boylar ve bu karenin parlama sınırı (ölçüm pikseliyle hesaplanır).
       const wanted = targetExtents(levels.current, geometry, safe);
+      // Hareketli arka planda paylar frenle birlikte (fren kurulduysa onun tuvali; çizilemediyse
+      // de hareketli paylar: güvenli yan).
+      const budgets = animation
+        ? animatedBudgets(
+            safe,
+            split.current,
+            motionSize?.width ?? width * ratio,
+            motionSize?.height ?? height * ratio,
+          )
+        : flashBudgets(safe, split.current);
       const limited = limitExtents(
         map,
         wanted.map((e) => e * scale),
-        flashBudgets(safe, split.current),
+        budgets,
       ).map((e) => e / scale);
 
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -279,24 +497,26 @@ export function PhotoScene({
       const lift = 3 * geometry.sigma + 10;
       textRef.current?.style.setProperty("--photo-lift", `${Math.ceil(lift)}px`);
     },
-    [playing, safe, image],
+    [playing, safe, animation, stillUrl, source.kind, drawMotion],
   );
   useVisualFeed(playing, onTick);
   const turkish = isTurkishText(title, artist);
 
   return (
     <div className="photo-scene">
-      {image ? (
+      {animation ? (
+        <canvas ref={motionRef} className="photo-scene__image photo-scene__motion" aria-hidden />
+      ) : stillUrl ? (
         <img
           ref={imageRef}
           className="photo-scene__image"
-          src={image}
+          src={stillUrl}
           alt=""
           draggable={false}
           onLoad={onImageLoad}
         />
       ) : (
-        image === null && (
+        source.kind === "none" && (
           <div className="photo-scene__empty">
             <p>Arka plana istediğiniz resmi koyun.</p>
             {onChooseImage && (
