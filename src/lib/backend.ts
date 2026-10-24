@@ -37,6 +37,7 @@ import type { LibraryStatus } from "./bindings/LibraryStatus";
 import type { LibraryAlbum } from "./bindings/LibraryAlbum";
 import type { LibraryArtist } from "./bindings/LibraryArtist";
 import type { LibraryTrack } from "./bindings/LibraryTrack";
+import type { Playlist } from "./bindings/Playlist";
 import type { LyricLine } from "./bindings/LyricLine";
 import type { LyricWord } from "./bindings/LyricWord";
 import type { Lyrics } from "./bindings/Lyrics";
@@ -94,6 +95,7 @@ export type {
   LibraryAlbum,
   LibraryArtist,
   LibraryTrack,
+  Playlist,
   LyricLine,
   LyricWord,
   Lyrics,
@@ -471,6 +473,57 @@ export function setAlbumCover(album: string, artist: string | null, path: string
 
 export function clearAlbumCover(album: string, artist: string | null): Promise<void> {
   return invoke<void>("album_cover_clear", { album, artist });
+}
+
+/** Çalma listeleri, en son değişen önce. */
+export async function listPlaylists(): Promise<Playlist[]> {
+  if (!isTauri()) return [];
+  return invoke<Playlist[]>("playlists_list");
+}
+
+export function createPlaylist(name: string): Promise<Playlist> {
+  return invoke<Playlist>("playlist_create", { name });
+}
+
+export function renamePlaylist(id: number, name: string): Promise<void> {
+  return invoke<void>("playlist_rename", { id, name });
+}
+
+/** Listeyi siler; şarkı dosyalarına dokunulmaz. */
+export function deletePlaylist(id: number): Promise<void> {
+  return invoke<void>("playlist_delete", { id });
+}
+
+/** Listedeki şarkıların yolları, sırasıyla. */
+export function playlistTracks(id: number): Promise<string[]> {
+  return invoke<string[]>("playlist_tracks", { id });
+}
+
+/** Şarkıları listenin sonuna ekler; eklenen sayıyı döndürür. */
+export function addToPlaylist(id: number, paths: string[]): Promise<number> {
+  return invoke<number>("playlist_add", { id, paths });
+}
+
+export function removeFromPlaylist(id: number, positions: number[]): Promise<void> {
+  return invoke<void>("playlist_remove", { id, positions });
+}
+
+export function moveInPlaylist(id: number, from: number, to: number): Promise<void> {
+  return invoke<void>("playlist_move", { id, from, to });
+}
+
+/** Listeye kullanıcının seçtiği kapak (`data:` adresi); seçilmemişse `null`. */
+export async function getPlaylistCover(id: number): Promise<string | null> {
+  if (!isTauri()) return null;
+  return invoke<string | null>("playlist_cover_get", { id });
+}
+
+export function setPlaylistCover(id: number, path: string): Promise<void> {
+  return invoke<void>("playlist_cover_set", { id, path });
+}
+
+export function clearPlaylistCover(id: number): Promise<void> {
+  return invoke<void>("playlist_cover_clear", { id });
 }
 
 /** Kapak resmi seçme penceresi. */
