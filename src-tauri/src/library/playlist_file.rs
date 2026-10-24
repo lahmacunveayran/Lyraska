@@ -5,7 +5,8 @@
 //! sayar). Listenin adı `#PLAYLIST:`, kapağı `#EXTIMG:` ile (kapak dosyası listenin yanında).
 //!
 //! İçe aktarırken şarkı sırayla şöyle aranır: kütüphanede aynı yol → diskte aynı yol →
-//! kütüphanede aynı sanatçı ve ad (süre ±3 sn, aynı albüm önce) → kütüphanede aynı dosya adı.
+//! kütüphanede aynı sanatçı ve ad (süre ±3 sn, aynı albüm önce) → kütüphanede aynı dosya adı
+//! (yalnızca tek şarkıdaysa).
 //! Bulunamayan şarkı özgün yoluyla listede kalır (disk takılınca çalar).
 
 use std::collections::HashMap;
@@ -287,14 +288,31 @@ pub fn resolve(
                     return (found.path.clone(), Match::Tags);
                 }
             }
-            if let Some(candidates) = by_name.get(&norm(file_name(&entry.path))) {
-                if let Some(found) = candidates.first() {
-                    return (found.path.clone(), Match::FileName);
-                }
+            if let Some(found) = by_name
+                .get(&norm(file_name(&entry.path)))
+                .and_then(|candidates| only_by_name(entry, candidates))
+            {
+                return (found.path.clone(), Match::FileName);
             }
             (entry.path.clone(), Match::Missing)
         })
         .collect()
+}
+
+/// Aynı dosya adındaki adaylardan süresi tutan tek şarkı. "01.flac" gibi ad birden çok şarkıda
+/// varsa tahmin edilmez: yanlış şarkı çalmaktansa bulunamadı denir.
+fn only_by_name<'a>(
+    entry: &FileEntry,
+    candidates: &[&'a LibraryEntry],
+) -> Option<&'a LibraryEntry> {
+    let mut fitting = candidates.iter().copied().filter(|track| {
+        match (entry.duration_secs, track.duration_secs) {
+            (Some(a), Some(b)) => (a - b).abs() <= DURATION_TOLERANCE_SECS,
+            _ => true,
+        }
+    });
+    let found = fitting.next()?;
+    fitting.next().is_none().then_some(found)
 }
 
 /// Aynı sanatçı ve addaki adaylardan süresi tutanlar; aynı albüm önce, sonra süresi en yakın.
@@ -713,6 +731,34 @@ mod tests {
         }];
         let found = resolve(&entries, &library, |_| true);
         assert_eq!(found[0], (library[0].path.clone(), Match::SamePath));
+    }
+
+    #[test]
+    fn dosya_adi_birden_fazla_sarkida_varsa_tahmin_edilmez() {
+        // "01.flac" gibi adlar her albümde var: rastgele birini almak yanlış şarkıyı çalar.
+        let library = vec![
+            track(r"E:\A\01.flac", "x", "y", "z", 100.0),
+            track(r"E:\B\01.flac", "x2", "y2", "z2", 200.0),
+            track(r"E:\C\tek.flac", "x3", "y3", "z3", 50.0),
+        ];
+        let plain = |path: &str, secs: Option<f64>| FileEntry {
+            path: path.into(),
+            duration_secs: secs,
+            ..Default::default()
+        };
+        let entries = vec![
+            plain(r"D:\Eski\01.flac", None),
+            // Süre adaylardan yalnızca birini tutuyorsa o alınır.
+            plain(r"D:\Eski\01.flac", Some(199.0)),
+            plain(r"D:\Eski\tek.flac", None),
+            // Tek aday da süresi tutmuyorsa başka şarkıdır.
+            plain(r"D:\Eski\tek.flac", Some(500.0)),
+        ];
+        let found = resolve(&entries, &library, |_| false);
+        assert_eq!(found[0].1, Match::Missing);
+        assert_eq!(found[1], (library[1].path.clone(), Match::FileName));
+        assert_eq!(found[2], (library[2].path.clone(), Match::FileName));
+        assert_eq!(found[3].1, Match::Missing);
     }
 
     #[test]
