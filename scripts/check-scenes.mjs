@@ -484,6 +484,9 @@ async function checkFlashBound(browser, scene, variant, theme) {
         level,
         theme: theme ?? 1,
         image: variant.image,
+        // "Kendi resmin"in parlama sınırı yalnızca Epilepsi güvenli modunda (proje sahibinin
+        // kararı, 24 Ekim 2026): sınır o modda ölçülür.
+        safe: scene.id === "photo",
       }),
     );
     // Hız sınırlı değerler yerine otursun: enerjiler ~1,2 sn'de, renk teması 2 sn'de.
@@ -1304,7 +1307,9 @@ async function checkPhotoMotion(browser, safe) {
   }
   const rawLum = perSecond(raw.luminance, FLASH_DELTA);
   const rawRed = perSecond(raw.continuous, FLASH_DELTA);
-  const limit = safe ? 1 : 3;
+  // Fren yalnızca Epilepsi güvenli modunda (proje sahibinin kararı, 24 Ekim 2026): mod kapalıyken
+  // hareketli resim olduğu gibi çizilir, deneme resminin parlaması ekrana geçmelidir.
+  const limit = safe ? 1 : Infinity;
   console.log(
     `${label}: saniyede ${lum.toFixed(2)} parlama, ${red.toFixed(2)} kırmızı parlama · frensiz ` +
       `${rawLum.toFixed(2)} / ${rawRed.toFixed(2)} · hareket ${motion.toFixed(3)} · ${count} kare · ` +
@@ -1318,6 +1323,9 @@ async function checkPhotoMotion(browser, safe) {
       `${label}: frensiz deneme resmi parlama olarak ölçülmedi (${rawLum.toFixed(2)} / ` +
         `${rawRed.toFixed(2)}): ölçüm çalışmıyor`,
     );
+  }
+  if (!safe && lum < 4) {
+    problems.push(`${label}: güvenli mod kapalıyken hareketli resim frenlenmiş (${lum.toFixed(2)})`);
   }
   if (motion < 0.005) problems.push(`${label}: görüntü hareket etmiyor (${motion.toFixed(4)})`);
   return problems;

@@ -342,9 +342,12 @@ export function PhotoScene({
         }
         m.index = index;
       }
-      const ok = m.primed
-        ? m.guard.processSource(m.frame, dt)
-        : (m.primed = m.guard.primeSource(m.frame));
+      // Fren yalnızca Epilepsi güvenli modunda (proje sahibinin kararı, 24 Ekim 2026); kapalıyken
+      // her kare olduğu gibi çizilir (açılınca fren o anki kareden sürer).
+      const ok =
+        m.primed && safeRef.current
+          ? m.guard.processSource(m.frame, dt)
+          : (m.primed = m.guard.primeSource(m.frame));
       return ok ? { width, height } : null;
     },
     [playing],
@@ -460,19 +463,24 @@ export function PhotoScene({
       const wanted = targetExtents(levels.current, geometry, safe);
       // Hareketli arka planda paylar frenle birlikte (fren kurulduysa onun tuvali; çizilemediyse
       // de hareketli paylar: güvenli yan).
-      const budgets = animation
-        ? animatedBudgets(
-            safe,
-            split.current,
-            motionSize?.width ?? width * ratio,
-            motionSize?.height ?? height * ratio,
-          )
-        : flashBudgets(safe, split.current);
-      const limited = limitExtents(
-        map,
-        wanted.map((e) => e * scale),
-        budgets,
-      ).map((e) => e / scale);
+      // Parlama sınırı yalnızca Epilepsi güvenli modunda (proje sahibinin kararı, 24 Ekim 2026:
+      // varsayılanda sınırlama yok); kapalıyken çubuklar istenen boyda.
+      let limited = wanted;
+      if (safe) {
+        const budgets = animation
+          ? animatedBudgets(
+              safe,
+              split.current,
+              motionSize?.width ?? width * ratio,
+              motionSize?.height ?? height * ratio,
+            )
+          : flashBudgets(safe, split.current);
+        limited = limitExtents(
+          map,
+          wanted.map((e) => e * scale),
+          budgets,
+        ).map((e) => e / scale);
+      }
 
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
       ctx.clearRect(0, 0, width, height);
