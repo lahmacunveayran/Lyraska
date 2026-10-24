@@ -35,12 +35,21 @@ pub enum CoverError {
     AnimationTooLarge { frames: u64, pixels: u64 },
     #[error("Hareketli resmin kareleri okunamadı (dosya bozuk olabilir).")]
     AnimationUnreadable,
+    #[error(
+        "Resim çok büyük: en çok {} milyon piksel olabilir (bu resim {width} × {height}).",
+        MAX_STILL_PIXELS / 1_000_000
+    )]
+    ImageTooLarge { width: u64, height: u64 },
 }
 
 /// Hareketli arka planın en çok kare sayısı (arayüzde `MAX_FRAMES`, src/lib/animatedImage.ts).
 pub const MAX_FRAMES: u64 = 600;
 /// Karelerin toplam piksel sınırı (kare boyu × kare sayısı; arayüzde `MAX_PIXELS`).
 pub const MAX_PIXELS: u64 = 50_000_000;
+/// Sabit arka planın en çok piksel sayısı: WebView resmi çözülmüş olarak (piksel başına 4 bayt,
+/// sahnede ölçüm kopyasıyla iki kez) tutar; 20000 × 20000 bir PNG 8 MB'tan küçük olabilir ama
+/// ~1,6 GB × 2 ister. Sahne seçimi kalıcı olduğu için her açılışta çökmesin.
+pub const MAX_STILL_PIXELS: u64 = 100_000_000;
 
 /// Albümün kapak dosyasının adı (uzantısız): kimliğin 64 bitlik FNV-1a özeti, onaltılık.
 /// Sabittir: aynı albüm her sürümde aynı dosyayı bulur (test dondurur).
@@ -237,10 +246,16 @@ impl CoverStore {
     }
 }
 
-/// Hareketli resmin sınırları: sabit resim her zaman geçer; hareketli resmin kare sayısı ve
-/// boyu okunabilmeli, [`MAX_FRAMES`] ve [`MAX_PIXELS`]'i geçmemeli.
+/// Arka planın sınırları: sabit resim [`MAX_STILL_PIXELS`]'i geçmemeli (boyu okunamazsa geçer:
+/// tarayıcı da çözemez); hareketli resmin kare sayısı ve boyu okunabilmeli, [`MAX_FRAMES`] ve
+/// [`MAX_PIXELS`]'i geçmemeli.
 fn check_animation(data: &[u8]) -> Result<(), CoverError> {
     if !is_animated(data) {
+        if let Some((width, height)) = still_dimensions(data) {
+            if width.saturating_mul(height) > MAX_STILL_PIXELS {
+                return Err(CoverError::ImageTooLarge { width, height });
+            }
+        }
         return Ok(());
     }
     let (frames, width, height) = animation_info(data).ok_or(CoverError::AnimationUnreadable)?;
@@ -258,8 +273,7 @@ fn check_animation(data: &[u8]) -> Result<(), CoverError> {
 fn animation_info(data: &[u8]) -> Option<(u64, u64, u64)> {
     match image_type(data) {
         Some("image/gif") => {
-            let width = u64::from(u16::from_le_bytes([*data.get(6)?, *data.get(7)?]));
-            let height = u64::from(u16::from_le_bytes([*data.get(8)?, *data.get(9)?]));
+            let (width, height) = gif_dimensions(data)?;
             Some((gif_frame_count(data, u64::MAX)?, width, height))
         }
         Some("image/png") => {
@@ -307,6 +321,135 @@ fn animation_info(data: &[u8]) -> Option<(u64, u64, u64)> {
         }
         _ => None,
     }
+}
+
+/// Sabit resmin boyu (genişlik, yükseklik) başlığından; okunamazsa `None`. PNG: `IHDR`; GIF:
+/// mantıksal ekranla ilk karenin büyüğü; WebP: `VP8X` tuvali, `VP8 ` ya da `VP8L` başlığı; JPEG:
+/// ilk SOF parçası (SOF0–SOF15; C4, C8, CC SOF değildir).
+fn still_dimensions(data: &[u8]) -> Option<(u64, u64)> {
+    let be16 = |at: usize| -> Option<u64> {
+        Some(u64::from(u16::from_be_bytes([
+            *data.get(at)?,
+            *data.get(at + 1)?,
+        ])))
+    };
+    match image_type(data)? {
+        "image/png" => {
+            if data.get(12..16)? != b"IHDR" {
+                return None;
+            }
+            let be32 = |at: usize| -> Option<u64> {
+                Some(u64::from(u32::from_be_bytes(
+                    data.get(at..at + 4)?.try_into().ok()?,
+                )))
+            };
+            Some((be32(16)?, be32(20)?))
+        }
+        "image/gif" => gif_dimensions(data),
+        "image/webp" => webp_dimensions(data),
+        "image/jpeg" => {
+            let mut i = 2usize;
+            loop {
+                if *data.get(i)? != 0xFF {
+                    return None;
+                }
+                // Dolgu baytları (art arda 0xFF).
+                while *data.get(i + 1)? == 0xFF {
+                    i += 1;
+                }
+                let marker = *data.get(i + 1)?;
+                match marker {
+                    // Uzunluksuz işaretçiler.
+                    0x01 | 0xD0..=0xD7 => {
+                        i += 2;
+                        continue;
+                    }
+                    // Görüntü verisi ya da sonu SOF'tan önce: boy yok.
+                    0xDA | 0xD9 => return None,
+                    0xC0..=0xCF if !matches!(marker, 0xC4 | 0xC8 | 0xCC) => {
+                        return Some((be16(i + 7)?, be16(i + 5)?));
+                    }
+                    _ => {}
+                }
+                let len = usize::try_from(be16(i + 2)?).ok()?;
+                i = i.checked_add(2)?.checked_add(len)?;
+            }
+        }
+        _ => None,
+    }
+}
+
+/// GIF'in çözülen boyu: mantıksal ekranla ilk karenin (görüntü tanımlayıcısı) büyüğü; tarayıcı
+/// ekrandan taşan kareyi de o boyda çözer.
+fn gif_dimensions(data: &[u8]) -> Option<(u64, u64)> {
+    let le16 = |at: usize| -> Option<u64> {
+        Some(u64::from(u16::from_le_bytes([
+            *data.get(at)?,
+            *data.get(at + 1)?,
+        ])))
+    };
+    let (mut width, mut height) = (le16(6)?, le16(8)?);
+    if let Some(at) = gif_first_frame(data) {
+        width = width.max(le16(at + 5)?);
+        height = height.max(le16(at + 7)?);
+    }
+    Some((width, height))
+}
+
+/// GIF'in ilk görüntü tanımlayıcısının (0x2C) konumu.
+fn gif_first_frame(data: &[u8]) -> Option<usize> {
+    let flags = *data.get(10)?;
+    let table = if flags & 0x80 != 0 {
+        3usize << ((flags & 0x07) + 1)
+    } else {
+        0
+    };
+    let mut i = 13 + table;
+    loop {
+        match data.get(i)? {
+            0x21 => i = skip_gif_blocks(data, i + 2)?,
+            0x2c => return Some(i),
+            _ => return None,
+        }
+    }
+}
+
+/// WebP'nin boyu: `VP8X` tuvali, yoksa ilk `VP8 ` (kayıplı) ya da `VP8L` (kayıpsız) başlığı.
+fn webp_dimensions(data: &[u8]) -> Option<(u64, u64)> {
+    let mut i = 12usize;
+    while let (Some(kind), Some(len)) = (data.get(i..i + 4), data.get(i + 4..i + 8)) {
+        let body = i + 8;
+        match kind {
+            b"VP8X" => {
+                let b = data.get(body + 4..body + 10)?;
+                let width = 1 + u64::from(u32::from_le_bytes([b[0], b[1], b[2], 0]));
+                let height = 1 + u64::from(u32::from_le_bytes([b[3], b[4], b[5], 0]));
+                return Some((width, height));
+            }
+            b"VP8 " => {
+                let b = data.get(body + 6..body + 10)?;
+                let width = u64::from(u16::from_le_bytes([b[0], b[1]]) & 0x3fff);
+                let height = u64::from(u16::from_le_bytes([b[2], b[3]]) & 0x3fff);
+                return Some((width, height));
+            }
+            b"VP8L" => {
+                if *data.get(body)? != 0x2f {
+                    return None;
+                }
+                let b = data.get(body + 1..body + 5)?;
+                let bits = u32::from_le_bytes([b[0], b[1], b[2], b[3]]);
+                let width = 1 + u64::from(bits & 0x3fff);
+                let height = 1 + u64::from((bits >> 14) & 0x3fff);
+                return Some((width, height));
+            }
+            _ => {}
+        }
+        let len = u32::from_le_bytes([len[0], len[1], len[2], len[3]]) as usize;
+        i = i
+            .saturating_add(8)
+            .saturating_add(len.saturating_add(len & 1));
+    }
+    None
 }
 
 /// Resim hareketli mi: birden çok kareli GIF, APNG (`acTL` parçası) ya da hareketli WebP
@@ -707,6 +850,128 @@ mod tests {
         assert!(store.background_get().is_none());
         std::fs::write(dir.join(COVERS_DIR).join("arkaplan.gif"), gif(2)).unwrap();
         assert!(store.background_get().is_some());
+        std::fs::remove_file(source).ok();
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// `width × height` GIF (mantıksal ekran), ilk karesi `frame_w × frame_h`.
+    fn gif_sized(width: u16, height: u16, frame_w: u16, frame_h: u16, frames: usize) -> Vec<u8> {
+        let mut out = b"GIF89a".to_vec();
+        out.extend_from_slice(&width.to_le_bytes());
+        out.extend_from_slice(&height.to_le_bytes());
+        out.extend_from_slice(b"\x00\x00\x00");
+        for _ in 0..frames {
+            out.extend_from_slice(b"\x21\xf9\x04\x00\x0a\x00\x00\x00\x2c\x00\x00\x00\x00");
+            out.extend_from_slice(&frame_w.to_le_bytes());
+            out.extend_from_slice(&frame_h.to_le_bytes());
+            out.extend_from_slice(b"\x00\x02\x02\x44\x01\x00");
+        }
+        out.push(0x3b);
+        out
+    }
+
+    /// RIFF/WebP kabı.
+    fn riff(body: Vec<u8>) -> Vec<u8> {
+        let mut out = b"RIFF".to_vec();
+        out.extend_from_slice(&(body.len() as u32 + 4).to_le_bytes());
+        out.extend_from_slice(b"WEBP");
+        out.extend(body);
+        out
+    }
+
+    /// `width × height` JPEG (APP0, ardından `marker` SOF parçası).
+    fn jpeg_sized(marker: u8, width: u16, height: u16) -> Vec<u8> {
+        let mut out = vec![0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10];
+        out.extend_from_slice(b"JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00");
+        // Huffman tablosu (C4) SOF sayılmaz.
+        out.extend_from_slice(&[0xFF, 0xC4, 0x00, 0x08, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
+        out.extend_from_slice(&[0xFF, marker, 0x00, 0x11, 0x08]);
+        out.extend_from_slice(&height.to_be_bytes());
+        out.extend_from_slice(&width.to_be_bytes());
+        out.extend_from_slice(&[3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1]);
+        out.extend_from_slice(&[0xFF, 0xD9]);
+        out
+    }
+
+    #[test]
+    fn sabit_resmin_boyu_her_bicimde_okunur() {
+        assert_eq!(
+            still_dimensions(&png_sized(1, 6000, 4000)),
+            Some((6000, 4000))
+        );
+        assert_eq!(
+            still_dimensions(&gif_sized(300, 200, 50, 40, 1)),
+            Some((300, 200))
+        );
+        // İlk kare mantıksal ekrandan büyükse onun boyu (tarayıcı o boyda çözer).
+        assert_eq!(
+            still_dimensions(&gif_sized(10, 10, 30000, 20, 1)),
+            Some((30000, 20))
+        );
+        assert_eq!(
+            animation_info(&gif_sized(10, 10, 9000, 9000, 2)),
+            Some((2, 9000, 9000))
+        );
+        // WebP: VP8X tuvali, kayıplı VP8, kayıpsız VP8L.
+        let mut vp8x = b"VP8X\x0a\x00\x00\x00\x00\x00\x00\x00".to_vec();
+        vp8x.extend_from_slice(&(20000u32 - 1).to_le_bytes()[..3]);
+        vp8x.extend_from_slice(&(15000u32 - 1).to_le_bytes()[..3]);
+        assert_eq!(still_dimensions(&riff(vp8x)), Some((20000, 15000)));
+        let mut vp8 = b"VP8 \x0a\x00\x00\x00\x00\x00\x00\x9d\x01\x2a".to_vec();
+        vp8.extend_from_slice(&(0x4000u16 | 1234).to_le_bytes());
+        vp8.extend_from_slice(&(0x8000u16 | 567).to_le_bytes());
+        assert_eq!(still_dimensions(&riff(vp8)), Some((1234, 567)));
+        let (w, h) = (16384u32 - 1, 9000u32 - 1);
+        let bits = w | (h << 14);
+        let mut vp8l = b"VP8L\x05\x00\x00\x00\x2f".to_vec();
+        vp8l.extend_from_slice(&bits.to_le_bytes());
+        assert_eq!(still_dimensions(&riff(vp8l)), Some((16384, 9000)));
+        // JPEG: SOF0, SOF2 (aşamalı); C4/C8/CC SOF değildir.
+        assert_eq!(
+            still_dimensions(&jpeg_sized(0xC0, 4000, 3000)),
+            Some((4000, 3000))
+        );
+        assert_eq!(
+            still_dimensions(&jpeg_sized(0xC2, 12000, 10000)),
+            Some((12000, 10000))
+        );
+        assert_eq!(still_dimensions(&jpeg_sized(0xC8, 12000, 10000)), None);
+        assert_eq!(still_dimensions(JPEG), None);
+        assert_eq!(still_dimensions(PNG), None);
+    }
+
+    #[test]
+    fn cok_buyuk_sabit_resim_arka_plan_olmaz() {
+        // 20000 × 20000 PNG 8 MB'tan küçük olabilir ama WebView'da GB'larca bellek: reddedilir.
+        let dir = temp_path("arkaplan-buyuk");
+        let store = CoverStore::new(&dir);
+        let source = dir.with_extension("img");
+        for data in [
+            png_sized(1, 20000, 20000),
+            jpeg_sized(0xC2, 12000, 10000),
+            gif_sized(10, 10, 30000, 20000, 1),
+        ] {
+            std::fs::write(&source, &data).unwrap();
+            let error = store.background_set(&source).unwrap_err();
+            assert!(matches!(error, CoverError::ImageTooLarge { .. }), "{error}");
+            assert!(error.to_string().contains("100 milyon piksel"), "{error}");
+        }
+        // 6000 × 4000 (24 milyon piksel) kabul.
+        std::fs::write(&source, png_sized(1, 6000, 4000)).unwrap();
+        assert!(store.background_set(&source).is_ok());
+        assert!(store.background_get().is_some());
+        // Albüm kapağına sınır yok.
+        std::fs::write(&source, png_sized(1, 20000, 20000)).unwrap();
+        store.set("Kum", Some("Ada"), &source).unwrap();
+        // Klasöre elle konmuş büyük resim de gösterilmez.
+        store.background_clear().unwrap();
+        std::fs::create_dir_all(dir.join(COVERS_DIR)).unwrap();
+        std::fs::write(
+            dir.join(COVERS_DIR).join("arkaplan.png"),
+            png_sized(1, 20000, 20000),
+        )
+        .unwrap();
+        assert!(store.background_get().is_none());
         std::fs::remove_file(source).ok();
         std::fs::remove_dir_all(dir).ok();
     }
