@@ -526,7 +526,7 @@ describe("kendi resmin sahnesi: kırmızı parlama (WCAG 2.3.1)", () => {
       W = 1920;
       H = 1080;
       // Eski sınırla (yalnız parlaklık) bu geçiş gerçek tarayıcıda pencerede 21,1 kırmızı değişim
-    // veriyordu (eşik 20).
+      // veriyordu (eşik 20).
       const img = makeImage(() => [40, 0, 0]);
       const colors = barColors([255, 0, 0]);
       const map = measureLine(imageBackground(img.rgba, W, H), W, H, colors);
@@ -542,7 +542,7 @@ describe("kendi resmin sahnesi: kırmızı parlama (WCAG 2.3.1)", () => {
         return Math.max(...a.map((v, i) => Math.abs(v - b[i]!)));
       };
       // Bu modelde 19,0; gerçek Chromium'un bulanıklığıyla denetim 21,1 ölçtü: payın (16) üstünde.
-    expect(change(old)).toBeGreaterThan(RED_BUDGET);
+      expect(change(old)).toBeGreaterThan(RED_BUDGET);
       expect(change(limited)).toBeLessThan(RED_BUDGET);
     },
   );

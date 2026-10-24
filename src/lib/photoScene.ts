@@ -27,7 +27,16 @@
  * eğrinin dışbükeyliğinden (açık zeminde aynı ekleme daha çok ışık demek). İki ışık üst üste
  * binince toplam bu sınırların toplamını geçmez; her çubuğun özü ve ışıltısı ayrı sayılabilir.
  */
-import { flashWindow } from "./flash";
+import { FLASH_DELTA, flashWindow } from "./flash";
+import {
+  GUARD_BLOCKS_PER_CELL,
+  GUARD_COLS,
+  GUARD_MAX_DT,
+  GUARD_ROWS,
+  RED_FLASH_SCALE,
+  SRGB_HALF_STEP_LUMINANCE,
+  guardRates,
+} from "./flashGuardMath";
 
 /** Çubuk sayısı (soldan sağa bastan tize). */
 export const PHOTO_BARS = 200;
@@ -439,9 +448,12 @@ export interface LineMap {
   /** `[k · (rows + 1) + r]`: çubuk `k`'nın `firstRow`'dan `firstRow + r`'ye kadarki toplamı. */
   core: Float64Array;
   glow: Float64Array;
-  /** Işıltının bir satırdaki en büyük toplamı (çubuk başına). */
-  glowRowMax: Float64Array;
-  /** Işıltının çubuk satırları dışına taşan dikey kuyruklarının toplamı (çubuk başına). */
+  /** Işıltının 1'de kesilmeden (doğrusal) üst sınırı, `glow` gibi birikimli: kısa çubukta. */
+  glowLinear: Float64Array;
+  /**
+   * Işıltının çubuk satırları dışına taşan dikey kuyrukları: `[k · (TAIL_STEPS + 1) + ⌈e⌉]`
+   * (çubuk boyu e; sonuncusu daha uzun bütün boylar).
+   */
   glowTail: Float64Array;
   /** Bir çubuğun ışığının yatayda uzandığı yarı genişlik (CSS piksel). */
   reach: number;
@@ -546,20 +558,6 @@ function boxPeak(e: number, sigma: number): number {
 }
 
 /**
- * Dikey kuyrukların toplamı (parlaklık): çubuk satırlarının dışında ışıltı kenardan `d` uzakta en
- * çok `boxTail(d, ∞)` kadardır. Bir satırdaki katkı hem satırın en büyük toplamını (`rowMax`) hem
- * de kuyruk × `rowLinear`'ı (ışıltıyla doğrusal üst sınır) geçmez; iki uçta `TAIL_SIGMAS · σ`'ya
- * kadar (ötesinde ışıltı 8 bitte 0'a yuvarlanır).
- */
-function tailSum(rowMax: number, rowLinear: number, sigma: number): number {
-  let sum = 0;
-  for (let d = 0; d <= Math.ceil(TAIL_SIGMAS * sigma); d++) {
-    sum += Math.min(rowMax, boxTail(d, Infinity, sigma) * rowLinear);
-  }
-  return 2 * sum;
-}
-
-/**
  * Kırmızı ölçünün ışıltı düzeyleri: pikselin ışıltısı en çok bu oran × `T` iken en büyük değişim
  * (kısa çubuğun ve kuyruğun ışıltısı sönük).
  */
@@ -642,8 +640,7 @@ export function measureLine(
   const stride = rows + 1;
   const coreTable = new Float64Array(PHOTO_BARS * stride);
   const glowTable = new Float64Array(PHOTO_BARS * stride);
-  const glowRowMax = new Float64Array(PHOTO_BARS);
-  const glowLinear = new Float64Array(PHOTO_BARS);
+  const glowLinTable = new Float64Array(PHOTO_BARS * stride);
 
   // Çubukların sütunları ve ışıltının yatay kesiti; sütunların şeridi ve öz kaplaması.
   const bars: {
@@ -1079,6 +1076,7 @@ export function measureLine(
   const glowRunning = new Float64Array(2 * PHOTO_BARS * LEVELS);
   const coreRunning = new Float64Array(2 * PHOTO_BARS * LEVELS);
   const glowSums = new Float64Array(PHOTO_BARS);
+  const linSums = new Float64Array(PHOTO_BARS);
   for (let r = 0; r < rows; r++) {
     if (r < measuredRows) {
       buildRow(firstRow + r);
@@ -1102,8 +1100,7 @@ export function measureLine(
         }
         coreSums[k] = coreSum;
         glowSums[k] = glowSum;
-        glowRowMax[k] = Math.max(glowRowMax[k]!, glowSum);
-        glowLinear[k] = Math.max(glowLinear[k]!, linSum);
+        linSums[k] = linSum;
       }
       for (const [dir, t] of [
         [0, inc],
@@ -1118,6 +1115,7 @@ export function measureLine(
       const at = k * stride + r;
       coreTable[at + 1] = coreTable[at]! + coreSums[k]!;
       glowTable[at + 1] = glowTable[at]! + glowSums[k]!;
+      glowLinTable[at + 1] = glowLinTable[at]! + linSums[k]!;
     }
     for (const [dir, t] of [
       [0, inc],
@@ -1133,13 +1131,46 @@ export function measureLine(
       }
     }
   }
-  const glowTail = new Float64Array(PHOTO_BARS);
-  const oldTail = glowTailRows(sigma);
+  // Dikey kuyruklar (parlaklık): çizginin üstündeki ve çubuğun ucunun altındaki gerçek satırlar,
+  // çubuk boyuna göre. Satır y'de ışıltı kenardan d uzakta en çok `boxTail(d, e)` kadar; pikselin
+  // katkısı hem tam ışıltıdakini hem de doğrusal sınır × kuyruğu geçmez. Boy adımı i: e ∈ (i−1, i];
+  // son adım (uzun çubuk): ucun altındaki satır her yerde olabilir, aşağısının en büyükleri.
+  const glowTail = new Float64Array(PHOTO_BARS * (TAIL_STEPS + 1));
+  const top = barGeometry(width, height).top;
+  const topRow = Math.floor(top);
+  const tailRows = Math.ceil(TAIL_SIGMAS * sigma) + 1;
+  const rowValue = (t: Float64Array, k: number, r: number) =>
+    r < 0 || r >= rows ? 0 : t[k * stride + r + 1]! - t[k * stride + r]!;
+  const longStart = Math.ceil(top + TAIL_STEPS - 1) - firstRow;
   for (let k = 0; k < PHOTO_BARS; k++) {
-    glowTail[k] = Math.max(
-      oldTail * glowRowMax[k]!,
-      tailSum(glowRowMax[k]!, glowLinear[k]!, sigma),
-    );
+    const suffixG = new Float64Array(rows + 1);
+    const suffixL = new Float64Array(rows + 1);
+    for (let r = rows - 1; r >= 0; r--) {
+      suffixG[r] = Math.max(suffixG[r + 1]!, rowValue(glowTable, k, r));
+      suffixL[r] = Math.max(suffixL[r + 1]!, rowValue(glowLinTable, k, r));
+    }
+    for (let i = 0; i <= TAIL_STEPS; i++) {
+      const e = i === TAIL_STEPS ? Infinity : i;
+      let sum = 0;
+      for (let j = 0; j <= tailRows; j++) {
+        const r = topRow - 1 - j - firstRow;
+        const v = boxTail(Math.max(0, top - (topRow - j)), e, sigma);
+        sum += Math.min(rowValue(glowTable, k, r), v * rowValue(glowLinTable, k, r));
+      }
+      if (i < TAIL_STEPS) {
+        for (let y = Math.ceil(top + Math.max(0, i - 1)); y - (top + i) <= tailRows; y++) {
+          const v = boxTail(Math.max(0, y - (top + i)), e, sigma);
+          const r = y - firstRow;
+          sum += Math.min(rowValue(glowTable, k, r), v * rowValue(glowLinTable, k, r));
+        }
+      } else {
+        const r0 = Math.max(0, Math.min(rows, longStart));
+        for (let d = 0; d <= tailRows; d++) {
+          sum += Math.min(suffixG[r0]!, boxTail(d, e, sigma) * suffixL[r0]!);
+        }
+      }
+      glowTail[k * (TAIL_STEPS + 1) + i] = sum;
+    }
   }
   return {
     geometry,
@@ -1147,7 +1178,7 @@ export function measureLine(
     rows,
     core: coreTable,
     glow: glowTable,
-    glowRowMax,
+    glowLinear: glowLinTable,
     glowTail,
     reach,
     tauMax,
@@ -1161,16 +1192,6 @@ export function measureLine(
     redIncrease: inc,
     redDecrease: dec,
   };
-}
-
-/**
- * Bir çubuğun ışıltısının çubuk satırları dışına taşan dikey kütlesi (satır): Gauss kuyrukları
- * iki uçta `σ / √(2π)`'şer, satırın en büyük değeriyle sayıldığından her uçta bir satır fazlası.
- * Satır parlaklığı 1'de kesildiğinde kuyruk daha uzun sayılabilir: `measureLine` bunun ile
- * `tailSum`'ın büyüğünü alır.
- */
-export function glowTailRows(sigma: number): number {
-  return 2 * (sigma / Math.sqrt(2 * Math.PI) + 1);
 }
 
 /** Çubuk başına ışık dizisinden en kötü WCAG penceresinin ortalaması (parlaklık). */
@@ -1245,12 +1266,15 @@ export function flashBounds(map: LineMap, extents: readonly number[]): FlashBoun
     const e = Math.max(0, extents[k] ?? 0);
     const base = k * stride;
     const c1 = row(Math.ceil(top + e));
+    // Kısa çubuğun ışıltısı sönük: en çok `boxPeak(e)` × doğrusal sınır.
     light[k] =
       map.core[base + c1]! -
       map.core[base + c0]! +
-      map.glow[base + c1]! -
-      map.glow[base + c0]! +
-      map.glowTail[k]!;
+      Math.min(
+        map.glow[base + c1]! - map.glow[base + c0]!,
+        boxPeak(e, sigma) * (map.glowLinear[base + c1]! - map.glowLinear[base + c0]!),
+      ) +
+      map.glowTail[k * (TAIL_STEPS + 1) + Math.min(TAIL_STEPS, Math.ceil(e))]!;
   }
   const luminance = worstWindow(map, light);
 
@@ -1463,6 +1487,59 @@ export function flashBudgets(safe: boolean, split: number | null): FlashBudgets 
   const s = split ?? null;
   return {
     luminance: flashBudget(safe),
+    redIncrease: red * (s === null ? RED_SPLIT_MIN : s),
+    redDecrease: red * (s === null ? RED_SPLIT_MIN : 1 - s),
+  };
+}
+
+/**
+ * Bir WCAG penceresine dokunan frendeki blokların piksel sayısının pencereninkine oranı (`N⁺/N`,
+ * `flashGuardMath.ts` 8. adım), `width × height` tuvalde.
+ */
+export function windowExcess(width: number, height: number): number {
+  const win = flashWindow(width, height);
+  const bw = Math.ceil(width / (GUARD_COLS * GUARD_BLOCKS_PER_CELL));
+  const bh = Math.ceil(height / (GUARD_ROWS * GUARD_BLOCKS_PER_CELL));
+  return ((win.width + 2 * bw) * (win.height + 2 * bh)) / (win.width * win.height);
+}
+
+/**
+ * Hareketli arka planda karenin payları. Arka plan parlaklık freninden geçer (kırmızı kanalıyla):
+ * bir pencerenin arka plan ortalaması T saniyede en çok `ρ · T` yol alır (`ρ = r_p · N⁺/N ·
+ * (1 + GUARD_MAX_DT)`; kırmızıda `320 · r_r · …`), ekranın 8 biti onu en çok `ε` saptırır. Çubuklar
+ * her karede çubuksuz arka plana göre `[−D, I]` (parlaklıkta `[0, a]`) bandında. Bir değişim
+ * (eşik `Δ`: 0,1 ya da 20) sayılması için arka planın son değişimden beri en az
+ * `Δ − (bant + 2ε)` yol alması gerekir; 1 saniyedeki değişim sayısı `N ≤ 1 + ρ / (Δ − bant − 2ε)`.
+ * Bant `N ≤ 7` (saniyede ≤ 3 parlama; güvenli modda `N ≤ 3`, ≤ 1 parlama) olacak biçimde, %90
+ * payla seçilir; güvenli modda ayrıca normalin yarısını geçmez.
+ */
+export function animatedBudgets(
+  safe: boolean,
+  split: number | null,
+  width: number,
+  height: number,
+): FlashBudgets {
+  const excess = windowExcess(width, height);
+  const band = (mode: boolean) => {
+    const rates = guardRates(mode, true);
+    const changes = mode ? 2 : 6;
+    const time = 1 + GUARD_MAX_DT;
+    const eps = SRGB_HALF_STEP_LUMINANCE;
+    const luminance = 0.9 * (FLASH_DELTA - 2 * eps - (rates.pattern * excess * time) / changes);
+    const red =
+      0.9 *
+      (RED_FLASH -
+        2 * RED_FLASH_SCALE * 3 * eps -
+        (RED_FLASH_SCALE * rates.red * excess * time) / changes);
+    return { luminance: Math.max(0, luminance), red: Math.max(0, red) };
+  };
+  const normal = band(false);
+  const chosen = safe ? band(true) : normal;
+  const luminance = Math.min(flashBudget(safe), chosen.luminance, safe ? normal.luminance / 2 : 1);
+  const red = Math.min(chosen.red, safe ? normal.red / 2 : Infinity);
+  const s = split ?? null;
+  return {
+    luminance,
     redIncrease: red * (s === null ? RED_SPLIT_MIN : s),
     redDecrease: red * (s === null ? RED_SPLIT_MIN : 1 - s),
   };
