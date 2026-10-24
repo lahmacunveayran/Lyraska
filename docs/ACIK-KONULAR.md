@@ -6,14 +6,15 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 ## İş sırası (proje sahibinin kararı, 23 Ekim 2026)
 
 1. Kütüphanenin baştan tasarımı; küçük PR'lar:
-   1. Gökyüzü (0.0.71, PR açık); klasör izleme (0.0.72, PR açık; sahibinin bildirdiği hata).
+   1. Gökyüzü (0.0.71, PR açık); klasör izleme (0.0.72) ve drop bulma (0.0.73) hazır, sırayla PR.
    2. Albüm sayfası; şarkı satırında kapak küçük resmi.
 2. Davul/bas/vokal ayrıştırma: Spleeter; önce eğitimsiz iyileştirmeler ölçülür.
 3. Otomatik DJ (Bölüm II), Aşama A'dan; her aşama ayrı oturumda (`docs/gorev/20-BOLUM-II-DJ.md`).
 
 ## Proje sahibinden beklenenler
 
-- DOGRULAMA A7–A11 sonuçları (0.0.64) ve A12 (0.0.65: `.opus`/`.webm`).
+- DOGRULAMA A7–A11 sonuçları (0.0.64) ve A12 (0.0.65: `.opus`/`.webm`); A13–A14 klasör izleme (0.0.72); A15 drop
+  kendi şarkılarında (0.0.73).
 
 ## Ele alınmayı bekleyen geri bildirim ve bulgular
 

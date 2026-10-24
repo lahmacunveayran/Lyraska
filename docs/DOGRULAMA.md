@@ -166,6 +166,15 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 - Olmadıysa: hangi adımda olmadığını (uyarı mı çıktı, şarkılar mı silindi, yeni şarkı mı gelmedi) ve hata günlüğünü
   gönderin.
 
+**A15. Drop doğru yerde (0.0.73)**
+
+- Nasıl: Dropu belli olan (NCS gibi) 5–10 şarkı açın; her birinde **İşaretle** panelinde şarkıyı dinlerken drop
+  anlarında `D`'ye basın (kılavuz: `docs/ISARETLEME.md`). Panel programın bulduğuyla karşılaştırır.
+- Neye bakılır: paneldeki şarkı haritası şeridinde ▼ (programın dropu) ile ▲ (sizin işaretiniz) üst üste; drop
+  sayacı gerçek drop anında sıfırlanıyor; dropu olmayan sakin şarkıda ▼ yok.
+- Olmadıysa: hangi şarkıda, hangi saniyede (erken mi, geç mi, hiç mi) olduğunu yazın; işaret dosyalarınızı
+  gönderin (İşaretle panelindeki **İşaret klasörünü aç** düğmesi). İçlerinde ses yoktur, yalnızca zamanlar vardır.
+
 ## B. Çalma ve ses
 
 **B1. Ses kalitesi (#25)**
