@@ -1,13 +1,13 @@
 /**
  * İnce ayrıntılı spektrum çubukları ("Kendi resmin" sahnesi). Seviyeleri çekirdek hesaplar
- * (`getVisualSpectrum`, src-tauri/src/audio/spectrum.rs: 200 çubuk, 40 Hz – 16 kHz logaritmik,
- * bas uzun pencereden); burada yalnızca çubukların zamanda ilerlemesi (hemen yükselir, hızla
- * söner: vuruşta iner, kalkar) ve çekirdek yokken (tarayıcı önizlemesi) analiz karesinin
- * bantlarından yedek çubuklar.
+ * (`getVisualSpectrum`, src-tauri/src/audio/spectrum.rs: 200 çubuk, 20 Hz – 2 kHz doğrusal);
+ * burada yalnızca çubukların zamanda ilerlemesi ve çekirdek yokken (tarayıcı önizlemesi) analiz
+ * karesinin bantlarından yedek çubuklar. Örnek videolarda her kare kendi spektrumuydu: sönme
+ * eklemek ölçümle uyumu artırmadı (20 ms'de en iyi, 40 ms'den sonra kötüleşti).
  */
 
-/** Sönme hızı: çubuk her saniye boyunun bu kadarını (1 − e^(−dt/τ)) bırakır. */
-const RELEASE_TAU = 0.085;
+/** Sönme süresi (s): çubuk `dt`'de yüksekliğinin `e^(−dt/τ)` kadarını korur. */
+export const RELEASE_TAU = 0.02;
 /** Yedek çubuklarda seviye eğrisi: >1 sessiz bantları küçültür. */
 const LEVEL_CURVE = 1.35;
 

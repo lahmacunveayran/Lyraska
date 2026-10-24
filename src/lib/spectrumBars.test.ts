@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { barTargetsFromBands, stepBars } from "./spectrumBars";
+import { RELEASE_TAU, barTargetsFromBands, stepBars } from "./spectrumBars";
 
 describe("ince spektrum çubukları", () => {
   it("çekirdeğin çubukları yoksa 32 banttan soldan sağa ara değerle", () => {
@@ -11,10 +11,12 @@ describe("ince spektrum çubukları", () => {
     expect(barTargetsFromBands([], 2)).toEqual([0, 0]);
   });
 
-  it("çubuk hemen yükselir, hızla söner", () => {
-    expect(stepBars([0, 1], [1, 0], 1 / 60)).toEqual([1, expect.closeTo(0.86, 1)]);
+  it("çubuk hemen yükselir, bir iki karede söner (örnek videolardaki gibi)", () => {
+    // 60 kare/sn'de bir karede yüksekliğinin e^(−1/(60·0,02)) ≈ %43'ünü korur.
+    expect(stepBars([0, 1], [1, 0], 1 / 60)).toEqual([1, expect.closeTo(0.435, 2)]);
+    expect(RELEASE_TAU).toBeLessThanOrEqual(0.02);
     let level = [1];
-    for (let i = 0; i < 30; i++) level = stepBars(level, [0], 1 / 60);
-    expect(level[0]!).toBeLessThan(0.02); // yarım saniyede sönmüş
+    for (let i = 0; i < 6; i++) level = stepBars(level, [0], 1 / 60);
+    expect(level[0]!).toBeLessThan(0.01); // 0,1 saniyede sönmüş
   });
 });
