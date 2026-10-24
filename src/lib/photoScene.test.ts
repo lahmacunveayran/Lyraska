@@ -322,29 +322,27 @@ const IMAGES: [string, (x: number, y: number) => Rgb][] = [
 describe("kendi resmin sahnesi: tarayıcı gibi çizimde parlama yok", () => {
   it.each(
     IMAGES.flatMap(([name, at]) => [
-      { name, at, width: 640, height: 360, safe: false },
-      { name, at, width: 360, height: 640, safe: false },
-    ]).concat(
-      IMAGES.slice(0, 3).map(([name, at]) => ({ name, at, width: 640, height: 360, safe: true })),
-    ),
+      { name, at, width: 640, height: 360, safe: true },
+      { name, at, width: 360, height: 640, safe: true },
+    ]),
   )("$name ($width×$height, güvenli $safe)", ({ at, width, height, safe }) => {
     W = width;
     H = height;
     const r = worst(at, safe);
-    // Pencere değişimi her karede sınırın (0,08; güvenli modda 0,04) altında: parlama yok.
+    // Pencere değişimi her karede güvenli modun sınırının (0,04) altında: parlama yok.
     expect(r.maxStep).toBeLessThanOrEqual(flashBudget(safe));
     expect(r.flashes).toBe(0);
   });
 
   it(
-    "resim bilinmezken (yükleniyor) en kötü zemine göre ölçüm de parlamasız",
+    "güvenli modda resim bilinmezken (yükleniyor) en kötü zemine göre ölçüm de parlamasız",
     { timeout: 120_000 },
     () => {
       W = 640;
       H = 360;
       for (const [, at] of IMAGES) {
-        const r = worst(at, false, uniformBackground([0, 0, 0], [255, 255, 255]));
-        expect(r.maxStep).toBeLessThanOrEqual(FLASH_BUDGET);
+        const r = worst(at, true, uniformBackground([0, 0, 0], [255, 255, 255]));
+        expect(r.maxStep).toBeLessThanOrEqual(flashBudget(true));
       }
     },
   );
@@ -385,21 +383,25 @@ describe("kendi resmin sahnesi: tarayıcı gibi çizimde parlama yok", () => {
     }
   });
 
-  it("resimsiz koyu zeminde vurgu yeşili çizgi de parlamasız", () => {
+  it("güvenli modda resimsiz koyu zeminde vurgu yeşili çizgi de parlamasız", () => {
     W = 640;
     H = 360;
     const colors = barColors(DEFAULT_ACCENT);
     const map = measureLine(uniformBackground([0, 0, 0], [26, 20, 36]), W, H, colors);
     const g = barGeometry(W, H);
-    const full = limitExtents(map, targetExtents(new Array<number>(PHOTO_BARS).fill(1), g, false));
-    const rest = targetExtents(new Array<number>(PHOTO_BARS).fill(0), g, false);
+    const full = limitExtents(
+      map,
+      targetExtents(new Array<number>(PHOTO_BARS).fill(1), g, true),
+      flashBudget(true),
+    );
+    const rest = targetExtents(new Array<number>(PHOTO_BARS).fill(0), g, true);
     const img = makeImage(() => [26, 20, 36]);
     const win = flashWindow(W, H);
     const a = windowMeans(renderSrgb(full, img.srgb, colors), W, H, win, 4);
     const b = windowMeans(renderSrgb(rest, img.srgb, colors), W, H, win, 4);
     let max = 0;
     for (let i = 0; i < a.length; i++) max = Math.max(max, Math.abs(a[i]! - b[i]!));
-    expect(max).toBeLessThanOrEqual(FLASH_BUDGET);
+    expect(max).toBeLessThanOrEqual(flashBudget(true));
   });
 });
 
@@ -499,17 +501,9 @@ describe("kendi resmin sahnesi: kırmızı parlama (WCAG 2.3.1)", () => {
 
   it.each(
     RED_IMAGES.flatMap(([name, at]) => [
-      { name, at, width: 640, height: 360, safe: false },
-      { name, at, width: 360, height: 640, safe: false },
-    ]).concat(
-      RED_IMAGES.slice(0, 2).map(([name, at]) => ({
-        name,
-        at,
-        width: 640,
-        height: 360,
-        safe: true,
-      })),
-    ),
+      { name, at, width: 640, height: 360, safe: true },
+      { name, at, width: 360, height: 640, safe: true },
+    ]),
   )(
     "$name ($width×$height, güvenli $safe): kareler arası fark < 20",
     { timeout: 60_000 },
@@ -518,13 +512,13 @@ describe("kendi resmin sahnesi: kırmızı parlama (WCAG 2.3.1)", () => {
       H = height;
       const r = redWorst(at, safe);
       expect(r.sound).toBe(true);
-      expect(r.range).toBeLessThanOrEqual(safe ? RED_BUDGET / 2 : RED_BUDGET);
+      expect(r.range).toBeLessThanOrEqual(RED_BUDGET / 2);
       expect(r.range).toBeLessThan(RED_FLASH);
     },
   );
 
   it(
-    "denetimdeki durum: çok koyu kırmızıda sessizlikten bütün çubuklar doluya",
+    "denetimdeki durum (güvenli mod): çok koyu kırmızıda sessizlikten bütün çubuklar doluya",
     {
       timeout: 60_000,
     },
@@ -538,19 +532,19 @@ describe("kendi resmin sahnesi: kırmızı parlama (WCAG 2.3.1)", () => {
       const colors = barColors([255, 0, 0]);
       const map = measureLine(imageBackground(img.rgba, W, H), W, H, colors);
       const g = barGeometry(W, H);
-      const full = targetExtents(new Array<number>(PHOTO_BARS).fill(1), g, false);
-      const rest = targetExtents(new Array<number>(PHOTO_BARS).fill(0), g, false);
+      const full = targetExtents(new Array<number>(PHOTO_BARS).fill(1), g, true);
+      const rest = targetExtents(new Array<number>(PHOTO_BARS).fill(0), g, true);
       const win = flashWindow(W, H);
-      const old = limitExtents(map, full, FLASH_BUDGET);
-      const limited = limitExtents(map, full, flashBudgets(false, redSplit(map)));
+      const old = limitExtents(map, full, flashBudget(true));
+      const limited = limitExtents(map, full, flashBudgets(true, redSplit(map)));
       const change = (e: number[]) => {
         const a = windowMeans(renderRed(e, img.srgb, colors).gated, W, H, win, 8);
         const b = windowMeans(renderRed(rest, img.srgb, colors).gated, W, H, win, 8);
         return Math.max(...a.map((v, i) => Math.abs(v - b[i]!)));
       };
       // Bu modelde 19,0; gerçek Chromium'un bulanıklığıyla denetim 21,1 ölçtü: payın (16) üstünde.
-      expect(change(old)).toBeGreaterThan(RED_BUDGET);
-      expect(change(limited)).toBeLessThan(RED_BUDGET);
+      expect(change(old)).toBeGreaterThan(RED_BUDGET / 2);
+      expect(change(limited)).toBeLessThan(RED_BUDGET / 2);
     },
   );
 

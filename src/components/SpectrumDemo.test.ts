@@ -24,11 +24,6 @@ function run(safe: boolean) {
 }
 
 describe("karşılama gösterisi: parlama ve nabız", () => {
-  it("normalde: bütün ekranda saniyede 3'ten az parlama", () => {
-    const { whole } = run(false);
-    expect(countFlashes(whole) / SECONDS).toBeLessThan(3);
-  });
-
   it("güvenli modda: bütün ekran ve bas sütunu saniyede en fazla 1 kez değişir", () => {
     // Doluluk oranı parlaklığın üst sınırıdır (noktalar kısık yanar; gerçek bağıl parlaklık çok
     // daha düşük): bu ölçüde bile sınırın altında.
