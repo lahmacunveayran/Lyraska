@@ -26,7 +26,7 @@ function remember() {
  * okunana dek de (`ready`): güvenli modu açık kullanıcıda bir an bile görünmesin.
  *
  * Açılınca odak "Epilepsi güvenli modunu aç" düğmesine gelir (klavye ve ekran okuyucu kullanıcısı
- * için); Esc "Anladım" gibi kapatır. Güvenli mod açıkken uyarı "görüldü" sayılmaz: kullanıcı modu
+ * için; odak o an başka bir denetimdeyse alınmaz); Esc "Anladım" gibi kapatır. Güvenli mod açıkken uyarı "görüldü" sayılmaz: kullanıcı modu
  * sonra kapatırsa uyarı o an bir kez çıkar (modu kapatan kullanıcı bir kez uyarılır).
  */
 export function FlashWarning({
@@ -43,7 +43,9 @@ export function FlashWarning({
   const enableRef = useRef<HTMLButtonElement>(null);
   const visible = open && !safe && ready;
   useEffect(() => {
-    if (visible) enableRef.current?.focus();
+    // Odak boştaysa (açılışta) düğmeye gelir; kullanıcının o an kullandığı denetimden alınmaz.
+    const active = document.activeElement;
+    if (visible && (!active || active === document.body)) enableRef.current?.focus();
   }, [visible]);
   if (!visible) return null;
   const close = (enable: boolean) => {

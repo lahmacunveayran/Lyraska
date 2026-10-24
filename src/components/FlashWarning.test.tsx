@@ -59,4 +59,22 @@ describe("ışığa duyarlılık uyarısı", () => {
     render(<FlashWarning safe={false} onEnableSafe={onEnableSafe} />);
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
+
+  it("ayar geç gelirse kullanıcının o an kullandığı denetimden odağı almaz", () => {
+    const { rerender } = render(
+      <>
+        <button type="button">Galeri</button>
+        <FlashWarning safe={false} ready={false} onEnableSafe={vi.fn()} />
+      </>,
+    );
+    screen.getByRole("button", { name: "Galeri" }).focus();
+    rerender(
+      <>
+        <button type="button">Galeri</button>
+        <FlashWarning safe={false} ready onEnableSafe={vi.fn()} />
+      </>,
+    );
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Galeri" })).toHaveFocus();
+  });
 });
