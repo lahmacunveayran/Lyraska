@@ -50,7 +50,18 @@ const TRACK_PREFIX: &str = "sarki-";
 /// Şarkının kapak dosyasının adı (uzantısız): yolunun özeti. Albüm adları 16 haneli onaltılık
 /// özet, liste adları `liste-` ile başlar; bu ad ikisiyle de karışmaz. Sabittir (test dondurur).
 pub fn track_stem(path: &str) -> String {
-    format!("{TRACK_PREFIX}{}", fnv(path))
+    format!("{TRACK_PREFIX}{}", fnv(&track_key(path, cfg!(windows))))
+}
+
+/// Özeti alınan yol. Windows'ta yazımdan bağımsız (ayıraç `\`, küçük harf): aynı dosya farklı
+/// yazılsa da (klasör `d:/müzik` diye yeniden eklendi) aynı kapağı bulur. Öteki sistemlerde
+/// büyük/küçük harf farklı dosyadır: yol aynen.
+fn track_key(path: &str, windows: bool) -> String {
+    if windows {
+        path.replace('/', "\\").to_lowercase()
+    } else {
+        path.to_owned()
+    }
 }
 
 /// Çalma listesinin kapak dosyasının adı (uzantısız). Albüm adları 16 haneli onaltılık özettir;
@@ -213,7 +224,27 @@ mod tests {
         );
         assert_ne!(track_stem("a.flac"), track_stem("b.flac"));
         assert!(track_stem("a.flac").starts_with("sarki-"));
-        assert_eq!(track_stem("C:\\Müzik\\Kum.flac"), "sarki-3551f4d9fb69d90b");
+        // Windows'ta yazımdan bağımsız anahtarın (küçük harf, `\`) özeti; öteki sistemlerde yol aynen.
+        let frozen = if cfg!(windows) {
+            "sarki-e02f94aa372e90ab"
+        } else {
+            "sarki-3551f4d9fb69d90b"
+        };
+        assert_eq!(track_stem("C:\\Müzik\\Kum.flac"), frozen);
+    }
+
+    #[test]
+    fn windowsta_ayni_dosyanin_farkli_yazimi_ayni_kapagi_bulur() {
+        // Klasör kaldırılıp `d:/müzik` diye yeniden eklenince seçilen kapak kaybolmasın.
+        let key = |path| track_key(path, true);
+        assert_eq!(key("D:\\Müzik\\Kum.FLAC"), key("d:/müzik/kum.flac"));
+        assert_eq!(key("D:\\Müzik\\Kum.FLAC"), "d:\\müzik\\kum.flac");
+        // Öteki sistemlerde büyük/küçük harf farklı dosyadır: yol aynen.
+        assert_eq!(track_key("/m/Kum.flac", false), "/m/Kum.flac");
+        assert_ne!(
+            track_key("/m/Kum.flac", false),
+            track_key("/m/kum.flac", false)
+        );
     }
 
     #[test]
