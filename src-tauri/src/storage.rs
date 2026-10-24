@@ -326,7 +326,18 @@ mod tests {
         let mut conn = Connection::open_in_memory().unwrap();
         migrate(&mut conn).unwrap();
         assert_eq!(version(&conn), SCHEMA_VERSION);
-        assert_eq!(tables(&conn), ["analyses", "folders", "tracks"]);
+        // V8: çalma listeleri; `sqlite_sequence` listelerin AUTOINCREMENT sayacı (SQLite'ın kendi tablosu).
+        assert_eq!(
+            tables(&conn),
+            [
+                "analyses",
+                "folders",
+                "playlist_entries",
+                "playlists",
+                "sqlite_sequence",
+                "tracks"
+            ]
+        );
     }
 
     #[test]
