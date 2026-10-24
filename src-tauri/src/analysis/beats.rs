@@ -25,7 +25,11 @@ const ONSET_COMPRESSION: f64 = 1000.0;
 /// Aranan tempo aralığı ve tercih edilen tempo.
 const MIN_BPM: f64 = 60.0;
 const MAX_BPM: f64 = 200.0;
-const PREFERRED_BPM: f64 = 120.0;
+// 125: yumuşatılmış öz-ilintide iki oktav aday (87 ve 174) eşit çıkınca hızlısı seçilsin (√(87·174)
+// ≈ 123); 120'de saf dürtü dizilerinde 174 BPM 87'ye iniyordu.
+const PREFERRED_BPM: f64 = 125.0;
+/// Tempo kestiriminde iki vuruş sonrasına bakılırken öz-ilintinin yumuşatılması (σ, kare).
+const ACF_SMOOTHING: f64 = 2.5;
 /// Tempo tercihinin genişliği (oktav).
 const TEMPO_PRIOR_OCTAVES: f64 = 1.0;
 /// Vuruş aralığının tempodan sapmasına verilen ceza (Ellis'teki "tightness").
@@ -361,7 +365,40 @@ fn estimate_period_with_strength(strength: &[f64], fps: f64) -> Option<(f64, f64
     let max_lag = (fps * 60.0 / MIN_BPM).ceil() as usize;
     let mean = strength.iter().sum::<f64>() / strength.len() as f64;
     let centered: Vec<f64> = strength.iter().map(|x| x - mean).collect();
-    let acf: Vec<f64> = (0..=2 * max_lag + 2)
+    let acf = autocorrelation(&centered, 2 * max_lag + 2);
+    let energy = acf[0];
+    // Tempo seçimi yumuşatılmış başlangıç gücünün öz-ilintisiyle yapılır: periyot kesirliyse (126
+    // BPM = 28,57 kare) vuruşlar 28 ve 29 kare arayla gelir, keskin tepeler tam sayı kareye denk
+    // gelmez; vuruş zayıf görünür ve bir buçuk vuruşluk aralık (2/3 tempo) kazanırdı. Ritmin
+    // belirginliği ve kare altı tepe ham öz-ilintiden.
+    let wide = {
+        let soft = smooth(strength, ACF_SMOOTHING);
+        let mean = soft.iter().sum::<f64>() / soft.len() as f64;
+        let centered: Vec<f64> = soft.iter().map(|x| x - mean).collect();
+        autocorrelation(&centered, 2 * max_lag + 2)
+    };
+    if energy <= 0.0 {
+        return None;
+    }
+
+    let preferred = fps * 60.0 / PREFERRED_BPM;
+    let score = |lag: usize| {
+        let prior = (-0.5 * ((lag as f64 / preferred).log2() / TEMPO_PRIOR_OCTAVES).powi(2)).exp();
+        prior * (wide[lag] + 0.5 * wide[2 * lag] + 0.25 * (wide[2 * lag - 1] + wide[2 * lag + 1]))
+    };
+    let best = (min_lag.max(2)..=max_lag).max_by(|&a, &b| score(a).total_cmp(&score(b)))?;
+    let clarity = acf[best] / energy;
+    if clarity < MIN_RHYTHM_STRENGTH {
+        return None;
+    }
+    // Kare altı tempo: öz-ilinti tepesine parabol.
+    let refined = best as f64 + parabola(acf[best - 1], acf[best], acf[best + 1]);
+    Some((refined, clarity))
+}
+
+/// Öz-ilinti, 0..=`max_lag` gecikmeler için (örnek başına ortalama).
+fn autocorrelation(centered: &[f64], max_lag: usize) -> Vec<f64> {
+    (0..=max_lag)
         .map(|lag| {
             if lag >= centered.len() {
                 return 0.0;
@@ -374,25 +411,7 @@ fn estimate_period_with_strength(strength: &[f64], fps: f64) -> Option<(f64, f64
                 .sum::<f64>()
                 / n as f64
         })
-        .collect();
-    let energy = acf[0];
-    if energy <= 0.0 {
-        return None;
-    }
-
-    let preferred = fps * 60.0 / PREFERRED_BPM;
-    let score = |lag: usize| {
-        let prior = (-0.5 * ((lag as f64 / preferred).log2() / TEMPO_PRIOR_OCTAVES).powi(2)).exp();
-        prior * (acf[lag] + 0.5 * acf[2 * lag] + 0.25 * (acf[2 * lag - 1] + acf[2 * lag + 1]))
-    };
-    let best = (min_lag.max(2)..=max_lag).max_by(|&a, &b| score(a).total_cmp(&score(b)))?;
-    let clarity = acf[best] / energy;
-    if clarity < MIN_RHYTHM_STRENGTH {
-        return None;
-    }
-    // Kare altı tempo: öz-ilinti tepesine parabol.
-    let refined = best as f64 + parabola(acf[best - 1], acf[best], acf[best + 1]);
-    Some((refined, clarity))
+        .collect()
 }
 
 /// Gauss çekirdeğiyle yumuşatma (σ kare cinsinden).
@@ -531,6 +550,61 @@ pub(crate) mod tests {
             let f = f_measure(&grid.beats, &truth, 0.07);
             assert!(f > 0.95, "{bpm} BPM: F = {f}");
         }
+    }
+
+    #[test]
+    fn kesirli_vurus_araliginda_tempo_iki_ucte_birine_kaymaz() {
+        // Sekizlikleri dolu (vuruşta kick, arada hi-hat) 4/4 kalıp; 60 kare/sn'de vuruş aralığı
+        // kesirli (ör. 126 BPM = 28,57 kare). İki vuruş sonrasının tepesi tam sayı kareye denk
+        // gelmeyince bir buçuk vuruşluk aralık (2/3 tempo) seçilmemeli.
+        for bpm in (118..=134).map(f64::from) {
+            let frames = (40.0 * FPS) as usize;
+            let mut onset = vec![0.0f32; frames];
+            let mut t = 0.5;
+            let mut eighth = 0usize;
+            while t < 39.5 {
+                let k = (t * FPS).round() as usize;
+                if k < frames {
+                    onset[k] = if eighth % 2 == 0 { 1.0 } else { 0.7 };
+                }
+                eighth += 1;
+                t += 30.0 / bpm;
+            }
+            let grid = track(&onset, FPS, 0.0).unwrap();
+            assert!((grid.bpm - bpm).abs() < bpm * 0.02, "{bpm}: {}", grid.bpm);
+        }
+    }
+
+    #[test]
+    fn hicbir_tempoda_iki_ucte_bire_kaymaz() {
+        // 70–190 BPM arası her tempo, iki kalıp (yalnız vuruş; vuruş + hafif sekizlik): bulunan
+        // tempo gerçeğin 2/3'ü ya da 3/2'si olmaz. (Yarısı ya da iki katı belirsizdir; sayılmaz.)
+        let mut wrong = Vec::new();
+        for b in 70..=190 {
+            let bpm = f64::from(b);
+            let frames = (40.0 * FPS) as usize;
+            for offbeat in [0.0f32, 0.7] {
+                let mut onset = vec![0.0f32; frames];
+                let (mut t, mut eighth) = (0.5, 0usize);
+                while t < 39.5 {
+                    let k = (t * FPS).round() as usize;
+                    if k < frames {
+                        onset[k] = if eighth % 2 == 0 { 1.0 } else { offbeat };
+                    }
+                    eighth += 1;
+                    t += 30.0 / bpm;
+                }
+                let Some(grid) = track(&onset, FPS, 0.0) else {
+                    wrong.push(format!("{bpm}: yok"));
+                    continue;
+                };
+                let ratio = grid.bpm / bpm;
+                if (ratio - 2.0 / 3.0).abs() < 0.03 || (ratio - 1.5).abs() < 0.05 {
+                    wrong.push(format!("{bpm} → {:.1}", grid.bpm));
+                }
+            }
+        }
+        assert!(wrong.is_empty(), "{wrong:?}");
     }
 
     #[test]
