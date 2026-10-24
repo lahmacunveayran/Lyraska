@@ -10,7 +10,11 @@ import {
   pickImage,
   renamePlaylist,
   setPlaylistCover,
+  exportPlaylist,
+  importPlaylist,
+  pickPlaylistFile,
   type Playlist,
+  type PlaylistImport,
 } from "../lib/backend";
 
 export interface PlaylistsApi {
@@ -29,6 +33,10 @@ export interface PlaylistsApi {
   clearCover: (id: number) => Promise<void>;
   /** Liste içeriği başka yerden değişti (çıkarma, taşıma): sayılar ve kolaj tazelenir. */
   refresh: () => void;
+  /** Listeyi `.m3u8` dosyasına aktarır; kaydedilen yol (vazgeçilirse ya da hata olursa `null`). */
+  exportList: (id: number) => Promise<string | null>;
+  /** Dosya seçtirip listeyi içe aktarır; sonuç (vazgeçilirse ya da hata olursa `null`). */
+  importList: () => Promise<PlaylistImport | null>;
 }
 
 /**
@@ -117,7 +125,26 @@ export function usePlaylists(refreshKey: unknown): PlaylistsApi {
     [change],
   );
 
+  const exportList = useCallback(
+    (id: number) => change<string | null>(() => exportPlaylist(id), null),
+    [change],
+  );
+  const importList = useCallback(async () => {
+    const file = await pickPlaylistFile().catch(() => null);
+    if (file === null) return null;
+    return change<PlaylistImport | null>(async () => {
+      const result = await importPlaylist(file);
+      setPlaylists((list) =>
+        list ? [result.playlist, ...list.filter((p) => p.id !== result.playlist.id)] : list,
+      );
+      setCoverRevision((r) => r + 1);
+      return result;
+    }, null);
+  }, [change]);
+
   return {
+    exportList,
+    importList,
     playlists,
     error,
     coverRevision,

@@ -2,10 +2,34 @@ import { useId, useState, type FormEvent } from "react";
 import { PlayIcon } from "./icons";
 import { albumLength } from "./AlbumGrid";
 import { PlaylistCover } from "./PlaylistCover";
-import type { LibraryTrack, Playlist } from "../lib/backend";
+import type { LibraryTrack, Playlist, PlaylistImport } from "../lib/backend";
 import type { AlbumCoverRequest } from "../lib/albumCovers";
 
 const NUMBER = new Intl.NumberFormat("tr-TR");
+
+/**
+ * İçe aktarmanın özeti: "“Yolculuk” içe aktarıldı: 12 şarkının 10 tanesi bulundu. 3 şarkı bu
+ * bilgisayarda başka bir yerde, adından ve sanatçısından bulundu. 2 şarkı bu bilgisayarda yok …".
+ */
+export function importSummary(result: PlaylistImport): string {
+  const found = result.samePath + result.byTags + result.byFileName;
+  const total = found + result.missing;
+  const head =
+    total === 0
+      ? `“${result.playlist.name}” içe aktarıldı; dosyada şarkı yok`
+      : found === total
+        ? `“${result.playlist.name}” içe aktarıldı: ${total} şarkının hepsi bulundu`
+        : `“${result.playlist.name}” içe aktarıldı: ${total} şarkının ${found} tanesi bulundu`;
+  const parts = [head];
+  const moved = result.byTags + result.byFileName;
+  if (moved > 0) {
+    parts.push(`${moved} şarkı bu bilgisayarda başka bir yerde, adından ve sanatçısından bulundu`);
+  }
+  if (result.missing > 0) {
+    parts.push(`${result.missing} şarkı bu bilgisayarda yok; listede kalır, eklenince çalar`);
+  }
+  return `${parts.join(". ")}.`;
+}
 
 export interface PlaylistGridProps {
   playlists: Playlist[];
@@ -15,6 +39,8 @@ export interface PlaylistGridProps {
   onOpen: (playlist: Playlist) => void;
   onPlay: (playlist: Playlist) => void;
   onCreate: (name: string) => Promise<Playlist | null>;
+  /** Başka bilgisayardan getirilen `.m3u8` listesini içe aktarır. */
+  onImport?: () => void;
 }
 
 /**
@@ -29,6 +55,7 @@ export function PlaylistGrid({
   onOpen,
   onPlay,
   onCreate,
+  onImport,
 }: PlaylistGridProps) {
   const id = useId();
   const [name, setName] = useState<string | null>(null);
@@ -99,6 +126,22 @@ export function PlaylistGrid({
           </form>
         )}
       </li>
+      {onImport && (
+        <li className="album playlist__new">
+          <button
+            type="button"
+            className="album__button"
+            onClick={onImport}
+            title="Başka bilgisayardan ya da başka bir çalardan getirilen listeyi aç"
+          >
+            <span className="album__cover playlist__new-cover" aria-hidden>
+              ⤓
+            </span>
+            <span className="album__name">İçe aktar</span>
+            <span className="album__meta">.m3u8 / .m3u dosyası</span>
+          </button>
+        </li>
+      )}
       {playlists.map((playlist, index) => (
         <li key={playlist.id} className="album">
           <button
