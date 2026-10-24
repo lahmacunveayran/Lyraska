@@ -596,7 +596,11 @@ export function PlayerScreen() {
       </aside>
 
       <DropOverlay dragging={drop.dragging} notice={drop.notice} />
-      <FlashWarning safe={visualSafe.safe} onEnableSafe={() => void visualSafe.setSafe(true)} />
+      <FlashWarning
+        safe={visualSafe.safe}
+        ready={visualSafe.loaded}
+        onEnableSafe={() => void visualSafe.setSafe(true)}
+      />
     </main>
   );
 }

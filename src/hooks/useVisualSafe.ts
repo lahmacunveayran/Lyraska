@@ -4,6 +4,8 @@ import { errorMessage, getVisualSafe, setVisualSafe } from "../lib/backend";
 export interface VisualSafeControls {
   /** Epilepsi güvenli modu açık mı. */
   safe: boolean;
+  /** Kayıtlı ayar okundu mu (okunamadıysa da `true`): o ana dek `safe` varsayılandır. */
+  loaded: boolean;
   error: string | null;
   setSafe: (on: boolean) => Promise<void>;
 }
@@ -14,13 +16,22 @@ export interface VisualSafeControls {
  */
 export function useVisualSafe(): VisualSafeControls {
   const [safe, setSafeState] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     getVisualSafe()
-      .then((on) => !cancelled && setSafeState(on))
-      .catch((e) => !cancelled && setError(errorMessage(e)));
+      .then((on) => {
+        if (cancelled) return;
+        setSafeState(on);
+        setLoaded(true);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(errorMessage(e));
+        setLoaded(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -36,5 +47,5 @@ export function useVisualSafe(): VisualSafeControls {
     }
   }, []);
 
-  return { safe, error, setSafe };
+  return { safe, loaded, error, setSafe };
 }

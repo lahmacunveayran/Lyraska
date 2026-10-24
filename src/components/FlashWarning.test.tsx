@@ -32,4 +32,13 @@ describe("ışığa duyarlılık uyarısı", () => {
     render(<FlashWarning safe onEnableSafe={vi.fn()} />);
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
+
+  it("ayar okunana dek gösterilmez (güvenli modu açık kullanıcıda bir an bile)", () => {
+    const { rerender } = render(<FlashWarning safe={false} ready={false} onEnableSafe={vi.fn()} />);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    rerender(<FlashWarning safe ready onEnableSafe={vi.fn()} />);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    rerender(<FlashWarning safe={false} ready onEnableSafe={vi.fn()} />);
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+  });
 });

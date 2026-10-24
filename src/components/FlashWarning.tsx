@@ -22,11 +22,21 @@ function remember() {
 /**
  * İlk açılışta bir kez görünen ışığa duyarlılık uyarısı. Görseller varsayılanda parlama sınırı
  * olmadan çizilir (proje sahibinin kararı, 24 Ekim 2026); sınır yalnızca Epilepsi güvenli
- * modunda. Uyarı modu tek tıkla açtırır. Güvenli mod zaten açıksa gösterilmez.
+ * modunda. Uyarı modu tek tıkla açtırır. Güvenli mod zaten açıksa gösterilmez; kayıtlı ayar
+ * okunana dek de (`ready`): güvenli modu açık kullanıcıda bir an bile görünmesin.
  */
-export function FlashWarning({ safe, onEnableSafe }: { safe: boolean; onEnableSafe: () => void }) {
+export function FlashWarning({
+  safe,
+  ready = true,
+  onEnableSafe,
+}: {
+  safe: boolean;
+  /** Güvenli modun kayıtlı ayarı okundu mu. */
+  ready?: boolean;
+  onEnableSafe: () => void;
+}) {
   const [open, setOpen] = useState(() => !seen());
-  if (!open || safe) return null;
+  if (!open || safe || !ready) return null;
   const close = (enable: boolean) => {
     remember();
     setOpen(false);
