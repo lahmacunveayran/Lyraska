@@ -71,7 +71,7 @@ const APP_URL = `http://localhost:${PORT}`;
  * Tarayıcıda Tauri yerine geçen sahte çekirdek: 128 BPM'lik bir şarkı çalıyor. `level` verilirse bütün bantlar ve
  * VU seviyeleri sabit o düzeyde (parlama sınırı ölçümü için: 0 = sessiz, 1 = tam). `theme`: bölümün renk teması.
  */
-const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama") => `
+const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama", image = null) => `
   const LEVEL = ${level === null ? "null" : level};
   window.isTauri = true;
   const started = performance.now();
@@ -112,8 +112,22 @@ const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama") => `
         drops: [], dropConfidence: [],
         energy: [], sections: [{ start: 0, end: 240, energy: 0.8, label: ${theme} }] };
       case "annotation_get": case "song_key": case "track_lyrics": case "song_map_imported": return null;
-      // "Kendi resmin": resim seçilmemiş (koyu zemin, vurgu yeşili çizgi: en yüksek karşıtlık).
-      case "background_image_get": return null;
+      // "Kendi resmin": resim seçilmemiş (koyu zemin, vurgu yeşili çizgi) ya da IMAGE renginde düz
+      // bir resim (pencere boyunda; tarayıcı kendisi çizer, programın sayfasındaki gibi \`data:\`).
+      case "background_image_get": {
+        const IMAGE = ${JSON.stringify(image)};
+        if (!IMAGE) return null;
+        const c = new OffscreenCanvas(innerWidth, innerHeight);
+        const g = c.getContext("2d");
+        g.fillStyle = \`rgb(\${IMAGE.join(",")})\`;
+        g.fillRect(0, 0, c.width, c.height);
+        const blob = await c.convertToBlob({ type: "image/png" });
+        return await new Promise((done) => {
+          const reader = new FileReader();
+          reader.onload = () => done(reader.result);
+          reader.readAsDataURL(blob);
+        });
+      }
       // Şarkıya seçilmiş kapak yok (çalan şarkının kapağı şarkının kendisinden).
       case "song_cover_get": return null;
       // Çalma listeleri: denetimde liste yok (kütüphane panelindeki "Listeye ekle" menüsü boş).
@@ -160,7 +174,15 @@ const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama") => `
  */
 const initScript = (
   sceneId,
-  { look = null, sceneLook = null, level = null, theme = 1, safe = false, milk = "parlama" } = {},
+  {
+    look = null,
+    sceneLook = null,
+    level = null,
+    theme = 1,
+    safe = false,
+    milk = "parlama",
+    image = null,
+  } = {},
 ) =>
   `try { localStorage.setItem("lyraska.scene", "${sceneId}");` +
   (look ? ` localStorage.setItem("lyraska.skyLook", "${look}");` : "") +
@@ -169,7 +191,7 @@ const initScript = (
         JSON.stringify({ version: 1, looks: { [sceneId]: sceneLook } }),
       )});`
     : "") +
-  ` } catch {}\n${fakeCore(level, theme, safe, milk)}`;
+  ` } catch {}\n${fakeCore(level, theme, safe, milk, image)}`;
 
 /** Tuvalin görüntüsünü çözüp parlaklık ölçer (bağıl parlaklık, 0..1). */
 function measure(png) {
@@ -441,10 +463,20 @@ async function checkFlashBound(browser, scene, variant, theme) {
         sceneLook: variant.sceneLook,
         level,
         theme: theme ?? 1,
+        image: variant.image,
       }),
     );
     // Hız sınırlı değerler yerine otursun: enerjiler ~1,2 sn'de, renk teması 2 sn'de.
     await startPlaying(page, 2500);
+    if (variant.image) {
+      // Resim yüklenince ölçülür (o ana dek çubuklar bilinmeyen zemine göre kısa): ölçülmüş
+      // resimle çizilmiş kare karşılaştırılır.
+      await page.waitForFunction(() => {
+        const img = document.querySelector(".photo-scene__image");
+        return !!img && img.complete && img.naturalWidth > 0;
+      });
+      await advance(page, 1000);
+    }
     await hideChrome(page);
     const stage = page.locator(".stage");
     const problem = await renderProblem(page, stage, errors);
@@ -459,9 +491,11 @@ async function checkFlashBound(browser, scene, variant, theme) {
   const worst = await page.evaluate(worstWindowDifference, [...shots, SCALE]);
   await page.close();
   console.log(`${name}: sessiz → tam ses en büyük parlaklık farkı ${worst.toFixed(4)}`);
-  return worst < FLASH_DELTA
+  // Sahnenin kendi payı varsa (ör. "Kendi resmin": 0,08) o da aşılmamalı.
+  const limit = scene.budget ?? FLASH_DELTA;
+  return worst < limit
     ? []
-    : [`${name}: parlaklık farkı ${worst.toFixed(3)} ≥ ${FLASH_DELTA} (parlama riski)`];
+    : [`${name}: parlaklık farkı ${worst.toFixed(3)} ≥ ${limit} (parlama riski)`];
 }
 
 /** Gece göğünün manzaraları (`SKY_LOOKS`, src/lib/sky.ts); ilki varsayılan. */
@@ -573,6 +607,13 @@ function brightestThemes(count) {
  * galeri sahnelerinde ayrıca en parlak sabit palet ve en yüksek hız (temadan bağımsız).
  */
 function variants(scene) {
+  if (scene.images) {
+    return scene.images.map((image) => ({
+      label: image ? `${scene.name} · ${image.name}` : scene.name,
+      look: null,
+      image: image?.rgb ?? null,
+    }));
+  }
   if (scene.milks) {
     return scene.milks.map((milk) => ({
       label: milk ? `${scene.name} · ${MILKDROP_PRESETS[milk].name}` : scene.name,
@@ -603,8 +644,21 @@ const ALL_SCENES = [
   { id: "spectrum", name: "Nokta matris spektrum", themed: true },
   { id: "vu", name: "VU ibreleri", themed: true },
   // Kullanıcının resmi ve ortada ışık çizgisi (2D tuval): çubukların boyu parlama sınırından
-  // hesaplanır (src/lib/photoScene.ts); resim yokken koyu zeminde en parlak çizgiyle ölçülür.
-  { id: "photo", name: "Kendi resmin" },
+  // hesaplanır (src/lib/photoScene.ts). Resim yokken koyu zeminde vurgu yeşili çizgi; resimle
+  // de: orta gride beyaz çizgi (denetimde en büyük fark buradaydı, 0,063) ve çok koyu kırmızıda
+  // kırmızı çizgi (sınırın en çok ışık bıraktığı zemin). Sınır gerçek tarayıcının çizimini de
+  // (ölçekleme, bulanıklık, plus-lighter) karşılamalı.
+  {
+    id: "photo",
+    name: "Kendi resmin",
+    // Çubukların her karede pencereye ekleyebileceği ışık (src/lib/photoScene.ts FLASH_BUDGET).
+    budget: 0.08,
+    images: [
+      null,
+      { name: "orta gri resim", rgb: [90, 90, 90] },
+      { name: "koyu kırmızı resim", rgb: [40, 0, 0] },
+    ],
+  },
   ...SCENES.filter((s) => !s.timeBased),
 ];
 
