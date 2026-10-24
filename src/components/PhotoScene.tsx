@@ -9,12 +9,13 @@ import {
   coreRects,
   displayUpper,
   dominantColor,
-  flashBudget,
+  flashBudgets,
   glowRects,
   imageBackground,
   isTurkishText,
   limitExtents,
   measureLine,
+  redSplit,
   targetExtents,
   uniformBackground,
   type BarColors,
@@ -136,10 +137,14 @@ export function PhotoScene({
   const lastColors = useRef<BarColors>(NO_IMAGE_COLORS);
   // Resim ölçülene dek kullanılan (bilinmeyen zemine göre) ölçüm.
   const fallback = useRef<Measured | null>(null);
+  // Kırmızı payın artış/azalış bölüşümü: resmin ilk ölçümünden, resim değişene dek sabit
+  // (pencere boyutlansa da): böylece herhangi iki karenin farkı payı geçmez (`flashBudgets`).
+  const split = useRef<number | null>(null);
 
   useEffect(() => {
     loaded.current = null;
     measured.current = null;
+    split.current = null;
     lastColors.current = NO_IMAGE_COLORS;
     // Önbellekten hemen gelen resimde `load` olayı React bağlanmadan geçmiş olabilir.
     const element = imageRef.current;
@@ -151,6 +156,7 @@ export function PhotoScene({
     if (element && element.naturalWidth > 0) {
       loaded.current = element;
       measured.current = null;
+      split.current = null;
     }
   }, []);
 
@@ -237,6 +243,8 @@ export function PhotoScene({
       }
       if (!current) return;
       const { colors, map } = current;
+      // Bölüşüm yalnızca gerçek zemine göre ölçülmüş haritadan (resim ya da resimsiz zemin).
+      if (split.current === null && current.source !== undefined) split.current = redSplit(map);
       // Ölçüm pikseli CSS pikselinden küçük olabilir (çok geniş ekran).
       const scale = map.geometry.width / width;
       const geometry = barGeometry(width, height);
@@ -245,7 +253,7 @@ export function PhotoScene({
       const limited = limitExtents(
         map,
         wanted.map((e) => e * scale),
-        flashBudget(safe),
+        flashBudgets(safe, split.current),
       ).map((e) => e / scale);
 
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);

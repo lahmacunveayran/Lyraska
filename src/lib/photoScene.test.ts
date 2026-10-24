@@ -5,6 +5,9 @@ import {
   DEFAULT_ACCENT,
   FLASH_BUDGET,
   PHOTO_BARS,
+  RED_BUDGET,
+  RED_FLASH,
+  RED_SPLIT_MIN,
   addedLight,
   barColors,
   barGeometry,
@@ -15,13 +18,17 @@ import {
   displayUpper,
   dominantColor,
   exactAddedLight,
+  flashBounds,
   flashBudget,
+  flashBudgets,
   glowRects,
   imageBackground,
   isTurkishText,
   lightBound,
   limitExtents,
   measureLine,
+  redSplit,
+  redValue,
   relativeLuminance,
   targetExtents,
   uniformBackground,
@@ -158,8 +165,8 @@ function lin(v: number): number {
   return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
 }
 
-/** Çubukları `extents` boylarıyla resmin üstüne ekler; her pikselin bağıl parlaklığı. */
-function renderSrgb(extents: number[], image: Float64Array, colors: BarColors): Float64Array {
+/** Çubukların tuvali (sRGB, 0..1, kanal başına): ışıltı ve öz toplanır, 1'de kesilir. */
+function renderLayer(extents: number[], colors: BarColors): Float64Array {
   const g = barGeometry(W, H);
   const layer = new Float64Array(W * H * 3);
   const reach = g.glowWidth / 2 + 4 * g.sigma;
@@ -194,12 +201,40 @@ function renderSrgb(extents: number[], image: Float64Array, colors: BarColors): 
       }
     }
   }
+  return layer;
+}
+
+/** Çubukları `extents` boylarıyla resmin üstüne ekler; her pikselin bağıl parlaklığı. */
+function renderSrgb(extents: number[], image: Float64Array, colors: BarColors): Float64Array {
+  const layer = renderLayer(extents, colors);
   const out = new Float64Array(W * H);
   for (let i = 0; i < W * H; i++) {
     const c = [0, 1, 2].map((k) => Math.min(1, image[i * 3 + k]! + layer[i * 3 + k]!));
     out[i] = 0.2126 * lin(c[0]!) + 0.7152 * lin(c[1]!) + 0.0722 * lin(c[2]!);
   }
   return out;
+}
+
+/**
+ * Çubuklu görüntünün her pikselinin kırmızı değeri (kapılı ve sürekli tanım): tuval 8 bite
+ * yuvarlanır, resme eklenir (1'de kesilir), sonuç 8 bit.
+ */
+function renderRed(
+  extents: number[],
+  image: Float64Array,
+  colors: BarColors,
+): { gated: Float64Array; continuous: Float64Array } {
+  const layer = renderLayer(extents, colors);
+  const gated = new Float64Array(W * H);
+  const continuous = new Float64Array(W * H);
+  for (let i = 0; i < W * H; i++) {
+    const c = [0, 1, 2].map((k) =>
+      Math.round(255 * Math.min(1, image[i * 3 + k]! + Math.round(255 * layer[i * 3 + k]!) / 255)),
+    ) as Rgb;
+    gated[i] = redValue(c, true);
+    continuous[i] = redValue(c, false);
+  }
+  return { gated, continuous };
 }
 
 function makeImage(at: (x: number, y: number) => Rgb): { srgb: Float64Array; rgba: number[] } {
@@ -358,6 +393,180 @@ describe("kendi resmin sahnesi: tarayıcı gibi çizimde parlama yok", () => {
     let max = 0;
     for (let i = 0; i < a.length; i++) max = Math.max(max, Math.abs(a[i]! - b[i]!));
     expect(max).toBeLessThanOrEqual(FLASH_BUDGET);
+  });
+});
+
+/** Kırmızı ölçüye özgü zeminler (denetimin ölçtüğü çok koyu kırmızılar dahil). */
+const RED_IMAGES: [string, (x: number, y: number) => Rgb][] = [
+  ["çok koyu kırmızı (40, 0, 0)", () => [40, 0, 0]],
+  ["koyu kırmızı (110, 10, 20)", () => [110, 10, 20]],
+  ["doygunluk sınırında pembe", () => [200, 90, 90]],
+  ["kırmızı degrade", (x) => [Math.round(40 + 200 * x), 0, 12]],
+  [
+    "kırmızı zeminde geniş beyaz tüyler",
+    (x, y) => (Math.floor((x * 7 + y * 3) * 6) % 3 === 0 ? [250, 236, 238] : [120, 14, 28]),
+  ],
+  IMAGES[9]!,
+  IMAGES[2]!,
+  IMAGES[0]!,
+];
+
+/**
+ * Bileşen gibi (renk resimden, kırmızı pay resme göre bölüşülür), her desen sınırla çizilir.
+ * Bütün kareler (sessizlik dahil) arasında her pencerenin kırmızı değerinin en büyük farkı (iki
+ * tanımda), ve her karede sınırın çizilen gerçek değişimden küçük olmadığı denetlenir.
+ */
+function redWorst(
+  at: (x: number, y: number) => Rgb,
+  safe = false,
+): { range: number; drawn: number[][]; sound: boolean; split: number } {
+  const img = makeImage(at);
+  const sample = img.rgba.filter((_, i) => Math.floor(i / 4) % 7 === 0);
+  const colors = barColors(dominantColor(sample));
+  const map = measureLine(imageBackground(img.rgba, W, H), W, H, colors);
+  const g = barGeometry(W, H);
+  const win = flashWindow(W, H);
+  const split = redSplit(map);
+  const budgets = flashBudgets(safe, split);
+  const drawn = levelPatterns().map((levels) =>
+    limitExtents(map, targetExtents(levels, g, safe), budgets),
+  );
+  const none = new Array<number>(PHOTO_BARS).fill(0);
+  let range = 0;
+  let sound = true;
+  const base = renderRed(none, img.srgb, colors);
+  for (const key of ["gated", "continuous"] as const) {
+    const baseMeans = windowMeans(base[key], W, H, win, 4);
+    const means = drawn.map((e) => windowMeans(renderRed(e, img.srgb, colors)[key], W, H, win, 4));
+    for (let w = 0; w < baseMeans.length; w++) {
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (const m of means) {
+        lo = Math.min(lo, m[w]!);
+        hi = Math.max(hi, m[w]!);
+      }
+      range = Math.max(range, hi - lo);
+    }
+    drawn.forEach((e, i) => {
+      const bound = flashBounds(map, e);
+      for (let w = 0; w < baseMeans.length; w++) {
+        const d = means[i]![w]! - baseMeans[w]!;
+        if (d > bound.redIncrease + 1e-9 || -d > bound.redDecrease + 1e-9) sound = false;
+      }
+    });
+  }
+  return { range, drawn, sound, split };
+}
+
+describe("kendi resmin sahnesi: kırmızı parlama (WCAG 2.3.1)", () => {
+  it("kırmızı değer: doygun kırmızıda 320 · (R − G − B), değilse 0 (kapılı); sürekli tanım", () => {
+    expect(redValue([255, 0, 0])).toBeCloseTo(320);
+    expect(redValue([40, 0, 0])).toBeCloseTo((320 * relativeLuminance([40, 0, 0])) / 0.2126);
+    // Beyaza yakın öz doymuş kırmızıyı doygunluktan çıkarır: kapılı değer 0, sürekli değer de 0.
+    expect(redValue([255, 224, 227])).toBe(0);
+    // (200, 90, 90): R − G − B > 0 ama R / (R + G + B) < 0,8: kapılı 0, sürekli pozitif.
+    expect(redValue([200, 90, 90])).toBe(0);
+    expect(redValue([200, 90, 90], false)).toBeGreaterThan(100);
+    expect(redValue([0, 0, 0])).toBe(0);
+  });
+
+  it("pay bölüşümü: herhangi iki karenin artışı ile azalışı toplamı payı geçmez", () => {
+    const cases = [null, RED_SPLIT_MIN, 0.5, 1 - RED_SPLIT_MIN];
+    for (const a of cases) {
+      for (const b of cases) {
+        for (const sa of [false, true]) {
+          for (const sb of [false, true]) {
+            // Aynı resimde bölüşüm sabittir; bilinmeyen (null) ile her biri karışabilir.
+            if (a !== null && b !== null && a !== b) continue;
+            const x = flashBudgets(sa, a);
+            const y = flashBudgets(sb, b);
+            expect(x.redIncrease + y.redDecrease).toBeLessThanOrEqual(RED_BUDGET + 1e-9);
+          }
+        }
+      }
+    }
+    expect(flashBudgets(true, 0.5).redIncrease).toBeCloseTo(
+      flashBudgets(false, 0.5).redIncrease / 2,
+    );
+  });
+
+  it.each(
+    RED_IMAGES.flatMap(([name, at]) => [
+      { name, at, width: 640, height: 360, safe: false },
+      { name, at, width: 360, height: 640, safe: false },
+    ]).concat(
+      RED_IMAGES.slice(0, 2).map(([name, at]) => ({
+        name,
+        at,
+        width: 640,
+        height: 360,
+        safe: true,
+      })),
+    ),
+  )(
+    "$name ($width×$height, güvenli $safe): kareler arası fark < 20",
+    { timeout: 60_000 },
+    ({ at, width, height, safe }) => {
+      W = width;
+      H = height;
+      const r = redWorst(at, safe);
+      expect(r.sound).toBe(true);
+      expect(r.range).toBeLessThanOrEqual(safe ? RED_BUDGET / 2 : RED_BUDGET);
+      expect(r.range).toBeLessThan(RED_FLASH);
+    },
+  );
+
+  it(
+    "denetimdeki durum: çok koyu kırmızıda sessizlikten bütün çubuklar doluya",
+    {
+      timeout: 60_000,
+    },
+    () => {
+      // Denetim 1920×1080'de ölçtü (gerçek Chromium).
+      W = 1920;
+      H = 1080;
+      // Eski sınırla (yalnız parlaklık) bu geçiş gerçek tarayıcıda pencerede 21,1 kırmızı değişim
+    // veriyordu (eşik 20).
+      const img = makeImage(() => [40, 0, 0]);
+      const colors = barColors([255, 0, 0]);
+      const map = measureLine(imageBackground(img.rgba, W, H), W, H, colors);
+      const g = barGeometry(W, H);
+      const full = targetExtents(new Array<number>(PHOTO_BARS).fill(1), g, false);
+      const rest = targetExtents(new Array<number>(PHOTO_BARS).fill(0), g, false);
+      const win = flashWindow(W, H);
+      const old = limitExtents(map, full, FLASH_BUDGET);
+      const limited = limitExtents(map, full, flashBudgets(false, redSplit(map)));
+      const change = (e: number[]) => {
+        const a = windowMeans(renderRed(e, img.srgb, colors).gated, W, H, win, 8);
+        const b = windowMeans(renderRed(rest, img.srgb, colors).gated, W, H, win, 8);
+        return Math.max(...a.map((v, i) => Math.abs(v - b[i]!)));
+      };
+      // Bu modelde 19,0; gerçek Chromium'un bulanıklığıyla denetim 21,1 ölçtü: payın (16) üstünde.
+    expect(change(old)).toBeGreaterThan(RED_BUDGET);
+      expect(change(limited)).toBeLessThan(RED_BUDGET);
+    },
+  );
+
+  it("sınır çubukları gereksiz kısaltmaz: kırmızı olmayan resimde dokunmaz, kırmızıda bas iner", () => {
+    W = 640;
+    H = 360;
+    // Mavi ve gri resimlerde kırmızı sınır hiç devreye girmez (yalnız parlaklık sınırı).
+    for (const at of [IMAGES[5]![1], IMAGES[4]![1]]) {
+      const img = makeImage(at);
+      const sample = img.rgba.filter((_, i) => Math.floor(i / 4) % 7 === 0);
+      const colors = barColors(dominantColor(sample));
+      const map = measureLine(imageBackground(img.rgba, W, H), W, H, colors);
+      const g = barGeometry(W, H);
+      for (const levels of levelPatterns()) {
+        const t = targetExtents(levels, g, false);
+        expect(limitExtents(map, t, flashBudgets(false, redSplit(map)))).toEqual(
+          limitExtents(map, t, FLASH_BUDGET),
+        );
+      }
+    }
+    // Beyaz tüylü kırmızı resimde (proje sahibinin resmi gibi) 10 bas çubuğu ekranın en az %8'i.
+    const feathers = redWorst(RED_IMAGES[4]![1]);
+    expect(feathers.drawn[5]![0]).toBeGreaterThan(0.08 * H);
   });
 });
 
