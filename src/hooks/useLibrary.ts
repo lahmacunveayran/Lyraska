@@ -30,6 +30,13 @@ const SEARCH_DELAY_MS = 120;
 export interface LibraryControls {
   status: LibraryStatus;
   tracks: LibraryTrack[];
+  /**
+   * Aramadan bağımsız bütün şarkılar (albüm sayfası, küçük kapaklar). Arama boşken `tracks` ile
+   * aynı liste; arama sürerken yalnızca kütüphane değişince (`refreshKey`) yeniden sorulur.
+   */
+  allTracks: LibraryTrack[];
+  /** Kütüphane değişince (tarama, analiz ilerledi, çekirdek haber verdi) değişir; aramayla değil. */
+  refreshKey: string;
   query: string;
   setQuery: (query: string) => void;
   /** İlk yükleme sürüyor. */
@@ -62,6 +69,9 @@ export function useLibrary(): LibraryControls {
   // Çekirdek kütüphanenin kendiliğinden değiştiğini bildirdikçe artar: şarkı sayısı aynı kalsa da
   // (ör. bir şarkının etiketi düzenlendi) liste tazelenir.
   const [revision, setRevision] = useState(0);
+  // Bütün şarkılar ve hangi kütüphane durumunda alındıkları.
+  const [all, setAll] = useState<{ key: string; tracks: LibraryTrack[] }>({ key: "", tracks: [] });
+  const allSeq = useRef(0);
 
   const refreshStatus = useCallback(async () => {
     try {
@@ -83,6 +93,7 @@ export function useLibrary(): LibraryControls {
 
   // Analiz ilerledikçe BPM sütunu dolsun diye liste ara ara tazelenir.
   const analysisKey = analysisRefreshKey(status.analyzed, status.trackCount);
+  const refreshKey = `${status.trackCount}:${analysisKey}:${revision}`;
 
   // Arama: yazı ya da şarkı sayısı değişince (tarama ilerledikçe) listeyi tazele.
   // Yalnızca en son aramanın sonucu uygulanır.
@@ -92,12 +103,32 @@ export function useLibrary(): LibraryControls {
     const timer = window.setTimeout(() => {
       searchLibrary(query)
         .then((result) => {
-          if (seq === searchSeq.current) setTracks(result);
+          if (seq !== searchSeq.current) return;
+          setTracks(result);
+          // Boş arama bütün kütüphanedir: ayrıca sorulmaz.
+          if (query === "") {
+            allSeq.current++;
+            setAll({ key: refreshKey, tracks: result });
+          }
         })
         .catch((e) => setError(errorMessage(e)));
     }, SEARCH_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [available, unavailable, query, status.trackCount, analysisKey, revision]);
+  }, [available, unavailable, query, refreshKey]);
+
+  // Arama sürerken bütün şarkılar yalnızca kütüphane değişince (ya da hiç alınmadıysa) sorulur;
+  // her tuşta değil.
+  const searching = query !== "";
+  const allKey = all.key;
+  useEffect(() => {
+    if (!available || unavailable || !searching || allKey === refreshKey) return;
+    const seq = ++allSeq.current;
+    searchLibrary("")
+      .then((result) => {
+        if (seq === allSeq.current) setAll({ key: refreshKey, tracks: result });
+      })
+      .catch((e) => setError(errorMessage(e)));
+  }, [available, unavailable, searching, allKey, refreshKey]);
 
   // İzlenen klasörlere eklenen, silinen şarkılar: çekirdek taradıktan sonra haber verir; durum
   // ve liste kullanıcı bir şey yapmadan tazelenir.
@@ -198,6 +229,8 @@ export function useLibrary(): LibraryControls {
   return {
     status,
     tracks,
+    allTracks: all.tracks,
+    refreshKey,
     query,
     setQuery,
     loading,

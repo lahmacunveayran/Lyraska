@@ -1,4 +1,4 @@
-import { getAlbumCover, getTrackCover } from "./backend";
+import { getAlbumCover, getTrackCover, type LibraryAlbum, type LibraryTrack } from "./backend";
 import { drawPrintCover, readPrintColors, type CoverInput, type PrintColors } from "./printCover";
 
 /**
@@ -25,6 +25,64 @@ export interface AlbumCoverRequest extends CoverInput {
 /** Albümün kimliği (albüm sanatçısı, yoksa sanatçı + albüm adı). */
 function albumId(album: string, artist: string | null): string {
   return `${artist ?? "\u0001"}\u0000${album}`;
+}
+
+/** Albümün kapak isteği (ızgara, albüm sayfası ve şarkı satırı aynı kimliği kullanır). */
+export function albumCoverRequest(album: LibraryAlbum): AlbumCoverRequest {
+  return {
+    album: album.name,
+    artist: album.artist,
+    key: album.key,
+    bpm: album.bpm,
+    coverPath: album.coverPath,
+  };
+}
+
+/**
+ * Şarkılardan albümlerin kapak istekleri (albüm kimliği → istek). Çekirdeğin albüm listesiyle
+ * aynı kural: albüm sanatçısıyla (yoksa sanatçıyla) gruplanır, kapak ve ton/tempo albümün ilk
+ * şarkısından (liste çekirdekten albüm sırasıyla gelir). Böylece şarkı satırı ızgarayla aynı
+ * kapağı paylaşır ve albüm listesi ayrıca sorulmaz.
+ */
+export function albumCoverIndex(tracks: readonly LibraryTrack[]): Map<string, AlbumCoverRequest> {
+  const index = new Map<string, AlbumCoverRequest>();
+  for (const track of tracks) {
+    if (!track.album) continue;
+    const artist = track.albumArtist ?? track.artist;
+    const id = albumId(track.album, artist);
+    if (index.has(id)) continue;
+    index.set(id, {
+      album: track.album,
+      artist,
+      key: track.key,
+      bpm: track.bpm,
+      coverPath: track.path,
+    });
+  }
+  return index;
+}
+
+/**
+ * Şarkı satırındaki küçük kapağın isteği: albümün ilk şarkısından (bir albümün bütün şarkıları
+ * tek kapak işi paylaşır, ızgarayla aynı önbellek). Albüm etiketi olmayan şarkının kapağı yoktur
+ * (`null`: yer tutucu). Dizinde olmayan albüm (bütün şarkılar henüz gelmedi) şarkının kendisinden,
+ * ton ve tempo olmadan istenir.
+ */
+export function trackCoverRequest(
+  track: LibraryTrack,
+  index: ReadonlyMap<string, AlbumCoverRequest>,
+): AlbumCoverRequest | null {
+  if (!track.album) return null;
+  const artist = track.albumArtist ?? track.artist;
+  return (
+    index.get(albumId(track.album, artist)) ?? {
+      album: track.album,
+      artist,
+      key: null,
+      bpm: null,
+      coverPath: track.path,
+    }
+  );
 }
 
 /** Kapağı değişen albümlerin sürümü: yeni kimlik eski kapağı önbellekten düşürür. */

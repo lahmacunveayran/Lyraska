@@ -2489,7 +2489,8 @@ kbd {
 }
 
 .library {
-  --row-height: 34px;
+  /* Satır yüksekliği LibraryPanel.tsx'teki ROW_HEIGHT ile aynı (satırlar bu aralıkla dizilir). */
+  --row-height: 40px;
   container-type: inline-size;
 }
 
@@ -2998,11 +2999,41 @@ kbd {
   font-size: 13px;
 }
 
-.library__list .library__row .library__title-cell {
+.library__list .library__row .library__title-cell,
+.album-page__row .library__title-cell {
   font-family: var(--font-songs);
   font-size: 12.5px;
   font-stretch: 87.5%;
   letter-spacing: -0.02em;
+}
+
+/* Şarkı adının başında albümün küçük kapağı (albüm etiketi yoksa düz yer tutucu). */
+.library__list .library__title-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.library__title-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.library__thumb {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.library__thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .library__list .library__row .library__muted {
@@ -3317,7 +3348,10 @@ kbd {
   place-items: center;
   width: 40px;
   height: 40px;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
+  cursor: pointer;
   background: var(--ink);
   color: var(--ink-dark);
   opacity: 0;
@@ -3332,10 +3366,17 @@ kbd {
   height: 16px;
 }
 
-.album__button:hover .album__play,
-.album__button:focus-visible .album__play {
+/* Çal düğmesi kartın üstüne gelince ya da klavye odağında (kartta ya da kendisinde) görünür. */
+.album:hover .album__play,
+.album__button:focus-visible + .album__play,
+.album__play:focus-visible {
   opacity: 1;
   transform: none;
+}
+
+.album__play:focus-visible {
+  outline: 2px solid var(--library-accent);
+  outline-offset: 2px;
 }
 
 .album__button:focus-visible {
@@ -3450,6 +3491,170 @@ kbd {
   .album__play {
     transition: none;
     transform: none;
+  }
+}
+
+/* Albüm sayfası: kütüphane sayfasının içinde, ızgaranın yerine */
+.album-page {
+  padding: 2px 4px 24px;
+}
+
+.album-page__back {
+  padding: 4px 8px;
+  margin-left: -8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.album-page__back:hover,
+.album-page__back:focus-visible {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.album-page__hero {
+  display: flex;
+  align-items: flex-end;
+  gap: 28px;
+  margin-top: 14px;
+}
+
+.album-page__cover {
+  flex: none;
+  width: min(240px, 34%);
+}
+
+.album-page__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.album-page__eyebrow {
+  font-family: var(--font-figures);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.album-page__title {
+  margin: 6px 0 0;
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 650;
+  font-stretch: 94%;
+  font-variation-settings: "opsz" 96;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.album-page__title:focus {
+  outline: none;
+}
+
+.album-page__title:focus-visible {
+  outline: 2px solid var(--ink-2);
+  outline-offset: 4px;
+}
+
+.album-page__artist {
+  margin: 8px 0 0;
+  font-size: 16px;
+  color: var(--ink-2);
+}
+
+.album-page__meta {
+  margin: 6px 0 0;
+  font-family: var(--font-figures);
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.album-page__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.album-page__play svg {
+  width: 14px;
+  height: 14px;
+}
+
+.album-page__menu {
+  position: relative;
+}
+
+.album-page__menu summary {
+  list-style: none;
+}
+
+.album-page__menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.album-page__menu .album__menu-list {
+  left: 0;
+  right: auto;
+}
+
+.album-page__table {
+  margin-top: 26px;
+}
+
+.album-page__row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 56px 150px 64px;
+  align-items: center;
+  gap: 12px;
+  height: var(--row-height);
+  padding: 0 14px 0 10px;
+  font-size: 13px;
+  color: #d3dade;
+  cursor: default;
+}
+
+.album-page__row.library__row--head {
+  height: 30px;
+}
+
+.album-page__list {
+  outline: none;
+}
+
+.album-page__list:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--vfd);
+}
+
+.album-page__list .album-page__row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.album-page__list .album-page__row.is-selected {
+  background: rgba(70, 240, 166, 0.1);
+}
+
+.album-page__row.is-current {
+  color: var(--ink);
+  box-shadow: inset 2px 0 0 var(--library-accent);
+}
+
+@container (max-width: 560px) {
+  .album-page__hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .album-page__row {
+    grid-template-columns: 32px minmax(0, 1fr) 40px 96px 52px;
   }
 }
 
