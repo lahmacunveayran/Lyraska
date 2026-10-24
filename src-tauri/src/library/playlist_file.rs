@@ -222,13 +222,13 @@ pub enum Match {
     Missing,
 }
 
-/// Karşılaştırma için: küçük harf (Türkçe İ/I dahil), fazla boşluk tek.
+/// Karşılaştırma için: küçük harf, fazla boşluk tek. I, ı, İ ve i aynı sayılır: etiket bir
+/// bilgisayarda "Itır", ötekinde "itır" (ya da İngilizce "I Will" / "i will") yazılmış olabilir.
 fn norm(text: &str) -> String {
     let lower: String = text
         .chars()
         .flat_map(|c| match c {
-            'I' => vec!['ı'],
-            'İ' => vec!['i'],
+            'I' | 'ı' | 'İ' => vec!['i'],
             c => c.to_lowercase().collect(),
         })
         .collect();
@@ -759,6 +759,18 @@ mod tests {
         assert_eq!(found[1], (library[1].path.clone(), Match::FileName));
         assert_eq!(found[2], (library[2].path.clone(), Match::FileName));
         assert_eq!(found[3].1, Match::Missing);
+    }
+
+    #[test]
+    fn turkce_i_harfleri_buyuk_kucuk_fark_etmeden_eslesir() {
+        // Etiket bir bilgisayarda "Itır", ötekinde "itır" yazılmış olabilir: ikisi de aynı şarkı.
+        let library = vec![track("/m/a.flac", "Itır", "Işık", "A", 100.0)];
+        let entries = vec![entry("/x/b.flac", "itır", "ışık", 100.0)];
+        let found = resolve(&entries, &library, |_| false);
+        assert_eq!(found[0], ("/m/a.flac".to_owned(), Match::Tags));
+        assert_eq!(norm("İSTANBUL"), norm("istanbul"));
+        assert_eq!(norm("I Will Survive"), norm("i will survive"));
+        assert_eq!(norm("IRMAK"), norm("ırmak"));
     }
 
     #[test]
