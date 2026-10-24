@@ -124,6 +124,8 @@ kısaltılır.
 
 - Lyraska **ücretsiz** kalacak, ticarileştirme yok (22 Ekim 2026).
 - **Kod imzası olmayacak** (23 Ekim 2026).
+- **Görsel tasarım onayı Claude'da** (24 Ekim 2026: "görsel tasarım onayı için sana inisiyatif veriyorum, elinden
+  gelenin en iyisini yap"). Yine de her görsel iş tarayıcıda önizlenip sahibine gösterilir; beğenmezse değişir.
 - İşe yarayan GitHub repoları kullanılabilir; lisans kuralıyla birlikte.
 - YouTube'dan indirme (yt-dlp) önerilmedi (telif, çevrimdışı ilkesi, kalite); yasal "klasör izleme" önerildi;
   karar Faz 4 sonrasına kaldı.

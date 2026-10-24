@@ -34,7 +34,7 @@ import { SkyView } from "./SkyView";
 import { RevealButton } from "./RevealButton";
 import { SongCoverSlot } from "./SongCoverMenu";
 import { SongCoverContext, type SongCoverActions } from "./songCoverContext";
-import { invalidateCover } from "../hooks/useCover";
+import { invalidateAlbumArt, invalidateCover } from "../hooks/useCover";
 import { AddToPlaylist } from "./AddToPlaylist";
 import { PlaylistGrid, importSummary } from "./PlaylistGrid";
 import { PlaylistPage } from "./PlaylistPage";
@@ -329,6 +329,7 @@ export function LibraryPanel({
     void action
       .then(() => {
         invalidateAlbumCover(album.name, album.artist);
+        invalidateAlbumArt(album.name, album.artist);
         setCoverRevision((n) => n + 1);
         setAlbumError(null);
       })

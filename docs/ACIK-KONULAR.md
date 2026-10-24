@@ -18,8 +18,6 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 
 ## Ele alınmayı bekleyen geri bildirim ve bulgular
 
-- Çalan şarkının büyük kapağı albüme seçilen kapağı göstermiyor (yalnızca şarkıya seçileni ya da şarkının
-  içindekini). Albüm ızgarasında seçilen görünüyor. Sahibine sorulacak: büyük kapakta da gösterilsin mi (öneri: evet).
 - Toplu silme koruması (#105): 20+ şarkılık kaynakta yarıdan fazlası program kapalıyken gerçekten silinirse şarkılar
   hiç çıkarılmaz, her taramada uyarı çıkar. Öneri: uyarının yanında "Yine de çıkar" düğmesi. Sahibine sorulacak.
 
