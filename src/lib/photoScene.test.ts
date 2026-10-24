@@ -99,6 +99,16 @@ describe("kendi resmin sahnesi: görünüş (örnek videolardan ölçülen)", ()
     expect(blue[2]).toBe(255);
     expect(blue[0]).toBeLessThan(40);
   });
+
+  it("soluk tek renkli resimde (bej) çizgi de soluk: parlak turuncu değil", () => {
+    const pixels = (rgb: Rgb, n: number) => Array.from({ length: n }, () => [...rgb, 255]).flat();
+    const beige = dominantColor([...pixels([222, 205, 180], 70), ...pixels([200, 182, 160], 30)]);
+    expect(Math.min(...beige)).toBeGreaterThan(190);
+    // Koyu ama canlı kırmızı (doygunluk 0,8) yine tam canlı kırmızı.
+    const crimson = dominantColor(pixels([150, 20, 40], 50));
+    expect(crimson[0]).toBe(255);
+    expect(crimson[1]).toBeLessThan(40);
+  });
 });
 
 describe("kendi resmin sahnesi: ışık toplama sınırı", () => {

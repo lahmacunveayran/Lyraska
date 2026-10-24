@@ -500,28 +500,38 @@ export const DEFAULT_ACCENT: Rgb = [70, 240, 166];
  * boyandığını söyler: kırmızı resimde 0,99, çok renkli açık resimde 0,28. Renk o tonun kendisidir,
  * parlaklığı tam (ışık): tek renkli resimde saf ton, çok renkli ya da renksiz resimde beyaz.
  * Örnekteki kırmızı çubukların ışıltısı da saf kırmızıydı (doygunluk ≈ 0,97); resmin kendi
- * kırmızısı koyu (doygunluk 0,76) olduğundan onu parlatmak pembe verirdi.
+ * kırmızısı koyu (doygunluk 0,76) olduğundan onu parlatmak pembe verirdi. Resmin kendi rengi
+ * soluksa (bej, pastel) çizgi de soluk ya da beyaz: soluk resme parlak turuncu çizgi yakışmaz.
  */
 export function dominantColor(rgba: ArrayLike<number>): Rgb {
   let x = 0;
   let y = 0;
   let chroma = 0;
   let count = 0;
+  // Renkliliğe göre ağırlıklı HSV doygunluğu: koyu ama canlı renk (koyu kırmızı) yüksek, açık
+  // ama soluk renk (bej) düşük.
+  let saturationSum = 0;
   for (let i = 0; i + 3 < rgba.length; i += 4) {
     const alpha = (rgba[i + 3] ?? 255) / 255;
     const [h, c] = hueChroma(rgba[i]!, rgba[i + 1]!, rgba[i + 2]!);
+    const max = Math.max(rgba[i]!, rgba[i + 1]!, rgba[i + 2]!);
     x += Math.cos(h * 2 * Math.PI) * c * alpha;
     y += Math.sin(h * 2 * Math.PI) * c * alpha;
     chroma += c * alpha;
     count += alpha;
+    if (max > 0) saturationSum += ((c * 255) / max) * c * alpha;
   }
   if (count === 0) return [255, 255, 255];
   const coherence = chroma > 0 ? Math.hypot(x, y) / chroma : 0;
   // Tutarlılık 0,5'in altında beyaz, 0,9'un üstünde saf ton; renksiz resimde (ortalama
   // renklilik 0,08'in altı) beyaza doğru.
+  // Resmin kendi doygunluğu (renkliliğe göre ağırlıklı) 0,2'nin altında beyaz, 0,45'in üstünde
+  // tam canlı: örnek kırmızı resim 0,52 (beyaz tüyleriyle) → tam canlı kırmızı; bej 0,2 → beyaz.
+  const own = chroma > 0 ? saturationSum / chroma : 0;
   const saturation =
     Math.max(0, Math.min(1, (coherence - 0.5) / 0.4)) *
-    Math.max(0, Math.min(1, chroma / count / 0.08));
+    Math.max(0, Math.min(1, chroma / count / 0.08)) *
+    Math.max(0, Math.min(1, (own - 0.2) / 0.25));
   const hue = (Math.atan2(y, x) / (2 * Math.PI) + 1) % 1;
   return fromHsv(hue, saturation);
 }
