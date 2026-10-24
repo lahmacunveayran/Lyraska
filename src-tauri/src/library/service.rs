@@ -282,12 +282,12 @@ impl LibraryService {
         self.lock()?.move_in_playlist(id, from, to)
     }
 
-    /// Albümün şarkıları, çalma sırasıyla.
     /// Yol kütüphanede ya da bir çalma listesinde var mı.
     pub fn knows_path(&self, path: &str) -> Result<bool, LibraryError> {
         self.lock()?.knows_path(path)
     }
 
+    /// Albümün şarkıları, çalma sırasıyla.
     pub fn album_tracks(
         &self,
         album: &str,
