@@ -1980,6 +1980,31 @@ describe("kütüphane", () => {
     await waitFor(() => expect(screen.queryByRole("region", { name: "Şebnem Ferah" })).toBeNull());
   });
 
+  it("Ctrl+5 çalma listelerini açar; şarkılarda seçili şarkı listeye eklenebilir", async () => {
+    backend.desktop = true;
+    backend.library = library;
+    backend.tracks = [song(1, "Mayın Tarlası")];
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    // Şarkı seçilmeden "Listeye ekle" kapalı; seçilince şarkının adıyla açılır.
+    expect(screen.getByLabelText("Listeye eklemek için önce bir şarkı seçin")).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    fireEvent.click(screen.getByText("Mayın Tarlası"));
+    expect(screen.getByLabelText("Seçili şarkıyı listeye ekle: Mayın Tarlası")).toHaveAttribute(
+      "aria-disabled",
+      "false",
+    );
+    await act(async () => fireEvent.keyDown(window, { key: "5", ctrlKey: true }));
+    expect(screen.getByRole("button", { name: "Listeler" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(await screen.findByRole("button", { name: /Yeni liste/ })).toBeInTheDocument();
+    expect(screen.getByText("0 liste")).toBeInTheDocument();
+  });
+
   it("gökyüzü görünümü: tonu ve temposu bilinen şarkı yıldız olur, tıklayınca çalar", async () => {
     backend.desktop = true;
     backend.library = library;

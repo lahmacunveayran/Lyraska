@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { PlayIcon, ShuffleIcon } from "./icons";
 import { AlbumArt, albumLength } from "./AlbumGrid";
 import { TrackTable } from "./TrackTable";
@@ -39,6 +48,8 @@ export interface AlbumPageProps {
   onPlay: (paths: string[], start?: string, order?: PlayOrder) => void;
   onChooseCover: () => void;
   onClearCover: () => void;
+  /** "Listeye ekle" menüsü (albümün bütün şarkıları için). */
+  addToPlaylist?: (paths: string[]) => ReactNode;
 }
 
 /** Yolun dosya adı, uzantısız ("D:\Müzik\01 Gece.flac" → "01 Gece"). */
@@ -105,6 +116,7 @@ export function AlbumPage({
   onPlay,
   onChooseCover,
   onClearCover,
+  addToPlaylist,
 }: AlbumPageProps) {
   const id = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -209,6 +221,7 @@ export function AlbumPage({
               <ShuffleIcon />
               <span>Karışık çal</span>
             </button>
+            {addToPlaylist?.(paths ?? [])}
             <details
               className="album-page__menu"
               ref={menuRef}

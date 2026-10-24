@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { PlayIcon, ShuffleIcon } from "./icons";
 import { AlbumArt, albumKey, albumLength, isAlbumOf } from "./AlbumGrid";
 import { albumRows, REPEAT_PLAY_MS } from "./AlbumPage";
@@ -68,6 +68,8 @@ export interface ArtistPageProps {
    * düğmesinin durumu geçerlidir.
    */
   onPlay: (paths: string[], start?: string, order?: PlayOrder) => void;
+  /** "Listeye ekle" menüsü (sanatçının bütün şarkıları için). */
+  addToPlaylist?: (paths: string[]) => ReactNode;
 }
 
 /**
@@ -88,6 +90,7 @@ export function ArtistPage({
   onBack,
   onOpenAlbum,
   onPlay,
+  addToPlaylist,
 }: ArtistPageProps) {
   const id = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -190,6 +193,7 @@ export function ArtistPage({
               <ShuffleIcon />
               <span>Karışık çal</span>
             </button>
+            {addToPlaylist?.(paths ?? [])}
           </div>
         </div>
       </div>

@@ -71,7 +71,7 @@ lyraska/
 │   │                         # şeridi, LyricsOverlay kinetik sözler; sahneler SceneStage'de, galeri ShaderScene + SceneGallery, MilkDropScene kullanıcının .milk görselleri; sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
 │   │                         # ayarlar; her panel ve sahne bir ErrorBoundary içinde: hata yalnızca o bölümü kapatır).
 │   │                         # Klasik sahneler SkyScene, HighwayScene, DriveScene, VuScene (VuMeter), SpectrumView
-│   │                         # (DotMatrix, SpectrumDemo karşılama gösterisi); paneller LibraryPanel (AlbumGrid albüm ızgarası, AlbumPage albüm sayfası: kapak, Çal, albüm sırasıyla şarkılar, ArtistGrid sanatçı levhaları, ArtistPage sanatçı sayfası: levha, albümler, şarkılar, TrackTable iki sayfanın şarkı listesi, SkyView gökyüzü: ton ve tempoya göre yıldızlar), EqualizerPanel
+│   │                         # (DotMatrix, SpectrumDemo karşılama gösterisi); paneller LibraryPanel (AlbumGrid albüm ızgarası, AlbumPage albüm sayfası: kapak, Çal, albüm sırasıyla şarkılar, ArtistGrid sanatçı levhaları, ArtistPage sanatçı sayfası: levha, albümler, şarkılar, TrackTable sayfaların şarkı listesi, SkyView gökyüzü: ton ve tempoya göre yıldızlar, PlaylistGrid ve PlaylistPage çalma listeleri, PlaylistCover kapak ya da kolaj, AddToPlaylist "Listeye ekle" menüsü), EqualizerPanel
 │   │                         # (CrossfeedStrip, ParametricEq), MarkerPanel, SyncPanel, AbxPanel, SettingsPanel;
 │   │                         # Dock alttaki cam (şerit, süre, çalma düğmeleri), DropOverlay sürükle-bırak, Marquee kayan
 │   │                         # yazı, icons simgeler
@@ -85,7 +85,7 @@ lyraska/
 │   │                         # useAbx (kör test), useSongKey (çalan şarkının tonu), useParametric (elle
 │   │                         # parametrik EQ), useCrossfeed (crossfeed), useMapFile (şarkı haritası dosyası),
 │   │                         # useLyrics (şarkı sözleri), useScenePresets (galeri sahnelerinin görünümü ve
-│   │                         # hazır ayarlar), useMilkdrop (MilkDrop klasörü, görseller, önceki/sonraki), useAlbums (albüm listesi), useArtists (sanatçı listesi)
+│   │                         # hazır ayarlar), useMilkdrop (MilkDrop klasörü, görseller, önceki/sonraki), useAlbums (albüm listesi), useArtists (sanatçı listesi), usePlaylists (çalma listeleri)
 │   ├── lib/                  # Saf yardımcılar (format, meter, dotFont, vu, sky, highway, queue, sync, songMap,
 │   │                         # analysis: BPM sütunu, drop: bırakma bildirimi, eq: ekolayzer bantları,
 │   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile, lyrics,
@@ -134,7 +134,8 @@ lyraska/
 │   │   ├── library/          # Müzik kütüphanesi (SQLite, uygulama veri klasöründe)
 │   │   │   ├── db.rs         #   kaynak (klasör ya da tek şarkı) ve şarkı tabloları, Türkçe arama, BPM
 │   │   │   ├── scan.rs       #   paralel etiket okuma, değişmeyeni atlama, silineni çıkarma
-│   │   │   ├── covers.rs     #   kullanıcının albüme seçtiği kapaklar (veri klasöründe `kapaklar/`; müzik dosyalarına dokunulmaz)
+│   │   │   ├── playlists.rs  #   çalma listeleri: ad, sıra (yolla; aynı şarkı iki kez olabilir), kolaj için albümler
+│   │   │   ├── covers.rs     #   kullanıcının albüme ve çalma listesine seçtiği kapaklar (veri klasöründe `kapaklar/`; müzik dosyalarına dokunulmaz)
 │   │   │   ├── service.rs    #   arka plan taraması; komutların kullandığı katman
 │   │   │   └── watch.rs      #   klasör izleme (notify): eklenen/silinen şarkıda yalnızca o alt klasör taranır (2 sn
 │   │   │                     #   sessizlik; yazılan dosya bitene kadar beklenir); kaybolan kök 2 dk'da bir aranır, 30 dk'da bir izleme yenileme + tam tarama
