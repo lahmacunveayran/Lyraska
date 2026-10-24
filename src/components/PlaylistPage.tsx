@@ -49,6 +49,8 @@ export interface PlaylistPageProps {
   onExport?: () => Promise<string | null>;
   /** Liste değişti (çıkarma, taşıma): ızgaradaki sayı ve kolaj tazelenir. */
   onChanged: () => void;
+  /** Şarkının dosyasını dosya gezgininde gösterir. */
+  onReveal?: (path: string) => void;
 }
 
 /**
@@ -74,6 +76,7 @@ export function PlaylistPage({
   onClearCover,
   onExport,
   onChanged,
+  onReveal,
 }: PlaylistPageProps) {
   const id = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -367,6 +370,7 @@ export function PlaylistPage({
         </p>
       ) : (
         <TrackTable
+          onReveal={onReveal}
           rows={rows}
           currentPath={currentPath}
           playing={playing}

@@ -369,4 +369,16 @@ mod tests {
         let order: Vec<i64> = library.playlists().unwrap().iter().map(|p| p.id).collect();
         assert_eq!(order, [a, b]);
     }
+
+    #[test]
+    fn konumu_acilabilen_yollar_kutuphane_ve_listelerdekiler() {
+        let library = library_with_tracks();
+        assert!(library.knows_path(&path(0)).unwrap());
+        assert!(!library.knows_path("C:/Windows/System32/cmd.exe").unwrap());
+        let id = library.create_playlist("Taşınan").unwrap().id;
+        library
+            .add_to_playlist(id, &["/usb/kayıp.mp3".to_owned()])
+            .unwrap();
+        assert!(library.knows_path("/usb/kayıp.mp3").unwrap());
+    }
 }

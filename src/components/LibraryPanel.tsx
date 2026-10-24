@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   CloseIcon,
   FolderIcon,
@@ -16,6 +16,7 @@ import {
   libraryArtistTracks,
   pickImage,
   playlistTracks,
+  revealTrack,
   setAlbumCover,
   type LibraryAlbum,
   type LibraryArtist,
@@ -28,6 +29,7 @@ import { AlbumPage } from "./AlbumPage";
 import { ArtistGrid } from "./ArtistGrid";
 import { ArtistPage, artistAlbums } from "./ArtistPage";
 import { SkyView } from "./SkyView";
+import { RevealButton } from "./RevealButton";
 import { AddToPlaylist } from "./AddToPlaylist";
 import { PlaylistGrid, importSummary } from "./PlaylistGrid";
 import { PlaylistPage } from "./PlaylistPage";
@@ -277,6 +279,12 @@ export function LibraryPanel({
     [library.allTracks],
   );
   const [albumError, setAlbumError] = useState<string | null>(null);
+  // "Dosya konumunu aç": dosya bulunamazsa (taşındı, disk takılı değil) neden uyarıda yazar.
+  const [revealError, setRevealError] = useState<string | null>(null);
+  const reveal = useCallback((path: string) => {
+    setRevealError(null);
+    revealTrack(path).catch((e) => setRevealError(errorMessage(e)));
+  }, []);
   // Albüm açılırken ikinci tık (çift tık) albümü ikinci kez başlatmasın.
   const startingAlbum = useRef(false);
   // Kapak seçilince ızgara yeniden çizilsin (kapağın kimliği değişti).
@@ -645,7 +653,11 @@ export function LibraryPanel({
   // Kütüphane açılamadıysa ekleme düğmeleri kapalıdır (çalışmazlar); nedeni uyarıda yazar.
   const usable = available && !library.unavailable;
   // Açılamamış kütüphanede her işlem aynı hatayı verir: bir kez, uyarının içinde gösterilir.
-  const problems = [...status.problems, ...(library.error && usable ? [library.error] : [])];
+  const problems = [
+    ...status.problems,
+    ...(library.error && usable ? [library.error] : []),
+    ...(revealError ? [revealError] : []),
+  ];
 
   return (
     <section className="library" aria-label="Kütüphane" ref={sectionRef}>
@@ -952,6 +964,7 @@ export function LibraryPanel({
                 <>
                   <div hidden={shownArtistAlbum !== null}>
                     <ArtistPage
+                      onReveal={reveal}
                       key={shownArtist.name}
                       artist={shownArtist}
                       albums={shownArtistAlbums}
@@ -972,6 +985,7 @@ export function LibraryPanel({
                   </div>
                   {shownArtistAlbum !== null && (
                     <AlbumPage
+                      onReveal={reveal}
                       key={albumKey(shownArtistAlbum)}
                       album={shownArtistAlbum}
                       tracks={library.allTracks}
@@ -1014,6 +1028,7 @@ export function LibraryPanel({
               ) : null}
               {shownPlaylist !== null ? (
                 <PlaylistPage
+                  onReveal={reveal}
                   key={shownPlaylist.id}
                   playlist={shownPlaylist}
                   tracks={library.allTracks}
@@ -1072,6 +1087,7 @@ export function LibraryPanel({
               ) : null}
               {shownAlbum !== null ? (
                 <AlbumPage
+                  onReveal={reveal}
                   key={albumKey(shownAlbum)}
                   album={shownAlbum}
                   tracks={library.allTracks}
@@ -1175,6 +1191,7 @@ export function LibraryPanel({
                             className="library__thumb"
                           />
                           <span className="library__title-text">{track.title}</span>
+                          <RevealButton title={track.title} onReveal={() => reveal(track.path)} />
                         </span>
                         <span className="library__cell library__muted" role="gridcell">
                           {track.artist ?? "—"}

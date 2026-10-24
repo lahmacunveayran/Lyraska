@@ -1,5 +1,6 @@
 import { memo, useId, useState, type KeyboardEvent } from "react";
 import { CloseIcon, PauseIcon, PlayIcon } from "./icons";
+import { RevealButton } from "./RevealButton";
 import type { LibraryTrack } from "../lib/backend";
 import { bpmLabel } from "../lib/analysis";
 import { keyHue, keyText } from "../lib/librarySort";
@@ -30,6 +31,8 @@ export interface TrackTableProps {
    */
   onRemove?: (index: number) => void;
   onMove?: (from: number, to: number) => void;
+  /** Şarkının dosyasını dosya gezgininde gösterir (satırdaki klasör düğmesi). */
+  onReveal?: (path: string) => void;
 }
 
 /**
@@ -49,6 +52,7 @@ export const TrackTable = memo(function TrackTable({
   onPlay,
   onRemove,
   onMove,
+  onReveal,
 }: TrackTableProps) {
   const id = useId();
   const [selected, setSelected] = useState(-1);
@@ -147,7 +151,10 @@ export const TrackTable = memo(function TrackTable({
                 )}
               </span>
               <span className="library__cell library__title-cell" role="gridcell">
-                {track.title}
+                <span className="library__title-text">{track.title}</span>
+                {onReveal && (
+                  <RevealButton title={track.title} onReveal={() => onReveal(track.path)} />
+                )}
               </span>
               {showAlbum && (
                 <span className="library__cell library__muted" role="gridcell">
