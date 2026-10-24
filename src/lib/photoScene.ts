@@ -17,10 +17,12 @@
  * Epilepsi güvenliği: resim sabittir. Işık yalnızca eklendiği için (hiçbir piksel kararmaz) her
  * WCAG penceresinin ortalama parlaklığı, çubuksuz resminkiyle onun üstüne çubukların o karede
  * eklediği ışık arasında kalır. Her karede çubukların bütün pencerelerde ekleyebileceği en büyük
- * parlaklık resmin kendi pikselleriyle hesaplanır (`measureLine`, `lightBound`) ve `FLASH_BUDGET`'ı
- * (0,08) geçecekse o karenin çubukları orantılı kısaltılır (`limitExtents`). Böylece herhangi iki
- * kare arasında hiçbir pencerenin ortalaması 0,08'den fazla değişmez: parlama (≥ 0,1) hiç olmaz,
- * saniyede kaç kez olduğu önemsizleşir. Örnek videonun kendisinde bu değişim en çok 0,03–0,05.
+ * parlaklık resmin kendi pikselleriyle hesaplanır (`measureLine`, `lightBound`) ve payı geçecekse o
+ * karenin çubukları orantılı kısaltılır (`limitExtents`). Sınır yalnızca Epilepsi güvenli modunda
+ * uygulanır (proje sahibinin kararı, 24 Ekim 2026; varsayılanda sınır yok); o modda pay
+ * `flashBudget(true)` = `FLASH_BUDGET / 2` (0,04). Böylece herhangi iki kare arasında hiçbir
+ * pencerenin ortalaması 0,04'ten fazla değişmez: parlama (≥ 0,1) hiç olmaz, saniyede kaç kez
+ * olduğu önemsizleşir. Örnek videonun kendisinde bu değişim en çok 0,03–0,05.
  *
  * Tarayıcı renkleri sRGB uzayında toplar ve 1'de keser. Bir kanalın doğrusal ışığı, `p` kadar
  * eklenince en çok `min(p · S(b), H(b))` artar: `H(b) = 1 − lin(b)` kalan pay, `S(b) = H(b) / (1 − b)`
