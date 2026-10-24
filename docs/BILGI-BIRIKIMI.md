@@ -95,6 +95,10 @@ vardır (`check:docs`; avenoxbeyin'den alınan fikir, 23 Ekim 2026): sınır aş
   izlemeyi haber vermeden bırakır, olay tamponu (16 KB) taşınca da haber vermez. Bu yüzden izleme kendini onarır
   (2 dk), 30 dk'da bir güvenlik taraması vardır; bütün sürücü kaynakta yeni klasör ancak içinde şarkı varsa tarama
   başlatır, yalnızca değişen alt klasör taranır.
+- **Analiz, doğrusu bilinen seste ölçülmeden değiştirilmez** (24 Ekim 2026): oturumda gerçek şarkı yok (ağ yalnızca
+  GitHub). Drop için `docs/arastirma/drop/uret.py` yeri tam bilinen deneme şarkıları üretir; geliştirme ve
+  görülmemiş doğrulama seti (ayrı tohumlar) ayrı tutulur, eski algoritma da aynı sette ölçülür (ezber olmasın).
+- **Drop ölçü başına yapıştırılmaz:** vuruş ızgarası kayabilir (yarım tempo, sessizlik); an basın döndüğü karedir.
 
 ## 6. Lisans dersleri
 

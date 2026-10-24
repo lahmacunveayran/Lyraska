@@ -166,7 +166,7 @@ lyraska/
 │   │   │                     # drop beklentisi/açılımı; nabız hız garantisi (≤ 3/sn, güvenli modda ≤ 1/sn)
 │   │   └── visual_bridge/    # Çalma zamanı + analiz → görseller (VisualFrame); gecikme telafisi (ekran +
 │   │                         # ses aygıtı), calibration.rs: senkron ölçümü için tıklama kaydı
-│   ├── examples/             # ses_denemesi.rs: gerçek ses aygıtıyla uçtan uca deneme
+│   ├── examples/             # ses_denemesi.rs: gerçek ses aygıtıyla uçtan uca deneme; drop_olcum.rs: drop ölçümü
 │   ├── tests/                # Gerçek kodek testleri (formats.rs) ve sentetik test verisi (data/; data/milkdrop/
 │   │                         # projenin özgün, bilerek parlayan deneme preseti)
 │   ├── hlsl/                 # MilkDrop gölgelendirici çeviricisi: shim.cpp köprüsü, build.sh (wasi-sdk 30.0;
