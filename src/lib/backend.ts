@@ -350,6 +350,23 @@ export async function getVisualWaveform(): Promise<Uint8Array | null> {
   return array.length === WAVEFORM_BYTES ? array : null;
 }
 
+/**
+ * Şu an duyulan anın ince spektrum çubukları ("Kendi resmin" sahnesi): `bars` seviye, 0..1, bas
+ * solda (40 Hz – 16 kHz, logaritmik; çekirdekte bas uzun, gerisi kısa pencereden). Görsel
+ * karelerle aynı an. Duraklatılmışsa hepsi 0; çalan şarkı yoksa, yanıt beklenen uzunlukta
+ * değilse ya da tarayıcı önizlemesinde `null`.
+ */
+export async function getVisualSpectrum(bars: number): Promise<number[] | null> {
+  if (!isTauri()) return null;
+  // Sahte çekirdekte ya da eski sürümde dizi olmayan yanıt gelebilir: türüne güvenilmez.
+  const levels: unknown = await invoke<number[]>("visual_spectrum");
+  return Array.isArray(levels) &&
+    levels.length === bars &&
+    levels.every((v) => typeof v === "number" && Number.isFinite(v))
+    ? levels.map((v: number) => Math.max(0, Math.min(1, v)))
+    : null;
+}
+
 /** MilkDrop klasörü seçilmemişken (ve tarayıcı önizlemesinde) durum. */
 export const NO_MILKDROP_FOLDER: MilkdropFolder = {
   folder: null,

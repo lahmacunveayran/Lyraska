@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { getVisualWaveform, type VisualFrame } from "../lib/backend";
+import { getVisualSpectrum, type VisualFrame } from "../lib/backend";
 import {
   DEFAULT_ACCENT,
   GLOW_ALPHA,
@@ -13,15 +13,14 @@ import {
   displayUpper,
   lineExtent,
   maxBarExtentForContrast,
+  measureBest,
   measureLine,
   pixelContrast,
   worstContrast,
   type Rgb,
 } from "../lib/photoScene";
-import { barBands, barTargetsFromBands, barTargetsFromWave, stepBars } from "../lib/spectrumBars";
+import { barTargetsFromBands, stepBars } from "../lib/spectrumBars";
 import { useVisualFeed } from "../hooks/useVisualFeed";
-
-const BANDS = barBands(PHOTO_BARS);
 
 export interface PhotoSceneProps {
   playing: boolean;
@@ -41,6 +40,8 @@ interface ImageTone {
   /** Normal ve güvenli modda en büyük boy (CSS piksel). */
   extent: number;
   safeExtent: number;
+  /** Ölçüldüğü bant koyuluğu (`--photo-band`); ölçülemediyse `null` (en kötü zemin). */
+  band: number | null;
   /** Ölçüldüğü ekran boyu (CSS piksel). */
   width: number;
   height: number;
@@ -67,9 +68,15 @@ const MEASURE_WIDTH = 640;
 
 /**
  * Resmi ekrandaki gibi kırpıp küçültür; rengini ve bu ekran boyunda çubukların parlama sınırından
- * en büyük boyunu ölçer (`measureLine`, `lineExtent`).
+ * en büyük boyunu ölçer (`measureLine`, `lineExtent`). `band`: çizginin koyu bandının koyuluğu;
+ * `null` ise çubukları en uzun tutan seçilir (`measureBest`; resim ilk ölçülürken).
  */
-function measureImage(image: HTMLImageElement, width: number, height: number): ImageTone {
+function measureImage(
+  image: HTMLImageElement,
+  width: number,
+  height: number,
+  band: number | null,
+): ImageTone {
   const fallback = (accent: Rgb): ImageTone => {
     // Ölçülemezse en kötü zemin.
     const contrast = worstContrast(barColors(accent));
@@ -77,6 +84,7 @@ function measureImage(image: HTMLImageElement, width: number, height: number): I
       accent,
       extent: maxBarExtentForContrast(width, height, contrast, false),
       safeExtent: maxBarExtentForContrast(width, height, contrast, true),
+      band: null,
       width,
       height,
     };
@@ -104,18 +112,23 @@ function measureImage(image: HTMLImageElement, width: number, height: number): I
     }
   }
   const accent = accentFromPixels(sample);
-  const map = measureLine(all, mw, mh, width, height, coreColor(accent), accent);
+  const core = coreColor(accent);
+  const map =
+    band === null
+      ? measureBest(all, mw, mh, width, height, core, accent)
+      : measureLine(all, mw, mh, width, height, core, accent, band);
   return {
     accent,
     extent: lineExtent(map, false),
     safeExtent: lineExtent(map, true),
+    band: map.band,
     width,
     height,
   };
 }
 
 /**
- * "Kendi resmin" sahnesi: kullanıcının seçtiği resim arka planda (çok yavaş kayar), ortada
+ * "Kendi resmin" sahnesi: kullanıcının seçtiği resim arka planda (sabit), ortada
  * şarkıyla oynayan ışık çizgisi: ince spektrum çubukları, bas solda, çizgiden aşağı sarkar. Çizginin rengi resmin
  * baskın renginden. Üstünde şarkının adı (geniş harfler) ve geçen süre; bu yazılar sinema
  * görünümünde (denetimler gizliyken) görünür. Resim sabit kalır; çubukların boyu parlama
@@ -133,60 +146,70 @@ export function PhotoScene({
   const clockRef = useRef<HTMLSpanElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const levels = useRef<number[]>(new Array<number>(PHOTO_BARS).fill(0));
-  // Ham dalga: istek sürerken bir öncekiyle çizilir (MilkDrop sahnesiyle aynı yol).
-  const wave = useRef<{ bytes: Uint8Array | null; inFlight: boolean }>({
-    bytes: null,
+  // Çekirdeğin çubuk seviyeleri: aynı anda tek istek; istek sürerken bir öncekiyle çizilir.
+  const spectrum = useRef<{ levels: number[] | null; inFlight: boolean }>({
+    levels: null,
     inFlight: false,
   });
+  // Ekrandaki resim: ölçüm de bundan yapılır (resim bir kez çözülür).
+  const imageRef = useRef<HTMLImageElement>(null);
   // Ölçülmemişse `null` (resim yükleniyor ya da pencere boyutlandı): en kötü karşıtlıkla çizilir.
   const tone = useRef<ImageTone | null>(null);
   const loaded = useRef<HTMLImageElement | null>(null);
   const measuredAt = useRef(-Infinity);
   // Son ölçülen renk: pencere boyutlanırken yeniden ölçülene dek çubuk rengini değiştirmez.
   const lastAccent = useRef<Rgb>(DEFAULT_ACCENT);
+  // Bu resim için seçilen bant koyuluğu: resim değişene dek sabit (pencere boyutlanınca bant
+  // yerinde kalır, yalnızca çubukların boyu yeniden ölçülür).
+  const band = useRef<number | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loaded.current = null;
     tone.current = null;
     lastAccent.current = DEFAULT_ACCENT;
-    if (!image) return;
-    const element = new Image();
-    let live = true;
-    element.onload = () => {
-      if (live) loaded.current = element;
-    };
-    element.src = image;
-    return () => {
-      live = false;
-    };
+    band.current = null;
+    // Resimsizken bant yok; yeni resim ölçülene dek eskisi kalır (çubuklar o sırada en kötü
+    // zemine göre: bant koyuluğundan bağımsız).
+    if (!image) rootRef.current?.style.setProperty("--photo-band", "0");
+    // Önbellekten hemen gelen resimde `load` olayı React bağlanmadan geçmiş olabilir.
+    const element = imageRef.current;
+    if (image && element?.complete && element.naturalWidth > 0) loaded.current = element;
   }, [image]);
+
+  const onImageLoad = useCallback(() => {
+    const element = imageRef.current;
+    if (element && element.naturalWidth > 0) {
+      loaded.current = element;
+      tone.current = null;
+    }
+  }, []);
 
   const onTick = useCallback(
     (frame: VisualFrame | null, dt: number) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const live = playing ? frame : null;
-      const feed = wave.current;
+      const feed = spectrum.current;
       if (!live) {
-        feed.bytes = null;
+        feed.levels = null;
       } else if (!feed.inFlight) {
         feed.inFlight = true;
-        getVisualWaveform()
-          .then((bytes) => {
-            feed.bytes = bytes;
+        getVisualSpectrum(PHOTO_BARS)
+          .then((levels) => {
+            feed.levels = levels;
           })
           .catch(() => {
-            feed.bytes = null;
+            feed.levels = null;
           })
           .finally(() => {
             feed.inFlight = false;
           });
       }
+      // Çekirdek yoksa (tarayıcı önizlemesi) analiz karesinin bantlarından.
       const targets = !live
-        ? BANDS.map(() => 0)
-        : feed.bytes
-          ? barTargetsFromWave(feed.bytes, BANDS)
-          : barTargetsFromBands(live.bands, PHOTO_BARS);
+        ? levels.current.map(() => 0)
+        : (feed.levels ?? barTargetsFromBands(live.bands, PHOTO_BARS));
       levels.current = stepBars(levels.current, targets, dt);
       if (live && clockRef.current) clockRef.current.textContent = clockText(live.positionSecs);
 
@@ -202,6 +225,7 @@ export function PhotoScene({
       }
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
+      // Resim yüklenirken ya da değişirken (`loaded` boş) en kötü zemin varsayılır.
       const element = loaded.current;
       const measured = tone.current;
       const stale =
@@ -214,7 +238,12 @@ export function PhotoScene({
         const now = performance.now();
         if (now - measuredAt.current >= REMEASURE_MS) {
           measuredAt.current = now;
-          tone.current = measureImage(element, width, height);
+          const fresh = measureImage(element, width, height, band.current);
+          tone.current = fresh;
+          if (fresh.band !== null && band.current === null) {
+            band.current = fresh.band;
+            rootRef.current?.style.setProperty("--photo-band", String(fresh.band));
+          }
         }
       }
       const current = element ? tone.current : null;
@@ -236,11 +265,15 @@ export function PhotoScene({
       const rects = barRects(levels.current, width, height, maxExtent);
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
       ctx.clearRect(0, 0, width, height);
-      // Işıltı: çubuğun bulanık gölgesi (parlama hesabı bu modele göre: GLOW_ALPHA, GLOW_PX).
+      // Bütün çubuklar tek yol, tek doldurma: ışıltı (bulanık gölge) bir kez hesaplanır. Gölge
+      // bütün çubukların altına, çubuklar üstüne çizilir (parlama hesabı bu modele göre:
+      // GLOW_ALPHA, GLOW_PX; photoScene.test.ts'teki tarayıcı gibi çizim de böyle).
       ctx.shadowColor = `rgba(${accent[0]}, ${accent[1]}, ${accent[2]}, ${GLOW_ALPHA})`;
       ctx.shadowBlur = GLOW_PX * ratio;
       ctx.fillStyle = `rgb(${core[0]}, ${core[1]}, ${core[2]})`;
-      for (const r of rects) ctx.fillRect(r.x, r.y, r.width, r.height);
+      ctx.beginPath();
+      for (const r of rects) ctx.rect(r.x, r.y, r.width, r.height);
+      ctx.fill();
       ctx.shadowBlur = 0;
       // Yazılar çizginin hemen üstünde durur.
       const lift = (maxExtent * UP_SHARE) / (1 + UP_SHARE) + GLOW_PX + 10;
@@ -251,9 +284,16 @@ export function PhotoScene({
   useVisualFeed(playing, onTick);
 
   return (
-    <div className="photo-scene">
+    <div className="photo-scene" ref={rootRef}>
       {image ? (
-        <img className="photo-scene__image" src={image} alt="" draggable={false} />
+        <img
+          ref={imageRef}
+          className="photo-scene__image"
+          src={image}
+          alt=""
+          draggable={false}
+          onLoad={onImageLoad}
+        />
       ) : (
         image === null && (
           <div className="photo-scene__empty">

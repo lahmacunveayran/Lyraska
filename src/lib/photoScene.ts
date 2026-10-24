@@ -135,22 +135,106 @@ export function worstContrast(colors: readonly Rgb[]): number {
 }
 
 /**
- * Sahnenin kenarları karartan katmanının (`.photo-scene__shade`, global.css) `(x, y)` (ekranın
- * oranı) noktasındaki saydamlığı. CSS değişirse burası da değişir.
+ * Çizginin arkasındaki koyu bant (`.photo-scene__shade`'in üçüncü katmanı, global.css): neon
+ * çizginin altındaki yumuşak gölge gibi. Ekranın tamamı boyunca; yükseklikte `BAND_STOPS`
+ * noktaları arasında doğrusal (CSS degradesi siyahın saydamlığını doğrusal geçirir), en koyu
+ * yerinde saydamlığı `band` (`--photo-band`). CSS değişirse burası da değişir.
+ *
+ * Bant, çubuktan açık zemini koyulaştırır: çubuğun değiştirebileceği parlaklık azalır, çubuklar
+ * uzun kalabilir (proje sahibinin beyaz kanatlı resminde kırmızı çubuklar ~4 kat). Çubuktan koyu
+ * zeminde ise karşıtlığı artırır (açık yeşil çizgi, açık gri resim). Bu yüzden koyuluğu her resim
+ * için `BAND_CHOICES` arasından ölçülerek seçilir (`measureBest`): çubukları en uzun tutan.
  */
-export function shadeAlpha(x: number, y: number): number {
-  const d = Math.SQRT2 * Math.hypot(x - 0.5, y - 0.5);
-  const radial = 0.45 * Math.max(0, Math.min(1, (d - 0.55) / 0.45));
-  const linearShade = y < 0.3 ? 0.18 * (1 - y / 0.3) : y > 0.7 ? 0.25 * ((y - 0.7) / 0.3) : 0;
-  return 1 - (1 - radial) * (1 - linearShade);
+export const BAND_STOPS: readonly (readonly [number, number])[] = [
+  [0.42, 0],
+  [0.5, 1],
+  [0.62, 1],
+  [0.75, 0],
+];
+/** Bandın denenen koyulukları (en koyu yerindeki saydamlık). */
+export const BAND_CHOICES: readonly number[] = [0, 0.3, 0.45, 0.6];
+
+/** `band` koyuluğundaki bandın `y` (ekranın oranı) yüksekliğindeki saydamlığı. */
+export function bandAlpha(y: number, band: number): number {
+  const first = BAND_STOPS[0]!;
+  const last = BAND_STOPS[BAND_STOPS.length - 1]!;
+  if (y <= first[0]) return band * first[1];
+  if (y >= last[0]) return band * last[1];
+  for (let i = 1; i < BAND_STOPS.length; i++) {
+    const [y1, a1] = BAND_STOPS[i]!;
+    const [y0, a0] = BAND_STOPS[i - 1]!;
+    if (y <= y1) return band * (a0 + ((a1 - a0) * (y - y0)) / (y1 - y0));
+  }
+  return band * last[1];
+}
+
+/** Kenar karartmasının bileşenleri (`.photo-scene__shade`): merkezden uzaklıkla ve yukarı/aşağı. */
+function radialShade(d: number): number {
+  return 0.45 * Math.max(0, Math.min(1, (d - 0.55) / 0.45));
+}
+function verticalShade(y: number): number {
+  return y < 0.3 ? 0.18 * (1 - y / 0.3) : y > 0.7 ? 0.25 * ((y - 0.7) / 0.3) : 0;
 }
 
 /**
- * Resmin yavaş kayması (`photo-drift`: 1,04–1,08 büyütme, ±%0,8 ve ±%0,4 kayma) için pay (ekranın
- * oranı): ölçülen resim ekrandakinden bu kadar kaymış olabilir.
+ * Sahnenin karartma katmanının (`.photo-scene__shade`, global.css: kenar karartması ve çizginin
+ * `band` koyuluğundaki bandı) `(x, y)` (ekranın oranı) noktasındaki toplam saydamlığı. Siyah katmanlar üst üste
+ * binince zemin her birinin `(1 − a)` katına iner. CSS değişirse burası da değişir.
  */
-const DRIFT_X = 0.05;
-const DRIFT_Y = 0.025;
+export function shadeAlpha(x: number, y: number, band: number): number {
+  const d = Math.SQRT2 * Math.hypot(x - 0.5, y - 0.5);
+  return 1 - (1 - radialShade(d)) * (1 - verticalShade(y)) * (1 - bandAlpha(y, band));
+}
+
+/** Tek değişkenli parçalı doğrusal işlevin `[a, b]` aralığındaki en küçüğü ve en büyüğü. */
+function rangeOn(f: (y: number) => number, a: number, b: number, breaks: readonly number[]) {
+  let lo = Math.min(f(a), f(b));
+  let hi = Math.max(f(a), f(b));
+  for (const t of breaks) {
+    if (t > a && t < b) {
+      lo = Math.min(lo, f(t));
+      hi = Math.max(hi, f(t));
+    }
+  }
+  return [lo, hi] as const;
+}
+
+/**
+ * Tarayıcının degradeyi 8 bitlik saydamlıkla (ve titreşimle) çizmesi için pay: gerçek
+ * saydamlık modeldekinden bu kadar sapabilir.
+ */
+const SHADE_TOLERANCE = 2 / 255;
+
+/**
+ * Karartmanın (bant koyuluğu `band`) `[x0, x1] × [y0, y1]` dikdörtgenindeki (ekranın oranı) en küçük ve en büyük
+ * saydamlığı (pay dahil): her bileşenin aralığı ayrı bulunur; bileşenler artan biçimde
+ * birleştiği için toplamın aralığını kapsar.
+ */
+export function shadeRange(
+  x0: number,
+  x1: number,
+  y0: number,
+  y1: number,
+  band: number,
+): [number, number] {
+  const cx = Math.max(x0, Math.min(x1, 0.5));
+  const cy = Math.max(y0, Math.min(y1, 0.5));
+  const near = Math.SQRT2 * Math.hypot(cx - 0.5, cy - 0.5);
+  const far = Math.SQRT2 * Math.hypot(Math.max(0.5 - x0, x1 - 0.5), Math.max(0.5 - y0, y1 - 0.5));
+  const [vLo, vHi] = rangeOn(verticalShade, y0, y1, [0.3, 0.7]);
+  const [bLo, bHi] = rangeOn(
+    (y) => bandAlpha(y, band),
+    y0,
+    y1,
+    BAND_STOPS.map(([y]) => y),
+  );
+  const total = (r: number, v: number, b: number) => 1 - (1 - r) * (1 - v) * (1 - b);
+  return [
+    Math.max(0, total(radialShade(near), vLo, bLo) - SHADE_TOLERANCE),
+    Math.min(1, total(radialShade(far), vHi, bHi) + SHADE_TOLERANCE),
+  ];
+}
+
 /** Çubuğun yarı kaplanan (kenar yumuşatmalı) iki kenarının toplam genişliği en çok (CSS piksel). */
 const EDGE_PX = 2;
 
@@ -161,6 +245,8 @@ export interface LineMap {
   height: number;
   screenWidth: number;
   screenHeight: number;
+  /** Ölçüldüğü bant koyuluğu (`bandAlpha`). */
+  band: number;
   /** Tam kaplanan çubuk pikseli için karşıtlık (`[x · (height + 1) + y]`, y'ye kadar toplam). */
   solid: Float64Array;
   /** Yarı saydam (ışıltı, kenar) için karşıtlık, aynı biçimde. */
@@ -203,9 +289,12 @@ function dilate(
 
 /**
  * Resmin (ekrandaki gibi kırpılmış, `sourceWidth`×`sourceHeight` RGBA) her `block`×`block`
- * bloğu için çubuğun ekleyebileceği en büyük parlaklık değişimi: tam kaplanan öz pikselinde |öz − zemin|, yarı saydam ışıltı ve
- * kenarda `pixelContrast` (sRGB karışımı). Zemin kenar karartmasıyla (`shadeAlpha`) ya da onsuz;
- * kayma ve ışıltının yayılması için komşuların en kötüsü alınır.
+ * bloğu için çubuğun ekleyebileceği en büyük parlaklık değişimi: tam kaplanan öz pikselinde
+ * |öz − zemin|, yarı saydam ışıltı ve kenarda `pixelContrast` (sRGB karışımı). Zemin, bloğun
+ * bileşenlerinin en koyusu en koyu karartmayla ve en açığı en açık karartmayla (`shadeRange`; bant
+ * koyuluğu `band`):
+ * açılma en koyu, kararma en açık zeminde en büyüktür. Işıltının ve çubuk aralığının yayılması
+ * için komşuların en kötüsü alınır. Resim sabittir (kaymaz): ekrandaki yeri ölçülen yeridir.
  */
 export function measureLine(
   rgba: ArrayLike<number>,
@@ -215,6 +304,7 @@ export function measureLine(
   screenHeight: number,
   core: Rgb,
   accent: Rgb,
+  band = 0,
   block = 2,
 ): LineMap {
   // Her `block`×`block` blokta bileşenlerin en koyusu ve en açığı: ince desen ortalamada kaybolmasın.
@@ -224,29 +314,19 @@ export function measureLine(
   const solid = new Float64Array(width * height);
   const soft = new Float64Array(width * height);
   const coreLum = relativeLuminance(core);
-  // Yalnızca çubukların ve ışıltılarının uzanabileceği satırlar (kayma payıyla); gerisi 0.
+  // Yalnızca çubukların ve ışıltılarının uzanabileceği satırlar; gerisi 0.
   const glowFraction = (2 * GLOW_PX) / Math.max(1, screenHeight);
   const firstRow = Math.max(
     0,
-    Math.floor((0.5 - MAX_EXTENT_FRACTION * UP_SHARE - glowFraction - 2 * DRIFT_Y) * height),
+    Math.floor((0.5 - MAX_EXTENT_FRACTION * UP_SHARE - glowFraction) * height) - 1,
   );
   const lastRow = Math.min(
     height,
-    Math.ceil((0.5 + MAX_EXTENT_FRACTION + glowFraction + 2 * DRIFT_Y) * height),
+    Math.ceil((0.5 + MAX_EXTENT_FRACTION + glowFraction) * height) + 1,
   );
   for (let y = firstRow; y < lastRow; y++) {
-    const y0 = Math.max(0, y / height - DRIFT_Y);
-    const y1 = Math.min(1, (y + 1) / height + DRIFT_Y);
     for (let x = 0; x < width; x++) {
-      const x0 = Math.max(0, x / width - DRIFT_X);
-      const x1 = Math.min(1, (x + 1) / width + DRIFT_X);
-      // Karartma merkezden uzaklaştıkça artar: dikdörtgenin köşelerinden en koyusu.
-      const s = Math.max(
-        shadeAlpha(x0, y0),
-        shadeAlpha(x0, y1),
-        shadeAlpha(x1, y0),
-        shadeAlpha(x1, y1),
-      );
+      const [sLo, sHi] = shadeRange(x / width, (x + 1) / width, y / height, (y + 1) / height, band);
       const low: Rgb = [255, 255, 255];
       const high: Rgb = [0, 0, 0];
       for (let by = 0; by < block; by++) {
@@ -259,28 +339,32 @@ export function measureLine(
           }
         }
       }
-      // Açılma en koyu (karartılmış) zeminde, kararma en açık zeminde en büyük.
-      // Aşağı yuvarlanır: daha koyu zemin, açılmada daha büyük fark (güvenli yön).
+      // Aşağı/yukarı yuvarlanır: koyu zemin daha koyu, açık zemin daha açık (güvenli yön).
       const dark: Rgb = [
-        Math.floor(low[0] * (1 - s)),
-        Math.floor(low[1] * (1 - s)),
-        Math.floor(low[2] * (1 - s)),
+        Math.floor(low[0] * (1 - sHi)),
+        Math.floor(low[1] * (1 - sHi)),
+        Math.floor(low[2] * (1 - sHi)),
+      ];
+      const bright: Rgb = [
+        Math.ceil(high[0] * (1 - sLo)),
+        Math.ceil(high[1] * (1 - sLo)),
+        Math.ceil(high[2] * (1 - sLo)),
       ];
       solid[y * width + x] = Math.max(
         Math.abs(coreLum - relativeLuminance(dark)),
-        Math.abs(coreLum - relativeLuminance(high)),
+        Math.abs(coreLum - relativeLuminance(bright)),
       );
       soft[y * width + x] = Math.max(
         pixelContrast(core, dark),
-        pixelContrast(core, high),
+        pixelContrast(core, bright),
         pixelContrast(accent, dark),
-        pixelContrast(accent, high),
+        pixelContrast(accent, bright),
       );
     }
   }
   const pitch = screenWidth / PHOTO_BARS;
-  const rx = Math.ceil((DRIFT_X * screenWidth + pitch + 2 * GLOW_PX) * scale);
-  const ry = Math.ceil(DRIFT_Y * screenHeight * scale) + 1;
+  const rx = Math.ceil((pitch + 2 * GLOW_PX) * scale);
+  const ry = 1;
   const glowRows = Math.ceil(2 * GLOW_PX * scale);
   const cumulative = (map: Float64Array) => {
     const out = new Float64Array(width * (height + 1));
@@ -296,6 +380,7 @@ export function measureLine(
     height,
     screenWidth,
     screenHeight,
+    band,
     solid: cumulative(dilate(solid, width, height, rx, ry, firstRow, lastRow)),
     soft: cumulative(dilate(soft, width, height, rx, ry + glowRows, firstRow, lastRow)),
   };
@@ -354,6 +439,44 @@ export function lineExtent(map: LineMap, safe: boolean): number {
     extent = lo;
   }
   return safe ? REST_EXTENT + (extent - REST_EXTENT) / 2 : extent;
+}
+
+/**
+ * Resmi `BAND_CHOICES`'taki her bant koyuluğuyla ölçer (`measureLine`), çubukları en uzun tutanı
+ * verir (eşitlikte açık olan). Bant bu koyulukla çizilmelidir (`--photo-band`).
+ */
+export function measureBest(
+  rgba: ArrayLike<number>,
+  sourceWidth: number,
+  sourceHeight: number,
+  screenWidth: number,
+  screenHeight: number,
+  core: Rgb,
+  accent: Rgb,
+  choices: readonly number[] = BAND_CHOICES,
+): LineMap {
+  let best: LineMap | null = null;
+  let bestExtent = -1;
+  for (const band of choices) {
+    const map = measureLine(
+      rgba,
+      sourceWidth,
+      sourceHeight,
+      screenWidth,
+      screenHeight,
+      core,
+      accent,
+      band,
+    );
+    const extent = lineExtent(map, false);
+    if (extent > bestExtent + 0.5) {
+      best = map;
+      bestExtent = extent;
+    }
+  }
+  return (
+    best ?? measureLine(rgba, sourceWidth, sourceHeight, screenWidth, screenHeight, core, accent, 0)
+  );
 }
 
 /** Çubuğun ekrandaki dikdörtgeni. */

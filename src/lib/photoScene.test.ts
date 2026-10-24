@@ -12,11 +12,15 @@ import {
   displayUpper,
   lineExtent,
   maxBarExtent,
-  measureLine,
+  measureBest,
   meanLuminance,
   pixelContrast,
   relativeLuminance,
   shadeAlpha,
+  shadeRange,
+  bandAlpha,
+  BAND_STOPS,
+  BAND_CHOICES,
   type BarRect,
   type Rgb,
 } from "./photoScene";
@@ -162,8 +166,9 @@ describe("kendi resmin sahnesi", () => {
 
 /*
  * Tarayıcının gerçekten çizdiği gibi model: renkler sRGB uzayında karışır (doğrusal ışıkta değil),
- * ışıltı vurgu renginde Gauss gölgesidir (σ = shadowBlur / 2), çubuklar sırayla gölge + öz olarak
- * çizilir, kenarlar yumuşatılır, resmin üstünde kenar karartması (`.photo-scene__shade`) vardır.
+ * ışıltı vurgu renginde Gauss gölgesidir (σ = shadowBlur / 2), bütün çubuklar tek yolda: önce
+ * yolun gölgesi, sonra öz; kenarlar yumuşatılır, resmin üstünde karartma katmanı
+ * (`.photo-scene__shade`: kenar karartması ve çizginin koyu bandı) vardır.
  * Resim RGB'dir: yarısı karanlık yarısı aydınlık resim, açık zeminde kırmızı ışıltı, ince desenler.
  */
 let W = 640;
@@ -183,8 +188,18 @@ function erf(x: number): number {
       Math.exp(-a * a);
   return s * y;
 }
-/** Tarayıcı gibi: sRGB uzayında sırayla gölge (accent, GLOW_ALPHA, Gauss σ = GLOW_PX/2) ve çubuk. */
-function renderSrgb(rects: BarRect[], image: Float64Array, core: Rgb, accent: Rgb): Float64Array {
+/**
+ * Tarayıcı gibi: bütün çubuklar tek yol, tek doldurma. Önce yolun gölgesi (yolun kaplama
+ * maskesinin Gauss bulanıklığı, σ = GLOW_PX/2, vurgu renginde GLOW_ALPHA saydamlıkla; çubuklar
+ * örtüşmediğinden maske çubukların toplamıdır), sonra çubuklar (kenarlar yumuşatılmış), sRGB'de.
+ */
+function renderSrgb(
+  rects: BarRect[],
+  image: Float64Array,
+  core: Rgb,
+  accent: Rgb,
+  band: number,
+): Float64Array {
   const layer = new Float64Array(W * H * 4);
   const over = (i: number, c: Rgb, a: number) => {
     for (let k = 0; k < 3; k++) layer[i * 4 + k] = (c[k]! / 255) * a + layer[i * 4 + k]! * (1 - a);
@@ -193,6 +208,7 @@ function renderSrgb(rects: BarRect[], image: Float64Array, core: Rgb, accent: Rg
   const sigma = GLOW_PX / 2;
   const g = (p: number, a: number, b: number) =>
     0.5 * (erf((b - p) / (sigma * Math.SQRT2)) - erf((a - p) / (sigma * Math.SQRT2)));
+  const mask = new Float64Array(W * H);
   for (const r of rects) {
     for (
       let y = Math.max(0, Math.floor(r.y - 3 * sigma));
@@ -205,10 +221,15 @@ function renderSrgb(rects: BarRect[], image: Float64Array, core: Rgb, accent: Rg
         x < Math.min(W, Math.ceil(r.x + r.width + 3 * sigma));
         x++
       ) {
-        const a = GLOW_ALPHA * gy * g(x + 0.5, r.x, r.x + r.width);
-        if (a > 0) over(y * W + x, accent, a);
+        mask[y * W + x]! += gy * g(x + 0.5, r.x, r.x + r.width);
       }
     }
+  }
+  for (let i = 0; i < W * H; i++) {
+    const a = GLOW_ALPHA * Math.min(1, mask[i]!);
+    if (a > 0) over(i, accent, a);
+  }
+  for (const r of rects) {
     for (let y = Math.max(0, Math.floor(r.y)); y < Math.min(H, Math.ceil(r.y + r.height)); y++) {
       const cy = Math.min(y + 1, r.y + r.height) - Math.max(y, r.y);
       for (let x = Math.max(0, Math.floor(r.x)); x < Math.min(W, Math.ceil(r.x + r.width)); x++) {
@@ -219,7 +240,7 @@ function renderSrgb(rects: BarRect[], image: Float64Array, core: Rgb, accent: Rg
   }
   const out = new Float64Array(W * H);
   for (let i = 0; i < W * H; i++) {
-    const s = 1 - shadeAlpha((i % W) / W, Math.floor(i / W) / H);
+    const s = 1 - shadeAlpha((i % W) / W, Math.floor(i / W) / H, band);
     const a = layer[i * 4 + 3]!;
     const c = [0, 1, 2].map((k) => layer[i * 4 + k]! + image[i * 3 + k]! * s * (1 - a));
     out[i] = 0.2126 * lin(c[0]!) + 0.7152 * lin(c[1]!) + 0.0722 * lin(c[2]!);
@@ -239,35 +260,48 @@ function makeImage(at: (x: number, y: number) => Rgb): { srgb: Float64Array; rgb
   return { srgb, rgba };
 }
 
-/** Bileşen gibi: vurgu bütün resimden, karşıtlık 2×2 blokların en koyusu ve en açığından. */
-function extentNow(rgba: number[], safe = false): { extent: number; core: Rgb; accent: Rgb } {
+/**
+ * Bileşen gibi: vurgu bütün resimden, karşıtlık 2×2 blokların en koyusu ve en açığından, bant
+ * koyuluğu çubukları en uzun tutan (`measureBest`).
+ */
+function extentNow(
+  rgba: number[],
+  safe = false,
+  choices: readonly number[] = BAND_CHOICES,
+): { extent: number; core: Rgb; accent: Rgb; band: number } {
   const accent = accentFromPixels(rgba);
   const core = coreColor(accent);
-  const extent = lineExtent(measureLine(rgba, W, H, W, H, core, accent), safe);
-  return { extent, core, accent };
+  const map = measureBest(rgba, W, H, W, H, core, accent, choices);
+  return { extent: lineExtent(map, safe), core, accent, band: map.band };
 }
 
-function worst(at: (x: number, y: number) => Rgb, safe = false) {
+function worst(
+  at: (x: number, y: number) => Rgb,
+  safe = false,
+  choices: readonly number[] = BAND_CHOICES,
+) {
   const img = makeImage(at);
-  const { extent, core, accent } = extentNow(img.rgba, safe);
+  const { extent, core, accent, band } = extentNow(img.rgba, safe, choices);
   const win = flashWindow(W, H);
   const full = renderSrgb(
     barRects(new Array(PHOTO_BARS).fill(1), W, H, extent),
     img.srgb,
     core,
     accent,
+    band,
   );
   const empty = renderSrgb(
     barRects(new Array(PHOTO_BARS).fill(0), W, H, extent),
     img.srgb,
     core,
     accent,
+    band,
   );
   const a = windowMeans(full, W, H, win, 4);
   const b = windowMeans(empty, W, H, win, 4);
   let max = 0;
   for (let i = 0; i < a.length; i++) max = Math.max(max, Math.abs(a[i]! - b[i]!));
-  return { extent, max, core };
+  return { extent, max, core, band };
 }
 
 const IMAGES: [string, (x: number, y: number) => Rgb][] = [
@@ -298,6 +332,19 @@ describe("kendi resmin sahnesi: tarayıcı gibi çizimde parlama yok", () => {
     expect(r.max).toBeLessThan(0.1);
   });
 
+  it.each(IMAGES.map(([name, at]) => ({ name, at })))(
+    "$name: her bant koyuluğunda ölçülen boy parlamasız",
+    ({ at }) => {
+      W = 480;
+      H = 270;
+      for (const band of BAND_CHOICES) {
+        const r = worst(at, false, [band]);
+        expect(r.band).toBe(band);
+        expect(r.max).toBeLessThan(0.1);
+      }
+    },
+  );
+
   it("koyu resimde çubuklar belirgin iner; eski hesaptan kısalmaz", () => {
     W = 640;
     H = 360;
@@ -312,8 +359,54 @@ describe("kendi resmin sahnesi: tarayıcı gibi çizimde parlama yok", () => {
     expect(pixelContrast(red, white)).toBeGreaterThan(1.5 * linear);
     // Karanlık zeminde açık renk: tam kaplamadaki fark.
     expect(pixelContrast(white, [0, 0, 0])).toBeCloseTo(1);
-    // Kenar karartması ortada yok, köşede en koyu.
-    expect(shadeAlpha(0.5, 0.5)).toBe(0);
-    expect(shadeAlpha(0, 0)).toBeGreaterThan(shadeAlpha(0, 0.5));
+    // Kenar karartması ortada yok, köşede en koyu; çizginin arkasında koyu bant.
+    expect(shadeAlpha(0.5, 0.35, 0.6)).toBe(0);
+    expect(shadeAlpha(0, 0, 0)).toBeGreaterThan(shadeAlpha(0, 0.35, 0));
+    expect(shadeAlpha(0.5, 0.5, 0.6)).toBeCloseTo(0.6 * BAND_STOPS[1]![1]);
+    expect(shadeAlpha(0.5, 0.5, 0)).toBe(0);
+    expect(bandAlpha(0.3, 0.6)).toBe(0);
+    expect(bandAlpha(0.9, 0.6)).toBe(0);
+  });
+});
+
+describe("kendi resmin sahnesi: karartma katmanı", () => {
+  it("dikdörtgendeki karartma aralığı her noktayı kapsar", () => {
+    for (const [x0, y0, w, h] of [
+      [0.4, 0.38, 0.05, 0.08],
+      [0.48, 0.49, 0.04, 0.02],
+      [0, 0, 0.1, 0.1],
+      [0.9, 0.6, 0.1, 0.2],
+      [0.2, 0.7, 0.003, 0.003],
+    ] as const) {
+      for (const band of BAND_CHOICES) {
+        const [lo, hi] = shadeRange(x0, x0 + w, y0, y0 + h, band);
+        for (let i = 0; i <= 20; i++) {
+          for (let j = 0; j <= 20; j++) {
+            const a = shadeAlpha(x0 + (w * i) / 20, y0 + (h * j) / 20, band);
+            expect(a).toBeGreaterThanOrEqual(lo);
+            expect(a).toBeLessThanOrEqual(hi);
+          }
+        }
+      }
+    }
+  });
+
+  it("açık resimde koyu bant kırmızı çubukları uzun tutar, parlama yine yok", () => {
+    W = 640;
+    H = 360;
+    // Beyaz tüyler kırmızı zeminde (örnek resim gibi): kırmızı çubuk, açık çizgiler.
+    const feathers = (x: number, y: number): Rgb =>
+      Math.floor((x * 7 + y * 3) * 40) % 3 === 0 ? [255, 240, 240] : [140, 20, 35];
+    const banded = worst(feathers);
+    const plain = worst(feathers, false, [0]);
+    expect(banded.max).toBeLessThan(0.1);
+    expect(banded.band).toBeGreaterThan(0);
+    expect(banded.extent).toBeGreaterThan(2 * plain.extent);
+    // Açık yeşil çizgi beyaz resimde: koyu bant karşıtlığı artırır; seçilen koyuluk bantsızdan
+    // kısa çubuk vermez.
+    const white = worst(() => [255, 255, 255]);
+    expect(white.band).toBeLessThan(0.6);
+    expect(white.extent).toBeGreaterThanOrEqual(worst(() => [255, 255, 255], false, [0]).extent);
+    expect(white.max).toBeLessThan(0.1);
   });
 });

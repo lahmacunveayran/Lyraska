@@ -127,6 +127,13 @@ const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama") => `
         }
         return bytes.buffer;
       }
+      // "Kendi resmin" spektrum çubukları (200 seviye, 0..1; bas solda): LEVEL verilirse hepsi o
+      // seviyede, yoksa vuruşta inen bas ve tırtıklı orta/tiz. Dizi olmalı: başka yanıt arayüzü bozar.
+      case "visual_spectrum": {
+        const kick = Math.exp(-((t * 128) / 60 % 1) * 6);
+        return Array.from({ length: 200 }, (_, i) =>
+          LEVEL ?? Math.min(1, (i < 60 ? kick * (1 - i / 70) : 0.15) + 0.2 * Math.abs(Math.sin(i * 2.3 + t * 7))));
+      }
       case "visual_frame": return {
         positionSecs: 60 + t,
         bands: Array.from({ length: 32 }, (_, i) =>
