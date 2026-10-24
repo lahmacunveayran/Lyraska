@@ -234,6 +234,12 @@ fn norm(text: &str) -> String {
     lower.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+/// Yolu yazımından bağımsız karşılaştırmak için: ayıraç `\`, küçük harf ("file:///C:/…" ile
+/// "C:\…" aynı dosyadır; Windows'ta büyük/küçük harf de fark etmez).
+fn path_key(path: &str) -> String {
+    path.replace('/', "\\").to_lowercase()
+}
+
 /// Her şarkının bu bilgisayardaki yolu ve nasıl bulunduğu (listenin sırasıyla).
 pub fn resolve(
     entries: &[FileEntry],
@@ -242,6 +248,10 @@ pub fn resolve(
 ) -> Vec<(String, Match)> {
     let by_path: HashMap<&str, &LibraryEntry> =
         library.iter().map(|t| (t.path.as_str(), t)).collect();
+    let mut by_key: HashMap<String, &LibraryEntry> = HashMap::new();
+    for track in library {
+        by_key.entry(path_key(&track.path)).or_insert(track);
+    }
     let mut by_tags: HashMap<(String, String), Vec<&LibraryEntry>> = HashMap::new();
     let mut by_name: HashMap<String, Vec<&LibraryEntry>> = HashMap::new();
     for track in library {
@@ -259,7 +269,14 @@ pub fn resolve(
     entries
         .iter()
         .map(|entry| {
-            if by_path.contains_key(entry.path.as_str()) || exists(&entry.path) {
+            if by_path.contains_key(entry.path.as_str()) {
+                return (entry.path.clone(), Match::SamePath);
+            }
+            // Aynı dosya başka yazımla: listeye kütüphanedeki yazımı girer (şarkı orada görünsün).
+            if let Some(found) = by_key.get(&path_key(&entry.path)) {
+                return (found.path.clone(), Match::SamePath);
+            }
+            if exists(&entry.path) {
                 return (entry.path.clone(), Match::SamePath);
             }
             if let (Some(artist), Some(title)) = (&entry.artist, &entry.title) {
@@ -683,6 +700,19 @@ mod tests {
             from_file_url("file:///C:/a%+1b%41").as_deref(),
             Some("C:/a%+1bA")
         );
+    }
+
+    #[test]
+    fn yolun_ayiraci_ve_harf_buyuklugu_farkli_olsa_da_kutuphanedeki_yol_alinir() {
+        // VLC listeleri "file:///C:/…" yazar; kütüphanede yol "C:\…" biçimindedir. Diskte
+        // bulunsa da listeye kütüphanedeki yazımı girmeli (yoksa şarkı kütüphanede görünmez).
+        let library = vec![track(r"C:\Müzik\Albüm\a b.flac", "A", "B", "C", 100.0)];
+        let entries = vec![FileEntry {
+            path: "c:/MÜZIK/Albüm/a b.flac".into(),
+            ..Default::default()
+        }];
+        let found = resolve(&entries, &library, |_| true);
+        assert_eq!(found[0], (library[0].path.clone(), Match::SamePath));
     }
 
     #[test]
