@@ -1335,6 +1335,64 @@ async function checkPhotoMotion(browser, safe) {
   return problems;
 }
 
+/** Işıltının ekran ölçeğinden bağımsızlığı: pencere ve izin verilen fark (CSS piksel). */
+const PHOTO_GLOW_VIEWPORT = { width: 1280, height: 720 };
+const PHOTO_GLOW_TOLERANCE = 1;
+
+/**
+ * Işık çizgisinin dikey genişliği (CSS piksel), cihaz piksel oranı `scale`'de: resimsiz zeminde
+ * tam seste çubuk tuvalinin satır satır saydamlık toplamı, en büyük satırın %2'sini geçen satırlar.
+ */
+async function photoGlowExtent(browser, scale) {
+  const page = await openPage(browser, { viewport: PHOTO_GLOW_VIEWPORT, scale });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(`sayfa hatası: ${e}`));
+  await page.addInitScript(initScript("photo", { level: 1 }));
+  await startPlaying(page, 2500);
+  await page.waitForFunction(
+    () => document.querySelector(".photo-scene__bars")?.dataset.measured === "on",
+  );
+  const extent = await page.evaluate(() => {
+    const bars = document.querySelector(".photo-scene__bars");
+    const { width: W, height: H } = bars;
+    const data = bars.getContext("2d").getImageData(0, 0, W, H).data;
+    const rows = new Float64Array(H);
+    for (let y = 0; y < H; y++) {
+      let sum = 0;
+      for (let x = 0; x < W; x++) sum += data[(y * W + x) * 4 + 3];
+      rows[y] = sum;
+    }
+    const max = Math.max(...rows);
+    const lit = [...rows.keys()].filter((y) => rows[y] >= 0.02 * max);
+    return lit.length === 0 ? 0 : lit[lit.length - 1] - lit[0] + 1;
+  });
+  await page.close();
+  return { extent: extent / scale, errors };
+}
+
+/**
+ * "Kendi resmin" ışıltısı ekran ölçeğinden bağımsız olmalı: tuvalin dönüşümü bulanıklık
+ * süzgecini ölçeklemez (`glowFilter`). Parlama sınırının modeli σ'yı CSS pikselinde varsayar;
+ * DPR 2'de ışıltı DPR 1'dekiyle aynı genişlikte (en çok 1 CSS piksel farkla) olmalı.
+ */
+async function checkPhotoGlowScale(browser) {
+  const one = await photoGlowExtent(browser, 1);
+  const two = await photoGlowExtent(browser, 2);
+  const errors = [...one.errors, ...two.errors];
+  console.log(
+    `Kendi resmin · ışık çizgisinin genişliği: DPR 1 ${one.extent.toFixed(1)} px, DPR 2 ` +
+      `${two.extent.toFixed(1)} px (CSS piksel)`,
+  );
+  const problems = errors.map((e) => `Kendi resmin · DPR: ${e}`);
+  if (!(one.extent > 0) || !(Math.abs(one.extent - two.extent) <= PHOTO_GLOW_TOLERANCE)) {
+    problems.push(
+      `Kendi resmin: ışıltı ekran ölçeğine bağlı (DPR 1 ${one.extent.toFixed(1)} px, DPR 2 ` +
+        `${two.extent.toFixed(1)} px; fark > ${PHOTO_GLOW_TOLERANCE})`,
+    );
+  }
+  return problems;
+}
+
 /** Döngü denemesi: bu kadar kare (60 kare/sn) en çok bu kadar sürede çizilmeli. */
 const LOOP_FRAMES = 60;
 const LOOP_BUDGET_MS = 60_000;
@@ -1414,6 +1472,7 @@ try {
       for (const safe of [false, true]) {
         problems = problems.concat(await checkPhotoMotion(browser, safe));
       }
+      problems = problems.concat(await checkPhotoGlowScale(browser));
     }
     const bright = brightestThemes(2);
     for (const scene of ALL_SCENES.filter(selected)) {

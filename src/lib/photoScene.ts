@@ -170,6 +170,15 @@ export interface BarColors {
   core: Rgb;
 }
 
+/**
+ * Işıltının tuval süzgeci. Tuvalin dönüşümü (`setTransform(ratio, …)`) süzgecin uzunluklarını
+ * ölçeklemez (HTML tuval tanımı; Chromium da böyle): σ CSS pikselinden cihaz pikseline elle
+ * çevrilir. Parlama sınırı (`measureLine`, `flashBounds`) σ'yı CSS pikselinde varsayar.
+ */
+export function glowFilter(sigma: number, ratio: number): string {
+  return `blur(${sigma * ratio}px)`;
+}
+
 /** Işıltı renginden çubuğun renkleri: öz beyaza yakın (`CORE_TINT`), ışıltı aynı parlaklıkta. */
 export function barColors(glow: Rgb): BarColors {
   const lum = relativeLuminance(glow);

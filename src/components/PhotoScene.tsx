@@ -11,6 +11,7 @@ import {
   dominantColor,
   animatedBudgets,
   flashBudgets,
+  glowFilter,
   glowRects,
   isTurkishText,
   limitExtents,
@@ -489,7 +490,7 @@ export function PhotoScene({
       // Parlama hesabı bu modele göre (src/lib/photoScene.ts `measureLine`).
       ctx.globalCompositeOperation = "lighter";
       const [gr, gg, gb] = colors.glow;
-      ctx.filter = `blur(${geometry.sigma}px)`;
+      ctx.filter = glowFilter(geometry.sigma, ratio);
       ctx.fillStyle = `rgba(${gr}, ${gg}, ${gb}, ${colors.glowAlpha})`;
       ctx.beginPath();
       for (const r of glowRects(limited, geometry)) ctx.rect(r.x, r.y, r.width, r.height);

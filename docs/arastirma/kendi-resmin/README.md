@@ -110,6 +110,10 @@ herhangi iki kare arasında 0,08'den fazla değişmez (eşik 0,1). Sınır:
   binen ışıltılarla birlikte zeminin bütün payı kadar sayılır.
 - Pencereye ışığının bir kısmı bile düşebilen çubuğun bütün ışığı, bütün satırlar sayılır;
   ışıltının dikey kuyrukları çubuğun üstündeki ve ucunun altındaki gerçek satırlarla, kısa çubukta sönük ışıltıyla (`boxPeak`, `boxTail`).
+- Işıltının σ'sı CSS pikselindedir. Tuvalin dönüşümü bulanıklık süzgecini ölçeklemediği için çizimde
+  cihaz piksel oranıyla çarpılır (`glowFilter`); yoksa DPR 2'de ışıltı yarı genişlikte ve iki kat
+  tepeli olur, sınır geçersizleşir. `check:scenes` DPR 1 ve 2'de çizginin aynı genişlikte (≤ 1 CSS
+  px farkla) olduğunu ölçer.
 
 Ölçümler (1920×1080):
 

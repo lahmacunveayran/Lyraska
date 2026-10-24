@@ -21,6 +21,7 @@ import {
   flashBounds,
   flashBudget,
   flashBudgets,
+  glowFilter,
   glowRects,
   imageBackground,
   isTurkishText,
@@ -115,6 +116,12 @@ describe("kendi resmin sahnesi: görünüş (örnek videolardan ölçülen)", ()
     const crimson = dominantColor(pixels([150, 20, 40], 50));
     expect(crimson[0]).toBe(255);
     expect(crimson[1]).toBeLessThan(40);
+  });
+  it("ışıltı bulanıklığı ekran ölçeğiyle büyür: σ CSS pikselinde kalır", () => {
+    // Tuvalin dönüşümü (setTransform) süzgeç uzunluklarını ölçeklemez: σ cihaz pikseline çevrilir.
+    expect(glowFilter(3.9, 1)).toBe("blur(3.9px)");
+    expect(glowFilter(3.9, 2)).toBe("blur(7.8px)");
+    expect(glowFilter(4, 0.5)).toBe("blur(2px)");
   });
 });
 
