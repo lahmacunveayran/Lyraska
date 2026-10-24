@@ -41,6 +41,7 @@ import {
 import { formatTime } from "../lib/format";
 import { scrollToRow, visibleRange } from "../lib/virtual";
 import type { LibraryControls } from "../hooks/useLibrary";
+import type { PlayOrder } from "../hooks/usePlayback";
 
 /** Satır yüksekliği (CSS'teki `--row-height` ile aynı olmalı). */
 export const ROW_HEIGHT = 40;
@@ -76,7 +77,7 @@ export interface LibraryPanelProps {
   playing: boolean;
   onPlay: (track: LibraryTrack, list: LibraryTrack[]) => void;
   /** Albümü çalar (şarkı yolları çalma sırasıyla); `start` yoksa baştan. */
-  onPlayPaths: (paths: string[], start?: string) => void;
+  onPlayPaths: (paths: string[], start?: string, order?: PlayOrder) => void;
 }
 
 /** Klasör yolunun son parçası ("D:\Müzik\Rock" → "Rock"). */
@@ -814,7 +815,7 @@ export function LibraryPanel({
                   playing={playing}
                   camelot={camelot}
                   onBack={() => setOpenAlbum(null)}
-                  onPlay={(paths, start) => onPlayPaths(paths, start)}
+                  onPlay={(paths, start, order) => onPlayPaths(paths, start, order)}
                   onChooseCover={() => chooseCover(shownAlbum)}
                   onClearCover={() => changeCover(shownAlbum, null)}
                 />

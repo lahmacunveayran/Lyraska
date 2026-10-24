@@ -60,6 +60,24 @@ export function NextIcon() {
   );
 }
 
+/** Karışık çal: kesişen iki ok. */
+export function ShuffleIcon() {
+  return (
+    <svg
+      {...base}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 7h3.5c2 0 3.2 1 4.3 2.6l2.4 4.8C14.3 16 15.5 17 17.5 17H21" />
+      <path d="M3 17h3.5c1.6 0 2.7-.6 3.6-1.7M14.4 8.7C15.3 7.6 16.4 7 18 7h3" />
+      <path d="m18 4 3 3-3 3M18 14l3 3-3 3" />
+    </svg>
+  );
+}
+
 export function FolderIcon() {
   return (
     <svg {...base}>
