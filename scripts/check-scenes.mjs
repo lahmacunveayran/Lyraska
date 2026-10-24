@@ -8,7 +8,8 @@
 // - Parlama sınırı: sessizden tam sese geçişte ekrandaki en büyük parlaklık farkı. Gece göğünün
 //   her manzarası (göl, korona, karlı vadi) ölçülür; renkleri bölüm temasına göre değişen
 //   sahneler her temada (göğün varsayılan dışındaki manzaraları en parlak iki temada). Galerinin
-//   iki sahnesi ayrıca en parlak sabit palette ve en yüksek hızda (hazır ayarlar).
+//   iki sahnesi ayrıca en parlak sabit palette ve en yüksek hızda (hazır ayarlar). Galeri sahneleri
+//   son işlem zinciriyle (bloom, ton eşleme; src/lib/postChain.ts) çizilmelidir.
 //
 // CI'da Windows'ta Microsoft Edge ile çalışır: programın kullandığı WebView2 de Edge
 // motorudur ve gölgelendiriciler Windows'ta (ANGLE → Direct3D) Linux'takinden farklı
@@ -494,6 +495,9 @@ const SCENES = [
     themed: true,
     brightOnly: true,
     palette,
+    // Son işlem zinciri (src/lib/postChain.ts) gerçekten çalışıyor: kayan noktalı doku açıldı.
+    requires: (state) =>
+      state.post === "on" ? null : `son işlem zinciri açılmadı (data-post=${state.post})`,
   })),
   // Kullanıcının .milk görselleri (burada programın özgün deneme preseti). Parlaklığı müzikten
   // değil presetten gelir: sessiz/tam ses sınırı yerine zamana bağlı ölçülür
@@ -624,6 +628,7 @@ async function checkScene(browser, scene, variant) {
     gpu: c.dataset.gpu ?? null,
     preset: c.dataset.preset ?? null,
     guard: c.dataset.guard ?? null,
+    post: c.dataset.post ?? null,
   }));
   const first = await page.evaluate(measure, await capture(page, canvas));
   await advance(page, 750);
