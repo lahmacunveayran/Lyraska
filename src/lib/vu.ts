@@ -22,9 +22,14 @@ export const NEEDLE_OMEGA = 13.1;
 export const NEEDLE_DAMPING = 0.8;
 /** İbrenin yarım açısı (derece): konum 0 → −SWING, konum 1 → +SWING. */
 export const SWING_DEGREES = 47;
-/** Kırmızı bölge ışığının yandığı seviye ve en az yanık kalma süresi. */
+/**
+ * Kırmızı bölge ışığının yandığı seviye ve en az yanık kalma süresi: varsayılan modda yarım
+ * saniye (VU ölçer görünümü, tasarım), Epilepsi güvenli modunda bir saniye (saniyede en fazla bir
+ * yanıp sönme).
+ */
 export const LAMP_VU = 1;
 export const LAMP_HOLD_SECONDS = 0.5;
+export const SAFE_LAMP_HOLD_SECONDS = 1;
 
 /** VU değerinin ölçekteki konumu (0 = sol uç, 1 = +3 VU). */
 export function vuToPosition(vu: number): number {
@@ -80,11 +85,13 @@ export function isAtRest(needle: Needle): boolean {
 }
 
 /**
- * Kırmızı bölge ışığı. Bir kez yanınca en az `LAMP_HOLD_SECONDS` yanık kalır;
- * böylece saniyede en fazla 2 kez yanıp söner (epilepsi güvenliği: en fazla 3).
+ * Kırmızı bölge ışığı. Bir kez yanınca en az `LAMP_HOLD_SECONDS` yanık kalır (saniyede en fazla
+ * 2 kez yanıp söner); güvenli modda `SAFE_LAMP_HOLD_SECONDS` (saniyede en fazla 1).
  * Dönen değer: kalan yanma süresi (0 = sönük).
  */
-export function stepLamp(remaining: number, needle: Needle, dt: number): number {
-  if (needle.position >= vuToPosition(LAMP_VU)) return LAMP_HOLD_SECONDS;
+export function stepLamp(remaining: number, needle: Needle, dt: number, safe = false): number {
+  if (needle.position >= vuToPosition(LAMP_VU)) {
+    return safe ? SAFE_LAMP_HOLD_SECONDS : LAMP_HOLD_SECONDS;
+  }
   return Math.max(0, remaining - Math.max(0, dt));
 }

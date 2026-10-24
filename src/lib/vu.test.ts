@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   LAMP_HOLD_SECONDS,
+  SAFE_LAMP_HOLD_SECONDS,
   NEEDLE_AT_REST,
   PEG_POSITION,
   SWING_DEGREES,
@@ -89,24 +90,38 @@ describe("kırmızı bölge ışığı", () => {
   const hot: Needle = { position: vuToPosition(2), velocity: 0 };
   const calm: Needle = { position: vuToPosition(-5), velocity: 0 };
 
-  it("kırmızı bölgede yanar, en az yarım saniye yanık kalır", () => {
+  it("kırmızı bölgede yanar, en az yarım saniye yanık kalır (güvenli modda bir saniye)", () => {
     expect(stepLamp(0, hot, 1 / 60)).toBe(LAMP_HOLD_SECONDS);
+    expect(LAMP_HOLD_SECONDS).toBe(0.5);
     expect(stepLamp(LAMP_HOLD_SECONDS, calm, 0.2)).toBeCloseTo(0.3);
     expect(stepLamp(0.1, calm, 0.2)).toBe(0);
+    expect(stepLamp(0, hot, 1 / 60, true)).toBe(SAFE_LAMP_HOLD_SECONDS);
+    expect(SAFE_LAMP_HOLD_SECONDS).toBeGreaterThanOrEqual(1);
   });
 
-  it("saniyede 3'ten fazla yanıp sönmez (epilepsi güvenliği)", () => {
-    // En kötü durum: ışık söner sönmez ibre yeniden kırmızı bölgeye giriyor.
+  /** En kötü durum: ışık söner sönmez ibre yeniden kırmızı bölgeye giriyor (10 sn). */
+  function worstFlashes(safe: boolean): number {
     let lamp = 0;
     let wasOn = false;
     let flashes = 0;
     for (let frame = 0; frame < 600; frame++) {
-      lamp = stepLamp(lamp, lamp > 0 ? calm : hot, 1 / 60);
+      lamp = stepLamp(lamp, lamp > 0 ? calm : hot, 1 / 60, safe);
       const on = lamp > 0;
       if (on && !wasOn) flashes++;
       wasOn = on;
     }
-    expect(flashes / 10).toBeLessThanOrEqual(3);
+    return flashes;
+  }
+
+  it("güvenli modda saniyede 1'den fazla yanıp sönmez (epilepsi güvenliği)", () => {
+    const flashes = worstFlashes(true);
+    expect(flashes / 10).toBeLessThanOrEqual(1);
     expect(flashes).toBeGreaterThan(5); // senaryo gerçekten yakıp söndürüyor
+  });
+
+  it("varsayılan modda yarım saniyelik tutma: saniyede en fazla 2 yanıp söner (tasarım)", () => {
+    const flashes = worstFlashes(false);
+    expect(flashes / 10).toBeLessThanOrEqual(2);
+    expect(flashes / 10).toBeGreaterThan(1); // güvenli moddan daha sık
   });
 });

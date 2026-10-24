@@ -27,19 +27,27 @@ export interface Meters {
 
 export const AT_REST: Meters = { needles: [NEEDLE_AT_REST, NEEDLE_AT_REST], lamps: [0, 0] };
 
-/** Ölçerleri `dt` saniye ilerletir (saf; test edilebilir). */
-export function stepMeters(prev: Meters, frame: VisualFrame | null, dt: number): Meters {
+/** Ölçerleri `dt` saniye ilerletir (saf; test edilebilir). `safe`: Epilepsi güvenli modu. */
+export function stepMeters(
+  prev: Meters,
+  frame: VisualFrame | null,
+  dt: number,
+  safe = false,
+): Meters {
   const reference = frame?.vuReferenceDb ?? DEFAULT_REFERENCE_DB;
   const needles = prev.needles.map((needle, i) =>
     stepNeedle(needle, frame ? levelToPosition(frame.rmsDb[i] ?? -Infinity, reference) : 0, dt),
   ) as [Needle, Needle];
-  const lamps = prev.lamps.map((lamp, i) => stepLamp(lamp, needles[i]!, dt)) as [number, number];
+  const lamps = prev.lamps.map((lamp, i) => stepLamp(lamp, needles[i]!, dt, safe)) as [
+    number,
+    number,
+  ];
   return { needles, lamps };
 }
 
 export interface VuSceneProps {
   playing: boolean;
-  /** Epilepsi güvenli modu: arka ışık yarı hızla değişir. */
+  /** Epilepsi güvenli modu: arka ışık yarı hızla değişir, kırmızı ışık saniyede en fazla bir yanar. */
   safe?: boolean;
 }
 
@@ -60,7 +68,7 @@ export function VuScene({ playing, safe = false }: VuSceneProps) {
   const onTick = useCallback(
     (frame: VisualFrame | null, dt: number) => {
       setMeters((prev) => {
-        const next = stepMeters(prev, frame, dt);
+        const next = stepMeters(prev, frame, dt, safe);
         // Her şey durgunsa yeniden çizme.
         const still = (m: Meters) => m.needles.every(isAtRest) && m.lamps.every((l) => l === 0);
         return still(prev) && still(next) ? prev : next;
