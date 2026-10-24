@@ -541,7 +541,7 @@ pub async fn playlist_tracks(
         .await
 }
 
-/// Şarkıları listenin sonuna ekler; eklenen şarkı sayısını döndürür.
+/// Şarkıları listenin sonuna ekler; listenin yeni şarkı sayısını döndürür.
 #[tauri::command]
 pub async fn playlist_add(
     id: i64,

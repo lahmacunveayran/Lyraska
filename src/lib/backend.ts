@@ -499,7 +499,7 @@ export function playlistTracks(id: number): Promise<string[]> {
   return invoke<string[]>("playlist_tracks", { id });
 }
 
-/** Şarkıları listenin sonuna ekler; eklenen sayıyı döndürür. */
+/** Şarkıları listenin sonuna ekler; listenin yeni şarkı sayısını döndürür. */
 export function addToPlaylist(id: number, paths: string[]): Promise<number> {
   return invoke<number>("playlist_add", { id, paths });
 }

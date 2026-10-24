@@ -184,6 +184,8 @@ export const TrackTable = memo(function TrackTable({
                     onClick={(event) => {
                       event.stopPropagation();
                       onRemove(index);
+                      // Üstteki satır çıkınca seçili şarkı bir yukarı kayar; seçim onunla gider.
+                      if (index < selected) setSelected(selected - 1);
                     }}
                     aria-label={`Listeden çıkar: ${track.title}`}
                     title="Listeden çıkar (dosya silinmez)"

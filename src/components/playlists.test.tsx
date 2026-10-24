@@ -47,8 +47,9 @@ vi.mock("../lib/backend", async (importOriginal) => {
     },
     playlistTracks: async (id: number) => [...find(id).paths],
     addToPlaylist: async (id: number, paths: string[]) => {
+      // Gerçek çekirdek gibi: listenin yeni şarkı sayısı.
       find(id).paths.push(...paths);
-      return paths.length;
+      return find(id).paths.length;
     },
     removeFromPlaylist: async (id: number, positions: number[]) => {
       backend.calls.push(`remove ${positions.join(",")}`);
@@ -97,6 +98,17 @@ describe("çalma listeleri", () => {
     });
     expect(created).toMatchObject({ name: "Yolculuk" });
     expect(result.current.playlists?.map((p) => p.name)).toEqual(["Yolculuk"]);
+  });
+
+  it("dolu listeye ekleyince eklenen şarkı sayısı döner (listenin toplamı değil)", async () => {
+    backend.lists = [{ id: 1, name: "Dolu", paths: ["a", "b", "c"] }];
+    const { result } = renderHook(() => usePlaylists("k"));
+    await waitFor(() => expect(result.current.playlists).toHaveLength(1));
+    let added = 0;
+    await act(async () => {
+      added = await result.current.add(1, ["d", "e"]);
+    });
+    expect(added).toBe(2);
   });
 
   it("ızgaradaki 'Yeni liste' adı alır, listeyi kurar ve sayfasını açar; Esc vazgeçer", async () => {
@@ -274,6 +286,41 @@ describe("çalma listeleri", () => {
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(4));
     fireEvent.doubleClick(screen.getAllByRole("row")[3]!);
     expect(onPlay).toHaveBeenCalledWith(["a.flac", "b.flac", "a.flac"], "a.flac", undefined, 2);
+  });
+
+  it("× ile üstteki satır çıkınca seçim aynı şarkıda kalır", async () => {
+    backend.lists = [{ id: 1, name: "L", paths: ["a.flac", "b.flac", "c.flac"] }];
+    const tracks = [song("a.flac", "Ay"), song("b.flac", "Bulut"), song("c.flac", "Ceylan")];
+    render(
+      <PlaylistPage
+        playlist={row(backend.lists[0]!)}
+        tracks={tracks}
+        byPath={new Map(tracks.map((t) => [t.path, t]))}
+        coverIndex={albumCoverIndex(tracks)}
+        coverRevision={0}
+        refreshKey="k"
+        currentPath={null}
+        playing={false}
+        camelot={false}
+        onBack={vi.fn()}
+        onPlay={vi.fn()}
+        onRename={vi.fn(async () => true)}
+        onDelete={vi.fn()}
+        onChooseCover={vi.fn()}
+        onClearCover={vi.fn()}
+        onChanged={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(4));
+    fireEvent.click(screen.getByText("Ceylan"));
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Listeden çıkar: Ay" })),
+    );
+    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(3));
+    const selected = screen
+      .getAllByRole("row")
+      .find((r) => r.getAttribute("aria-selected") === "true");
+    expect(selected).toHaveTextContent("Ceylan");
   });
 
   it("liste sayfası: ad değişir, silme onay ister", async () => {

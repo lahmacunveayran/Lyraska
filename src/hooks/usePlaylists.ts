@@ -63,6 +63,8 @@ export function usePlaylists(refreshKey: unknown): PlaylistsApi {
     async <T>(action: () => Promise<T>, failed: T): Promise<T> => {
       try {
         const result = await action();
+        // Değişiklikten önce başlamış liste sorgusu eski sonucu getirmesin.
+        seq.current++;
         setError(null);
         return result;
       } catch (e) {
@@ -93,7 +95,9 @@ export function usePlaylists(refreshKey: unknown): PlaylistsApi {
   );
   const remove = useCallback((id: number) => change(() => deletePlaylist(id), undefined), [change]);
   const add = useCallback(
-    (id: number, paths: string[]) => change(() => addToPlaylist(id, paths), 0),
+    // Çekirdek listenin yeni toplamını döndürür; burada eklenen sayı gerekir.
+    (id: number, paths: string[]) =>
+      change(() => addToPlaylist(id, paths).then(() => paths.length), 0),
     [change],
   );
   const chooseCover = useCallback(
