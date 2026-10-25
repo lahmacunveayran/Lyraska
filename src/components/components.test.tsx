@@ -2485,6 +2485,24 @@ describe("sahneler", () => {
     expect(screen.getByRole("button", { name: /Galeri/ })).not.toHaveClass("is-on");
   });
 
+  it("Kendi resmin: başlık etiketi olmayan şarkıda dosya adı yazar (Lyraska değil)", async () => {
+    backend.desktop = true;
+    window.localStorage.setItem("lyraska.scene", "photo");
+    backend.status = {
+      ...playing,
+      track: { ...track, title: null, artist: null, fileName: "Kaybolan Yıllar (Canlı)" },
+    };
+    render(<App />);
+    // Durum bir komutla gelir (çal/duraklat).
+    await act(async () => fireEvent.keyDown(window, { code: "Space", key: " " }));
+    const title = await waitFor(() => {
+      const el = document.querySelector(".photo-scene__title");
+      expect(el?.textContent).toMatch(/KAYBOLAN YILLAR/);
+      return el;
+    });
+    expect(title?.textContent).not.toMatch(/LYRASKA/);
+  });
+
   it("galeri listesi açılınca seçili sahneye odaklanır; seçimden sonra odak düğmeye döner", async () => {
     window.localStorage.setItem("lyraska.scene", "fireflies");
     render(<App />);
