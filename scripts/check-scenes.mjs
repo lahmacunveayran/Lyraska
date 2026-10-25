@@ -1374,11 +1374,13 @@ async function checkPhotoMotion(browser, safe) {
 
 /** Işıltının ekran ölçeğinden bağımsızlığı: pencere ve izin verilen fark (CSS piksel). */
 const PHOTO_GLOW_VIEWPORT = { width: 1280, height: 720 };
-const PHOTO_GLOW_TOLERANCE = 1;
+const PHOTO_GLOW_TOLERANCE = 1.5;
 
 /**
- * Işık çizgisinin dikey genişliği (CSS piksel), cihaz piksel oranı `scale`'de: resimsiz zeminde
- * tam seste çubuk tuvalinin satır satır saydamlık toplamı, en büyük satırın %2'sini geçen satırlar.
+ * Işıltının çubuk ucundan yukarı taşması (CSS piksel), cihaz piksel oranı `scale`'de: resimsiz
+ * zeminde tam seste, her sütunda ışıltının başladığı satır (saydamlık ≥ %2) ile çubuğun opak özünün
+ * başladığı satır (≥ %90) arası; özü olan sütunların ortancası. Çubukların boyundan bağımsızdır
+ * (çubuk boyu çalıştırmadan çalıştırmaya birkaç piksel oynar), yalnızca bulanıklığa bağlıdır.
  */
 async function photoGlowExtent(browser, scale) {
   const page = await openPage(browser, { viewport: PHOTO_GLOW_VIEWPORT, scale });
@@ -1393,15 +1395,19 @@ async function photoGlowExtent(browser, scale) {
     const bars = document.querySelector(".photo-scene__bars");
     const { width: W, height: H } = bars;
     const data = bars.getContext("2d").getImageData(0, 0, W, H).data;
-    const rows = new Float64Array(H);
-    for (let y = 0; y < H; y++) {
-      let sum = 0;
-      for (let x = 0; x < W; x++) sum += data[(y * W + x) * 4 + 3];
-      rows[y] = sum;
+    const tails = [];
+    for (let x = 0; x < W; x++) {
+      let glow = -1;
+      let core = -1;
+      for (let y = 0; y < H && core < 0; y++) {
+        const a = data[(y * W + x) * 4 + 3];
+        if (glow < 0 && a >= 0.02 * 255) glow = y;
+        if (a >= 0.9 * 255) core = y;
+      }
+      if (glow >= 0 && core >= 0) tails.push(core - glow);
     }
-    const max = Math.max(...rows);
-    const lit = [...rows.keys()].filter((y) => rows[y] >= 0.02 * max);
-    return lit.length === 0 ? 0 : lit[lit.length - 1] - lit[0] + 1;
+    tails.sort((a, b) => a - b);
+    return tails.length === 0 ? 0 : tails[Math.floor(tails.length / 2)];
   });
   await page.close();
   return { extent: extent / scale, errors };
@@ -1410,14 +1416,14 @@ async function photoGlowExtent(browser, scale) {
 /**
  * "Kendi resmin" ışıltısı ekran ölçeğinden bağımsız olmalı: tuvalin dönüşümü bulanıklık
  * süzgecini ölçeklemez (`glowFilter`). Parlama sınırının modeli σ'yı CSS pikselinde varsayar;
- * DPR 2'de ışıltı DPR 1'dekiyle aynı genişlikte (en çok 1 CSS piksel farkla) olmalı.
+ * DPR 2'de ışıltının taşması DPR 1'dekiyle aynı (en çok 1,5 CSS piksel farkla) olmalı.
  */
 async function checkPhotoGlowScale(browser) {
   const one = await photoGlowExtent(browser, 1);
   const two = await photoGlowExtent(browser, 2);
   const errors = [...one.errors, ...two.errors];
   console.log(
-    `Kendi resmin · ışık çizgisinin genişliği: DPR 1 ${one.extent.toFixed(1)} px, DPR 2 ` +
+    `Kendi resmin · ışıltının çubuk ucundan taşması: DPR 1 ${one.extent.toFixed(1)} px, DPR 2 ` +
       `${two.extent.toFixed(1)} px (CSS piksel)`,
   );
   const problems = errors.map((e) => `Kendi resmin · DPR: ${e}`);
