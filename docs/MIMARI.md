@@ -389,8 +389,9 @@ MilkDropScene ─ loadPreset(json, harmanlama) ─▶ Butterchurn (eel-wasm: EEL
   açar, sayfada dizgi değerlendirmesinin engellendiğini ve Butterchurn'ün yine çizdiğini denetler; CSP'den
   `'wasm-unsafe-eval'` çıkarılınca görsel açılmaz (elle denendi).
 - **Görünmeyen tuval**: Butterchurn kendi OffscreenCanvas'ına (DOM'da değil) çizer; her karede bir 2D tuvale kopyalama
-  özelliği kapatılır (`outputGl = null`). Görünen tuvale yalnızca parlaklık freni çizer; fren kurulamazsa sahne
-  yerine açıklama görünür.
+  özelliği kapatılır (`outputGl = null`). Görünen tuvale yalnızca parlaklık freni çizer (varsayılan modda kareyi olduğu gibi geçirir).
+  Fren kurulamazsa varsayılan modda Butterchurn ayrı bir 2D tuvale frensiz çizer; güvenli modda sahne yerine
+  açıklama görünür.
 - **Ne zaman değişir** (`lib/milkdrop.ts`, saf ve test edilir): Görsel Yönetmen'in notunda yeni bölüm başlayınca ya
   da drop açılınca; iki kendiliğinden geçiş arası en az 15 sn (çalarken; bu süre dolmadan gelen bölüm başı
   ertelenir, süre dolunca ilk ölçü başında geçilir), bölüm çok uzunsa 90 sn sonra ilk ölçü başında; analiz yoksa

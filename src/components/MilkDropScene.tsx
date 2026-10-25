@@ -493,6 +493,8 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
         className="milkdrop-scene__raw"
         hidden={failure !== null || !unguarded || safe}
         aria-hidden={!unguarded || safe}
+        role="img"
+        aria-label={name ? `MilkDrop görseli: ${name}` : "MilkDrop görseli"}
       />
       {failure && (
         <div className="milkdrop-scene__message" role="status">
