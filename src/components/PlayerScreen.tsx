@@ -334,7 +334,8 @@ export function PlayerScreen() {
           looks={scenePresets.looks}
           milkdrop={milkdrop}
           background={background}
-          songTitle={status.track?.title ?? null}
+          // Başlık etiketi yoksa (ör. yt-dlp'nin .webm'leri) dosya adı: "Lyraska" yazmasın.
+          songTitle={status.track ? (status.track.title ?? status.track.fileName) : null}
           songArtist={status.track?.artist ?? null}
           title={
             status.track

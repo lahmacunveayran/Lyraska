@@ -142,6 +142,8 @@ const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama", image
       case "song_cover_get": return null;
       // Çalma listeleri: denetimde liste yok (kütüphane panelindeki "Listeye ekle" menüsü boş).
       case "playlists_list": return [];
+      // Dosya seçme penceresi: açıldığı kaydedilir (kullanıcı vazgeçmiş gibi boş döner).
+      case "plugin:dialog|open": window.__dialogOpened = true; return null;
       // Ham dalga biçimi (karışım, sol, sağ; 128 = sessizlik): 441 Hz sinüs, LEVEL verilirse o genlikte.
       case "visual_waveform": {
         const bytes = new Uint8Array(3 * 1024);
@@ -1435,6 +1437,40 @@ async function photoGlowExtent(browser, scale) {
  * süzgecini ölçeklemez (`glowFilter`). Parlama sınırının modeli σ'yı CSS pikselinde varsayar;
  * DPR 2'de ışıltının taşması DPR 1'dekiyle aynı (en çok 1,5 CSS piksel farkla) olmalı.
  */
+/**
+ * Resim seçilmemişken sahnenin ortasındaki "Resim seç…" düğmesi gerçekten tıklanabilmeli: tam
+ * ekran çubuk tuvali (ya da başka bir katman) üstünü örtüp tıklamayı yutmamalı. Gerçek fareyle
+ * tıklanır (Playwright önce düğmenin o noktada en üstte olduğunu denetler); dosya penceresi açılmalı.
+ */
+async function checkPhotoChooseButton(browser) {
+  const label = "Kendi resmin · Resim seç… düğmesi";
+  const page = await openPage(browser);
+  const problems = [];
+  page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
+  await page.addInitScript(initScript("photo", {}));
+  await startPlaying(page, 1500);
+  // Kütüphane boşken çekmece açık başlar: kullanıcı gibi kapatılır (sahne görünür).
+  if (await page.locator("#drawer.is-open").count()) {
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.querySelector("#drawer.is-open"));
+  }
+  try {
+    await page.getByRole("button", { name: "Resim seç…" }).click({ timeout: 5000 });
+    await page.waitForFunction(() => window.__dialogOpened === true, null, { timeout: 5000 });
+    console.log(`${label}: tıklanınca dosya seçme penceresi açılıyor`);
+  } catch (e) {
+    problems.push(
+      `${label}: tıklanamıyor ya da pencere açılmıyor (${String(e)
+        .split("\n")
+        .filter((l, i) => i === 0 || l.includes("intercepts"))
+        .slice(0, 2)
+        .join(" · ")})`,
+    );
+  }
+  await page.close();
+  return problems;
+}
+
 async function checkPhotoGlowScale(browser) {
   const one = await photoGlowExtent(browser, 1);
   const two = await photoGlowExtent(browser, 2);
@@ -1533,6 +1569,7 @@ try {
         problems = problems.concat(await checkPhotoMotion(browser, safe));
       }
       problems = problems.concat(await checkPhotoGlowScale(browser));
+      problems = problems.concat(await checkPhotoChooseButton(browser));
     }
     const bright = brightestThemes(2);
     for (const scene of ALL_SCENES.filter(selected)) {

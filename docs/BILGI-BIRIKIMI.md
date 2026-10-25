@@ -71,6 +71,10 @@ kısaltılır.
   düşürdü). Satır içindeki açılır menü `createPortal` ile `body`'ye konur. Önizleme betiği `check-scenes.mjs`'in sahte
   çekirdeğini örnek alır: bilinmeyen komuta `null` yerine durum nesnesi döner, yoksa arayüz çöker.
 
+- **Tam ekran katman tıklamayı yutar:** "Kendi resmin"in çubuk tuvali "Resim seç…" düğmesini örttü; Testing Library'nin
+  `fireEvent.click`'i bunu göremez (sahibi programda fark etti). Sahnelerin tam ekran tuvallerine
+  `pointer-events: none`; düğmeli her sahne katmanı `check:scenes`'te gerçek fareyle tıklanır (Playwright önce
+  düğmenin en üstte olduğunu denetler).
 - **Güvenli modun koruması yapının içinde olmalı:** kendi sahnelerimizde parlaklık tek çarpandan gelir (`sceneLevel`;
   güvenli modda hız sınırlı); güvenilmeyen içerik (MilkDrop) güvenli modda parlaklık freninden geçer (`flashGuard.ts`, kanıtı
   `flashGuardMath.ts`). Her yeni sahne gerçek tarayıcıda ölçülür (`check:scenes`): durağan iki görüntü yetmez,
