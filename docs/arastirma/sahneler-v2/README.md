@@ -49,15 +49,15 @@ sayım, drop anı, sessizlik boşluğu, ton değişimi, şarkı sözünün her k
 
 `src/lib/shaderSources.ts` (10 galeri sahnesi), `shaderRenderer.ts` ve `director/mod.rs` okunarak:
 
-| # | Gözlem | Koddaki kanıt | Sonuç |
-|---|--------|---------------|-------|
-| 1 | **Hepsi "kartpostal".** Ay ve deniz, kum tepesi, orman kıyısı, yağmurlu cam. Hepsi sabit kamerayla bakılan durgun bir manzara. | `sea`: `moon` sabit koordinatta; `dunes`: `moon = vec2(-0.45, 0.3)` | Ekran koruyucu hissi verir, gösteri hissi vermez. Müzik değişse de kompozisyon hiç değişmez. |
-| 2 | **Müzik biçimi "birkaç yüzde" değiştiriyor.** | Dosya başı kuralı: "Enerjiler biçimi en fazla birkaç yüzde değiştirir". Örnek: `swell = 0.6 + 0.4*uEnergy.x`, `r * (1.0 + 0.04*uEnergy.x)` (tünelde bas yalnızca %4 etki ediyor) | Sesi kapatınca fark edilmiyor. Bu kural güvenlik için konmuştu; o sınır artık varsayılan modda yok. |
-| 3 | **10 sahnenin 7'si aynı malzemeden yapılmış:** değer gürültüsü (fbm, bulutumsu rastgele desen). | `fbm`, `fbm3`, `noise` hemen hepsinde var | Bulutsu, galaksi, tünel ve kaleydoskop aynı "bulanık leke" dokusunu taşıyor. Göz bir kez görünce gerisini tanıyor. |
-| 4 | **İki renk.** Her sahne yalnızca `uLow` ve `uHigh` arasında karışım yapıyor, palet de bölüm temasından geliyor. | `mix(uLow, uHigh, …)` her yerde | Ton (Camelot) kullanılmıyor. Işık ile gölge arasında sıcaklık farkı yok. |
-| 5 | **Işık yok, yalnızca renk var.** Tek geçiş, HDR yok, bloom yok. Sonuç `clamp(col, 0, 1)` ile kesiliyor. Değerler çoğunlukla 0,05–0,35 aralığında. | `MAIN`: `outColor = vec4(clamp(col,0,1),1)` | Hiçbir şey "yanmıyor". Göz parlaklığı karşıtlıktan ve haleden algılar (bkz. 2.4). Burada ikisi de yok. |
-| 6 | **Olay yok.** Drop yalnızca yakınlaştırmayı ±%30 değiştiriyor (`uTension`, `uBloom`). Vuruş nabzı (`pulse`) gölgelendiriciye hiç gitmiyor. Ölçü başı yalnızca iki sahnede ince bir dalga (`uRipple`). | `UNIFORMS` listesinde `pulse`, `beatPhase`, `section` yok | Lyraska'nın en büyük kozu, yani şarkıyı önceden bilmek, ekranda görünmüyor. |
-| 7 | **Kamera, derinlik ve kurgu yok.** 3B nesne, parçacık ya da kesme yok. Bölüm değişince sahne aynı kalıyor. | Bütün sahneler `scene(uv, p)` biçiminde 2B | 4 dakikalık şarkıda 4 dakika aynı görüntü. |
+| #   | Gözlem                                                                                                                                                                                                | Koddaki kanıt                                                                                                                                                                    | Sonuç                                                                                                              |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 1   | **Hepsi "kartpostal".** Ay ve deniz, kum tepesi, orman kıyısı, yağmurlu cam. Hepsi sabit kamerayla bakılan durgun bir manzara.                                                                        | `sea`: `moon` sabit koordinatta; `dunes`: `moon = vec2(-0.45, 0.3)`                                                                                                              | Ekran koruyucu hissi verir, gösteri hissi vermez. Müzik değişse de kompozisyon hiç değişmez.                       |
+| 2   | **Müzik biçimi "birkaç yüzde" değiştiriyor.**                                                                                                                                                         | Dosya başı kuralı: "Enerjiler biçimi en fazla birkaç yüzde değiştirir". Örnek: `swell = 0.6 + 0.4*uEnergy.x`, `r * (1.0 + 0.04*uEnergy.x)` (tünelde bas yalnızca %4 etki ediyor) | Sesi kapatınca fark edilmiyor. Bu kural güvenlik için konmuştu; o sınır artık varsayılan modda yok.                |
+| 3   | **10 sahnenin 7'si aynı malzemeden yapılmış:** değer gürültüsü (fbm, bulutumsu rastgele desen).                                                                                                       | `fbm`, `fbm3`, `noise` hemen hepsinde var                                                                                                                                        | Bulutsu, galaksi, tünel ve kaleydoskop aynı "bulanık leke" dokusunu taşıyor. Göz bir kez görünce gerisini tanıyor. |
+| 4   | **İki renk.** Her sahne yalnızca `uLow` ve `uHigh` arasında karışım yapıyor, palet de bölüm temasından geliyor.                                                                                       | `mix(uLow, uHigh, …)` her yerde                                                                                                                                                  | Ton (Camelot) kullanılmıyor. Işık ile gölge arasında sıcaklık farkı yok.                                           |
+| 5   | **Işık yok, yalnızca renk var.** Tek geçiş, HDR yok, bloom yok. Sonuç `clamp(col, 0, 1)` ile kesiliyor. Değerler çoğunlukla 0,05–0,35 aralığında.                                                     | `MAIN`: `outColor = vec4(clamp(col,0,1),1)`                                                                                                                                      | Hiçbir şey "yanmıyor". Göz parlaklığı karşıtlıktan ve haleden algılar (bkz. 2.4). Burada ikisi de yok.             |
+| 6   | **Olay yok.** Drop yalnızca yakınlaştırmayı ±%30 değiştiriyor (`uTension`, `uBloom`). Vuruş nabzı (`pulse`) gölgelendiriciye hiç gitmiyor. Ölçü başı yalnızca iki sahnede ince bir dalga (`uRipple`). | `UNIFORMS` listesinde `pulse`, `beatPhase`, `section` yok                                                                                                                        | Lyraska'nın en büyük kozu, yani şarkıyı önceden bilmek, ekranda görünmüyor.                                        |
+| 7   | **Kamera, derinlik ve kurgu yok.** 3B nesne, parçacık ya da kesme yok. Bölüm değişince sahne aynı kalıyor.                                                                                            | Bütün sahneler `scene(uv, p)` biçiminde 2B                                                                                                                                       | 4 dakikalık şarkıda 4 dakika aynı görüntü.                                                                         |
 
 **Özet:** Sorun ince ayar değil, mimari. Sahneler "müziğe hafifçe tepki veren duvar kâğıdı" olarak tasarlanmış.
 Yeni sahneler **"şarkıyı ezbere bilen bir ışık ve kamera ekibinin canlı şovu"** olarak tasarlanmalı.
@@ -197,16 +197,16 @@ akışı var, parlaklık sıçraması yok.
 Kare süresi 16,6 ms. Arayüzün cam katmanları (bulanık arka plan) ve WebView2'nin kendi birleştirmesi için pay
 bırakarak **GPU hedefi ≤ 11 ms**.
 
-| Geçiş | Çözünürlük | Ara görüntü biçimi | Bütçe (Iris Xe, tahmin) | Hangi sahnelerde |
-|---|---|---|---|---|
-| 0. Simülasyon (parçacık / sıvı / ebru / kum) | 256²–1024² ya da 64k–256k parçacık | RGBA16F ping-pong, transform feedback tamponu | 0–2,0 ms | Ebru, Kum, Monolit, Işık Ustası (duman) |
-| 1. Sahne | Dinamik %50–100 (ışın yürütmede %50 sabit) | RGBA16F (destek varsa R11G11B10F: yarı bant genişliği) + derinlik | 3–6 ms | hepsi |
-| 2. Geri besleme / iz | yarım | RGBA16F ×2 | 0,3–0,6 ms | Işık Ustası (lazer izi), Sinyal, Olay Ufku |
-| 3. Hacimli ışık (ışın huzmeleri) | çeyrek | RGBA16F | 0,5–1,0 ms | Monolit, Vitray, Usturlap, Işık Ustası |
-| 4. Bloom (mip zinciri, 5–6 seviye) | yarımdan başlayarak | RGBA16F | 0,8–1,5 ms | hepsi |
-| 5. Lens: kenarda renk sapması, yatay "anamorfik" çizgi, hayalet parlama | tam / bloom mip'lerinden | — | 0,2–0,4 ms | seçmeli |
-| 6. Birleştirme: pozlama, ton eşleme (AgX benzeri), Oklab renk derecelendirme, vinyet, strob, mavi gürültü titretme + gren, keskinleştirerek büyütme | tam | ekran | 0,6–1,0 ms | hepsi |
-| **Toplam** | | | **~6–11 ms** | |
+| Geçiş                                                                                                                                               | Çözünürlük                                 | Ara görüntü biçimi                                                | Bütçe (Iris Xe, tahmin) | Hangi sahnelerde                           |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------- | ----------------------- | ------------------------------------------ |
+| 0. Simülasyon (parçacık / sıvı / ebru / kum)                                                                                                        | 256²–1024² ya da 64k–256k parçacık         | RGBA16F ping-pong, transform feedback tamponu                     | 0–2,0 ms                | Ebru, Kum, Monolit, Işık Ustası (duman)    |
+| 1. Sahne                                                                                                                                            | Dinamik %50–100 (ışın yürütmede %50 sabit) | RGBA16F (destek varsa R11G11B10F: yarı bant genişliği) + derinlik | 3–6 ms                  | hepsi                                      |
+| 2. Geri besleme / iz                                                                                                                                | yarım                                      | RGBA16F ×2                                                        | 0,3–0,6 ms              | Işık Ustası (lazer izi), Sinyal, Olay Ufku |
+| 3. Hacimli ışık (ışın huzmeleri)                                                                                                                    | çeyrek                                     | RGBA16F                                                           | 0,5–1,0 ms              | Monolit, Vitray, Usturlap, Işık Ustası     |
+| 4. Bloom (mip zinciri, 5–6 seviye)                                                                                                                  | yarımdan başlayarak                        | RGBA16F                                                           | 0,8–1,5 ms              | hepsi                                      |
+| 5. Lens: kenarda renk sapması, yatay "anamorfik" çizgi, hayalet parlama                                                                             | tam / bloom mip'lerinden                   | —                                                                 | 0,2–0,4 ms              | seçmeli                                    |
+| 6. Birleştirme: pozlama, ton eşleme (AgX benzeri), Oklab renk derecelendirme, vinyet, strob, mavi gürültü titretme + gren, keskinleştirerek büyütme | tam                                        | ekran                                                             | 0,6–1,0 ms              | hepsi                                      |
+| **Toplam**                                                                                                                                          |                                            |                                                                   | **~6–11 ms**            |                                            |
 
 Notlar:
 
@@ -230,13 +230,13 @@ Notlar:
 
 ### 3.3 Kalite katmanları ve zayıf GPU yedeği
 
-| Katman | Ne zaman | Sahne çözünürlüğü | Parçacık | Işın yürütme adımı | Bloom seviyesi | Hacimli ışık |
-|---|---|---|---|---|---|---|
-| **Ultra** | ayrık kart | %100 | 256k | 96 | 6 | yarım çöz., 64 örnek |
-| **Yüksek** (hedef: Iris Xe) | varsayılan | %75 (dinamik 60–100) | 128k | 64 | 6 | çeyrek, 48 |
-| **Orta** | eski Intel UHD 620 sınıfı | %60 | 64k | 40 | 5 | çeyrek, 32 |
-| **Düşük** | çok zayıf / pil | %50 | 32k | 24 | 4 | kapalı (sahte ışın dokusu) |
-| **Yazılımsal** (SwiftShader/WARP, `data-gpu-caveat`) | ekran kartı yok | %35 | 8k | 16 | 3 | kapalı. Ağır sahneler yerine "Sinyal" önerilir |
+| Katman                                               | Ne zaman                  | Sahne çözünürlüğü    | Parçacık | Işın yürütme adımı | Bloom seviyesi | Hacimli ışık                                   |
+| ---------------------------------------------------- | ------------------------- | -------------------- | -------- | ------------------ | -------------- | ---------------------------------------------- |
+| **Ultra**                                            | ayrık kart                | %100                 | 256k     | 96                 | 6              | yarım çöz., 64 örnek                           |
+| **Yüksek** (hedef: Iris Xe)                          | varsayılan                | %75 (dinamik 60–100) | 128k     | 64                 | 6              | çeyrek, 48                                     |
+| **Orta**                                             | eski Intel UHD 620 sınıfı | %60                  | 64k      | 40                 | 5              | çeyrek, 32                                     |
+| **Düşük**                                            | çok zayıf / pil           | %50                  | 32k      | 24                 | 4              | kapalı (sahte ışın dokusu)                     |
+| **Yazılımsal** (SwiftShader/WARP, `data-gpu-caveat`) | ekran kartı yok           | %35                  | 8k       | 16                 | 3              | kapalı. Ağır sahneler yerine "Sinyal" önerilir |
 
 - **Otomatik seçim:** İlk açılışta 2 saniyelik ısınma ölçümü yapılır (görünmeyen tuvalde Işık Ustası'nın bir
   karesi). Sonuç ekran kartı adıyla birlikte tarayıcı deposunda saklanır. Kullanıcı Ayarlar'dan değiştirebilir.
@@ -256,18 +256,18 @@ ileriye bakış** eklenir.
 
 **a) Olaylar (şarkı açılınca bir kez hesaplanır, saf TS fonksiyonu, birim testli):**
 
-| Olay | Kaynak | Ne işe yarar |
-|---|---|---|
-| `SectionStart{label, repeat, energy, isFinalChorus}` | `SongMap.sections` (aynı etiket = aynı bölüm türü; `repeat` = kaçıncı tekrar) | kamera "çekimi" değişimi; tekrar eden nakaratta varyasyon; son nakarat en büyüğü |
-| `BuildStart{dropAt}`, `Countdown{barsLeft: 8…1}`, `FinalBeats{beatsLeft: 4…1}` | güvenilir droplar + ölçü başları | görünür geri sayım |
-| `Gap{start, end}` | dropun hemen öncesinde enerjinin düştüğü 0,2–2 sn (YENİ: 10 Hz özet spektrumdan) | varsayılan modda karartma, güvenli modda yavaş kısma |
-| `Drop{confidence, index}` | `drops` + `dropConfidence` | patlama. Güven düşükse daha küçük bir "vurgu" |
-| `Release`, `Breakdown`, `Outro` | drop sonrası, enerjisi düşen bölüm, son bölüm | sakinleşme, kamera geri çekilir; final çekimi |
-| `KeyChange{from, to}` | `KeyMap.sections` | paletin Camelot çarkında kayması |
-| `Phrase{bars: 4/8/16}` | ölçü başları | büyük döngüler (ışık "sahnesi" değişimi) |
-| `GroupHead{index, length}` | `SongMap.grouping` (ör. 9/8 = 2+2+2+3) | aksak ölçünün grup başları; uzun grup ayrı vurgu |
-| `Word{text, start, end, lineStart}` | `Lyrics.lines[].words` (kelime zamanları; tahminiyse `estimated`) | sözlerin sahnenin içinde ışık olarak belirmesi |
-| `BassHit{strength}` | YENİ: bas tepeleri / başlangıç gücü özetinden | kick (bas davul) darbesi; vuruştan bağımsız bas olayları |
+| Olay                                                                           | Kaynak                                                                           | Ne işe yarar                                                                     |
+| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `SectionStart{label, repeat, energy, isFinalChorus}`                           | `SongMap.sections` (aynı etiket = aynı bölüm türü; `repeat` = kaçıncı tekrar)    | kamera "çekimi" değişimi; tekrar eden nakaratta varyasyon; son nakarat en büyüğü |
+| `BuildStart{dropAt}`, `Countdown{barsLeft: 8…1}`, `FinalBeats{beatsLeft: 4…1}` | güvenilir droplar + ölçü başları                                                 | görünür geri sayım                                                               |
+| `Gap{start, end}`                                                              | dropun hemen öncesinde enerjinin düştüğü 0,2–2 sn (YENİ: 10 Hz özet spektrumdan) | varsayılan modda karartma, güvenli modda yavaş kısma                             |
+| `Drop{confidence, index}`                                                      | `drops` + `dropConfidence`                                                       | patlama. Güven düşükse daha küçük bir "vurgu"                                    |
+| `Release`, `Breakdown`, `Outro`                                                | drop sonrası, enerjisi düşen bölüm, son bölüm                                    | sakinleşme, kamera geri çekilir; final çekimi                                    |
+| `KeyChange{from, to}`                                                          | `KeyMap.sections`                                                                | paletin Camelot çarkında kayması                                                 |
+| `Phrase{bars: 4/8/16}`                                                         | ölçü başları                                                                     | büyük döngüler (ışık "sahnesi" değişimi)                                         |
+| `GroupHead{index, length}`                                                     | `SongMap.grouping` (ör. 9/8 = 2+2+2+3)                                           | aksak ölçünün grup başları; uzun grup ayrı vurgu                                 |
+| `Word{text, start, end, lineStart}`                                            | `Lyrics.lines[].words` (kelime zamanları; tahminiyse `estimated`)                | sözlerin sahnenin içinde ışık olarak belirmesi                                   |
+| `BassHit{strength}`                                                            | YENİ: bas tepeleri / başlangıç gücü özetinden                                    | kick (bas davul) darbesi; vuruştan bağımsız bas olayları                         |
 
 **b) Kanallar (demoscene'deki GNU Rocket mantığı):** Her sahne adlandırılmış sayı kanalları bildirir
 (`cameraDolly`, `exposure`, `beamCount`, `strobeRate`, `fogDensity`, `paletteHue`…). Kurgu defteri olayları
@@ -306,14 +306,14 @@ bir gerçek değil (önceki araştırmada da belirtildi).
 
 Her sahne **tek** koreografi yazar. Güvenli modda motor onu bir **güvenli yorumlayıcıdan** geçirir:
 
-| Varsayılan mod | Güvenli mod karşılığı |
-|---|---|
-| Strob (saniyede 4–16 çakma) | Saniyede ≤ 1 yavaş "nefes" ya da hiç. Vurgu yerine hareket (kamera itişi, parçacık doğumu) |
-| Tam ekran beyaz patlama | 1–2 sn'lik yumuşak pozlama artışı, tavanlı. Patlama **mekânsal** anlatılır (parçalar dışarı saçılır, kamera geri açılır) |
-| Kesme (anında çekim değişimi) | Ortalama parlaklık yakınsa kesme serbest; değilse ≥ 0,6 sn çapraz geçiş |
-| Karartma (`Gap`) | 1 sn'de yarıya kısma |
-| Hızlı lazer süpürmesi | Yavaş süpürme. Yüksek karşıtlıklı ince ve yinelenen desenler (şerit, ızgara) geniş alanda akmaz |
-| Pulse (her vuruş) | Yönetmenin güvenli nabzı (≤ 1/sn, zaten var) |
+| Varsayılan mod                | Güvenli mod karşılığı                                                                                                    |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Strob (saniyede 4–16 çakma)   | Saniyede ≤ 1 yavaş "nefes" ya da hiç. Vurgu yerine hareket (kamera itişi, parçacık doğumu)                               |
+| Tam ekran beyaz patlama       | 1–2 sn'lik yumuşak pozlama artışı, tavanlı. Patlama **mekânsal** anlatılır (parçalar dışarı saçılır, kamera geri açılır) |
+| Kesme (anında çekim değişimi) | Ortalama parlaklık yakınsa kesme serbest; değilse ≥ 0,6 sn çapraz geçiş                                                  |
+| Karartma (`Gap`)              | 1 sn'de yarıya kısma                                                                                                     |
+| Hızlı lazer süpürmesi         | Yavaş süpürme. Yüksek karşıtlıklı ince ve yinelenen desenler (şerit, ızgara) geniş alanda akmaz                          |
+| Pulse (her vuruş)             | Yönetmenin güvenli nabzı (≤ 1/sn, zaten var)                                                                             |
 
 **Sigorta:** Projede kanıtlı bir **parlaklık freni** zaten var (`flashGuard.ts`, kanıtı `flashGuardMath.ts`;
 MilkDrop için yazıldı). Bu fren hücre ortalaması ve ince desen dönüşünü saniyede ≤ 1 ile sınırlıyor. Öneri:
@@ -385,16 +385,16 @@ notada patlar. Gerçek bir festivalin en iyi anı, her şarkıda.
   - Sözler: lazer "yazı" modu. Nakaratın ilk sözcüğü lazerle havaya yazılır (kelime zamanında).
 - **Zaman çizelgesi:**
 
-| Bölüm | Görüntü |
-|---|---|
-| Giriş | Karanlık. 2 mavi ışın yavaşça tarar, pusta toz dönüyor. Kamera kalabalığın arkasından yavaşça ilerler. |
-| Kıta | Hareketli ışıklar vuruşa göre konum değiştirir, renk yumuşak. LED duvarda sakin gradyan. |
-| Yükseliş | Işınlar tepede tek noktaya toplanır. Her ölçü başında biri söner (8→1). LED duvarda sayı yok, büyüyen çizgi var. Kamera sahneye doğru dolly (kayarak yaklaşma). Strob hızı 1/4 → 1/8 → 1/16 hızlanır (Shepard rampası). |
-| Boşluk | Tam karartma (varsayılan mod). Yalnızca kalabalık silueti ve sönük bir kırmızı çıkış lambası. |
-| DROP 1 | 96 lazer "sıvı gökyüzü" levhası kalabalığın üstünde açılır, LED duvar beyaz, strob 1/16, kamera geriye açılır. 2 ölçü sonra desen yelpazeye döner. |
-| Breakdown | Tek sıcak spot ışığı sahnenin ortasında, pus yavaşça döner. Kamera tepeden vinç çekimi. Lazerler yavaş tünel. |
-| DROP 2 | Drop 1'in büyüğü: lazerler kalabalığın üstünde tünel olur, kamera tünelin içine girer. Konfeti parçacıkları ve renk sapması. |
-| Çıkış | Işıklar birer birer söner, son ışın yukarıyı gösterir ve kapanır. Kalabalık elleri iner. |
+| Bölüm     | Görüntü                                                                                                                                                                                                                 |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Giriş     | Karanlık. 2 mavi ışın yavaşça tarar, pusta toz dönüyor. Kamera kalabalığın arkasından yavaşça ilerler.                                                                                                                  |
+| Kıta      | Hareketli ışıklar vuruşa göre konum değiştirir, renk yumuşak. LED duvarda sakin gradyan.                                                                                                                                |
+| Yükseliş  | Işınlar tepede tek noktaya toplanır. Her ölçü başında biri söner (8→1). LED duvarda sayı yok, büyüyen çizgi var. Kamera sahneye doğru dolly (kayarak yaklaşma). Strob hızı 1/4 → 1/8 → 1/16 hızlanır (Shepard rampası). |
+| Boşluk    | Tam karartma (varsayılan mod). Yalnızca kalabalık silueti ve sönük bir kırmızı çıkış lambası.                                                                                                                           |
+| DROP 1    | 96 lazer "sıvı gökyüzü" levhası kalabalığın üstünde açılır, LED duvar beyaz, strob 1/16, kamera geriye açılır. 2 ölçü sonra desen yelpazeye döner.                                                                      |
+| Breakdown | Tek sıcak spot ışığı sahnenin ortasında, pus yavaşça döner. Kamera tepeden vinç çekimi. Lazerler yavaş tünel.                                                                                                           |
+| DROP 2    | Drop 1'in büyüğü: lazerler kalabalığın üstünde tünel olur, kamera tünelin içine girer. Konfeti parçacıkları ve renk sapması.                                                                                            |
+| Çıkış     | Işıklar birer birer söner, son ışın yukarıyı gösterir ve kapanır. Kalabalık elleri iner.                                                                                                                                |
 
 - **Sakin akustik şarkı:** "Küçük kulüp" çekimi. Tek sıcak spot, bir iki yumuşak ışın, pusta toz. Vuruşta değil
   ölçüde değişim. Strob yok. Kalabalık yerine boş sahnede bir mikrofon silueti.
@@ -449,16 +449,16 @@ Biten şarkının kendi manzarası.
     harf büyük. Söylenince tutuşup kıvılcıma dönüşür. Sözler varsa `LyricsOverlay` bu sahnede gizlenir.
 - **Zaman çizelgesi:**
 
-| Bölüm | Görüntü |
-|---|---|
-| Giriş | Kamera yüksekten iner, ufukta bütün şarkı sisli bir silüet olarak görünür, uzakta drop dağı parlar. |
-| Kıta | Alçak uçuş. Lambalar vuruşta yanar, sözler yolun üstünde. |
-| Yükseliş | Arazi tırmanır. Lambalar kırmızı ve sayıyor (8→1), kamera eğim alır, sis açılır, drop dağı ekranı doldurur. |
-| Boşluk | Zirvede bir an asılı kalma: kamera yavaşlar, ses kesilince görüntü donar gibi (varsayılan modda karartma). |
-| DROP 1 | Dalış. Geniş açı, hız çizgileri, strob, yanlardaki bas dağları bas vuruşlarıyla parlar. |
-| Breakdown | Kamera yükselir, kartal bakışı. Vadi sakin, sözler büyük ve yavaş. |
-| DROP 2 | Daha büyük dalış ve kanyonda alçak uçuş. Kanyon duvarları LED gibi spektrumla yanar. |
-| Çıkış | Kamera dikine yükselir. Biten şarkının bütün haritası alttan görünür (bölüm renkleri, drop zirveleri). Son kare: şarkının "kartpostalı". |
+| Bölüm     | Görüntü                                                                                                                                  |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Giriş     | Kamera yüksekten iner, ufukta bütün şarkı sisli bir silüet olarak görünür, uzakta drop dağı parlar.                                      |
+| Kıta      | Alçak uçuş. Lambalar vuruşta yanar, sözler yolun üstünde.                                                                                |
+| Yükseliş  | Arazi tırmanır. Lambalar kırmızı ve sayıyor (8→1), kamera eğim alır, sis açılır, drop dağı ekranı doldurur.                              |
+| Boşluk    | Zirvede bir an asılı kalma: kamera yavaşlar, ses kesilince görüntü donar gibi (varsayılan modda karartma).                               |
+| DROP 1    | Dalış. Geniş açı, hız çizgileri, strob, yanlardaki bas dağları bas vuruşlarıyla parlar.                                                  |
+| Breakdown | Kamera yükselir, kartal bakışı. Vadi sakin, sözler büyük ve yavaş.                                                                       |
+| DROP 2    | Daha büyük dalış ve kanyonda alçak uçuş. Kanyon duvarları LED gibi spektrumla yanar.                                                     |
+| Çıkış     | Kamera dikine yükselir. Biten şarkının bütün haritası alttan görünür (bölüm renkleri, drop zirveleri). Son kare: şarkının "kartpostalı". |
 
 - **Sakin akustik şarkı:** yumuşak, yuvarlak tepeler. Altın saat (gün batımı) paleti, nehirde bir kayık hızında
   yavaş seyir. Sözler ön planda (karaoke manzarası). Drop olmadığı için dağ yok, yol nazikçe kıvrılır.
@@ -512,16 +512,16 @@ kaldırılıyor ve desen kâğıtta kalıyor: **her şarkının kendi ebrusu**.
   - Sözler: kullanılmaz (sahne "sessiz sanat").
 - **Zaman çizelgesi:**
 
-| Bölüm | Görüntü |
-|---|---|
-| Giriş | Boş, ışıltılı su. Serpme ile zemin rengi atılır (ince damlacık yağmuru). |
-| Kıta | Vuruşta damlalar, battal zemin oluşur. |
-| Yükseliş | Merkezde iç içe halkalar hızlanır. Tarak kenarda belirir ve suya iner (geri sayım: her ölçüde bir diş daha suya değer, 8 diş). |
-| Boşluk | Su durur, son damla havada asılı (varsayılan modda ışık söner, yalnızca yansıma kalır). |
-| DROP 1 | Tarak 1 ölçüde geçer → gelgit deseni. Strob ile yansıma çakması, yüzeyde şok dalgası. |
-| Breakdown | Makro çekim. Biz bir lale motifi çizer (kurgu defterindeki önceden tanımlı yol). |
-| DROP 2 | Dik ikinci tarak → şal. Sonra spiral tarak ("bülbül yuvası" kıvrımı). |
-| Çıkış | Kâğıt iner, kalkar, desen kâğıtta. Son kare: ebru, kenarında şarkı adı küçük ve kurşun kalemle. |
+| Bölüm     | Görüntü                                                                                                                        |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Giriş     | Boş, ışıltılı su. Serpme ile zemin rengi atılır (ince damlacık yağmuru).                                                       |
+| Kıta      | Vuruşta damlalar, battal zemin oluşur.                                                                                         |
+| Yükseliş  | Merkezde iç içe halkalar hızlanır. Tarak kenarda belirir ve suya iner (geri sayım: her ölçüde bir diş daha suya değer, 8 diş). |
+| Boşluk    | Su durur, son damla havada asılı (varsayılan modda ışık söner, yalnızca yansıma kalır).                                        |
+| DROP 1    | Tarak 1 ölçüde geçer → gelgit deseni. Strob ile yansıma çakması, yüzeyde şok dalgası.                                          |
+| Breakdown | Makro çekim. Biz bir lale motifi çizer (kurgu defterindeki önceden tanımlı yol).                                               |
+| DROP 2    | Dik ikinci tarak → şal. Sonra spiral tarak ("bülbül yuvası" kıvrımı).                                                          |
+| Çıkış     | Kâğıt iner, kalkar, desen kâğıtta. Son kare: ebru, kenarında şarkı adı küçük ve kurşun kalemle.                                |
 
 - **Sakin akustik şarkı:** sahnenin en doğal hâli. Yavaş damlalar, çiçek motifleri (lale, karanfil), sıcak boya
   gamı. Tarak yok, yalnızca biz ile zarif çizgiler.
@@ -747,17 +747,17 @@ gösteren sahnelerde gizlenir.
 Ölçütler: **Vay** (ilk görüşte etki), **Koz** (şarkıyı önceden bilmeyi ne kadar görünür kılıyor),
 **Özgünlük**, **Güvenli** (sakin sürümün kolaylığı), **Ucuzluk** (GPU ve emek). Her biri 1–5.
 
-| Sıra | Sahne | Vay | Koz | Özgünlük | Güvenli | Ucuzluk | Toplam | Yorum |
-|---|---|---|---|---|---|---|---|---|
-| 1 | **Işık Ustası** | 5 | 5 | 3 | 3 | 3 | 19 | Varsayılan modun yeni özgürlüğünü (strob, lazer) en iyi kullanan sahne. Festivalin en iyi anı her şarkıda. |
-| 2 | **Zaman Vadisi** | 5 | 5 | 5 | 4 | 3 | 22 | Lyraska'dan başka kimsenin yapamayacağı sahne: geleceği gösteriyor. Sözler manzarada. Küçük bir Rust komutu gerektiriyor. |
-| 3 | **Ebru** | 4 | 4 | 5 | 5 | 4 | 22 | Kültürel, zarif, ucuz, doğası gereği güvenli. Kâğıda baskı finali çok güçlü. |
-| 4 | Kum Plakası | 4 | 4 | 4 | 4 | 3 | 19 | Fizik büyüsü ve strobla donma anı. Parçacık altyapısı gerektirir. |
-| 5 | Usturlap | 4 | 4 | 5 | 4 | 3 | 20 | Aksak ölçüyü en güzel gösteren sahne; ince işçilik ister. |
-| 6 | Monolit | 4 | 3 | 3 | 4 | 3 | 17 | Ölçek ve huşu, ama "film" çağrışımı. |
-| 7 | Vitray | 4 | 3 | 4 | 4 | 3 | 18 | Kapağı kişisel kılar. Parçalanma etkileyici. |
-| 8 | Sinyal | 3 | 5 | 2 | 3 | 5 | 18 | Zayıf GPU'nun kurtarıcısı; uygulaması hızlı. |
-| 9 | Olay Ufku | 4 | 3 | 2 | 4 | 2 | 15 | Pahalı ve uzay teması riski. |
+| Sıra | Sahne            | Vay | Koz | Özgünlük | Güvenli | Ucuzluk | Toplam | Yorum                                                                                                                     |
+| ---- | ---------------- | --- | --- | -------- | ------- | ------- | ------ | ------------------------------------------------------------------------------------------------------------------------- |
+| 1    | **Işık Ustası**  | 5   | 5   | 3        | 3       | 3       | 19     | Varsayılan modun yeni özgürlüğünü (strob, lazer) en iyi kullanan sahne. Festivalin en iyi anı her şarkıda.                |
+| 2    | **Zaman Vadisi** | 5   | 5   | 5        | 4       | 3       | 22     | Lyraska'dan başka kimsenin yapamayacağı sahne: geleceği gösteriyor. Sözler manzarada. Küçük bir Rust komutu gerektiriyor. |
+| 3    | **Ebru**         | 4   | 4   | 5        | 5       | 4       | 22     | Kültürel, zarif, ucuz, doğası gereği güvenli. Kâğıda baskı finali çok güçlü.                                              |
+| 4    | Kum Plakası      | 4   | 4   | 4        | 4       | 3       | 19     | Fizik büyüsü ve strobla donma anı. Parçacık altyapısı gerektirir.                                                         |
+| 5    | Usturlap         | 4   | 4   | 5        | 4       | 3       | 20     | Aksak ölçüyü en güzel gösteren sahne; ince işçilik ister.                                                                 |
+| 6    | Monolit          | 4   | 3   | 3        | 4       | 3       | 17     | Ölçek ve huşu, ama "film" çağrışımı.                                                                                      |
+| 7    | Vitray           | 4   | 3   | 4        | 4       | 3       | 18     | Kapağı kişisel kılar. Parçalanma etkileyici.                                                                              |
+| 8    | Sinyal           | 3   | 5   | 2        | 3       | 5       | 18     | Zayıf GPU'nun kurtarıcısı; uygulaması hızlı.                                                                              |
+| 9    | Olay Ufku        | 4   | 3   | 2        | 4       | 2       | 15     | Pahalı ve uzay teması riski.                                                                                              |
 
 Toplam puanda Zaman Vadisi ve Ebru önde. **Işık Ustası'nı yine de 1. sıraya koyuyorum**, çünkü proje
 sahibinin "oha" tepkisini en garantili verecek sahne bu ve motorun bütün parçalarını (hacimli ışık, strob
@@ -777,23 +777,23 @@ bölümünde. Beğenilen derinleştirilir.
 
 ### 5.3 Yapım sırası (küçük PR'lar)
 
-| # | PR | İçerik | Bağımlılık |
-|---|---|---|---|
-| E0 | Son işlem zincirini birleştir | `sahne-son-islem` dalının işi (bloom, ton eşleme, mavi gürültü, dinamik çözünürlük) | — |
-| E1 | Sahne v2 iskeleti | `SceneV2` arayüzü (kur, boyut, güncelle, çiz, bırak), derinlikli HDR ara görüntü, geçiş başına GPU zaman ölçümü, kalite katmanları ve ısınma ölçümü | E0 |
-| E2 | `song_timeline` komutu (Rust) | vuruşlar, 10 Hz özet spektrum, bas olayları; ts-rs tipi; `check:commands` | — (E1 ile paralel) |
-| E3 | Kurgu defteri (saf TS) | olaylar, geri sayım, boşluk tespiti, aksak gruplar, kelimeler, çekim tohumu; kapsamlı birim testleri (4/4, 9/8, dropsuz, sözsüz şarkılar) | E2 |
-| E4 | Kanallar ve güvenli yorumlayıcı | anahtar kareler, zarf, strob ve pozlama kanalı, güvenli mod dönüşümü, flashGuard sigortası; parlama testleri | E1, E3 |
-| E5 | Ortak modüller (1) | analitik ışın ve koni hacim fonksiyonları, hacimli ışık geçişi, geri besleme tamponu, Camelot → Oklab palet | E1 |
-| S1a | Işık Ustası v1 | pus, lazerler, hareketli ışıklar, kurgu bağlantısı, güvenli mod, `check:scenes` iki modda | E4, E5 |
-| E6 | Ortak modüller (2) | SDF yazı atlası ve "Sözün Işığı" modülü, örneklenmiş dörtgen çizici | E1 |
-| S2a | Zaman Vadisi v1 | arazi, lambalar, kemerler, kamera eğrisi | E3, E4, E6 |
-| E7 | Simülasyon altyapısı | ping-pong doku geçişleri, transform feedback parçacık modülü (ölçümlü) | E1 |
-| S3a | Ebru v1 | damla ve tarak dönüşümleri, yüzey ışığı, kâğıt finali | E4, E7 |
-| — | **Sahibine gösterim** | üç prototip yan yana, aynı şarkıda | |
-| S1b/S2b/S3b | v2'ler | LED duvar, kalabalık, sözler, ikinci tarak vb. (geri bildirime göre) | |
-| R1 | Eski sahneleri kaldır | VU, gece sürüşü, otoyol, spektrum, gece göğü, 10 galeri sahnesi + testleri, `check:scenes` listeleri, CLAUDE.md ağacı. **Yeni üç sahne birleşmeden kaldırılmaz**, program hiçbir an sahnesiz kalmaz | S1a–S3a |
-| S4… | Sinyal (hızlı, zayıf GPU için), Kum, Usturlap, Vitray, Monolit… | sıralamaya göre | |
+| #           | PR                                                              | İçerik                                                                                                                                                                                              | Bağımlılık         |
+| ----------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| E0          | Son işlem zincirini birleştir                                   | `sahne-son-islem` dalının işi (bloom, ton eşleme, mavi gürültü, dinamik çözünürlük)                                                                                                                 | —                  |
+| E1          | Sahne v2 iskeleti                                               | `SceneV2` arayüzü (kur, boyut, güncelle, çiz, bırak), derinlikli HDR ara görüntü, geçiş başına GPU zaman ölçümü, kalite katmanları ve ısınma ölçümü                                                 | E0                 |
+| E2          | `song_timeline` komutu (Rust)                                   | vuruşlar, 10 Hz özet spektrum, bas olayları; ts-rs tipi; `check:commands`                                                                                                                           | — (E1 ile paralel) |
+| E3          | Kurgu defteri (saf TS)                                          | olaylar, geri sayım, boşluk tespiti, aksak gruplar, kelimeler, çekim tohumu; kapsamlı birim testleri (4/4, 9/8, dropsuz, sözsüz şarkılar)                                                           | E2                 |
+| E4          | Kanallar ve güvenli yorumlayıcı                                 | anahtar kareler, zarf, strob ve pozlama kanalı, güvenli mod dönüşümü, flashGuard sigortası; parlama testleri                                                                                        | E1, E3             |
+| E5          | Ortak modüller (1)                                              | analitik ışın ve koni hacim fonksiyonları, hacimli ışık geçişi, geri besleme tamponu, Camelot → Oklab palet                                                                                         | E1                 |
+| S1a         | Işık Ustası v1                                                  | pus, lazerler, hareketli ışıklar, kurgu bağlantısı, güvenli mod, `check:scenes` iki modda                                                                                                           | E4, E5             |
+| E6          | Ortak modüller (2)                                              | SDF yazı atlası ve "Sözün Işığı" modülü, örneklenmiş dörtgen çizici                                                                                                                                 | E1                 |
+| S2a         | Zaman Vadisi v1                                                 | arazi, lambalar, kemerler, kamera eğrisi                                                                                                                                                            | E3, E4, E6         |
+| E7          | Simülasyon altyapısı                                            | ping-pong doku geçişleri, transform feedback parçacık modülü (ölçümlü)                                                                                                                              | E1                 |
+| S3a         | Ebru v1                                                         | damla ve tarak dönüşümleri, yüzey ışığı, kâğıt finali                                                                                                                                               | E4, E7             |
+| —           | **Sahibine gösterim**                                           | üç prototip yan yana, aynı şarkıda                                                                                                                                                                  |                    |
+| S1b/S2b/S3b | v2'ler                                                          | LED duvar, kalabalık, sözler, ikinci tarak vb. (geri bildirime göre)                                                                                                                                |                    |
+| R1          | Eski sahneleri kaldır                                           | VU, gece sürüşü, otoyol, spektrum, gece göğü, 10 galeri sahnesi + testleri, `check:scenes` listeleri, CLAUDE.md ağacı. **Yeni üç sahne birleşmeden kaldırılmaz**, program hiçbir an sahnesiz kalmaz | S1a–S3a            |
+| S4…         | Sinyal (hızlı, zayıf GPU için), Kum, Usturlap, Vitray, Monolit… | sıralamaya göre                                                                                                                                                                                     |                    |
 
 Her PR'da: önce testler, `npm run check`, Rust kontrolleri, `check:scenes` (yeni sahne iki modda, SwiftShader'da
 düşük çözünürlükte), bağımsız inceleme ajanı. **CI notu:** `check:scenes` yazılımsal GPU'da çalışıyor; ağır
@@ -804,14 +804,14 @@ sahneler orada "Yazılımsal" katmanla ölçülmeli, yoksa süre ve zaman aşım
 
 ## 6. Proje sahibinin vereceği kararlar
 
-| Karar | Seçenekler | Önerim |
-|---|---|---|
-| İlk üç sahne | (a) Işık Ustası + Zaman Vadisi + Ebru, (b) başka bir üçlü | (a) |
-| WebGPU | (a) WebGL2'de kal, (b) WebGPU'ya geç | (a): kanıt yok, WebView2'de varsayılan açık olduğu doğrulanmadı |
-| Varsayılan modda yoğunluk düğmesi | (a) "Sakin / Normal / Çılgın" ekle, (b) ekleme | (a): strobdan rahatsız olan ama epilepsi riski olmayan kullanıcı için |
-| Eski sahnelerin kaldırılması | (a) yeni üçü gelince toptan, (b) hemen | (a): program sahnesiz kalmasın |
-| Sahnenin içinde sözler | (a) sözleri gösteren sahnelerde alt yazıyı gizle, (b) ikisi birden | (a) |
-| Ton → renk eşlemesi | (a) Camelot çarkı = renk çarkı (önerilen), (b) kapaktan renk, (c) ikisinin karışımı | (c): ton varsa tondan, yoksa kapaktan |
+| Karar                             | Seçenekler                                                                          | Önerim                                                                |
+| --------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| İlk üç sahne                      | (a) Işık Ustası + Zaman Vadisi + Ebru, (b) başka bir üçlü                           | (a)                                                                   |
+| WebGPU                            | (a) WebGL2'de kal, (b) WebGPU'ya geç                                                | (a): kanıt yok, WebView2'de varsayılan açık olduğu doğrulanmadı       |
+| Varsayılan modda yoğunluk düğmesi | (a) "Sakin / Normal / Çılgın" ekle, (b) ekleme                                      | (a): strobdan rahatsız olan ama epilepsi riski olmayan kullanıcı için |
+| Eski sahnelerin kaldırılması      | (a) yeni üçü gelince toptan, (b) hemen                                              | (a): program sahnesiz kalmasın                                        |
+| Sahnenin içinde sözler            | (a) sözleri gösteren sahnelerde alt yazıyı gizle, (b) ikisi birden                  | (a)                                                                   |
+| Ton → renk eşlemesi               | (a) Camelot çarkı = renk çarkı (önerilen), (b) kapaktan renk, (c) ikisinin karışımı | (c): ton varsa tondan, yoksa kapaktan                                 |
 
 ---
 
