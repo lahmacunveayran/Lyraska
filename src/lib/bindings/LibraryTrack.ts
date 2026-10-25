@@ -23,4 +23,9 @@ analyzed: boolean,
 /**
  * Tonun Camelot kodu (ör. "8A"; geçerli ton analizinden, güveni yeterliyse).
  */
-key: string | null, };
+key: string | null, 
+/**
+ * Kullanıcı şarkıya kapak seçtiyse `Some(true)`; yoksa alan gönderilmez (veritabanında değil;
+ * kapak deposundan komut doldurur).
+ */
+customCover?: boolean, };

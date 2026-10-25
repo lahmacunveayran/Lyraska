@@ -481,6 +481,34 @@ pub async fn album_cover_clear(
     blocking(move || store.clear(&album, artist.as_deref()).map_err(reported)).await
 }
 
+/// Şarkıya seçilmiş kapak (`data:` adresi); seçilmemişse `null`.
+#[tauri::command]
+pub async fn song_cover_get(
+    path: String,
+    big: State<'_, BigDataDir>,
+) -> Result<Option<String>, String> {
+    let store = cover_store(&big)?;
+    blocking(move || Ok(store.track_get(&path).map(|cover| cover.data_url()))).await
+}
+
+/// Resmi şarkının kapağı yapar (kopyası Lyraska'da saklanır; müzik dosyasına dokunulmaz).
+#[tauri::command]
+pub async fn song_cover_set(
+    path: String,
+    image: PathBuf,
+    big: State<'_, BigDataDir>,
+) -> Result<(), String> {
+    let store = cover_store(&big)?;
+    blocking(move || store.track_set(&path, &image).map_err(|e| e.to_string())).await
+}
+
+/// Şarkıya seçilmiş kapağı kaldırır.
+#[tauri::command]
+pub async fn song_cover_clear(path: String, big: State<'_, BigDataDir>) -> Result<(), String> {
+    let store = cover_store(&big)?;
+    blocking(move || store.track_clear(&path).map_err(reported)).await
+}
+
 /// Çalma listeleri, en son değişen önce.
 #[tauri::command]
 pub async fn playlists_list(
@@ -719,9 +747,23 @@ pub async fn library_search(
     query: String,
     limit: Option<usize>,
     library: State<'_, LibraryState>,
+    big: State<'_, BigDataDir>,
 ) -> Result<Vec<TrackRow>, String> {
+    let store = cover_store(&big).ok();
     library
-        .run(move |service| service.search(&query, limit).map_err(reported))
+        .run(move |service| {
+            let mut rows = service.search(&query, limit).map_err(reported)?;
+            // Şarkıya seçilmiş kapaklar: klasör bir kez okunur, her şarkının adı özetle bulunur.
+            let chosen = store.map(|s| s.track_stems()).unwrap_or_default();
+            if !chosen.is_empty() {
+                for row in &mut rows {
+                    row.custom_cover = chosen
+                        .contains(&crate::library::covers::track_stem(&row.path))
+                        .then_some(true);
+                }
+            }
+            Ok(rows)
+        })
         .await
 }
 

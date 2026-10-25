@@ -53,6 +53,7 @@ export function AlbumArt({
   const tone = request?.key ?? null;
   const bpm = request?.bpm ?? null;
   const coverPath = request?.coverPath;
+  const song = request?.song;
 
   useEffect(() => {
     if (url !== null || key === null || album === undefined || coverPath === undefined) return;
@@ -60,7 +61,9 @@ export function AlbumArt({
     if (!element) return;
     let release: (() => void) | null = null;
     const load = () => {
-      release = requestAlbumCover({ album, artist, key: tone, bpm, coverPath }, (ready) =>
+      // Kapağı seçilmiş şarkı (`song`): albümün değil şarkının kendi kapağı.
+      const request = { album, artist, key: tone, bpm, coverPath };
+      release = requestAlbumCover(song === undefined ? request : { ...request, song }, (ready) =>
         setLoaded({ key, url: ready }),
       );
     };
@@ -84,7 +87,7 @@ export function AlbumArt({
       observer.disconnect();
       release?.();
     };
-  }, [url, key, album, artist, tone, bpm, coverPath]);
+  }, [url, key, album, artist, tone, bpm, coverPath, song]);
 
   return (
     <div ref={ref} className={className}>

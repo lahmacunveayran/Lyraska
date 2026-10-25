@@ -66,6 +66,10 @@ kısaltılır.
 - **Oynatıcı düzeltmesi arayüzün yolunda sınanır:** arayüz şarkıyı `Player::load` ile değil `open_track`'in üç
   adımıyla (`begin_transition` → `prepare` → `install`) açar. Yalnızca `load`'a konan bir koruma programda
   çalışmaz (#105'te öyle oldu); test komut gövdesini (`commands::open_on`) çağırır.
+- **Arayüz işi sahte çekirdekle tarayıcıda görülür:** testler geçse de şarkıya özel kapakta iki hata yalnızca
+  önizlemede çıktı (hücrenin `overflow: hidden`'ı menüyü kırptı; `AlbumArt` isteği yeniden kurarken yeni alanı
+  düşürdü). Satır içindeki açılır menü `createPortal` ile `body`'ye konur. Önizleme betiği `check-scenes.mjs`'in sahte
+  çekirdeğini örnek alır: bilinmeyen komuta `null` yerine durum nesnesi döner, yoksa arayüz çöker.
 
 - **Epilepsi güvenliği yapının içinde olmalı:** kendi sahnelerimizde parlaklık tek bir hız sınırlı çarpandan gelir
   (`sceneLevel`); güvenilmeyen içerik (MilkDrop) her karede parlaklık freninden geçer (`flashGuard.ts`, kanıtı
@@ -120,6 +124,8 @@ kısaltılır.
 
 - Lyraska **ücretsiz** kalacak, ticarileştirme yok (22 Ekim 2026).
 - **Kod imzası olmayacak** (23 Ekim 2026).
+- **Görsel tasarım onayı Claude'da** (24 Ekim 2026: "görsel tasarım onayı için sana inisiyatif veriyorum, elinden
+  gelenin en iyisini yap"). Yine de her görsel iş tarayıcıda önizlenip sahibine gösterilir; beğenmezse değişir.
 - İşe yarayan GitHub repoları kullanılabilir; lisans kuralıyla birlikte.
 - YouTube'dan indirme (yt-dlp) önerilmedi (telif, çevrimdışı ilkesi, kalite); yasal "klasör izleme" önerildi;
   karar Faz 4 sonrasına kaldı.

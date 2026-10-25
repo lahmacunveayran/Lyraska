@@ -7,7 +7,7 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 
 1. Kütüphanenin baştan tasarımı; küçük PR'lar:
    1. Sahibinin istekleri (24 Ekim): "Kendi resmin" sahnesi (örnek videolardan ölçülen model, iki denetimden geçti;
-      sırada kırmızı parlama sınırı ve hareketli arka plan), şarkıya özel kapak (albüm kapağı zaten değişiyor).
+      sırada kırmızı parlama sınırı ve hareketli arka plan).
 2. Davul/bas/vokal ayrıştırma: Spleeter; önce eğitimsiz iyileştirmeler ölçülür.
 3. Otomatik DJ (Bölüm II), Aşama A'dan; her aşama ayrı oturumda (`docs/gorev/20-BOLUM-II-DJ.md`).
 
@@ -17,6 +17,9 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
   kendi şarkılarında (0.0.73).
 
 ## Ele alınmayı bekleyen geri bildirim ve bulgular
+
+- Şarkı kapağı (0.0.82) küçükleri: kütüphaneden çıkan şarkının kapağı `kapaklar/`'da kalır (temizlik yok); arama
+  süzgeci açıkken "sıradaki" kapağı albümsüz anahtarla okunur, şarkı başlayınca bir kez daha okunur.
 
 - Toplu silme koruması (#105): 20+ şarkılık kaynakta yarıdan fazlası program kapalıyken gerçekten silinirse şarkılar
   hiç çıkarılmaz, her taramada uyarı çıkar. Öneri: uyarının yanında "Yine de çıkar" düğmesi. Sahibine sorulacak.

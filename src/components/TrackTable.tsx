@@ -1,6 +1,7 @@
 import { memo, useId, useState, type KeyboardEvent } from "react";
 import { CloseIcon, PauseIcon, PlayIcon } from "./icons";
 import { RevealButton } from "./RevealButton";
+import { SongCoverSlot } from "./SongCoverMenu";
 import type { LibraryTrack } from "../lib/backend";
 import { bpmLabel } from "../lib/analysis";
 import { keyHue, keyText } from "../lib/librarySort";
@@ -155,6 +156,7 @@ export const TrackTable = memo(function TrackTable({
                 {onReveal && (
                   <RevealButton title={track.title} onReveal={() => onReveal(track.path)} />
                 )}
+                <SongCoverSlot track={track} />
               </span>
               {showAlbum && (
                 <span className="library__cell library__muted" role="gridcell">

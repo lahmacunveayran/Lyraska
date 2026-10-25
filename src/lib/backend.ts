@@ -477,6 +477,21 @@ export function clearAlbumCover(album: string, artist: string | null): Promise<v
   return invoke<void>("album_cover_clear", { album, artist });
 }
 
+/** Şarkıya seçilmiş kapak (`data:` adresi); seçilmemişse `null`. */
+export async function getSongCover(path: string): Promise<string | null> {
+  if (!isTauri()) return null;
+  return invoke<string | null>("song_cover_get", { path });
+}
+
+/** Resmi şarkının kapağı yapar (kopyası Lyraska'da saklanır; müzik dosyasına dokunulmaz). */
+export function setSongCover(path: string, image: string): Promise<void> {
+  return invoke<void>("song_cover_set", { path, image });
+}
+
+export function clearSongCover(path: string): Promise<void> {
+  return invoke<void>("song_cover_clear", { path });
+}
+
 /** Çalma listeleri, en son değişen önce. */
 export async function listPlaylists(): Promise<Playlist[]> {
   if (!isTauri()) return [];

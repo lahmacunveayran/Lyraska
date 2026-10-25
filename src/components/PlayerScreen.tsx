@@ -52,7 +52,7 @@ import { useScene } from "../hooks/useScene";
 import { useScenePresets } from "../hooks/useScenePresets";
 import { useMilkdrop } from "../hooks/useMilkdrop";
 import { useSkyLook } from "../hooks/useSkyLook";
-import { useCover } from "../hooks/useCover";
+import { useCover, type CoverAlbum } from "../hooks/useCover";
 import { useSongKey } from "../hooks/useSongKey";
 import { useSongMap } from "../hooks/useSongMap";
 import { useSync } from "../hooks/useSync";
@@ -76,6 +76,13 @@ const IDLE_MS = 4000;
 /** Kütüphanede yolu verilen şarkı (arama sonucunda varsa). */
 function libraryTrack(tracks: LibraryTrack[], path: string | null): LibraryTrack | null {
   return path === null ? null : (tracks.find((t) => t.path === path) ?? null);
+}
+
+/** Şarkının albümü (kapağı albüme seçilmişse büyük kapakta o görünür); etiketsizse `null`. */
+function coverAlbum(
+  track: { album: string | null; albumArtist: string | null; artist: string | null } | null,
+): CoverAlbum | null {
+  return track?.album ? { album: track.album, artist: track.albumArtist ?? track.artist } : null;
 }
 
 /**
@@ -212,8 +219,8 @@ export function PlayerScreen() {
     () => libraryTrack(library.tracks, upcoming),
     [library.tracks, upcoming],
   );
-  const cover = useCover(statusPath);
-  const upcomingCover = useCover(upcoming);
+  const cover = useCover(statusPath, coverAlbum(status.track));
+  const upcomingCover = useCover(upcoming, coverAlbum(upcomingTrack ?? null));
   const upNext: UpNext | null = upcoming
     ? {
         title: upcomingTrack?.title ?? fileStem(upcoming),

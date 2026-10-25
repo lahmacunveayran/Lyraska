@@ -5525,3 +5525,18 @@ kbd {
   background: rgba(255, 255, 255, 0.1);
   outline: none;
 }
+
+/* Şarkı satırındaki kapak menüsü: düğme "dosya konumunu aç"ın yanında, aynı görünümde; seçenekler
+   sayfanın üstünde (satırın hücresi ve kayan liste kırpmasın). */
+.library__reveal + .library__reveal {
+  margin-left: 0;
+}
+
+.library__reveal.is-open {
+  opacity: 1;
+}
+
+.album__menu-list.library__cover-list {
+  position: fixed;
+  z-index: 50;
+}
