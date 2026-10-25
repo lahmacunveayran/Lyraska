@@ -10,7 +10,6 @@ import {
 import {
   GUARD_COLS,
   GUARD_MAX_DT,
-  GUARD_PATTERN_RATE,
   GUARD_PATTERN_SAFE_RATE,
   GUARD_RATE,
   GUARD_ROWS,
@@ -290,13 +289,10 @@ describe("parlaklık freninin geometrisi", () => {
     expect(frameSlew(GUARD_RATE, Number.NaN)).toBe(0);
   });
 
-  it("8 bit ekran dahil sınır: parlama normal ≤ 3, güvenli ≤ 1; desen ≤ 3 ve ~1 tersine dönme/sn", () => {
-    expect(flashRateBound(GUARD_RATE)).toBeLessThanOrEqual(1.7);
+  it("8 bit ekran dahil sınır (güvenli mod): parlama ≤ 1; desen ~1 tersine dönme/sn", () => {
     expect(flashRateBound(GUARD_SAFE_RATE)).toBeLessThanOrEqual(1);
-    expect(patternReversalBound(GUARD_PATTERN_RATE)).toBeLessThanOrEqual(3);
     expect(patternReversalBound(GUARD_PATTERN_SAFE_RATE)).toBeLessThanOrEqual(1.05);
     // Desen hızı ortalama hızdan büyük değil: desen sınırı ortalamanınkini de kapsar.
-    expect(GUARD_PATTERN_RATE).toBeLessThanOrEqual(GUARD_RATE);
     expect(GUARD_PATTERN_SAFE_RATE).toBeLessThanOrEqual(GUARD_SAFE_RATE);
     // sRGB'nin 1/255'lik en büyük adımı (beyazın hemen altı) yarım adım payının iki katını aşmaz.
     expect(1 - srgbToLinear(254 / 255)).toBeLessThanOrEqual(2 * 0.00447);
@@ -341,7 +337,7 @@ describe("parlaklık freni", () => {
       square(10, WHITE),
       square(15, RED, WHITE),
     ]) {
-      for (const rates of [NORMAL, SAFE]) {
+      for (const rates of [SAFE]) {
         const { cells, blockSteps } = run(UNEVEN, pattern, 90, rates);
         // Saklanan görüntüde (16 bit yuvarlama dahil) kesin sınır.
         expect(maxCellStep(cells)).toBeLessThanOrEqual(rates.mean * DT);
@@ -352,7 +348,7 @@ describe("parlaklık freni", () => {
 
   it("hücrelerden oluşan her pencerenin ortalaması da hız sınırlı", () => {
     const rand = random(11);
-    const { cells } = run(UNEVEN, () => [rand(), rand(), rand()], 60, NORMAL);
+    const { cells } = run(UNEVEN, () => [rand(), rand(), rand()], 60, SAFE);
     const counts = cellPixelCounts(UNEVEN);
     for (let f = 1; f < cells.length; f++) {
       for (let y0 = 0; y0 + 2 <= UNEVEN.rows; y0++) {
@@ -368,7 +364,7 @@ describe("parlaklık freni", () => {
               total += counts[c]!;
             }
           }
-          expect(Math.abs(after - before) / total).toBeLessThanOrEqual(GUARD_RATE * DT);
+          expect(Math.abs(after - before) / total).toBeLessThanOrEqual(GUARD_SAFE_RATE * DT);
         }
       }
     }
@@ -393,7 +389,7 @@ describe("parlaklık freni", () => {
       };
       let worst = 0;
       for (const pattern of patterns) {
-        const { exact } = run(FINE, pattern, 40, NORMAL);
+        const { exact } = run(FINE, pattern, 40, SAFE);
         for (const [w, h] of [
           [21, 13],
           [5, 3],
@@ -406,7 +402,7 @@ describe("parlaklık freni", () => {
           for (let y = 0; y + h <= FINE.height; y++) {
             for (let x = 0; x + w <= FINE.width; x++, i++) {
               const touched = span(x, w, FINE.width, bx) * span(y, h, FINE.height, by);
-              const limit = (GUARD_PATTERN_RATE * DT * touched) / (w * h);
+              const limit = (GUARD_PATTERN_SAFE_RATE * DT * touched) / (w * h);
               for (let f = 1; f < means.length; f++) {
                 worst = Math.max(worst, Math.abs(means[f]![i]! - means[f - 1]![i]!) / limit);
               }
@@ -422,13 +418,10 @@ describe("parlaklık freni", () => {
   );
 
   it(
-    "tam ekran kare dalga (0,5–30 Hz): normal ≤ 1,5, güvenli ≤ 1 parlama/sn; frensiz parlıyor",
+    "tam ekran kare dalga (0,5–30 Hz): güvenli modda ≤ 1 parlama/sn; frensiz parlıyor",
     () => {
       for (const hz of [0.5, 1, 1.5, 2, 3, 5, 10, 30]) {
-        for (const [rates, limit] of [
-          [NORMAL, 1.5],
-          [SAFE, 0.9],
-        ] as const) {
+        for (const [rates, limit] of [[SAFE, 0.9]] as const) {
           // Kayan noktada kanıtın 5. adımı (r / 0,2), 8 bit ekranda 6. adımı (`flashRateBound`).
           const result = run(TINY, square(hz, WHITE), 360, rates, { eightBit: true });
           const name = `${hz} Hz, r=${rates.mean}`;
@@ -436,7 +429,7 @@ describe("parlaklık freni", () => {
           expect(flashesPerSecond(TINY, result.shown), name).toBeLessThanOrEqual(
             flashRateBound(rates.mean),
           );
-          if (hz >= 1 && rates === NORMAL) {
+          if (hz >= 1) {
             // Denetimin anlamı var: frensiz girdi saniyede 3'ten fazla (ya da dalganın hızında) parlıyor.
             expect(flashesPerSecond(TINY, result.input)).toBeGreaterThanOrEqual(
               0.8 * Math.min(hz, 3.5),
@@ -467,7 +460,7 @@ describe("parlaklık freni", () => {
         ["kayan şeritler", (frame, x) => ((x + frame * 3) % 16 < 8 ? WHITE : BLACK)],
       ];
       for (const [name, pattern] of patterns) {
-        for (const rates of [NORMAL, SAFE]) {
+        for (const rates of [SAFE]) {
           const { shown, cells } = run(SMALL, pattern, 240, rates, { eightBit: true });
           expect(flashesPerSecond(SMALL, shown), `${name}, r=${rates.mean}`).toBeLessThanOrEqual(
             flashRateBound(rates.mean),
@@ -480,7 +473,7 @@ describe("parlaklık freni", () => {
   );
 
   it(
-    "bloktan ince, tersine dönen şerit ve dama: piksel başına ≤ 2,96 (güvenli ≤ 1,04) dönüş/sn",
+    "bloktan ince, tersine dönen şerit ve dama: güvenli modda piksel başına ≤ 1,04 dönüş/sn",
     () => {
       // Blok 2×2 piksel: 1 piksellik şerit ve dama blok ortalamasını hiç değiştirmez (yalnızca
       // ortalamayı sınırlayan fren onları olduğu gibi geçirirdi).
@@ -496,7 +489,7 @@ describe("parlaklık freni", () => {
         ["dama, 3/sn", checker(3, 1), 2],
       ];
       for (const [name, pattern, unguarded] of patterns) {
-        for (const rates of [NORMAL, SAFE]) {
+        for (const rates of [SAFE]) {
           const result = run(FINE, pattern, 180, rates, { eightBit: true });
           const label = `${name}, r_p=${rates.pattern}`;
           expect(reversalsPerSecond(FINE, result.shown), label).toBeLessThanOrEqual(
@@ -507,9 +500,7 @@ describe("parlaklık freni", () => {
             flashRateBound(rates.mean),
           );
           // Denetim: frensiz desen ölçümde gerçekten tersine dönüyor.
-          if (rates === NORMAL) {
-            expect(reversalsPerSecond(FINE, result.input), label).toBeGreaterThanOrEqual(unguarded);
-          }
+          expect(reversalsPerSecond(FINE, result.input), label).toBeGreaterThanOrEqual(unguarded);
         }
       }
     },
@@ -521,7 +512,7 @@ describe("parlaklık freni", () => {
     () => {
       // Keskin şeritler karede 1 piksel kayıyor: her piksel saniyede 15 kez değişir.
       const moving: Pattern = (frame, x) => ((x + frame) % 8 < 4 ? WHITE : BLACK);
-      for (const rates of [NORMAL, SAFE]) {
+      for (const rates of [SAFE]) {
         const result = run(FINE, moving, 240, rates, { eightBit: true });
         expect(reversalsPerSecond(FINE, result.shown)).toBeLessThanOrEqual(
           patternReversalBound(rates.pattern),
@@ -534,7 +525,7 @@ describe("parlaklık freni", () => {
         const v = 0.5 + 0.1 * Math.sin((2 * Math.PI * (x + y * 0.5 - 4 * frame * DT)) / 32);
         return [v, v * 0.9, v * 0.8];
       };
-      for (const rates of [NORMAL, SAFE]) {
+      for (const rates of [SAFE]) {
         const { gains } = run(FINE, soft, 180, rates, { start: "first" });
         for (const g of gains) expect(Math.min(...g)).toBe(1);
       }
@@ -542,9 +533,9 @@ describe("parlaklık freni", () => {
     SLOW_TEST,
   );
 
-  it("ani sıçramada her karede tam r_p·dt ilerler, sonra görüntüyle birebir aynı olur", () => {
-    const slew = frameSlew(GUARD_PATTERN_RATE, DT);
-    const { cells, gains } = run(SMALL, () => WHITE, 300, NORMAL);
+  it("güvenli modda ani sıçramada her karede tam r_p·dt ilerler, sonra görüntüyle birebir aynı olur", () => {
+    const slew = frameSlew(GUARD_PATTERN_SAFE_RATE, DT);
+    const { cells, gains } = run(SMALL, () => WHITE, 700, SAFE);
     const mean = (c: Float64Array) => c.reduce((a, b) => a + b, 0) / c.length;
     // Siyahtan başlar (güvenilmeyen sahne yavaşça belirir); 16 bit yuvarlama payıyla.
     expect(Math.abs(mean(cells[0]!) - slew)).toBeLessThan(2 * STATE_HALF_STEP);
@@ -553,18 +544,18 @@ describe("parlaklık freni", () => {
     const frames = Math.ceil(1 / slew) + 1;
     expect(mean(cells[frames]!)).toBe(1);
     expect(Math.min(...gains[frames]!)).toBe(1);
-    expect(frames * DT).toBeLessThan(3.8); // beyaz ekran ~3,7 sn'de tam görünür
+    expect(frames * DT).toBeLessThan(10.7); // beyaz ekran ~10,6 sn'de tam görünür
   });
 
   it(
-    "yavaş değişen görüntü değişmeden geçer",
+    "güvenli modda yavaş değişen görüntü değişmeden geçer",
     () => {
-      // 0,2 Hz, ±0,2 genlik: en büyük hız 0,25/sn < 0,27/sn. Yatayda da yumuşak bir eğim.
+      // 0,2 Hz, ±0,07 genlik: en büyük hız 0,088/sn < 0,095/sn. Yatayda da yumuşak bir eğim.
       const slow: Pattern = (frame, x) => {
-        const v = 0.4 + 0.2 * Math.sin(2 * Math.PI * 0.2 * frame * DT) + 0.003 * x;
+        const v = 0.4 + 0.07 * Math.sin(2 * Math.PI * 0.2 * frame * DT) + 0.003 * x;
         return [v, v, v];
       };
-      const { shown, input, gains } = run(SMALL, slow, 600, NORMAL, { start: "first" });
+      const { shown, input, gains } = run(SMALL, slow, 600, SAFE, { start: "first" });
       let worst = 0;
       shown.forEach((lum, f) =>
         lum.forEach((v, p) => (worst = Math.max(worst, Math.abs(v - input[f]![p]!)))),
@@ -577,9 +568,9 @@ describe("parlaklık freni", () => {
   );
 
   it(
-    "gece göğünün parlaklık eğrisi (en kötü müzikte bile) değişmeden geçer",
+    "güvenli modda gece göğünün parlaklık eğrisi (en kötü müzikte bile) değişmeden geçer",
     () => {
-      for (const safe of [false, true]) {
+      for (const safe of [true]) {
         for (const hz of [0.5, 4, 30]) {
           let sky = SKY_AT_REST;
           const curve: number[] = [];
@@ -638,10 +629,7 @@ describe("parlaklık freni: kırmızı kanal (isteğe bağlı)", () => {
     expect(flashesPerSecond(TINY, r.shown)).toBe(0);
   });
 
-  it.each([
-    { name: "normal", safe: false, limit: 3 },
-    { name: "güvenli", safe: true, limit: 1 },
-  ])(
+  it.each([{ name: "güvenli", safe: true, limit: 1 }])(
     "açıkken saniyede en çok $limit kırmızı parlama ($name, 8 bit ekran)",
     { timeout: SLOW_TEST },
     ({ safe, limit }) => {

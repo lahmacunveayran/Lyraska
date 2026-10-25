@@ -203,6 +203,14 @@ interface Motion {
   shown: { primed: boolean; raw: boolean };
 }
 
+/** Fren kurulamadığında (yalnızca varsayılan modda) hareketli arka planın frensiz çizimi. */
+interface RawMotion {
+  animation: Animation;
+  index: number;
+  /** Oynatma saati (ms): yalnız çalarken ilerler. */
+  clock: number;
+}
+
 /**
  * "Kendi resmin" sahnesi: kullanıcının seçtiği resim arka planda, ortada şarkıyla oynayan ışık
  * çizgisi: 200 ince çubuk (20 Hz – 2 kHz, bas solda), çizgiden aşağı sarkar. Çubuğun özü beyaza
@@ -214,8 +222,10 @@ interface Motion {
  * Hareketli resim (GIF, APNG, hareketli WebP) kare kare çözülür ve parlaklık freninden (kırmızı
  * kanalıyla) geçerek çizilir: parlayan bir resim yumuşar, olağan hareket görünür. Çubukların
  * sınırı bütün karelerin zarfıyla ölçülür, payları frenle birlikte hesaplanır (`animatedBudgets`).
- * Animasyon yalnız çalarken ilerler; "animasyonları azalt" açıksa, fren kurulamazsa ya da kareler
- * çözülemezse ilk kare sabit gösterilir.
+ * Fren yalnızca Epilepsi güvenli modunda sınırlar (proje sahibinin kararı, 24 Ekim 2026);
+ * varsayılan modda kareler olduğu gibi geçer. Animasyon yalnız çalarken ilerler. Fren
+ * kurulamazsa varsayılan modda kareler frensiz bir 2D tuvale çizilir, güvenli modda ilk kare sabit
+ * gösterilir; "animasyonları azalt" açıksa ya da kareler çözülemezse de ilk kare sabittir.
  */
 export function PhotoScene({
   playing,
@@ -227,19 +237,27 @@ export function PhotoScene({
 }: PhotoSceneProps) {
   const reducedMotion = usePrefersReducedMotion();
   const source = useBackgroundSource(image, reducedMotion);
-  // Freni kurulamayan hareketli resim: ilk karesi sabit.
+  // Freni kurulamayan hareketli resim (güvenli modda ilk karesi sabit, varsayılanda frensiz).
   const [motionFailed, setMotionFailed] = useState<Animation | null>(null);
   const animation =
     source.kind === "animated" && motionFailed !== source.animation ? source.animation : null;
+  // Freni kurulamayan hareketli resim varsayılan modda frensiz oynar; güvenli modda ilk kare sabit.
+  const rawAnimation =
+    source.kind === "animated" && motionFailed === source.animation && !safe
+      ? source.animation
+      : null;
+  const shownAnimation = animation ?? rawAnimation;
   const stillUrl =
     source.kind === "still"
       ? source.url
-      : source.kind === "animated" && !animation
+      : source.kind === "animated" && !shownAnimation
         ? source.still
         : null;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const motionRef = useRef<HTMLCanvasElement>(null);
   const motion = useRef<Motion | null>(null);
+  const rawRef = useRef<HTMLCanvasElement>(null);
+  const rawMotion = useRef<RawMotion | null>(null);
   const clockRef = useRef<HTMLSpanElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const levels = useRef<number[]>(new Array<number>(PHOTO_BARS).fill(0));
@@ -278,7 +296,7 @@ export function PhotoScene({
     // Önbellekten hemen gelen resimde `load` olayı React bağlanmadan geçmiş olabilir.
     const element = imageRef.current;
     if (stillUrl && element?.complete && element.naturalWidth > 0) loaded.current = element;
-  }, [stillUrl, animation]);
+  }, [stillUrl, shownAnimation]);
 
   const onImageLoad = useCallback(() => {
     const element = imageRef.current;
@@ -318,7 +336,8 @@ export function PhotoScene({
     };
     const onLost = (event: Event) => {
       event.preventDefault();
-      // Bağlam geri gelse de durum kayboldu: ilk kare sabit (güvenli yan).
+      // Bağlam geri gelse de durum kayboldu: güvenli modda ilk kare sabit, varsayılan modda
+      // kareler frensiz.
       setMotionFailed(animation);
     };
     canvas.addEventListener("webglcontextlost", onLost);
@@ -333,6 +352,44 @@ export function PhotoScene({
     safeRef.current = safe;
     motion.current?.guard.setSafe(safe);
   }, [safe]);
+
+  // Fren kurulamadıysa (yalnızca varsayılan modda): kareler frensiz, ayrı bir 2D tuvalde.
+  useEffect(() => {
+    const canvas = rawRef.current;
+    if (!rawAnimation || !canvas) return;
+    canvas.dataset.guard = "off";
+    canvas.dataset.frames = String(rawAnimation.frames.length);
+    rawMotion.current = { animation: rawAnimation, index: -1, clock: 0 };
+    return () => {
+      rawMotion.current = null;
+    };
+  }, [rawAnimation]);
+
+  /** Frensiz hareketli arka planın bir karesi; çizildiyse tuvalin boyu (`null`: çizilemedi). */
+  const drawRawMotion = useCallback(
+    (dt: number): { width: number; height: number } | null => {
+      const m = rawMotion.current;
+      const canvas = rawRef.current;
+      if (!m || !canvas) return null;
+      const before = { width: canvas.width, height: canvas.height };
+      const { width, height } = fitCanvas(canvas);
+      if (playing) m.clock += Math.max(0, Math.min(dt, 0.25)) * 1000;
+      const { frames, durations, repetitions } = m.animation;
+      const index = frameAt(m.clock, durations, repetitions);
+      if (before.width !== width || before.height !== height || index !== m.index) {
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return null;
+        try {
+          drawCover(ctx, frames[index]!, m.animation.width, m.animation.height, width, height);
+        } catch {
+          return null;
+        }
+        m.index = index;
+      }
+      return { width, height };
+    },
+    [playing],
+  );
 
   /** Hareketli arka planın bir karesi; çizildiyse tuvalin boyu (`null`: çizilemedi). */
   const drawMotion = useCallback(
@@ -371,7 +428,7 @@ export function PhotoScene({
       const canvas = canvasRef.current;
       if (!canvas) return;
       // Hareketli arka plan çubuklardan önce (aynı karede).
-      const motionSize = animation ? drawMotion(dt) : null;
+      const motionSize = animation ? drawMotion(dt) : rawAnimation ? drawRawMotion(dt) : null;
       const live = playing ? frame : null;
       const feed = spectrum.current;
       if (!live) {
@@ -412,8 +469,8 @@ export function PhotoScene({
       // Ölçüm: resmin ya da hareketli resmin kendisi, resimsiz koyu zemin ya da (resim
       // yüklenirken, pencere boyutlanırken, ölçüm sürerken) bilinmeyen zemin. Her biri ekran boyuna
       // göre bir kez ölçülür; resmin ölçümü ayrı iş parçacığında.
-      const want: Measured["source"] = animation
-        ? animation
+      const want: Measured["source"] = shownAnimation
+        ? shownAnimation
         : stillUrl
           ? (loaded.current ?? undefined)
           : source.kind === "none"
@@ -523,7 +580,17 @@ export function PhotoScene({
       const lift = 3 * geometry.sigma + 10;
       textRef.current?.style.setProperty("--photo-lift", `${Math.ceil(lift)}px`);
     },
-    [playing, safe, animation, stillUrl, source.kind, drawMotion],
+    [
+      playing,
+      safe,
+      animation,
+      rawAnimation,
+      shownAnimation,
+      stillUrl,
+      source.kind,
+      drawMotion,
+      drawRawMotion,
+    ],
   );
   useVisualFeed(playing, onTick);
   const turkish = isTurkishText(title, artist);
@@ -531,7 +598,20 @@ export function PhotoScene({
   return (
     <div className="photo-scene">
       {animation ? (
-        <canvas ref={motionRef} className="photo-scene__image photo-scene__motion" aria-hidden />
+        <canvas
+          key="guarded"
+          ref={motionRef}
+          className="photo-scene__image photo-scene__motion"
+          aria-hidden
+        />
+      ) : rawAnimation ? (
+        // Fren kurulamadı: varsayılan modda kareler frensiz (güvenli modda bu tuval yok).
+        <canvas
+          key="raw"
+          ref={rawRef}
+          className="photo-scene__image photo-scene__motion photo-scene__motion--raw"
+          aria-hidden
+        />
       ) : stillUrl ? (
         <img
           ref={imageRef}

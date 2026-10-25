@@ -45,12 +45,13 @@ export function stepDash(
   frame: VisualFrame | null,
   dt: number,
   light: StageLight,
+  safe = false,
 ): DashState {
   const targets = frame
     ? resampleBands(frame.bands, DECK_BANDS)
     : new Array<number>(DECK_BANDS).fill(0);
   return {
-    meters: stepMeters(prev.meters, frame, dt),
+    meters: stepMeters(prev.meters, frame, dt, safe),
     spectrum: stepMeter(prev.spectrum, targets, dt, stagePeaks(light)),
   };
 }
@@ -66,7 +67,7 @@ function dashAtRest(state: DashState): boolean {
 
 export interface DriveSceneProps {
   playing: boolean;
-  /** Epilepsi güvenli modu: yol ve torpidonun ışığı yarı hızla değişir. */
+  /** Epilepsi güvenli modu: yol ve torpidonun ışığı yarı hızla değişir, VU ışığı saniyede en fazla bir yanar. */
   safe?: boolean;
   /** Teybin ekranında kayan yazı (çalan şarkı); şarkı yoksa programın adı. */
   title?: string | null;
@@ -128,7 +129,7 @@ export function DriveScene({ playing, safe = false, title = null }: DriveScenePr
         safe,
       );
       setDash((prev) => {
-        const next = stepDash(prev, playing ? frame : null, dt, light.current);
+        const next = stepDash(prev, playing ? frame : null, dt, light.current, safe);
         return dashAtRest(prev) && dashAtRest(next) ? prev : next;
       });
       const element = dashRef.current;

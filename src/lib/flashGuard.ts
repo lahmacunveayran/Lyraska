@@ -1,6 +1,9 @@
 /**
- * Parlaklık freni (epilepsi güvenliği için son geçiş). Güvenilmeyen bir sahnenin (ör. kullanıcının
- * MilkDrop preseti) çıktısı her karede doku olarak alınır ve ekrana öyle çizilir ki
+ * Parlaklık freni (Epilepsi güvenli modu için son geçiş). Güvenilmeyen bir sahnenin (ör.
+ * kullanıcının MilkDrop preseti) çıktısı her karede doku olarak alınır. Sahneler freni yalnızca
+ * güvenli modda sınırlamak için kullanır (`processSource`); varsayılan modda kare olduğu gibi
+ * çizilir ve frenin durumu ona getirilir (`primeSource`; proje sahibinin kararı, 24 Ekim 2026).
+ * Frenli kare ekrana öyle çizilir ki
  * - görüntünün her bölgesinin (32×18 hücre) ortalama parlaklığı bir karede en çok `r·dt` değişir
  *   (normal modda r = 0,3/sn: saniyede ≤ 1,65 parlama; güvenli modda r = 0,18/sn: ≤ 1), ve
  * - her bloğun (256×144) piksellerinin ortalama mutlak parlaklık değişimi bir karede en çok

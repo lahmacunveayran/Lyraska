@@ -5,7 +5,8 @@
 // - Konsolda hata var mı? (Programın CSP'si de uygulanır: CSP ihlali konsol hatasıdır.)
 // - Görüntü gerçekten çiziliyor mu (düz/karanlık değil) ve zamanla değişiyor mu?
 // - Gece göğünde sağ üstteki Lyra takımyıldızının yıldızları görünüyor mu?
-// - Parlama sınırı: sessizden tam sese geçişte ekrandaki en büyük parlaklık farkı. Gece göğünün
+// - Parlama sınırı (Epilepsi güvenli modunda; varsayılan modda sınır yok, proje sahibinin kararı,
+//   24 Ekim 2026): sessizden tam sese geçişte ekrandaki en büyük parlaklık farkı. Gece göğünün
 //   her manzarası (göl, korona, karlı vadi) ölçülür; renkleri bölüm temasına göre değişen
 //   sahneler her temada (göğün varsayılan dışındaki manzaraları en parlak iki temada). Galerinin
 //   iki sahnesi ayrıca en parlak sabit palette ve en yüksek hızda (hazır ayarlar).
@@ -21,20 +22,22 @@
 //   SCENE_EXPECT           "webgl" (varsayılan) ya da "fallback": WebGL kapalı bir
 //                          tarayıcıda gece göğünün 2D yedek çizimle (Lyra dahil) göründüğü denetlenir
 //
-// Ayrıca parlaklık freni (src/lib/flashGuard.ts) zamana bağlı ölçülür (`SCENE_ONLY=flash-guard`):
-// bilerek parlayan bir desen frenden geçirilir, ekrandaki parlamalar kare kare sayılır.
+// Ayrıca parlaklık freni (src/lib/flashGuard.ts) güvenli modda zamana bağlı ölçülür
+// (`SCENE_ONLY=flash-guard`): bilerek parlayan bir desen frenden geçirilir, ekrandaki parlamalar
+// kare kare sayılır.
 //
 // MilkDrop sahnesi (`SCENE_ONLY=milkdrop`) programın özgün deneme presetiyle
 // (src-tauri/tests/data/milkdrop/lyraska-parlama.*: saniyede dört kez tersine dönen, bilerek parlayan
-// bir görsel) gerçek sahnede çalışır: WebGL, hareket ve kare kare parlama ölçümü (görünen tuval
-// frenli, Butterchurn'ün görünmeyen tuvali frensiz denetim olarak), normal ve güvenli modda.
+// bir görsel) gerçek sahnede çalışır: WebGL, hareket ve kare kare parlama ölçümü (görünen tuval,
+// Butterchurn'ün görünmeyen tuvali frensiz denetim olarak). Güvenli modda görünen tuval frenli
+// (saniyede ≤ 1); varsayılan modda fren devrede değildir: görünen tuval frensizle aynı parlamalı.
 // Gölgelendirici denemesi (lyraska-golge.*: HLSL bükme ve birleştirme gölgelendiricisi; birleştirme
 // saniyede dört kez beyaza çakar) çekirdeğin GLSL çevirisinin gerçek tarayıcıda derlendiğini
-// (`data-shaders="ok"`) ve çakan gölgelendiricide de frenin tuttuğunu gösterir.
+// (`data-shaders="ok"`) ve çakan gölgelendiricide de güvenli modda frenin tuttuğunu gösterir.
 //
 // "Kendi resmin" (`SCENE_ONLY=photo`): düz renkli resimlerde sessizden tam sese geçişte
 // parlaklık ve kırmızı fark; projenin ürettiği, bilerek parlayan hareketli APNG'de kare kare
-// (fren + çubuklar birlikte) parlama ölçümü, normal ve güvenli modda.
+// (fren + çubuklar birlikte) parlama ölçümü: güvenli modda sınırlı, varsayılan modda olduğu gibi.
 //
 // Program sayfaları programın gerçek içerik güvenlik politikasıyla (CSP, tauri.conf.json) açılır:
 // `eval`/`new Function` engellidir; Butterchurn'ün yalnızca WebAssembly yolunu kullandığı böylece
@@ -468,9 +471,9 @@ async function worstWindowDifference([before, after, scale, mode = "luminance"])
 const FLASH_DELTA = 0.1;
 
 /**
- * Parlama sınırı: sahne müziğin en sessiz hâlinden en yüksek hâline geçerken bile
- * ekrandaki parlaklık farkı parlama eşiğinin altındaysa, hangi ritimde olursa olsun
- * parlama üretemez. (Gece göğü ve otoyolda ayrıca değişim hızı da sınırlıdır.)
+ * Parlama sınırı (Epilepsi güvenli modunda): sahne müziğin en sessiz hâlinden en yüksek hâline
+ * geçerken bile ekrandaki parlaklık farkı parlama eşiğinin altındaysa, hangi ritimde olursa olsun
+ * parlama üretemez. (Gece göğü ve otoyolda güvenli modda ayrıca değişim hızı da sınırlıdır.)
  */
 async function checkFlashBound(browser, scene, variant, theme) {
   const name = theme === null ? variant.label : `${variant.label} (tema ${theme})`;
@@ -486,12 +489,12 @@ async function checkFlashBound(browser, scene, variant, theme) {
         level,
         theme: theme ?? 1,
         image: variant.image,
-        // "Kendi resmin"in parlama sınırı yalnızca Epilepsi güvenli modunda (proje sahibinin
-        // kararı, 24 Ekim 2026): sınır o modda ölçülür.
-        safe: scene.id === "photo",
+        // Parlama sınırı yalnızca Epilepsi güvenli modunda (proje sahibinin kararı, 24 Ekim 2026):
+        // bütün sahnelerde sınır o modda ölçülür.
+        safe: true,
       }),
     );
-    // Hız sınırlı değerler yerine otursun: enerjiler ~1,2 sn'de, renk teması 2 sn'de.
+    // Hız sınırlı değerler yerine otursun: enerjiler güvenli modda ~1,7 sn'de, renk teması 2 sn'de.
     await startPlaying(page, 2500);
     if (variant.image) {
       // Resim yüklenince ölçülür (o ana dek çubuklar bilinmeyen zemine göre kısa): ölçülmüş
@@ -592,8 +595,9 @@ const SCENES = [
   })),
   // Kullanıcının .milk görselleri (burada programın özgün deneme preseti). Parlaklığı müzikten
   // değil presetten gelir: sessiz/tam ses sınırı yerine zamana bağlı ölçülür
-  // (`checkMilkdropFlashes`). Fren siyahtan saniyede 0,3 açılır: görüntü belirsin diye uzun
-  // ısınma. Görsel açılmış ve fren kurulmuş olmalı.
+  // (`checkMilkdropFlashes`). Burada varsayılan modda açılır: fren sınırlamaz, görüntü ilk karede
+  // belirir (güvenli modda fren siyahtan yavaşça açardı). Isınma görselin açılması için. Görsel
+  // açılmış ve fren kurulmuş olmalı.
   {
     id: "milkdrop",
     name: "MilkDrop",
@@ -847,10 +851,10 @@ async function flashGuardBundle() {
 /**
  * Zamana bağlı parlama ölçümü: bilerek parlayan desen (saniyede 10 ve 1 kez siyah ↔ beyaz, tam
  * ekran ve tek bölge) frenden geçirilir; her karede ekran okunur, en kötü WCAG penceresinin
- * parlaklık dizisi `countFlashes` ile sayılır. Frenli her durum saniyede ≤ 3 (güvenli modda ≤ 1)
+ * parlaklık dizisi `countFlashes` ile sayılır. Frenli her durum (güvenli mod) saniyede ≤ 1
  * parlamalı; frensiz denetim parlamayı görmeli (ölçümün çalıştığının kanıtı). İnce desen (1
  * piksellik şerit ve dama, blok ortalaması sabit) piksel başına `countChanges` ile sayılır: en
- * kötü blokta saniyede ≤ 3 (güvenli modda ≤ 1,05) tersine dönme; frensiz denetim görmeli.
+ * kötü blokta saniyede ≤ 1,05 tersine dönme (güvenli mod); frensiz denetim görmeli.
  */
 async function checkFlashGuard(browser, code) {
   const page = await browser.newPage({ viewport: { width: 400, height: 300 } });
@@ -933,9 +937,11 @@ const MILKDROP_VIEWPORT = { width: 384, height: 216 };
 
 /**
  * Gerçek MilkDrop sahnesinde zamana bağlı parlama ölçümü (60 kare/sn sanal zaman): her karede
- * görünen tuval (frenli) ve Butterchurn'ün görünmeyen tuvali (frensiz) okunur, en kötü WCAG
- * penceresinin parlamaları sayılır. Frenli saniyede ≤ 3 (güvenli modda ≤ 1) olmalı; frensiz
- * denetim deneme presetinin gerçekten parladığını göstermeli (ölçümün çalıştığının kanıtı).
+ * görünen tuval ve Butterchurn'ün görünmeyen tuvali (frensiz) okunur, en kötü WCAG penceresinin
+ * parlamaları sayılır. Güvenli modda görünen tuval frenli, saniyede ≤ 1 olmalı. Varsayılan modda
+ * fren devrede değildir (proje sahibinin kararı, 24 Ekim 2026): görünen tuval frensizle aynı
+ * parlamalı (deneme preseti saniyede ≥ 2). Frensiz denetim deneme presetinin gerçekten parladığını
+ * göstermeli (ölçümün çalıştığının kanıtı).
  * Ayrıca sayfanın CSP'sinin `eval`'i gerçekten engellediği denetlenir: Butterchurn bu koşulda
  * çalışıyorsa JavaScript (`new Function`) yolunu kullanmıyordur.
  */
@@ -960,7 +966,7 @@ async function checkMilkdropFlashes(browser, bundle, safe, milk = "parlama") {
   await page.addInitScript(`${bundle}\n;window.LyraskaFlashGuardCheck = LyraskaFlashGuardCheck;`);
   await page.addInitScript(initScript("milkdrop", { safe, milk }));
   const started = Date.now();
-  // Görsel açılsın, fren siyahtan biraz açılsın.
+  // Görsel açılsın (güvenli modda fren siyahtan biraz açılsın).
   await startPlaying(page, 2000, step);
   const canvas = page.locator(".milkdrop-scene__canvas");
   const problem = await renderProblem(page, canvas, problems);
@@ -1033,9 +1039,10 @@ async function checkMilkdropFlashes(browser, bundle, safe, milk = "parlama") {
     };
   }, seconds);
   await page.close();
-  const limit = safe ? 1 : 3;
+  const limit = safe ? 1 : Infinity;
   console.log(
-    `${label}: frenli saniyede ${result.guarded.flashesPerSecond.toFixed(2)} parlama (karede en ` +
+    `${label}: ${safe ? "frenli" : "görünen (frensiz geçer)"} saniyede ` +
+      `${result.guarded.flashesPerSecond.toFixed(2)} parlama (karede en ` +
       `büyük değişim ${result.guarded.maxStep.toFixed(4)}) · frensiz ` +
       `${result.raw ? result.raw.flashesPerSecond.toFixed(2) : "-"} · ${result.frames} kare · ` +
       `fren ${state.guard} · gölgelendirici ${state.shaders ?? "-"} · eval engelli · ` +
@@ -1049,6 +1056,16 @@ async function checkMilkdropFlashes(browser, bundle, safe, milk = "parlama") {
     problems.push(
       `${label}: saniyede ${result.guarded.flashesPerSecond.toFixed(2)} parlama > ${limit}`,
     );
+  }
+  // Varsayılan modda fren devrede değil: görünen tuval de deneme presetinin parlamasını taşır.
+  if (!safe && result.raw) {
+    const shown = result.guarded.flashesPerSecond;
+    if (shown < 2 || shown < 0.75 * result.raw.flashesPerSecond) {
+      problems.push(
+        `${label}: güvenli mod kapalıyken MilkDrop frenlenmiş (görünen ${shown.toFixed(2)}, ` +
+          `frensiz ${result.raw.flashesPerSecond.toFixed(2)})`,
+      );
+    }
   }
   if (!result.raw || result.raw.flashesPerSecond < 2) {
     problems.push(
@@ -1246,9 +1263,9 @@ const PHOTO_MOTION_VIEWPORT = { width: 384, height: 216 };
 /**
  * "Kendi resmin" sahnesinde hareketli arka plan (projenin ürettiği, bilerek parlayan APNG):
  * kareler çözülmeli, fren (kırmızı kanalıyla) kurulmalı, çubuklar karelerin zarfıyla ölçülmeli;
- * görüntü hareket etmeli. Birleşik görüntüde (fren + çubuklar) en kötü pencere saniyede ≤ 3
- * (güvenli modda ≤ 1) parlamalı, parlaklıkta da kırmızıda da; frensiz denetim (resmin kendi
- * kareleri) parlamayı görmeli.
+ * görüntü hareket etmeli. Güvenli modda birleşik görüntüde (fren + çubuklar) en kötü pencere
+ * saniyede ≤ 1 parlamalı, parlaklıkta da kırmızıda da; varsayılan modda resim olduğu gibi geçer.
+ * Frensiz denetim (resmin kendi kareleri) parlamayı görmeli.
  */
 async function checkPhotoMotion(browser, safe) {
   const label = `Kendi resmin · hareketli arka plan${safe ? " (güvenli mod)" : ""}`;
@@ -1508,7 +1525,7 @@ try {
       for (const safe of [false, true]) {
         problems = problems.concat(await checkMilkdropFlashes(browser, bundle, safe));
       }
-      problems = problems.concat(await checkMilkdropFlashes(browser, bundle, false, "golge"));
+      problems = problems.concat(await checkMilkdropFlashes(browser, bundle, true, "golge"));
       problems = problems.concat(await checkMilkdropLoop(browser));
     }
     if (!ONLY || ONLY.includes("photo")) {

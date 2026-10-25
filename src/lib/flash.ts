@@ -1,7 +1,8 @@
 /**
- * Parlama sayacı (epilepsi güvenliği). WCAG 2.3.1'e göre parlama: bağıl
- * parlaklıkta en az %10'luk, birbirine zıt iki değişim. Sahnelerin parlaklık
- * eğrileri bununla denetlenir: hiçbir sahne saniyede 3'ten fazla parlamaz.
+ * Parlama sayacı. WCAG 2.3.1'e göre parlama: bağıl parlaklıkta en az %10'luk, birbirine zıt iki
+ * değişim. Sahnelerin parlaklık eğrileri bununla denetlenir: Epilepsi güvenli modunda hiçbir sahne
+ * saniyede 1'den fazla parlamaz. Varsayılan modda sınır yoktur (proje sahibinin kararı, 24 Ekim
+ * 2026; ilk açılışta uyarı gösterilir).
  */
 export const FLASH_DELTA = 0.1;
 

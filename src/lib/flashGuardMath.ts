@@ -6,7 +6,8 @@
  * Amaç: güvenilmeyen bir sahnenin (ör. kullanıcının MilkDrop preseti) görüntüsü ne olursa olsun,
  * ekranda saniyede 3'ten fazla parlama olmaması (WCAG 2.3.1; güvenli modda 1) ve ince bir desenin
  * (şerit, dama) saniyede 3'ten fazla tersine dönmemesi (ITU-R BT.1702, Ofcom: titreyen, tersine
- * dönen desen; güvenli modda ~1).
+ * dönen desen; güvenli modda ~1). Proje sahibinin kararıyla (24 Ekim 2026) program freni yalnızca
+ * Epilepsi güvenli modunda uygular; normal hızlar (`guardRates(false)`) hesabın parçası olarak kalır.
  *
  * ## Yöntem
  *

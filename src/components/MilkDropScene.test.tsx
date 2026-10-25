@@ -10,10 +10,12 @@ const fake = vi.hoisted(() => ({
   loadFails: new Set<string>(),
   setFolder: vi.fn(),
   webgl: true,
+  software: false,
   guardOk: true,
   guard: null as null | {
     storage: string;
     processSource: ReturnType<typeof vi.fn>;
+    primeSource: ReturnType<typeof vi.fn>;
     setSafe: ReturnType<typeof vi.fn>;
     dispose: ReturnType<typeof vi.fn>;
     reset: ReturnType<typeof vi.fn>;
@@ -22,6 +24,7 @@ const fake = vi.hoisted(() => ({
   guardOptions: [] as unknown[],
   visualizers: [] as {
     options: Record<string, unknown>;
+    canvas: unknown;
     internalCanvas: HTMLCanvasElement;
     outputGl: unknown;
     loadPreset: ReturnType<typeof vi.fn>;
@@ -82,7 +85,11 @@ vi.mock("../lib/gl", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/gl")>();
   return {
     ...actual,
-    getWebGl2: () => (fake.webgl ? ({ isContextLost: () => false } as never) : null),
+    getWebGl2: (canvas: HTMLCanvasElement) => {
+      if (!fake.webgl) return null;
+      if (fake.software) canvas.dataset.gpuCaveat = "software";
+      return { isContextLost: () => false } as never;
+    },
     gpuName: () => "deneme kartı",
     fitCanvas: () => ({ width: 320, height: 180, pixel: 1 }),
   };
@@ -95,6 +102,7 @@ vi.mock("../lib/flashGuard", () => ({
     fake.guard = {
       storage: "packed",
       processSource: vi.fn(() => true),
+      primeSource: vi.fn(() => true),
       setSafe: vi.fn(),
       dispose: vi.fn(),
       reset: vi.fn(),
@@ -106,9 +114,10 @@ vi.mock("../lib/flashGuard", () => ({
 
 vi.mock("butterchurn", () => ({
   default: {
-    createVisualizer: (_context: unknown, _canvas: unknown, options: Record<string, unknown>) => {
+    createVisualizer: (_context: unknown, canvas: unknown, options: Record<string, unknown>) => {
       const visualizer = {
         options,
+        canvas,
         internalCanvas: document.createElement("canvas"),
         outputGl: {} as unknown,
         loadPreset: vi.fn(async () => undefined),
@@ -171,6 +180,7 @@ beforeEach(() => {
   fake.loadFails = new Set();
   fake.setFolder.mockReset();
   fake.webgl = true;
+  fake.software = false;
   fake.guardOk = true;
   fake.guard = null;
   fake.guardOptions = [];
@@ -196,9 +206,9 @@ describe("MilkDrop sahnesi", () => {
     expect(fake.visualizers).toHaveLength(0);
   });
 
-  it("klasör seçilince görseller listelenir, biri yalnızca WebAssembly yoluyla açılır, frenden geçer", async () => {
+  it("klasör seçilince görseller listelenir, biri yalnızca WebAssembly yoluyla açılır, güvenli modda frenden geçer", async () => {
     fake.picked = "C:/Görseller";
-    render(<Harness />);
+    render(<Harness safe />);
     await screen.findByRole("button", { name: "Klasör seç" });
     fake.folder = FOLDER;
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Klasör seç" })));
@@ -230,6 +240,36 @@ describe("MilkDrop sahnesi", () => {
     expect(audioLevels.timeByteArray[0]).toBe(128);
     expect(elapsedTime).toBeCloseTo(1 / 60);
     expect(fake.guard!.processSource).toHaveBeenCalledWith(visualizer.internalCanvas, 1 / 60);
+    expect(fake.guard!.primeSource).not.toHaveBeenCalled();
+  });
+
+  it("varsayılan modda kare frensiz geçer; güvenli mod açılınca fren o kareden sürer", async () => {
+    fake.folder = FOLDER;
+    const { rerender } = render(<Harness />);
+    await waitFor(() => expect(fake.visualizers[0]?.loadPreset).toHaveBeenCalledTimes(1));
+    const visualizer = fake.visualizers[0]!;
+    await waitFor(() =>
+      expect(
+        document.querySelector<HTMLCanvasElement>(".milkdrop-scene__canvas")!.dataset.preset,
+      ).toBeDefined(),
+    );
+    // Varsayılan mod: frenin durumu her karede o kareye getirilir (sınır yok).
+    act(() => fake.tick?.(null, 1 / 60));
+    act(() => fake.tick?.(null, 1 / 60));
+    expect(fake.guard!.primeSource).toHaveBeenCalledTimes(2);
+    expect(fake.guard!.primeSource).toHaveBeenLastCalledWith(visualizer.internalCanvas);
+    expect(fake.guard!.processSource).not.toHaveBeenCalled();
+    // Güvenli mod açılınca fren devreye girer (sahne yeniden kurulmaz).
+    rerender(<Harness safe />);
+    act(() => fake.tick?.(null, 1 / 60));
+    expect(fake.guard!.processSource).toHaveBeenCalledWith(visualizer.internalCanvas, 1 / 60);
+    expect(fake.guard!.primeSource).toHaveBeenCalledTimes(2);
+    // Yeniden kapanınca kare yine olduğu gibi geçer.
+    rerender(<Harness />);
+    act(() => fake.tick?.(null, 1 / 60));
+    expect(fake.guard!.primeSource).toHaveBeenCalledTimes(3);
+    expect(fake.guard!.processSource).toHaveBeenCalledTimes(1);
+    expect(fake.visualizers).toHaveLength(1);
   });
 
   it("sonraki görsel en az 3 sn harmanlanır; galeride ad, Önceki/Sonraki ve not görünür", async () => {
@@ -482,13 +522,58 @@ describe("MilkDrop sahnesi", () => {
     expect(fake.visualizers).toHaveLength(0);
   });
 
-  it("parlaklık freni kurulamazsa sahne hiç gösterilmez", async () => {
+  it("güvenli modda parlaklık freni kurulamazsa sahne hiç gösterilmez", async () => {
     fake.folder = FOLDER;
     fake.guardOk = false;
-    render(<Harness />);
+    render(<Harness safe />);
     expect(await screen.findByText(/Parlaklık freni bu ekran kartında kurulamadı/)).toBeVisible();
     expect(document.querySelector(".milkdrop-scene__canvas")).toHaveAttribute("hidden");
     expect(fake.visualizers).toHaveLength(0);
+  });
+
+  it("varsayılan modda parlaklık freni kurulamazsa görüntü frensiz gösterilir; güvenli modda gizlenir", async () => {
+    fake.folder = FOLDER;
+    fake.guardOk = false;
+    const { rerender } = render(<Harness />);
+    await waitFor(() => expect(fake.visualizers[0]?.loadPreset).toHaveBeenCalledTimes(1));
+    const raw = document.querySelector<HTMLCanvasElement>(".milkdrop-scene__raw")!;
+    const guarded = document.querySelector<HTMLCanvasElement>(".milkdrop-scene__canvas")!;
+    // Butterchurn her karede görünen 2D tuvale kopyalar: görüntü frensiz.
+    const visualizer = fake.visualizers[0]!;
+    expect(visualizer.canvas).toBe(raw);
+    expect(visualizer.outputGl).not.toBeNull();
+    await waitFor(() => expect(raw).not.toHaveAttribute("hidden"));
+    expect(guarded).toHaveAttribute("hidden");
+    expect(raw.dataset.guard).toBe("off");
+    expect(screen.queryByText(/Parlaklık freni bu ekran kartında kurulamadı/)).toBeNull();
+    act(() => fake.tick?.(null, 1 / 60));
+    expect(visualizer.render).toHaveBeenCalledTimes(1);
+
+    // Güvenli mod açılınca sahne hemen gizlenir, çizim durur ve açıklama görünür.
+    rerender(<Harness safe />);
+    expect(raw).toHaveAttribute("hidden");
+    act(() => fake.tick?.(null, 1 / 60));
+    expect(visualizer.render).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/Parlaklık freni bu ekran kartında kurulamadı/)).toBeVisible();
+    expect(fake.visualizers).toHaveLength(1);
+
+    // Kapanınca frensiz görüntü yeniden kurulur.
+    rerender(<Harness />);
+    await waitFor(() => expect(fake.visualizers).toHaveLength(2));
+    await waitFor(() => expect(raw).not.toHaveAttribute("hidden"));
+    expect(screen.queryByText(/Parlaklık freni bu ekran kartında kurulamadı/)).toBeNull();
+  });
+
+  it("fren kurulamazsa frensiz tuval yazılımsal ekran kartının boyut sınırını da alır", async () => {
+    // Fren en çok yazılımsal WebGL'de kurulamaz: frensiz tuval (Butterchurn'ün boyu) o sınırla
+    // ölçülmeli (`fitCanvas` → `isSoftwareGl`), yoksa tam çözünürlükte işlemcide çizilir.
+    fake.folder = FOLDER;
+    fake.guardOk = false;
+    fake.software = true;
+    render(<Harness />);
+    await waitFor(() => expect(fake.visualizers[0]?.loadPreset).toHaveBeenCalledTimes(1));
+    const raw = document.querySelector<HTMLCanvasElement>(".milkdrop-scene__raw")!;
+    expect(raw.dataset.gpuCaveat).toBe("software");
   });
 
   it("güvenli modda fren sıkı çalışır", async () => {

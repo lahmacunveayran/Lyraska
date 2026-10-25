@@ -14,7 +14,8 @@
  *   parlatır, beyaz tüyün üstünde ise bir şey değiştirmez (örnekte de öyle). Koyu bant ya da
  *   karartma yoktur.
  *
- * Epilepsi güvenliği: resim sabittir. Işık yalnızca eklendiği için (hiçbir piksel kararmaz) her
+ * Parlama sınırı (yalnızca Epilepsi güvenli modunda; varsayılan modda çubuklar istenen boyda,
+ * proje sahibinin kararı, 24 Ekim 2026): resim sabittir. Işık yalnızca eklendiği için (hiçbir piksel kararmaz) her
  * WCAG penceresinin ortalama parlaklığı, çubuksuz resminkiyle onun üstüne çubukların o karede
  * eklediği ışık arasında kalır. Her karede çubukların bütün pencerelerde ekleyebileceği en büyük
  * parlaklık resmin kendi pikselleriyle hesaplanır (`measureLine`, `lightBound`) ve payı geçecekse o

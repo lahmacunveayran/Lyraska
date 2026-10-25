@@ -14,7 +14,7 @@ import { mixColors } from "./sky";
  * - **Palet**: "Bölüm teması" (Görsel Yönetmen'in bölüm temalarını izler) ya da sabit, özgün
  *   renkler (`--scene-palette-<id>-low/high`). Palet değişince renkler `PALETTE_FADE_SECONDS`
  *   içinde karışarak geçer; hiçbir zaman bir karede sıçramaz. Sabit paletlerin parlaklığı gece
- *   göğü temalarınınkini aşmaz (testte denetlenir), parlama sınırı onlarda da geçerlidir.
+ *   göğü temalarınınkini aşmaz (testte denetlenir; tasarım), parlaklık tavanı onlarda da geçerlidir.
  */
 
 /** Renk paletleri: bölüm teması ya da sabit paletlerden biri. */

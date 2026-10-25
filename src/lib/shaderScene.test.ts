@@ -59,16 +59,16 @@ describe("gölgelendirici sahneleri", () => {
     }
   });
 
-  it("sessizden tam sese parlaklık farkı parlama eşiğinin altında", () => {
+  it("sessizden tam sese parlaklık farkı parlama eşiğinin altında (tasarım)", () => {
     const silent = sceneWindowLuminance({ energies: [0, 0, 0], bloom: 0 });
     const full = sceneWindowLuminance({ energies: [1, 1, 1], bloom: 1 });
     expect(full - silent).toBeCloseTo(SHADER_MAX_WINDOW_LUMINANCE * (1 - SHADER_LEVEL_FLOOR), 10);
     expect(full - silent).toBeLessThan(FLASH_DELTA);
   });
 
-  it("en kötü durumda bile saniyede 3'ten fazla parlamaz (normal ve güvenli mod)", () => {
+  it("güvenli modda en kötü durumda bile saniyede 3'ten fazla parlamaz", () => {
     // Bantlar ve Yönetmen'in bütün değerleri aynı anda tam ölçekle gidip geliyor.
-    for (const safe of [false, true]) {
+    for (const safe of [true]) {
       for (const hz of [0.5, 1, 1.5, 2, 3, 4, 6, 8, 12, 20, 30]) {
         let s = SKY_AT_REST;
         const luminance: number[] = [];
@@ -93,15 +93,15 @@ describe("gölgelendirici sahneleri", () => {
     }
   });
 
-  it("her sahnenin gölgelendiricisi tam: tek giriş, ortak gövde, nabız değişkeni yok", () => {
+  it("her sahnenin gölgelendiricisi tam: tek giriş, ortak gövde, nabız değişkeni yok (tasarım)", () => {
     for (const { id } of SHADER_SCENES) {
       const source = fragmentSource(id);
       expect(source.startsWith("#version 300 es"), id).toBe(true);
       expect(source.match(/vec3 scene\(vec2 uv, vec2 p\)/g), id).toHaveLength(1);
       expect(source.match(/void main\(\)/g), id).toHaveLength(1);
       expect(source, id).toContain("uLevel");
-      // Parlaklık yalnızca hız sınırlı değerlere bağlanır: anlık vuruş seviyesi gölgelendiriciye
-      // hiç gitmez.
+      // Tasarım: parlaklık yalnızca yumuşak değerlere bağlanır; anlık vuruş seviyesi
+      // gölgelendiriciye hiç gitmez.
       expect(source, id).not.toMatch(/uPulse|uBeat/);
     }
   });

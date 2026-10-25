@@ -100,7 +100,7 @@ lyraska/
 │   │                         # ayarlar; milkdrop.ts MilkDrop geçiş zamanı ve ses verisi; milkdropShaders.ts ekran
 │   │                         # kartında derlenemeyen MilkDrop gölgelendiricisini varsayılanla değiştirir), WebGL2
 │   │                         # açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts), parlaklık freni:
-│   │                         # güvenilmeyen sahnelerin (MilkDrop) son geçişi, bölge parlaklığı karede ≤ r·dt, blok
+│   │                         # güvenilmeyen sahnelerin (MilkDrop) son geçişi, yalnızca güvenli modda sınırlar, bölge parlaklığı karede ≤ r·dt, blok
 │   │                         # piksellerinin ortalama mutlak değişimi ≤ r_p·dt (ince desen), durum tam çözünürlükte
 │   │                         # 16 bit (flashGuard.ts; saf hesap ve kanıt flashGuardMath.ts; flashGuardCheck.ts
 │   │                         # yalnızca check:scenes'in parlayan ve tersine dönen deseni, programa girmez)
@@ -166,7 +166,7 @@ lyraska/
 │   │   │   ├── cache.rs      #   analiz önbelleği (SQLite; yol + boyut + değişme zamanı; parça sürümleri)
 │   │   │   └── background.rs #   kütüphanenin arka plan analizi (düşük öncelik; çalan → sıradaki → geri kalan)
 │   │   ├── director/         # Görsel Yönetmen: şarkı haritasından koreografi (atmosfer, ritim, doku),
-│   │   │                     # drop beklentisi/açılımı; nabız hız garantisi (≤ 3/sn, güvenli modda ≤ 1/sn)
+│   │   │                     # drop beklentisi/açılımı; nabız: varsayılan modda her vuruş, güvenli modda ≤ 1/sn
 │   │   └── visual_bridge/    # Çalma zamanı + analiz → görseller (VisualFrame); gecikme telafisi (ekran +
 │   │                         # ses aygıtı), calibration.rs: senkron ölçümü için tıklama kaydı
 │   ├── examples/             # ses_denemesi.rs: gerçek ses aygıtıyla uçtan uca deneme; drop_olcum.rs: drop ölçümü
@@ -214,8 +214,9 @@ Kurallar:
   tepeleri, ton. Bir hesabı değiştiren iş **yalnızca o parçanın** sürümünü artırır; kütüphanede yalnızca o parça yeniden
   hesaplanır (ritim karelerden, şarkı çözülmeden). Bütün kütüphaneyi baştan analiz ettiren spektrum sürümü yalnızca
   karelerin kendisi değişince artırılır.
-- Sahneler hareket ve parlaklığı Görsel Yönetmen'in notundan (`VisualFrame.director`) türetir; parlaklığı
-  yalnızca nabız olaylarına ve yumuşak değerlere bağlar ve kendi parlama testini taşır.
+- Sahneler hareket ve parlaklığı Görsel Yönetmen'in notundan (`VisualFrame.director`) türetir. Epilepsi güvenli
+  modunda parlaklığı yalnızca nabız olaylarına ve hız sınırlı değerlere bağlar ve o mod için kendi parlama
+  testini taşır; varsayılan modda parlaklığa sınır konmaz.
 - Oynatıcı akışları (aç, sar, durdur, şarkı sonu) birim testlerinde sanal çıkışla sınanır; gerçek
   aygıt davranışı `examples/ses_denemesi.rs` ile denenir.
 
@@ -279,9 +280,11 @@ TypeScript / React:
 
 Görsel güvenlik (zorunlu):
 
-- **Epilepsi güvenliği**: hiçbir sahne saniyede 3'ten fazla parlama üretmez. Ani tam ekran beyaz/kırmızı
-  geçiş yoktur. "Epilepsi güvenli modu" (Ayarlar) açıkken saniyede en fazla 1 nabız; sahneler ve karşılama
-  gösterisi buna uyar ve her sahne kendi parlama testini taşır.
+- **Işığa duyarlılık** (proje sahibinin kararı, 24 Ekim 2026): varsayılan modda parlama sınırı yoktur; görseller
+  müzikle birlikte hızlı yanıp sönebilir. İlk açılışta ışığa duyarlılık uyarısı gösterilir (`FlashWarning`).
+- **Epilepsi güvenli modu** (Ayarlar) açıkken saniyede en fazla 1 nabız/parlama, parlaklık yavaş değişir; ani
+  tam ekran beyaz/kırmızı geçiş yoktur. Sahneler ve karşılama gösterisi buna uyar ve her sahne güvenli modda
+  kendi parlama testini taşır. Güvenli modun davranışı değiştirilmez.
 - İşletim sistemindeki "animasyonları azalt" tercihine (`prefers-reduced-motion`) uyulur.
 
 ## Test kuralları

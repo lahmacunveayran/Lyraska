@@ -5,6 +5,7 @@ import { useVisualFeed } from "../hooks/useVisualFeed";
 import {
   getVisualWaveform,
   loadMilkdropPreset,
+  logFrontendError,
   type MilkdropPreset,
   type VisualFrame,
 } from "../lib/backend";
@@ -28,7 +29,10 @@ const MAX_REBUILDS = 3;
 
 export interface MilkDropSceneProps {
   playing: boolean;
-  /** Epilepsi güvenli modu: parlaklık freni daha sıkı (saniyede ≤ 1 parlama). */
+  /**
+   * Epilepsi güvenli modu: görüntü parlaklık freninden geçer (saniyede ≤ 1 parlama). Kapalıyken
+   * görüntü olduğu gibi gösterilir.
+   */
   safe?: boolean;
   controls: MilkdropControls;
 }
@@ -39,11 +43,13 @@ export interface MilkDropSceneProps {
  *
  * Güvenlik:
  * - Butterchurn kendi, **görünmeyen** tuvaline çizer (OffscreenCanvas; DOM'da değil). Görünen
- *   tuvale yalnızca parlaklık freni (`flashGuard.ts`) çizer: görüntünün her bölgesinin parlaklığı
- *   saniyede en çok 0,3 (güvenli modda 0,18), her küçük bloğun piksellerinin parlaklığı ortalama
- *   0,27 (güvenli 0,095) değişir; preset ne yaparsa yapsın saniyede 3'ten (güvenli modda 1'den) az
- *   parlama, ince desenler (şerit, dama) saniyede ≤ 3 (güvenli ~1) tersine döner. Fren kurulamazsa
- *   sahne hiç gösterilmez.
+ *   tuvale parlaklık freni (`flashGuard.ts`) çizer. Fren yalnızca Epilepsi güvenli modunda
+ *   sınırlar (proje sahibinin kararı, 24 Ekim 2026): görüntünün her bölgesinin parlaklığı saniyede
+ *   en çok 0,18, her küçük bloğun piksellerinin parlaklığı ortalama 0,095 değişir; preset ne
+ *   yaparsa yapsın saniyede 1'den az parlama, ince desenler (şerit, dama) saniyede ~1 tersine
+ *   döner. Varsayılan modda kare olduğu gibi geçer (`primeSource`); güvenli mod açılınca fren o
+ *   kareden sürer. Fren kurulamazsa varsayılan modda görüntü frensiz, Butterchurn'ün kopyasıyla
+ *   ayrı bir tuvalde gösterilir; güvenli modda sahne gösterilmez.
  * - Preset denklemleri yalnızca WebAssembly'ye derlenir (`onlyUseWASM`); JavaScript olarak
  *   çalıştırılmaz (CSP'de `'unsafe-eval'` yok). Gölgelendiricileri çekirdek GLSL'e çevirir;
  *   ekran kartında derlenemeyen olursa varsayılanla değiştirilir (`milkdropShaders.ts`).
@@ -102,7 +108,8 @@ function MilkDropEmpty({ controls }: { controls: MilkdropControls }) {
 
 interface Engine {
   gl: WebGL2RenderingContext;
-  guard: FlashGuard;
+  /** Parlaklık freni; kurulamadıysa `null` (yalnızca varsayılan modda: görüntü frensiz). */
+  guard: FlashGuard | null;
   visualizer: ButterchurnVisualizer;
   width: number;
   height: number;
@@ -121,9 +128,19 @@ interface Engine {
   lost: boolean;
 }
 
+/**
+ * Fren kurulamadığında sahnenin durumu: `raw` varsayılan modda frensiz gösteriliyor, `hidden`
+ * güvenli modda gösterilmiyor. Güvenli mod değişince sahne yeniden kurulur.
+ */
+type GuardMissing = "raw" | "hidden" | null;
+
 /** Butterchurn ve parlaklık freni; çizim her karede `useVisualFeed` ile. */
 function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps>) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  /** Fren kurulamazsa varsayılan modda görüntünün frensiz gösterildiği tuval (2D). */
+  const rawRef = useRef<HTMLCanvasElement>(null);
+  const [unguarded, setUnguarded] = useState(false);
+  const guardMissing = useRef<GuardMissing>(null);
   const engine = useRef<Engine | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
@@ -140,7 +157,12 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
 
   useEffect(() => {
     safeRef.current = safe;
-    engine.current?.guard.setSafe(safe);
+    engine.current?.guard?.setSafe(safe);
+    // Fren kurulamadıysa: güvenli mod açılınca sahne kapanır, kapanınca frensiz kurulur.
+    const missing = guardMissing.current;
+    if ((missing === "raw" && safe) || (missing === "hidden" && !safe)) {
+      setGeneration((g) => g + 1);
+    }
   }, [safe]);
 
   // Program düzgün kapanırken çalan görsel suçlanmasın: donma işareti silinir. (İşaret yalnızca
@@ -176,15 +198,38 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
     }
     canvas.dataset.gpu = gpuName(gl);
     const setup = createFlashGuard(gl, { safe: safeRef.current });
-    if (!setup.ok) {
+    let guard: FlashGuard | null = null;
+    // Fren kurulamazsa varsayılan modda görüntü frensiz gösterilir (ayrı 2D tuvalde).
+    const raw = setup.ok ? null : rawRef.current;
+    if (setup.ok) {
+      guard = setup.guard;
+      canvas.dataset.guard = guard.storage;
+      guardMissing.current = null;
+      setUnguarded(false);
+    } else if (safeRef.current || !raw) {
+      guardMissing.current = "hidden";
+      setUnguarded(false);
       fail(
         setup.reason,
-        "Parlaklık freni bu ekran kartında kurulamadı; güvenlik için MilkDrop sahnesi gösterilmiyor.",
+        "Parlaklık freni bu ekran kartında kurulamadı; Epilepsi güvenli modunda MilkDrop sahnesi " +
+          "gösterilmiyor.",
       );
       return;
+    } else {
+      guardMissing.current = "raw";
+      canvas.dataset.webgl = "off";
+      raw.dataset.guard = "off";
+      raw.dataset.guardError = setup.reason;
+      // Yazılımsal WebGL'de frensiz tuval (Butterchurn'ün boyu) da küçük boy sınırını alır.
+      if (canvas.dataset.gpuCaveat) raw.dataset.gpuCaveat = canvas.dataset.gpuCaveat;
+      else delete raw.dataset.gpuCaveat;
+      logFrontendError(
+        `${SCENE_NAME}: parlaklık freni kurulamadı (${setup.reason}); varsayılan modda frensiz ` +
+          "gösteriliyor",
+      ).catch(() => {
+        /* Günlüğe yazılamazsa yapılacak bir şey yok. */
+      });
     }
-    const guard = setup.guard;
-    canvas.dataset.guard = guard.storage;
 
     // Görsel açılırken ya da yeni açılmışken bağlam kaybolduysa (ekran kartı sıfırlandı; ör.
     // gölgelendiricideki uzun döngü) görsel kalıcı atlanır: yeniden kurulum onu bir daha açmaz.
@@ -229,13 +274,14 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
     import("butterchurn")
       .then(({ default: butterchurn }) => {
         if (disposed) return;
-        const { width, height } = fitCanvas(canvas);
+        const { width, height } = fitCanvas(raw ?? canvas);
         // Butterchurn her karede bu tuvale kopyalamak ister; tuval DOM'a eklenmez ve kopya
-        // kapatılır (`outputGl = null`). Görüntü ekrana yalnızca frenden geçerek ulaşır.
+        // kapatılır (`outputGl = null`). Görüntü ekrana frenden geçerek ulaşır; fren yoksa
+        // (yalnızca varsayılan modda) kopya doğrudan görünen 2D tuvale yapılır.
         const sink = document.createElement("canvas");
         sink.width = 1;
         sink.height = 1;
-        const visualizer = butterchurn.createVisualizer(null, sink, {
+        const visualizer = butterchurn.createVisualizer(null, raw ?? sink, {
           width,
           height,
           pixelRatio: 1,
@@ -243,7 +289,7 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
           // Preset denklemleri yalnızca WebAssembly'ye derlenir: JS (`new Function`) yolu kapalı.
           onlyUseWASM: true,
         });
-        visualizer.outputGl = null;
+        if (!raw) visualizer.outputGl = null;
         internal = visualizer.internalCanvas;
         internal.addEventListener("webglcontextlost", onInternalLost);
         created = {
@@ -261,8 +307,10 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
           lost: false,
         };
         engine.current = created;
-        canvas.dataset.webgl = "on";
-        delete canvas.dataset.webglError;
+        const shown = raw ?? canvas;
+        shown.dataset.webgl = "on";
+        delete shown.dataset.webglError;
+        if (raw) setUnguarded(true);
         setFailure(null);
         setReady((r) => r + 1);
       })
@@ -287,7 +335,7 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
           /* Bağlam zaten kayıp: bırakılacak bir şey yok. */
         }
       }
-      guard.dispose();
+      guard?.dispose();
       engine.current = null;
     };
   }, [generation]);
@@ -380,7 +428,10 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
           current.waveInFlight = false;
         });
     }
-    const canvas = canvasRef.current;
+    // Fren yoksa görüntü yalnızca varsayılan modda (frensiz) gösterilir; güvenli mod açıldıysa
+    // sahne yeniden kurulana dek hiçbir şey çizilmez.
+    if (!current.guard && safeRef.current) return;
+    const canvas = current.guard ? canvasRef.current : rawRef.current;
     if (!canvas) return;
     const { width, height } = fitCanvas(canvas);
     if (width !== current.width || height !== current.height) {
@@ -395,7 +446,7 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
     } catch (error) {
       // Görselin denklemi çizerken hata verdi (ör. WebAssembly tuzağı): görsel bırakılır, bu
       // oturumda bir daha seçilmez; sonraki harmanlamadan gelir (hatalı görsel karışmasın, ani
-      // geçişi fren yumuşatır). Görüntü o zamana kadar son karede kalır.
+      // geçişi güvenli modda fren yumuşatır). Görüntü o zamana kadar son karede kalır.
       current.hasPreset = false;
       current.currentPath = null;
       writePending(null);
@@ -405,7 +456,16 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
       );
       return;
     }
-    if (!current.guard.processSource(current.visualizer.internalCanvas, dt)) {
+    // Fren yalnızca Epilepsi güvenli modunda sınırlar (proje sahibinin kararı, 24 Ekim 2026);
+    // kapalıyken her kare olduğu gibi çizilir ve frenin durumu o kareye getirilir: güvenli mod
+    // açılınca fren o kareden sürer. Fren yoksa Butterchurn kareyi görünen tuvale zaten kopyaladı.
+    const source = current.visualizer.internalCanvas;
+    const shown = current.guard
+      ? safeRef.current
+        ? current.guard.processSource(source, dt)
+        : current.guard.primeSource(source)
+      : true;
+    if (!shown) {
       current.lost = true;
       return;
     }
@@ -423,7 +483,16 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
       <canvas
         ref={canvasRef}
         className="milkdrop-scene__canvas"
-        hidden={failure !== null}
+        hidden={failure !== null || unguarded}
+        role="img"
+        aria-label={name ? `MilkDrop görseli: ${name}` : "MilkDrop görseli"}
+      />
+      {/* Fren kurulamadıysa varsayılan modda frensiz görüntü (güvenli modda gösterilmez). */}
+      <canvas
+        ref={rawRef}
+        className="milkdrop-scene__raw"
+        hidden={failure !== null || !unguarded || safe}
+        aria-hidden={!unguarded || safe}
         role="img"
         aria-label={name ? `MilkDrop görseli: ${name}` : "MilkDrop görseli"}
       />

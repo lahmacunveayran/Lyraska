@@ -29,7 +29,8 @@ declare module "butterchurn" {
     readonly internalCanvas: HTMLCanvasElement | OffscreenCanvas;
     /**
      * Her `render`'da iç tuvalin kopyalandığı 2D bağlam. Lyraska bunu `null` yapar: görüntü
-     * ekrana yalnızca parlaklık freninden geçerek ulaşır.
+     * ekrana parlaklık freninden geçerek ulaşır. Fren kurulamazsa (yalnızca varsayılan modda)
+     * görünen 2D tuvalin bağlamıdır: görüntü frensiz gösterilir.
      */
     outputGl: CanvasRenderingContext2D | null;
     loadPreset(preset: object, blendTime?: number): Promise<void>;

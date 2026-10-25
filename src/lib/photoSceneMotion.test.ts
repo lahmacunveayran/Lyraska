@@ -208,10 +208,7 @@ describe("kendi resmin sahnesi: hareketli arka plan + çubuklar, parlama yok", (
     expect(r.red).toBeGreaterThan(6);
   });
 
-  it.each([
-    { safe: false, limit: 3 },
-    { safe: true, limit: 1 },
-  ])(
+  it.each([{ safe: true, limit: 1 }])(
     "frenli (güvenli $safe): saniyede ≤ $limit parlama, parlaklık ve kırmızı",
     { timeout: 300_000 },
     ({ safe, limit }) => {

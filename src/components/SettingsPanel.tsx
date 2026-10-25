@@ -102,8 +102,8 @@ export function SettingsPanel({
           Epilepsi güvenli modu: {visualSafe.safe ? "Açık" : "Kapalı"}
         </button>
         <p className="settings__hint">
-          Açıkken görseller daha sakin olur: saniyede en fazla bir vuruş, parlaklık daha yavaş
-          değişir. Kapalıyken de hiçbir sahne saniyede üçten fazla parlamaz.
+          Açıkken görseller saniyede en fazla bir kez parlar ve parlaklık yavaş değişir. Kapalıyken
+          görseller sınırsızdır: müzikle birlikte hızlı yanıp sönebilir.
         </p>
         {visualSafe.error && <p className="settings__warn">{visualSafe.error}</p>}
       </div>

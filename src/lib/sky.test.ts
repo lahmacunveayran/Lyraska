@@ -55,33 +55,34 @@ describe("gece göğü", () => {
     expect(Math.max(...quiet.energies)).toBeLessThan(0.01);
   });
 
-  it("parlaklık saniyede ENERGY_SLEW_PER_SECOND'dan hızlı değişmez", () => {
+  it("güvenli modda parlaklık saniyede ENERGY_SLEW_PER_SECOND'ın yarısından hızlı değişmez", () => {
     let s = SKY_AT_REST;
     for (let i = 0; i < 600; i++) {
       const target: Energies = i % 2 ? [1, 1, 1] : [0, 0, 0];
-      const next = stepSky(s, target, DT);
+      const next = stepSky(s, target, DT, false, null, true);
       next.energies.forEach((e, k) => {
         expect(Math.abs(e - s.energies[k]!)).toBeLessThanOrEqual(
-          ENERGY_SLEW_PER_SECOND * DT + 1e-12,
+          0.5 * ENERGY_SLEW_PER_SECOND * DT + 1e-12,
         );
       });
       s = next;
     }
   });
 
-  it("en kötü durumda bile saniyede 3'ten fazla parlamaz (epilepsi güvenliği)", () => {
+  it("güvenli modda en kötü durumda bile saniyede 3'ten fazla parlamaz (epilepsi güvenliği)", () => {
     // Tüm bantlar aynı anda tam ölçekle sıfır arasında gidip geliyor: çeşitli hızlarda dene.
     for (const hz of [0.5, 1, 1.5, 2, 3, 4, 6, 8, 12, 20, 30]) {
       let s = SKY_AT_REST;
       const luminance: number[] = [];
       for (let i = 0; i < 600; i++) {
         const on = Math.floor(i * DT * hz * 2) % 2 === 0;
-        s = stepSky(s, on ? [1, 1, 1] : [0, 0, 0], DT);
+        s = stepSky(s, on ? [1, 1, 1] : [0, 0, 0], DT, false, null, true);
         luminance.push(auroraLuminance(s.energies));
       }
       expect(countFlashes(luminance) / 10, `${hz} Hz`).toBeLessThanOrEqual(2);
     }
-    // Senaryo gerçekten parlatıp söndürebiliyor: yavaş değişimde parlamalar sayılır.
+    // Senaryo gerçekten parlatıp söndürebiliyor: yavaş değişimde (varsayılan modda) parlamalar
+    // sayılır.
     let s = SKY_AT_REST;
     const slow: number[] = [];
     for (let i = 0; i < 600; i++) {
@@ -89,6 +90,17 @@ describe("gece göğü", () => {
       slow.push(auroraLuminance(s.energies));
     }
     expect(countFlashes(slow)).toBeGreaterThan(3);
+  });
+
+  it("varsayılan modda parlaklığın hız sınırı yoktur (yalnızca yumuşatılır)", () => {
+    // Tek karede: güvenli modun sınırının çok üstünde değişir; yumuşatmanın kendisi kalır.
+    const next = stepSky(SKY_AT_REST, [1, 1, 1], DT);
+    const smoothed = 1 - Math.exp(-DT / 0.12);
+    expect(next.energies[0]).toBeCloseTo(smoothed, 10);
+    expect(next.energies[0]).toBeGreaterThan(5 * 0.5 * ENERGY_SLEW_PER_SECOND * DT);
+    // Açılım da tek karede hedefine varır.
+    const bloom = stepSky(SKY_AT_REST, [1, 1, 1], DT, false, { ...CALM, release: 1 });
+    expect(bloom.bloom).toBe(1);
   });
 
   it("parlaklık sınırları doğru", () => {
@@ -116,8 +128,11 @@ describe("gece göğü", () => {
   });
 
   it("uzun bir sekme aradan sonra sıçramaz", () => {
-    const after = stepSky(SKY_AT_REST, [1, 1, 1], 30);
-    expect(after.energies[0]).toBeLessThanOrEqual(ENERGY_SLEW_PER_SECOND * 0.25 + 1e-12);
+    const after = stepSky(SKY_AT_REST, [1, 1, 1], 30, false, null, true);
+    expect(after.energies[0]).toBeLessThanOrEqual(0.5 * ENERGY_SLEW_PER_SECOND * 0.25 + 1e-12);
+    // Varsayılan modda da adım 0,25 sn'ye kırpılır: yumuşatma tek adımda tamamlanmaz.
+    const normal = stepSky(SKY_AT_REST, [1, 1, 1], 30);
+    expect(normal.energies[0]).toBeCloseTo(1 - Math.exp(-0.25 / 0.12), 10);
   });
 });
 
@@ -188,13 +203,11 @@ describe("gökyüzünün saatleri", () => {
 });
 
 describe("Görsel Yönetmen ile gök", () => {
-  it("en kötü durumda bile saniyede 3'ten fazla parlamaz (normal ve güvenli mod)", () => {
+  it("güvenli modda en kötü durumda bile saniyede 3'ten fazla parlamaz", () => {
     // Yönetmenin bütün değerleri ve bantlar aynı anda tam ölçekle gidip geliyor.
-    // Güvenli mod ve "animasyonları azalt" tercihi de ölçüme girer (ARA-07).
+    // "Animasyonları azalt" tercihi de ölçüme girer (ARA-07).
     for (const [safe, reduced] of [
-      [false, false],
       [true, false],
-      [false, true],
       [true, true],
     ] as const) {
       for (const hz of [0.5, 1, 1.5, 2, 3, 4, 6, 8, 12, 20, 30]) {
@@ -219,10 +232,9 @@ describe("Görsel Yönetmen ile gök", () => {
 
   it("güvenli modda parlaklık yarı hızla değişir", () => {
     const loud: DirectorInput = { ...CALM, mood: 1, release: 1 };
-    const normal = stepSky(SKY_AT_REST, [1, 1, 1], 0.1, false, loud);
     const safe = stepSky(SKY_AT_REST, [1, 1, 1], 0.1, false, loud, true);
-    expect(safe.bloom).toBeCloseTo(normal.bloom / 2, 10);
-    expect(safe.energies[0]).toBeLessThanOrEqual(normal.energies[0] / 2 + 1e-12);
+    expect(safe.bloom).toBeCloseTo(0.5 * ENERGY_SLEW_PER_SECOND * 0.1, 10);
+    expect(safe.energies[0]).toBeLessThanOrEqual(0.5 * ENERGY_SLEW_PER_SECOND * 0.1 + 1e-12);
   });
 
   it("drop öncesi gerilim akışı yavaşlatır, drop açılımı hızlandırır", () => {

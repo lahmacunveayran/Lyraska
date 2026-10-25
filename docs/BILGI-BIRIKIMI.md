@@ -71,8 +71,8 @@ kısaltılır.
   düşürdü). Satır içindeki açılır menü `createPortal` ile `body`'ye konur. Önizleme betiği `check-scenes.mjs`'in sahte
   çekirdeğini örnek alır: bilinmeyen komuta `null` yerine durum nesnesi döner, yoksa arayüz çöker.
 
-- **Epilepsi güvenliği yapının içinde olmalı:** kendi sahnelerimizde parlaklık tek bir hız sınırlı çarpandan gelir
-  (`sceneLevel`); güvenilmeyen içerik (MilkDrop) her karede parlaklık freninden geçer (`flashGuard.ts`, kanıtı
+- **Güvenli modun koruması yapının içinde olmalı:** kendi sahnelerimizde parlaklık tek çarpandan gelir (`sceneLevel`;
+  güvenli modda hız sınırlı); güvenilmeyen içerik (MilkDrop) güvenli modda parlaklık freninden geçer (`flashGuard.ts`, kanıtı
   `flashGuardMath.ts`). Her yeni sahne gerçek tarayıcıda ölçülür (`check:scenes`): durağan iki görüntü yetmez,
   zamana bağlı ölçüm gerekir.
 - **Dışarıdan gelen dosya güvenilmezdir** (`.milk`, `.lrc`, şarkı haritası): boyut/satır sınırı, döngü sınırı,
@@ -149,6 +149,8 @@ kısaltılır.
 - Sahibi "çok yıldızlı GitHub repolarını kullan" dedi (23 Ekim 2026): yıldız sayısı ölçüt değildir; her repo
   lisans (AGPL/NC yok), çevrimdışı ilkesi ve gerçek bir ihtiyaca uygunlukla seçilir.
 - MilkDrop: programla hazır görsel dağıtılmaz; kullanıcı kendi `.milk` dosyalarını açar.
+- **Varsayılanda epilepsi sınırı yok** (24 Ekim 2026; "o ışık şovunu istiyorum"): koruma yalnızca Epilepsi güvenli
+  modunda (aynen korunur ve test edilir); ilk açılışta uyarı. Claude riskleri iki kez açıkladı, karar sahibinin.
 - **Kütüphanenin görsel kararları (23 Ekim 2026):** sanat yönü "baskı atölyesi + gerçek gökyüzü"; açılış ekranı
   **Gökyüzü** ve **renkli** (renk tondan; Camelot çarkı renk çemberine oturur: `--key-1…12`). Ton herkesin dilinde
   ("La minör"); Camelot yalnızca "DJ görünümü" seçeneğinde. Yazılar: başlık **Bricolage Grotesque**, şarkı listesi

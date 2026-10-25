@@ -76,8 +76,9 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       noktalarını hızlandırır)
 - [x] "Gece otoyolu" sahnesi (0.0.19): şerit çizgileri vuruşlara, sokak lambaları ölçü başlarına kilitli; ufuk
       parıltısı bölüm temasıyla renklenir; drop öncesi ufka çekilir, drop'ta yükselir ve yol iki kat hızlanır
-- [x] Epilepsi güvenli modu (0.0.18): her zaman saniyede en fazla 3 parlama (testle sınanır); güvenli modda
-      saniyede en fazla 1 nabız ve yarı hızda parlaklık değişimi. Ayar kaydedilir (Ayarlar paneli), açıkken
+- [x] Epilepsi güvenli modu (0.0.18): güvenli modda saniyede en fazla 1 nabız ve yarı hızda parlaklık değişimi
+      (testle sınanır). Proje sahibinin kararıyla (24 Ekim 2026) varsayılan modda parlama sınırı yok; ilk açılışta
+      uyarı var. Ayar kaydedilir (Ayarlar paneli), açıkken
       ekranda "Güvenli mod" yazar
 - [x] Yeni arayüz "Sahne" (0.0.25): sahne tüm pencereyi kaplar, yazı ve düğmeler cam katmanlarda; büyük şarkı
       adı; şarkı haritası şeridi (bölümler gökyüzünün o bölümdeki renginde, enerji, drop'lar); drop geri sayımı;

@@ -2758,6 +2758,36 @@ describe("sahneler", () => {
     for (let i = 0; i < 90; i++) meters = stepMeters(meters, null, 1 / 60);
     expect(meters.needles[0].position).toBeLessThan(0.01);
   });
+
+  it("VU'nun kırmızı ışığı güvenli modda bir saniye, varsayılanda yarım saniye yanık kalır", async () => {
+    const { stepMeters, AT_REST } = await import("./VuScene");
+    const { stepDash, DASH_AT_REST } = await import("./DriveScene");
+    const { STAGE_LIGHT_AT_REST } = await import("../lib/stageLight");
+    const { LAMP_HOLD_SECONDS, SAFE_LAMP_HOLD_SECONDS } = await import("../lib/vu");
+    const hot = {
+      positionSecs: 1,
+      bands: [],
+      rmsDb: [0, 0] as [number, number],
+      peakDb: [0, 0] as [number, number],
+      vuReferenceDb: -14,
+      beat: null,
+      energy: null,
+      section: null,
+      director: null,
+    };
+    let normal = AT_REST;
+    let safe = AT_REST;
+    for (let i = 0; i < 60; i++) {
+      normal = stepMeters(normal, hot, 1 / 60);
+      safe = stepMeters(safe, hot, 1 / 60, true);
+    }
+    expect(normal.lamps).toEqual([LAMP_HOLD_SECONDS, LAMP_HOLD_SECONDS]);
+    expect(safe.lamps).toEqual([SAFE_LAMP_HOLD_SECONDS, SAFE_LAMP_HOLD_SECONDS]);
+    // "Gece sürüşü"nün torpidosundaki VU da aynı kurala uyar.
+    let dash = DASH_AT_REST;
+    for (let i = 0; i < 60; i++) dash = stepDash(dash, hot, 1 / 60, STAGE_LIGHT_AT_REST, true);
+    expect(dash.meters.lamps).toEqual([SAFE_LAMP_HOLD_SECONDS, SAFE_LAMP_HOLD_SECONDS]);
+  });
 });
 
 describe("senkron", () => {

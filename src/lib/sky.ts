@@ -10,17 +10,17 @@ import { SCENE_CLOCK_PERIOD, foldTime } from "./sceneClock";
  * dalga akar. Doku katmanı: vuruş yoğunluğu perdelerin akışını, tizlerin canlılığı yıldızların
  * kırpışmasını hızlandırır.
  *
- * Epilepsi güvenliği: ekranın parlaklığını değiştiren her değer (perde
- * enerjileri ve açılım) saniyede en fazla `ENERGY_SLEW_PER_SECOND` kadar değişir
- * (güvenli modda yarısı). Müziğin vuruşları parlaklığa değil, ışıkların akış
- * hızına ve şekline yansır; bunlar parlama üretmez.
+ * Parlaklık hızı: varsayılan modda perde enerjileri ve açılım yalnızca yumuşatılır, hız
+ * sınırı yoktur (proje sahibinin kararı, 24 Ekim 2026). Epilepsi güvenli modunda ekranın
+ * parlaklığını değiştiren her değer saniyede en fazla `ENERGY_SLEW_PER_SECOND`'ın yarısı kadar
+ * değişir. Müziğin vuruşları parlaklıktan çok ışıkların akış hızına ve şekline yansır.
  */
 
 /** Sırasıyla bas, orta ve tiz perdenin enerjisi (0..1). */
 export type Energies = [number, number, number];
 
 export interface SkyState {
-  /** Gösterilen perde enerjileri (parlaklık; hız sınırlı). */
+  /** Gösterilen perde enerjileri (parlaklık; güvenli modda hız sınırlı). */
   energies: Energies;
   /** Bas vuruşlarına hızlı tepki veren seviye (yalnızca akış hızını sürer). */
   pulse: number;
@@ -30,7 +30,7 @@ export interface SkyState {
   twinkleTime: number;
   /** Droptan önceki gerilim (0..1; yavaş). */
   tension: number;
-  /** Drop açılımı (0..1; parlaklığı etkiler, hız sınırlı). */
+  /** Drop açılımı (0..1; parlaklığı etkiler, güvenli modda hız sınırlı). */
   bloom: number;
   /** Renk teması geçişi: eski tema, yeni tema ve karışım (0 → 1). */
   palette: Palette;
@@ -111,8 +111,19 @@ const TENSION_SLEW_PER_SECOND = 0.8;
 const BLOOM_ENERGY = 0.35;
 export const BLOOM_LUMINANCE = 0.15;
 
-/** Perde enerjisinin en büyük değişim hızı (tam ölçek / saniye). */
+/**
+ * Perde enerjisinin değişim hızı ölçeği (tam ölçek / saniye). Güvenli modda parlaklık bunun
+ * yarısıyla sınırlıdır (`brightnessSlew`); varsayılan modda sınır yoktur.
+ */
 export const ENERGY_SLEW_PER_SECOND = 1.2;
+
+/**
+ * Bir karede parlaklığın en çok ne kadar değişebileceği: güvenli modda
+ * `0,5 · ENERGY_SLEW_PER_SECOND · adım`, varsayılan modda sınırsız (`Infinity`).
+ */
+export function brightnessSlew(step: number, safe: boolean): number {
+  return safe ? 0.5 * ENERGY_SLEW_PER_SECOND * step : Number.POSITIVE_INFINITY;
+}
 /** Enerjinin yükselişte ve düşüşte yumuşatma süreleri (saniye). */
 const ENERGY_ATTACK_SECONDS = 0.12;
 const ENERGY_RELEASE_SECONDS = 0.7;
@@ -165,7 +176,7 @@ export function stepSky(
   safe = false,
 ): SkyState {
   const step = Math.max(0, Math.min(dt, 0.25)); // sekme/uyku sonrası sıçramayı sınırla
-  const slewRate = (safe ? 0.5 : 1) * ENERGY_SLEW_PER_SECOND * step;
+  const slewRate = brightnessSlew(step, safe);
   const raw = targets ?? [0, 0, 0];
   // Yönetmen varsa: sakin bölümde perdeler sönük, yoğun bölümde canlı; drop'ta açılım eklenir.
   const goal = raw.map((e) =>

@@ -16,20 +16,18 @@
 //! **Ölçü güveni:** şarkı haritasının ölçüsü belirsizse ([`SongMap::bars_confident`]) ölçü başı
 //! vurgusu yapılmaz; güvenli moddaki seyrek nabız da ölçü başlarından değil vuruşlardan gelir.
 //!
-//! **Güvenlik:** Nabız olayları (vuruş, ölçü başı, boşalma) arasında en az
-//! [`MIN_PULSE_INTERVAL`] saniye vardır (saniyede en fazla 3); güvenli modda
-//! [`SAFE_PULSE_INTERVAL`] (saniyede en fazla 1). Seyreltme sabit adımlıdır ([`stride`]):
-//! eşiğe yakın tempoda (174 BPM) vuruş titreşimi deseni bozmaz. Hızlı tempoda nabız iki
-//! vuruşta bire iner. Diğer bütün değerler yumuşak değişir. Sahneler parlaklığı
-//! yalnızca bu değerlerden türetir; kendi parlama testlerini de taşırlar.
+//! **Nabız hızı:** Varsayılan modda her vuruş bir nabızdır (sınır yok; proje sahibinin kararı,
+//! 24 Ekim 2026; ilk açılışta ışığa duyarlılık uyarısı gösterilir). Epilepsi güvenli modunda
+//! nabız olayları arasında en az [`SAFE_PULSE_INTERVAL`] saniye vardır (saniyede en fazla 1) ve
+//! ölçü başı vurgusu yoktur. Güvenli moddaki seyreltme sabit adımlıdır ([`stride`]): eşiğe yakın
+//! tempoda vuruş titreşimi deseni bozmaz. Diğer bütün değerler yumuşak değişir. Güvenli modda
+//! sahneler parlaklığı yalnızca bu değerlerden türetir ve kendi parlama testlerini taşır.
 
 use serde::Serialize;
 
 use crate::analysis::beats::BeatGrid;
 use crate::analysis::structure::SongMap;
 
-/// Nabız olayları arası en kısa süre (saniye): saniyede en fazla 3 nabız.
-pub const MIN_PULSE_INTERVAL: f64 = 0.34;
 /// Epilepsi güvenli modunda: saniyede en fazla 1 nabız.
 pub const SAFE_PULSE_INTERVAL: f64 = 1.0;
 /// Beklentinin kurulduğu süre (ölçü): droptan önceki 8 ölçü.
@@ -103,7 +101,7 @@ pub struct Choreography {
     map: SongMap,
     /// Güveni yeterli droplar: beklenti ve açılım yalnızca bunlarda (arayüzün gösterdikleri).
     drops: Vec<f64>,
-    /// Nabız olayları (saniye): normal ve güvenli mod.
+    /// Nabız olayları (saniye): normal mod (her vuruş) ve güvenli mod (saniyede en fazla 1).
     pulses: Vec<f64>,
     safe_pulses: Vec<f64>,
     /// Ölçü başı vurguları (güvenli modda yok).
@@ -127,15 +125,15 @@ impl Choreography {
         // kötüdür.
         let bars_confident = map.bars_confident();
         let anchor = map.downbeats.first().copied();
-        let pulses = stride(&beats.beats, MIN_PULSE_INTERVAL, anchor);
+        // Varsayılan mod: her vuruş bir nabız (hız sınırı yok).
+        let pulses = beats.beats.clone();
         // Güvenli mod: ölçü başları (ölçü belirsizse vuruşlar), en fazla saniyede bir.
         let safe_pulses = if bars_confident {
             stride(&map.downbeats, SAFE_PULSE_INTERVAL, anchor)
         } else {
             stride(&beats.beats, SAFE_PULSE_INTERVAL, anchor)
         };
-        // Vurgu yalnızca nabız da olan ölçü başlarında: nabız ∪ vurgu için de hız garantisi
-        // geçerli kalır.
+        // Vurgu yalnızca nabız da olan ölçü başlarında: vurgular nabızların alt kümesidir.
         let accents = if bars_confident {
             map.downbeats
                 .iter()
@@ -272,9 +270,9 @@ const STRIDE_MARGIN: f64 = 0.02;
 
 /// Olayları düzenli adımla seyrekleştirir: ızgaranın tipik aralığının `min_gap`'i (titreşim
 /// payıyla) aşan en küçük katı adım olur ve her `adım`. olay alınır; faz `anchor`'a (ilk ölçü
-/// başı) hizalanır ki ölçü başları nabza düşsün. Açgözlü seyreltme eşiğe yakın tempoda (174 BPM,
-/// 0,345 s) ±6 ms titreşimle "her vuruş / iki vuruşta bir" arasında gidip gelirdi; sabit adım
-/// bunu önler. Düzensiz ızgarada (tempo değişimi) son güvence yine [`thin`].
+/// başı) hizalanır ki ölçü başları nabza düşsün. Açgözlü seyreltme eşiğe yakın tempoda (güvenli
+/// modda 120 BPM: iki vuruş tam 1 s) ±6 ms titreşimle "iki / üç vuruşta bir" arasında gidip
+/// gelirdi; sabit adım bunu önler. Düzensiz ızgarada (tempo değişimi) son güvence yine [`thin`].
 fn stride(events: &[f64], min_gap: f64, anchor: Option<f64>) -> Vec<f64> {
     let mut gaps: Vec<f64> = events.windows(2).map(|w| w[1] - w[0]).collect();
     if gaps.is_empty() {
@@ -430,10 +428,16 @@ mod tests {
 
     /// 60 kare/sn'de nabzın yükseliş sayısı (saniyede).
     fn pulse_rate(c: &Choreography, safe: bool, seconds: f64) -> f64 {
-        let mut previous = 0.0;
+        pulse_rate_between(c, safe, 0.0, seconds)
+    }
+
+    /// `from`–`to` saniyeleri arasında nabzın yükseliş sayısı (saniyede).
+    fn pulse_rate_between(c: &Choreography, safe: bool, from: f64, to: f64) -> f64 {
+        let seconds = to - from;
+        let mut previous = c.frame_at(from - 1.0 / 60.0, safe).rhythm.pulse;
         let mut rises = 0;
         for i in 0..(seconds * 60.0) as usize {
-            let p = c.frame_at(i as f64 / 60.0, safe).rhythm.pulse;
+            let p = c.frame_at(from + i as f64 / 60.0, safe).rhythm.pulse;
             if p > previous + 0.2 {
                 rises += 1;
             }
@@ -443,15 +447,15 @@ mod tests {
     }
 
     #[test]
-    fn nabiz_saniyede_ucten_fazla_olmaz() {
-        // 240 BPM: vuruşlar saniyede 4; nabız iki vuruşta bire iner.
+    fn normal_modda_her_vurus_nabiz_guvenli_modda_saniyede_bir() {
+        // Varsayılan mod sınırsız (proje sahibinin kararı): 240 BPM'de her vuruş nabız, saniyede 4.
+        // İlk vuruş 1. saniyede: 7 saniyede 24 vuruş (≈ 3,4/sn); eski sınır (≤ 3/sn) aşılır.
         let (fast, _) = choreography(240.0, 32);
-        assert!(pulse_rate(&fast, false, 7.0) <= 3.0);
-        assert!(pulse_rate(&fast, false, 7.0) >= 1.5, "nabız yine de var");
-        assert!(fast
-            .pulses
-            .windows(2)
-            .all(|w| w[1] - w[0] >= MIN_PULSE_INTERVAL - 1e-9));
+        let rate = pulse_rate(&fast, false, 7.0);
+        assert!((rate - 24.0 / 7.0).abs() < 0.2, "{rate}");
+        let later = pulse_rate_between(&fast, false, 2.0, 12.0);
+        assert!((later - 4.0).abs() < 0.2, "{later}");
+        assert_eq!(fast.pulses, fast.beats, "her vuruş bir nabız");
         // 120 BPM: her vuruşta nabız (saniyede 2).
         let (normal, _) = choreography(120.0, 32);
         assert!((pulse_rate(&normal, false, 8.0) - 2.0).abs() < 0.3);
@@ -494,27 +498,14 @@ mod tests {
 
     #[test]
     fn esik_yakininda_titresim_nabiz_desenini_bozmaz() {
-        // 174 BPM (DnB): vuruş aralığı 0,345 s, eşik 0,34 s. Açgözlü seyreltme ±6 ms titreşimle
-        // bazen her vuruşta bazen iki vuruşta bir nabız üretirdi (A1). Beklenen: hep iki vuruşta bir.
+        // 174 BPM (DnB), ±6 ms titreşim: varsayılan modda sınır yok, her vuruş bir nabız.
         let (mut grid, mut map) = song(174.0, 40);
         grid.beats = jittered(&grid.beats);
         map.downbeats = grid.beats.iter().step_by(4).copied().collect();
         let c = build_with(&grid, &map);
-        let two_beats = 2.0 * 60.0 / 174.0;
-        assert!(
-            regular(&c.pulses, two_beats),
-            "nabız iki vuruşta bir ve düzenli olmalı: {:?}",
-            c.pulses
-                .windows(2)
-                .map(|w| w[1] - w[0])
-                .take(12)
-                .collect::<Vec<_>>()
-        );
-        assert!(c
-            .pulses
-            .windows(2)
-            .all(|w| w[1] - w[0] >= MIN_PULSE_INTERVAL - 1e-9));
-        // Vurgular nabızların alt kümesi: nabız ∪ vurgu için de hız garantisi geçerli (A4).
+        assert_eq!(c.pulses, grid.beats, "her vuruş bir nabız olmalı");
+        assert!(regular(&c.pulses, 60.0 / 174.0));
+        // Vurgular nabızların alt kümesi.
         assert!(c.accents.iter().all(|a| c.pulses.contains(a)));
         assert!(!c.accents.is_empty());
 
