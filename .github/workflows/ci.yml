@@ -197,8 +197,10 @@ jobs:
     # açılır: gölgelendiriciler Windows'ta (ANGLE → Direct3D 11) derlenir mi, görüntü
     # çiziliyor mu, Lyra yıldızları görünüyor mu? Ayrıntı: scripts/check-scenes.mjs
     runs-on: windows-2025
-    # Galeri ve MilkDrop'un kare kare parlama ölçümleri uzun sürer; 30 dk'nın dibindeydi.
-    timeout-minutes: 45
+    # Galeri ve MilkDrop'un kare kare parlama ölçümleri uzun sürer; 30 dk'nın dibindeydi. Kendi
+    # resmin denetimleri ve güvenli/normal mod çalıştırmalarıyla 45 dk'yı aştı (eski sahneler
+    # kaldırılınca kısalacak).
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
