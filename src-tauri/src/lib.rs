@@ -210,6 +210,7 @@ pub fn run() {
             commands::library_add_dropped,
             commands::library_remove_folder,
             commands::library_rescan,
+            commands::library_remove_missing,
             commands::library_search,
             commands::library_albums,
             commands::library_album_tracks,

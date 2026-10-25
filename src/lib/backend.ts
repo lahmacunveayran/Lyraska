@@ -445,6 +445,11 @@ export function rescanLibrary(): Promise<LibraryStatus> {
   return invoke<LibraryStatus>("library_rescan");
 }
 
+/** Kaynağın bulunamayan şarkılarını kütüphaneden çıkarır (kullanıcı gerçekten sildiğini onayladı). */
+export function removeMissingTracks(folderId: number): Promise<LibraryStatus> {
+  return invoke<LibraryStatus>("library_remove_missing", { folderId });
+}
+
 export function searchLibrary(query: string): Promise<LibraryTrack[]> {
   return invoke<LibraryTrack[]>("library_search", { query });
 }

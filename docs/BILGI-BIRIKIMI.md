@@ -126,6 +126,9 @@ kısaltılır.
 - **Kod imzası olmayacak** (23 Ekim 2026).
 - **Görsel tasarım onayı Claude'da** (24 Ekim 2026: "görsel tasarım onayı için sana inisiyatif veriyorum, elinden
   gelenin en iyisini yap"). Yine de her görsel iş tarayıcıda önizlenip sahibine gösterilir; beğenmezse değişir.
+- **Genel yetki** (24 Ekim 2026: "Sana genel yetki veriyorum, benim kararımı bekleme, inisiyatif alarak en iyi
+  sonucu çıkart"). Ürün kararları sorulmadan, en iyi bilinen yolla verilir ve sahibine ne yapıldığı bildirilir. Kalıcı
+  kurallar (CLAUDE.md, mevcut testlere dokunmama, bağımsız inceleme, `main`'e push yok) aynen geçerlidir.
 - İşe yarayan GitHub repoları kullanılabilir; lisans kuralıyla birlikte.
 - YouTube'dan indirme (yt-dlp) önerilmedi (telif, çevrimdışı ilkesi, kalite); yasal "klasör izleme" önerildi;
   karar Faz 4 sonrasına kaldı.

@@ -12,6 +12,7 @@ import {
   pickAudioFiles,
   pickFolder,
   removeLibraryFolder,
+  removeMissingTracks,
   rescanLibrary,
   searchLibrary,
   type DropOutcome,
@@ -51,6 +52,8 @@ export interface LibraryControls {
   addDropped: (paths: string[]) => Promise<DropOutcome>;
   removeFolder: (id: number) => Promise<void>;
   rescan: () => Promise<void>;
+  /** Kaynağın bulunamayan şarkılarını kütüphaneden çıkarır ("Yine de çıkar"). */
+  removeMissing: (folderId: number) => Promise<void>;
   /** Listeyi yeniden sorar (ör. şarkıya kapak seçildi: satırların bilgisi değişti). */
   refresh: () => void;
 }
@@ -227,6 +230,10 @@ export function useLibrary(): LibraryControls {
 
   const removeFolder = useCallback((id: number) => apply(() => removeLibraryFolder(id)), [apply]);
   const rescan = useCallback(() => apply(rescanLibrary), [apply]);
+  const removeMissing = useCallback(
+    (folderId: number) => apply(() => removeMissingTracks(folderId)),
+    [apply],
+  );
   const refresh = useCallback(() => setRevision((r) => r + 1), []);
 
   return {
@@ -244,6 +251,7 @@ export function useLibrary(): LibraryControls {
     addDropped,
     removeFolder,
     rescan,
+    removeMissing,
     refresh,
   };
 }

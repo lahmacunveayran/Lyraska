@@ -170,6 +170,29 @@ pub fn scan_folder_within(
     within: Option<&Path>,
     state: &ScanState,
 ) -> Result<ScanSummary, LibraryError> {
+    scan(library, folder, within, state, None)
+}
+
+/// Bütün kaynağı tarar; kullanıcı bulunamayan `missing` şarkının gerçekten silindiğini onayladı
+/// ("Yine de çıkar"): şüpheli silme koruması bu kez uygulanmaz. Onaylanandan fazlası yok
+/// görünüyorsa (ör. bu arada ağ paylaşımı yarım bağlandı) onay onları kapsamaz, koruma yine
+/// uygulanır. Kök hiç yoksa (disk takılı değil) yine hiçbir şeye dokunulmaz.
+pub fn scan_folder_confirmed(
+    library: &Mutex<Library>,
+    folder: &FolderRow,
+    state: &ScanState,
+    missing: usize,
+) -> Result<ScanSummary, LibraryError> {
+    scan(library, folder, None, state, Some(missing))
+}
+
+fn scan(
+    library: &Mutex<Library>,
+    folder: &FolderRow,
+    within: Option<&Path>,
+    state: &ScanState,
+    confirmed: Option<usize>,
+) -> Result<ScanSummary, LibraryError> {
     state.begin(&folder.path);
     let root = Path::new(&folder.path);
     if !(root.is_dir() || root.is_file() && is_audio(root)) {
@@ -202,11 +225,14 @@ pub fn scan_folder_within(
     // baştan kurdurur; onun yerine hiçbirine dokunulmaz ve kullanıcıya söylenir.
     // Alt klasör taramasında uygulanmaz: kök de alt klasör de yerinde (disk takılı); bir albüm
     // klasöründeki bütün şarkıların silinmesi gerçek bir silmedir.
-    let suspicious = if scope.is_none() && is_suspicious_removal(known.len(), removed.len()) {
-        std::mem::take(&mut removed).len()
-    } else {
-        0
-    };
+    // Kullanıcının onayı yalnızca onayladığı kadar şarkıyı kapsar.
+    let confirmed = confirmed.is_some_and(|missing| removed.len() <= missing);
+    let suspicious =
+        if !confirmed && scope.is_none() && is_suspicious_removal(known.len(), removed.len()) {
+            std::mem::take(&mut removed).len()
+        } else {
+            0
+        };
     let to_read: Vec<(PathBuf, FileStamp)> = files
         .into_iter()
         .filter(|(path, stamp)| {
@@ -718,6 +744,56 @@ mod tests {
             4,
             "şarkılar ve analizleri korunur"
         );
+    }
+
+    #[test]
+    fn kullanici_onaylayinca_bulunamayan_sarkilar_cikarilir() {
+        let (library, folder, dir) = setup();
+        let state = ScanState::default();
+        scan_folder(&library, &folder, &state).unwrap();
+        for name in ["uc-uc-ton.mp3", "uc-uc-ton.m4a", "uc-uc-ton.ogg"] {
+            std::fs::remove_file(dir.join(name)).unwrap();
+        }
+        std::fs::remove_file(dir.join("Alt Klasör/şarkı.FLAC")).unwrap();
+        assert_eq!(
+            scan_folder(&library, &folder, &state).unwrap().suspicious,
+            4
+        );
+
+        // Kullanıcı "yine de çıkar" dedi: şarkılar gerçekten silinmiş.
+        let confirmed = scan_folder_confirmed(&library, &folder, &state, 4).unwrap();
+        assert_eq!((confirmed.removed, confirmed.suspicious), (4, 0));
+        assert_eq!(library.lock().unwrap().track_count().unwrap(), 0);
+    }
+
+    #[test]
+    fn onay_kaybolan_kaynagi_silmez() {
+        // Kök hiç yoksa (disk takılı değil) onay da şarkılara dokunmaz.
+        let (library, folder, dir) = setup();
+        let state = ScanState::default();
+        scan_folder(&library, &folder, &state).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(matches!(
+            scan_folder_confirmed(&library, &folder, &state, 4),
+            Err(LibraryError::FolderMissing(_))
+        ));
+        assert_eq!(library.lock().unwrap().track_count().unwrap(), 4);
+    }
+
+    #[test]
+    fn onay_onaylanandan_fazla_kaybolani_silmez() {
+        // Kullanıcı 3 şarkının çıkmasını onayladı; tarama anında 4'ü birden yok (ör. ağ paylaşımı
+        // yarım bağlandı): onay o kadarını kapsamaz, koruma yine uygulanır.
+        let (library, folder, dir) = setup();
+        let state = ScanState::default();
+        scan_folder(&library, &folder, &state).unwrap();
+        for name in ["uc-uc-ton.mp3", "uc-uc-ton.m4a", "uc-uc-ton.ogg"] {
+            std::fs::remove_file(dir.join(name)).unwrap();
+        }
+        std::fs::remove_file(dir.join("Alt Klasör/şarkı.FLAC")).unwrap();
+        let summary = scan_folder_confirmed(&library, &folder, &state, 3).unwrap();
+        assert_eq!((summary.removed, summary.suspicious), (0, 4));
+        assert_eq!(library.lock().unwrap().track_count().unwrap(), 4);
     }
 
     #[test]
