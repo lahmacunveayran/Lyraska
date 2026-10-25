@@ -168,18 +168,19 @@ impl Decimator {
     }
 }
 
-/// Komut iş parçacığına verilen pencere: 1024 ardışık 44,1 kHz örnek.
+/// Komut iş parçacığına verilen pencere: `N` ardışık 44,1 kHz örnek (MilkDrop için [`WINDOW`],
+/// spektrum çubukları için daha uzun: [`super::spectrum`]).
 #[derive(Debug, Clone)]
-pub struct Window {
+pub struct Window<const N: usize = WINDOW> {
     /// İlk örneğin sırası (akışın başından; eksi: akış başlamadan önce, sessizlik).
     pub first: i64,
     /// Akışın (aygıtın) hızı.
     pub rate: u32,
-    pub left: [f32; WINDOW],
-    pub right: [f32; WINDOW],
+    pub left: [f32; N],
+    pub right: [f32; N],
 }
 
-impl Window {
+impl<const N: usize> Window<N> {
     /// Akışın `frame`. karesinde ya da sonrasında duran ilk çıkış örneğinin sırası.
     pub fn index_at_frame(&self, frame: u64) -> i64 {
         let rate = u64::from(self.rate.max(1));
@@ -263,6 +264,12 @@ impl WaveformTap {
     /// örnek. Henüz yazılmamış, akıştan önceki ya da halkadan çıkmış örnekler sessizliktir (0).
     /// Akış başlamadıysa `None`.
     pub fn read(&self, heard: u64, offset_secs: f64) -> Option<Window> {
+        self.read_window(heard, offset_secs)
+    }
+
+    /// [`Self::read`] gibi, `N` örneklik pencere (`N` ≤ [`TAP_FRAMES`]; daha uzunu halkada yok,
+    /// sessizlik olarak gelir).
+    pub fn read_window<const N: usize>(&self, heard: u64, offset_secs: f64) -> Option<Window<N>> {
         let ring = self.ring.lock().ok()?;
         if ring.rate == 0 || ring.left.is_empty() {
             return None;
@@ -277,15 +284,15 @@ impl WaveformTap {
             return None;
         }
         let last = at.floor() as i64;
-        let first = last - (WINDOW as i64 - 1);
+        let first = last - (N as i64 - 1);
         let capacity = ring.left.len() as u64;
         let mut window = Window {
             first,
             rate: ring.rate,
-            left: [0.0; WINDOW],
-            right: [0.0; WINDOW],
+            left: [0.0; N],
+            right: [0.0; N],
         };
-        for k in 0..WINDOW {
+        for k in 0..N {
             let Ok(index) = u64::try_from(first + k as i64) else {
                 continue;
             };
@@ -309,21 +316,38 @@ pub fn to_byte(x: f64) -> u8 {
     ((1.0 + x) * 128.0).floor().clamp(0.0, 255.0) as u8
 }
 
+/// Örnekten örneğe ilerleyen kazanç: `gains` (ilk örneğin sırası, doğrusal kazanç) çiftleri,
+/// sıraya göre artan; her örneğe kendinden önce başlayan son kazanç uygulanır, öncesinde 1.
+struct GainCursor<'a> {
+    gains: &'a [(i64, f64)],
+    span: usize,
+}
+
+impl<'a> GainCursor<'a> {
+    fn new(gains: &'a [(i64, f64)]) -> Self {
+        Self { gains, span: 0 }
+    }
+
+    /// `index`. örneğin kazancı (`index` artan sırayla sorulur).
+    fn at(&mut self, index: i64) -> f64 {
+        while self.span + 1 < self.gains.len() && self.gains[self.span + 1].0 <= index {
+            self.span += 1;
+        }
+        self.gains
+            .get(self.span)
+            .filter(|(start, _)| *start <= index)
+            .map_or(1.0, |&(_, gain)| gain)
+    }
+}
+
 /// Pencereyi Butterchurn'ün beklediği 3 × 1024 bayta çevirir: karışım (sol + sağ)/2, sol, sağ.
 /// `gains`: (ilk örneğin sırası, doğrusal kazanç) çiftleri, sıraya göre artan; her örneğe
 /// kendinden önce başlayan son kazanç uygulanır (boşluksuz geçişte şarkı başına eşitleme).
 pub fn to_bytes(window: &Window, gains: &[(i64, f64)]) -> Vec<u8> {
     let mut bytes = vec![128u8; WAVEFORM_BYTES];
-    let mut span = 0;
+    let mut cursor = GainCursor::new(gains);
     for k in 0..WINDOW {
-        let index = window.first + k as i64;
-        while span + 1 < gains.len() && gains[span + 1].0 <= index {
-            span += 1;
-        }
-        let gain = gains
-            .get(span)
-            .filter(|(start, _)| *start <= index)
-            .map_or(1.0, |&(_, gain)| gain);
+        let gain = cursor.at(window.first + k as i64);
         let left = f64::from(window.left[k]) * gain;
         let right = f64::from(window.right[k]) * gain;
         bytes[k] = to_byte((left + right) * 0.5);
@@ -331,6 +355,17 @@ pub fn to_bytes(window: &Window, gains: &[(i64, f64)]) -> Vec<u8> {
         bytes[2 * WINDOW + k] = to_byte(right);
     }
     bytes
+}
+
+/// Pencerenin tek kanallı karışımı (sol + sağ)/2, şarkı başına kazançla ([`to_bytes`] gibi).
+pub fn mono_mix<const N: usize>(window: &Window<N>, gains: &[(i64, f64)]) -> Vec<Sample> {
+    let mut cursor = GainCursor::new(gains);
+    (0..N)
+        .map(|k| {
+            let gain = cursor.at(window.first + k as i64);
+            (f64::from(window.left[k]) + f64::from(window.right[k])) * 0.5 * gain
+        })
+        .collect()
 }
 
 /// Duyulan ses yokken (duraklatıldı, şarkı bitti) verilen dalga: hepsi 128.
@@ -551,5 +586,32 @@ mod tests {
         // Kazanç listesi pencereden sonra başlıyorsa pencere kazançsız.
         let bytes = to_bytes(&window, &[(5_000, 4.0)]);
         assert_eq!(bytes[WINDOW + 1], to_byte(0.25));
+    }
+
+    #[test]
+    fn uzun_pencere_ayni_yerden_okunur_kisa_pencereyle_ortusur() {
+        let tap = WaveformTap::new();
+        tap.start(44_100);
+        let frames: Vec<[f32; 2]> = (0..20_000).map(|i| [i as f32, 0.0]).collect();
+        tap.write(&frames);
+        let long = tap.read_window::<4096>(10_000, 0.0).unwrap();
+        let short = tap.read(10_000, 0.0).unwrap();
+        assert_eq!(long.first, 10_000 - 4_095);
+        assert_eq!(long.left[4096 - WINDOW..], short.left[..]);
+        assert_eq!(long.index_at_frame(9_600), short.index_at_frame(9_600));
+    }
+
+    #[test]
+    fn tek_kanal_karisim_kazanci_sinirdan_itibaren_uygular() {
+        let window: Window<4> = Window {
+            first: 10,
+            rate: 44_100,
+            left: [0.5, 0.5, 0.5, 0.5],
+            right: [0.25, 0.25, -0.5, 0.25],
+        };
+        // 12. örnekten itibaren 2 kat; öncesinde kazanç listesi başlamadıysa 1.
+        let mono = mono_mix(&window, &[(12, 2.0)]);
+        assert_eq!(mono, vec![0.375, 0.375, 0.0, 0.75]);
+        assert_eq!(mono_mix(&window, &[]), vec![0.375, 0.375, 0.0, 0.375]);
     }
 }

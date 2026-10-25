@@ -350,6 +350,23 @@ export async function getVisualWaveform(): Promise<Uint8Array | null> {
   return array.length === WAVEFORM_BYTES ? array : null;
 }
 
+/**
+ * Şu an duyulan anın ince spektrum çubukları ("Kendi resmin" sahnesi): `bars` seviye, 0..1, bas
+ * solda (20 Hz – 2 kHz, doğrusal; genlikle doğru orantılı, src-tauri/src/audio/spectrum.rs). Görsel
+ * karelerle aynı an. Duraklatılmışsa hepsi 0; çalan şarkı yoksa, yanıt beklenen uzunlukta
+ * değilse ya da tarayıcı önizlemesinde `null`.
+ */
+export async function getVisualSpectrum(bars: number): Promise<number[] | null> {
+  if (!isTauri()) return null;
+  // Sahte çekirdekte ya da eski sürümde dizi olmayan yanıt gelebilir: türüne güvenilmez.
+  const levels: unknown = await invoke<number[]>("visual_spectrum");
+  return Array.isArray(levels) &&
+    levels.length === bars &&
+    levels.every((v) => typeof v === "number" && Number.isFinite(v))
+    ? levels.map((v: number) => Math.max(0, Math.min(1, v)))
+    : null;
+}
+
 /** MilkDrop klasörü seçilmemişken (ve tarayıcı önizlemesinde) durum. */
 export const NO_MILKDROP_FOLDER: MilkdropFolder = {
   folder: null,
@@ -573,6 +590,21 @@ export async function pickPlaylistFile(): Promise<string | null> {
 /** Şarkının dosyasını dosya gezgininde seçili gösterir (yalnızca kütüphanedeki ve listelerdeki). */
 export function revealTrack(path: string): Promise<void> {
   return invoke<void>("reveal_track", { path });
+}
+
+/** "Kendi resmin" sahnesinin arka planı (`data:` adresi); seçilmemişse `null`. */
+export async function getBackgroundImage(): Promise<string | null> {
+  if (!isTauri()) return null;
+  return invoke<string | null>("background_image_get");
+}
+
+/** Resmi arka plan yapar (kopyası Lyraska'da saklanır). */
+export function setBackgroundImage(path: string): Promise<void> {
+  return invoke<void>("background_image_set", { path });
+}
+
+export function clearBackgroundImage(): Promise<void> {
+  return invoke<void>("background_image_clear");
 }
 
 /** Kapak resmi seçme penceresi. */

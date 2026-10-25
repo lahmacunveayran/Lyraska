@@ -5548,3 +5548,156 @@ kbd {
   position: fixed;
   z-index: 50;
 }
+
+/* "Kendi resmin" sahnesi: kullanıcının resmi, ortada ışık çizgisi, geniş harflerle şarkı adı */
+.photo-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 45%, #1a1424, #07060b 70%);
+}
+
+.photo-scene__image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Resim sabittir (kaymaz): parlama hesabı resmi ekrandaki yerinde ölçer. Yavaş kayma her resim
+     parçasının çubukların altına gelebileceğini varsaydırıyor, çubukları kısaltıyordu; örnek
+     görselleştirme videolarında da resim duruyor (src/lib/photoScene.ts `measureLine`). */
+  user-select: none;
+}
+
+/* Çubukların ışığı resme eklenir (örnek videolardaki gibi: kırmızı ışıltı koyu kırmızıyı
+   parlatır, beyaz tüyü değiştirmez). Koyu bant ya da karartma yok. Parlama hesabı bu toplamayı
+   bilir (src/lib/photoScene.ts `measureLine`); değişirse orası da değişir. */
+.photo-scene__bars {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  mix-blend-mode: plus-lighter;
+}
+
+.photo-scene__text {
+  --photo-lift: 40px;
+  position: absolute;
+  left: 2.5%;
+  right: 2.5%;
+  bottom: calc(50% + var(--photo-lift));
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  font-family: "Audiowide", var(--font-display);
+  color: #fff;
+  /* Örnekteki gibi kalın harf (yazı tipinin tek kalınlığı biraz kalınlaştırılır) ve sıkı koyu
+     kenar: açık resimde de okunur. */
+  -webkit-text-stroke: 0.04em #fff;
+  text-shadow:
+    0 0 1px rgba(0, 0, 0, 0.85),
+    0 0 3px rgba(0, 0, 0, 0.6),
+    0 1px 8px rgba(0, 0, 0, 0.45),
+    0 2px 18px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  /* Denetimler görünürken alttaki büyük başlık zaten şarkıyı söyler; yazı sinema görünümünde. */
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+.app.is-cinema .photo-scene__text {
+  opacity: 1;
+}
+
+.photo-scene__song {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.photo-scene__title {
+  overflow: hidden;
+  font-size: clamp(16px, 1.7vw, 30px);
+  letter-spacing: 0.14em;
+  line-height: 1.1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.photo-scene__artist {
+  overflow: hidden;
+  font-size: clamp(9px, 0.75vw, 13px);
+  letter-spacing: 0.2em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0.85;
+}
+
+.photo-scene__clock {
+  flex: none;
+  align-self: flex-start;
+  font-size: clamp(16px, 1.6vw, 28px);
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+}
+
+.photo-scene__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding-bottom: 22vh;
+  color: var(--ink-2);
+  text-align: center;
+}
+
+.photo-scene__empty p {
+  margin: 0;
+}
+
+.photo-scene__hint {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+/* İlk açılıştaki ışığa duyarlılık uyarısı: ortada cam kart. */
+.flash-warning {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 60;
+  width: min(520px, calc(100vw - 32px));
+  padding: 22px 24px 18px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 16px;
+  background: var(--glass-strong);
+  backdrop-filter: blur(var(--glass-blur));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  transform: translate(-50%, -50%);
+}
+
+.flash-warning__title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.flash-warning__text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.flash-warning__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}

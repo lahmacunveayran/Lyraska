@@ -45,6 +45,7 @@ import {
   STATE_SCALE,
   frameSlew,
   guardRates,
+  redSlew,
   srgbToLinear,
   type GuardRates,
 } from "./flashGuardMath";
@@ -69,10 +70,22 @@ export interface FlashGuard {
     dt: number,
     target?: WebGLFramebuffer | null,
   ): boolean;
-  /** Başka bir tuvalin (ör. butterchurn'ün) görüntüsünü yükleyip `process` eder. */
+  /**
+   * Başka bir tuvalin (ör. butterchurn'ün) görüntüsünü yükleyip `process` eder. `reuse`: kaynak
+   * bir önceki çağrıdan beri değişmedi, aynı boydaki yüklü doku yeniden kullanılır (yükleme yok).
+   */
   processSource(
     source: HTMLCanvasElement | OffscreenCanvas | ImageBitmap,
     dt: number,
+    target?: WebGLFramebuffer | null,
+    reuse?: boolean,
+  ): boolean;
+  /**
+   * Durumu fren olmadan doğrudan `source`'un görüntüsüne getirir ve çizer: yalnızca sahne ilk kez
+   * gösterilirken (sabit bir resmin belirmesi gibi tek bir geçiş), sonraki her kare `process`'ten.
+   */
+  primeSource(
+    source: HTMLCanvasElement | OffscreenCanvas | ImageBitmap,
     target?: WebGLFramebuffer | null,
   ): boolean;
   /** Epilepsi güvenli modu (r = 0,18/sn, r_p = 0,095/sn). */
@@ -86,6 +99,11 @@ export type FlashGuardSetup = { ok: true; guard: FlashGuard } | { ok: false; rea
 
 export interface FlashGuardOptions {
   safe?: boolean;
+  /**
+   * Kırmızı kanalı da sınırla (`flashGuardMath.ts` 9. adım; "Kendi resmin" hareketli arka planı).
+   * Kapalıyken kırmızı aynen geçer.
+   */
+  red?: boolean;
   /** Yalnızca denetim için: kayan nokta dokular olsa da RGBA8 yedeğini kullan. */
   forcePacked?: boolean;
 }
@@ -110,8 +128,8 @@ export function createFlashGuard(
   for (const storage of float ? (["float", "packed"] as const) : (["packed"] as const)) {
     let guard: FlashGuard | null = null;
     try {
-      guard = build(gl, storage, options.safe ?? false);
-      selfTest(gl, guard, options.safe ?? false);
+      guard = build(gl, storage, options.safe ?? false, options.red ?? false);
+      selfTest(gl, guard, options.safe ?? false, options.red ?? false);
       return { ok: true, guard };
     } catch (error) {
       guard?.dispose();
@@ -191,12 +209,13 @@ float blockGain(sampler2D vertices, ivec2 b) {
 `;
 }
 
-/** 1. Blok ölçümü: ΔY_b (0,5 + 0,5·ΔY olarak) ve D_b. */
+/** 1. Blok ölçümü: ΔY_b (0,5 + 0,5·ΔY olarak), D_b ve R_b (ortalama |Δ(R − G − B)|). */
 const MEASURE = `
 uniform sampler2D uInput;
 uniform usampler2D uState;
 layout(location = 0) out vec4 outDelta;
 layout(location = 1) out vec4 outAbs;
+layout(location = 2) out vec4 outRed;
 void main() {
   ivec2 b = ivec2(gl_FragCoord.xy);
   int x0 = edgeX(b.x);
@@ -205,31 +224,42 @@ void main() {
   int y1 = edgeY(b.y + 1);
   float sum = 0.0;
   float sumAbs = 0.0;
+  float sumRed = 0.0;
   for (int y = y0; y < y1; y++) {
     for (int x = x0; x < x1; x++) {
       ivec2 p = ivec2(x, y);
-      float d = dot(toLinear(texelFetch(uInput, p, 0).rgb) - readState(uState, p), LUMA);
+      vec3 c = toLinear(texelFetch(uInput, p, 0).rgb) - readState(uState, p);
+      float d = dot(c, LUMA);
       sum += d;
       sumAbs += abs(d);
+      sumRed += abs(c.r - c.g - c.b);
     }
   }
   float n = float((x1 - x0) * (y1 - y0));
   outDelta = writeValue(n > 0.0 ? 0.5 + 0.5 * sum / n : 0.5);
   outAbs = writeValue(n > 0.0 ? sumAbs / n : 0.0);
+  // |Δ(R − G − B)| en çok 3: saklanabilsin diye üçte biri.
+  outRed = writeValue(n > 0.0 ? sumRed / (3.0 * n) : 0.0);
 }`;
 
-/** 2. Hücrenin payı: min(α_c, β_c); α_c = min(1, s / Σ_k |E_{c,k}|), β_c = min(1, s_p / max D_b). */
+/**
+ * 2. Hücrenin payı: min(α_c, β_c, γ_c); α_c = min(1, s / Σ_k |E_{c,k}|), β_c = min(1, s_p / max D_b),
+ * γ_c = min(1, s_r / max R_b) (kırmızı kapalıyken s_r çok büyük).
+ */
 const CELLS = `
 uniform sampler2D uDelta;
 uniform sampler2D uAbs;
+uniform sampler2D uRed;
 uniform float uSlew;
 uniform float uPatternSlew;
+uniform float uRedSlew;
 out vec4 outGain;
 void main() {
   ivec2 c = ivec2(gl_FragCoord.xy);
   vec4 e = vec4(0.0);
   float total = 0.0;
   float worst = 0.0;
+  float worstRed = 0.0;
   for (int j = 0; j < PER_CELL; j++) {
     int by = c.y * PER_CELL + j;
     float h = float(edgeY(by + 1) - edgeY(by));
@@ -241,13 +271,17 @@ void main() {
       float d = readValue(uDelta, ivec2(bx, by)) * 2.0 - 1.0;
       e += n * d * vec4((1.0 - u) * (1.0 - v), u * (1.0 - v), (1.0 - u) * v, u * v);
       total += n;
-      if (n > 0.0) worst = max(worst, readValue(uAbs, ivec2(bx, by)));
+      if (n > 0.0) {
+        worst = max(worst, readValue(uAbs, ivec2(bx, by)));
+        worstRed = max(worstRed, 3.0 * readValue(uRed, ivec2(bx, by)));
+      }
     }
   }
   float l1 = total > 0.0 ? (abs(e.x) + abs(e.y) + abs(e.z) + abs(e.w)) / total : 0.0;
   float alpha = l1 <= uSlew ? 1.0 : uSlew / l1;
   float beta = worst <= uPatternSlew ? 1.0 : uPatternSlew / worst;
-  outGain = writeValue(min(alpha, beta));
+  float gamma = worstRed <= uRedSlew ? 1.0 : uRedSlew / worstRed;
+  outGain = writeValue(min(min(alpha, beta), gamma));
 }`;
 
 /** 3. Köşenin payı: köşeye dokunan hücrelerin en küçük payı. */
@@ -281,6 +315,14 @@ void main() {
   vec3 x = toLinear(texelFetch(uInput, p, 0).rgb);
   vec3 h = readState(uState, p);
   outState = writeState(h + a * (x - h));
+}`;
+
+/** Fren olmadan doğrudan: durum = girdi (yalnız sahne ilk gösterilirken). */
+const PRIME = `
+uniform sampler2D uInput;
+out uvec4 outState;
+void main() {
+  outState = writeState(toLinear(texelFetch(uInput, ivec2(gl_FragCoord.xy), 0).rgb));
 }`;
 
 /** 5. Gösterim: durumun sRGB'si. */
@@ -320,7 +362,12 @@ interface State {
 }
 
 /** Kaynakları kurar; olmazsa nedeni içeren hata fırlatır (yarım kalanlar `dispose` ile silinir). */
-function build(gl: WebGL2RenderingContext, storage: FlashGuardStorage, safe: boolean): FlashGuard {
+function build(
+  gl: WebGL2RenderingContext,
+  storage: FlashGuardStorage,
+  safe: boolean,
+  red: boolean,
+): FlashGuard {
   const programs: WebGLProgram[] = [];
   const textures: WebGLTexture[] = [];
   const framebuffers: WebGLFramebuffer[] = [];
@@ -328,7 +375,7 @@ function build(gl: WebGL2RenderingContext, storage: FlashGuardStorage, safe: boo
   let sourceTexture: WebGLTexture | null = null;
   let sourceSize = { width: 0, height: 0 };
   let disposed = false;
-  let rates: GuardRates = guardRates(safe);
+  let rates: GuardRates = guardRates(safe, red);
   let state: State | null = null;
   let current = 0;
 
@@ -349,8 +396,8 @@ function build(gl: WebGL2RenderingContext, storage: FlashGuardStorage, safe: boo
   };
 
   try {
-    if ((gl.getParameter(gl.MAX_DRAW_BUFFERS) as number) < 2) {
-      throw new Error("en az iki çizim hedefi gerekli");
+    if ((gl.getParameter(gl.MAX_DRAW_BUFFERS) as number) < 3) {
+      throw new Error("en az üç çizim hedefi gerekli");
     }
     const pass = (source: string, samplers: string[], uniforms: string[]): Pass => {
       const program = linkFullscreenProgram(gl, header(storage) + source);
@@ -368,10 +415,11 @@ function build(gl: WebGL2RenderingContext, storage: FlashGuardStorage, safe: boo
       return { program, uniforms: locations };
     };
     const measure = pass(MEASURE, ["uInput", "uState"], []);
-    const cells = pass(CELLS, ["uDelta", "uAbs"], ["uSlew", "uPatternSlew"]);
+    const cells = pass(CELLS, ["uDelta", "uAbs", "uRed"], ["uSlew", "uPatternSlew", "uRedSlew"]);
     const vertices = pass(VERTICES, ["uCells"], []);
     const blend = pass(BLEND, ["uInput", "uState", "uVertices"], []);
     const show = pass(SHOW, ["uState"], []);
+    const prime = pass(PRIME, ["uInput"], []);
     const resize = pass(RESIZE, ["uState"], ["uFrom"]);
     vao = gl.createVertexArray();
     if (!vao) throw new Error("köşe dizisi oluşturulamadı");
@@ -456,7 +504,7 @@ function build(gl: WebGL2RenderingContext, storage: FlashGuardStorage, safe: boo
         throw error;
       }
     };
-    const blocks = target(BLOCKS_X, BLOCKS_Y, 2); // ΔY_b, D_b
+    const blocks = target(BLOCKS_X, BLOCKS_Y, 3); // ΔY_b, D_b, R_b
     const cellGains = target(COLS, ROWS, 1);
     const vertexGains = target(COLS + 1, ROWS + 1, 1);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -552,8 +600,10 @@ function build(gl: WebGL2RenderingContext, storage: FlashGuardStorage, safe: boo
       gl.useProgram(cells.program);
       const slew = cells.uniforms.get("uSlew");
       const patternSlew = cells.uniforms.get("uPatternSlew");
+      const redSlewLocation = cells.uniforms.get("uRedSlew");
       if (slew) gl.uniform1f(slew, frameSlew(rates.mean, dt));
       if (patternSlew) gl.uniform1f(patternSlew, frameSlew(rates.pattern, dt));
+      if (redSlewLocation) gl.uniform1f(redSlewLocation, Math.min(1e30, redSlew(rates.red, dt)));
       run(cells, cellGains.framebuffer, COLS, ROWS, size, blocks.textures);
       run(vertices, vertexGains.framebuffer, COLS + 1, ROWS + 1, size, cellGains.textures);
       run(blend, next.framebuffer, w, h, size, [
@@ -569,42 +619,75 @@ function build(gl: WebGL2RenderingContext, storage: FlashGuardStorage, safe: boo
       return true;
     };
 
+    /** Başka bir tuvalin görüntüsünü girdi dokusuna yükler (satır 0 altta, baytlar aynen). */
+    const upload = (source: HTMLCanvasElement | OffscreenCanvas | ImageBitmap) => {
+      if (disposed || gl.isContextLost()) return null;
+      const { width, height } = source;
+      if (!(width >= 1 && height >= 1)) return null;
+      if (!sourceTexture) {
+        sourceTexture = gl.createTexture();
+        if (!sourceTexture) return null;
+      }
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, sourceTexture);
+      // Bağlamın yükleme ayarları sonra eski hâline döner (sahne aynı bağlamı kullanıyor olabilir).
+      const unpack = [
+        gl.UNPACK_FLIP_Y_WEBGL,
+        gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,
+        gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,
+      ] as const;
+      const saved = unpack.map((name) => gl.getParameter(name) as number | boolean);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+      if (sourceSize.width !== width || sourceSize.height !== height) {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, source);
+        setNearest(gl);
+        sourceSize = { width, height };
+      } else {
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source);
+      }
+      unpack.forEach((name, i) => gl.pixelStorei(name, saved[i] ?? 0));
+      return sourceTexture;
+    };
+
     return {
       storage,
       process,
-      processSource(source, dt, to = null) {
-        if (disposed || gl.isContextLost()) return false;
-        const { width, height } = source;
-        if (!(width >= 1 && height >= 1)) return false;
-        if (!sourceTexture) {
-          sourceTexture = gl.createTexture();
-          if (!sourceTexture) return false;
+      processSource(source, dt, to = null, reuse = false) {
+        const same =
+          reuse &&
+          !!sourceTexture &&
+          sourceSize.width === source.width &&
+          sourceSize.height === source.height &&
+          !disposed &&
+          !gl.isContextLost();
+        const texture = same ? sourceTexture : upload(source);
+        return texture ? process(texture, source.width, source.height, dt, to) : false;
+      },
+      primeSource(source, to = null) {
+        const texture = upload(source);
+        if (!texture) return false;
+        const w = Math.floor(source.width);
+        const h = Math.floor(source.height);
+        let st: State;
+        try {
+          st = ensureState(w, h);
+        } catch {
+          return false;
         }
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, sourceTexture);
-        // Satır 0 altta olsun (çerçeve tamponu gibi); baytlar olduğu gibi (renk dönüşümü yok).
-        // Bağlamın yükleme ayarları sonra eski hâline döner (sahne aynı bağlamı kullanıyor olabilir).
-        const unpack = [
-          gl.UNPACK_FLIP_Y_WEBGL,
-          gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,
-          gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,
-        ] as const;
-        const saved = unpack.map((name) => gl.getParameter(name) as number | boolean);
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-        gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
-        if (sourceSize.width !== width || sourceSize.height !== height) {
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, source);
-          setNearest(gl);
-          sourceSize = { width, height };
-        } else {
-          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source);
-        }
-        unpack.forEach((name, i) => gl.pixelStorei(name, saved[i] ?? 0));
-        return process(sourceTexture, width, height, dt, to);
+        gl.disable(gl.BLEND);
+        gl.disable(gl.SCISSOR_TEST);
+        gl.bindVertexArray(vao);
+        run(prime, st.targets[current]!.framebuffer, w, h, [w, h], [texture]);
+        run(show, to, w, h, [w, h], [st.targets[current]!.textures[0]!]);
+        gl.bindVertexArray(null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, to);
+        gl.viewport(0, 0, w, h);
+        return true;
       },
       setSafe(value) {
-        rates = guardRates(value);
+        rates = guardRates(value, red);
       },
       reset() {
         if (disposed || gl.isContextLost()) return;
@@ -632,7 +715,7 @@ function setNearest(gl: WebGL2RenderingContext) {
  * Gölgelendiriciler ya da saklama bu sürücüde doğru çalışmıyorsa (ör. her şeyi olduğu gibi
  * geçiriyor ya da hep siyah) fren kurulmuş sayılmaz.
  */
-function selfTest(gl: WebGL2RenderingContext, guard: FlashGuard, safe: boolean) {
+function selfTest(gl: WebGL2RenderingContext, guard: FlashGuard, safe: boolean, red: boolean) {
   const width = BLOCKS_X;
   const height = BLOCKS_Y;
   const input = gl.createTexture();
@@ -664,8 +747,13 @@ function selfTest(gl: WebGL2RenderingContext, guard: FlashGuard, safe: boolean) 
       return sum / (width * height);
     };
     const dt = 1 / 60;
-    const rates = guardRates(true);
-    const slew = Math.min(frameSlew(rates.mean, dt), frameSlew(rates.pattern, dt));
+    const rates = guardRates(true, red);
+    // Beyazın `|Δ(R − G − B)|`'si de 1: kırmızı kanal açıksa o da sınırlar.
+    const slew = Math.min(
+      frameSlew(rates.mean, dt),
+      frameSlew(rates.pattern, dt),
+      redSlew(rates.red, dt),
+    );
     guard.setSafe(true);
     if (!guard.process(input, width, height, dt, framebuffer)) throw new Error("çizilemedi");
     const opened = meanLuminance();

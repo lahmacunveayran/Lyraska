@@ -9,6 +9,7 @@ import {
 } from "react";
 import { Dock } from "./Dock";
 import { DropOverlay } from "./DropOverlay";
+import { FlashWarning } from "./FlashWarning";
 import { EqualizerPanel } from "./EqualizerPanel";
 import { InfoStack, type UpNext } from "./InfoStack";
 import { LibraryPanel } from "./LibraryPanel";
@@ -50,6 +51,7 @@ import { useLivePosition, type PlayerControls } from "../hooks/usePlayer";
 import { usePlaybackOptions } from "../hooks/usePlaybackOptions";
 import { useScene } from "../hooks/useScene";
 import { useScenePresets } from "../hooks/useScenePresets";
+import { useBackgroundImage } from "../hooks/useBackgroundImage";
 import { useMilkdrop } from "../hooks/useMilkdrop";
 import { useSkyLook } from "../hooks/useSkyLook";
 import { useCover, type CoverAlbum } from "../hooks/useCover";
@@ -103,6 +105,7 @@ export function PlayerScreen() {
   const [scene, chooseScene] = useScene();
   const scenePresets = useScenePresets();
   const milkdrop = useMilkdrop(scene === "milkdrop");
+  const background = useBackgroundImage(scene === "photo");
   const skyLook = useSkyLook();
 
   const playback = usePlayback(info.supportedExtensions);
@@ -330,6 +333,9 @@ export function PlayerScreen() {
           skyLook={skyLook.look}
           looks={scenePresets.looks}
           milkdrop={milkdrop}
+          background={background}
+          songTitle={status.track?.title ?? null}
+          songArtist={status.track?.artist ?? null}
           title={
             status.track
               ? [status.track.artist, status.track.title].filter(Boolean).join(" · ")
@@ -377,6 +383,7 @@ export function PlayerScreen() {
               onChoose={chooseScene}
               presets={scenePresets}
               milkdrop={milkdrop}
+              background={background}
             />
           </nav>
           <div className="topbar__actions">
@@ -589,6 +596,11 @@ export function PlayerScreen() {
       </aside>
 
       <DropOverlay dragging={drop.dragging} notice={drop.notice} />
+      <FlashWarning
+        safe={visualSafe.safe}
+        ready={visualSafe.loaded}
+        onEnableSafe={() => void visualSafe.setSafe(true)}
+      />
     </main>
   );
 }

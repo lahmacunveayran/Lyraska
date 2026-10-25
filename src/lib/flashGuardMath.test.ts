@@ -30,6 +30,10 @@ import {
   patternReversalBound,
   pixelBlocks,
   quantizeState,
+  redSlew,
+  RED_FLASH_SCALE,
+  GUARD_RED_RATE,
+  GUARD_RED_SAFE_RATE,
   srgbToLinear,
   worstBlockChanges,
   type GuardGrid,
@@ -84,6 +88,8 @@ interface Run {
   gains: Float64Array[];
   /** Her karede blokların ortalama mutlak parlaklık değişimi (önceki gösterilene göre). */
   blockSteps: Float64Array[];
+  /** Her karede gösterilen piksellerin kırmızı değeri `320 · max(0, R − G − B)` (8 bit isteğe bağlı). */
+  red: Float64Array[];
 }
 
 /**
@@ -123,7 +129,15 @@ function run(
 
   let state: Float64Array =
     options.start === "first" ? image(0).map(quantizeState) : new Float64Array(pixelCount * 3);
-  const result: Run = { shown: [], exact: [], cells: [], input: [], gains: [], blockSteps: [] };
+  const result: Run = {
+    shown: [],
+    exact: [],
+    cells: [],
+    input: [],
+    gains: [],
+    blockSteps: [],
+    red: [],
+  };
   for (let f = 0; f < frames; f++) {
     const pixels = image(f);
     const step = guardStep(
@@ -134,8 +148,18 @@ function run(
       pixels,
       frameSlew(rates.mean, DT),
       frameSlew(rates.pattern, DT),
+      true,
+      redSlew(rates.red, DT),
     );
     const out = step.output;
+    const red = new Float64Array(pixelCount);
+    for (let p = 0; p < pixelCount; p++) {
+      const c = [0, 1, 2].map((k) =>
+        options.eightBit ? quantize(out[p * 3 + k]!) : out[p * 3 + k]!,
+      ) as Rgb;
+      red[p] = RED_FLASH_SCALE * Math.max(0, c[0] - c[1] - c[2]);
+    }
+    result.red.push(red);
     const shown = new Float64Array(pixelCount);
     const exact = new Float64Array(pixelCount);
     const input = new Float64Array(pixelCount);
@@ -595,3 +619,59 @@ function cellPixelCounts(grid: GuardGrid): Float64Array {
   });
   return result;
 }
+
+describe("parlaklık freni: kırmızı kanal (isteğe bağlı)", () => {
+  // Aynı parlaklıkta doymuş kırmızı ↔ gri (parlaklık freni görmez): WCAG kırmızı parlaması.
+  const grey = 0.2126;
+  const GREY: Rgb = [grey, grey, grey];
+  /** Kırmızı değer eğrisi 20'lik değişimle sayılır (parlaklığın 0,1'i gibi: 200'e bölünür). */
+  const redFlashesPerSecond = (grid: GuardGrid, frames: readonly Float64Array[]) =>
+    flashesPerSecond(
+      grid,
+      frames.map((f) => f.map((v) => v / 200)),
+    );
+
+  it("kapalıyken aynı parlaklıkta kırmızı ↔ gri titreşim olduğu gibi geçer (denetim)", () => {
+    const r = run(TINY, square(10, RED, GREY), 120, NORMAL, { start: "first" });
+    expect(redFlashesPerSecond(TINY, r.red)).toBeGreaterThan(8);
+    // Parlaklık hiç değişmez: parlaklık freni bunu göremez.
+    expect(flashesPerSecond(TINY, r.shown)).toBe(0);
+  });
+
+  it.each([
+    { name: "normal", safe: false, limit: 3 },
+    { name: "güvenli", safe: true, limit: 1 },
+  ])(
+    "açıkken saniyede en çok $limit kırmızı parlama ($name, 8 bit ekran)",
+    { timeout: SLOW_TEST },
+    ({ safe, limit }) => {
+      const rates = guardRates(safe, true);
+      expect(rates.red).toBe(safe ? GUARD_RED_SAFE_RATE : GUARD_RED_RATE);
+      for (const pattern of [
+        square(10, RED, GREY),
+        square(3, RED, BLACK),
+        square(10, RED, WHITE),
+      ]) {
+        const r = run(SMALL, pattern, 240, rates, { start: "first", eightBit: true });
+        expect(redFlashesPerSecond(SMALL, r.red)).toBeLessThanOrEqual(limit);
+        // Pencere ortalaması bir karede en çok 320 · s_r · N⁺/N (+ 8 bit yuvarlama) değişir.
+        const win = flashWindow(SMALL.width, SMALL.height);
+        const means = r.red.map((f) => windowMeans(f, SMALL.width, SMALL.height, win, 1));
+        const step = worstWindowFlashes(means.map((m) => m.map((v) => v / 200))).maxStep * 200;
+        const bw = SMALL.width / (SMALL.cols * SMALL.perCell);
+        const bh = SMALL.height / (SMALL.rows * SMALL.perCell);
+        const excess = ((win.width + 2 * bw) * (win.height + 2 * bh)) / (win.width * win.height);
+        const rounding = 2 * RED_FLASH_SCALE * 3 * ((0.5 / 255) * (2.4 / 1.055));
+        expect(step).toBeLessThanOrEqual(
+          RED_FLASH_SCALE * redSlew(rates.red, DT) * excess + rounding,
+        );
+      }
+    },
+  );
+
+  it("kırmızı kanal kapalıyken fren eskisi gibi (hız sonsuz)", () => {
+    expect(guardRates(false).red).toBe(Infinity);
+    expect(redSlew(Infinity, DT)).toBe(Infinity);
+    expect(redSlew(GUARD_RED_RATE, 5)).toBeCloseTo(GUARD_RED_RATE * GUARD_MAX_DT - 3e-5);
+  });
+});

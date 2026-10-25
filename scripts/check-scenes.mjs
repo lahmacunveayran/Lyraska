@@ -32,11 +32,16 @@
 // saniyede dört kez beyaza çakar) çekirdeğin GLSL çevirisinin gerçek tarayıcıda derlendiğini
 // (`data-shaders="ok"`) ve çakan gölgelendiricide de frenin tuttuğunu gösterir.
 //
+// "Kendi resmin" (`SCENE_ONLY=photo`): düz renkli resimlerde sessizden tam sese geçişte
+// parlaklık ve kırmızı fark; projenin ürettiği, bilerek parlayan hareketli APNG'de kare kare
+// (fren + çubuklar birlikte) parlama ölçümü, normal ve güvenli modda.
+//
 // Program sayfaları programın gerçek içerik güvenlik politikasıyla (CSP, tauri.conf.json) açılır:
 // `eval`/`new Function` engellidir; Butterchurn'ün yalnızca WebAssembly yolunu kullandığı böylece
 // gerçek tarayıcıda denetlenir (engellenen her şey konsola hata yazar, denetim kırmızı olur).
 
 import { readFileSync } from "node:fs";
+import { crc32, deflateSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 import { build, preview } from "vite";
@@ -71,7 +76,7 @@ const APP_URL = `http://localhost:${PORT}`;
  * Tarayıcıda Tauri yerine geçen sahte çekirdek: 128 BPM'lik bir şarkı çalıyor. `level` verilirse bütün bantlar ve
  * VU seviyeleri sabit o düzeyde (parlama sınırı ölçümü için: 0 = sessiz, 1 = tam). `theme`: bölümün renk teması.
  */
-const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama") => `
+const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama", image = null) => `
   const LEVEL = ${level === null ? "null" : level};
   window.isTauri = true;
   const started = performance.now();
@@ -112,6 +117,24 @@ const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama") => `
         drops: [], dropConfidence: [],
         energy: [], sections: [{ start: 0, end: 240, energy: 0.8, label: ${theme} }] };
       case "annotation_get": case "song_key": case "track_lyrics": case "song_map_imported": return null;
+      // "Kendi resmin": resim seçilmemiş (koyu zemin, vurgu yeşili çizgi) ya da IMAGE renginde düz
+      // bir resim (pencere boyunda; tarayıcı kendisi çizer, programın sayfasındaki gibi \`data:\`).
+      case "background_image_get": {
+        const IMAGE = ${JSON.stringify(image)};
+        if (!IMAGE) return null;
+        // Hazır \`data:\` adresi (ör. projenin ürettiği hareketli APNG).
+        if (typeof IMAGE === "string") return IMAGE;
+        const c = new OffscreenCanvas(innerWidth, innerHeight);
+        const g = c.getContext("2d");
+        g.fillStyle = \`rgb(\${IMAGE.join(",")})\`;
+        g.fillRect(0, 0, c.width, c.height);
+        const blob = await c.convertToBlob({ type: "image/png" });
+        return await new Promise((done) => {
+          const reader = new FileReader();
+          reader.onload = () => done(reader.result);
+          reader.readAsDataURL(blob);
+        });
+      }
       // Şarkıya seçilmiş kapak yok (çalan şarkının kapağı şarkının kendisinden).
       case "song_cover_get": return null;
       // Çalma listeleri: denetimde liste yok (kütüphane panelindeki "Listeye ekle" menüsü boş).
@@ -124,6 +147,13 @@ const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama") => `
           bytes[i] = bytes[1024 + i] = bytes[2048 + i] = Math.max(0, Math.min(255, v));
         }
         return bytes.buffer;
+      }
+      // "Kendi resmin" spektrum çubukları (200 seviye, 0..1; bas solda): LEVEL verilirse hepsi o
+      // seviyede, yoksa vuruşta inen bas ve tırtıklı orta/tiz. Dizi olmalı: başka yanıt arayüzü bozar.
+      case "visual_spectrum": {
+        const kick = Math.exp(-((t * 128) / 60 % 1) * 6);
+        return Array.from({ length: 200 }, (_, i) =>
+          LEVEL ?? Math.min(1, (i < 60 ? kick * (1 - i / 70) : 0.15) + 0.2 * Math.abs(Math.sin(i * 2.3 + t * 7))));
       }
       case "visual_frame": return {
         positionSecs: 60 + t,
@@ -151,16 +181,26 @@ const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama") => `
  */
 const initScript = (
   sceneId,
-  { look = null, sceneLook = null, level = null, theme = 1, safe = false, milk = "parlama" } = {},
+  {
+    look = null,
+    sceneLook = null,
+    level = null,
+    theme = 1,
+    safe = false,
+    milk = "parlama",
+    image = null,
+  } = {},
 ) =>
+  // İlk açılış uyarısı (FlashWarning) görülmüş sayılır: sahnenin önüne geçmesin.
   `try { localStorage.setItem("lyraska.scene", "${sceneId}");` +
+  ` localStorage.setItem("lyraska.flashWarning.seen", "1");` +
   (look ? ` localStorage.setItem("lyraska.skyLook", "${look}");` : "") +
   (sceneLook
     ? ` localStorage.setItem("lyraska.sceneLooks", ${JSON.stringify(
         JSON.stringify({ version: 1, looks: { [sceneId]: sceneLook } }),
       )});`
     : "") +
-  ` } catch {}\n${fakeCore(level, theme, safe, milk)}`;
+  ` } catch {}\n${fakeCore(level, theme, safe, milk, image)}`;
 
 /** Tuvalin görüntüsünü çözüp parlaklık ölçer (bağıl parlaklık, 0..1). */
 function measure(png) {
@@ -362,7 +402,7 @@ async function capture(page, locator) {
  * İki görüntü arasındaki en büyük ortalama parlaklık farkı, WCAG'nin parlama alanı
  * büyüklüğündeki (1024×768 ekranda 341×256 piksel; görüntünün ölçeğiyle) en kötü pencerede.
  */
-async function worstWindowDifference([before, after, scale]) {
+async function worstWindowDifference([before, after, scale, mode = "luminance"]) {
   const load = async (data) => {
     const img = new Image();
     img.src = "data:image/png;base64," + data;
@@ -380,7 +420,20 @@ async function worstWindowDifference([before, after, scale]) {
     v /= 255;
     return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
   };
-  const lum = (d, i) => 0.2126 * lin(d[i]) + 0.7152 * lin(d[i + 1]) + 0.0722 * lin(d[i + 2]);
+  // Kırmızı ölçü istenirse (WCAG kırmızı parlaması): kapılı (doygun kırmızıda 320·(R−G−B))
+  // ya da sürekli (320·max(0, R−G−B)) tanım; ikisinin pencere farkının büyüğü.
+  const red = (d, i, gated) => {
+    const r = lin(d[i]);
+    const g = lin(d[i + 1]);
+    const b = lin(d[i + 2]);
+    if (!gated) return 320 * Math.max(0, r - g - b);
+    const sum = r + g + b;
+    return sum > 0 && r >= 0.8 * sum ? 320 * (r - g - b) : 0;
+  };
+  const lum =
+    mode === "luminance"
+      ? (d, i) => 0.2126 * lin(d[i]) + 0.7152 * lin(d[i + 1]) + 0.0722 * lin(d[i + 2])
+      : (d, i) => red(d, i, mode === "red-gated");
   const W = a.width;
   const H = a.height;
   const sum = new Float64Array((W + 1) * (H + 1));
@@ -432,10 +485,27 @@ async function checkFlashBound(browser, scene, variant, theme) {
         sceneLook: variant.sceneLook,
         level,
         theme: theme ?? 1,
+        image: variant.image,
+        // "Kendi resmin"in parlama sınırı yalnızca Epilepsi güvenli modunda (proje sahibinin
+        // kararı, 24 Ekim 2026): sınır o modda ölçülür.
+        safe: scene.id === "photo",
       }),
     );
     // Hız sınırlı değerler yerine otursun: enerjiler ~1,2 sn'de, renk teması 2 sn'de.
     await startPlaying(page, 2500);
+    if (variant.image) {
+      // Resim yüklenince ölçülür (o ana dek çubuklar bilinmeyen zemine göre kısa): ölçülmüş
+      // resimle çizilmiş kare karşılaştırılır.
+      await page.waitForFunction(() => {
+        const img = document.querySelector(".photo-scene__image");
+        return !!img && img.complete && img.naturalWidth > 0;
+      });
+      // Ölçüm ayrı iş parçacığında (gerçek zamanda) biter.
+      await page.waitForFunction(
+        () => document.querySelector(".photo-scene__bars")?.dataset.measured === "on",
+      );
+      await advance(page, 1000);
+    }
     await hideChrome(page);
     const stage = page.locator(".stage");
     const problem = await renderProblem(page, stage, errors);
@@ -446,13 +516,34 @@ async function checkFlashBound(browser, scene, variant, theme) {
     shots.push(await capture(page, stage));
     await page.close();
   }
+  const { budget, redBudget } = scene.limits ? await scene.limits() : scene;
   const page = await browser.newPage();
   const worst = await page.evaluate(worstWindowDifference, [...shots, SCALE]);
+  // Kırmızı parlama payı olan sahnede (ör. "Kendi resmin": güvenli modda 8, eşik 20) kırmızı ölçü de.
+  const redWorst = redBudget
+    ? Math.max(
+        await page.evaluate(worstWindowDifference, [...shots, SCALE, "red-gated"]),
+        await page.evaluate(worstWindowDifference, [...shots, SCALE, "red-continuous"]),
+      )
+    : null;
   await page.close();
-  console.log(`${name}: sessiz → tam ses en büyük parlaklık farkı ${worst.toFixed(4)}`);
-  return worst < FLASH_DELTA
-    ? []
-    : [`${name}: parlaklık farkı ${worst.toFixed(3)} ≥ ${FLASH_DELTA} (parlama riski)`];
+  console.log(
+    `${name}: sessiz → tam ses en büyük parlaklık farkı ${worst.toFixed(4)}` +
+      (redWorst === null ? "" : ` · kırmızı ${redWorst.toFixed(2)}`) +
+      (budget === undefined ? "" : ` (pay ${budget} / ${redBudget})`),
+  );
+  // Sahnenin kendi payı varsa (ör. "Kendi resmin": güvenli modda 0,04) o da aşılmamalı.
+  const limit = budget ?? FLASH_DELTA;
+  const problems =
+    worst < limit
+      ? []
+      : [`${name}: parlaklık farkı ${worst.toFixed(3)} ≥ ${limit} (parlama riski)`];
+  if (redWorst !== null && !(redWorst < redBudget)) {
+    problems.push(
+      `${name}: kırmızı fark ${redWorst.toFixed(2)} ≥ ${redBudget} (kırmızı parlama riski)`,
+    );
+  }
+  return problems;
 }
 
 /** Gece göğünün manzaraları (`SKY_LOOKS`, src/lib/sky.ts); ilki varsayılan. */
@@ -564,6 +655,13 @@ function brightestThemes(count) {
  * galeri sahnelerinde ayrıca en parlak sabit palet ve en yüksek hız (temadan bağımsız).
  */
 function variants(scene) {
+  if (scene.images) {
+    return scene.images.map((image) => ({
+      label: image ? `${scene.name} · ${image.name}` : scene.name,
+      look: null,
+      image: image?.rgb ?? null,
+    }));
+  }
   if (scene.milks) {
     return scene.milks.map((milk) => ({
       label: milk ? `${scene.name} · ${MILKDROP_PRESETS[milk].name}` : scene.name,
@@ -593,8 +691,63 @@ const ALL_SCENES = [
   // Halesi bölüm temasının renginde (`--aurora`).
   { id: "spectrum", name: "Nokta matris spektrum", themed: true },
   { id: "vu", name: "VU ibreleri", themed: true },
+  // Kullanıcının resmi ve ortada ışık çizgisi (2D tuval): çubukların boyu parlama sınırından
+  // hesaplanır (src/lib/photoScene.ts). Resim yokken koyu zeminde vurgu yeşili çizgi; resimle
+  // de: orta gride beyaz çizgi (denetimde en büyük fark buradaydı, 0,063) ve çok koyu kırmızıda
+  // kırmızı çizgi (sınırın en çok ışık bıraktığı zemin). Sınır gerçek tarayıcının çizimini de
+  // (ölçekleme, bulanıklık, plus-lighter) karşılamalı.
+  {
+    id: "photo",
+    name: "Kendi resmin",
+    // Çubukların her karede pencereye ekleyebileceği ışık ve kırmızı değişim (artış + azalış;
+    // eşik 20), güvenli moddaki paylar (sınır yalnızca o modda): src/lib/photoScene.ts'ten
+    // (`flashBudget(true)` = 0,04, `RED_BUDGET / 2` = 8). Denetim çok koyu kırmızıda eski sınırla
+    // 21,1 ölçmüştü.
+    limits: photoSafeLimits,
+    images: [
+      null,
+      { name: "orta gri resim", rgb: [90, 90, 90] },
+      { name: "koyu kırmızı resim", rgb: [40, 0, 0] },
+      { name: "kırmızı resim (110, 10, 20)", rgb: [110, 10, 20] },
+    ],
+  },
   ...SCENES.filter((s) => !s.timeBased),
 ];
+
+/**
+ * "Kendi resmin"in Epilepsi güvenli modundaki payları, programın kendi hesabından
+ * (src/lib/photoScene.ts ayrı derlenir, `dist/`e dokunmaz): `{ budget, redBudget }`.
+ */
+let photoLimits = null;
+async function photoSafeLimits() {
+  if (photoLimits) return photoLimits;
+  const result = await build({
+    logLevel: "warn",
+    build: {
+      write: false,
+      emptyOutDir: false,
+      copyPublicDir: false,
+      minify: false,
+      lib: {
+        entry: fileURLToPath(new URL("../src/lib/photoScene.ts", import.meta.url)),
+        formats: ["es"],
+        fileName: () => "photo-scene.js",
+      },
+    },
+  });
+  const outputs = Array.isArray(result) ? result : [result];
+  const chunk = outputs.flatMap((o) => o.output ?? []).find((c) => c.type === "chunk");
+  if (!chunk) throw new Error("photoScene.ts derlenemedi");
+  const photo = await import(
+    `data:text/javascript;base64,${Buffer.from(chunk.code).toString("base64")}`
+  );
+  const budgets = photo.flashBudgets(true, 0.5);
+  photoLimits = {
+    budget: photo.flashBudget(true),
+    redBudget: budgets.redIncrease + budgets.redDecrease,
+  };
+  return photoLimits;
+}
 
 /** Yalnızca bazı sahneleri denetlemek için (geliştirirken): `SCENE_ONLY=sea,nebula`. */
 const ONLY = process.env.SCENE_ONLY?.split(",").filter(Boolean) ?? null;
@@ -906,6 +1059,383 @@ async function checkMilkdropFlashes(browser, bundle, safe, milk = "parlama") {
   return problems;
 }
 
+/**
+ * Projenin ürettiği hareketli APNG (`frames`: `{ rgba, delayMs }`, RGBA 8 bit): telifli içerik yok.
+ */
+function apng(width, height, frames) {
+  const chunk = (type, data) => {
+    const out = Buffer.alloc(12 + data.length);
+    out.writeUInt32BE(data.length, 0);
+    out.write(type, 4, "ascii");
+    data.copy(out, 8);
+    out.writeUInt32BE(
+      crc32(Buffer.concat([Buffer.from(type, "ascii"), data])) >>> 0,
+      8 + data.length,
+    );
+    return out;
+  };
+  const u32 = (...values) => {
+    const b = Buffer.alloc(4 * values.length);
+    values.forEach((v, i) => b.writeUInt32BE(v, 4 * i));
+    return b;
+  };
+  const parts = [
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", Buffer.concat([u32(width, height), Buffer.from([8, 6, 0, 0, 0])])),
+    chunk("acTL", u32(frames.length, 0)),
+  ];
+  let sequence = 0;
+  frames.forEach((frame, i) => {
+    const raw = Buffer.alloc((width * 4 + 1) * height);
+    for (let y = 0; y < height; y++) {
+      Buffer.from(frame.rgba.buffer, y * width * 4, width * 4).copy(raw, y * (width * 4 + 1) + 1);
+    }
+    const control = Buffer.alloc(26);
+    control.writeUInt32BE(sequence++, 0);
+    control.writeUInt32BE(width, 4);
+    control.writeUInt32BE(height, 8);
+    control.writeUInt16BE(Math.round(frame.delayMs), 20);
+    control.writeUInt16BE(1000, 22);
+    parts.push(chunk("fcTL", control));
+    const data = deflateSync(raw);
+    parts.push(
+      i === 0 ? chunk("IDAT", data) : chunk("fdAT", Buffer.concat([u32(sequence++), data])),
+    );
+  });
+  parts.push(chunk("IEND", Buffer.alloc(0)));
+  return Buffer.concat(parts);
+}
+
+/**
+ * Bilerek parlayan hareketli deneme resmi (64×36, 10 Hz): sol yarı siyah ↔ beyaz, sağ üst doymuş
+ * kırmızı ↔ aynı parlaklıkta gri, alt şerit koyu ↔ parlak kırmızı; üstte bir ışık bloğu kayar
+ * (olağan hareket). Saniyede 5 parlama: frensiz hem parlaklıkta hem kırmızıda eşiğin çok üstünde.
+ */
+const FLASHING_SIZE = [64, 36];
+const FLASHING_DELAY_MS = 100;
+function flashingAnimation() {
+  const [w, h] = FLASHING_SIZE;
+  const grey = Math.round(255 * (1.055 * 0.2126 ** (1 / 2.4) - 0.055));
+  const frames = Array.from({ length: 20 }, (_, f) => {
+    const on = f % 2 === 0;
+    const rgba = new Uint8Array(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let c;
+        if (y >= h * 0.8) c = on ? [60, 0, 0] : [255, 0, 0];
+        else if (x < w / 2) c = on ? [255, 255, 255] : [0, 0, 0];
+        else c = on ? [255, 0, 0] : [grey, grey, grey];
+        if (y < h * 0.25 && Math.abs(x - ((f * 3) % w)) < 3) c = [180, 200, 255];
+        rgba.set([...c, 255], (y * w + x) * 4);
+      }
+    }
+    return { rgba, delayMs: FLASHING_DELAY_MS };
+  });
+  return { frames, url: `data:image/png;base64,${apng(w, h, frames).toString("base64")}` };
+}
+
+/** Pencere ortalama dizisindeki parlama sayısı (`src/lib/flash.ts` `countFlashes`, eşik `delta`). */
+function countFlashes(series, delta) {
+  let min = series[0];
+  let max = series[0];
+  let direction = 0;
+  let changes = 0;
+  for (const v of series) {
+    if (direction <= 0) min = Math.min(min, v);
+    if (direction >= 0) max = Math.max(max, v);
+    if (direction >= 0 && max - v >= delta) {
+      direction = -1;
+      changes++;
+      min = v;
+    } else if (direction <= 0 && v - min >= delta) {
+      direction = 1;
+      changes++;
+      max = v;
+    }
+  }
+  return Math.floor(changes / 2);
+}
+
+/** Karelerin pencere ortalamalarından (her kare bir dizi) en çok parlayan pencerenin parlaması. */
+function worstWindowFlashCount(frames, delta) {
+  let worst = 0;
+  for (let w = 0; w < (frames[0]?.length ?? 0); w++) {
+    worst = Math.max(
+      worst,
+      countFlashes(
+        frames.map((f) => f[w]),
+        delta,
+      ),
+    );
+  }
+  return worst;
+}
+
+/**
+ * Sayfada her karede: hareketli arka planın tuvali (fren, WebGL) ile çubukların tuvali okunur ve
+ * tarayıcının `plus-lighter`'ı gibi toplanır; WCAG penceresi büyüklüğünde (8 piksel adımla)
+ * parlaklık ve kırmızı değer (kapılı ve sürekli) ortalamaları saklanır.
+ */
+const PHOTO_PROBE = `
+  (() => {
+    const lin = new Float64Array(256).map((_, i) => {
+      const v = i / 255;
+      return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+    });
+    const out = { luminance: [], gated: [], continuous: [] };
+    window.__photoFrames = out;
+    window.__frameProbe = () => {
+      const motion = document.querySelector(".photo-scene__motion");
+      const bars = document.querySelector(".photo-scene__bars");
+      if (!motion || !bars) return;
+      const gl = motion.getContext("webgl2");
+      const W = motion.width;
+      const H = motion.height;
+      const bg = new Uint8Array(W * H * 4);
+      gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, bg);
+      const fg = bars.width === W && bars.height === H
+        ? bars.getContext("2d").getImageData(0, 0, W, H).data
+        : null;
+      if (!fg) throw new Error("tuvallerin boyu farklı");
+      const planes = [new Float64Array(W * H), new Float64Array(W * H), new Float64Array(W * H)];
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const i = ((H - 1 - y) * W + x) * 4; // WebGL satır 0 altta
+          const j = (y * W + x) * 4;
+          const c = [0, 1, 2].map((k) => Math.min(255, bg[i + k] + fg[j + k]));
+          const r = lin[c[0]];
+          const g = lin[c[1]];
+          const b = lin[c[2]];
+          const p = y * W + x;
+          planes[0][p] = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          const sum = r + g + b;
+          planes[1][p] = sum > 0 && r >= 0.8 * sum ? 320 * (r - g - b) : 0;
+          planes[2][p] = 320 * Math.max(0, r - g - b);
+        }
+      }
+      const ww = Math.round((341 * W) / 1024);
+      const wh = Math.min(H, Math.round((256 * W) / 1024));
+      ["luminance", "gated", "continuous"].forEach((name, n) => {
+        const plane = planes[n];
+        const sums = new Float64Array((W + 1) * (H + 1));
+        for (let y = 0; y < H; y++) {
+          let rowSum = 0;
+          for (let x = 0; x < W; x++) {
+            rowSum += plane[y * W + x];
+            sums[(y + 1) * (W + 1) + x + 1] = sums[y * (W + 1) + x + 1] + rowSum;
+          }
+        }
+        const means = [];
+        for (let y = 0; y + wh <= H; y += 8) {
+          for (let x = 0; x + ww <= W; x += 8) {
+            const s = sums[(y + wh) * (W + 1) + x + ww] - sums[y * (W + 1) + x + ww] -
+              sums[(y + wh) * (W + 1) + x] + sums[y * (W + 1) + x];
+            means.push(s / (ww * wh));
+          }
+        }
+        out[name].push(means);
+      });
+    };
+  })();
+`;
+
+/** Hareketli arka planın kare kare ölçümü: süre (sn) ve pencere. */
+const PHOTO_MOTION_SECONDS = { normal: 4, safe: 3 };
+const PHOTO_MOTION_VIEWPORT = { width: 384, height: 216 };
+
+/**
+ * "Kendi resmin" sahnesinde hareketli arka plan (projenin ürettiği, bilerek parlayan APNG):
+ * kareler çözülmeli, fren (kırmızı kanalıyla) kurulmalı, çubuklar karelerin zarfıyla ölçülmeli;
+ * görüntü hareket etmeli. Birleşik görüntüde (fren + çubuklar) en kötü pencere saniyede ≤ 3
+ * (güvenli modda ≤ 1) parlamalı, parlaklıkta da kırmızıda da; frensiz denetim (resmin kendi
+ * kareleri) parlamayı görmeli.
+ */
+async function checkPhotoMotion(browser, safe) {
+  const label = `Kendi resmin · hareketli arka plan${safe ? " (güvenli mod)" : ""}`;
+  const seconds = safe ? PHOTO_MOTION_SECONDS.safe : PHOTO_MOTION_SECONDS.normal;
+  const step = 1000 / 60;
+  const { frames, url } = flashingAnimation();
+  const page = await openPage(browser, { stepMs: step, viewport: PHOTO_MOTION_VIEWPORT, scale: 1 });
+  const problems = [];
+  page.on("console", (m) => {
+    if (m.type() === "error") problems.push(`${label}: konsol: ${m.text()}`);
+  });
+  page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
+  await page.addInitScript(PRESERVE_DRAWING_BUFFER);
+  await page.addInitScript(initScript("photo", { safe, image: url }));
+  const started = Date.now();
+  await startPlaying(page, 1000, step);
+  await page.waitForFunction(() => {
+    const motion = document.querySelector(".photo-scene__motion");
+    const bars = document.querySelector(".photo-scene__bars");
+    return (
+      (motion?.dataset.webgl === "off" || !!motion?.dataset.guard) &&
+      bars?.dataset.measured === "on"
+    );
+  });
+  const state = await page.evaluate(() => {
+    const motion = document.querySelector(".photo-scene__motion");
+    return {
+      webgl: motion?.dataset.webgl ?? null,
+      guard: motion?.dataset.guard ?? null,
+      frames: motion?.dataset.frames ?? null,
+    };
+  });
+  if (state.webgl !== "on" || !state.guard || state.frames !== String(frames.length)) {
+    await page.close();
+    return [
+      `${label}: hareketli resim frenle çizilmiyor (WebGL ${state.webgl}, fren ${state.guard}, ` +
+        `kare ${state.frames ?? "yok"})`,
+    ];
+  }
+  await page.evaluate(PHOTO_PROBE);
+  await advance(page, seconds * 1000, step);
+  const result = await page.evaluate(() => {
+    window.__frameProbe = null;
+    return { ...window.__photoFrames, error: window.__probeError ?? null };
+  });
+  await page.close();
+  if (result.error) problems.push(`${label}: ölçüm hatası: ${result.error}`);
+  const count = result.luminance.length;
+  const perSecond = (frames, delta) => worstWindowFlashCount(frames, delta) / seconds;
+  const lum = perSecond(result.luminance, FLASH_DELTA);
+  // Kırmızı eşik 20: değerler 200'e bölünüp 0,1 ile sayılır.
+  const scaled = (planes) => planes.map((f) => f.map((v) => v / 200));
+  const red = Math.max(
+    perSecond(scaled(result.gated), FLASH_DELTA),
+    perSecond(scaled(result.continuous), FLASH_DELTA),
+  );
+  // Hareket: en çok değişen pencerenin parlaklık aralığı.
+  let motion = 0;
+  for (let w = 0; w < (result.luminance[0]?.length ?? 0); w++) {
+    const series = result.luminance.map((f) => f[w]);
+    motion = Math.max(motion, Math.max(...series) - Math.min(...series));
+  }
+  // Frensiz denetim: resmin kendi kareleri tam ekran (kapak gibi kırpılmış: aynı en-boy oranı),
+  // 60 kare/sn'de, aynı pencerelerle.
+  const [fw, fh] = FLASHING_SIZE;
+  const { width: W, height: H } = PHOTO_MOTION_VIEWPORT;
+  const lin = (v) => (v / 255 <= 0.04045 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4);
+  const raw = { luminance: [], continuous: [] };
+  for (let i = 0; i < count; i++) {
+    const frame = frames[Math.floor((i * step) / FLASHING_DELAY_MS) % frames.length].rgba;
+    const ww = Math.round((341 * W) / 1024);
+    const wh = Math.min(H, Math.round((256 * W) / 1024));
+    const at = (x, y) => (Math.floor((y * fh) / H) * fw + Math.floor((x * fw) / W)) * 4;
+    const lumMeans = [];
+    const redMeans = [];
+    for (let y = 0; y + wh <= H; y += 24) {
+      for (let x = 0; x + ww <= W; x += 24) {
+        let l = 0;
+        let r = 0;
+        for (let yy = y; yy < y + wh; yy += 4) {
+          for (let xx = x; xx < x + ww; xx += 4) {
+            const p = at(xx, yy);
+            const [cr, cg, cb] = [lin(frame[p]), lin(frame[p + 1]), lin(frame[p + 2])];
+            l += 0.2126 * cr + 0.7152 * cg + 0.0722 * cb;
+            r += 320 * Math.max(0, cr - cg - cb);
+          }
+        }
+        const n = Math.ceil(wh / 4) * Math.ceil(ww / 4);
+        lumMeans.push(l / n);
+        redMeans.push(r / n / 200);
+      }
+    }
+    raw.luminance.push(lumMeans);
+    raw.continuous.push(redMeans);
+  }
+  const rawLum = perSecond(raw.luminance, FLASH_DELTA);
+  const rawRed = perSecond(raw.continuous, FLASH_DELTA);
+  // Fren yalnızca Epilepsi güvenli modunda (proje sahibinin kararı, 24 Ekim 2026): mod kapalıyken
+  // hareketli resim olduğu gibi çizilir, deneme resminin parlaması ekrana geçmelidir.
+  const limit = safe ? 1 : Infinity;
+  console.log(
+    `${label}: saniyede ${lum.toFixed(2)} parlama, ${red.toFixed(2)} kırmızı parlama · frensiz ` +
+      `${rawLum.toFixed(2)} / ${rawRed.toFixed(2)} · hareket ${motion.toFixed(3)} · ${count} kare · ` +
+      `fren ${state.guard} · ${((Date.now() - started) / 1000).toFixed(1)} sn`,
+  );
+  if (count < seconds * 60 * 0.9) problems.push(`${label}: yalnızca ${count} kare ölçüldü`);
+  if (lum > limit) problems.push(`${label}: saniyede ${lum.toFixed(2)} parlama > ${limit}`);
+  if (red > limit) problems.push(`${label}: saniyede ${red.toFixed(2)} kırmızı parlama > ${limit}`);
+  if (rawLum < 4 || rawRed < 4) {
+    problems.push(
+      `${label}: frensiz deneme resmi parlama olarak ölçülmedi (${rawLum.toFixed(2)} / ` +
+        `${rawRed.toFixed(2)}): ölçüm çalışmıyor`,
+    );
+  }
+  if (!safe && lum < 4) {
+    problems.push(
+      `${label}: güvenli mod kapalıyken hareketli resim frenlenmiş (${lum.toFixed(2)})`,
+    );
+  }
+  if (motion < 0.005) problems.push(`${label}: görüntü hareket etmiyor (${motion.toFixed(4)})`);
+  return problems;
+}
+
+/** Işıltının ekran ölçeğinden bağımsızlığı: pencere ve izin verilen fark (CSS piksel). */
+const PHOTO_GLOW_VIEWPORT = { width: 1280, height: 720 };
+const PHOTO_GLOW_TOLERANCE = 1.5;
+
+/**
+ * Işıltının çubuk ucundan yukarı taşması (CSS piksel), cihaz piksel oranı `scale`'de: resimsiz
+ * zeminde tam seste, her sütunda ışıltının başladığı satır (saydamlık ≥ %2) ile çubuğun opak özünün
+ * başladığı satır (≥ %90) arası; özü olan sütunların ortancası. Çubukların boyundan bağımsızdır
+ * (çubuk boyu çalıştırmadan çalıştırmaya birkaç piksel oynar), yalnızca bulanıklığa bağlıdır.
+ */
+async function photoGlowExtent(browser, scale) {
+  const page = await openPage(browser, { viewport: PHOTO_GLOW_VIEWPORT, scale });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(`sayfa hatası: ${e}`));
+  await page.addInitScript(initScript("photo", { level: 1 }));
+  await startPlaying(page, 2500);
+  await page.waitForFunction(
+    () => document.querySelector(".photo-scene__bars")?.dataset.measured === "on",
+  );
+  const extent = await page.evaluate(() => {
+    const bars = document.querySelector(".photo-scene__bars");
+    const { width: W, height: H } = bars;
+    const data = bars.getContext("2d").getImageData(0, 0, W, H).data;
+    const tails = [];
+    for (let x = 0; x < W; x++) {
+      let glow = -1;
+      let core = -1;
+      for (let y = 0; y < H && core < 0; y++) {
+        const a = data[(y * W + x) * 4 + 3];
+        if (glow < 0 && a >= 0.02 * 255) glow = y;
+        if (a >= 0.9 * 255) core = y;
+      }
+      if (glow >= 0 && core >= 0) tails.push(core - glow);
+    }
+    tails.sort((a, b) => a - b);
+    return tails.length === 0 ? 0 : tails[Math.floor(tails.length / 2)];
+  });
+  await page.close();
+  return { extent: extent / scale, errors };
+}
+
+/**
+ * "Kendi resmin" ışıltısı ekran ölçeğinden bağımsız olmalı: tuvalin dönüşümü bulanıklık
+ * süzgecini ölçeklemez (`glowFilter`). Parlama sınırının modeli σ'yı CSS pikselinde varsayar;
+ * DPR 2'de ışıltının taşması DPR 1'dekiyle aynı (en çok 1,5 CSS piksel farkla) olmalı.
+ */
+async function checkPhotoGlowScale(browser) {
+  const one = await photoGlowExtent(browser, 1);
+  const two = await photoGlowExtent(browser, 2);
+  const errors = [...one.errors, ...two.errors];
+  console.log(
+    `Kendi resmin · ışıltının çubuk ucundan taşması: DPR 1 ${one.extent.toFixed(1)} px, DPR 2 ` +
+      `${two.extent.toFixed(1)} px (CSS piksel)`,
+  );
+  const problems = errors.map((e) => `Kendi resmin · DPR: ${e}`);
+  if (!(one.extent > 0) || !(Math.abs(one.extent - two.extent) <= PHOTO_GLOW_TOLERANCE)) {
+    problems.push(
+      `Kendi resmin: ışıltı ekran ölçeğine bağlı (DPR 1 ${one.extent.toFixed(1)} px, DPR 2 ` +
+        `${two.extent.toFixed(1)} px; fark > ${PHOTO_GLOW_TOLERANCE})`,
+    );
+  }
+  return problems;
+}
+
 /** Döngü denemesi: bu kadar kare (60 kare/sn) en çok bu kadar sürede çizilmeli. */
 const LOOP_FRAMES = 60;
 const LOOP_BUDGET_MS = 60_000;
@@ -980,6 +1510,12 @@ try {
       }
       problems = problems.concat(await checkMilkdropFlashes(browser, bundle, false, "golge"));
       problems = problems.concat(await checkMilkdropLoop(browser));
+    }
+    if (!ONLY || ONLY.includes("photo")) {
+      for (const safe of [false, true]) {
+        problems = problems.concat(await checkPhotoMotion(browser, safe));
+      }
+      problems = problems.concat(await checkPhotoGlowScale(browser));
     }
     const bright = brightestThemes(2);
     for (const scene of ALL_SCENES.filter(selected)) {

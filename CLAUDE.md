@@ -68,12 +68,12 @@ lyraska/
 ├── src/                      # Arayüz (React + TypeScript)
 │   ├── components/           # React bileşenleri: PlayerScreen (sahne tüm pencere; üstünde cam katmanlar:
 │   │                         # NowPlaying büyük başlık, InfoStack drop sayacı ve sıradaki, SeekBar şarkı haritası
-│   │                         # şeridi, LyricsOverlay kinetik sözler; sahneler SceneStage'de, galeri ShaderScene + SceneGallery, MilkDropScene kullanıcının .milk görselleri; sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
+│   │                         # şeridi, LyricsOverlay kinetik sözler; sahneler SceneStage'de, galeri ShaderScene + SceneGallery, MilkDropScene kullanıcının .milk görselleri, PhotoScene kullanıcının resmi ve ışık çizgisi; sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
 │   │                         # ayarlar; her panel ve sahne bir ErrorBoundary içinde: hata yalnızca o bölümü kapatır).
 │   │                         # Klasik sahneler SkyScene, HighwayScene, DriveScene, VuScene (VuMeter), SpectrumView
 │   │                         # (DotMatrix, SpectrumDemo karşılama gösterisi); paneller LibraryPanel (AlbumGrid albüm ızgarası, AlbumPage albüm sayfası: kapak, Çal, albüm sırasıyla şarkılar, ArtistGrid sanatçı levhaları, ArtistPage sanatçı sayfası: levha, albümler, şarkılar, TrackTable sayfaların şarkı listesi, SkyView gökyüzü: ton ve tempoya göre yıldızlar, PlaylistGrid ve PlaylistPage çalma listeleri, PlaylistCover kapak ya da kolaj, AddToPlaylist "Listeye ekle" menüsü, RevealButton şarkı satırında "dosya konumunu aç", SongCoverMenu şarkı satırında kapak seçme, songCoverContext onun işlemleri), EqualizerPanel
 │   │                         # (CrossfeedStrip, ParametricEq), MarkerPanel, SyncPanel, AbxPanel, SettingsPanel;
-│   │                         # Dock alttaki cam (şerit, süre, çalma düğmeleri), DropOverlay sürükle-bırak, Marquee kayan
+│   │                         # Dock alttaki cam (şerit, süre, çalma düğmeleri), DropOverlay sürükle-bırak, FlashWarning ilk açılışta ışığa duyarlılık uyarısı, Marquee kayan
 │   │                         # yazı, icons simgeler
 │   ├── hooks/                # usePlayer (oynatıcı: aç, çal, sar), usePlayback (oynatıcı + çalma sırası), useLibrary,
 │   │                         # useEqualizer, useHeadphone, useMarker (işaretleme), useSync (ses–görüntü senkronu),
@@ -85,12 +85,12 @@ lyraska/
 │   │                         # useAbx (kör test), useSongKey (çalan şarkının tonu), useParametric (elle
 │   │                         # parametrik EQ), useCrossfeed (crossfeed), useMapFile (şarkı haritası dosyası),
 │   │                         # useLyrics (şarkı sözleri), useScenePresets (galeri sahnelerinin görünümü ve
-│   │                         # hazır ayarlar), useMilkdrop (MilkDrop klasörü, görseller, önceki/sonraki), useAlbums (albüm listesi), useArtists (sanatçı listesi), usePlaylists (çalma listeleri)
+│   │                         # hazır ayarlar), useMilkdrop (MilkDrop klasörü, görseller, önceki/sonraki), useBackgroundImage ("Kendi resmin" sahnesinin resmi), useBackgroundSource (resim sabit mi hareketli mi; hareketlinin kareleri), useAlbums (albüm listesi), useArtists (sanatçı listesi), usePlaylists (çalma listeleri)
 │   ├── lib/                  # Saf yardımcılar (format, meter, dotFont, vu, sky, highway, queue, sync, songMap,
 │   │                         # analysis: BPM sütunu, drop: bırakma bildirimi, eq: ekolayzer bantları,
 │   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile, lyrics,
 │   │                         # clock: akıcı oynatma saati, marks: işaret hesapları, scene: sahne listesi,
-│   │                         # sceneClock: sahne iç saatleri, virtual: uzun listede görünen satırlar, librarySort: kütüphane sıralaması ve ton adı, printCover: kapağı olmayan albümün baskı kapağı, albumCovers: kapak sırası ve önbelleği, artistPlate: sanatçı adından yıldız atlası levhası, skyMap: gökyüzünde şarkının yeri),
+│   │                         # sceneClock: sahne iç saatleri, virtual: uzun listede görünen satırlar, librarySort: kütüphane sıralaması ve ton adı, printCover: kapağı olmayan albümün baskı kapağı, albumCovers: kapak sırası ve önbelleği, artistPlate: sanatçı adından yıldız atlası levhası, skyMap: gökyüzünde şarkının yeri, photoScene: "Kendi resmin" sahnesinin çubukları ve parlama sınırı (parlaklık ve kırmızı; hareketli arka planın zarfı ve payları), photoMeasure: onun ölçümü ayrı iş parçacığında (photoMeasure.worker.ts, işi photoMeasureJob.ts), animatedImage: hareketli arka planı tanıma, WebView'da çözme, kare zamanı, spectrumBars: ham dalgadan ince spektrum),
 │   │                         # usePrefersReducedMotion ("animasyonları azalt"), browserGuard (sürümde F5, sağ tık
 │   │                         # menüsü, geri gibi tarayıcı davranışlarını kapatır), Rust köprüsü (backend.ts; veri tipleri
 │   │                         # bindings/ altında Rust'tan üretilir, elle düzenlenmez), arayüz hatalarını günlüğe yazma
@@ -130,13 +130,14 @@ lyraska/
 │   │   │   ├── abx.rs        #   kör dinleme testi: iki sürümü hizalama, ses yüksekliği eşitleme, işlemsiz A/B/X
 │   │   │   ├── waveform.rs   #   görseller (MilkDrop) için ham dalga: çözme iş parçacığının yazdığı 44,1 kHz kopya,
 │   │   │   │                 #   önceden ayrılmış 4 sn halka; komut iş parçacığı duyulan ana kadarki 1024 örneği okur
+│   │   │   ├── spectrum.rs   #   "Kendi resmin" çubukları: aynı kopyadan 200 çubuk, 20 Hz – 2 kHz doğrusal, 4096 örnek Hann, doğrusal genlik
 │   │   │   └── player.rs     #   oturumlar, iş parçacıkları, halka tampon (rtrb), boşluksuz geçiş
 │   │   ├── library/          # Müzik kütüphanesi (SQLite, uygulama veri klasöründe)
 │   │   │   ├── db.rs         #   kaynak (klasör ya da tek şarkı) ve şarkı tabloları, Türkçe arama, BPM
 │   │   │   ├── scan.rs       #   paralel etiket okuma, değişmeyeni atlama, silineni çıkarma
 │   │   │   ├── playlist_file.rs # çalma listesini taşıma: .m3u8 yazma/okuma, şarkıyı yol/etiket/dosya adıyla bulma
 │   │   │   ├── playlists.rs  #   çalma listeleri: ad, sıra (yolla; aynı şarkı iki kez olabilir), kolaj için albümler
-│   │   │   ├── covers.rs     #   kullanıcının albüme ve çalma listesine seçtiği kapaklar (veri klasöründe `kapaklar/`; müzik dosyalarına dokunulmaz)
+│   │   │   ├── covers.rs     #   kullanıcının albüme ve çalma listesine seçtiği kapaklar, "Kendi resmin" arka planı (hareketli resim en çok 600 kare / 50 milyon piksel; veri klasöründe `kapaklar/`; müzik dosyalarına dokunulmaz)
 │   │   │   ├── service.rs    #   arka plan taraması; komutların kullandığı katman
 │   │   │   └── watch.rs      #   klasör izleme (notify): eklenen/silinen şarkıda yalnızca o alt klasör taranır (2 sn
 │   │   │                     #   sessizlik; yazılan dosya bitene kadar beklenir); kaybolan kök 2 dk'da bir aranır, 30 dk'da bir izleme yenileme + tam tarama

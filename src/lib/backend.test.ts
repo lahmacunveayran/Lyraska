@@ -6,7 +6,7 @@ const core = vi.hoisted(() => ({
 }));
 vi.mock("@tauri-apps/api/core", () => core);
 
-import { getVisualWaveform, WAVEFORM_BYTES } from "./backend";
+import { getVisualSpectrum, getVisualWaveform, WAVEFORM_BYTES } from "./backend";
 
 describe("dalga biçimi köprüsü", () => {
   beforeEach(() => {
@@ -36,5 +36,31 @@ describe("dalga biçimi köprüsü", () => {
     expect(await getVisualWaveform()).toBeNull();
     core.isTauri.mockReturnValue(false);
     expect(await getVisualWaveform()).toBeNull();
+  });
+});
+
+describe("spektrum çubukları köprüsü", () => {
+  beforeEach(() => {
+    core.invoke.mockReset();
+    core.isTauri.mockReturnValue(true);
+  });
+
+  it("beklenen sayıda seviyeyi 0..1'e kırparak verir", async () => {
+    core.invoke.mockResolvedValue([0, 0.5, 1.2]);
+    expect(await getVisualSpectrum(3)).toEqual([0, 0.5, 1]);
+    expect(core.invoke).toHaveBeenCalledWith("visual_spectrum");
+  });
+
+  it("boş yanıt, yanlış uzunluk, sayı olmayan değer ve tarayıcı önizlemesi null verir", async () => {
+    core.invoke.mockResolvedValue([]);
+    expect(await getVisualSpectrum(3)).toBeNull();
+    core.invoke.mockResolvedValue([0.1, 0.2]);
+    expect(await getVisualSpectrum(3)).toBeNull();
+    core.invoke.mockResolvedValue({ state: "idle" });
+    expect(await getVisualSpectrum(3)).toBeNull();
+    core.invoke.mockResolvedValue([0.1, null, 0.2]);
+    expect(await getVisualSpectrum(3)).toBeNull();
+    core.isTauri.mockReturnValue(false);
+    expect(await getVisualSpectrum(3)).toBeNull();
   });
 });

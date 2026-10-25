@@ -335,6 +335,13 @@ pub async fn visual_waveform(
     Ok(tauri::ipc::Response::new(bytes))
 }
 
+/// Şu an duyulan anın ince spektrum çubukları ("Kendi resmin" sahnesi): 200 seviye, 0..1, bas
+/// solda (20 Hz – 2 kHz, doğrusal). Duraklatılmışsa hepsi 0; çalan şarkı yoksa boş dizi.
+#[tauri::command]
+pub async fn visual_spectrum(player: State<'_, PlayerState>) -> Result<Vec<f32>, String> {
+    Ok(player.lock()?.visual_spectrum().unwrap_or_default())
+}
+
 /// Kütüphane durumu: klasörler, şarkı sayısı, tarama ilerlemesi.
 #[tauri::command]
 pub async fn library_status(library: State<'_, LibraryState>) -> Result<LibraryStatus, String> {
@@ -712,6 +719,27 @@ pub async fn playlist_import(
         let _ = blocking(move || store.playlist_set(id, &cover).map_err(reported)).await;
     }
     Ok(imported)
+}
+
+/// "Kendi resmin" sahnesinin arka planı (`data:` adresi); seçilmemişse `null`.
+#[tauri::command]
+pub async fn background_image_get(big: State<'_, BigDataDir>) -> Result<Option<String>, String> {
+    let store = cover_store(&big)?;
+    blocking(move || Ok(store.background_get().map(|cover| cover.data_url()))).await
+}
+
+/// Resmi arka plan yapar; kopyası Lyraska'nın veri klasöründe saklanır.
+#[tauri::command]
+pub async fn background_image_set(path: PathBuf, big: State<'_, BigDataDir>) -> Result<(), String> {
+    let store = cover_store(&big)?;
+    blocking(move || store.background_set(&path).map_err(|e| e.to_string())).await
+}
+
+/// Arka plan resmini kaldırır.
+#[tauri::command]
+pub async fn background_image_clear(big: State<'_, BigDataDir>) -> Result<(), String> {
+    let store = cover_store(&big)?;
+    blocking(move || store.background_clear().map_err(reported)).await
 }
 
 /// Albümün şarkılarının yolları, çalma sırasıyla.
