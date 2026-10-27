@@ -87,6 +87,7 @@ lyraska/
 │   │                         # useLyrics (şarkı sözleri), useScenePresets (galeri sahnelerinin görünümü ve
 │   │                         # hazır ayarlar), useMilkdrop (MilkDrop klasörü, görseller, önceki/sonraki), useBackgroundImage ("Kendi resmin" sahnesinin resmi), useBackgroundSource (resim sabit mi hareketli mi; hareketlinin kareleri), useAlbums (albüm listesi), useArtists (sanatçı listesi), usePlaylists (çalma listeleri)
 │   ├── lib/                  # Saf yardımcılar (format, meter, dotFont, vu, sky, highway, queue, sync, songMap,
+│   │                         # cueSheet: kurgu defteri (bölüm, drop geri sayımı, son vuruşlar, ileriye bakış),
 │   │                         # analysis: BPM sütunu, drop: bırakma bildirimi, eq: ekolayzer bantları,
 │   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile, lyrics,
 │   │                         # clock: akıcı oynatma saati, marks: işaret hesapları, scene: sahne listesi,
