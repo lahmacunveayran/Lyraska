@@ -21,7 +21,7 @@ import {
   type ParticlePool,
   type ParticleStyle,
 } from "./photoParticles";
-import { barColors } from "./photoScene";
+import { PHOTO_BARS, barColors } from "./photoScene";
 
 const W = 1280;
 const H = 720;
@@ -355,5 +355,31 @@ describe("parçacık yoğunluğu", () => {
       8,
       () => expect(pool.count).toBeLessThanOrEqual(PARTICLE_POOL),
     );
+  });
+});
+
+describe("bozuk girdiye dayanıklılık (bağımsız inceleme)", () => {
+  it("geçersiz dt (NaN/Infinity) havuzu kalıcı bozmaz", () => {
+    const extents = new Array<number>(BARS).fill(100);
+    for (const bad of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      const pool = createParticlePool(1);
+      run(pool, "sparks", () => input(extents), 1);
+      stepParticles(pool, "sparks", input(extents), bad);
+      run(pool, "sparks", () => input(extents), 10);
+      expect(Number.isFinite(pool.carry)).toBe(true);
+      for (const i of living(pool)) expect(Number.isFinite(pool.age[i]!)).toBe(true);
+      expect(pool.count).toBeGreaterThan(0);
+    }
+  });
+
+  it("boş kayıtta yoğunluk varsayılana döner", () => {
+    window.localStorage.setItem("lyraska.photoParticleDensity", "");
+    expect(loadParticleDensity()).toBe(DEFAULT_DENSITY);
+    window.localStorage.setItem("lyraska.photoParticleDensity", "  ");
+    expect(loadParticleDensity()).toBe(DEFAULT_DENSITY);
+  });
+
+  it("havuz çizginin çubuk sayısıyla kurulur", () => {
+    expect(createParticlePool(1).cumulative.length).toBe(PHOTO_BARS);
   });
 });

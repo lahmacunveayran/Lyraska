@@ -1,4 +1,4 @@
-import type { BarColors, Rgb } from "./photoScene";
+import { PHOTO_BARS, type BarColors, type Rgb } from "./photoScene";
 
 /**
  * "Kendi resmin" sahnesinin parçacıkları: ışık çizgisinin çubuklarından doğan küçük ışık
@@ -58,7 +58,7 @@ export function clampDensity(value: number): number {
 export function loadParticleDensity(): number {
   try {
     const saved = window.localStorage.getItem(DENSITY_KEY);
-    return saved === null ? DEFAULT_DENSITY : clampDensity(Number(saved));
+    return saved === null || saved.trim() === "" ? DEFAULT_DENSITY : clampDensity(Number(saved));
   } catch {
     return DEFAULT_DENSITY;
   }
@@ -154,7 +154,7 @@ export interface ParticlePool {
   style: ParticleStyle;
 }
 
-export function createParticlePool(seed = 1, bars = 200): ParticlePool {
+export function createParticlePool(seed = 1, bars = PHOTO_BARS): ParticlePool {
   const f = () => new Float64Array(PARTICLE_POOL);
   return {
     x: f(),
@@ -249,7 +249,8 @@ export function stepParticles(
   }
   if (style === "off") return;
   const motion = PARTICLE_MOTION[style];
-  const dt = Math.max(0, Math.min(MAX_DT, dtSeconds));
+  // Geçersiz adım (NaN, sonsuz) yok sayılır: yaşlar ve birikim bir kez bozulursa hiç düzelmez.
+  const dt = Number.isFinite(dtSeconds) ? Math.max(0, Math.min(MAX_DT, dtSeconds)) : 0;
   const { height } = input;
   const drift = motion.drift * height;
 
