@@ -24,6 +24,15 @@ import {
   type BarColors,
   type LineMap,
 } from "../lib/photoScene";
+import {
+  DEFAULT_PARTICLE_STYLE,
+  createParticlePool,
+  particleAlpha,
+  particleColor,
+  particlesShown,
+  stepParticles,
+  type ParticleStyle,
+} from "../lib/photoParticles";
 import { barTargets, stepBars } from "../lib/spectrumBars";
 import { frameAt, type Animation } from "../lib/animatedImage";
 import { createFlashGuard, type FlashGuard } from "../lib/flashGuard";
@@ -43,6 +52,11 @@ export interface PhotoSceneProps {
   artist?: string | null;
   /** Resim seçme (resim yokken sahnenin ortasındaki düğme). */
   onChooseImage?: () => void;
+  /**
+   * Çizgiden doğan parçacıklar (Kıvılcım, Kar, Kapalı). Güvenli modda ve "animasyonları azalt"
+   * açıkken çizilmez.
+   */
+  particles?: ParticleStyle;
 }
 
 /** Ölçülen çizgi bölgesi ve çubuk renkleri (bir ekran boyu ve bir resim için). */
@@ -59,6 +73,18 @@ interface Measured {
   height: number;
 }
 
+/** Parçacık havuzunu boşaltırken verilen girdi (doğum yok). */
+const EMPTY_PARTICLE_INPUT = {
+  extents: [],
+  width: 0,
+  height: 0,
+  top: 0,
+  pitch: 0,
+  cap: 0,
+  pulse: 0,
+  spawn: false,
+};
+
 /** Resimsiz çizginin renkleri (vurgu yeşili). */
 const NO_IMAGE_COLORS = barColors(DEFAULT_ACCENT);
 
@@ -66,6 +92,29 @@ const NO_IMAGE_COLORS = barColors(DEFAULT_ACCENT);
 const NO_IMAGE = uniformBackground([0, 0, 0], [26, 20, 36]);
 /** Resim yüklenirken: her bileşen siyahla beyaz arasında olabilir. */
 const UNKNOWN = uniformBackground([0, 0, 0], [255, 255, 255]);
+
+/** Parçacık görüntüsünün boyu (piksel): ortada öz, çevresinde yumuşak hale. */
+const SPRITE_SIZE = 32;
+
+/** Bir parçacığın görüntüsü (çubuk renklerinden); tuval açılamazsa `null`. */
+function particleSprite(colors: BarColors): HTMLCanvasElement | null {
+  const canvas = document.createElement("canvas");
+  canvas.width = SPRITE_SIZE;
+  canvas.height = SPRITE_SIZE;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const half = SPRITE_SIZE / 2;
+  const [cr, cg, cb] = colors.core;
+  const [pr, pg, pb] = particleColor(colors);
+  const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
+  gradient.addColorStop(0, `rgba(${cr}, ${cg}, ${cb}, 1)`);
+  gradient.addColorStop(0.22, `rgba(${pr}, ${pg}, ${pb}, 0.9)`);
+  gradient.addColorStop(0.45, `rgba(${pr}, ${pg}, ${pb}, 0.22)`);
+  gradient.addColorStop(1, `rgba(${pr}, ${pg}, ${pb}, 0)`);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, SPRITE_SIZE, SPRITE_SIZE);
+  return canvas;
+}
 
 /** Ekran boyu bu kadar süre değişmeyince resim ölçülür (pencere boyutlanırken), ms. */
 const REMEASURE_MS = 300;
@@ -226,6 +275,10 @@ interface RawMotion {
  * varsayılan modda kareler olduğu gibi geçer. Animasyon yalnız çalarken ilerler. Fren
  * kurulamazsa varsayılan modda kareler frensiz bir 2D tuvale çizilir, güvenli modda ilk kare sabit
  * gösterilir; "animasyonları azalt" açıksa ya da kareler çözülemezse de ilk kare sabittir.
+ *
+ * Çizginin çubuklarından küçük ışık parçacıkları doğar (`src/lib/photoParticles.ts`): Kıvılcım
+ * yukarı süzülür, Kar aşağı dökülüp söner; vuruşta ve basta daha çok. Ayrı bir tuvalde çizilir;
+ * Epilepsi güvenli modunda ve "animasyonları azalt" açıkken hiç çizilmez.
  */
 export function PhotoScene({
   playing,
@@ -234,8 +287,10 @@ export function PhotoScene({
   title = null,
   artist = null,
   onChooseImage,
+  particles = DEFAULT_PARTICLE_STYLE,
 }: PhotoSceneProps) {
   const reducedMotion = usePrefersReducedMotion();
+  const showParticles = particlesShown(particles, safe, reducedMotion);
   const source = useBackgroundSource(image, reducedMotion);
   // Freni kurulamayan hareketli resim (güvenli modda ilk karesi sabit, varsayılanda frensiz).
   const [motionFailed, setMotionFailed] = useState<Animation | null>(null);
@@ -286,6 +341,10 @@ export function PhotoScene({
   // (pencere boyutlansa da): böylece herhangi iki karenin farkı payı geçmez (`flashBudgets`).
   const split = useRef<number | null>(null);
   const safeRef = useRef(safe);
+  // Parçacıklar: önceden ayrılmış havuz, tuvali ve (çubuk renginden) görüntüsü.
+  const particleRef = useRef<HTMLCanvasElement>(null);
+  const particlePool = useRef(createParticlePool(0x5eed));
+  const sprite = useRef<{ colors: BarColors; image: HTMLCanvasElement | null } | null>(null);
 
   useEffect(() => {
     loaded.current = null;
@@ -576,6 +635,53 @@ export function PhotoScene({
       for (const r of coreRects(limited, geometry)) ctx.rect(r.x, r.y, r.width, r.height);
       ctx.fill();
       ctx.globalCompositeOperation = "source-over";
+      // Parçacıklar ayrı tuvalde (çubukların tuvali ve parlama ölçümü değişmez).
+      const pool = particlePool.current;
+      const particleCanvas = particleRef.current;
+      if (showParticles && particleCanvas) {
+        if (particleCanvas.width !== pixelWidth || particleCanvas.height !== pixelHeight) {
+          particleCanvas.width = pixelWidth;
+          particleCanvas.height = pixelHeight;
+        }
+        stepParticles(
+          pool,
+          particles,
+          {
+            extents: limited,
+            width,
+            height,
+            top: geometry.top,
+            pitch: geometry.pitch,
+            cap: geometry.cap,
+            pulse: live?.director?.rhythm.pulse ?? 0,
+            spawn: !!live,
+          },
+          dt,
+        );
+        if (sprite.current?.colors !== colors) {
+          sprite.current = { colors, image: particleSprite(colors) };
+        }
+        const image = sprite.current.image;
+        const pctx = particleCanvas.getContext("2d");
+        if (pctx && image) {
+          pctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+          pctx.clearRect(0, 0, width, height);
+          pctx.globalCompositeOperation = "lighter";
+          for (let i = 0; i < pool.alive.length; i++) {
+            const alpha = particleAlpha(pool, i);
+            if (alpha < 0.004) continue;
+            // Görüntünün yarıçapı parçacığın üç katı: öz ortada, hale çevresinde.
+            const r = 3 * pool.radius[i]!;
+            pctx.globalAlpha = alpha;
+            pctx.drawImage(image, pool.x[i]! - r, pool.y[i]! - r, 2 * r, 2 * r);
+          }
+          pctx.globalAlpha = 1;
+          pctx.globalCompositeOperation = "source-over";
+        }
+      } else if (pool.count > 0) {
+        // Gizliyken havuz boşalır: yeniden açılınca eski parçacıklar belirmesin.
+        stepParticles(pool, "off", EMPTY_PARTICLE_INPUT, 0);
+      }
       // Yazılar çizginin hemen üstünde durur (ışıltının yukarı taşan kısmının üstünde).
       const lift = 3 * geometry.sigma + 10;
       textRef.current?.style.setProperty("--photo-lift", `${Math.ceil(lift)}px`);
@@ -590,6 +696,8 @@ export function PhotoScene({
       source.kind,
       drawMotion,
       drawRawMotion,
+      showParticles,
+      particles,
     ],
   );
   useVisualFeed(playing, onTick);
@@ -646,6 +754,14 @@ export function PhotoScene({
         role="img"
         aria-label="Şarkıyla oynayan ışık çizgisi"
       />
+      {showParticles && (
+        <canvas
+          ref={particleRef}
+          className="photo-scene__particles"
+          data-style={particles}
+          aria-hidden
+        />
+      )}
       <div className="photo-scene__text" ref={textRef} aria-hidden>
         <div className="photo-scene__song">
           <span className="photo-scene__title">{displayUpper(title || "Lyraska", turkish)}</span>

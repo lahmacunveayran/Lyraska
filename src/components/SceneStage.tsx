@@ -9,6 +9,7 @@ import { SpectrumView } from "./SpectrumView";
 import { VuScene } from "./VuScene";
 import type { BackgroundImageControls } from "../hooks/useBackgroundImage";
 import type { MilkdropControls } from "../hooks/useMilkdrop";
+import type { ParticleStyle } from "../lib/photoParticles";
 import type { Scene } from "../lib/scene";
 import type { SceneLooks } from "../lib/sceneLook";
 import { isShaderScene } from "../lib/shaderScene";
@@ -35,6 +36,8 @@ export interface SceneStageProps {
   background?: BackgroundImageControls;
   songTitle?: string | null;
   songArtist?: string | null;
+  /** "Kendi resmin" sahnesinin parçacıkları. */
+  particles?: ParticleStyle;
 }
 
 /** Tüm pencereyi kaplayan görsel sahne. Sahne değişince yenisi yavaşça belirir. */
@@ -50,6 +53,7 @@ export function SceneStage({
   background,
   songTitle = null,
   songArtist = null,
+  particles,
 }: SceneStageProps) {
   return (
     <div className="stage" data-scene={scene}>
@@ -64,6 +68,7 @@ export function SceneStage({
           title={songTitle}
           artist={songArtist}
           onChooseImage={background ? () => void background.choose() : undefined}
+          particles={particles}
         />
       ) : scene === "milkdrop" ? (
         <MilkDropScene playing={playing} safe={safe} controls={milkdrop} />
