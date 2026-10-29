@@ -5,18 +5,19 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 
 ## İş sırası (proje sahibinin kararı, 29 Ekim 2026)
 
-1. Tempo oktav hataları (yarım tempolu dubstep 128, drum and bass 87).
-2. Drop yakalama baştan: her drop türünü içeren, anı bilinen deneme seti; geliştirme/doğrulama ayrı; ±1 vuruş,
-   yanlış ve kaçan drop oranı; sahibinin işaretleriyle doğrulama.
-3. Söz zamanlaması: programın ve ses gecikmesinin payı ölçülür ve düzeltilir (hedef < 1 kare).
-4. "Kendi resmin" çubuklarının tepkisi (iş tanımı: orta bölge 2–10 kat ölü; önce teşhis, gerekirse model baştan).
-5. Ses motoru denetimi: 64-bit, EQ, AutoEq, EBU R128, bit-perfect, ABX (var mı, testi, matematiği) + birleşmemiş
-   DENETIM-3 (dallar `ccr-a69bd749-djgi3v`, `ccr-a46535b3-m3v2i5`) + #56.
-6. Görev kitabı (`docs/gorev/`) ile ROADMAP/ACIK-KONULAR çelişkileri: tek doğruluk kaynağı ROADMAP + ACIK-KONULAR.
-7. Kaynak ayrıştırma: Spleeter ve Demucs karşılaştırması (kalite, hız, ağırlık lisansı birincil kaynaktan).
-8. Sözlerin sese otomatik hizalanması (vokal ayrıştırmadan sonra).
-9. Sahneler v2 (Işık Ustası hazır, sahibinin onayı bekleniyor; `docs/arastirma/sahneler-v2/`), sonra Otomatik DJ
-   (Bölüm II, Aşama A'dan; her aşama ayrı oturumda).
+Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/README.md` (yedek dallar).
+
+1. Söz zamanlaması: programın ve ses gecikmesinin payı ölçülür ve düzeltilir (< 1 kare); şarkı başına söz kaydırma.
+2. "Kendi resmin" çubuk tepkisi (orta bölge 2–10 kat ölü; önce teşhis, gerekirse model baştan).
+3. Ses motoru denetimi: 64-bit, EQ, AutoEq, EBU R128, bit-perfect, ABX + DENETIM-3 (dallar `ccr-a69bd749-djgi3v`,
+   `ccr-a46535b3-m3v2i5`) + #56.
+4. Görev kitabı (`docs/gorev/`) ile ROADMAP/ACIK-KONULAR çelişkileri; ROADMAP güncellenir (kaldırılan sahneler, bugün
+   bitenler, yeni sıra). Tek doğruluk kaynağı ROADMAP + ACIK-KONULAR.
+5. Kaynak ayrıştırma: Spleeter ve Demucs karşılaştırması (kalite, hız, ağırlık lisansı birincil kaynaktan).
+6. Sözlerin sese otomatik hizalanması (vokal ayrıştırmadan sonra).
+7. Sahneler v2 (Işık Ustası hazır: onay + bağımsız inceleme), sonra Otomatik DJ.
+8. En son: drop v2 kararı (`-yedek-drop` dalındaki `docs/arastirma/drop/DURUM.md`); önce DnB temposu (sürekli sub bas
+   kick kanıtını örtüyor, `tempo.rs`) ve hip-hop drop'u; maksumda yanlış aksak (`meter.rs`).
 
 ## Proje sahibinden beklenenler
 
