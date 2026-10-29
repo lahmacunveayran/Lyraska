@@ -116,6 +116,10 @@ kısaltılır.
   işaretler olasılıklıdır (crash dropların %60'ında, başka bölümlerde de) ve her model "bu kanıt olmasa" karşı
   setiyle de ölçülür (`uret2.py --vurgusuz`). Tek aşamalı lojistiğin güveni kalibre değildi (vuruşların %99'u
   kolay negatif): karar ikinci bir modelle yalnızca yarışan adaylar arasında verilir.
+- **Öğrenilen ağırlık üretecin alışkanlığını öğrenir; işareti kısıtla, türü dışarıda bırakarak sına** (29 Ekim 2026,
+  drop incelemesi): sette riser yüzünden drop'ta tiz düştüğü için `hi_jump` negatif çıktı, gerçek rock girişini
+  bastırdı. Her kanıtın fiziksel yönü yazılır, ağırlık o yönde ya da 0 uydurulur; seçim, her türün hiç görülmeden
+  ölçüldüğü çapraz doğrulamayla yapılır. Bağımsız bir üreteçle karşı set (incelemeci) ayar için kullanılmaz.
 - **Push'tan önce filtresiz `cargo test`** (24 Ekim 2026): yalnızca `library::` çalıştırınca göçün kırdığı
   `storage` tablo listesi testi CI'da yakalandı. Yeni komut eklenince `check-scenes.mjs` sahte çekirdeğine de eklenir
   (bilinmeyen komuta durum nesnesi döner, `.map` arayüzü çökertir).

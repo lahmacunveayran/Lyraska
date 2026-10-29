@@ -174,8 +174,8 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 - Neye bakılır: **Drop isabeti** tam (ör. 2 / 2); **Drop anı farkı** her drop için yarım saniyeden az, "gecikme
   düşülünce" yazan değer ±50 ms civarında; şarkı haritası şeridinde ▼ (programın dropu) ile ▲ (sizin işaretiniz)
   üst üste; drop sayacı gerçek drop anında sıfırlanıyor; dropu olmayan şarkıda ▼ yok. Program bir drop'u
-  bulamıyorsa (rock'ta grubun girişi, filtrenin açıldığı drop) hangi tür olduğunu yazın: yeni model bunlarda
-  temkinli (`docs/arastirma/drop/MODEL.md`, "Kalanlar").
+  bulamıyorsa hangi tür olduğunu yazın (hip-hop, trap, drum and bass, filtrenin açıldığı drop): yeni model bunlarda
+  temkinli; panel güveni düşük adayı "gösterilmiyor" diye yazar (`docs/arastirma/drop/MODEL.md`, "Kalanlar").
 - Olmadıysa: hangi şarkıda, hangi saniyede (erken mi, geç mi, hiç mi) olduğunu yazın; işaret dosyalarınızı
   gönderin (İşaretle panelindeki **İşaret klasörünü aç** düğmesi). İçlerinde ses yoktur, yalnızca zamanlar vardır.
 

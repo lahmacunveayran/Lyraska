@@ -40,11 +40,14 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 - WebM'de şarkı adı okunmuyor (Matroska Segment Title; symphonia okumuyor) ve sondaki Opus dolgusu (≤ 20 ms)
   atılmıyor (DiscardPadding). İkisi de küçük; istenirse kendi küçük EBML okuyucusuyla.
 
-- Drop ve tempo (sahibi, 23 Ekim): drop 2. sürüm (29 Ekim) sentetik ölçümde yanlış dropu 34–41'den 1–3'e indirdi;
-  filtre açılan, bası süren ve rock girişi droplarında güven düşük (`docs/arastirma/drop/MODEL.md`); sahibinin
+- Drop ve tempo (sahibi, 23 Ekim): drop 2. sürüm (29 Ekim) sentetik ölçümde yanlış dropu 4–7 kat azalttı; hip-hop
+  girişi, trap, dnb ve crash'siz rulolu yükselişte eskinin altında (`docs/arastirma/drop/MODEL.md`, "Kalanlar"); sahibinin
   şarkılarıyla doğrulanacak (A15). Tempo oktavı (dnb 87, trap/dubstep 70, balad 2×) sentetik ölçümle düzeltildi
   (`docs/arastirma/tempo/`); sahibinin şarkılarıyla doğrulanacak. "Dubstep 128" sentetikte üretilemedi. Açık (öncelikli):
   maksumda, Türk pop'unda, swing'li hip-hop'ta ve breakbeat'te yanlış aksak (2+3, 3+2) bulunuyor, tempo yarıya düşüyor
   (`meter.rs`).
+- Drum and bass temposu (bağımsız drop incelemesi, 29 Ekim): sürekli reese/sub bas kick kanıtını maskeliyor, tempo 86
+  bulunuyor (sentetik dnb'nin çoğu); drop anı bir vuruş kayabiliyor. `tempo.rs`'te ayrı iş: incelemenin yaptığı gibi
+  bası, lead'i ya da davulu tek tek çıkarılmış dnb sürümleriyle hangisinin tempoyu yarıya düşürdüğü ölçülerek başlanır.
 - Görev kitabındaki durum dosyalarının adı: kitap `BULGULAR.json`/`KAPILAR.md` der, depoda `FINDINGS.json`/`GATES.md`.
 - Görev kitabındaki test linki eski hesap adını taşıyor; doğrusu `CLAUDE.md`'deki.

@@ -1,33 +1,51 @@
 # Drop modeli, 2. sürüm (29 Ekim 2026)
 
-Proje sahibi: "Drop falan tam net yakalanmıyordu. Drop yakalama için gereken nihai mühendislik ve matematiksel hesap
-kitabı yap." Bu çalışma drop bulmayı baştan kurar. Kanıtlar vuruş düzeyinde ölçülür ve iki aşamalı lojistik modelle
-birleştirilir. Ağırlıklar ölçülerek, geliştirme setinden uydurulur. Kod `src-tauri/src/analysis/drop.rs`'tedir. 1.
-sürümün (ölçü düzeyinde kurallar) ölçümü [README.md](README.md)'de.
+Proje sahibi şöyle dedi: "Drop falan tam net yakalanmıyordu. Drop yakalama için gereken nihai mühendislik ve
+matematiksel hesap kitabı yap." Bu çalışma drop bulmayı baştan kurar:
+
+- Kanıtlar vuruş düzeyinde ölçülür.
+- İki aşamalı, **işaret kısıtlı** bir lojistik modelle birleştirilir.
+- Kanıtlar ve eşik, **tür dışarıda bırakılarak** yapılan çapraz doğrulamayla (leave-one-genre-out) seçilir. Bu
+  doğrulamada her tür, hiç görülmeden ölçülür.
+
+Kod `src-tauri/src/analysis/drop.rs`'tedir. 1. sürümün (ölçü düzeyinde kurallar) ölçümü [README.md](README.md)'de.
+
+Model bağımsız bir incelemeden geçti ve bir kez düzeltildi; ayrıntısı aşağıda, "Bağımsız inceleme ve düzeltmeler"
+bölümünde.
 
 ## Özet
 
-İsabet, ekranda gösterilen (güven ≥ 0,6) bir drop'un işaretli drop'a ±1 vuruş içinde düşmesidir. Yanlış, hiçbir
-işaretli drop'a ±1 vuruş içinde düşmeyen gösterilen drop'tur. Eski ve yeni yöntem aynı analiz karelerinde, aynı araçla
-ölçüldü (`examples/drop_olcum.rs` ikisini birden yazar).
+**İsabet:** ekranda gösterilen (güven ≥ 0,6) bir drop'un, işaretli drop'a ±1 vuruş içinde düşmesi. **Yanlış:**
+gösterilen ama hiçbir işaretli drop'a ±1 vuruş içinde düşmeyen drop.
 
-| Set (şarkı / drop)                        | Yöntem | ±1 vuruş | ±50 ms | Yanlış drop | Dropsuz şarkıda yanlış | Sahte drop sayıldı | Hata ortanca / %90 |
-| ----------------------------------------- | ------ | -------- | ------ | ----------- | ---------------------- | ------------------ | ------------------ |
-| Geliştirme (60 / 93; ağırlıklar bundan)   | eski   | 60       | 60     | 38          | 12 (6/12 şarkıda)      | 0/3                | 4 / 1846 ms        |
-|                                           | yeni   | 77       | 75     | 1           | 1 (1/12)               | 0/3                | 4 / 11 ms          |
-| Doğrulama (60 / 93)                       | eski   | 56       | 54     | 41          | 12 (6/12)              | 0/3                | 3 / 1857 ms        |
-|                                           | yeni   | 77       | 72     | 1           | 0                      | 0/3                | 3 / 14 ms          |
-| Son sınama (60 / 93; kod bittikten sonra) | eski   | 55       | 55     | 34          | 12 (6/12)              | 0/3                | 4 / 1032 ms        |
-|                                           | yeni   | 69       | 67     | 3           | 1 (1/12)               | 0/3                | 4 / 11 ms          |
-| Karşı örnek: crash/impact yok (40 / 62)   | eski   | 41       | 40     | 22          | 6 (4/8)                | 1/2                | 4 / 1663 ms        |
-|                                           | yeni   | 48       | 46     | 2           | 0                      | 1/2                | 4 / 11 ms          |
+Eski ve yeni yöntem aynı analiz karelerinde, aynı araçla ölçüldü (`examples/drop_olcum.rs` ikisini birden yazar).
+Eski yöntem kendi gösterme eşiğiyle (0,6) ölçüldü.
 
-Hata: ±1 ölçü içinde gösterilen droplarda |bulunan − doğru|. Eskinin %90'ı bir ölçüdür: drop sık sık bir ölçü erken
-(yükselişin sonundaki ruloda) ya da geç bulunuyordu.
+| Set (şarkı / drop)                                                | Yöntem | ±1 vuruş | ±50 ms | Yanlış | Dropsuzda yanlış | Hata ortanca / %90 |
+| ----------------------------------------------------------------- | ------ | -------- | ------ | ------ | ---------------- | ------------------ |
+| Geliştirme, 1–3 (84 / 135; ağırlıklar bundan)                     | eski   | 78       | 78     | 42     | 12 (6/12 şarkı)  | 4 / 1841 ms        |
+|                                                                   | yeni   | 92       | 90     | 6      | 1 (1/12)         | 4 / 10 ms          |
+| Doğrulama, 11–13 (84 / 135)                                       | eski   | 75       | 73     | 47     | 12 (6/12)        | 3 / 1857 ms        |
+|                                                                   | yeni   | 85       | 83     | 8      | 1 (1/12)         | 3 / 15 ms          |
+| Son sınama, 21–23 (84 / 135; ilk incelemede görüldü)              | eski   | 77       | 77     | 36     | 12 (6/12)        | 4 / 19 ms          |
+|                                                                   | yeni   | 82       | 82     | 7      | 1 (1/12)         | 3 / 9 ms           |
+| **Yeni son sınama, 51–53** (84 / 135; kod bittikten sonra)        | eski   | 75       | 75     | 41     | 12 (6/12)        | 3 / 1358 ms        |
+|                                                                   | yeni   | 77       | 75     | 13     | 0                | 3 / 345 ms         |
+| Karşı örnek, crash/impact yok (40 / 62)                           | eski   | 41       | 40     | 22     | 6 (4/8)          | 4 / 1663 ms        |
+|                                                                   | yeni   | 32       | 31     | 6      | 0                | 2 / 1198 ms        |
+| **İncelemecinin karşı seti** (30 / 44; yalnızca en sonda bir kez) | eski   | 36       | 36     | 6      | 3 (2/6)          | 1 / 3 ms           |
+|                                                                   | yeni   | 28       | 28     | 2      | 1 (1/6)          | 1 / 3 ms           |
 
-**Kısaca:** yanlış drop 34–41'den 1–3'e indi. Dropsuz şarkılardaki yanlış alarm şarkı başına ~1'den neredeyse sıfıra
-indi. İsabet 55–60'tan 69–77'ye çıktı. Kalan kayıpların çoğu bulunmamış drop değil, yerinde bulunmuş ama güveni
-0,6'nın altında kalmış droptur (aşağıda "Kalanlar").
+Tür dışarıda bırakılarak yapılan çapraz doğrulama (geliştirme seti, eşik 0,6): **88/135 isabet, 21 yanlış.**
+
+**Kısaca:**
+
+- Yanlış drop her sette 4–7 kat azaldı.
+- Dropsuz şarkılarda yanlış alarm şarkı başına ~1'den neredeyse sıfıra indi.
+- Toplam isabet üreteç setlerinde eşit ya da biraz daha iyi.
+- **Ama yeni model bazı türlerde eskinin altında.** Bunlar hip-hop'ta bas girişi, trap, drum and bass, crash'siz
+  yükselişte kick rulosu ve incelemecinin setindeki drop'ların bir kısmı. Tür tür tablo "Sonuçlar" bölümünde; neden
+  oldukları "Kalanlar"da.
 
 ## Deneme seti (`uret2.py`)
 
@@ -39,7 +57,7 @@ tıngırtı, saz, yaylılar. Ses formant sentezidir (ünlüler a/e/i/o/u, vibrat
 ve perdesi yükselen testere), sıklaşan trampet, kick rulosu ve ters crash ile yapılır. Yankı vardır. Kayıtlar
 tanh ile sıkıştırılır (sürüş şarkıya göre değişir), −72 dB gürültü eklenir.
 
-**Türler** (her tohumda 20 şarkı):
+**Türler** (ilk 20 tür):
 
 | Tür                  | Drop                                                                                                                                      |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
@@ -64,182 +82,294 @@ tanh ile sıkıştırılır (sürüş şarkıya göre değişir), −72 dB gür�
 | `akustik` (dropsuz)  | akustik gitar, ses, shaker; ikinci kıtada bas                                                                                             |
 | `turk_pop` (dropsuz) | darbuka, saz, bas, ses baştan sona; nakaratta yaylılar                                                                                    |
 
-**Doğru cevap** (`ad.json`): `drops` drop bölümünün ilk örneğidir (basın ve davulun döndüğü an). `sahte` sahte drop
-anlarıdır: drop sayılmaları hatadır. `belirsiz` geçişler rock'ta kıta → nakarattır: drop sayılıp sayılmaması
-tartışmalıdır, ne isabet ne yanlış sayılır.
+**2. genişleme (bağımsız incelemeden sonra, 8 tür daha; tohum başına 28 şarkı):**
 
-**Crash yalnızca drop'un işareti değil:** dropların %60'ında crash vardır (ayrıca %60'ında impact). Davullu başka
-bölümlerin %35'i de crash ile başlar. İlk sette her dropta crash vardı. Model crash'i en güçlü kanıt yaptı ve crash'siz
-karşı sette 62 droptan yalnızca 11'ini buldu (aşağıda "Nasıl seçildi"). Bu yüzden üreteç düzeltildi ve bütün setler
-yeniden üretildi.
+| Tür              | Drop                                                                                         |
+| ---------------- | -------------------------------------------------------------------------------------------- |
+| `tiz_artan`      | yükseliş karanlık (alçak geçiren, riser yok); drop tizleri açar (açık hi-hat, lead)          |
+| `riserisiz`      | riser'sız, kısık yükseliş: yalnızca pad ve hafif trampet                                     |
+| `dnb_sub`        | drum and bass; girişte ve yükselişte de süren alt bas, drop reese ve davulu getirir          |
+| `ritimsiz_giris` | 3–5 ölçü ritimsiz giriş (pad, ses), hemen drop: drop şarkının başında, ızgara drop'ta başlar |
+| `future_bass`    | alt bassız drop: pompalanan geniş testere akorları, yarım tempo davul                        |
+| `hiphop_drop`    | 84–96 BPM; piyano girişinden sonra boom bap davul ve 808                                     |
+| `tempo_degisen`  | 100–112 BPM'lik girişten sonra 124–132 BPM'lik yükseliş ve drop                              |
+| `kisa`           | ~40 sn'lik şarkı, drop ~15 sn'de                                                             |
+
+**Doğru cevap** (`ad.json`):
+
+- `drops`: drop bölümünün ilk örneği, yani basın ve davulun döndüğü an.
+- `sahte`: sahte drop anları; bunları drop saymak hatadır.
+- `belirsiz`: rock'ta kıta → nakarat geçişleri. Drop sayılıp sayılmaması tartışmalıdır, ne isabet ne yanlış sayılır.
+
+**Crash yalnızca drop'un işareti değildir.** Dropların %60'ında crash vardır, ayrıca %60'ında impact. Davullu başka
+bölümlerin %35'i de crash ile başlar.
 
 **Setler:**
 
-- geliştirme (tohum 1–3): ağırlıklar yalnızca bundan uyduruldu;
-- doğrulama (tohum 11–13): kanıt seçimi sırasında iki kez sonuçlarına bakıldı (aşağıda);
-- son sınama (tohum 21–23): kod ve ağırlıklar bittikten sonra üretildi, hiçbir seçimde kullanılmadı;
-- karşı örnek (`--vurgusuz`, tohum 31–32): crash ve impact hiç yok. Model drop'un vurgusuna fazla mı dayanıyor, bunu
-  ölçer.
+- geliştirme (tohum 1–3): ağırlıklar, kanıt seçimi ve eşik yalnızca bundan, tür dışarıda bırakılarak;
+- doğrulama (11–13) ve ilk son sınama (21–23): ilk sürüm sırasında ve incelemede sonuçlarına bakıldı;
+- **yeni son sınama (51–53):** bu sürümün kodu bittikten sonra üretildi, hiçbir seçimde kullanılmadı;
+- karşı örnek (`--vurgusuz`, 31–32): crash ve impact hiç yok;
+- **incelemecinin karşı seti** (`karsi.py`, bağımsız üreteç, 30 şarkı): ayar için kullanılmadı, en sonda bir kez
+  ölçüldü.
 
 ```
-python3 docs/arastirma/drop/uret2.py /tmp/drop/gel 1        # tohum başına 20 şarkı (~4 dk, ~150 MB FLAC)
-cd src-tauri && cargo run --release --example drop_olcum -- /tmp/drop/gel [--ayrinti]
+python3 docs/arastirma/drop/uret2.py /tmp/drop/gel 1        # tohum başına 28 şarkı (~5 dk, ~200 MB FLAC)
+cd src-tauri && cargo run --release --example drop_olcum -- /tmp/drop/gel [--ayrinti] [--oz /tmp/drop/oz]
+python3 docs/arastirma/drop/uydur.py /tmp/drop/gel /tmp/drop/oz --cv   # ağırlıklar + tür dışarıda bırakılarak sınama
 ```
 
-Araç her şarkının analiz karelerini `ad.kare`'ye yazar (ses dosyaları sonra silinebilir). Eski ve yeni yöntemin tür
-tür tablosunu yazar. `--ayrinti` şarkı başına bulunan dropları güvenleriyle yazar.
+Ölçüm aracı her şarkının analiz karelerini `ad.kare`'ye yazar; ses dosyaları sonra silinebilir. Eski ve yeni yöntemin
+tür tür tablosunu yazar.
 
 ## Ölçütler
 
-Yalnızca **gösterilen** droplar sayılır (güven ≥ `DROP_CONFIDENCE_MIN` = 0,6). Programda sayaç, şerit ve Görsel
-Yönetmen bunları kullanır. Her işaretli drop'a en çok bir bulunan drop eşlenir, en yakını.
+Yalnızca **gösterilen** droplar sayılır. Yeni model için bu güven ≥ `DROP_CONFIDENCE_MIN` = 0,6 demektir, eski yöntem
+için de kendi eşiği olan 0,6. Programda sayaç, şerit ve Görsel Yönetmen yalnızca bunları kullanır. Her işaretli drop'a
+en çok bir bulunan drop eşlenir, o da en yakını.
 
-- **İsabet ±1 vuruş** ve **isabet ±50 ms** ayrı ayrı sayılır. Vuruş, şarkının doğru temposundan hesaplanır. ±1 sn eski
-  ölçüttür, tabloda yine de vardır.
+- **İsabet ±1 vuruş** ve **isabet ±50 ms** ayrı ayrı sayılır. Vuruş, şarkının drop'taki doğru temposundandır.
 - **Kaçan:** ±1 vuruşta gösterilen drop yok.
-- **Yanlış drop:** hiçbir işaretli drop'a ±1 vuruş içinde eşlenmeyen gösterilen drop. Sahte drop'a denk gelen ayrı
-  sayılır. Belirsiz geçişe ±1 sn içinde denk gelen hiç sayılmaz.
-- **Dropsuz şarkıda yanlış:** dropsuz türlerdeki yanlış droplar ve bunların görüldüğü şarkı sayısı.
-- **Sahteyi drop sayma:** sahte drop'a ±1 vuruş içinde gösterilen drop.
+- **Yanlış:** gösterilen ama işaretli drop'a ±1 vuruşta eşlenmeyen drop. Sahte drop'a denk gelen ayrı sayılır.
+  Belirsiz geçişe ±1 sn içinde denk gelen hiç sayılmaz.
 - **Zaman hatası:** ±1 ölçü içinde gösterilen droplarda |bulunan − işaretli| (ortanca ve %90).
+- **Güvenin kalibrasyonu:** güven aralıklarına göre adayların gerçekten drop olma oranı, ve Brier puanı. Brier
+  puanı, (güven − gerçek)² ortalamasıdır; sabit tahminle (bütün adaylara aynı oran) karşılaştırılır.
 
 ## Model
 
 ### Aday: her vuruş
 
-1. sürüm adayları ölçü başlarıydı. Ölçü fazı yanlışsa (yarım tempolu dubstep'te snare 3'te, sessizlikten sonra kayan
-   ızgara) drop ölçünün ortasına düşüyordu ve program bir sonraki ölçü başını seçiyordu. Eski yöntemin dubstep'teki 1,3
-   sn'lik hataları buydu. 2. sürümde **her vuruş** adaydır. Ölçü başı yalnızca bir kanıttır (`downbeat`), ölçü güveniyle
-   ağırlıklandırılır. Ölçü başına yapıştırma yoktur. Ölçü başı kanıtı dışındaki puanı komşu vuruşta 1 logit (e kat
-   olasılık oranı) yüksekse drop o vuruştur. Böylece ölçü fazı güvenle ama yanlış bulunduğunda drop, ölçü başı sanılan
-   vuruşa kaymaz (test `olcu_basi_kanittir_yapistirilmaz`).
+1. sürüm adayları ölçü başlarıydı. Ölçü fazı yanlış bulununca (yarım tempolu dubstep, sessizlikten sonra kayan
+   ızgara) drop ölçünün ortasına düşüyor ve program bir sonraki ölçü başını seçiyordu.
+
+2. sürümde **her vuruş** adaydır. Ölçü başı yalnızca bir kanıttır (`downbeat`, ölçü güveniyle). Seçilen vuruşun bir
+   vuruş öncesinde ya da sonrasında bas kısa pencerede açıkça (6 dB) daha çok dönüyorsa, drop o vuruştur. Böylece drop
+   ölçü başı sanılan vuruşa kaymaz (test `olcu_basi_kanittir_yapistirilmaz`).
+
+**Adaylık kuralları:**
+
+- **Kapı:** bas, yakın (8 vuruş) ya da uzak (12–4 vuruş önce) öncesine göre en az 3 dB dönmelidir. Drop bir şeyden
+  "düşer". Kapı olmayınca pop'ta nakaratın başı gibi her doruk bölüm başı ~%50 güven alıyordu. 3 dB, tür dışarıda
+  bırakılarak denenen 3, 6 ve 9 dB arasından seçildi.
+- **Şarkının başlangıcı drop değildir:** aday, şarkının duyulur ilk vuruşundan en az 12 vuruş sonra olmalıdır.
+- **Izgaradan önceki kısım** (ritimsiz giriş, sessizlik) 16 uydurulan vuruşla doldurulur. Vuruş ızgarası drop'ta
+  başlasa da drop'un öncesi ölçülür, şarkının başındaki drop da aday olur. İlk sürümde böyle bir drop hiç aday
+  olamıyordu.
 
 ### Kanıtlar
 
-B bas (bant 0–7, ~30–150 Hz), H tiz (bant 24–31, ~4–16 kHz), L ses yüksekliği (dBFS), S 32 bant. Hepsi vuruş
-ortalamasıdır ve dB cinsindendir. `[a, b)` adaya göre vuruş aralığıdır, adayın vuruşu 0'dır. H₈₀ ve B₉₀, şarkının
-vuruşlarındaki tiz ve bas düzeylerinin %80 ve %90 yüzdelikleridir.
+B bas (bant 0–7, ~30–150 Hz), H tiz (bant 24–31, ~4–16 kHz), S 32 bant demektir. Hepsi vuruş ortalamasıdır ve dB
+cinsindendir. `[a, b)` adaya göre vuruş aralığıdır, adayın vuruşu 0'dır.
 
-| Kanıt       | Tanım                                            | Neyi ölçer                                                   |
-| ----------- | ------------------------------------------------ | ------------------------------------------------------------ |
-| `bass_jump` | B[0,8) − B[−8,0)                                 | bas döndü (bas bantları kick'i de içerir)                    |
-| `bass_far`  | B[0,8) − B[−12,−4)                               | son ölçüden önceki kısma göre bas dönüşü (son ölçüdeki rulo) |
-| `gain`      | bantlarda ortalama max(0, S[0,8) − S[−8,0))      | yeni bantlar doldu (filtre açılması, yeni çalgılar)          |
-| `hi_jump`   | H[0,8) − H[−8,0)                                 | tizler arttı                                                 |
-| `gap`       | max(0, L[−8,−2) − min(L₋₂, L₋₁))                 | hemen önce boşluk ya da kısılma (çağrı, sessizlik)           |
-| `accent`    | H[0,4) − H[4,8)                                  | ilk ölçü vurgulu (crash, impact)                             |
-| `full`      | min(0, H[0,8) − H₈₀)                             | sonrası tam, boğuk değil                                     |
-| `level`     | min(0, B[0,8) − B₉₀)                             | sonrası şarkının en güçlü bası                               |
-| `sustain`   | B[0,32)'nin B[0,4) − 6 dB üstünde kalan payı     | drop sürüyor (sahte drop iki vuruşta biter)                  |
-| `downbeat`  | ölçü güveni × (ölçü başıysa 0,75, değilse −0,25) | ölçü başı; ölçü güveni yoksa nötr                            |
-| `inhomog`   | orta bantlarda ortalama \|S[0,4) − S[4,12)\|     | ilk ölçü sonrakilere benzemiyor (rulo, yükselişin sonu)      |
-| `spec_step` | bantlarda ortalama \|S[0,2) − S[−2,0)\|          | değişim tam bu vuruşta (an)                                  |
+| Kanıt       | Tanım                                            | Yön | Neyi ölçer                                              |
+| ----------- | ------------------------------------------------ | --- | ------------------------------------------------------- |
+| `bass_jump` | B[0,8) − B[−8,0)                                 | +   | bas döndü                                               |
+| `bass_far`  | B[0,8) − B[−12,−4)                               | +   | son ölçüden öncesine göre bas dönüşü (son ölçüde rulo)  |
+| `accent`    | H[0,4) − H[4,8)                                  | +   | ilk ölçü vurgulu (crash, impact)                        |
+| `full`      | min(0, H[0,8) − Hᵦ)                              | +   | sonrası tam, boğuk değil                                |
+| `level`     | min(0, B[0,8) − B₉₀)                             | +   | sonrası şarkının en güçlü bası                          |
+| `sustain`   | B[0,32)'nin B[0,4) − 6 dB üstünde kalan payı     | +   | drop sürüyor (sahte drop iki vuruşta biter)             |
+| `downbeat`  | ölçü güveni × (ölçü başıysa 0,75, değilse −0,25) | +   | ölçü başı; ölçü güveni yoksa nötr                       |
+| `inhomog`   | orta bantlarda ortalama \|S[0,4) − S[4,12)\|     | −   | ilk ölçü sonrakilere benzemiyor (rulo, yükselişin sonu) |
 
-`inhomog` rulo sorununun çözümüdür. Yükselişin son ölçüsündeki kick rulosu bas bantlarında drop kadar güçlüdür
-(geliştirme setinde 25–30 dB'lik bas dönüşü rulonun başında, drop'ta neredeyse sıfır). Ama rulo ölçüsünün orta
-bantları sonraki droptan farklıdır (ortalama 4,5–6 dB). Drop'un ilk ölçüsü ise sonrakilere benzer (~2 dB). Drop,
-**sürecek bir durumun başlangıcıdır**.
+- **Hᵦ:** şarkının bası güçlü vuruşlarındaki (bas %70 yüzdeliğin üstünde) ortanca tiz. İlk sürümde bütün vuruşların
+  %80 yüzdeliğiydi. Parlak bir riser bu ölçüyü yükseltiyor ve yükselişi parlak şarkıda drop "boğuk" sayılıyordu.
+- **B₉₀:** vuruşlardaki bas düzeyinin %90 yüzdeliği.
+- Yüzdelikler yalnızca gerçek vuruşlardan hesaplanır, uydurulanlar hariç.
 
-### İki aşama
+**Kanıt seçimi.** 14 aday kanıtla başlandı:
 
-1. **Sıralama.** z = b + Σ wⱼ·xⱼ, vuruş düzeyinde bir lojistik modeldir ("drop tam bu vuruşta mı"). Eğitimde pozitif
-   örnek, işaretli drop'a en yakın vuruştur (yarım vuruş içinde). Onun ±2 vuruş komşuları eğitime girmez, çünkü aynı
-   olayın kaymış hâlleridir. 14 372 vuruş vardır, 90'ı pozitiftir. Birbirine 32 vuruştan (8 ölçü) yakın adaylardan
-   puanı en yüksek olan kalır (NMS).
-2. **Karar.** Güven p = σ(c₀ + c_z·z + Σ cⱼ·xⱼ). Bu lojistik model yalnızca NMS'ten geçen adaylarla uydurulur ("bu aday
-   gerçek bir drop mu"). 340 aday vardır; pozitif, ±1 vuruşta işaretli drop'tur. Tek aşamalı modelin güveni kalibre
-   değildi. Vuruşların %99'u kolay negatiftir ve model onlara göre ayarlanır. İkinci aşama aynı kanıtları, yalnızca
-   gerçekten yarışan adaylar arasında tartar. p, seçilen adayın drop olma olasılığıdır.
+- yukarıdakiler,
+- `gain` (yeni bantların dolması),
+- `hi_jump` (tiz artışı),
+- `gap` (hemen önce boşluk),
+- `spec_step` (kısa adım),
+- `peak_bass`, `peak_loud` (şarkının doruğuna uzaklık).
 
-Uydurma L2 cezalı en büyük olabilirlikle yapılır (Newton yöntemi, özellikler standartlaştırılarak; 1. aşamada λ = 1, 2. aşamada λ = 3). Betik: `uydur.py`. Rust'taki sabitler standartlaştırması geri alınmış katsayılardır. Standart etki,
-ağırlık × kanıtın standart sapmasıdır (logit). Kanıtın tipik bir değişiminin puana katkısıdır.
+Geriye doğru eleme yapıldı. Ölçüt, tür dışarıda bırakılarak isabet − yanlıştı (eşik 0,5). Elenenlerin ağırlığı işaret
+kısıtında zaten sıfıra iniyordu ya da ölçütü düşürüyordu. `inhomog` rulo sorununun çözümüdür. Yükselişin son
+ölçüsündeki kick rulosu bas bantlarında drop kadar güçlüdür, ama orta bantları sonraki droptan farklıdır (4,5–6 dB);
+drop'un ilk ölçüsü ise sonrakilere benzer (~2 dB).
 
-| Kanıt                | 1. aşama ağırlığı | standart etki | 2. aşama ağırlığı | standart etki |
-| -------------------- | ----------------- | ------------- | ----------------- | ------------- |
-| `bass_jump`          | 0,174             | +1,23         | 0,043             | +0,52         |
-| `bass_far`           | −0,026            | −0,24         | 0,063             | +0,88         |
-| `gain`               | −0,091            | −0,20         | 0,097             | +0,44         |
-| `hi_jump`            | −0,142            | −0,90         | −0,112            | −1,24         |
-| `gap`                | −0,013            | −0,03         | 0,011             | +0,09         |
-| `accent`             | 0,186             | +0,91         | 0,080             | +0,56         |
-| `full`               | 0,281             | +2,07         | 0,122             | +0,70         |
-| `level`              | 0,144             | +1,95         | 0,138             | +0,92         |
-| `sustain`            | 5,042             | +1,13         | 3,570             | +0,47         |
-| `downbeat`           | 3,838             | +1,54         | 2,307             | +0,41         |
-| `inhomog`            | −1,118            | −2,43         | −0,312            | −0,29         |
-| `spec_step`          | 0,368             | +0,83         | −0,014            | −0,09         |
-| `z` (1. aşama puanı) | –                 | –             | 0,226             | +1,16         |
-| sabit                | −11,64            |               | −6,419            |               |
+### İki aşama ve işaret kısıtı
 
-**Okuma:** Sıralamada en güçlü kanıtlar şunlardır: sonrasının tam ve şarkının en güçlü bası olması (`full`, `level`),
-ilk ölçünün sonrakilere benzemesi (`inhomog`, rulo elemesi), ölçü başı ve bas dönüşü. `hi_jump`'ın negatif olması
-şunu söyler: bas ve doluluk aynıyken yalnızca tizlerin artması yükselişin (riser) belirtisidir, drop'un değil. `gap`
-ve `gain` sıralamada neredeyse etkisizdir. Sessizlikten sonraki drop'u zaten `bass_jump`, `spec_step` ve `full`
-taşır. Kararda `level`, `bass_far` ve `full` öne çıkar. Yükselişten sonra mı (yükseliş bassızdır, son ölçüdeki rulo
-dahil), sonrası şarkının doruğu mu, sorusudur.
+1. **Sıralama.** z = b + Σ wⱼ·xⱼ, vuruş düzeyinde bir lojistik modeldir ("drop tam bu vuruşta mı"). Pozitif örnek,
+   işaretli drop'a en yakın vuruştur. Onun ±2 vuruş komşuları eğitime girmez. Birbirine 32 vuruştan (8 ölçü) yakın
+   adaylardan puanı en yüksek olan kalır.
+2. **Karar.** Güven p = σ(c₀ + c_z·z + Σ cⱼ·xⱼ). Bu lojistik model yalnızca seçilen adaylarla uydurulur ("bu aday
+   gerçek bir drop mu"); pozitifi ±1 vuruşta işaretli drop'tur.
+
+Uydurmanın kuralları:
+
+- **İşaret kısıtı:** her ağırlık kanıtın fiziksel yönündedir ya da sıfırdır (sınırlı L-BFGS-B).
+- **Ölçüsü bilinmeyen şarkı:** her eğitim satırı bir kez de `downbeat` = 0 ile, yani ölçü güveni 0 ile eğitime girer.
+- **Ceza:** L2 cezası 1. aşamada 1, 2. aşamada 3.
+- **Kaynak:** yalnızca geliştirme seti kullanılır (`uydur.py`).
+
+Rust'taki sabitler standartlaştırması geri alınmış katsayılardır. Standart etki, ağırlık × kanıtın standart
+sapmasıdır (logit cinsinden).
+
+| Kanıt                | Yön | 1. aşama ağırlığı | standart etki | 2. aşama ağırlığı | standart etki |
+| -------------------- | --- | ----------------- | ------------- | ----------------- | ------------- |
+| `bass_jump`          | +   | 0,219             | +1,59         | 0                 | 0             |
+| `bass_far`           | +   | 0                 | 0             | 0,056             | +0,70         |
+| `accent`             | +   | 0,213             | +1,06         | 0,008             | +0,06         |
+| `full`               | +   | 0,352             | +2,53         | 0,208             | +1,30         |
+| `level`              | +   | 0,076             | +1,00         | 0,160             | +1,82         |
+| `sustain`            | +   | 1,961             | +0,43         | 5,340             | +0,99         |
+| `downbeat`           | +   | 2,841             | +1,13         | 0,184             | +0,04         |
+| `inhomog`            | −   | −1,167            | −2,45         | −0,638            | −0,69         |
+| `z` (1. aşama puanı) | +   | –                 | –             | 0,215             | +1,13         |
+| sabit                |     | −6,173            |               | −3,893            |               |
 
 ### An
 
-Seçilen vuruşun yarım vuruş öncesiyle sonrası arasında, bir vuruşluk pencerelerle bas düzeyi farkının en büyük olduğu
-kare drop anıdır (`refine_drop`, 1. sürümden; 60 kare/sn). Fark vuruştakini 0,08'den (≈ 5 dB) az geçiyorsa vuruş
-kalır. Bas sürekliyse ya da filtre açılıyorsa belirgin bir an yoktur. Zaman hatası ortanca 3–4 ms, %90'ı 11–14 ms'dir.
-±50 ms'nin dışında kalan isabetlerin çoğu tempo oktavı yanlış bulunan dnb ve dubstep şarkılarıdır (vuruş ızgarası
-iki kat seyrek). Seçilen vuruş orada bir gerçek vuruş kaymıştır.
+Drop anı, seçilen vuruşun yarım vuruş öncesiyle sonrası arasındaki karedir: bir vuruşluk pencerelerle bas düzeyi
+farkının en büyük olduğu kare (`refine_drop`, 60 kare/sn). Fark vuruştakini ≈ 5 dB geçmiyorsa vuruş kalır. Zaman
+hatasının ortancası 3–4 ms'dir. Yeni son sınamanın %90'ı (345 ms) tempo oktavı yanlış bulunan dnb şarkılarından gelir.
 
-### Eşikler
+### Eşik ve kalibrasyon
 
-- Gösterilen drop: güven ≥ 0,6 (`DROP_CONFIDENCE_MIN`, arayüzle aynı). Geliştirme setinde eşik ile isabet/yanlış
-  dengesi şöyledir (ince ayarsız):
+Eşik tür dışarıda bırakılarak seçildi; ölçüt isabet − yanlıştır.
 
-  | Eşik | İsabet (±1 vuruş) | Yanlış |
-  | ---- | ----------------- | ------ |
-  | 0,4  | 82/93             | 8      |
-  | 0,5  | 79/93             | 4      |
-  | 0,6  | 75/93             | 3      |
-  | 0,7  | 73/93             | 3      |
-  | 0,8  | 70/93             | 3      |
+| Eşik | İsabet | Yanlış |
+| ---- | ------ | ------ |
+| 0,3  | 98/135 | 32     |
+| 0,4  | 96/135 | 30     |
+| 0,5  | 92/135 | 27     |
+| 0,6  | 88/135 | 21     |
+| 0,7  | 76/135 | 13     |
 
-- 0,2–0,6 arasındaki adaylar haritada güvenleriyle durur. Gösterilmezler, ama dışa aktarılan haritada ve ölçümde
-  görünürler. 0,2'nin altındakiler listelenmez.
+0,6 en iyisi oldu: 0,5'e göre 4 isabet daha az, 6 yanlış daha az. Bu yüzden `DROP_CONFIDENCE_MIN` değişmedi. Güvenin
+kalibrasyonu iki biçimde ölçüldü: tür dışarıda bırakılarak (geliştirme setinin 141 adayı) ve hiç görülmemiş yeni son
+sınamada (123 aday).
 
-## Nasıl seçildi (dürüstlük notu)
+| Güven   | Tür dışarıda: aday | gerçekten drop | Yeni son sınama: aday | gerçekten drop |
+| ------- | ------------------ | -------------- | --------------------- | -------------- |
+| 0,2–0,4 | 11                 | %27            | 10                    | %30            |
+| 0,4–0,6 | 17                 | %47            | 23                    | %57            |
+| 0,6–0,8 | 39                 | %62            | 21                    | %52            |
+| 0,8–1   | 70                 | %91            | 69                    | %96            |
 
-1. İlk sette (eski üreteç) her dropta crash vardı. O sette kanıtlar denendi: ölçü yerine vuruş adayı, `inhomog`,
-   bölüm sınırı, yükselişin tizinin bitişi. Bu aşamada doğrulama setine bir kez bakıldı.
-2. Birim testi taslağı (yükselişten sonra bir ölçü yalnızca ses) "yükselişin tizi bitti" kanıtının drop'u dört vuruş
-   erkene çektiğini gösterdi. İncelenince kanıtın işe yarayan kısmının drop'un ilk ölçüsündeki crash olduğu
-   anlaşıldı (`accent`). Sette her dropta crash olduğu için model ona dayanıyordu. Crash'siz karşı sette o model 62
-   droptan 11'ini buldu. Üreteç düzeltildi: crash olasılıklı, başka bölümlerde de var. Geliştirme ve doğrulama
-   setleri aynı tohumlarla, düzeltilmiş üreteçle yeniden üretildi. Eski setlerin ölçümleri atıldı.
-3. Yeni geliştirme setinde kısa adımlı kanıt (`spec_step`) eklendi. İki aşamalı karar kuruldu. İşareti anlamsız ya
-   da etkisiz kanıtlar çıkarıldı: `loud_jump`, `boundary` (bölüm sınırı: geri kalan kanıtlarla birlikte ağırlığı
-   negatifti), kısa bas/ses adımları. Çıkarılmaları geliştirme setinde tohum dışarıda bırakılarak yapılan çapraz
-   doğrulamaya göre seçildi (70 → 71/93). Doğrulama setine bu seçimden sonra bir kez daha bakıldı (68 → 73/93).
-   Bunlar doğrulama sonucunu biraz iyimser yapabilir. Son sınama hiçbir seçimde kullanılmadı.
-4. Daha geniş an araması (±1 vuruş) ve daha kısa pencere denendi. Geliştirme setinde kötüleştirdi, bırakıldı.
+Brier: tür dışarıda 0,160 (sabit tahmin 0,203), yeni son sınamada 0,129 (sabit tahmin 0,184). İlk sürümde (0,2–0,4
+aralığı gerçekte %55, 0,4–0,6 aralığı %77 drop) güven olduğundan düşüktü. Bu sürümde 0,6–0,8 aralığı biraz iyimserdir
+(%52–62).
 
-## Kalanlar
+## Bağımsız inceleme ve düzeltmeler
 
-- **Filtre açılması** (`filtre`): drop'u bas değil, tizlerin açılması getiriyorsa güven 0,3–0,5'te kalıyor.
-  Gösterilmiyor ama yeri doğru, ±1 vuruşta. Eski yöntem bunun yerine boğuk bölümün başlangıcını drop sayıyordu
-  (yanlış alarm).
-- **Rock'ta grubun girişi:** yeri doğru, ama son sınamada güveni 6 droptan 4'ünde 0,6'nın altında. Eski yöntem rock'u
-  6/6 buluyordu. Yükseliş belirtisi olmayan girişin drop olup olmadığı sahibinin şarkılarıyla görülecek.
-- **Bas dönüşü ve melodik drop:** ilk drop'un güveni çoğu kez 0,6'nın altında; ikinci drop bulunuyor.
-- **Tempo oktavı yanlışsa** (sentetik dnb'nin çoğunda 86 bulunuyor) vuruş ızgarası iki kat seyrek olur. Drop iki
-  ızgara vuruşunun arasına düşer, an bir vuruşa kadar kayabilir (son sınamada dnb 1/6). Bu tempo bulmanın işidir
-  (`tempo.rs`, ayrı iş).
-- **Setlerin hepsi aynı üreteçten.** Gerçek şarkılarda kanıtların ağırlığı farklı olabilir. Asıl sınama sahibinin
-  işaretleridir (DOGRULAMA A15). Model 12 kanıtlı, açık katsayılı bir lojistik modeldir. Sahibinin işaret
-  dosyalarıyla `uydur.py` yeniden çalıştırılabilir. Bunun için `drop_olcum` sahibinin şarkı + işaret klasörünü de
-  okuyacak biçime getirilir.
-- 1. sürüm (`structure.rs`, `find_drops`) programda kullanılmaz. Ölçüm aracı yeni modeli aynı karelerde onunla
-     karşılaştırsın diye ve testleriyle birlikte korunur.
+İlk sürüm bağımsız bir incelemede "birleştirilmez" kararı aldı. İncelemecinin karşı setinde yeni model 17/44, eski
+yöntem 36/44 buldu. Bulgular ve düzeltmeleri:
+
+1. **`hi_jump` sızıntısı.** `uret2.py`'deki riser ve rulo yüzünden setlerde drop'ta tiz düşüyordu, ağırlık bu yüzden
+   negatif çıktı. Gerçek müzikte tiz çoğunlukla artar (rock'ta +25 dB). Düzeltme: bütün ağırlıklar işaret kısıtlı
+   uyduruluyor. `hi_jump` kısıtla sıfıra indi ve elendi. Aynı sızıntı `gain` için de vardı (serbest uydurmada −0,84;
+   tür dışarıda bırakılınca rock 0/6).
+2. **Ölçü güveni 0 olunca drop bastırılıyordu**, çünkü sabit terim ölçü başı kanıtını yutmuştu. Düzeltme: eğitimde
+   ölçü güveni 0 olan kopya kullanılıyor (test `olcu_guveni_yokken_drop_bastirilmaz`).
+3. **Güven kalibre değildi.** Düzeltme: karar modeli karışık sette (28 tür) yeniden uyduruldu. Kalibrasyon tür
+   dışarıda bırakılarak ve yeni son sınamada ölçüldü (tablo yukarıda).
+4. **Şarkının başındaki drop aday olamıyordu.** Düzeltme: ızgara öncesi uydurulan vuruşlar, şarkı başlangıcı kuralı
+   ve tür `ritimsiz_giris` (testler `izgaradan_hemen_sonraki_drop_aday_olur`,
+   `ritimsiz_giristen_sonraki_ilk_drop_bulunur`).
+5. **`full`/`level` yüzdelikleri** parlak yükselişi ve kısa şarkıyı cezalandırıyordu. Düzeltme: Hᵦ ve tür `kisa`
+   (kısa şarkı 0–1/3'ten 2–3/3'e).
+6. **Arayüz.** Panelde her drop'un farkı, güveni düşük (gösterilmeyen) aday için de "güven 0,45, gösterilmiyor" ile
+   yazılıyor. Parmak gecikmesi düşümü beat F-ölçüsüne bağlı: gecikme düzeltilince F ≥ %80 ise uygulanıyor.
+7. **Üreteç genişletildi** (8 tür). Kanıtlar ve eşik tür dışarıda bırakılarak seçiliyor.
+8. **Değerlendirme.** İncelemecinin seti en sonda bir kez ölçüldü. Yeni son sınama seti (51–53) kod bittikten sonra
+   üretildi.
+9. **Drum and bass temposu** (`tempo.rs`, sürekli reese/sub bas kick kanıtını maskeliyor): bu dalda düzeltilmedi,
+   ACIK-KONULAR'da ayrı iş.
+
+**Denenip bırakılanlar.** Hepsi tür dışarıda bırakılarak ölçüldü ve hiçbiri seçilen modeli geçmedi:
+
+- eski yöntemin güvenini ek kanıt yapmak (75/135, 22 yanlış);
+- eski ve yeni yöntemin "ikisi de buldu" birleşimi (birkaç isabet artı, birkaç yanlış artı; hip-hop'u düzeltmedi);
+- yalnızca puandan karar (Platt ölçeklemesi; 69/135, 30 yanlış);
+- daha güçlü L2;
+- kısıtsız uydurma (89/135, 10 yanlış ama rock 0/6: sızıntı).
+
+## Sonuçlar (tür tür, eski → yeni, ±1 vuruş)
+
+| Tür              | Gel.                            | Doğ.                            | Son (21–23)                     | Yeni son (51–53)                 | Vurgusuz                      | İnceleme                     |
+| ---------------- | ------------------------------- | ------------------------------- | ------------------------------- | -------------------------------- | ----------------------------- | ---------------------------- |
+| akustik          | yanlış 6 → 1                    | yanlış 6 → 1                    | yanlış 6 → 0                    | yanlış 6 → 0                     | yanlış 4 → 0                  |                              |
+| arabesk          |                                 |                                 |                                 |                                  |                               | yanlış 3 → 1                 |
+| balad            | yanlış 6 → 0                    | yanlış 6 → 0                    | yanlış 6 → 0                    | yanlış 6 → 0                     | yanlış 2 → 0                  |                              |
+| bas_donusu       | 1/6 → 4/6 (2 → 1 yanlış)        | 0/6 → 5/6 (3 → 1 yanlış)        | 0/6 → 4/6 (2 → 0 yanlış)        | 3/6 → 4/6 (0 → 1 yanlış)         | 0/4 → 0/4 (2 → 0 yanlış)      |                              |
+| canli            |                                 |                                 |                                 |                                  |                               | yanlış 0 → 0                 |
+| dnb              | 6/6 → 6/6 (0 → 0 yanlış)        | 4/6 → 2/6 (2 → 2 yanlış)        | 4/6 → 0/6 (2 → 1 yanlış)        | 1/6 → 0/6 (5 → 4 yanlış)         | 2/4 → 0/4 (2 → 1 yanlış)      |                              |
+| dnb_sub          | 0/6 → 0/6 (0 → 0 yanlış)        | 0/6 → 0/6 (0 → 0 yanlış)        | 0/6 → 0/6 (0 → 0 yanlış)        | 0/6 → 0/6 (0 → 0 yanlış)         |                               |                              |
+| dnb_tam          |                                 |                                 |                                 |                                  |                               | 4/4 → 0/4 (0 → 0 yanlış)     |
+| dubstep          | 2/6 → 6/6 (4 → 0 yanlış)        | 5/6 → 6/6 (1 → 0 yanlış)        | 5/6 → 5/6 (1 → 0 yanlış)        | 5/6 → 5/6 (1 → 0 yanlış)         | 1/4 → 2/4 (3 → 1 yanlış)      |                              |
+| filtre           | 0/6 → 0/6 (3 → 0 yanlış)        | 0/6 → 0/6 (3 → 0 yanlış)        | 0/6 → 0/6 (3 → 0 yanlış)        | 0/6 → 0/6 (3 → 0 yanlış)         | 0/4 → 0/4 (2 → 0 yanlış)      |                              |
+| future_bass      | 0/6 → 0/6 (0 → 0 yanlış)        | 0/6 → 0/6 (0 → 0 yanlış)        | 0/6 → 0/6 (0 → 0 yanlış)        | 0/6 → 0/6 (0 → 0 yanlış)         |                               | 4/4 → 3/4 (0 → 0 yanlış)     |
+| hiphop_drop      | 6/6 → 2/6 (0 → 0 yanlış)        | 6/6 → 0/6 (0 → 0 yanlış)        | 6/6 → 3/6 (0 → 0 yanlış)        | 6/6 → 0/6 (0 → 0 yanlış)         |                               | 2/4 → 0/4 (0 → 0 yanlış)     |
+| house            | 3/3 → 3/3 (1 → 2 yanlış)        | 3/3 → 3/3 (1 → 1 yanlış)        | 3/3 → 3/3 (1 → 3 yanlış)        | 3/3 → 3/3 (1 → 1 yanlış)         | 2/2 → 2/2 (1 → 1 yanlış)      |                              |
+| ikinci_drop      | 3/6 → 4/6 (3 → 0 yanlış)        | 4/6 → 5/6 (2 → 0 yanlış)        | 2/6 → 3/6 (4 → 0 yanlış)        | 4/6 → 3/6 (2 → 1 yanlış)         | 2/4 → 0/4 (2 → 0 yanlış)      |                              |
+| kisa             | 1/3 → 3/3 (0 → 0 yanlış)        | 1/3 → 3/3 (2 → 0 yanlış)        | 0/3 → 3/3 (0 → 0 yanlış)        | 0/3 → 2/3 (0 → 1 yanlış)         |                               | 2/2 → 2/2 (0 → 0 yanlış)     |
+| limiter_edm      |                                 |                                 |                                 |                                  |                               | 4/4 → 4/4 (0 → 0 yanlış)     |
+| melodik          | 0/6 → 0/6 (3 → 0 yanlış)        | 0/6 → 0/6 (3 → 0 yanlış)        | 0/6 → 0/6 (2 → 0 yanlış)        | 0/6 → 0/6 (2 → 0 yanlış)         | 2/4 → 0/4 (0 → 0 yanlış)      |                              |
+| metal            |                                 |                                 |                                 |                                  |                               | 2/4 → 2/4 (1 → 1 yanlış)     |
+| pop              | yanlış 0 → 0                    | yanlış 0 → 0                    | yanlış 0 → 1                    | yanlış 0 → 0                     | yanlış 0 → 0                  |                              |
+| riserisiz        | 6/6 → 6/6 (0 → 0 yanlış)        | 6/6 → 6/6 (0 → 0 yanlış)        | 6/6 → 6/6 (0 → 0 yanlış)        | 6/6 → 6/6 (0 → 0 yanlış)         |                               |                              |
+| ritimsiz_giris   | 4/6 → 6/6 (2 → 0 yanlış)        | 2/6 → 4/6 (3 → 1 yanlış)        | 5/6 → 5/6 (1 → 0 yanlış)        | 1/6 → 5/6 (5 → 1 yanlış)         |                               |                              |
+| rock             | 6/6 → 6/6 (0 → 0 yanlış)        | 6/6 → 6/6 (0 → 0 yanlış)        | 6/6 → 6/6 (0 → 0 yanlış)        | 6/6 → 6/6 (0 → 0 yanlış)         | 4/4 → 4/4 (0 → 0 yanlış)      |                              |
+| rock_giris       |                                 |                                 |                                 |                                  |                               | 2/4 → 2/4 (2 → 0 yanlış)     |
+| sahte_drop       | 3/6 → 5/6 (3 → 0 yanlış)        | 1/6 → 5/6 (5 → 1 yanlış)        | 3/6 → 3/6 (3 → 1 yanlış)        | 3/6 → 3/6 (3 → 1 yanlış)         | 2/4 → 2/4 (1 → 2 yanlış)      |                              |
+| sessiz_giris     |                                 |                                 |                                 |                                  |                               | 2/4 → 2/4 (0 → 0 yanlış)     |
+| sessizlik        | 5/6 → 6/6 (0 → 0 yanlış)        | 5/6 → 6/6 (0 → 0 yanlış)        | 5/6 → 6/6 (0 → 0 yanlış)        | 5/6 → 6/6 (0 → 0 yanlış)         | 4/4 → 4/4 (0 → 0 yanlış)      |                              |
+| tempo_degisen    | 1/3 → 2/3 (2 → 0 yanlış)        | 2/3 → 2/3 (1 → 0 yanlış)        | 2/3 → 2/3 (1 → 0 yanlış)        | 3/3 → 3/3 (0 → 0 yanlış)         |                               | 2/2 → 1/2 (0 → 0 yanlış)     |
+| tiz_artan        | 0/6 → 2/6 (0 → 0 yanlış)        | 2/6 → 2/6 (0 → 0 yanlış)        | 3/6 → 4/6 (0 → 0 yanlış)        | 0/6 → 0/6 (0 → 0 yanlış)         |                               |                              |
+| trap             | 6/6 → 4/6 (0 → 0 yanlış)        | 6/6 → 4/6 (0 → 0 yanlış)        | 6/6 → 2/6 (0 → 0 yanlış)        | 6/6 → 5/6 (0 → 0 yanlış)         | 4/4 → 4/4 (0 → 0 yanlış)      |                              |
+| turk_pop         | yanlış 0 → 0                    | yanlış 0 → 0                    | yanlış 0 → 0                    | yanlış 0 → 0                     | yanlış 0 → 0                  |                              |
+| turk_pop_nakarat |                                 |                                 |                                 |                                  |                               | yanlış 0 → 0                 |
+| turk_remix       | 5/6 → 6/6 (3 → 0 yanlış)        | 4/6 → 6/6 (3 → 0 yanlış)        | 0/6 → 6/6 (2 → 0 yanlış)        | 3/6 → 6/6 (3 → 0 yanlış)         | 4/4 → 4/4 (2 → 0 yanlış)      |                              |
+| uzun_giris       | 6/6 → 5/6 (0 → 0 yanlış)        | 6/6 → 4/6 (0 → 1 yanlış)        | 4/6 → 4/6 (1 → 1 yanlış)        | 4/6 → 6/6 (2 → 0 yanlış)         | 2/4 → 2/4 (1 → 1 yanlış)      |                              |
+| vals_drop        |                                 |                                 |                                 |                                  |                               | 4/4 → 4/4 (0 → 0 yanlış)     |
+| vokal_cagri      | 6/6 → 6/6 (0 → 0 yanlış)        | 6/6 → 6/6 (0 → 0 yanlış)        | 6/6 → 6/6 (0 → 0 yanlış)        | 6/6 → 6/6 (0 → 0 yanlış)         | 4/4 → 4/4 (0 → 0 yanlış)      |                              |
+| yalniz_vokal     |                                 |                                 |                                 |                                  |                               | 4/4 → 4/4 (0 → 0 yanlış)     |
+| yuksek_yukselis  | 6/6 → 6/6 (0 → 0 yanlış)        | 4/6 → 4/6 (2 → 0 yanlış)        | 5/6 → 5/6 (1 → 0 yanlış)        | 6/6 → 5/6 (0 → 0 yanlış)         | 4/4 → 4/4 (0 → 0 yanlış)      |                              |
+| yukselis         | 2/6 → 4/6 (4 → 2 yanlış)        | 2/6 → 6/6 (4 → 0 yanlış)        | 6/6 → 6/6 (0 → 0 yanlış)        | 4/6 → 3/6 (2 → 3 yanlış)         | 4/4 → 0/4 (0 → 0 yanlış)      |                              |
+| yukselissiz      |                                 |                                 |                                 |                                  |                               | 4/4 → 4/4 (0 → 0 yanlış)     |
+| Toplam           | 78/135 → 92/135 (42 → 6 yanlış) | 75/135 → 85/135 (47 → 8 yanlış) | 77/135 → 82/135 (36 → 7 yanlış) | 75/135 → 77/135 (41 → 13 yanlış) | 41/62 → 32/62 (22 → 6 yanlış) | 36/44 → 28/44 (6 → 2 yanlış) |
+
+"Yanlış" sayıları parantezde. İncelemecinin setindeki türler o setin kendi adlarıdır.
+
+## Kalanlar (eskinin altına düşen türler ve nedenleri)
+
+- **Hip-hop drop'u** (piyano girişinden sonra boom bap ve 808): yeni modelde 0–3/6, eski yöntemde 6/6. Model drop'u
+  doğru yerde buluyor ama güveni 0,2–0,5'te kalıyor. Nedeni: bu drop'larda crash yok (`accent` 0) ve ilk ölçü
+  sonrakilere az benziyor (`inhomog` yüksek). Model bu kanıtları başka türlerden öğrendi; hip-hop dışarıda
+  bırakıldığında bu tür drop'u tanımıyor. Eski yöntem bas ve kick dönüşüne bakar, bu yüzden bulur. Ama aynı kural
+  baladda ve akustikte de yanlış alarm verir (eski: dropsuz şarkıların yarısında).
+- **Trap** (2–5/6, eski 6/6) ve **drum and bass** (0–2/6, eski 1–6/6): dnb'de tempo yarıya iniyor (`tempo.rs`, ayrı
+  iş). Vuruş ızgarası seyrekleşince an bir vuruş kayıyor ya da güven düşüyor. İncelemecinin `dnb_tam` türü de böyle:
+  0/4, eski 4/4.
+- **Crash'siz yükselişte kick rulosu** (karşı örnek seti, `yukselis`: 0/4, eski 4/4): drop bir ölçü erkene, ruloya
+  kayıyor. `inhomog` ruloyu crash varken eliyor, yokken yetmiyor.
+- **Filtre açılması, alt bassız future bass, sürekli sub baslı dnb, melodik drop:** iki yöntem de bulamıyor (0/6).
+  Drop'u bas değil, tizlerin ya da davulun dönüşü getiriyor. Kapı (3 dB bas dönüşü) bunları aday yapmıyor.
+- **Baladda yumuşak grup girişi** (bas +4 dB, şarkının doruğu, sürüyor): grubun büyük girişinden ayrılamıyor, drop
+  sayılabiliyor. Sentetik baladlarda nadir (0–1 yanlış), birim testinde not olarak duruyor.
+- **Bütün setler sentetik.** İncelemecinin bağımsız üretecinde yeni model 28/44, eski yöntem 36/44 (2 ve 6 yanlış).
+  Asıl sınama sahibinin işaretleridir (DOGRULAMA A15). Sahibinin işaret dosyalarıyla `uydur.py` yeniden
+  çalıştırılabilir. Bunun için `drop_olcum` sahibinin şarkı ve işaret klasörünü okuyacak biçime getirilir.
+- **1. sürüm** (`structure.rs`, `find_drops`) programda kullanılmaz. Ölçüm aracı yeni modeli aynı karelerde onunla
+  karşılaştırsın diye testleriyle birlikte korunur.
 
 ## Sahibiyle doğrulama
 
-İşaretle panelinde şarkıyı dinlerken drop anlarında `D`'ye basılır, sonra **Doğruluğu ölç**'e basılır. Panel iki şey
-yazar: **Drop isabeti** (±1 sn içinde bulunan / işaretlenen) ve **Drop anı farkı (program − siz)**. İkincisi her drop
-için ms cinsindendir: eksi değer programın işaretten önce bulduğunu gösterir, "bulunamadı" ise ±1 sn'de drop yok
-demektir. Beat'ler de işaretlendiyse parmak gecikmesi düşülmüş fark da yazılır. Parmak gecikmesi, beat'lerdeki
-ortanca kaymadır: `D` tuşu da Boşluk kadar geç basılır. İşaret dosyalarının biçimi değişmedi.
+1. İşaretle panelinde şarkıyı dinlerken drop anlarında `D`'ye basın.
+2. **Doğruluğu ölç**'e basın.
+
+Panel iki şey yazar:
+
+- **Drop isabeti:** işaretlenen droplardan kaçı ±1 sn içinde bulundu.
+- **Drop anı farkı (program − siz):** her drop için en yakın adayın farkı, ms cinsinden. Eksi değer, programın
+  işaretten önce bulduğunu gösterir. Aday gösterilmiyorsa güveni yazılır ("güven 0,45, gösterilmiyor"). ±1 sn'de
+  aday yoksa "bulunamadı" yazar.
+
+Beat'ler de işaretlendiyse ve gecikme düzeltilince beat F-ölçüsü en az %80 ise, parmak gecikmesi düşülmüş fark da
+yazılır. İşaret dosyalarının biçimi değişmedi.
