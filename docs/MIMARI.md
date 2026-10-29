@@ -26,17 +26,17 @@ PlayerScreen ── usePlayback ── invoke ──▶ commands.rs (ince) ─�
 
 ## İş parçacıkları
 
-| İş parçacığı                | Ne yapar                                                   | Kural                                       |
-| --------------------------- | ---------------------------------------------------------- | ------------------------------------------- |
-| Tauri komutları             | Arayüzün isteklerini karşılar                              | Kısa sürer; ağır işi arka plana verir       |
-| Çözme (`player.rs`)         | Dosyayı çözer, boşluksuz geçiş, hız dönüştürme             | Halka tampona (rtrb) yazar                  |
-| ↳ dalga dokunuşu            | Halkaya gidenin 44,1 kHz kopyası (`audio/waveform.rs`)     | Önceden ayrılmış halka; kısa kilit          |
-| **Ses çıkışı**              | Halka tampondan okur, EQ, eşitleme, aygıta yazar           | **Gerçek zamanlı:** ayırma/kilit/panik yok  |
-| Analiz (şarkı açılınca)     | Spektrum, seviye, vuruş, şarkı haritası, LUFS, ton         | Sonuç önbelleğe yazılır                     |
-| Hızlı ölçüm                 | Yalnızca ses yüksekliği (EBU R128), FFT'siz                | İlk sesten önce bitsin diye ayrı ve hızlı   |
-| Arka plan analizi           | Kütüphaneyi düşük öncelikle analiz eder                    | Çalan → sıradaki → geri kalan               |
-| Kütüphane taraması          | Klasörleri tarar, etiketleri okur                          | Değişmeyeni atlar                           |
-| Kör test besleme (`abx.rs`) | Bellekteki iki bölümden A, B ya da X'i halka tampona yazar | Gerçek zamanlı değil; çıkış işlemsiz yoldan |
+| İş parçacığı                      | Ne yapar                                                   | Kural                                       |
+| --------------------------------- | ---------------------------------------------------------- | ------------------------------------------- |
+| Tauri komutları                   | Arayüzün isteklerini karşılar                              | Kısa sürer; ağır işi arka plana verir       |
+| Çözme (`player/decode_thread.rs`) | Dosyayı çözer, boşluksuz geçiş, hız dönüştürme             | Halka tampona (rtrb) yazar                  |
+| ↳ dalga dokunuşu                  | Halkaya gidenin 44,1 kHz kopyası (`audio/waveform.rs`)     | Önceden ayrılmış halka; kısa kilit          |
+| **Ses çıkışı**                    | Halka tampondan okur, EQ, eşitleme, aygıta yazar           | **Gerçek zamanlı:** ayırma/kilit/panik yok  |
+| Analiz (şarkı açılınca)           | Spektrum, seviye, vuruş, şarkı haritası, LUFS, ton         | Sonuç önbelleğe yazılır                     |
+| Hızlı ölçüm                       | Yalnızca ses yüksekliği (EBU R128), FFT'siz                | İlk sesten önce bitsin diye ayrı ve hızlı   |
+| Arka plan analizi                 | Kütüphaneyi düşük öncelikle analiz eder                    | Çalan → sıradaki → geri kalan               |
+| Kütüphane taraması                | Klasörleri tarar, etiketleri okur                          | Değişmeyeni atlar                           |
+| Kör test besleme (`abx.rs`)       | Bellekteki iki bölümden A, B ya da X'i halka tampona yazar | Gerçek zamanlı değil; çıkış işlemsiz yoldan |
 
 ## Ses yolu
 

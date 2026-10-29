@@ -131,7 +131,13 @@ lyraska/
 │   │   │   ├── waveform.rs   #   görseller (MilkDrop) için ham dalga: çözme iş parçacığının yazdığı 44,1 kHz kopya,
 │   │   │   │                 #   önceden ayrılmış 4 sn halka; komut iş parçacığı duyulan ana kadarki 1024 örneği okur
 │   │   │   ├── spectrum.rs   #   "Kendi resmin" çubukları: aynı kopyadan 200 çubuk, 20 Hz – 2 kHz doğrusal, 4096 örnek Hann, doğrusal genlik
-│   │   │   └── player.rs     #   oturumlar, iş parçacıkları, halka tampon (rtrb), boşluksuz geçiş
+│   │   │   └── player/       #   oynatıcı: mod.rs genel yüz (Player, durum özeti); session.rs oturum, iş parçacıkları,
+│   │   │                     #   halka tampon (rtrb), paylaşılan durum; decode_thread.rs çözme iş parçacığı;
+│   │   │                     #   next_track.rs boşluksuz geçiş; transition.rs oturum geçişi (kilit dışında hazırlık,
+│   │   │                     #   aygıt değişimi); normalization.rs eşitleme (−14 LUFS); bit_perfect.rs özel mod
+│   │   │                     #   kararı, sinyal yolu; controls.rs EQ, kulaklık, crossfeed ayarları; track_analysis.rs
+│   │   │                     #   çalan/sıradaki şarkının analizi; song_maps.rs harita dışa/içe aktarma; visuals.rs
+│   │   │                     #   görsel verisi, dalga, ince spektrum; blind_test.rs kör test; tests.rs testler
 │   │   ├── library/          # Müzik kütüphanesi (SQLite, uygulama veri klasöründe)
 │   │   │   ├── db.rs         #   kaynak (klasör ya da tek şarkı) ve şarkı tabloları, Türkçe arama, BPM
 │   │   │   ├── scan.rs       #   paralel etiket okuma, değişmeyeni atlama, silineni çıkarma
