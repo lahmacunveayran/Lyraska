@@ -31,7 +31,7 @@ import {
   type SongMap,
 } from "../lib/backend";
 import { CLASSIC_SCENES } from "../lib/scene";
-import { fileStem, trackTitle } from "../lib/format";
+import { fileStem, sceneCredits, trackTitle } from "../lib/format";
 import { confidentDrops, themeAt } from "../lib/songMap";
 import { timelineLayout, type TimelineLayout } from "../lib/timeline";
 import { useDrawer, type Panel } from "../hooks/useDrawer";
@@ -122,6 +122,7 @@ export function PlayerScreen() {
     !bitPerfect;
   const statusPath = status.track?.path ?? null;
   const playing = status.state === "playing";
+  const credits = status.track ? sceneCredits(status.track) : null;
   const mapFile = useMapFile(statusPath, status.track ? trackTitle(status.track) : null);
   const songMap = useSongMap(statusPath, mapFile.revision);
   const songKey = useSongKey(statusPath, songMap?.sections.length ?? 0, mapFile.revision);
@@ -335,8 +336,8 @@ export function PlayerScreen() {
           milkdrop={milkdrop}
           background={background}
           // Başlık etiketi yoksa (ör. yt-dlp'nin .webm'leri) dosya adı: "Lyraska" yazmasın.
-          songTitle={status.track ? (status.track.title ?? status.track.fileName) : null}
-          songArtist={status.track?.artist ?? null}
+          songTitle={credits?.title ?? null}
+          songArtist={credits?.artist ?? null}
           title={
             status.track
               ? [status.track.artist, status.track.title].filter(Boolean).join(" · ")
