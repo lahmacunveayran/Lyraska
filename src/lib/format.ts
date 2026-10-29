@@ -65,6 +65,27 @@ export function trackName(track: TrackInfo): string {
   return track.title?.trim() || track.fileName;
 }
 
+/** Dosya adında sanatçıyı başlıktan ayıran tire (kısa çizgi, en ve em çizgi; iki yanı boşluklu). */
+const NAME_SEPARATOR = / [-–—] /;
+
+/**
+ * "Kendi resmin" sahnesinin başlığı ve sanatçısı. Etiket varsa etiket; sanatçı etiketi yoksa
+ * "Sanatçı - Şarkı" biçimindeki dosya adı ilk tireden ikiye ayrılır (ör. "Nightcore - Moonlight
+ * Shadow"). Başlık etiketi varsa başlık o kalır, dosya adından yalnızca sanatçı alınır.
+ */
+export function sceneCredits(track: TrackInfo): { title: string; artist: string | null } {
+  const title = track.title?.trim() || null;
+  const artist = track.artist?.trim() || null;
+  if (artist) return { title: title ?? track.fileName, artist };
+  const match = NAME_SEPARATOR.exec(track.fileName);
+  if (match) {
+    const left = track.fileName.slice(0, match.index).trim();
+    const right = track.fileName.slice(match.index + match[0].length).trim();
+    if (left && right) return { title: title ?? right, artist: left };
+  }
+  return { title: title ?? track.fileName, artist: null };
+}
+
 /**
  * Büyük başlığın boyu: kısa adlar en büyük, uzun adlar küçülür; böylece ad iki satırı
  * geçmez ve sahneyi kapatmaz.

@@ -5,6 +5,7 @@ import {
   formatLabel,
   formatTime,
   progress,
+  sceneCredits,
   signalPathText,
   titleScale,
   trackName,
@@ -215,5 +216,39 @@ describe("dosya adı", () => {
     expect(fileStem("/home/ali/Sezen Aksu - Gülümse.mp3")).toBe("Sezen Aksu - Gülümse");
     expect(fileStem("C:\\Müzik\\.gizli")).toBe(".gizli");
     expect(fileStem("adsız")).toBe("adsız");
+  });
+});
+
+describe("sceneCredits", () => {
+  it("etiket varsa etiketi kullanır", () => {
+    expect(sceneCredits({ ...track, title: "Ay Işığı", artist: "Sezen Aksu" })).toEqual({
+      title: "Ay Işığı",
+      artist: "Sezen Aksu",
+    });
+  });
+
+  it("sanatçı etiketi yoksa 'Sanatçı - Şarkı' dosya adını ikiye ayırır", () => {
+    const named = { ...track, fileName: "Nightcore - Moonlight Shadow" };
+    expect(sceneCredits(named)).toEqual({ title: "Moonlight Shadow", artist: "Nightcore" });
+    // En ve em çizgi de ayırır; yalnızca ilk tireden bölünür.
+    expect(sceneCredits({ ...track, fileName: "Barış Manço – Gülpembe – Canlı" })).toEqual({
+      title: "Gülpembe – Canlı",
+      artist: "Barış Manço",
+    });
+    // Başlık etiketi varsa başlık o kalır; dosya adından yalnızca sanatçı alınır.
+    expect(sceneCredits({ ...named, title: "Moonlight Shadow (Remix)" })).toEqual({
+      title: "Moonlight Shadow (Remix)",
+      artist: "Nightcore",
+    });
+  });
+
+  it("ayrılamayan dosya adı başlık olur, sanatçı yok", () => {
+    expect(sceneCredits({ ...track, fileName: "Kaybolan Yıllar (Canlı)" })).toEqual({
+      title: "Kaybolan Yıllar (Canlı)",
+      artist: null,
+    });
+    // Boşluksuz tire (ör. "Hip-Hop") ve boş yan ayırmaz.
+    expect(sceneCredits({ ...track, fileName: "Hip-Hop Gecesi" }).artist).toBeNull();
+    expect(sceneCredits({ ...track, fileName: " - Adsız" }).artist).toBeNull();
   });
 });
