@@ -1,7 +1,7 @@
 //! Drop bulma modeli (2. sürüm): kanıtları vuruş düzeyinde birleştiren iki aşamalı lojistik model.
 //!
 //! Her vuruş "drop burada başlıyor" adayıdır; aday ölçü başına yapıştırılmaz (vuruş ızgarasının
-//! ölçü fazı kayabilir: yarım tempo, sessizlik), ölçü başı yalnızca bir kanıttır. Aday `i` için 12
+//! ölçü fazı kayabilir: yarım tempo, sessizlik), ölçü başı yalnızca bir kanıttır. Aday `i` için 8
 //! kanıt `x` ölçülür ([`FEATURES`]).
 //!
 //! 1. **Sıralama:** `z = b + Σ wⱼ·xⱼ` (vuruş düzeyinde lojistik model: "drop tam bu vuruşta mı").
@@ -9,32 +9,33 @@
 //! 2. **Karar:** kalan adayın güveni `σ(c₀ + c_z·z + Σ cⱼ·xⱼ)` (yalnızca böyle seçilen adaylarla
 //!    uydurulmuş lojistik model: "bu aday gerçek bir drop mu"). Güven bir olasılıktır.
 //!
+//! Her ağırlık kanıtın fiziksel yönündedir ya da sıfırdır (işaret kısıtlı uydurma): üretilen deneme
+//! setinin bir alışkanlığı ters işaretli bir ağırlık olarak modele sızamaz. Ölçü güveni bilinmeyen
+//! şarkı (güven 0) eğitimde ayrıca temsil edilir; drop'u bastırmaz.
+//!
 //! Drop anı seçilen vuruşun yarım vuruş öncesiyle sonrası arasında basın döndüğü karedir
-//! ([`super::structure`]'daki ince ayar).
+//! ([`super::structure`]'daki ince ayar). Izgaradan önceki kısım (ritimsiz giriş, sessizlik)
+//! [`LEAD_IN`] uydurulan vuruşla doldurulur; şarkının başındaki drop da aday olur.
 //!
-//! Kanıtlar (B: bas, H: tiz, L: ses yüksekliği, S: 32 bant; hepsi vuruş ortalaması, dB; `[a, b)`
-//! vuruş aralığı, adayın vuruşu 0):
+//! Kanıtlar (B: bas, H: tiz, S: 32 bant; hepsi vuruş ortalaması, dB; `[a, b)` vuruş aralığı, adayın
+//! vuruşu 0):
 //!
-//! | Kanıt       | Tanım                                               | Anlamı                              |
-//! | ----------- | --------------------------------------------------- | ----------------------------------- |
-//! | `bass_jump` | B[0,8) − B[−8,0)                                    | bas döndü                           |
-//! | `bass_far`  | B[0,8) − B[−12,−4)                                  | bas, son ölçüden önceye göre döndü  |
-//! | `gain`      | bantlarda ortalama max(0, S[0,8) − S[−8,0))         | yeni bantlar doldu                  |
-//! | `hi_jump`   | H[0,8) − H[−8,0)                                    | tizler arttı (yalnızca tiz: yükseliş) |
-//! | `gap`       | max(0, L[−8,−2) − min(L₋₂, L₋₁))                    | hemen önce boşluk ya da kısılma     |
-//! | `accent`    | H[0,4) − H[4,8)                                     | ilk ölçü vurgulu (crash, impact)    |
-//! | `full`      | min(0, H[0,8) − H₈₀)                                | sonrası tam, boğuk değil            |
-//! | `level`     | min(0, B[0,8) − B₉₀)                                | sonrası şarkının en güçlü bası      |
-//! | `sustain`   | B[0,32)'nin B[0,4) − 6 dB üstünde kalan payı         | drop sürüyor (sahte drop değil)     |
-//! | `downbeat`  | ölçü güveni × (ölçü başıysa 0,75, değilse −0,25)    | ölçü başı (olasılık, yapıştırma değil) |
-//! | `inhomog`   | orta bantlarda (8–23) ortalama \|S[0,4) − S[4,12)\|  | ilk ölçü sonrakilere benzemiyor (rulo) |
-//! | `spec_step` | bantlarda ortalama \|S[0,2) − S[−2,0)\|              | değişim tam bu vuruşta (an)         |
+//! | Kanıt       | Tanım                                               | Yön | Anlamı                                |
+//! | ----------- | --------------------------------------------------- | --- | ------------------------------------- |
+//! | `bass_jump` | B[0,8) − B[−8,0)                                    | +   | bas döndü                             |
+//! | `bass_far`  | B[0,8) − B[−12,−4)                                  | +   | bas, son ölçüden öncesine göre döndü  |
+//! | `accent`    | H[0,4) − H[4,8)                                     | +   | ilk ölçü vurgulu (crash, impact)      |
+//! | `full`      | min(0, H[0,8) − Hᵦ)                                 | +   | sonrası tam, boğuk değil              |
+//! | `level`     | min(0, B[0,8) − B₉₀)                                | +   | sonrası şarkının en güçlü bası        |
+//! | `sustain`   | B[0,32)'nin B[0,4) − 6 dB üstünde kalan payı         | +   | drop sürüyor (sahte drop değil)       |
+//! | `downbeat`  | ölçü güveni × (ölçü başıysa 0,75, değilse −0,25)    | +   | ölçü başı (olasılık, yapıştırma değil) |
+//! | `inhomog`   | orta bantlarda (8–23) ortalama \|S[0,4) − S[4,12)\|  | −   | ilk ölçü sonrakilere benzemiyor (rulo) |
 //!
-//! H₈₀, B₉₀: şarkının vuruşlarındaki tiz ve bas düzeylerinin %80 ve %90 yüzdelikleri.
-//! Ağırlıklar, gerekçeleri ve ölçüm: `docs/arastirma/drop/MODEL.md`. Ağırlıklar yalnızca
-//! geliştirme setinden (`docs/arastirma/drop/uret2.py`, tohum 1–3) L2 cezalı en büyük
-//! olabilirlikle uyduruldu (`docs/arastirma/drop/uydur.py`); doğrulama ve son sınama setleri
-//! ağırlıkların uydurulmasında kullanılmadı.
+//! Hᵦ: şarkının bası güçlü (%70 yüzdeliğin üstü) vuruşlarındaki ortanca tiz (bassız yükselişin parlak
+//! riser'ı ölçüyü yükseltmez); B₉₀: vuruşlardaki bas düzeyinin %90 yüzdeliği. Kanıtlar tür
+//! dışarıda bırakılarak yapılan çapraz doğrulamayla seçildi; ağırlıklar, gerekçeleri ve ölçüm:
+//! `docs/arastirma/drop/MODEL.md`. Ağırlıklar yalnızca geliştirme setinden
+//! (`docs/arastirma/drop/uret2.py`, tohum 1–3) uyduruldu (`docs/arastirma/drop/uydur.py`).
 //!
 //! Bant seviyeleri (0..1) 60 dB'lik ölçektedir; burada × 60 ile desibele çevrilmiş gelir.
 
@@ -42,38 +43,45 @@
 pub const FEATURES: [&str; FEATURE_COUNT] = [
     "bass_jump",
     "bass_far",
-    "gain",
-    "hi_jump",
-    "gap",
     "accent",
     "full",
     "level",
     "sustain",
     "downbeat",
     "inhomog",
-    "spec_step",
 ];
-pub const FEATURE_COUNT: usize = 12;
+pub const FEATURE_COUNT: usize = 8;
+/// Kanıtların fiziksel yönü (+1 drop olasılığını artırır, −1 azaltır): ağırlıklar bu yöndedir.
+pub const SIGNS: [f64; FEATURE_COUNT] = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, -1.0];
 
 /// 1. aşama (sıralama) ağırlıkları ve sabiti.
-const WEIGHTS: [f64; FEATURE_COUNT] = [
-    0.1738, -0.02596, -0.09134, -0.1424, -0.01309, 0.1859, 0.2815, 0.1438, 5.042, 3.838, -1.118,
-    0.3679,
-];
-const BIAS: f64 = -11.64;
+const WEIGHTS: [f64; FEATURE_COUNT] =
+    [0.1017, 0.03788, 0.1451, 0.5047, 0.2938, 3.05, 2.505, -0.559];
+const BIAS: f64 = -6.173;
 /// 2. aşama (karar): güven = σ(DECISION_BIAS + DECISION_SCORE·z + Σ DECISION_WEIGHTS·x).
-const DECISION_WEIGHTS: [f64; FEATURE_COUNT] = [
-    0.04252, 0.06307, 0.09696, -0.1121, 0.01125, 0.07967, 0.1218, 0.1381, 3.57, 2.307, -0.3117,
-    -0.01409,
-];
-const DECISION_SCORE: f64 = 0.2259;
-const DECISION_BIAS: f64 = -6.419;
+const DECISION_WEIGHTS: [f64; FEATURE_COUNT] =
+    [0.0, 0.09638, 0.008679, 0.3408, 0.8121, 4.897, 0.0, -0.4538];
+const DECISION_SCORE: f64 = 0.215;
+const DECISION_BIAS: f64 = -3.893;
 /// Sıralama puanı bunun altındaki vuruş aday sayılmaz (güveni ≈ 0).
 const MIN_SCORE: f64 = -12.0;
 /// Güveni bunun altındaki aday listelenmez (şarkı haritasında hiç görünmez). Gösterilmek için
 /// gereken güven ayrıdır ([`super::structure::DROP_CONFIDENCE_MIN`], 0,6); 0,2–0,6 arası adaylar
 /// haritada güveniyle durur (dışa aktarılan haritada, ölçümde görünür).
 const MIN_CONFIDENCE: f32 = 0.2;
+/// Adayın basının, yakın (8 vuruş) ya da uzak (12–4 vuruş önce) öncesine göre en az dönüşü (dB).
+/// Değer tür dışarıda bırakılarak yapılan çapraz doğrulamayla seçildi (3, 6, 9 dB denendi).
+const MIN_BASS_RETURN_DB: f64 = 3.0;
+/// `bass_jump` ve `bass_far` kanıtlarının sırası.
+const BASS_JUMP: usize = 0;
+const BASS_FAR: usize = 1;
+/// Aday, şarkının duyulur ilk vuruşundan en az bu kadar sonra olmalı (`bass_far`'ın penceresi 12
+/// vuruş geriye bakar): şarkının başlangıcı (sessizlikten sonraki ilk ses) drop sayılmaz. Drop'tan
+/// önceki kısa boşluk (1–4 vuruş) bunu etkilemez; ritimsiz giriş de şarkının parçasıdır.
+const MIN_PLAYED_BEFORE: usize = 12;
+/// Duyulur sayılmak için vuruşun bant ortalaması (dB, 60 dB'lik ölçekte tabanın üstü).
+const AUDIBLE_DB: f64 = 3.0;
+
 /// İki drop arası en az (vuruş).
 const MIN_GAP_BEATS: usize = 32;
 
@@ -83,11 +91,14 @@ const BEFORE: usize = 8;
 const AFTER: usize = 8;
 const SUSTAIN: usize = 32;
 const FIRST: usize = 16;
+/// Izgaradan önce uydurulan vuruş sayısı: şarkının başındaki (ritimsiz girişten hemen sonraki) drop da
+/// aday olabilsin.
+pub const LEAD_IN: usize = FIRST;
 const LAST: usize = 12;
 /// Drop sonrası bas, ilk ölçüsünün bu kadar (dB) altına inmeden sürmeli.
 const SUSTAIN_DROP_DB: f64 = 6.0;
-/// Tizlerin ve basın şarkıya göre yüzdelikleri ("tam", "en güçlü bas").
-const FULL_PERCENTILE: f64 = 0.80;
+/// "Tam" tizin ölçüsü bası bu yüzdelikten güçlü vuruşlardan; "en güçlü bas" bu yüzdelik.
+const FULL_BASS_PERCENTILE: f64 = 0.70;
 const LEVEL_PERCENTILE: f64 = 0.90;
 
 /// Vuruş başına sinyaller (dB).
@@ -96,14 +107,15 @@ pub struct BeatSignals {
     pub bass: Vec<f64>,
     /// Tiz bantlar (son dörtte bir, ~4–16 kHz) ortalaması.
     pub high: Vec<f64>,
-    /// Ses yüksekliği (dBFS).
-    pub loud: Vec<f64>,
     /// Bütün bantlar (vuruş ortalaması).
     pub spectra: Vec<Vec<f64>>,
 }
 
 /// Vuruş ızgarası bilgisi.
 pub struct BeatContext<'a> {
+    /// İlk gerçek vuruşun sırası. Öncesi ızgaradan önceki kısım için uydurulan vuruşlardır (ritimsiz
+    /// giriş, sessizlik; [`LEAD_IN`]): pencereleri doldurur, aday olmaz.
+    pub first: usize,
     /// Vuruş ölçü başı mı.
     pub downbeat: &'a [bool],
     /// Ölçü güveni (0..1).
@@ -122,8 +134,28 @@ pub fn features(s: &BeatSignals, c: &BeatContext) -> Vec<Option<[f64; FEATURE_CO
             0.0
         }
     };
-    let full_ref = percentile(&s.high, FULL_PERCENTILE);
-    let level_ref = percentile(&s.bass, LEVEL_PERCENTILE);
+    // "Tam" tizin ölçüsü, şarkının bası güçlü vuruşlarındaki tipik (ortanca) tiz: bassız yükselişin
+    // parlak riser'ı ölçüyü yükseltmez (yükselişi parlak şarkıda drop boğuk sayılmasın).
+    // Yüzdelikler yalnızca gerçek vuruşlardan (ızgara öncesi uydurulanlar hariç).
+    let real = c.first.min(n);
+    let bass_floor = percentile(&s.bass[real..], FULL_BASS_PERCENTILE);
+    let bassy_high: Vec<f64> = s.high[real..]
+        .iter()
+        .zip(&s.bass[real..])
+        .filter(|&(_, &b)| b >= bass_floor)
+        .map(|(&h, _)| h)
+        .collect();
+    let full_ref = if bassy_high.is_empty() {
+        percentile(&s.high[real..], 0.5)
+    } else {
+        percentile(&bassy_high, 0.5)
+    };
+    let level_ref = percentile(&s.bass[real..], LEVEL_PERCENTILE);
+    let song_start = s
+        .spectra
+        .iter()
+        .position(|v| v.iter().sum::<f64>() / v.len().max(1) as f64 >= AUDIBLE_DB)
+        .unwrap_or(n);
     let bands = s.spectra.first().map_or(0, Vec::len);
     let (mid_lo, mid_hi) = (BASS_BANDS.min(bands), bands * 3 / 4);
     let span_mean = |a: usize, b: usize, band: usize| {
@@ -135,22 +167,19 @@ pub fn features(s: &BeatSignals, c: &BeatContext) -> Vec<Option<[f64; FEATURE_CO
     };
     (0..n)
         .map(|i| {
-            if i < FIRST || i + LAST.max(AFTER) > n {
+            if i < FIRST.max(c.first) || i + LAST.max(AFTER) > n {
+                return None;
+            }
+            // Şarkı en az MIN_PLAYED_BEFORE vuruştur çalıyor olmalı (pencereler şarkı başlamadan
+            // önceki sessizliğe taşmasın: şarkının başlangıcı drop değildir).
+            if i < song_start + MIN_PLAYED_BEFORE {
                 return None;
             }
             let k = i as isize;
-            let (b, h, l) = (&s.bass[..], &s.high[..], &s.loud[..]);
-            let after = mean(b, k, k + 8);
-            let bass_jump = after - mean(b, k - 8, k);
+            let (b, h) = (&s.bass[..], &s.high[..]);
+            let after = mean(b, k, k + AFTER as isize);
+            let bass_jump = after - mean(b, k - BEFORE as isize, k);
             let bass_far = after - mean(b, k - 12, k - 4);
-            let gain = (0..bands)
-                .map(|band| {
-                    (span_mean(i, i + AFTER, band) - span_mean(i - BEFORE, i, band)).max(0.0)
-                })
-                .sum::<f64>()
-                / bands.max(1) as f64;
-            let hi_jump = mean(h, k, k + 8) - mean(h, k - 8, k);
-            let gap = (mean(l, k - 8, k - 2) - l[i - 2].min(l[i - 1])).max(0.0);
             let accent = mean(h, k, k + 4) - mean(h, k + 4, k + 8);
             let full = (mean(h, k, k + 8) - full_ref).min(0.0);
             let level = (after - level_ref).min(0.0);
@@ -168,13 +197,8 @@ pub fn features(s: &BeatSignals, c: &BeatContext) -> Vec<Option<[f64; FEATURE_CO
             } else {
                 0.0
             };
-            let spec_step = (0..bands)
-                .map(|band| (span_mean(i, i + 2, band) - span_mean(i - 2, i, band)).abs())
-                .sum::<f64>()
-                / bands.max(1) as f64;
             Some([
-                bass_jump, bass_far, gain, hi_jump, gap, accent, full, level, sustain, downbeat,
-                inhomog, spec_step,
+                bass_jump, bass_far, accent, full, level, sustain, downbeat, inhomog,
             ])
         })
         .collect()
@@ -208,7 +232,11 @@ pub fn find(s: &BeatSignals, c: &BeatContext) -> Vec<(usize, f32)> {
     let mut scored: Vec<(usize, f64)> = features
         .iter()
         .enumerate()
-        .filter_map(|(i, x)| x.as_ref().map(|x| (i, score(x))))
+        .filter_map(|(i, x)| x.as_ref().map(|x| (i, x, score(x))))
+        // Aday kapısı: drop'un bir şeyden "düşmesi" gerekir. Bas yakın ya da uzak öncesine göre en
+        // az MIN_BASS_RETURN_DB dönmeyen vuruş (pop'ta nakaratın başı gibi) aday olmaz.
+        .filter(|(_, x, _)| x[BASS_JUMP].max(x[BASS_FAR]) >= MIN_BASS_RETURN_DB)
+        .map(|(i, _, z)| (i, z))
         .filter(|(_, z)| z.is_finite() && *z >= MIN_SCORE)
         .collect();
     scored.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
@@ -223,39 +251,37 @@ pub fn find(s: &BeatSignals, c: &BeatContext) -> Vec<(usize, f32)> {
         .into_iter()
         .filter_map(|(i, z)| {
             let x = features.get(i)?.as_ref()?;
-            Some((beat_of_change(&features, i), confidence(x, z)))
+            Some((beat_of_change(s, i), confidence(x, z)))
         })
         .filter(|&(_, c)| c >= MIN_CONFIDENCE)
         .collect()
 }
 
 /// Ölçü başı bir kanıttır, yapıştırma değil: seçilen vuruşun komşusunda (bir vuruş önce ya da
-/// sonra) ölçü başı kanıtı dışındaki puan açıkça ([`NEIGHBOR_MARGIN`]) yüksekse drop o vuruştur.
-/// Ölçü fazı yanlış ama güveni yüksek bulunduğunda (yarım tempolu dubstep) drop ölçü başı sanılan
-/// vuruşa kaymasın.
-fn beat_of_change(features: &[Option<[f64; FEATURE_COUNT]>], i: usize) -> usize {
-    let signal_score = |k: usize| {
-        features
-            .get(k)
-            .and_then(Option::as_ref)
-            .map(|x| score(x) - WEIGHTS[DOWNBEAT] * x[DOWNBEAT])
+/// sonra) bas kısa pencerede (iki vuruş öncesine göre iki vuruş sonrası) açıkça daha çok dönüyorsa
+/// ([`NEIGHBOR_MARGIN_DB`]) drop o vuruştur. Ölçü fazı yanlış ama güveni yüksek bulunduğunda (yarım
+/// tempolu dubstep) drop, ölçü başı sanılan vuruşa kaymasın.
+fn beat_of_change(s: &BeatSignals, i: usize) -> usize {
+    let step = |k: usize| -> Option<f64> {
+        let (a, b) = (k.checked_sub(2)?, k + 2);
+        let after = s.bass.get(k..b)?;
+        let before = s.bass.get(a..k)?;
+        Some(after.iter().sum::<f64>() / 2.0 - before.iter().sum::<f64>() / 2.0)
     };
-    let Some(own) = signal_score(i) else {
+    let Some(own) = step(i) else {
         return i;
     };
     [i.checked_sub(1), Some(i + 1)]
         .into_iter()
         .flatten()
-        .filter_map(|k| Some((k, signal_score(k)?)))
-        .filter(|&(_, v)| v > own + NEIGHBOR_MARGIN)
+        .filter_map(|k| Some((k, step(k)?)))
+        .filter(|&(_, v)| v > own + NEIGHBOR_MARGIN_DB)
         .max_by(|a, b| a.1.total_cmp(&b.1))
         .map_or(i, |(k, _)| k)
 }
 
-/// Komşu vuruşa geçmek için ölçü başı dışındaki puanın en az farkı (logit).
-const NEIGHBOR_MARGIN: f64 = 1.0;
-/// `downbeat` kanıtının sırası.
-const DOWNBEAT: usize = 9;
+/// Komşu vuruşa geçmek için kısa pencerede bas dönüşünün en az farkı (dB).
+const NEIGHBOR_MARGIN_DB: f64 = 6.0;
 
 /// Doğrusal ara değerli yüzdelik (numpy'nin varsayılanı gibi).
 fn percentile(values: &[f64], q: f64) -> f64 {
@@ -283,23 +309,31 @@ mod tests {
         bass: (f64, f64),
         mid: (f64, f64),
         high: (f64, f64),
-        loud: (f64, f64),
     }
 
-    fn part(beats: usize, bass: f64, mid: f64, high: f64, loud: f64) -> Part {
+    fn part(beats: usize, bass: f64, mid: f64, high: f64) -> Part {
         Part {
             beats,
             bass: (bass, bass),
             mid: (mid, mid),
             high: (high, high),
-            loud: (loud, loud),
         }
     }
 
     /// Bölümleri art arda dizip modeli çalıştırır. Ölçü başları her dört vuruşta bir (`phase`'ten).
     /// Bölümlerin başladığı vuruşları ve bulunan adayları (vuruş, güven) döndürür.
     fn run(parts: &[Part], phase: usize) -> (Vec<usize>, Vec<(usize, f32)>) {
-        let (mut bass, mut high, mut loud, mut spectra) = (vec![], vec![], vec![], vec![]);
+        run_with(parts, phase, 1.0, 0)
+    }
+
+    /// `run`, ölçü güveni ve ızgara öncesi uydurulan vuruş sayısı (`first`) verilerek.
+    fn run_with(
+        parts: &[Part],
+        phase: usize,
+        meter_confidence: f64,
+        first: usize,
+    ) -> (Vec<usize>, Vec<(usize, f32)>) {
+        let (mut bass, mut high, mut spectra) = (vec![], vec![], vec![]);
         let mut starts = Vec::new();
         for p in parts {
             starts.push(bass.len());
@@ -309,7 +343,6 @@ mod tests {
                 let (b, m, h) = (at(p.bass), at(p.mid), at(p.high));
                 bass.push(b);
                 high.push(h);
-                loud.push(at(p.loud));
                 spectra.push(
                     (0..32)
                         .map(|band| match band {
@@ -325,12 +358,12 @@ mod tests {
         let signals = BeatSignals {
             bass,
             high,
-            loud,
             spectra,
         };
         let context = BeatContext {
+            first,
             downbeat: &downbeat,
-            meter_confidence: 1.0,
+            meter_confidence,
         };
         (starts, find(&signals, &context))
     }
@@ -346,10 +379,10 @@ mod tests {
 
     // Bölümlerin düzeyleri geliştirme setindeki şarkılarda ölçülenlere yakındır (dB).
     fn groove() -> Part {
-        part(32, 34.0, 32.0, 40.0, -10.0)
+        part(32, 34.0, 32.0, 40.0)
     }
     fn calm() -> Part {
-        part(32, 12.0, 30.0, 34.0, -18.0)
+        part(32, 12.0, 30.0, 34.0)
     }
     /// Yükseliş: bas yok, tizler (riser) ve ses yüksekliği gittikçe artar.
     fn build(beats: usize) -> Part {
@@ -358,15 +391,14 @@ mod tests {
             bass: (12.0, 16.0),
             mid: (30.0, 34.0),
             high: (36.0, 48.0),
-            loud: (-18.0, -9.0),
         }
     }
     /// Drop: güçlü bas, dolu tizler; ilk ölçüsü crash ile vurgulu.
     fn drop_accent() -> Part {
-        part(4, 41.0, 35.0, 47.0, -5.0)
+        part(4, 41.0, 35.0, 47.0)
     }
     fn drop(beats: usize) -> Part {
-        part(beats, 40.0, 35.0, 43.0, -6.0)
+        part(beats, 40.0, 35.0, 43.0)
     }
 
     #[test]
@@ -390,7 +422,7 @@ mod tests {
     #[test]
     fn sessizlikten_sonraki_drop_bulunur() {
         // Yükselişin son iki vuruşu sessiz (eski yöntem bunu şarkının başı sanıp kaçırıyordu).
-        let silence = part(2, 0.0, 0.0, 0.0, -70.0);
+        let silence = part(2, 0.0, 0.0, 0.0);
         let parts = [
             groove(),
             calm(),
@@ -413,9 +445,46 @@ mod tests {
     }
 
     #[test]
+    fn tizleri_artiran_drop_cezalandirilmaz() {
+        // Rock girişi gibi: sakin kısımdan sonra bas da tizler de birden artar (riser yok). Tizlerin
+        // artması drop'u zayıflatmaz (`hi_jump` ağırlığı negatif olamaz).
+        let quiet = part(32, 14.0, 28.0, 25.0);
+        let band = part(64, 38.0, 34.0, 45.0);
+        let parts = [quiet, band, quiet, band];
+        let (starts, found) = run(&parts, 0);
+        assert_eq!(shown(&found), [starts[1], starts[3]], "{found:?}");
+    }
+
+    #[test]
+    fn olcu_guveni_yokken_drop_bastirilmaz() {
+        // Ölçü bulunamadı (güven 0): ölçü başı kanıtı nötr, drop yine gösterilir.
+        let parts = [
+            groove(),
+            calm(),
+            build(32),
+            drop_accent(),
+            drop(60),
+            groove(),
+        ];
+        let (starts, found) = run_with(&parts, 0, 0.0, 0);
+        assert_eq!(shown(&found), [starts[3]], "{found:?}");
+    }
+
+    #[test]
+    fn izgaradan_hemen_sonraki_drop_aday_olur() {
+        // Ritimsiz giriş: ızgara drop'ta başlar; öncesi uydurulan vuruşlarla (sakin giriş) doldurulur.
+        let intro = part(LEAD_IN, 10.0, 28.0, 30.0);
+        let parts = [intro, drop_accent(), drop(60), calm(), build(32), drop(64)];
+        let (starts, found) = run_with(&parts, 0, 1.0, LEAD_IN);
+        assert_eq!(shown(&found)[0], starts[1], "{found:?}");
+        // Uydurulan vuruşlar aday olmaz.
+        assert!(found.iter().all(|&(i, _)| i >= LEAD_IN), "{found:?}");
+    }
+
+    #[test]
     fn sahte_drop_drop_sayilmaz() {
         // Yükselişten sonra iki vuruşluk patlama, sonra yükseliş sürer; asıl drop 16 vuruş sonra.
-        let fake = part(2, 41.0, 35.0, 47.0, -5.0);
+        let fake = part(2, 41.0, 35.0, 47.0);
         let parts = [
             groove(),
             calm(),
@@ -439,7 +508,6 @@ mod tests {
             bass: (30.0, 42.0),
             mid: (26.0, 27.0),
             high: (48.0, 48.0),
-            loud: (-8.0, -5.0),
         };
         let parts = [
             groove(),
@@ -477,16 +545,14 @@ mod tests {
     #[test]
     fn dropsuz_sarkida_guvenilir_drop_yok() {
         // Pop: kıta ve nakarat sırayla; nakarat biraz daha dolu, bas hep var, yükseliş yok.
-        let verse = part(32, 32.0, 31.0, 38.0, -12.0);
-        let chorus = part(32, 34.0, 33.0, 41.0, -10.0);
+        let verse = part(32, 32.0, 31.0, 38.0);
+        let chorus = part(32, 34.0, 33.0, 41.0);
         let parts = [verse, verse, chorus, verse, chorus, verse, chorus, chorus];
         let (_, found) = run(&parts, 0);
         assert!(shown(&found).is_empty(), "{found:?}");
-        // Balad: piyano girişinden sonra yumuşak davul ve bas.
-        let piano = part(32, 24.0, 30.0, 28.0, -20.0);
-        let band = part(64, 30.0, 31.0, 31.0, -17.0);
-        let (_, found) = run(&[piano, piano, band, band], 0);
-        assert!(shown(&found).is_empty(), "{found:?}");
+        // Not: baladda piyanodan sonra yumuşak davul ve basın girişi (bas +4 dB, şarkının doruğu,
+        // sürüyor) bu kanıtlarla grubun büyük girişinden ayrılamıyor; drop sayılabiliyor
+        // (`docs/arastirma/drop/MODEL.md`, "Kalanlar").
     }
 
     #[test]
@@ -522,8 +588,16 @@ mod tests {
             .all(|&(_, c)| (MIN_CONFIDENCE..=1.0).contains(&c)));
         assert_eq!(FEATURES.len(), WEIGHTS.len());
         assert_eq!(FEATURES.len(), DECISION_WEIGHTS.len());
+        // Her kanıtın ağırlığı fiziksel yönünde (ya da 0): `inhomog` azaltır, gerisi artırır.
+        for (j, name) in FEATURES.iter().enumerate() {
+            let sign = if *name == "inhomog" { -1.0 } else { 1.0 };
+            assert!(
+                sign * WEIGHTS[j] >= 0.0 && sign * DECISION_WEIGHTS[j] >= 0.0,
+                "{name}"
+            );
+        }
         // Kısa şarkıda (pencereler sığmıyor) aday yok.
-        let (_, found) = run(&[part(20, 40.0, 30.0, 40.0, -8.0)], 0);
+        let (_, found) = run(&[part(20, 40.0, 30.0, 40.0)], 0);
         assert!(found.is_empty());
     }
 

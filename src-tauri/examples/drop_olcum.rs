@@ -10,7 +10,7 @@
 //! hesaplanır.
 //!
 //! Ölçütler (`docs/arastirma/drop/MODEL.md`): yalnızca ekranda gösterilen droplar (güven ≥
-//! `DROP_CONFIDENCE_MIN`) sayılır. Her işaretli drop'a en çok bir bulunan drop eşlenir (en yakın).
+//! `DROP_CONFIDENCE_MIN`; eski yöntem için onun eşiği 0,6) sayılır. Her işaretli drop'a en çok bir bulunan drop eşlenir (en yakın).
 //! - isabet ±1 vuruş ve isabet ±50 ms (ayrı ayrı); ±1 sn eski ölçüttür,
 //! - kaçan: ±1 vuruşta gösterilen drop yok,
 //! - yanlış drop: hiçbir işaretli drop'a ±1 vuruş içinde eşlenmeyen gösterilen drop (sahte drop'a
@@ -21,6 +21,9 @@
 use lyraska_lib::analysis::drop::FEATURES;
 use lyraska_lib::analysis::spectrogram::{analyze, drop_research_from_frames, Spectrogram};
 use lyraska_lib::analysis::structure::DROP_CONFIDENCE_MIN;
+
+/// Eski (1. sürüm) yöntemin programda gösterme eşiği.
+const LEGACY_CONFIDENCE_MIN: f32 = 0.6;
 use lyraska_lib::audio::decode::Decoder;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -177,7 +180,9 @@ fn main() {
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
         for (method, found) in [&research.legacy_drops, &new].into_iter().enumerate() {
-            let tally = score(&truth, found);
+            // Eski yöntem programda 0,6 eşiğiyle gösteriliyordu; yeni model kendi eşiğiyle.
+            let min = [LEGACY_CONFIDENCE_MIN, DROP_CONFIDENCE_MIN][method];
+            let tally = score(&truth, found, min);
             if detail {
                 let list: Vec<String> = found
                     .iter()
@@ -234,11 +239,11 @@ struct Truth {
 }
 
 /// Bulunan dropları (saniye, güven) doğru cevaplara göre sayar.
-fn score(truth: &Truth, found: &[(f64, f32)]) -> Tally {
+fn score(truth: &Truth, found: &[(f64, f32)], min: f32) -> Tally {
     let beat = truth.bpm.map_or(0.5, |b| 60.0 / b);
     let shown: Vec<f64> = found
         .iter()
-        .filter(|(_, c)| *c >= DROP_CONFIDENCE_MIN)
+        .filter(|(_, c)| *c >= min)
         .map(|(t, _)| *t)
         .collect();
     let mut tally = Tally {

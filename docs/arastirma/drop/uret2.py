@@ -103,6 +103,7 @@ class Song:
         self.parts = {b: [] for b in BUSES}
         self.ops = []  # (işlem, otobüsler, t0, t1, ayar)
         self.drops, self.fakes, self.unsure = [], [], []
+        self.drop_bpm = None
         self.t = 0.3 + rng.random() * 0.6
         self.bar_index = 0
         # Şarkıya özgü tınılar (örnekler bir kez üretilir, gerçek prodüksiyon gibi).
@@ -116,6 +117,12 @@ class Song:
         self.tek_s = self._tek()
         self.tom_s = [self._kick(f, 60, 0.2) for f in (180, 140, 110, 90)]
         self.gains = {k: 10 ** (rng.normal(0, 2.0) / 20) for k in ("drums", "bass", "music", "vox", "fx")}
+
+    def set_tempo(self, bpm):
+        """Tempoyu bundan sonraki bölümler için değiştirir (tempo değişen şarkı)."""
+        self.bpm = bpm
+        self.beat = 60 / bpm
+        self.bar = 4 * self.beat
 
     # --- örnekler ---
     def _kick(self, base, sweep_hz, decay):
@@ -278,6 +285,13 @@ class Song:
                 for q in range(16):
                     self.add("drums", tb + q * b / 4, self.hat_s, (0.25 if q % 2 else 0.12) * g)
                 self.add("drums", tb, self.dum_s, 0.35 * g)
+            elif style == "boombap":
+                for pos in (0, 1.75, 2.5):
+                    self.add("drums", tb + pos * b, self.kick_s, g)
+                for q in (1, 3):
+                    self.add("drums", tb + q * b, self.snare_s, g)
+                for q in range(8):
+                    self.add("drums", tb + (q + (0.16 if q % 2 else 0)) * b / 2, self.hat_s, 0.45 * g)
             elif style == "darbuka":
                 for pos, s in ((0, self.dum_s), (1.5, self.tek_s), (2, self.dum_s), (3, self.tek_s), (3.5, self.tek_s)):
                     self.add("drums", tb + pos * b, s, g)
@@ -357,6 +371,17 @@ class Song:
                     d = b if el.get("busy") else 2 * b
                     self.tone("bass", tb + q * d, d * 0.9, low, "tri", g, cut=400, release=0.1)
         # Müzik.
+        if "saw_chords" in el:
+            # Future bass: sidechain ile pompalanan geniş testere akorları (alt bas yok).
+            for q in range(8):
+                for iv in (0, 3, 7, 12):
+                    for det in (0.997, 1.003):
+                        self.tone("music", tb + q * b / 2, b / 2 * 0.9, semis(root, iv) * det, "saw",
+                                  el["saw_chords"] * 0.1 * G["music"], cut=7000, attack=0.06, release=0.05)
+        if "sub_drone" in el:
+            # Sürekli alt bas (dnb girişinde de süren sub).
+            self.tone("bass", tb, self.bar, semis(root, -24), "sine", el["sub_drone"] * G["bass"], attack=0.05,
+                      release=0.05)
         if "pad" in el:
             for iv in (0, 3, 7):
                 self.tone("music", tb, self.bar, semis(root, iv), "saw", el["pad"] * 0.2 * G["music"], cut=1500, attack=0.3, release=0.3)
@@ -438,6 +463,7 @@ class Song:
 
     def drop(self, bars, el, fx=()):
         self.drops.append(round(self.t, 4))
+        self.drop_bpm = self.bpm
         # Dropların bir kısmında crash ya da impact yok.
         if self.rng.random() > CRASH_ON_DROP:
             el = dict(el, crash=0)
@@ -649,6 +675,44 @@ def build(kind, rng):
         v = {"drums": ("darbuka", 0.8), "saz": 0.6, "vox": 0.8, "bass": ("root", 0.6), "busy": True}
         ch = dict(v, strings=0.7, vox=1.0, drums=("darbuka", 1.0))
         s.sec(4, dict(v, vox=0)); s.sec(8, v); s.sec(8, ch); s.sec(8, v); s.sec(8, ch); s.sec(4, dict(v, vox=0))
+    elif kind == "tiz_artan":
+        # Yükseliş karanlık (alçak geçiren, riser yok); drop tizleri açar (açık hi-hat, lead).
+        dark = {"pad": 0.8, "drums": ("kickonly", 0.6), "bass": ("offbeat", 0.5)}
+        lpd = ("lp", ["drums", "bass", "music", "vox"], {"f0": 300, "f1": 700})
+        bright = dict(full, open_hat=True, lead=1.2)
+        s.sec(8, dark, [lpd]); s.sec(8, dict(dark, roll=0.3), [lpd]); s.drop(16, bright); s.sec(8, dark, [lpd])
+        s.sec(8, dict(dark, roll=0.3), [lpd]); s.drop(16, bright); s.sec(4, groove)
+    elif kind == "riserisiz":
+        # Riser'sız, kısık yükseliş: yalnızca pad ve hafif trampet.
+        soft = {"pad": 0.7, "roll": 0.3, "vox": 0.4}
+        s.sec(8, groove); s.sec(8, calm); s.sec(8, soft); s.drop(16, full); s.sec(8, calm); s.sec(8, soft)
+        s.drop(16, full); s.sec(4, groove)
+    elif kind == "dnb_sub":
+        s.set_tempo(float(rng.integers(170, 177)))
+        dnb = {"drums": ("dnb", 1.0), "bass": ("reese", 1.0), "lead": 0.4, "crash": 0.8, "sub_drone": 0.5}
+        intro = {"pad": 0.8, "drums": ("hats", 0.4), "sub_drone": 0.7}
+        s.sec(16, intro); s.sec(8, dict(bld, sub_drone=0.7)); s.drop(32, dnb); s.sec(16, intro)
+        s.sec(8, dict(bld, sub_drone=0.7)); s.drop(32, dnb)
+    elif kind == "ritimsiz_giris":
+        # Ritimsiz kısa giriş (pad, ses), sonra hemen drop: drop şarkının başında.
+        s.sec(int(rng.integers(3, 6)), {"pad": 0.8, "vox": 0.5, "vox_sparse": True}); s.drop(16, full)
+        s.sec(8, calm); s.sec(8, bld); s.drop(16, full); s.sec(4, groove)
+    elif kind == "future_bass":
+        s.set_tempo(float(rng.integers(140, 161)))
+        fb = {"drums": ("halftime", 1.0), "saw_chords": 1.0, "crash": 0.6}
+        s.sec(8, calm); s.sec(8, bld); s.drop(16, fb); s.sec(8, calm); s.sec(8, bld); s.drop(16, fb); s.sec(4, calm)
+    elif kind == "hiphop_drop":
+        s.set_tempo(float(rng.integers(84, 97)))
+        beat = {"drums": ("boombap", 1.0), "bass": ("808", 0.9), "piano": ("beats", 0.5), "vox": 0.7}
+        s.sec(4, {"piano": ("beats", 0.7)}); s.drop(16, beat); s.sec(4, {"piano": ("beats", 0.6), "vox": 0.6})
+        s.drop(16, beat); s.sec(4, {"piano": ("whole", 0.6)})
+    elif kind == "tempo_degisen":
+        s.set_tempo(float(rng.integers(100, 112)))
+        s.sec(8, groove); s.sec(8, calm)
+        s.set_tempo(float(rng.integers(124, 132)))
+        s.sec(8, bld); s.drop(16, full); s.sec(4, groove)
+    elif kind == "kisa":
+        s.sec(4, groove); s.sec(4, bld); s.drop(8, full); s.sec(2, calm)
     else:
         raise ValueError(kind)
     mix = s.render()
@@ -657,7 +721,10 @@ def build(kind, rng):
 
 KINDS = ["yukselis", "sessizlik", "bas_donusu", "filtre", "vokal_cagri", "sahte_drop", "ikinci_drop", "dubstep",
          "trap", "dnb", "house", "turk_remix", "rock", "melodik", "yuksek_yukselis", "uzun_giris",
-         "pop", "balad", "akustik", "turk_pop"]
+         "pop", "balad", "akustik", "turk_pop",
+         # 2. genişleme (bağımsız incelemeden sonra): tizi artan drop, riser'sız yükseliş, sürekli sub baslı dnb,
+         # ritimsiz giriş (drop şarkının başında), alt bassız future bass, hip-hop, tempo değişen, kısa şarkı.
+         "tiz_artan", "riserisiz", "dnb_sub", "ritimsiz_giris", "future_bass", "hiphop_drop", "tempo_degisen", "kisa"]
 DROPLESS = {"pop", "balad", "akustik", "turk_pop"}
 
 
@@ -677,7 +744,7 @@ def main():
              "-sample_fmt", "s16", str(out / f"{name}.flac")],
             input=pcm, check=True)
         truth = {"drops": song.drops, "sahte": song.fakes, "belirsiz": song.unsure, "tur": kind,
-                 "bpm": song.bpm, "dropsuz": kind in DROPLESS}
+                 "bpm": song.drop_bpm or song.bpm, "dropsuz": kind in DROPLESS}
         (out / f"{name}.json").write_text(json.dumps(truth))
         print(name, f"{len(audio) / SR:.0f} sn", song.drops, song.fakes, flush=True)
 

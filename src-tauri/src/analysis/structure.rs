@@ -119,8 +119,10 @@ pub struct Section {
 
 /// Drop sayılmak için gereken en düşük güven. Altındaki aday hiçbir yerde drop sayılmaz:
 /// sayaç, şarkı haritası şeridindeki işaret, Görsel Yönetmen'in beklentisi ve açılımı,
-/// doğruluk ölçümü. Arayüzdeki `DROP_CONFIDENCE_MIN` (`src/lib/songMap.ts`) ile aynıdır
-/// (testli).
+/// doğruluk ölçümü. Güven kalibre bir olasılıktır ([`super::drop`]); 0,6 eşiği tür dışarıda
+/// bırakılarak yapılan çapraz doğrulamada isabet/yanlış dengesinden seçildi
+/// (`docs/arastirma/drop/MODEL.md`). Arayüzdeki `DROP_CONFIDENCE_MIN` (`src/lib/songMap.ts`) ile
+/// aynıdır (testli).
 pub const DROP_CONFIDENCE_MIN: f32 = 0.6;
 
 /// Ölçü vurgusu için gereken en düşük ölçü güveni (bkz. [`SongMap::meter_confidence`]).
@@ -405,22 +407,44 @@ fn map_song_inner(
         section.label = label;
     }
 
-    // Droplar (vuruş düzeyinde model, `super::drop`): vuruş başına bas, tiz, ses yüksekliği ve bant
-    // ortalamaları (dB).
+    // Droplar (vuruş düzeyinde model, `super::drop`): vuruş başına bas, tiz ve bant ortalamaları (dB).
     let beat_seconds = 60.0 / beats.bpm.max(1.0);
-    let signals = beat_signals(&spectra, &beat_frames, loudness_db, bands_per_frame);
-    let mut on_bar = vec![false; beats.beats.len()];
+    // Izgaradan önceki kısım (ritimsiz giriş, sessizlik) aynı uzunlukta uydurulan vuruşlarla
+    // doldurulur: ızgara drop'ta başlasa da drop'un öncesi ölçülür.
+    let pad = super::drop::LEAD_IN;
+    let period = ((fps * beat_seconds).round() as usize).max(1);
+    let first_start = beat_frames.first().map_or(0, |b| b.0);
+    let mut all_spectra: Vec<Vec<f64>> = Vec::with_capacity(pad + spectra.len());
+    for k in (1..=pad).rev() {
+        let start = first_start as isize - (k * period) as isize;
+        let end = (start + period as isize).min(frames as isize);
+        let (a, b) = (start.max(0) as usize, end.max(0) as usize);
+        all_spectra.push(if b > a {
+            (0..bands_per_frame)
+                .map(|band| (a..b).map(|f| level(f, band)).sum::<f64>() / (b - a) as f64)
+                .collect()
+        } else {
+            // Şarkının başlangıcından önce: sessizlik.
+            vec![0.0; bands_per_frame]
+        });
+    }
+    all_spectra.extend(spectra.iter().cloned());
+    let signals = beat_signals(&all_spectra, bands_per_frame);
+    let mut on_bar = vec![false; pad + beats.beats.len()];
     for &i in &downbeat_indices {
-        on_bar[i] = true;
+        on_bar[pad + i] = true;
     }
     let context = super::drop::BeatContext {
+        first: pad,
         downbeat: &on_bar,
         meter_confidence: f64::from(meter_confidence),
     };
     let found = super::drop::find(&signals, &context);
     let (drops, drop_confidence): (Vec<f64>, Vec<f32>) = found
         .iter()
-        .map(|&(i, confidence)| {
+        .filter_map(|&(i, confidence)| Some((i.checked_sub(pad)?, confidence)))
+        .filter(|&(i, _)| i < beats.beats.len())
+        .map(|(i, confidence)| {
             // An: yarım vuruş öncesiyle sonrası arasında basın döndüğü kare (vuruştakini açıkça
             // geçmiyorsa vuruş kalır).
             let at = refine_drop(
@@ -446,7 +470,10 @@ fn map_song_inner(
     align_sections_to_drops(&mut sections, &cuts, &drop_bars, &drops);
 
     let research = research.then(|| DropResearch {
-        features: super::drop::features(&signals, &context),
+        features: super::drop::features(&signals, &context)
+            .into_iter()
+            .skip(pad)
+            .collect(),
         legacy_drops: legacy_drops(&LegacyInput {
             bars: &bars,
             bar_bass: &bar_bass,
@@ -579,16 +606,12 @@ fn legacy_drops(input: &LegacyInput) -> Vec<(f64, f32)> {
         .collect()
 }
 
-/// Vuruş başına drop sinyalleri (dB): bas, tiz (son dörtte bir bant), ses yüksekliği ve bant
-/// ortalamaları.
-fn beat_signals(
-    spectra: &[Vec<f64>],
-    beat_frames: &[(usize, usize)],
-    loudness_db: &[f32],
-    bands: usize,
-) -> super::drop::BeatSignals {
+/// Vuruş başına drop sinyalleri (dB): bas, tiz (son dörtte bir bant) ve bant ortalamaları.
+/// `spectra`: vuruş başına bant ortalamaları (0..1).
+fn beat_signals(spectra: &[Vec<f64>], bands: usize) -> super::drop::BeatSignals {
     let db = |v: f64| v * LEVEL_DB;
     let band_mean = |v: &Vec<f64>, a: usize, b: usize| {
+        let b = b.min(v.len());
         if b > a {
             db(v[a..b].iter().sum::<f64>() / (b - a) as f64)
         } else {
@@ -603,17 +626,6 @@ fn beat_signals(
         high: spectra
             .iter()
             .map(|v| band_mean(v, bands * 3 / 4, bands))
-            .collect(),
-        loud: beat_frames
-            .iter()
-            .map(|&(s, e)| {
-                let e = e.min(loudness_db.len());
-                if e > s {
-                    loudness_db[s..e].iter().map(|&d| f64::from(d)).sum::<f64>() / (e - s) as f64
-                } else {
-                    loudness_db.get(s).map_or(0.0, |&d| f64::from(d))
-                }
-            })
             .collect(),
         spectra: spectra
             .iter()
@@ -1335,6 +1347,36 @@ mod tests {
             (shown[0] - drop_time).abs() <= 0.05,
             "drop {} (doğrusu {drop_time})",
             shown[0]
+        );
+    }
+
+    #[test]
+    fn ritimsiz_giristen_sonraki_ilk_drop_bulunur() {
+        // 8 sn yalnızca yumuşak pad (vuruş yok), sonra drop: vuruş ızgarası drop'ta başlar. Izgaradan
+        // önceki kısım uydurulan vuruşlarla ölçülür; drop şarkının başında da aday olur.
+        let rate = 22_050;
+        let (samples, drop_time, _) = edm_track(rate);
+        let r = f64::from(rate);
+        let intro = 8.0;
+        let mut out: Vec<f64> = (0..(intro * r) as usize)
+            .map(|i| {
+                let t = i as f64 / r;
+                0.04 * [220.0, 261.6, 329.6]
+                    .iter()
+                    .map(|f| (2.0 * PI * f * t).sin())
+                    .sum::<f64>()
+            })
+            .collect();
+        out.extend_from_slice(&samples[(drop_time * r) as usize..]);
+        let map = analyze_samples(&out, rate)
+            .song_map()
+            .expect("yapı bulunmalı");
+        let shown: Vec<f64> = map.confident_drops().collect();
+        assert!(
+            shown.first().is_some_and(|d| (d - intro).abs() <= 0.05),
+            "{:?} {:?}",
+            map.drops,
+            map.drop_confidence
         );
     }
 
