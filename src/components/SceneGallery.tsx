@@ -13,7 +13,7 @@ import {
   paletteName,
   sameLook,
 } from "../lib/sceneLook";
-import { PARTICLE_STYLES } from "../lib/photoParticles";
+import { DENSITY_MAX, DENSITY_MIN, DENSITY_STEP, PARTICLE_STYLES } from "../lib/photoParticles";
 import { MAX_PRESET_NAME, MAX_USER_PRESETS, presetSceneName } from "../lib/scenePreset";
 import { SHADER_SCENES, isShaderScene } from "../lib/shaderScene";
 
@@ -380,6 +380,22 @@ function PhotoSection({
               </button>
             ))}
           </div>
+          {particles.style !== "off" && (
+            <label className="scene-gallery__speed">
+              <span>Yoğunluk</span>
+              <input
+                type="range"
+                min={DENSITY_MIN}
+                max={DENSITY_MAX}
+                step={DENSITY_STEP}
+                value={particles.density}
+                aria-label="Parçacık yoğunluğu"
+                aria-valuetext={formatSpeed(particles.density)}
+                onChange={(event) => particles.setDensity(Number(event.target.value))}
+              />
+              <output aria-hidden>{formatSpeed(particles.density)}</output>
+            </label>
+          )}
           <p className="scene-gallery__milk-line">
             Kıvılcım yukarı süzülür, kar aşağı dökülür. Epilepsi güvenli modunda ve "animasyonları
             azalt" açıkken gösterilmez.
