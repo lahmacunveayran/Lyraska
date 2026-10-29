@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent 
 import type { BackgroundImageControls } from "../hooks/useBackgroundImage";
 import type { MilkdropControls } from "../hooks/useMilkdrop";
 import type { ScenePresetControls } from "../hooks/useScenePresets";
+import { INTENSITIES, type Intensity } from "../lib/lightShow";
 import { GALLERY_SCENES, NEW_SCENES, sceneKey, type Scene } from "../lib/scene";
 import {
   SCENE_PALETTES,
@@ -24,6 +25,9 @@ export interface SceneGalleryProps {
   milkdrop?: MilkdropControls;
   /** "Kendi resmin" sahnesinin resmi (sahne seçiliyken listenin altında). */
   background?: BackgroundImageControls;
+  /** Işık Ustası'nın yoğunluğu (sahne seçiliyken listenin altında). */
+  intensity?: Intensity;
+  onIntensity?: (intensity: Intensity) => void;
 }
 
 /** Ok tuşlarıyla gezilen düğmeler: sahneler ve hazır ayarlar. */
@@ -41,6 +45,8 @@ export function SceneGallery({
   presets,
   milkdrop,
   background,
+  intensity,
+  onIntensity,
 }: SceneGalleryProps) {
   const [open, setOpen] = useState(false);
   const [naming, setNaming] = useState(false);
@@ -175,6 +181,25 @@ export function SceneGallery({
               </button>
             ))}
           </div>
+          {scene === "lightshow" && intensity && onIntensity && (
+            <section className="scene-gallery__section" role="group" aria-label="Yoğunluk">
+              <h3 className="scene-gallery__heading">Yoğunluk</h3>
+              <div className="scene-gallery__chips">
+                {INTENSITIES.map(({ id, name: label, hint }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className="scene-gallery__chip"
+                    aria-pressed={intensity === id}
+                    title={hint}
+                    onClick={() => onIntensity(id)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
           <div className="scene-gallery__list" role="group" aria-label="Galeri">
             {GALLERY_SCENES.map(({ id, name: sceneName, hint }) => {
               const key = sceneKey(id);
