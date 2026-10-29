@@ -111,4 +111,5 @@ düşer. Yavaş tarayıcıda (117 ms kareler) ortancalar 0–8 ms, tek kareler �
 
 - Çekirdeğin konumu okuduğu an (ortak saat, sorgu aralığına kırpılarak) ve WASAPI dönemi bayatlığı: ses motorunda,
   Windows'ta denenir. Aşırı yüklü kare değişkesi (22 ms) o PR'da sıkı denetime girer.
+- ~~Şarkı başına söz kaydırma~~ (0.0.92): Alt+←/→ ve Ayarlar; şarkının yoluna göre hatırlanır (`lyrics.ts`).
 - "Kendi resmin" sözleri: aynı zaman yolunu kullanır; kendi CSS geçişleri kendi dalında ölçülüp düzeltildi (ayrı PR).

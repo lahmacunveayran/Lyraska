@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { errorMessage, openLog, type AppInfo, type PlaybackStatus } from "../lib/backend";
 import { signalPathText } from "../lib/format";
+import { LYRIC_SHIFT_STEP_MS, MAX_LYRIC_SHIFT_MS, formatLyricShift } from "../lib/lyrics";
 import { SKY_LOOKS } from "../lib/sky";
 import type { PlaybackOptionsControls } from "../hooks/usePlaybackOptions";
 import type { SkyLookControls } from "../hooks/useSkyLook";
@@ -87,6 +88,49 @@ export function SettingsPanel({
                 ? ` Çalan şarkının sözleri: ${lyrics.lyrics.source === "file" ? ".lrc dosyasından" : "şarkının içinden"}.`
                 : " Çalan şarkının sözleri zamanlı değil; sahnede gösterilmez.")}
           </p>
+          {lyrics.lyrics?.synced && (
+            <>
+              <div className="settings__row">
+                <span id="lyric-shift-label">Bu şarkının sözleri</span>
+                <button
+                  type="button"
+                  className="chip chip--button"
+                  onClick={() => lyrics.setShift(lyrics.shiftMs - LYRIC_SHIFT_STEP_MS)}
+                  disabled={lyrics.shiftMs <= -MAX_LYRIC_SHIFT_MS}
+                  aria-label="Sözleri 50 ms erken getir"
+                >
+                  −
+                </button>
+                <output className="settings__value" aria-labelledby="lyric-shift-label">
+                  {formatLyricShift(lyrics.shiftMs)}
+                </output>
+                <button
+                  type="button"
+                  className="chip chip--button"
+                  onClick={() => lyrics.setShift(lyrics.shiftMs + LYRIC_SHIFT_STEP_MS)}
+                  disabled={lyrics.shiftMs >= MAX_LYRIC_SHIFT_MS}
+                  aria-label="Sözleri 50 ms geç getir"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  className="chip chip--button"
+                  disabled={lyrics.shiftMs === 0}
+                  onClick={() => lyrics.setShift(0)}
+                >
+                  Sıfırla
+                </button>
+              </div>
+              <p className="settings__hint">
+                Sözler bu şarkıda hep erken ya da geç geliyorsa (çoğu zaman <code>.lrc</code>{" "}
+                dosyasının kendi hatası): çalarken <kbd>Alt</kbd>+<kbd>←</kbd> daha erken,{" "}
+                <kbd>Alt</kbd>+<kbd>→</kbd> daha geç (50 ms). Şarkı başına bu bilgisayarda
+                hatırlanır; bütün şarkılarda kayıyorsa Senkron panelindeki ses gecikmesini
+                ayarlayın.
+              </p>
+            </>
+          )}
         </div>
       )}
 

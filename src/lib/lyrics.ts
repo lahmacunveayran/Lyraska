@@ -10,9 +10,78 @@ export const NEXT_PREVIEW = 2.5;
  * Sözlerin okunacağı şarkı anı (saniye): `heardSecs` karenin ekrana çıkacağı andaki duyulan konum
  * (`useLivePosition`, ölçülen kare süresiyle); ses aygıtının ek gecikmesi (`audioDelaySecs`, senkron
  * ayarı) kadar geriden okunur. Görsellerin kuralıyla aynı yön (`visual_bridge::visual_offset_secs`).
+ * `shiftSecs`: kullanıcının bu şarkı için seçtiği kaydırma (artı: sözler o kadar geç gelir; dosyanın
+ * kendi hatası için).
  */
-export function lyricTime(heardSecs: number, audioDelaySecs: number): number {
-  return heardSecs - audioDelaySecs;
+export function lyricTime(heardSecs: number, audioDelaySecs: number, shiftSecs = 0): number {
+  return heardSecs - audioDelaySecs - shiftSecs;
+}
+
+/** Şarkı başına söz kaydırmanın adımı ve sınırı (ms). */
+export const LYRIC_SHIFT_STEP_MS = 50;
+export const MAX_LYRIC_SHIFT_MS = 2000;
+/** Bu kadar şarkının kaydırması hatırlanır (en eski değiştirilen unutulur). */
+export const MAX_SAVED_SHIFTS = 500;
+
+/** Kaydırmayı adıma yuvarlar ve sınırlar (ms); geçersiz değer 0. */
+export function clampLyricShift(ms: number): number {
+  if (!Number.isFinite(ms)) return 0;
+  const stepped = Math.round(ms / LYRIC_SHIFT_STEP_MS) * LYRIC_SHIFT_STEP_MS;
+  return Math.max(-MAX_LYRIC_SHIFT_MS, Math.min(MAX_LYRIC_SHIFT_MS, stepped)) || 0;
+}
+
+/** Kaydırmanın yazısı: "0,00 sn", "+0,15 sn (daha geç)", "−0,10 sn (daha erken)". */
+export function formatLyricShift(ms: number): string {
+  const value = (Math.abs(ms) / 1000).toFixed(2).replace(".", ",");
+  if (ms === 0) return `${value} sn`;
+  return ms > 0 ? `+${value} sn (daha geç)` : `−${value} sn (daha erken)`;
+}
+
+const SHIFT_STORAGE_KEY = "lyraska.lyrics.shift";
+
+function readShifts(): Record<string, number> {
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(SHIFT_STORAGE_KEY) ?? "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, number>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Şarkının kayıtlı söz kaydırması (ms; yoksa 0). Bu bilgisayarda, şarkının yoluna göre. */
+export function loadLyricShift(path: string): number {
+  const value = readShifts()[path];
+  return typeof value === "number" ? clampLyricShift(value) : 0;
+}
+
+/** Kaydırmayı kaydeder (0: kayıt silinir). En çok [`MAX_SAVED_SHIFTS`] şarkı; en eskisi unutulur. */
+export function saveLyricShift(path: string, ms: number): void {
+  const shifts = readShifts();
+  delete shifts[path];
+  const value = clampLyricShift(ms);
+  if (value !== 0) shifts[path] = value;
+  const kept = Object.entries(shifts).slice(-MAX_SAVED_SHIFTS);
+  try {
+    window.localStorage.setItem(SHIFT_STORAGE_KEY, JSON.stringify(Object.fromEntries(kept)));
+  } catch {
+    /* Kaydedilemezse yalnızca bu açılışta geçerli kalır. */
+  }
+}
+
+/** Söz kaydırma kısayolu mu (Alt+← daha erken, Alt+→ daha geç)? Adım (ms) ya da `null`. */
+export function lyricShiftKey(event: {
+  key: string;
+  altKey: boolean;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  shiftKey: boolean;
+}): number | null {
+  if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return null;
+  if (event.key === "ArrowLeft") return -LYRIC_SHIFT_STEP_MS;
+  if (event.key === "ArrowRight") return LYRIC_SHIFT_STEP_MS;
+  return null;
 }
 
 export type WordState = "sung" | "current" | "upcoming";

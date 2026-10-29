@@ -84,7 +84,7 @@ lyraska/
 │   │                         # useSkyLook (gece göğünün manzarası: göl, korona, karlı vadi), useCover (kapak),
 │   │                         # useAbx (kör test), useSongKey (çalan şarkının tonu), useParametric (elle
 │   │                         # parametrik EQ), useCrossfeed (crossfeed), useMapFile (şarkı haritası dosyası),
-│   │                         # useLyrics (şarkı sözleri), useScenePresets (galeri sahnelerinin görünümü ve
+│   │                         # useLyrics (şarkı sözleri, şarkı başına söz kaydırma: Alt+←/→), useScenePresets (galeri sahnelerinin görünümü ve
 │   │                         # hazır ayarlar), useMilkdrop (MilkDrop klasörü, görseller, önceki/sonraki), useBackgroundImage ("Kendi resmin" sahnesinin resmi), useBackgroundSource (resim sabit mi hareketli mi; hareketlinin kareleri), usePhotoParticles ("Kendi resmin" parçacıkları: Kıvılcım, Kar, Kapalı), useAlbums (albüm listesi), useArtists (sanatçı listesi), usePlaylists (çalma listeleri)
 │   ├── lib/                  # Saf yardımcılar (format, meter, dotFont, vu, sky, highway, queue, sync, songMap,
 │   │                         # analysis: BPM sütunu, drop: bırakma bildirimi, eq: ekolayzer bantları,

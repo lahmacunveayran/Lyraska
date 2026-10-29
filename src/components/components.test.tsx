@@ -3449,6 +3449,42 @@ describe("şarkı sözleri", () => {
     expect(again.container.querySelector(".lyrics")).toBeNull();
   });
 
+  it("şarkı başına söz kaydırma: Alt+→ sözleri geciktirir, sarmaz; Ayarlar'da görünür ve hatırlanır", async () => {
+    backend.desktop = true;
+    backend.status = { ...playing, state: "paused" };
+    backend.lyrics = synced;
+    backend.seek.mockClear();
+    const { container, unmount } = render(<App />);
+    await act(async () => fireEvent.keyDown(window, { code: "Space", key: " " }));
+    await waitFor(() => expect(container.querySelector(".lyrics__line")).not.toBeNull());
+    const current = () => container.querySelector(".lyrics__word.is-current")?.textContent;
+    // Konum 83,4 sn: "yolunda" söyleniyor. Sözler 0,5 sn geç gelsin: "Gece" (82–83) söyleniyor olmalı.
+    expect(current()).toBe("yolunda ");
+    for (let i = 0; i < 10; i++) {
+      await act(async () => fireEvent.keyDown(window, { key: "ArrowRight", altKey: true }));
+    }
+    expect(current()).toBe("Gece ");
+    expect(container.querySelector(".lyrics-notice")).toHaveTextContent(
+      "Sözler: +0,50 sn (daha geç)",
+    );
+    expect(backend.seek).not.toHaveBeenCalled(); // Alt+→ 5 sn ileri sarmaz
+    await act(async () => fireEvent.click(screen.getByRole("tab", { name: "Ayarlar" })));
+    expect(screen.getByText("+0,50 sn (daha geç)")).toBeInTheDocument();
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Sözleri 50 ms erken getir" })),
+    );
+    expect(screen.getByText("+0,45 sn (daha geç)")).toBeInTheDocument();
+    unmount();
+    // Aynı şarkı yeniden açılınca kaydırma hatırlanır.
+    const again = render(<App />);
+    await act(async () => fireEvent.keyDown(window, { code: "Space", key: " " }));
+    await act(async () => fireEvent.click(screen.getByRole("tab", { name: "Ayarlar" })));
+    await waitFor(() => expect(screen.getByText("+0,45 sn (daha geç)")).toBeInTheDocument());
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Sıfırla" })));
+    expect(screen.getByText("0,00 sn")).toBeInTheDocument();
+    again.unmount();
+  });
+
   it("zamansız sözler sahnede gösterilmez, ayarda nedeni yazar", async () => {
     backend.desktop = true;
     backend.status = { ...playing, state: "paused" };

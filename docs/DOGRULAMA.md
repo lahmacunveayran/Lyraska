@@ -562,6 +562,15 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 - Bildirin: sözler hep geride ya da hep önde mi (bütün şarkılarda mı, yalnızca bir şarkıda mı: tek şarkıdaysa çoğu
   zaman `.lrc` dosyasının kendi hatasıdır); şarkının adı.
 
+**E12. Şarkı başına söz kaydırma (0.0.92)**
+
+- Nasıl: Sözleri hep biraz erken ya da geç gelen bir şarkıda, çalarken **Alt+→** (sözler 50 ms daha geç) ya da
+  **Alt+←** (daha erken) basın; sözlerin üstünde kısa bir not ("Sözler: +0,15 sn (daha geç)") çıkar. Aynı ayar
+  **Ayarlar → Şarkı sözleri → Bu şarkının sözleri** satırında − / + / Sıfırla ile de yapılır.
+- Neye bakılır: birkaç basışta sözler tam oturmalı; başka bir şarkıya geçince o şarkının kendi ayarı (genelde 0)
+  gelmeli; programı kapatıp açınca ayar hatırlanmalı. Düz ←/→ eskisi gibi 5 sn sarar, Alt'lı olanlar sarmaz.
+- Bildirin: kısayol çalışmıyorsa ya da başka bir şey yapıyorsa (ör. sayfa değişiyor).
+
 ## F. Hata günlüğü
 
 **F1. Hata günlüğü açılıyor**

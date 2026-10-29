@@ -293,6 +293,7 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
         void toggle();
       } else if (
         (event.key === "ArrowLeft" || event.key === "ArrowRight") &&
+        !event.altKey && // Alt+←/→: sözleri kaydırır (useLyrics)
         !interactive &&
         statusRef.current.track
       ) {

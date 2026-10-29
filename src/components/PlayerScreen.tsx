@@ -439,6 +439,8 @@ export function PlayerScreen() {
           songMap={songMap}
           songKey={songKey}
           lyrics={lyrics.visible ? lyrics.lyrics : null}
+          lyricShiftSecs={lyrics.shiftMs / 1000}
+          lyricNotice={lyrics.visible ? lyrics.shiftNotice : null}
           audioDelaySecs={sync.delayMs / 1000}
           soundShaped={soundShaped}
           safe={visualSafe.safe}
@@ -622,6 +624,10 @@ interface LiveChromeProps {
   songKey: KeyMap | null;
   /** Gösterilecek şarkı sözleri (kapalıysa ya da yoksa `null`). */
   lyrics: Lyrics | null;
+  /** Bu şarkının söz kaydırması (saniye; artı: sözler daha geç). */
+  lyricShiftSecs: number;
+  /** Söz kaydırma kısayolunun kısa notu (yoksa `null`). */
+  lyricNotice: string | null;
   /** Ses aygıtının ek gecikmesi (saniye): sözler görseller gibi bu kadar geriden okunur (`lyricTime`). */
   audioDelaySecs: number;
   soundShaped: boolean;
@@ -647,6 +653,8 @@ function LiveChrome({
   songMap,
   songKey,
   lyrics,
+  lyricShiftSecs,
+  lyricNotice,
   audioDelaySecs,
   soundShaped,
   safe,
@@ -664,8 +672,9 @@ function LiveChrome({
     <>
       <LyricsOverlay
         lyrics={lyrics}
-        positionSecs={lyricTime(position, audioDelaySecs)}
+        positionSecs={lyricTime(position, audioDelaySecs, lyricShiftSecs)}
         safe={safe}
+        notice={lyricNotice}
       />
       <div className="lower">
         <div className="hero chrome">

@@ -1,6 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { LyricLine, Lyrics } from "./backend";
-import { LYRIC_LEAD, LYRIC_TAIL, NEXT_PREVIEW, lyricFrame, lyricTime } from "./lyrics";
+import {
+  LYRIC_LEAD,
+  LYRIC_TAIL,
+  NEXT_PREVIEW,
+  MAX_SAVED_SHIFTS,
+  clampLyricShift,
+  formatLyricShift,
+  loadLyricShift,
+  lyricFrame,
+  lyricShiftKey,
+  lyricTime,
+  saveLyricShift,
+} from "./lyrics";
 
 function line(start: number, end: number, text: string): LyricLine {
   const words = text.split(" ");
@@ -95,5 +107,74 @@ describe("lyricTime", () => {
     expect(lyricTime(10, 0)).toBe(10);
     // Bluetooth kulaklık sesi 100 ms geç çalıyor: söz de 100 ms geç.
     expect(lyricTime(10, 0.1)).toBeCloseTo(9.9, 12);
+  });
+});
+
+describe("şarkı başına söz kaydırma", () => {
+  afterEach(() => window.localStorage.clear());
+
+  it("kaydırma sözü o kadar geç getirir", () => {
+    expect(lyricTime(10, 0, 0.25)).toBeCloseTo(9.75, 12);
+    expect(lyricTime(10, 0.1, -0.5)).toBeCloseTo(10.4, 12);
+  });
+
+  it("adıma yuvarlanır, ±2 sn ile sınırlanır; geçersiz değer 0", () => {
+    expect(clampLyricShift(74)).toBe(50);
+    expect(clampLyricShift(-76)).toBe(-100);
+    expect(clampLyricShift(9000)).toBe(2000);
+    expect(clampLyricShift(-9000)).toBe(-2000);
+    expect(clampLyricShift(Number.NaN)).toBe(0);
+    expect(Object.is(clampLyricShift(-10), 0)).toBe(true); // eksi sıfır değil
+  });
+
+  it("yazısı yönüyle", () => {
+    expect(formatLyricShift(0)).toBe("0,00 sn");
+    expect(formatLyricShift(150)).toBe("+0,15 sn (daha geç)");
+    expect(formatLyricShift(-1250)).toBe("−1,25 sn (daha erken)");
+  });
+
+  it("şarkının yoluna göre hatırlanır; 0 kaydı siler; bozuk kayıt 0", () => {
+    saveLyricShift("C:/a.flac", 300);
+    saveLyricShift("C:/b.flac", -50);
+    expect(loadLyricShift("C:/a.flac")).toBe(300);
+    expect(loadLyricShift("C:/b.flac")).toBe(-50);
+    expect(loadLyricShift("C:/c.flac")).toBe(0);
+    saveLyricShift("C:/a.flac", 0);
+    expect(window.localStorage.getItem("lyraska.lyrics.shift")).toBe('{"C:/b.flac":-50}');
+    window.localStorage.setItem("lyraska.lyrics.shift", "[1,2");
+    expect(loadLyricShift("C:/b.flac")).toBe(0);
+    window.localStorage.setItem("lyraska.lyrics.shift", '{"C:/b.flac":"çok"}');
+    expect(loadLyricShift("C:/b.flac")).toBe(0);
+  });
+
+  it("en çok MAX_SAVED_SHIFTS şarkı: en eski değiştirilen unutulur", () => {
+    for (let i = 0; i < MAX_SAVED_SHIFTS; i++) saveLyricShift(`C:/${i}.flac`, 50);
+    saveLyricShift("C:/0.flac", 100); // en eskisi yeniden değişti: sona geçer
+    saveLyricShift("C:/yeni.flac", 50);
+    expect(loadLyricShift("C:/1.flac")).toBe(0); // artık en eskisi buydu
+    expect(loadLyricShift("C:/0.flac")).toBe(100);
+    expect(loadLyricShift("C:/yeni.flac")).toBe(50);
+    const saved = JSON.parse(window.localStorage.getItem("lyraska.lyrics.shift") ?? "{}");
+    expect(Object.keys(saved)).toHaveLength(MAX_SAVED_SHIFTS);
+  });
+
+  it("kısayol: yalnızca Alt+← / Alt+→", () => {
+    const key = (
+      key: string,
+      mods: Partial<Record<"altKey" | "ctrlKey" | "metaKey" | "shiftKey", boolean>> = {},
+    ) =>
+      lyricShiftKey({
+        key,
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+        ...mods,
+      });
+    expect(key("ArrowLeft", { altKey: true })).toBe(-50);
+    expect(key("ArrowRight", { altKey: true })).toBe(50);
+    expect(key("ArrowRight")).toBeNull(); // düz ok: sarma
+    expect(key("ArrowRight", { altKey: true, shiftKey: true })).toBeNull();
+    expect(key("ArrowUp", { altKey: true })).toBeNull();
   });
 });

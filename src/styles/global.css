@@ -824,6 +824,27 @@ kbd {
   color: var(--ink-3);
 }
 
+/* Söz kaydırma kısayolunun kısa notu: sözlerin üstünde küçük. */
+.lyrics-notice {
+  position: absolute;
+  top: calc(16% - 44px);
+  left: 50%;
+  z-index: 3;
+  margin: 0;
+  padding: 4px 12px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: var(--glass-strong);
+  color: var(--ink-2);
+  font-family: var(--font-figures);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.app.has-drawer .lyrics-notice {
+  left: calc((100vw - var(--drawer-width)) / 2);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lyrics__word.is-current {
     transform: none;
@@ -1658,6 +1679,24 @@ kbd {
   font-size: 13px;
   line-height: 1.55;
   color: var(--ink-3);
+}
+
+/* Ayar satırı: ad, − değer + ve Sıfırla (söz kaydırma). */
+.settings__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.settings__value {
+  min-width: 150px;
+  font-family: var(--font-figures);
+  color: var(--ink);
+  text-align: center;
 }
 
 .settings__warn {
