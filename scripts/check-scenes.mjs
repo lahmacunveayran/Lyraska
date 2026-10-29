@@ -1502,18 +1502,22 @@ async function checkPhotoParticles(browser) {
     { style: "snow", safe: false, side: "below" },
     { style: "off", safe: false, side: null },
     { style: "sparks", safe: true, side: null },
+    { style: "sparks", safe: false, reduced: true, side: null },
   ];
   const problems = [];
-  for (const { style, safe, side } of cases) {
-    const label = `Kendi resmin · parçacıklar ${style}${safe ? " (güvenli mod)" : ""}`;
+  for (const { style, safe, reduced = false, side } of cases) {
+    const label = `Kendi resmin · parçacıklar ${style}${safe ? " (güvenli mod)" : ""}${reduced ? " (animasyonları azalt)" : ""}`;
     const page = await openPage(browser, { viewport: PHOTO_GLOW_VIEWPORT, scale: 1 });
     page.on("console", (m) => {
       if (m.type() === "error") problems.push(`${label}: konsol: ${m.text()}`);
     });
     page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
     await page.addInitScript(initScript("photo", { safe, particles: style }));
+    if (reduced) await page.emulateMedia({ reducedMotion: "reduce" });
     await startPlaying(page, 3000);
     const result = await page.evaluate(() => {
+      // Sahne hiç açılmadıysa "tuval yok" bir başarı sayılmasın.
+      if (!document.querySelector(".photo-scene__bars")) return "sahne yok";
       const canvas = document.querySelector(".photo-scene__particles");
       if (!canvas) return null;
       const { width: W, height: H } = canvas;
@@ -1531,6 +1535,10 @@ async function checkPhotoParticles(browser) {
       return { above, below };
     });
     await page.close();
+    if (result === "sahne yok") {
+      problems.push(`${label}: "Kendi resmin" sahnesi açılmadı`);
+      continue;
+    }
     if (!side) {
       console.log(`${label}: parçacık tuvali ${result ? "VAR" : "yok"}`);
       if (result) problems.push(`${label}: parçacıklar çizilmemeliydi`);

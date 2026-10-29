@@ -351,7 +351,9 @@ export function PhotoScene({
   const safeRef = useRef(safe);
   // Parçacıklar: önceden ayrılmış havuz, tuvali ve (çubuk renginden) görüntüsü.
   const particleRef = useRef<HTMLCanvasElement>(null);
-  const particlePool = useRef(createParticlePool(0x5eed));
+  // Havuz bir kez kurulur (her çizimde yeni havuz ayrılmasın).
+  const [particlePoolValue] = useState(() => createParticlePool(0x5eed));
+  const particlePool = useRef(particlePoolValue);
   const sprite = useRef<{ colors: BarColors; image: HTMLCanvasElement | null } | null>(null);
 
   useEffect(() => {
