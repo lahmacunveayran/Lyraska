@@ -5,9 +5,9 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 
 ## İş sırası (proje sahibinin kararı, 23 Ekim 2026)
 
-1. Kütüphanenin baştan tasarımı; küçük PR'lar:
-   1. Sahibinin istekleri (24 Ekim): "Kendi resmin" sahnesi (örnek videolardan ölçülen model, iki denetimden geçti;
-      sırada kırmızı parlama sınırı ve hareketli arka plan).
+1. Sahnelerin baştan tasarımı (`docs/arastirma/sahneler-v2/`; sahibinin kararı 29 Ekim): ilk sahne Işık Ustası,
+   "Sakin / Normal / Çılgın" yoğunluk ayarı, sözler sahnenin içinde. Eski sahneler yenileri gelince kaldırılır.
+   Sahibinin ekran kartı RTX 4050 Laptop.
 2. Davul/bas/vokal ayrıştırma: Spleeter; önce eğitimsiz iyileştirmeler ölçülür.
 3. Otomatik DJ (Bölüm II), Aşama A'dan; her aşama ayrı oturumda (`docs/gorev/20-BOLUM-II-DJ.md`).
 
@@ -21,9 +21,10 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 - Şarkı kapağı (0.0.82) küçükleri: kütüphaneden çıkan şarkının kapağı `kapaklar/`'da kalır (temizlik yok); arama
   süzgeci açıkken "sıradaki" kapağı albümsüz anahtarla okunur, şarkı başlayınca bir kez daha okunur.
 
-- Sahneler "yavan" (sahibi, 23 Ekim): tepki zayıf, detay az, tekrar ediyor, renkler cansız. Araştırma
-  `docs/arastirma/gorsel-vay-arastirma.md`: ortak son işlem zinciri, şarkı haritasıyla koreografi, tondan palet.
-  Kütüphaneden sonra.
+- Güvenlik uyarıları (Scorecard, 8): SAST → CodeQL ekle; Vulnerabilities → OSV'nin gördüğü bağımlılık uyarıları
+  (deny.toml'daki yok sayılanlar dahil) güncellenir; Branch-Protection → sahibinin GitHub ayarı; Code-Review (tek
+  kişilik proje), Maintained (depo 90 günden genç), Binary-Artifacts (`hlslparser.wasm`, CI baytı baytına aynı
+  derlendiğini denetler), CII-Best-Practices, Fuzzing → açıklamayla kapatılır ya da sonra.
 - Kütüphane taslakları: Gökyüzü onaylandı ("fena olmuş"); kapak ve sanatçı levhalarının renk düzeyi soruldu, cevap
   yok. Araştırma `docs/arastirma/kutuphane-arastirma.md`.
 

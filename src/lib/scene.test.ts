@@ -33,14 +33,12 @@ describe("sahneler", () => {
       "Kaleydoskop",
       "İpek şeritler",
       "Sarmal gökada",
-      "Kum tepeleri",
       "Yağmurlu cam",
-      "Kristal ağ",
       "Kendi resmin",
       "MilkDrop",
     ]);
-    expect(SCENES).toHaveLength(17);
-    expect(new Set(SCENES.map((s) => s.id)).size).toBe(17);
+    expect(SCENES).toHaveLength(15);
+    expect(new Set(SCENES.map((s) => s.id)).size).toBe(15);
     expect(["1", "2", "3", "4", "5", "6", "0"].map(sceneForKey)).toEqual([
       "sky",
       "highway",
@@ -62,7 +60,7 @@ describe("sahneler", () => {
     expect(nextScene("sky", 1)).toBe("highway");
     expect(nextScene("drive", 1)).toBe("sea");
     expect(nextScene("kaleido", 1)).toBe("ribbons");
-    expect(nextScene("crystal", 1)).toBe("photo");
+    expect(nextScene("rain", 1)).toBe("photo");
     expect(nextScene("photo", 1)).toBe("milkdrop");
     expect(nextScene("milkdrop", 1)).toBe("sky");
     expect(nextScene("sky", -1)).toBe("milkdrop");

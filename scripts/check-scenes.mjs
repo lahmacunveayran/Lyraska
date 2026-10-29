@@ -584,9 +584,7 @@ const SCENES = [
     ["kaleido", "Kaleydoskop", true],
     ["ribbons", "İpek şeritler"],
     ["galaxy", "Sarmal gökada"],
-    ["dunes", "Kum tepeleri"],
     ["rain", "Yağmurlu cam"],
-    ["crystal", "Kristal ağ"],
   ].map(([id, name, palette = false]) => ({
     id,
     name,

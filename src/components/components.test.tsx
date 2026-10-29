@@ -2435,7 +2435,7 @@ describe("sahneler", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     await act(async () => fireEvent.click(toggle));
     const list = screen.getByRole("group", { name: "Galeri" });
-    expect(within(list).getAllByRole("button")).toHaveLength(12);
+    expect(within(list).getAllByRole("button")).toHaveLength(10);
     // Esc listeyi kapatır, çekmeceye dokunmaz.
     await act(async () => fireEvent.keyDown(list, { key: "Escape" }));
     expect(screen.queryByRole("group", { name: "Galeri" })).not.toBeInTheDocument();
@@ -2470,7 +2470,7 @@ describe("sahneler", () => {
     await act(async () => fireEvent.keyDown(window, { key: "PageUp" }));
     expect(screen.getByRole("img", { name: "Şarkıyla oynayan ışık çizgisi" })).toBeInTheDocument();
     await act(async () => fireEvent.keyDown(window, { key: "PageUp" }));
-    expect(screen.getByRole("img", { name: /Kristal ağ/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Yağmurlu cam/ })).toBeInTheDocument();
     await act(async () => fireEvent.keyDown(window, { key: "PageDown" }));
     await act(async () => fireEvent.keyDown(window, { key: "PageDown" }));
     await act(async () => fireEvent.keyDown(window, { key: "PageDown" }));
@@ -2515,10 +2515,10 @@ describe("sahneler", () => {
       within(list).getByRole("button", { name: /Ateşböcekleri/ }),
     );
     await act(async () =>
-      fireEvent.click(within(list).getByRole("button", { name: /Kristal ağ/ })),
+      fireEvent.click(within(list).getByRole("button", { name: /Yağmurlu cam/ })),
     );
     // Seçilen düğme kaybolur; odak gövdeye düşmez, galeri düğmesine döner.
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: /Kristal ağ/ }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: /Yağmurlu cam/ }));
   });
 
   it("PageDown basılı tutulunca sahneler art arda değişmez (tekrar eden tuş yok sayılır)", async () => {

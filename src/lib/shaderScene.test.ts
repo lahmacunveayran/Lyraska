@@ -23,7 +23,7 @@ const CALM: DirectorInput = {
 };
 
 describe("gölgelendirici sahneleri", () => {
-  it("on sahne; adları ve kimlikleri tekil", () => {
+  it("sekiz sahne; adları ve kimlikleri tekil", () => {
     expect(SHADER_SCENES.map((s) => s.id)).toEqual([
       "sea",
       "nebula",
@@ -32,9 +32,7 @@ describe("gölgelendirici sahneleri", () => {
       "kaleido",
       "ribbons",
       "galaxy",
-      "dunes",
       "rain",
-      "crystal",
     ]);
     expect(new Set(SHADER_SCENES.map((s) => s.name)).size).toBe(SHADER_SCENES.length);
     expect(isShaderScene("sea")).toBe(true);

@@ -492,8 +492,8 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 **E8. Galerideki yeni sahneler (0.0.57)**
 
 - Nasıl: üst çubukta **Galeri**'ye tıklayın; on sahne: **Gece denizi**, **Bulutsu**, **Işık tüneli**,
-  **Ateşböcekleri**, **Kaleydoskop**, **İpek şeritler**, **Sarmal gökada**, **Kum tepeleri**, **Yağmurlu cam**,
-  **Kristal ağ**. Klavyeden 6–9 ve 0; **PageDown/PageUp** bütün sahneleri sırayla gezer.
+  **Ateşböcekleri**, **Kaleydoskop**, **İpek şeritler**, **Sarmal gökada**, **Yağmurlu cam** (Kum tepeleri ve
+  Kristal ağ sahibinin isteğiyle 29 Ekim'de kaldırıldı). Klavyeden 6–9 ve 0; **PageDown/PageUp** bütün sahneleri sırayla gezer.
 - Neye bakılır: her sahne müzikle akar (vuruşta hızlanır), bölüm değişince renkler yavaşça değişir, droptan önce
   toplanıp drop'ta açılır; hiçbirinde ani parlama yok. Tam ekranda akıcı mı (takılma, ısınma)?
 - Bildirin: beğendiğiniz ve beğenmediğiniz sahneler; takılan sahne varsa bilgisayarın ekran kartı.
