@@ -199,7 +199,7 @@ export function patternDir(
           return aimAt(f.pos, 0, 13 - 4.5 * cue.focus, -10 + 3 * cue.focus, out);
         case "burst": {
           const [sp, st] = stepPose(odd);
-          return dirFrom(f.u * 0.9 + 0.15 * sp, 0.32 + 0.35 * Math.abs(f.u) + 0.18 * st, out);
+          return dirFrom(f.u * 0.9 + 0.28 * sp, 0.32 + 0.35 * Math.abs(f.u) + 0.28 * st, out);
         }
         case "chase": {
           const [sp, st] = stepPose(odd * 2);
@@ -225,7 +225,7 @@ export function patternDir(
           return aimAt(f.pos, 0, 9, -6, out);
         case "burst": {
           const [sp, st] = stepPose(odd + 1);
-          return dirFrom(f.u * 0.6 + 0.15 * sp, 0.75 + 0.2 * st, out);
+          return dirFrom(f.u * 0.6 + 0.25 * sp, 0.75 + 0.25 * st, out);
         }
         case "chase": {
           const [sp, st] = stepPose(odd + 2);
@@ -365,8 +365,16 @@ export function packBeams(
       if (on <= 0.002) continue;
     }
     if (n >= out.length / BEAM_FLOATS) continue;
+    // Vuruş adımı varken (drop, yüksek bölüm) fikstürler iki takım: her vuruşta biri vurgulanır
+    // (sağ-sol, tek-çift "kovalamaca"); yoksa hepsi birlikte nefes alır.
+    const chase = cue.step >= 0 && f.group !== "laser";
+    const accent = chase
+      ? (f.rank + cue.step) % 2 === 0
+        ? cue.pulse
+        : 0.2 * cue.pulse
+      : cue.pulse;
     const pulse =
-      (1 + 0.55 * cue.pulse * (f.group === "laser" ? 0.5 : 1)) *
+      (chase ? 0.55 + 0.9 * accent : 1 + 0.55 * accent * (f.group === "laser" ? 0.5 : 1)) *
       (1 - cue.flicker * (1 - cue.pulse));
     const power = f.power * on * cue.level * pulse * strobeMul * (isSpot ? 1.3 : 1);
     const o = n * BEAM_FLOATS;
@@ -433,7 +441,7 @@ export function shotPose(shot: Shot, s: number, speed: number, out: Camera): Cam
     default: {
       const z = 11 - Math.min(5, 0.1 * k);
       out.pos = [0.6 * Math.sin(0.07 * k), 1.75 + 0.1 * Math.sin(0.11 * k), z];
-      out.target = [0, 4.3, -14];
+      out.target = [0, 3.2, -14];
       out.fov = 58;
       return out;
     }

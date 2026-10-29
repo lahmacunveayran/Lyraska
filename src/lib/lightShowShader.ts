@@ -210,7 +210,7 @@ void main() {
     float wet = texture(uNoise, fp.xz * 0.045 + 0.37).g;
     puddle = smoothstep(0.48, 0.6, wet);
     float grain = texture(uNoise, fp.xz * 0.9).r;
-    rough = mix(0.075, 0.006, puddle) * (0.7 + 0.6 * grain);
+    rough = mix(0.028, 0.004, puddle) * (0.7 + 0.6 * grain);
     vec2 ripple = (texture(uNoise, fp.xz * 0.21 + vec2(uTime * 0.003, 0.0)).rg - 0.5) * (1.0 - puddle) * 0.035;
     rd = normalize(vec3(d.x + ripple.x, -d.y, d.z + ripple.y));
     float c = 1.0 - max(rd.y, 0.0);
