@@ -223,6 +223,77 @@ impl Debouncer {
     }
 }
 
+/// Aynı anda yeniden bakılmak üzere tutulan en fazla yeni klasör (bütün bir sürücüde geçici klasör
+/// seli olsa da bellek ve bakış sınırlı kalır; kaçanı güvenlik ağı taraması bulur).
+pub(super) const FRESH_DIRS_MAX: usize = 256;
+
+/// Yeni oluşan ama o an şarkısız klasörler. Linux'ta (inotify) yeni alt klasörün izlemesi
+/// sonradan kurulur: içine hemen yazılan dosyanın olayı hiç gelmeyebilir (yt-dlp, kopyalama). Bu
+/// klasörlere [`Timing::quiet`] aralıklarla, [`Timing::cap`] dolana dek yeniden bakılır; şarkı
+/// görülürse o yer taranır (saf; saati dışarıdan alır, test edilebilir).
+#[derive(Debug, Default)]
+pub struct FreshDirs {
+    /// Kaynak, klasör, taranacak alt klasör, ilk görülme ve sıradaki bakış anı.
+    dirs: Vec<(i64, PathBuf, Option<PathBuf>, Instant, Instant)>,
+}
+
+impl FreshDirs {
+    /// `source` kaynağında `now` anında oluşan, şarkısız `dir` klasörü; şarkı görülürse `scope`
+    /// taranır.
+    pub fn note(
+        &mut self,
+        source: i64,
+        dir: PathBuf,
+        scope: Option<PathBuf>,
+        now: Instant,
+        timing: &Timing,
+    ) {
+        if self.dirs.len() >= FRESH_DIRS_MAX
+            || self.dirs.iter().any(|d| d.0 == source && d.1 == dir)
+        {
+            return;
+        }
+        self.dirs
+            .push((source, dir, scope, now, now + timing.quiet));
+    }
+
+    #[cfg(test)]
+    fn len(&self) -> usize {
+        self.dirs.len()
+    }
+
+    /// Bir sonraki bakışın anı.
+    pub fn deadline(&self) -> Option<Instant> {
+        self.dirs.iter().map(|d| d.4).min()
+    }
+
+    /// Vakti gelen klasörlere bakar: şarkı olanların taranacak yerini verir ve bırakır; süresi
+    /// dolan boş klasörleri bırakır, kalanlara bir [`Timing::quiet`] sonra yeniden bakılır.
+    pub fn take_ready(
+        &mut self,
+        now: Instant,
+        timing: &Timing,
+        probe: &impl Probe,
+    ) -> Vec<(i64, Option<PathBuf>)> {
+        let mut ready = Vec::new();
+        self.dirs.retain_mut(|(source, dir, scope, first, next)| {
+            if *next > now {
+                return true;
+            }
+            if probe.dir_has_audio(dir) {
+                ready.push((*source, scope.clone()));
+                return false;
+            }
+            if now.saturating_duration_since(*first) >= timing.cap {
+                return false;
+            }
+            *next = now + timing.quiet;
+            true
+        });
+        ready
+    }
+}
+
 /// Başka birinin içinde olmayan klasörler (iç içe olanlardan dıştaki kalır), ilk görülme sırasıyla.
 fn outermost(scopes: &[&PathBuf]) -> Vec<PathBuf> {
     let mut kept: Vec<PathBuf> = Vec::new();
@@ -519,6 +590,7 @@ impl FolderWatcher {
             suspect: HashSet::new(),
             logged: HashSet::new(),
             debouncer: Debouncer::new(timing),
+            fresh: FreshDirs::default(),
             published: Arc::clone(&self.published),
             on_due: Box::new(move |due| {
                 flushes.fetch_add(1, Ordering::Relaxed);
@@ -599,6 +671,7 @@ struct Worker {
     /// Günlüğe bir kez yazılan izleme sorunları (her denemede yinelenmesin).
     logged: HashSet<PathBuf>,
     debouncer: Debouncer,
+    fresh: FreshDirs,
     published: Arc<Mutex<Published>>,
     on_due: Box<dyn Fn(Vec<Due>) + Send>,
 }
@@ -610,12 +683,10 @@ impl Worker {
         let mut next_backstop = Instant::now() + self.timing.backstop;
         let mut error_logged = false;
         loop {
-            let wake = self
-                .debouncer
-                .deadline()
-                .map_or(next_heal.min(next_backstop), |d| {
-                    d.min(next_heal).min(next_backstop)
-                });
+            let wake = [self.debouncer.deadline(), self.fresh.deadline()]
+                .into_iter()
+                .flatten()
+                .fold(next_heal.min(next_backstop), Instant::min);
             let message = match rx.recv_timeout(wake.saturating_duration_since(Instant::now())) {
                 Ok(message) => Some(message),
                 Err(mpsc::RecvTimeoutError::Timeout) => None,
@@ -651,6 +722,10 @@ impl Worker {
                 self.sync(SyncMode::Heal);
                 next_heal = Instant::now() + self.timing.heal;
             }
+            let now = Instant::now();
+            for (id, scope) in self.fresh.take_ready(now, &self.timing, &self.probe) {
+                self.debouncer.note(id, scope, None, now);
+            }
             let due = self.debouncer.take_due(Instant::now());
             if !due.is_empty() {
                 (self.on_due)(due);
@@ -684,6 +759,17 @@ impl Worker {
             if let Some(change) = classify(&event.kind, path, root, &self.probe) {
                 let written = (change == Change::Write).then_some(path.as_path());
                 self.debouncer.note(*id, scope_of(path, root), written, now);
+            } else if matches!(
+                event.kind,
+                EventKind::Create(_) | EventKind::Modify(ModifyKind::Name(RenameMode::To))
+            ) && !scan::is_audio(path)
+                && !in_skipped_dir(path, root, false)
+                && path.is_dir()
+            {
+                // Şimdilik şarkısız yeni klasör: içine hemen yazılan dosyanın olayı gelmeyebilir.
+                // Şarkı görülürse yalnızca klasörün kendisi taranır.
+                self.fresh
+                    .note(*id, path.clone(), Some(path.clone()), now, &self.timing);
             }
         }
     }
@@ -824,6 +910,72 @@ mod tests {
 
     fn ms(n: u64) -> Duration {
         Duration::from_millis(n)
+    }
+
+    const T: Timing = Timing {
+        quiet: Duration::from_millis(100),
+        cap: Duration::from_millis(1000),
+        slow_after: Duration::from_secs(5),
+        slow_quiet: Duration::from_secs(30),
+        slow_cap: Duration::from_secs(600),
+        heal: Duration::from_secs(120),
+        backstop: Duration::from_secs(1800),
+    };
+
+    #[test]
+    fn yeni_bos_klasore_hemen_yazilan_sarki_sonradan_bulunur() {
+        // Linux'ta yeni alt klasörün izlemesi sonradan kurulur: içine hemen yazılan dosyanın
+        // olayı gelmeyebilir. Klasör oluştuğunda boştu; kısa süre sonra yeniden bakılır.
+        let dir = PathBuf::from("/kök/İndirilenler");
+        let t0 = Instant::now();
+        let mut fresh = FreshDirs::default();
+        fresh.note(
+            7,
+            dir.clone(),
+            Some(PathBuf::from("/kök/İndirilenler")),
+            t0,
+            &T,
+        );
+        let empty = FakeProbe {
+            dirs_with_audio: vec![],
+            known: vec![],
+        };
+        assert_eq!(fresh.deadline(), Some(t0 + T.quiet));
+        // Vakti gelmeden bakılmaz; boşken bir şey çıkmaz, yeniden bakılmak üzere kalır.
+        assert!(fresh.take_ready(t0 + ms(50), &T, &empty).is_empty());
+        assert!(fresh.take_ready(t0 + ms(100), &T, &empty).is_empty());
+        assert_eq!(fresh.deadline(), Some(t0 + ms(200)));
+        // Şarkı yazıldı: bir sonraki bakışta taranacak yer verilir ve klasör listeden çıkar.
+        let filled = FakeProbe {
+            dirs_with_audio: vec![dir.clone()],
+            known: vec![],
+        };
+        assert_eq!(
+            fresh.take_ready(t0 + ms(200), &T, &filled),
+            vec![(7, Some(PathBuf::from("/kök/İndirilenler")))]
+        );
+        assert_eq!(fresh.deadline(), None);
+    }
+
+    #[test]
+    fn bos_kalan_yeni_klasor_suresi_dolunca_birakilir_ve_liste_sinirli() {
+        let t0 = Instant::now();
+        let empty = FakeProbe {
+            dirs_with_audio: vec![],
+            known: vec![],
+        };
+        let mut fresh = FreshDirs::default();
+        fresh.note(1, PathBuf::from("/k/a"), None, t0, &T);
+        // Aynı klasör iki kez yazılmaz.
+        fresh.note(1, PathBuf::from("/k/a"), None, t0, &T);
+        assert_eq!(fresh.len(), 1);
+        assert!(fresh.take_ready(t0 + T.cap, &T, &empty).is_empty());
+        assert_eq!(fresh.deadline(), None, "cap dolunca bırakılır");
+        // Bütün bir sürücüde geçici klasör seli: liste sınırlı kalır.
+        for i in 0..(FRESH_DIRS_MAX + 50) {
+            fresh.note(1, PathBuf::from(format!("/k/{i}")), None, t0, &T);
+        }
+        assert_eq!(fresh.len(), FRESH_DIRS_MAX);
     }
 
     fn due(source: i64, within: Option<&str>) -> Due {
