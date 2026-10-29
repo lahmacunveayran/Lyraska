@@ -122,6 +122,29 @@ kısaltılır.
 - Betikle metin değiştirirken eşleşme sayısı denetlenir (`count == 1`): bir CSS değişikliği Ayarlar başlıklarının
   büyük harfini de sildi.
 
+- **Sentetik sette model üretecin izini öğrenir** (29 Ekim 2026): drop v2'de üreteç her yükselişe parlak riser koyduğu
+  için model "dropta tiz düşer" diye öğrendi (gerçekte artar) ve rock bozuldu; tempo düzeltmesi maksumu 2× yaptı.
+  İkisini de **kendi üretecini sıfırdan yazan** bağımsız inceleme buldu. Kural: inceleyen ajan modelin üretecini değil
+  kendi karşı örnek üretecini kullanır; ağırlıklar kanıtın fiziksel yönüyle sınırlanır; ayar türü dışarıda bırakan
+  çapraz doğrulamayla yapılır; son sınama seti kod bittikten sonra üretilir; "hiçbir türde eskinin altına düşme" ve
+  şarkı şarkı eski/yeni karşılaştırması raporlanır. Türk müziği (maksum, aksak, arabesk) sette mutlaka olur.
+- **Aralıklı test hatası çoğu zaman gerçek hatadır** (29 Ekim 2026): klasör izleme testi CI'da iki kez düştü; yerelde
+  döngüyle (`for i in $(seq 1 100)`) 1/30–1/44 yeniden üretildi; kök neden Linux inotify'da yeni alt klasöre hemen
+  yazılan dosyanın kaçmasıydı (`FreshDirs`). Bir kez yeniden çalıştır; yine düşerse yerelde döngüyle üret, kök nedeni
+  bul.
+- **Önizleme tuzakları:** başsız Chromium'un hızlandırılmış 2D tuvali bazı karelerde eski kareyi gösterir
+  (`--disable-accelerated-2d-canvas`); "Kendi resmin" önizlemesinde sahte çekirdek `getVisualSpectrum` vermezse çubuklar
+  32 banttan basamaklı çizilir — çubuklar gerçek sesten `spectrum.rs` modeliyle (Python eşi) üretilir, video sesli olur.
+- **CI işi bölünürken eski ad korunur:** koruma kuralı denetimi adıyla bekleyebilir; parçalı işin yanında eski adla bir
+  "ortak sonuç" işi kalır (`Sahneler (Windows, Edge)`, `Windows (Clippy, testler, kurulum dosyası)`).
+- **CodeQL "eksik çok karakterli temizleme":** tekrar eden `replace` döngüsünü de kabul etmez; metni kesmek (`slice`)
+  kabul edilir.
+- **Bu oturumun GitHub yetkisi:** yalnızca oturum dalına ve `claude/clever-euler-pmhee7-yedek-*` adlı yedek dallara
+  push edilebilir; başka dal silinemez (403) — sahibi `/branches/all` sayfasından siler. Yarım iş oturum kapanmadan
+  yedek dala gönderilir (geçici bilgisayar silinir).
+- **Disk:** `CARGO_TARGET_DIR` unutulursa her çalışma kopyası kendi `target`'ını kurar ve disk dolar; önizleme ham
+  kareleri (GB'larca) iş bitince silinir.
+
 ## 6. Lisans dersleri
 
 - "Ticari kullanım yasak" (NC) lisanslar GPL-3.0 ile çelişir (GPL satma hakkı da verir); program ücretsiz olsa da
@@ -184,5 +207,10 @@ kısaltılır.
 - **"Kendi resmin" sahnesi (24 Ekim 2026):** kullanıcının resmi + Nightcore videolarındaki ince çubuk çizgisi; renk
   resmin baskın rengi "birebir" (tek renkliyse o ton tam canlı, karışıksa beyaz), yazı Michroma. Sahibi kararları
   iki kez (biri tamamen bağımsız) denetlenerek verilsin istiyor.
+- **29 Ekim 2026 kararları:** Gece denizi, Ateşböcekleri, Kum tepeleri, Kristal ağ kaldırıldı (VU ve Gece sürüşü de
+  yeni sahneler gelince kalkacak); ilk yeni sahne Işık Ustası ("Sakin / Normal / Çılgın"). "Kendi resmin": parçacıklar
+  Kıvılcım/Kar/Kapalı + yoğunluk kaydırıcısı; önerilen estetik fikirlerden **yalnızca şarkı sözleri** beğenildi (resmin
+  basla nefes alması, drop parlaması, süzülme istenmedi); "gerekirse baştan kur, nihai mühendislik ve matematiksel
+  çözüm". Tempo tanımı: DnB 170'ler, dubstep/trap 140, hip-hop 85–95. Drop v2 sonuçları saklandı, karar en sona.
 - Görsel tasarımda sahibi zor beğenir: seçenekleri gerçek boyutta, yan yana görsel olarak sun; bağımsız sanat
   yönetmeni denetimi işe yarıyor (puan 6 → hedef 8+).
