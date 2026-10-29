@@ -90,6 +90,8 @@ lyraska/
 │   │                         # analysis: BPM sütunu, drop: bırakma bildirimi, eq: ekolayzer bantları,
 │   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile, lyrics,
 │   │                         # clock: akıcı oynatma saati, marks: işaret hesapları, scene: sahne listesi,
+│   │                         # cueSheet: kurgu defteri (doruk: drop ya da nakarat girişi, 8 → 1 geri sayım, boşluk,
+│   │                         # kırılma, çıkış, mutlak ölçü konumu, belirlenimci tohum; harita yoksa canlı mod),
 │   │                         # sceneClock: sahne iç saatleri, virtual: uzun listede görünen satırlar, librarySort: kütüphane sıralaması ve ton adı, printCover: kapağı olmayan albümün baskı kapağı, albumCovers: kapak sırası ve önbelleği, artistPlate: sanatçı adından yıldız atlası levhası, skyMap: gökyüzünde şarkının yeri, photoScene: "Kendi resmin" sahnesinin çubukları ve parlama sınırı (parlaklık ve kırmızı; hareketli arka planın zarfı ve payları), photoMeasure: onun ölçümü ayrı iş parçacığında (photoMeasure.worker.ts, işi photoMeasureJob.ts), animatedImage: hareketli arka planı tanıma, WebView'da çözme, kare zamanı, spectrumBars: ham dalgadan ince spektrum),
 │   │                         # usePrefersReducedMotion ("animasyonları azalt"), browserGuard (sürümde F5, sağ tık
 │   │                         # menüsü, geri gibi tarayıcı davranışlarını kapatır), Rust köprüsü (backend.ts; veri tipleri
