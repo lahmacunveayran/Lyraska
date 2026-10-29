@@ -57,6 +57,8 @@ export interface PhotoSceneProps {
    * açıkken çizilmez.
    */
   particles?: ParticleStyle;
+  /** Parçacık yoğunluğu (doğum hızının çarpanı; 1 varsayılan). */
+  particleDensity?: number;
 }
 
 /** Ölçülen çizgi bölgesi ve çubuk renkleri (bir ekran boyu ve bir resim için). */
@@ -288,7 +290,13 @@ export function PhotoScene({
   artist = null,
   onChooseImage,
   particles = DEFAULT_PARTICLE_STYLE,
+  particleDensity = 1,
 }: PhotoSceneProps) {
+  // Yoğunluk kare döngüsünü yeniden kurmasın: ref'ten okunur.
+  const densityRef = useRef(particleDensity);
+  useEffect(() => {
+    densityRef.current = particleDensity;
+  }, [particleDensity]);
   const reducedMotion = usePrefersReducedMotion();
   const showParticles = particlesShown(particles, safe, reducedMotion);
   const source = useBackgroundSource(image, reducedMotion);
@@ -655,6 +663,7 @@ export function PhotoScene({
             cap: geometry.cap,
             pulse: live?.director?.rhythm.pulse ?? 0,
             spawn: !!live,
+            density: densityRef.current,
           },
           dt,
         );

@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  DEFAULT_DENSITY,
   DEFAULT_PARTICLE_STYLE,
+  DENSITY_MAX,
+  DENSITY_MIN,
+  clampDensity,
+  loadParticleDensity,
+  saveParticleDensity,
   PARTICLE_MOTION,
   PARTICLE_POOL,
   createParticlePool,
@@ -304,5 +310,50 @@ describe("parçacık havuzu", () => {
     expect(g).toBeGreaterThan(20);
     expect(b).toBeGreaterThan(40);
     expect(particleColor(barColors([255, 255, 255]))).toEqual([255, 255, 255]);
+  });
+});
+
+describe("parçacık yoğunluğu", () => {
+  it("aralığa ve adıma oturur; sayı değilse varsayılan", () => {
+    expect(clampDensity(1.1)).toBe(1);
+    expect(clampDensity(1.4)).toBe(1.5);
+    expect(clampDensity(0)).toBe(DENSITY_MIN);
+    expect(clampDensity(9)).toBe(DENSITY_MAX);
+    expect(clampDensity(Number.NaN)).toBe(DEFAULT_DENSITY);
+  });
+
+  it("hatırlanır; kayıt yoksa ya da bozuksa 1", () => {
+    expect(loadParticleDensity()).toBe(1);
+    saveParticleDensity(1.75);
+    expect(loadParticleDensity()).toBe(1.75);
+    window.localStorage.setItem("lyraska.photoParticleDensity", "abc");
+    expect(loadParticleDensity()).toBe(1);
+  });
+
+  it("doğum hızını ölçekler: 2× yoğunlukta yaklaşık iki kat, havuz taşmaz", () => {
+    const extents = new Array<number>(BARS).fill(0).map((_, i) => (i < 40 ? 0.1 : 0.012) * CAP);
+    for (const style of ["sparks", "snow"] as const) {
+      const count = (density: number) => {
+        const pool = createParticlePool(5);
+        run(pool, style, () => input(extents, { density }), 4);
+        return pool.count;
+      };
+      const normal = count(1);
+      const dense = count(2);
+      expect(dense).toBeGreaterThan(1.6 * normal);
+      expect(dense).toBeLessThan(PARTICLE_POOL);
+      expect(count(0.25)).toBeLessThan(0.4 * normal);
+    }
+  });
+
+  it("en uç girdide 2× yoğunlukta da havuz dolup taşmaz", () => {
+    const pool = createParticlePool(3);
+    run(
+      pool,
+      "sparks",
+      () => input(loud(), { pulse: 1, density: 2 }),
+      8,
+      () => expect(pool.count).toBeLessThanOrEqual(PARTICLE_POOL),
+    );
   });
 });

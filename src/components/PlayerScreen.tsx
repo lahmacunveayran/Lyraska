@@ -338,6 +338,7 @@ export function PlayerScreen() {
           milkdrop={milkdrop}
           background={background}
           particles={photoParticles.style}
+          particleDensity={photoParticles.density}
           // Başlık etiketi yoksa (ör. yt-dlp'nin .webm'leri) dosya adı: "Lyraska" yazmasın.
           songTitle={credits?.title ?? null}
           songArtist={credits?.artist ?? null}

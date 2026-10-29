@@ -38,6 +38,7 @@ export interface SceneStageProps {
   songArtist?: string | null;
   /** "Kendi resmin" sahnesinin parçacıkları. */
   particles?: ParticleStyle;
+  particleDensity?: number;
 }
 
 /** Tüm pencereyi kaplayan görsel sahne. Sahne değişince yenisi yavaşça belirir. */
@@ -54,6 +55,7 @@ export function SceneStage({
   songTitle = null,
   songArtist = null,
   particles,
+  particleDensity,
 }: SceneStageProps) {
   return (
     <div className="stage" data-scene={scene}>
@@ -69,6 +71,7 @@ export function SceneStage({
           artist={songArtist}
           onChooseImage={background ? () => void background.choose() : undefined}
           particles={particles}
+          particleDensity={particleDensity}
         />
       ) : scene === "milkdrop" ? (
         <MilkDropScene playing={playing} safe={safe} controls={milkdrop} />

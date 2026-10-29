@@ -93,4 +93,21 @@ describe("Galeri · parçacık seçimi", () => {
     const again = render(<Harness />);
     expect(particleCanvas(again.container)).toBeNull();
   });
+
+  it("yoğunluk kaydırıcısı: yalnız parçacık açıkken, değeri hatırlanır", () => {
+    const { unmount } = render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: /Kendi resmin/ }));
+    const slider = screen.getByRole("slider", { name: "Parçacık yoğunluğu" });
+    expect(slider).toHaveValue("1");
+    fireEvent.change(slider, { target: { value: "1.5" } });
+    expect(slider).toHaveAttribute("aria-valuetext", "1,5×");
+    expect(window.localStorage.getItem("lyraska.photoParticleDensity")).toBe("1.5");
+    const group = screen.getByRole("group", { name: "Parçacıklar" });
+    const off = Array.from(group.querySelectorAll("button")).find(
+      (b) => b.textContent === "Kapalı",
+    )!;
+    fireEvent.click(off);
+    expect(screen.queryByRole("slider", { name: "Parçacık yoğunluğu" })).toBeNull();
+    unmount();
+  });
 });

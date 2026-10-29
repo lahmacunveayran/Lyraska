@@ -40,13 +40,45 @@ export function saveParticleStyle(style: ParticleStyle): void {
   }
 }
 
+/** Yoğunluk: doğum hızının çarpanı (kaydırıcı; 1 = varsayılan). */
+export const DENSITY_MIN = 0.25;
+export const DENSITY_MAX = 2;
+export const DENSITY_STEP = 0.25;
+export const DEFAULT_DENSITY = 1;
+const DENSITY_KEY = "lyraska.photoParticleDensity";
+
+/** Yoğunluğu aralığa ve adıma oturtur; sayı değilse varsayılan. */
+export function clampDensity(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_DENSITY;
+  const stepped = Math.round(value / DENSITY_STEP) * DENSITY_STEP;
+  return Math.min(DENSITY_MAX, Math.max(DENSITY_MIN, stepped));
+}
+
+/** Son seçilen yoğunluk. Kayıt yoksa ya da okunamazsa 1. */
+export function loadParticleDensity(): number {
+  try {
+    const saved = window.localStorage.getItem(DENSITY_KEY);
+    return saved === null ? DEFAULT_DENSITY : clampDensity(Number(saved));
+  } catch {
+    return DEFAULT_DENSITY;
+  }
+}
+
+export function saveParticleDensity(density: number): void {
+  try {
+    window.localStorage.setItem(DENSITY_KEY, String(clampDensity(density)));
+  } catch {
+    /* Kaydedilemezse bir sonraki açılışta varsayılan yoğunlukla başlar. */
+  }
+}
+
 /** Parçacıklar çizilir mi: Kapalı değilse, güvenli mod ve "animasyonları azalt" kapalıysa. */
 export function particlesShown(style: ParticleStyle, safe: boolean, reducedMotion: boolean) {
   return style !== "off" && !safe && !reducedMotion;
 }
 
 /** Havuzdaki en çok parçacık. */
-export const PARTICLE_POOL = 300;
+export const PARTICLE_POOL = 600;
 
 /** Bir biçimin hareketi. Uzunluklar ekran yüksekliği cinsinden (boydan bağımsız görünüm). */
 interface StyleMotion {
@@ -171,6 +203,8 @@ export interface ParticleInput {
   pulse: number;
   /** Yeni parçacık doğsun mu (yalnız çalarken). */
   spawn: boolean;
+  /** Yoğunluk (doğum hızının çarpanı; yoksa 1). */
+  density?: number;
 }
 
 /**
@@ -244,7 +278,9 @@ export function stepParticles(
   // Doğum hızı: enerji (ortalama ve bas) ve nabız.
   const energy = particleDrive(input.extents, input.cap);
   const pulse = Math.min(1, Math.max(0, input.pulse));
-  const rate = motion.rate * (IDLE_DRIVE + (1 - IDLE_DRIVE) * energy) * (1 + PULSE_BOOST * pulse);
+  const density = clampDensity(input.density ?? DEFAULT_DENSITY);
+  const rate =
+    motion.rate * density * (IDLE_DRIVE + (1 - IDLE_DRIVE) * energy) * (1 + PULSE_BOOST * pulse);
   pool.carry += rate * dt;
   let born = Math.floor(pool.carry);
   pool.carry -= born;
