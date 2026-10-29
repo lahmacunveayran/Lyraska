@@ -1,5 +1,7 @@
 # Ajan iş tanımları (29 Ekim 2026 oturumu)
 
+Yeni oturumu başlatan istem: [DEVIR-PROMPTU.md](DEVIR-PROMPTU.md).
+
 Bu oturumda ajanlara verilen iş tanımlarının kopyası; yarım kalan ya da karar bekleyen işler yeni oturumda buradan
 sürdürülür. **Dikkat:** içlerindeki `/tmp/claude-0/...` ve `/root/.claude/uploads/...` yolları o oturumun geçici
 bilgisayarındaydı, artık yok. Çalışma kopyaları GitHub'daki yedek dallardan yeniden kurulur (aşağıda); proje sahibinin
