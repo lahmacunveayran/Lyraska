@@ -68,7 +68,8 @@ lyraska/
 ├── src/                      # Arayüz (React + TypeScript)
 │   ├── components/           # React bileşenleri: PlayerScreen (sahne tüm pencere; üstünde cam katmanlar:
 │   │                         # NowPlaying büyük başlık, InfoStack drop sayacı ve sıradaki, SeekBar şarkı haritası
-│   │                         # şeridi, LyricsOverlay kinetik sözler, PhotoLyrics "Kendi resmin" başlığının altındaki söz satırı; sahneler SceneStage'de, galeri ShaderScene + SceneGallery, MilkDropScene kullanıcının .milk görselleri, PhotoScene kullanıcının resmi ve ışık çizgisi; sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
+│   │                         # şeridi, LyricsOverlay kinetik sözler, PhotoLyrics "Kendi resmin" başlığının altındaki söz satırı; sahneler SceneStage'de, galeri ShaderScene + SceneGallery, MilkDropScene kullanıcının .milk görselleri, PhotoScene kullanıcının resmi ve ışık çizgisi,
+│   │                         # yeni sahneler: LightShowScene (Işık Ustası); sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
 │   │                         # ayarlar; her panel ve sahne bir ErrorBoundary içinde: hata yalnızca o bölümü kapatır).
 │   │                         # Klasik sahneler SkyScene, HighwayScene, DriveScene, VuScene (VuMeter), SpectrumView
 │   │                         # (DotMatrix, SpectrumDemo karşılama gösterisi); paneller LibraryPanel (AlbumGrid albüm ızgarası, AlbumPage albüm sayfası: kapak, Çal, albüm sırasıyla şarkılar, ArtistGrid sanatçı levhaları, ArtistPage sanatçı sayfası: levha, albümler, şarkılar, TrackTable sayfaların şarkı listesi, SkyView gökyüzü: ton ve tempoya göre yıldızlar, PlaylistGrid ve PlaylistPage çalma listeleri, PlaylistCover kapak ya da kolaj, AddToPlaylist "Listeye ekle" menüsü, RevealButton şarkı satırında "dosya konumunu aç", SongCoverMenu şarkı satırında kapak seçme, songCoverContext onun işlemleri), EqualizerPanel
@@ -99,7 +100,9 @@ lyraska/
 │   │                         # (errorReporting.ts), parlama sayacı (flash.ts), WebGL2 çizimi (gl.ts ortak;
 │   │                         # skyRenderer.ts, highwayRenderer.ts; galeri: shaderScene.ts, shaderSources.ts
 │   │                         # gölgelendiriciler, shaderRenderer.ts, sceneLook.ts hız ve palet, scenePreset.ts hazır
-│   │                         # ayarlar; yeni sahnelerin son işlem zinciri: postProcess.ts bloom, pozlama, ton eşleme,
+│   │                         # ayarlar; Işık Ustası: lightShow.ts kurgu (evreler, yoğunluk, kalite katmanı, tondan palet,
+│   │                         # güvenli yorum), lightRig.ts fikstürler, desenler, kamera, lightShowShader.ts gölgelendirici
+│   │                         # (analitik hacimli ışın, ıslak zemin), lightShowRenderer.ts ekran kartında; yeni sahnelerin son işlem zinciri: postProcess.ts bloom, pozlama, ton eşleme,
 │   │                         # vinyet, titretme ve dinamik çözünürlük hesapları + gölgelendiriciler, postChain.ts
 │   │                         # ekran kartında çalıştırır, blueNoise.ts mavi gürültü, gpuTimer.ts ekran kartı süresi
 │   │                         # (geliştirici göstergesi); milkdrop.ts MilkDrop geçiş zamanı ve ses verisi; milkdropShaders.ts ekran

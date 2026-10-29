@@ -31,7 +31,7 @@ import {
   type KeyMap,
   type SongMap,
 } from "../lib/backend";
-import { CLASSIC_SCENES } from "../lib/scene";
+import { CLASSIC_SCENES, NEW_SCENES } from "../lib/scene";
 import { fileStem, sceneCredits, trackTitle } from "../lib/format";
 import { confidentDrops, themeAt } from "../lib/songMap";
 import { timelineLayout, type TimelineLayout } from "../lib/timeline";
@@ -342,6 +342,8 @@ export function PlayerScreen() {
           safe={visualSafe.safe}
           skyLook={skyLook.look}
           looks={scenePresets.looks}
+          songMap={songMap}
+          songKey={songKey}
           milkdrop={milkdrop}
           background={background}
           particles={photoParticles.style}
@@ -381,6 +383,18 @@ export function PlayerScreen() {
             <span className="brand__name">Lyraska</span>
           </div>
           <nav className="scenes" aria-label="Sahne">
+            {NEW_SCENES.map(({ id, name, hint }) => (
+              <button
+                key={id}
+                type="button"
+                className={`pill pill--new${scene === id ? " is-on" : ""}`}
+                aria-pressed={scene === id}
+                title={`${name}: ${hint}`}
+                onClick={() => chooseScene(id)}
+              >
+                {name}
+              </button>
+            ))}
             {CLASSIC_SCENES.map(({ id, name }, index) => (
               <button
                 key={id}

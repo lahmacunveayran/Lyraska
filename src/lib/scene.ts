@@ -1,11 +1,32 @@
 import { SHADER_SCENES, type ShaderSceneId } from "./shaderScene";
 
 /**
- * Ekrandaki görsel sahneler: beş klasik sahne, galerideki gölgelendirici sahneleri ve
- * kullanıcının kendi `.milk` dosyalarını çalan MilkDrop sahnesi.
+ * Ekrandaki görsel sahneler: yeni sahneler (sahneler v2), beş klasik sahne, galerideki
+ * gölgelendirici sahneleri ve kullanıcının kendi `.milk` dosyalarını çalan MilkDrop sahnesi.
  */
 export type Scene =
-  "sky" | "highway" | "vu" | "spectrum" | "drive" | ShaderSceneId | "milkdrop" | "photo";
+  | "sky"
+  | "highway"
+  | "vu"
+  | "spectrum"
+  | "drive"
+  | ShaderSceneId
+  | "milkdrop"
+  | "photo"
+  | "lightshow";
+
+/**
+ * Yeni sahneler (sahneler v2, `docs/arastirma/sahneler-v2/`): üst çubukta klasik sahnelerin önünde,
+ * galeride en üstte. Eski sahneler yenileri hazır olunca kaldırılacak; o zamana dek tuş sırası
+ * (1–9, 0) ve PageDown/PageUp sırası eski sahnelerindir.
+ */
+export const NEW_SCENES: { id: Scene; name: string; hint: string }[] = [
+  {
+    id: "lightshow",
+    name: "Işık Ustası",
+    hint: "Şarkıyı önceden bilen ışık şovu: geri sayım, karanlık, patlama.",
+  },
+];
 
 /** Üst çubukta tek tek görünen klasik sahneler. */
 export const CLASSIC_SCENES: { id: Scene; name: string }[] = [
@@ -72,7 +93,9 @@ export function sceneForKey(key: string): Scene | null {
 export function loadScene(): Scene {
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
-    return SCENES.some((s) => s.id === saved) ? (saved as Scene) : DEFAULT_SCENE;
+    return [...NEW_SCENES, ...SCENES].some((s) => s.id === saved)
+      ? (saved as Scene)
+      : DEFAULT_SCENE;
   } catch {
     return DEFAULT_SCENE;
   }
