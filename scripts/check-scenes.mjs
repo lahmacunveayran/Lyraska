@@ -38,6 +38,7 @@
 // "Kendi resmin" (`SCENE_ONLY=photo`): düz renkli resimlerde sessizden tam sese geçişte
 // parlaklık ve kırmızı fark; projenin ürettiği, bilerek parlayan hareketli APNG'de kare kare
 // (fren + çubuklar birlikte) parlama ölçümü: güvenli modda sınırlı, varsayılan modda olduğu gibi.
+// Parçacıklar: Kıvılcım çizginin üstünde, Kar altında çizilmeli; Kapalı'da ve güvenli modda hiç.
 //
 // Program sayfaları programın gerçek içerik güvenlik politikasıyla (CSP, tauri.conf.json) açılır:
 // `eval`/`new Function` engellidir; Butterchurn'ün yalnızca WebAssembly yolunu kullandığı böylece
@@ -194,12 +195,14 @@ const initScript = (
     safe = false,
     milk = "parlama",
     image = null,
+    particles = null,
   } = {},
 ) =>
   // İlk açılış uyarısı (FlashWarning) görülmüş sayılır: sahnenin önüne geçmesin.
   `try { localStorage.setItem("lyraska.scene", "${sceneId}");` +
   ` localStorage.setItem("lyraska.flashWarning.seen", "1");` +
   (look ? ` localStorage.setItem("lyraska.skyLook", "${look}");` : "") +
+  (particles ? ` localStorage.setItem("lyraska.photoParticles", "${particles}");` : "") +
   (sceneLook
     ? ` localStorage.setItem("lyraska.sceneLooks", ${JSON.stringify(
         JSON.stringify({ version: 1, looks: { [sceneId]: sceneLook } }),
@@ -1485,6 +1488,80 @@ async function checkPhotoGlowScale(browser) {
   return problems;
 }
 
+/** Parçacık denetiminde en az bu kadar görünür parçacık pikseli (çizginin doğru yanında). */
+const PARTICLE_MIN_PIXELS = 20;
+
+/**
+ * "Kendi resmin" parçacıkları gerçekten çiziliyor mu: Kıvılcım çizginin üstünde, Kar altında
+ * görünür piksel bırakmalı; Kapalı'da, Epilepsi güvenli modunda parçacık tuvali hiç olmamalı.
+ * Parçacıklar ayrı tuvalde (`.photo-scene__particles`) olduğundan çubukların ölçümleri değişmez.
+ */
+async function checkPhotoParticles(browser) {
+  const cases = [
+    { style: "sparks", safe: false, side: "above" },
+    { style: "snow", safe: false, side: "below" },
+    { style: "off", safe: false, side: null },
+    { style: "sparks", safe: true, side: null },
+    { style: "sparks", safe: false, reduced: true, side: null },
+  ];
+  const problems = [];
+  for (const { style, safe, reduced = false, side } of cases) {
+    const label = `Kendi resmin · parçacıklar ${style}${safe ? " (güvenli mod)" : ""}${reduced ? " (animasyonları azalt)" : ""}`;
+    const page = await openPage(browser, { viewport: PHOTO_GLOW_VIEWPORT, scale: 1 });
+    page.on("console", (m) => {
+      if (m.type() === "error") problems.push(`${label}: konsol: ${m.text()}`);
+    });
+    page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
+    await page.addInitScript(initScript("photo", { safe, particles: style }));
+    if (reduced) await page.emulateMedia({ reducedMotion: "reduce" });
+    await startPlaying(page, 3000);
+    const result = await page.evaluate(() => {
+      // Sahne hiç açılmadıysa "tuval yok" bir başarı sayılmasın.
+      if (!document.querySelector(".photo-scene__bars")) return "sahne yok";
+      const canvas = document.querySelector(".photo-scene__particles");
+      if (!canvas) return null;
+      const { width: W, height: H } = canvas;
+      const data = canvas.getContext("2d").getImageData(0, 0, W, H).data;
+      const line = H / 2;
+      let above = 0;
+      let below = 0;
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          if (data[(y * W + x) * 4 + 3] < 8) continue;
+          if (y < line - 4) above++;
+          else if (y > line + 4) below++;
+        }
+      }
+      return { above, below };
+    });
+    await page.close();
+    if (result === "sahne yok") {
+      problems.push(`${label}: "Kendi resmin" sahnesi açılmadı`);
+      continue;
+    }
+    if (!side) {
+      console.log(`${label}: parçacık tuvali ${result ? "VAR" : "yok"}`);
+      if (result) problems.push(`${label}: parçacıklar çizilmemeliydi`);
+      continue;
+    }
+    console.log(
+      `${label}: ${result ? `çizginin üstünde ${result.above}, altında ${result.below} piksel` : "tuval yok"}`,
+    );
+    if (!result) {
+      problems.push(`${label}: parçacık tuvali yok`);
+      continue;
+    }
+    const near = side === "above" ? result.above : result.below;
+    const far = side === "above" ? result.below : result.above;
+    if (near < PARTICLE_MIN_PIXELS || near <= far) {
+      problems.push(
+        `${label}: parçacıklar beklenen yanda değil (üstte ${result.above}, altta ${result.below})`,
+      );
+    }
+  }
+  return problems;
+}
+
 /** Döngü denemesi: bu kadar kare (60 kare/sn) en çok bu kadar sürede çizilmeli. */
 const LOOP_FRAMES = 60;
 const LOOP_BUDGET_MS = 60_000;
@@ -1566,6 +1643,7 @@ try {
       }
       problems = problems.concat(await checkPhotoGlowScale(browser));
       problems = problems.concat(await checkPhotoChooseButton(browser));
+      problems = problems.concat(await checkPhotoParticles(browser));
     }
     const bright = brightestThemes(2);
     for (const scene of ALL_SCENES.filter(selected)) {

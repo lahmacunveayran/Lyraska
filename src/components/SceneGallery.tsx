@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { BackgroundImageControls } from "../hooks/useBackgroundImage";
 import type { MilkdropControls } from "../hooks/useMilkdrop";
+import type { PhotoParticleControls } from "../hooks/usePhotoParticles";
 import type { ScenePresetControls } from "../hooks/useScenePresets";
 import { GALLERY_SCENES, sceneKey, type Scene } from "../lib/scene";
 import {
@@ -12,6 +13,7 @@ import {
   paletteName,
   sameLook,
 } from "../lib/sceneLook";
+import { DENSITY_MAX, DENSITY_MIN, DENSITY_STEP, PARTICLE_STYLES } from "../lib/photoParticles";
 import { MAX_PRESET_NAME, MAX_USER_PRESETS, presetSceneName } from "../lib/scenePreset";
 import { SHADER_SCENES, isShaderScene } from "../lib/shaderScene";
 
@@ -24,6 +26,8 @@ export interface SceneGalleryProps {
   milkdrop?: MilkdropControls;
   /** "Kendi resmin" sahnesinin resmi (sahne seçiliyken listenin altında). */
   background?: BackgroundImageControls;
+  /** "Kendi resmin" sahnesinin parçacıkları (resmin altında seçilir). */
+  particles?: PhotoParticleControls;
 }
 
 /** Ok tuşlarıyla gezilen düğmeler: sahneler ve hazır ayarlar. */
@@ -41,6 +45,7 @@ export function SceneGallery({
   presets,
   milkdrop,
   background,
+  particles,
 }: SceneGalleryProps) {
   const [open, setOpen] = useState(false);
   const [naming, setNaming] = useState(false);
@@ -181,7 +186,9 @@ export function SceneGallery({
           </div>
 
           {scene === "milkdrop" && milkdrop && <MilkdropSection controls={milkdrop} />}
-          {scene === "photo" && background && <PhotoSection controls={background} />}
+          {scene === "photo" && background && (
+            <PhotoSection controls={background} particles={particles} />
+          )}
 
           {shader && look && (
             <section
@@ -320,8 +327,14 @@ function folderName(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
-/** "Kendi resmin" sahnesinin denetimleri: resim seçme ve kaldırma. */
-function PhotoSection({ controls }: { controls: BackgroundImageControls }) {
+/** "Kendi resmin" sahnesinin denetimleri: resim seçme ve kaldırma, parçacıklar. */
+function PhotoSection({
+  controls,
+  particles,
+}: {
+  controls: BackgroundImageControls;
+  particles?: PhotoParticleControls;
+}) {
   return (
     <section className="scene-gallery__section" role="group" aria-label="Arka plan resmi">
       <h3 className="scene-gallery__heading">Arka plan resmi</h3>
@@ -350,6 +363,44 @@ function PhotoSection({ controls }: { controls: BackgroundImageControls }) {
         <p className="scene-gallery__notice" role="alert">
           {controls.error}
         </p>
+      )}
+      {particles && (
+        <>
+          <h3 className="scene-gallery__heading">Parçacıklar</h3>
+          <div className="scene-gallery__chips" role="group" aria-label="Parçacıklar">
+            {PARTICLE_STYLES.map(({ id, name }) => (
+              <button
+                key={id}
+                type="button"
+                className="scene-gallery__chip"
+                aria-pressed={particles.style === id}
+                onClick={() => particles.setStyle(id)}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          {particles.style !== "off" && (
+            <label className="scene-gallery__speed">
+              <span>Yoğunluk</span>
+              <input
+                type="range"
+                min={DENSITY_MIN}
+                max={DENSITY_MAX}
+                step={DENSITY_STEP}
+                value={particles.density}
+                aria-label="Parçacık yoğunluğu"
+                aria-valuetext={formatSpeed(particles.density)}
+                onChange={(event) => particles.setDensity(Number(event.target.value))}
+              />
+              <output aria-hidden>{formatSpeed(particles.density)}</output>
+            </label>
+          )}
+          <p className="scene-gallery__milk-line">
+            Kıvılcım yukarı süzülür, kar aşağı dökülür. Epilepsi güvenli modunda ve "animasyonları
+            azalt" açıkken gösterilmez.
+          </p>
+        </>
       )}
     </section>
   );

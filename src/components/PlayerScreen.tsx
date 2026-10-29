@@ -52,6 +52,7 @@ import { usePlaybackOptions } from "../hooks/usePlaybackOptions";
 import { useScene } from "../hooks/useScene";
 import { useScenePresets } from "../hooks/useScenePresets";
 import { useBackgroundImage } from "../hooks/useBackgroundImage";
+import { usePhotoParticles } from "../hooks/usePhotoParticles";
 import { useMilkdrop } from "../hooks/useMilkdrop";
 import { useSkyLook } from "../hooks/useSkyLook";
 import { useCover, type CoverAlbum } from "../hooks/useCover";
@@ -106,6 +107,7 @@ export function PlayerScreen() {
   const scenePresets = useScenePresets();
   const milkdrop = useMilkdrop(scene === "milkdrop");
   const background = useBackgroundImage(scene === "photo");
+  const photoParticles = usePhotoParticles();
   const skyLook = useSkyLook();
 
   const playback = usePlayback(info.supportedExtensions);
@@ -335,6 +337,8 @@ export function PlayerScreen() {
           looks={scenePresets.looks}
           milkdrop={milkdrop}
           background={background}
+          particles={photoParticles.style}
+          particleDensity={photoParticles.density}
           // Başlık etiketi yoksa (ör. yt-dlp'nin .webm'leri) dosya adı: "Lyraska" yazmasın.
           songTitle={credits?.title ?? null}
           songArtist={credits?.artist ?? null}
@@ -386,6 +390,7 @@ export function PlayerScreen() {
               presets={scenePresets}
               milkdrop={milkdrop}
               background={background}
+              particles={photoParticles}
             />
           </nav>
           <div className="topbar__actions">
