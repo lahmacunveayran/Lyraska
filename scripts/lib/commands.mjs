@@ -83,7 +83,7 @@ export function rustCommands(source) {
     const options = match[1] ?? "";
     const rest = source.slice(match.index + match[0].length);
     const fn =
-      /^(?:\s*(?:\/\/[^\n]*|#\[[^\]]*\]))*\s*pub(?:\([^)]*\))?\s+(?:async\s+)?fn\s+([a-z0-9_]+)\s*(?:<[^>]*>)?\s*\(/.exec(
+      /^(?:\s*(?:\/\/[^\n]*\n|#\[[^\]]*\]))*\s*pub(?:\([^)]*\))?\s+(?:async\s+)?fn\s+([a-z0-9_]+)\s*(?:<[^>]*>)?\s*\(/.exec(
         rest,
       );
     if (!fn)
@@ -133,7 +133,7 @@ export function registeredHandlers(source) {
 export function tsRenames(source) {
   const renames = new Map();
   const pattern =
-    /ts\([^()]*\brename\s*=\s*"(\w+)"[^()]*\)\)?\]\s*(?:#\[[^\]]*\]\s*|\/\/[^\n]*\s*)*pub\s+(?:struct|enum)\s+(\w+)/g;
+    /ts\([^()]*\brename\s*=\s*"(\w+)"[^()]*\)\)?\]\s*(?:#\[[^\]]*\]\s*|\/\/[^\n]*\n\s*)*pub\s+(?:struct|enum)\s+(\w+)/g;
   for (const m of source.matchAll(pattern)) renames.set(m[2], m[1]);
   return renames;
 }

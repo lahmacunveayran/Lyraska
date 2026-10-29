@@ -90,13 +90,14 @@ function rustAuthors() {
   return new Map(metadata.packages.map((p) => [`${p.name} ${p.version}`, p.authors ?? []]));
 }
 
-/** "Ad <e-posta> (adres)" → "Ad": bildirimde yalnızca ad yazılır. */
+/**
+ * "Ad <e-posta> (adres)" → "Ad": bildirimde yalnızca ad yazılır; ilk "<" ya da "(" sonrası atılır
+ * (düzenli ifadeyle silme iç içe eklerde yarım kalabilir).
+ */
 function authorName(author) {
   const text = typeof author === "string" ? author : (author?.name ?? "");
-  return text
-    .replace(/<[^>]*>/g, "")
-    .replace(/\([^)]*\)/g, "")
-    .trim();
+  const cut = text.search(/[<(]/);
+  return (cut < 0 ? text : text.slice(0, cut)).replace(/>/g, "").trim();
 }
 
 /**
