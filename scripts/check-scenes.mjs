@@ -21,6 +21,7 @@
 //   SCENE_BROWSER_ARGS     ek tarayıcı argümanları (boşlukla ayrılmış)
 //   SCENE_EXPECT           "webgl" (varsayılan) ya da "fallback": WebGL kapalı bir
 //                          tarayıcıda gece göğünün 2D yedek çizimle (Lyra dahil) göründüğü denetlenir
+//   SCENE_SHARD            "2/3": denetimlerin yalnızca bu parçası (CI'da üç paralel iş; boşsa hepsi)
 //
 // Ayrıca parlaklık freni (src/lib/flashGuard.ts) güvenli modda zamana bağlı ölçülür
 // (`SCENE_ONLY=flash-guard`): bilerek parlayan bir desen frenden geçirilir, ekrandaki parlamalar
@@ -49,6 +50,7 @@ import { crc32, deflateSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 import { build, preview } from "vite";
+import { parseShard, pickShard } from "./lib/shard.mjs";
 
 const PORT = 4179;
 /** Programın içerik güvenlik politikası (Tauri penceresindekiyle aynı). */
@@ -1461,8 +1463,9 @@ async function checkPhotoChooseButton(browser) {
     problems.push(
       `${label}: tıklanamıyor ya da pencere açılmıyor (${String(e)
         .split("\n")
-        .filter((l, i) => i === 0 || l.includes("intercepts"))
-        .slice(0, 2)
+        // Playwright'ın bekleme günlüğünden nedeni gösteren satırlar (örten öğe, kararsız, görünmez).
+        .filter((l, i) => i === 0 || /intercepts|element is|waiting for|retrying/.test(l))
+        .slice(0, 6)
         .join(" · ")})`,
     );
   }
@@ -1611,55 +1614,57 @@ const executablePath = channel ? undefined : process.env.SCENE_BROWSER_PATH;
 const args = (process.env.SCENE_BROWSER_ARGS ?? "").split(/\s+/).filter(Boolean);
 const browser = await chromium.launch({ channel, executablePath, args });
 console.log(`Tarayıcı: ${browser.version()} ${args.length ? `(${args.join(" ")})` : ""}`);
-let problems = [];
-try {
-  if (EXPECT_FALLBACK) {
-    // Yedek çizim yalnızca gece göğünde var (Lyra orada); manzarası tek.
-    const sky = SCENES.find((s) => s.id === "sky");
-    problems = await checkScene(browser, sky, variants(sky)[0]);
-  } else {
-    for (const scene of SCENES.filter(selected)) {
-      for (const variant of variants(scene)) {
-        problems = problems.concat(await checkScene(browser, scene, variant));
-      }
+// Denetimler önce sırayla listelenir, sonra bu parçanınkiler koşar (`SCENE_SHARD`, CI'da üç paralel
+// iş). Sıra eskisiyle aynı; tek parçada (yerelde) hepsi koşar.
+const tasks = [];
+const add = (run) => tasks.push(run);
+let bundle;
+const guardBundle = () => (bundle ??= flashGuardBundle());
+if (EXPECT_FALLBACK) {
+  // Yedek çizim yalnızca gece göğünde var (Lyra orada); manzarası tek.
+  const sky = SCENES.find((s) => s.id === "sky");
+  add(() => checkScene(browser, sky, variants(sky)[0]));
+} else {
+  for (const scene of SCENES.filter(selected)) {
+    for (const variant of variants(scene)) add(() => checkScene(browser, scene, variant));
+  }
+  if (!ONLY || ONLY.includes("flash-guard")) {
+    add(async () => checkFlashGuard(browser, await guardBundle()));
+  }
+  if (!ONLY || ONLY.includes("milkdrop")) {
+    for (const safe of [false, true]) {
+      add(async () => checkMilkdropFlashes(browser, await guardBundle(), safe));
     }
-    const bundle =
-      !ONLY || ONLY.includes("flash-guard") || ONLY.includes("milkdrop")
-        ? await flashGuardBundle()
-        : null;
-    if (!ONLY || ONLY.includes("flash-guard")) {
-      problems = problems.concat(await checkFlashGuard(browser, bundle));
-    }
-    if (!ONLY || ONLY.includes("milkdrop")) {
-      for (const safe of [false, true]) {
-        problems = problems.concat(await checkMilkdropFlashes(browser, bundle, safe));
-      }
-      problems = problems.concat(await checkMilkdropFlashes(browser, bundle, true, "golge"));
-      problems = problems.concat(await checkMilkdropLoop(browser));
-    }
-    if (!ONLY || ONLY.includes("photo")) {
-      for (const safe of [false, true]) {
-        problems = problems.concat(await checkPhotoMotion(browser, safe));
-      }
-      problems = problems.concat(await checkPhotoGlowScale(browser));
-      problems = problems.concat(await checkPhotoChooseButton(browser));
-      problems = problems.concat(await checkPhotoParticles(browser));
-    }
-    const bright = brightestThemes(2);
-    for (const scene of ALL_SCENES.filter(selected)) {
-      for (const [i, variant] of variants(scene).entries()) {
-        const themes =
-          !scene.themed || variant.fixedPalette
-            ? [null]
-            : i === 0 && !scene.brightOnly
-              ? THEMES
-              : bright;
-        for (const theme of themes) {
-          problems = problems.concat(await checkFlashBound(browser, scene, variant, theme));
-        }
-      }
+    add(async () => checkMilkdropFlashes(browser, await guardBundle(), true, "golge"));
+    add(() => checkMilkdropLoop(browser));
+  }
+  if (!ONLY || ONLY.includes("photo")) {
+    for (const safe of [false, true]) add(() => checkPhotoMotion(browser, safe));
+    add(() => checkPhotoGlowScale(browser));
+    add(() => checkPhotoChooseButton(browser));
+    add(() => checkPhotoParticles(browser));
+  }
+  const bright = brightestThemes(2);
+  for (const scene of ALL_SCENES.filter(selected)) {
+    for (const [i, variant] of variants(scene).entries()) {
+      const themes =
+        !scene.themed || variant.fixedPalette
+          ? [null]
+          : i === 0 && !scene.brightOnly
+            ? THEMES
+            : bright;
+      for (const theme of themes) add(() => checkFlashBound(browser, scene, variant, theme));
     }
   }
+}
+const shard = parseShard(process.env.SCENE_SHARD);
+const mine = pickShard(tasks, shard);
+if (shard.count > 1) {
+  console.log(`Parça ${shard.index}/${shard.count}: ${mine.length} / ${tasks.length} denetim`);
+}
+let problems = [];
+try {
+  for (const run of mine) problems = problems.concat(await run());
 } finally {
   await browser.close();
   await new Promise((resolve) => server.httpServer.close(resolve));
