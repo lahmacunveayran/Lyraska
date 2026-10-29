@@ -13,6 +13,7 @@ use crate::analysis::spectrogram::Spectrogram;
 use crate::audio::abx::{AbxChoice, AbxRequest, AbxSource};
 use crate::audio::output::{self, OutputMode, OutputSpec};
 use crate::audio::resample::Converter;
+use crate::audio::spectrum;
 use crate::audio::test_util::{temp_path, write_wav};
 use crate::audio::Sample;
 

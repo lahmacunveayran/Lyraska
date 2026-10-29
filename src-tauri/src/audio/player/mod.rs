@@ -21,16 +21,12 @@ use serde::Serialize;
 use super::abx::AbxTest;
 use super::crossfeed::{CrossfeedControl, CrossfeedSettings};
 use super::decode::{Decoder, TrackInfo};
-use super::eq::{protection_db, Design, EqControl, EqSettings, EqState};
+use super::eq::{EqControl, EqSettings, EqState};
 use super::normalize::{LoudnessControl, TrackLevels};
 use super::peq::{HeadphoneSettings, ParametricSettings, PeqControl};
 use super::render::RenderControls;
-use super::spectrum;
-use super::waveform;
 use super::AudioError;
-use crate::analysis::beats::BeatPosition;
-use crate::analysis::levels::ChannelLevels;
-use crate::analysis::spectrogram::{self, BANDS};
+use crate::analysis::spectrogram::BANDS;
 
 mod bit_perfect;
 mod blind_test;
@@ -41,6 +37,7 @@ mod session;
 mod song_maps;
 mod track_analysis;
 mod transition;
+mod visuals;
 
 use session::Session;
 pub use session::SharedState;
@@ -48,6 +45,7 @@ pub(crate) use session::{wait_for_fade_out, wait_for_prefill, FADE_OUT_TIMEOUT};
 use track_analysis::{Analysis, AnalysisContext};
 use transition::PendingTransition;
 pub use transition::{Prepared, Transition};
+pub use visuals::{StructureNow, VisualData};
 
 /// Oynatıcının durumu.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -101,37 +99,6 @@ pub struct SignalPath {
     pub bit_depth: Option<u16>,
     /// Bit-perfect istendiği hâlde açılamadıysa nedeni (ses normal yoldan çalar).
     pub notice: Option<String>,
-}
-
-/// Şu an duyulan anın görsel verisi (önceden yapılmış analizden).
-#[derive(Debug, Clone, PartialEq)]
-pub struct VisualData {
-    /// Verinin ait olduğu çalma konumu (saniye).
-    pub seconds: f64,
-    /// Frekans bantları (0..1), ekolayzerin etkisi eklenmiş.
-    pub bands: [f32; BANDS],
-    /// Sol/sağ kanal seviyeleri (ekolayzerden önce).
-    pub levels: ChannelLevels,
-    /// 0 VU'ya denk gelen seviye (dBFS); analiz bitene kadar `None`.
-    pub vu_reference_db: Option<f32>,
-    /// Tempo ve o anın vuruş ızgarasındaki yeri; analiz bitene kadar ya da
-    /// belirgin ritim yoksa `None`.
-    pub beat: Option<(f64, BeatPosition)>,
-    /// Şarkı yapısından o an: vuruşun ölçüdeki yeri, enerji, bölüm (analiz bitince).
-    pub structure: Option<StructureNow>,
-    /// Görsel Yönetmen'in o anki notu (analiz bitince).
-    pub director: Option<crate::director::DirectorFrame>,
-}
-
-/// Şarkı yapısında o an.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct StructureNow {
-    /// Vuruşun ölçüdeki yeri (1 = ölçü başı).
-    pub bar_beat: Option<usize>,
-    /// Ölçüdeki vuruş sayısı (3 ya da 4).
-    pub meter: usize,
-    pub energy: Option<f32>,
-    pub section: Option<usize>,
 }
 
 /// Arayüzün kullandığı oynatıcı. Tauri tarafında bir `Mutex` içinde tutulur.
@@ -383,160 +350,6 @@ impl Player {
     /// Düzeltilmiş (±12 dB'ye kırpılmış) ayarları döndürür.
     pub fn set_equalizer(&mut self, settings: EqSettings) -> EqSettings {
         self.eq.set(settings)
-    }
-
-    /// Şu an duyulan anın görsel verisi. Analiz o ana yetişmediyse `None`.
-    /// Spektrum ekolayzerden önce çıkarıldığı için ekolayzerin etkisi burada eklenir:
-    /// görseller duyulanı gösterir.
-    pub fn visual_now(&mut self) -> Option<VisualData> {
-        // Boşluksuz geçişle gelen şarkının ölçümü de vaktinde ses yoluna yazılsın.
-        self.sync_levels();
-        // Gecikme telafisi: ekranda görüneceği an ve ses aygıtının ek gecikmesi. Boşluksuz
-        // geçişte şarkı da bu kaydırılmış ana göre seçilir (A3).
-        let offset = crate::visual_bridge::visual_offset_secs(self.audio_delay_ms);
-        let (track, seconds) = self.session.as_ref()?.playing_at(offset);
-        // Boşluksuz geçişle şarkı değiştiyse analizi de değiştir.
-        self.adopt_analysis(&track.path);
-        let rate = track.sample_rate;
-        let spectrogram = &self.analysis.as_ref()?.spectrogram;
-        let mut bands = spectrogram.frame_at(seconds)?;
-        let levels = spectrogram.meters_at(seconds)?;
-        let vu_reference_db = spectrogram.vu_reference_db();
-        let beat = spectrogram
-            .beat_grid()
-            .and_then(|grid| Some((grid.bpm, grid.position_at(seconds)?)));
-        let director = spectrogram
-            .choreography()
-            .map(|c| c.frame_at(seconds, self.visual_safe));
-        let structure = spectrogram.song_map().map(|map| StructureNow {
-            bar_beat: beat.map(|(_, position)| map.bar_beat(position.index)),
-            meter: map.meter,
-            energy: map.energy_at(seconds),
-            section: map.section_at(seconds),
-        });
-        // Bit-perfect oturumda ekolayzer sese uygulanmaz; görsellere de eklenmez.
-        let bit_perfect = self.session.as_ref().is_some_and(|s| s.path.bit_perfect);
-        if !bit_perfect {
-            let offsets = self.visual_eq_offsets(rate);
-            for (level, &db) in bands.iter_mut().zip(&offsets) {
-                *level = spectrogram::shift_level(*level, db);
-            }
-        }
-        Some(VisualData {
-            seconds,
-            bands,
-            levels,
-            vu_reference_db,
-            beat,
-            structure,
-            director,
-        })
-    }
-
-    /// Şu an duyulan anın ham dalga biçimi (MilkDrop sahnesi): 3 × 1024 bayt — karışım, sol,
-    /// sağ; 44,1 kHz; 128 = sessizlik. Görsel karelerle aynı an (ekran ve ses aygıtı gecikmesi
-    /// telafi edilerek). Duraklatılmışsa ya da şarkı bittiyse sessizlik; çalan oturum yoksa
-    /// (açılıyor, sarılıyor, kör test, hata) `None`.
-    pub fn visual_waveform(&self) -> Option<Vec<u8>> {
-        let session = self.session.as_ref()?;
-        match session.state() {
-            PlaybackState::Playing => {}
-            PlaybackState::Paused | PlaybackState::Ended => return Some(waveform::silence()),
-            PlaybackState::Idle | PlaybackState::Error => return None,
-        }
-        // Boşluksuz geçişle gelen şarkının ölçümü de kazanca yansısın.
-        self.sync_levels();
-        let heard = session.shared.output_heard.load(Ordering::Acquire);
-        let offset = crate::visual_bridge::visual_offset_secs(self.audio_delay_ms);
-        session.shared.waveform_at(heard, offset)
-    }
-
-    /// Şu an duyulan anın ince spektrum çubukları ("Kendi resmin" sahnesi): [`spectrum::BARS`]
-    /// seviye (0..1, bas solda; [`spectrum::bar_levels`]). Görsel karelerle aynı an (gecikme
-    /// telafili). Duraklatılmışsa ya da şarkı bittiyse hepsi 0; çalan oturum yoksa `None`.
-    pub fn visual_spectrum(&self) -> Option<Vec<f32>> {
-        let session = self.session.as_ref()?;
-        match session.state() {
-            PlaybackState::Playing => {}
-            PlaybackState::Paused | PlaybackState::Ended => return Some(spectrum::silence()),
-            PlaybackState::Idle | PlaybackState::Error => return None,
-        }
-        self.sync_levels();
-        let heard = session.shared.output_heard.load(Ordering::Acquire);
-        let offset = crate::visual_bridge::visual_offset_secs(self.audio_delay_ms);
-        session.shared.spectrum_at(heard, offset)
-    }
-
-    /// Ses aygıtının ek gecikmesi (ms).
-    pub fn audio_delay_ms(&self) -> i32 {
-        self.audio_delay_ms
-    }
-
-    /// Ses gecikmesini ayarlar (sınırlar içine alınır) ve uygulanan değeri döndürür.
-    pub fn set_audio_delay_ms(&mut self, ms: i32) -> i32 {
-        self.audio_delay_ms = crate::visual_bridge::clamp_audio_delay_ms(ms);
-        self.audio_delay_ms
-    }
-
-    /// Epilepsi güvenli modu açık mı?
-    pub fn visual_safe(&self) -> bool {
-        self.visual_safe
-    }
-
-    pub fn set_visual_safe(&mut self, safe: bool) {
-        self.visual_safe = safe;
-    }
-
-    /// Ekolayzerin ve bas düğmesinin spektrum bantlarındaki toplam kazancı (dB): filtrelerin
-    /// tepkisi ve ses yolundaki gibi, şarkının boşluğunun yetmediği kadar taşma koruması
-    /// kısması. (Küçük hoparlörün harmonikleri doğrusal olmadığı için eklenmez.)
-    /// Tepki, ayar ya da örnekleme hızı değişmedikçe yeniden hesaplanmaz.
-    fn visual_eq_offsets(&mut self, rate: u32) -> [f64; BANDS] {
-        // Grafik ve parametrik ekolayzerin sürümleri birlikte (biri değişince yeniden hesaplanır).
-        let version = self.eq.version() ^ self.parametric_control.version().rotate_left(32);
-        let (response, eq_db, bass) = match self.visual_eq {
-            Some((v, r, response, eq_db, bass)) if v == version && r == rate => {
-                (response, eq_db, bass)
-            }
-            _ => {
-                let settings = self.eq.settings();
-                let (response, eq_db) = if settings.is_active() {
-                    let rate_hz = f64::from(rate);
-                    let design = Design::new(&settings.gains_db, rate_hz);
-                    let (bass_db, small_speaker) = settings.effective_bass();
-                    let response = spectrogram::band_centers(rate_hz).map(|hz| {
-                        design.response_db(hz, rate_hz)
-                            + super::bass::response_db(bass_db, small_speaker, hz, rate_hz)
-                    });
-                    (response, -design.preamp_db)
-                } else {
-                    ([0.0; BANDS], 0.0)
-                };
-                // Parametrik ekolayzer de görsellerde: çizilen spektrum duyulan sese uysun.
-                let (response, eq_db) =
-                    if self.parametric.is_active() && !self.parametric_comparing() {
-                        let rate_hz = f64::from(rate);
-                        let centers = spectrogram::band_centers(rate_hz);
-                        let curve = self.parametric.response_db(&centers, rate_hz);
-                        let mut combined = response;
-                        for (value, db) in combined.iter_mut().zip(curve) {
-                            *value += db;
-                        }
-                        (combined, eq_db + self.parametric.boost_db())
-                    } else {
-                        (response, eq_db)
-                    };
-                let bass = settings.bass_boost();
-                self.visual_eq = Some((version, rate, response, eq_db, bass));
-                (response, eq_db, bass)
-            }
-        };
-        // Ses yolundaki gibi: bas, şarkının ölçülmüş bas tepelerine göre.
-        let level = self.current_level();
-        let headroom = level.map_or(0.0, |l| l.headroom_db);
-        let peaks = level.and_then(|l| l.bass_peaks);
-        let protection = protection_db(eq_db + bass.rise_db(peaks.as_ref()), headroom);
-        response.map(|db| db + protection)
     }
 
     pub fn status(&mut self) -> PlaybackStatus {

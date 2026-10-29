@@ -19,8 +19,7 @@ use crate::audio::normalize::TrackLevels;
 use crate::audio::output::{self, OutputMode, OutputSpec};
 use crate::audio::render::RenderControls;
 use crate::audio::resample::Converter;
-use crate::audio::spectrum;
-use crate::audio::waveform::{self, WaveformTap, Window};
+use crate::audio::waveform::WaveformTap;
 use crate::audio::AudioError;
 
 /// Halka tamponun süresi. Çözme iş parçacığı bu kadar önden gider.
@@ -124,58 +123,6 @@ impl SharedState {
             seconds = seconds.min(duration);
         }
         Some((segment.info.clone(), seconds))
-    }
-
-    /// Akışın `heard`. karesinden `offset_secs` ötedeki ana kadarki son 1024 örneğin dalga
-    /// biçimi (karışım, sol, sağ; [`waveform::to_bytes`]). Her örneğe ait olduğu şarkının
-    /// −14 LUFS eşitleme kazancı uygulanır (kullanıcı eşitlemeyi kapatmış olsa da: sessiz
-    /// kaydedilmiş şarkıda da dalga görünsün); boşluksuz geçişte kazanç tam şarkı sınırında
-    /// değişir. Çözme henüz başlamadıysa `None`.
-    pub(super) fn waveform_at(&self, heard: u64, offset_secs: f64) -> Option<Vec<u8>> {
-        let window = self.waveform.read(heard, offset_secs)?;
-        let gains = self.window_gains(&window)?;
-        Some(waveform::to_bytes(&window, &gains))
-    }
-
-    /// Pencereye düşen şarkıların (ilk örneğin sırası, doğrusal kazanç) çiftleri: her şarkının
-    /// −14 LUFS eşitleme kazancı ([`waveform::to_bytes`], [`waveform::mono_mix`]).
-    pub(super) fn window_gains<const N: usize>(
-        &self,
-        window: &Window<N>,
-    ) -> Option<Vec<(i64, f64)>> {
-        let levels = &self.controls.levels;
-        let last = window.first + N as i64 - 1;
-        let segments = self.segments.lock().ok()?;
-        let starts: Vec<i64> = segments
-            .iter()
-            .map(|s| window.index_at_frame(s.first_output_frame))
-            .collect();
-        Some(
-            starts
-                .iter()
-                .enumerate()
-                // Yalnızca pencereye düşen şarkılar.
-                .filter(|&(i, &start)| {
-                    start <= last && starts.get(i + 1).is_none_or(|&next| next > window.first)
-                })
-                .map(|(i, &start)| {
-                    let gain_db = levels.level(i, true).gain_db;
-                    (start, 10f64.powf(gain_db / 20.0))
-                })
-                .collect(),
-        )
-    }
-
-    /// Akışın `heard`. karesinden `offset_secs` ötedeki anın spektrum çubukları
-    /// ([`spectrum::bar_levels`]): pencere o anın üstüne ortalanır, her örneğe kendi şarkısının
-    /// eşitleme kazancı uygulanır ([`Self::waveform_at`] gibi). Çözme henüz başlamadıysa `None`.
-    pub(super) fn spectrum_at(&self, heard: u64, offset_secs: f64) -> Option<Vec<f32>> {
-        let half = (spectrum::WINDOW / 2) as f64 / f64::from(waveform::WAVEFORM_RATE);
-        let window = self
-            .waveform
-            .read_window::<{ spectrum::WINDOW }>(heard, offset_secs + half)?;
-        let gains = self.window_gains(&window)?;
-        Some(spectrum::bar_levels(&waveform::mono_mix(&window, &gains)))
     }
 
     /// Şu an duyulan şarkının oturumdaki sırası.
