@@ -122,7 +122,9 @@ const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama", image
       case "song_map": return { meter: 4, downbeatPhase: 0, grouping: [], meterConfidence: 1, downbeats: [],
         drops: [], dropConfidence: [],
         energy: [], sections: [{ start: 0, end: 240, energy: 0.8, label: ${theme} }] };
-      case "annotation_get": case "song_key": case "track_lyrics": case "song_map_imported": return null;
+      case "annotation_get": case "song_key": case "song_map_imported": return null;
+      // Şarkı sözleri: yalnızca söz denetiminde (\`window.__fakeLyrics\`), yoksa sözsüz şarkı.
+      case "track_lyrics": return window.__fakeLyrics ?? null;
       // "Kendi resmin": resim seçilmemiş (koyu zemin, vurgu yeşili çizgi) ya da IMAGE renginde düz
       // bir resim (pencere boyunda; tarayıcı kendisi çizer, programın sayfasındaki gibi \`data:\`).
       case "background_image_get": {
@@ -198,6 +200,7 @@ const initScript = (
     milk = "parlama",
     image = null,
     particles = null,
+    lyrics = null,
   } = {},
 ) =>
   // İlk açılış uyarısı (FlashWarning) görülmüş sayılır: sahnenin önüne geçmesin.
@@ -210,7 +213,9 @@ const initScript = (
         JSON.stringify({ version: 1, looks: { [sceneId]: sceneLook } }),
       )});`
     : "") +
-  ` } catch {}\n${fakeCore(level, theme, safe, milk, image)}`;
+  ` } catch {}\n` +
+  (lyrics ? `window.__fakeLyrics = ${JSON.stringify(lyrics)};\n` : "") +
+  fakeCore(level, theme, safe, milk, image);
 
 /** Tuvalin görüntüsünü çözüp parlaklık ölçer (bağıl parlaklık, 0..1). */
 function measure(png) {
@@ -1788,6 +1793,145 @@ async function checkPhotoGlowScale(browser) {
   return problems;
 }
 
+/**
+ * Söz denetiminin sahte sözleri (projenin özgün sözü). Sahte çekirdekte konum 60. saniyede durur:
+ * satır 58–64 sn; kısa satırda ikinci kelime söyleniyor, uzun satırda (küçülüp kayması için) sona
+ * yakın bir kelime.
+ */
+const LYRIC_SHORT = "Gökyüzünde yıldızlar dans ediyor";
+const LYRIC_LONG =
+  "Uzun bir yolun sonunda şafak söküyor, rüzgâr ıslık çalıyor, şehir uyanıyor, sokak lambaları " +
+  "birer birer sönüyor, kuşlar damlarda bekleşiyor, denizden serin bir koku geliyor, biz hâlâ aynı " +
+  "şarkıyı söylüyoruz, sesimiz kısılana dek, sabah olmasın diye";
+function fakeLyrics(long) {
+  const parts = (long ? LYRIC_LONG : LYRIC_SHORT).split(" ");
+  // Konum (60 sn, sanal saatle biraz ilerler) kısa satırda ikinci, uzun satırda %60'taki kelimede.
+  const at = long ? Math.floor(parts.length * 0.6) : 1;
+  const step = 0.4;
+  const start = 60 - (at + 0.5) * step;
+  return {
+    source: "file",
+    synced: true,
+    lines: [
+      {
+        start,
+        end: start + step * parts.length,
+        text: parts.join(" "),
+        translation: null,
+        estimated: false,
+        words: parts.map((w, j) => ({
+          start: start + j * step,
+          end: start + (j + 1) * step,
+          text: j < parts.length - 1 ? `${w} ` : w,
+        })),
+      },
+    ],
+  };
+}
+
+/**
+ * "Kendi resmin"de sözler başlık bloğunda (sanatçı adının altında) görünür, genel üst-orta katmanda
+ * görünmez ve ışık çizgisiyle (ışıltısıyla) çakışmaz; uzun satır kesilmeden ayrılan yerde kalır.
+ * Güvenli modda söylenen kelime ışıldamaz.
+ */
+async function checkPhotoLyrics(browser) {
+  const problems = [];
+  const cases = [
+    { safe: false, long: false },
+    { safe: true, long: false },
+    { safe: false, long: true },
+  ];
+  for (const { safe, long } of cases) {
+    const label = `Kendi resmin · şarkı sözleri${long ? " (uzun satır)" : ""}${safe ? " (güvenli mod)" : ""}`;
+    const page = await openPage(browser, { viewport: PHOTO_GLOW_VIEWPORT, scale: 1 });
+    page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
+    await page.addInitScript(initScript("photo", { safe, lyrics: fakeLyrics(long) }));
+    await startPlaying(page, 1500);
+    if (await page.locator("#drawer.is-open").count()) {
+      await page.keyboard.press("Escape");
+      await page.waitForFunction(() => !document.querySelector("#drawer.is-open"));
+    }
+    // Fare kıpırdamaz: sinema görünümü (başlık ve sözler görünür).
+    await advance(page, 6000);
+    // Yazı sinema görünümüne CSS geçişiyle (gerçek saatle, 0,8 sn) gelir.
+    await page.waitForTimeout(1500);
+    const samples = [];
+    for (let i = 0; i < 3; i++) {
+      samples.push(
+        await page.evaluate(() => {
+          const H = innerHeight;
+          const rect = (el) => el?.getBoundingClientRect() ?? null;
+          const text = document.querySelector(".photo-scene__text");
+          const slot = document.querySelector(".photo-scene__lyrics");
+          const line = document.querySelector(".photo-lyrics__line");
+          const lift = parseFloat(getComputedStyle(text).getPropertyValue("--photo-lift")) || 0;
+          const artist = rect(document.querySelector(".photo-scene__artist"));
+          const clock = rect(document.querySelector(".photo-scene__clock"));
+          const r = rect(slot);
+          const lineRect = rect(line);
+          const current = document.querySelector(".photo-lyrics__word.is-current");
+          return {
+            cinema: !!document.querySelector(".app.is-cinema"),
+            textOpacity: text ? parseFloat(getComputedStyle(text).opacity) : 0,
+            overlay: !!document.querySelector(".lyrics"),
+            words: document.querySelectorAll(".photo-lyrics__word").length,
+            glow: document.querySelectorAll(".is-glow").length,
+            slot: r && { top: r.top, bottom: r.bottom, left: r.left, right: r.right },
+            artistBottom: artist?.bottom ?? null,
+            clockLeft: clock?.left ?? null,
+            lineTop: H / 2 - lift,
+            currentVisible:
+              !current || !r
+                ? null
+                : (() => {
+                    const c = current.getBoundingClientRect();
+                    const mid = (c.left + c.right) / 2;
+                    return mid >= r.left - 1 && mid <= r.right + 1;
+                  })(),
+            fontSize: lineRect && line ? parseFloat(getComputedStyle(line).fontSize) : null,
+            current: current?.textContent ?? null,
+            panned: line?.style.transform ?? "",
+          };
+        }),
+      );
+      await advance(page, 1000);
+    }
+    await page.close();
+    const shown = samples.filter((s) => s.words > 0);
+    const first = samples[0];
+    console.log(
+      `${label}: ${shown.length}/${samples.length} örnekte satır; sinema ${first.cinema ? "açık" : "kapalı"}, ` +
+        `yazı saydamlığı ${first.textOpacity.toFixed(2)}; söz alanı ${first.slot ? `${Math.round(first.slot.top)}–${Math.round(first.slot.bottom)} px` : "yok"}, ` +
+        `çizginin ışıltısı ${Math.round(first.lineTop)} px'ten aşağıda; yazı boyu ` +
+        `${first.fontSize?.toFixed(1)} px, söylenen "${first.current}"${first.panned ? `, kayma ${first.panned}` : ""}`,
+    );
+    if (long && !(first.fontSize < 16 && first.panned && first.current))
+      problems.push(`${label}: uzun satır küçülüp kaymadı`);
+    if (shown.length < samples.length) problems.push(`${label}: sözler başlık bloğunda görünmüyor`);
+    for (const s of samples) {
+      if (s.overlay) problems.push(`${label}: sözler genel katmanda da çizildi (çift)`);
+      if (!s.slot) {
+        problems.push(`${label}: başlık bloğunda söz yeri yok`);
+        continue;
+      }
+      if (s.slot.bottom > s.lineTop + 0.5)
+        problems.push(
+          `${label}: sözler ışık çizgisiyle çakışıyor (alt ${s.slot.bottom.toFixed(1)} > ${s.lineTop.toFixed(1)})`,
+        );
+      if (s.artistBottom !== null && s.slot.top < s.artistBottom - 0.5)
+        problems.push(`${label}: sözler sanatçı adının altında değil`);
+      if (s.clockLeft !== null && s.slot.right > s.clockLeft + 0.5)
+        problems.push(`${label}: sözler saatin üstüne taşıyor`);
+      if (s.currentVisible === false)
+        problems.push(`${label}: söylenen kelime ayrılan yerin dışında (uzun satır kayamadı)`);
+      if (safe && s.glow > 0) problems.push(`${label}: güvenli modda kelime ışıldıyor`);
+    }
+    if (!first.cinema || first.textOpacity < 0.99)
+      problems.push(`${label}: sinema görünümünde başlık ve sözler görünmüyor`);
+  }
+  return problems;
+}
+
 /** Parçacık denetiminde en az bu kadar görünür parçacık pikseli (çizginin doğru yanında). */
 const PARTICLE_MIN_PIXELS = 20;
 
@@ -1940,6 +2084,7 @@ if (EXPECT_FALLBACK) {
     add(() => checkPhotoGlowScale(browser));
     add(() => checkPhotoChooseButton(browser));
     add(() => checkPhotoParticles(browser));
+    add(() => checkPhotoLyrics(browser));
   }
   if (!ONLY || ONLY.includes("lyrics")) {
     for (const delayMs of [0, 100]) add(() => checkLyricsTiming(browser, { delayMs }));
