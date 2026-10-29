@@ -144,6 +144,10 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
 - Şarkı açılınca (ya da önceden, arka planda) analiz edilir: spektrum (60 kare/sn), seviyeler, vuruşlar,
   ölçü başları, bölümler, droplar, enerji. Sonuç `analysis::cache`'te saklanır.
 - Görsel Yönetmen (`director`) şarkı haritasından her an için bir not çıkarır (atmosfer, ritim, doku).
+- Tempo oktavı (`analysis/tempo.rs`): öz-ilinti tempoyu yarısı ya da iki katıyla karıştırabilir (drum and bass 87,
+  yarım tempolu trap 70, yavaş balad 132). Takipçinin ızgarası bant seviyelerinden sınanır: kick ya da snare vuruş
+  aralarına düşüyorsa iki katı, tempo 80'in altındayken iki katında da vuruş araları doluysa (hi-hat) iki katı, aralar
+  boşsa yarısı seçilir. Aksak ölçü düzeltilmiş tempoya göre aranır. Ölçüm: `docs/arastirma/tempo/`.
 - Ölçü (`analysis/meter.rs`, `structure.rs`): vuruş takipçisi eşit aralıklı vuruş arar; aksak ölçüde (9/8 = 2+2+2+3)
   iki sekizlikte bir vuruş bulur ve üçlü grupları atlar. Bu yüzden ölçü sekizlik ızgarasında da çözümlenir; aksak
   bulunursa şarkının vuruşları grup başları olur (`BeatGrid`), şarkı haritasında `grouping` ve ölçü başları
@@ -518,6 +522,7 @@ Her kural ya bir testle ya da CI'daki bir adımla denetlenir. Elle hatırlanmas�
 | Eski tek sürümlü kayıtlar göçte yeniden analiz ettirmez                                              | `storage.rs` testi `eski_analiz_kayitlari_…` (göç 5)                                                             |
 | Güveni düşük drop hiçbir yerde drop sayılmaz (tek eşik)                                              | `analysis::structure`, `director` testleri, bileşen testleri                                                     |
 | Aksak ölçüde vuruşlar grup başları, ölçü başları doğru (9/8, 7/8, 5/8)                               | `analysis::meter` testleri, `analysis::structure` testi `aksak_…`                                                |
+| Tempo oktavı: drum and bass 170'ler, yarım tempolu trap 140, hip-hop/pop ve balad kendi temposunda   | `analysis::tempo` testleri; türlere göre ölçüm `examples/tempo_olcum.rs` (elle)                                  |
 | Düzenli ölçüler aksak sayılmaz                                                                       | `analysis::meter` testi `duzenli_olculer_aksak_sayilmaz`                                                         |
 | Ölçü belirsizse ölçü başı vurgulanmaz (yönetmen, otoyol, bilgi kartı)                                | `structure` testi `olcu_basi_tutarsiz_…`, `director`, highway, bileşen testi                                     |
 | Güvenli modda hiçbir sahne saniyede 1'den fazla parlamaz, nabız ≤ 1/sn                               | Sahne testleri (`sky`, `highway`, `stageLight`, `vu`, `director`) + `npm run check:scenes` (CI)                  |

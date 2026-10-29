@@ -64,7 +64,8 @@ pub const VERSIONS: PartVersions = PartVersions {
     // 5: drop bulma: davulun dönüşü, sakin girişten sonra grup, sıkıştırılmış kayıt, an basın
     // döndüğü kareye oturur.
     // 6: ritmi zayıf ya da basit oranlı (2/3, 3/2) parça sabit tempoyu "değişken" yapmaz.
-    rhythm: 6,
+    // 7: tempo oktavı (drum and bass 87 → 174, yarım tempolu trap 70 → 140, balad 132 → 66).
+    rhythm: 7,
     loudness: 1,
     bass: 1,
     key: 1,
