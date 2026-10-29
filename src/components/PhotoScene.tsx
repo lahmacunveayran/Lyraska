@@ -59,6 +59,13 @@ export interface PhotoSceneProps {
   particles?: ParticleStyle;
   /** Parçacık yoğunluğu (doğum hızının çarpanı; 1 varsayılan). */
   particleDensity?: number;
+  /**
+   * Çalan şarkının zamanlı sözleri var ve gösteriliyor: başlık bloğunda sanatçı adının altında
+   * söz satırına sabit yer ayrılır (satır değişince başlık zıplamaz).
+   */
+  hasLyrics?: boolean;
+  /** Söz satırının yeri (`PhotoLyrics` oraya çizilir; `PlayerScreen` akıcı konumla doldurur). */
+  lyricsSlot?: (element: HTMLElement | null) => void;
 }
 
 /** Ölçülen çizgi bölgesi ve çubuk renkleri (bir ekran boyu ve bir resim için). */
@@ -291,6 +298,8 @@ export function PhotoScene({
   onChooseImage,
   particles = DEFAULT_PARTICLE_STYLE,
   particleDensity = 1,
+  hasLyrics = false,
+  lyricsSlot,
 }: PhotoSceneProps) {
   // Yoğunluk kare döngüsünü yeniden kurmasın: ref'ten okunur.
   const densityRef = useRef(particleDensity);
@@ -355,6 +364,8 @@ export function PhotoScene({
   const [particlePoolValue] = useState(() => createParticlePool(0x5eed));
   const particlePool = useRef(particlePoolValue);
   const sprite = useRef<{ colors: BarColors; image: HTMLCanvasElement | null } | null>(null);
+  // Sözlerin ışıltı rengi (son yazılan çubuk renkleri).
+  const glowColors = useRef<BarColors | null>(null);
 
   useEffect(() => {
     loaded.current = null;
@@ -696,6 +707,11 @@ export function PhotoScene({
       // Yazılar çizginin hemen üstünde durur (ışıltının yukarı taşan kısmının üstünde).
       const lift = 3 * geometry.sigma + 10;
       textRef.current?.style.setProperty("--photo-lift", `${Math.ceil(lift)}px`);
+      // Söylenen kelimenin ışıltısı çubukların renginden.
+      if (glowColors.current !== colors && textRef.current) {
+        glowColors.current = colors;
+        textRef.current.style.setProperty("--photo-glow", colors.glow.join(" "));
+      }
     },
     [
       playing,
@@ -715,7 +731,7 @@ export function PhotoScene({
   const turkish = isTurkishText(title, artist);
 
   return (
-    <div className="photo-scene">
+    <div className={`photo-scene${hasLyrics ? " has-lyrics" : ""}`}>
       {animation ? (
         <canvas
           key="guarded"
@@ -777,6 +793,7 @@ export function PhotoScene({
         <div className="photo-scene__song">
           <span className="photo-scene__title">{displayUpper(title || "Lyraska", turkish)}</span>
           {artist && <span className="photo-scene__artist">{displayUpper(artist, turkish)}</span>}
+          {hasLyrics && <div className="photo-scene__lyrics" ref={lyricsSlot} />}
         </div>
         <span className="photo-scene__clock" ref={clockRef}>
           00:00

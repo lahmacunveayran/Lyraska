@@ -7,6 +7,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { Dock } from "./Dock";
 import { DropOverlay } from "./DropOverlay";
 import { FlashWarning } from "./FlashWarning";
@@ -43,7 +44,8 @@ import { useCrossfeed } from "../hooks/useCrossfeed";
 import { useMapFile } from "../hooks/useMapFile";
 import { useLyrics } from "../hooks/useLyrics";
 import { LyricsOverlay } from "./LyricsOverlay";
-import { lyricTime } from "../lib/lyrics";
+import { hasTimedLyrics, lyricTime } from "../lib/lyrics";
+import { PhotoLyrics } from "./PhotoLyrics";
 import type { Lyrics } from "../lib/backend";
 import { useIdle } from "../hooks/useIdle";
 import { useKeyboardFocusWithin } from "../hooks/useKeyboardFocus";
@@ -136,6 +138,10 @@ export function PlayerScreen() {
   );
   const marker = useMarker(statusPath, playing, player.positionNow, songMap, sync.delayMs);
   const lyrics = useLyrics(statusPath);
+  const shownLyrics = lyrics.visible ? lyrics.lyrics : null;
+  // "Kendi resmin"de sözler genel katmanda değil, sahnenin başlık bloğunda (sanatçı adının altında).
+  const photoLyrics = scene === "photo" && hasTimedLyrics(shownLyrics);
+  const [lyricsSlot, setLyricsSlot] = useState<HTMLElement | null>(null);
   // S karışık çalı açar/kapatır; işaretleme sürerken tuşlar işaretlemenindir.
   useShuffleShortcut(playback.toggleShuffle, player.available && !marker.recording);
 
@@ -340,6 +346,8 @@ export function PlayerScreen() {
           background={background}
           particles={photoParticles.style}
           particleDensity={photoParticles.density}
+          hasLyrics={photoLyrics}
+          lyricsSlot={setLyricsSlot}
           // Başlık etiketi yoksa (ör. yt-dlp'nin .webm'leri) dosya adı: "Lyraska" yazmasın.
           songTitle={credits?.title ?? null}
           songArtist={credits?.artist ?? null}
@@ -438,9 +446,11 @@ export function PlayerScreen() {
           cover={cover}
           songMap={songMap}
           songKey={songKey}
-          lyrics={lyrics.visible ? lyrics.lyrics : null}
+          lyrics={shownLyrics}
           lyricShiftSecs={lyrics.shiftMs / 1000}
           lyricNotice={lyrics.visible ? lyrics.shiftNotice : null}
+          // Sahnenin başlık bloğu çizilemediyse (yer henüz yok, sahne hatası) söz gösterilmez.
+          lyricsSlot={photoLyrics ? lyricsSlot : undefined}
           audioDelaySecs={sync.delayMs / 1000}
           soundShaped={soundShaped}
           safe={visualSafe.safe}
@@ -628,6 +638,11 @@ interface LiveChromeProps {
   lyricShiftSecs: number;
   /** Söz kaydırma kısayolunun kısa notu (yoksa `null`). */
   lyricNotice: string | null;
+  /**
+   * Verilirse sözler genel katman yerine bu yere ("Kendi resmin" başlık bloğu) çizilir; `null`:
+   * yer henüz hazır değil (söz gösterilmez, genel katman da çizilmez).
+   */
+  lyricsSlot?: HTMLElement | null;
   /** Ses aygıtının ek gecikmesi (saniye): sözler görseller gibi bu kadar geriden okunur (`lyricTime`). */
   audioDelaySecs: number;
   soundShaped: boolean;
@@ -655,6 +670,7 @@ function LiveChrome({
   lyrics,
   lyricShiftSecs,
   lyricNotice,
+  lyricsSlot,
   audioDelaySecs,
   soundShaped,
   safe,
@@ -670,12 +686,28 @@ function LiveChrome({
   const { status } = player;
   return (
     <>
-      <LyricsOverlay
-        lyrics={lyrics}
-        positionSecs={lyricTime(position, audioDelaySecs, lyricShiftSecs)}
-        safe={safe}
-        notice={lyricNotice}
-      />
+      {lyricsSlot === undefined ? (
+        <LyricsOverlay
+          lyrics={lyrics}
+          positionSecs={lyricTime(position, audioDelaySecs, lyricShiftSecs)}
+          safe={safe}
+          notice={lyricNotice}
+        />
+      ) : (
+        <>
+          {/* Kaydırma notu "Kendi resmin"de de görünür (sözler başlık bloğunda). */}
+          <LyricsOverlay lyrics={null} positionSecs={0} notice={lyricNotice} />
+          {lyricsSlot &&
+            createPortal(
+              <PhotoLyrics
+                lyrics={lyrics}
+                positionSecs={lyricTime(position, audioDelaySecs, lyricShiftSecs)}
+                safe={safe}
+              />,
+              lyricsSlot,
+            )}
+        </>
+      )}
       <div className="lower">
         <div className="hero chrome">
           <NowPlaying

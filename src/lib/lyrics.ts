@@ -169,6 +169,76 @@ export function lyricFrame(lyrics: Lyrics | null, t: number): LyricFrame {
   return { line, next, opacity, words };
 }
 
+/** Sahnede gösterilecek (zamanlı, satırı olan) sözler mi? Yer ayırmak için: satırdan bağımsız. */
+export function hasTimedLyrics(lyrics: Lyrics | null): boolean {
+  return !!lyrics?.synced && lyrics.lines.length > 0;
+}
+
+/** "Kendi resmin" başlık bloğundaki söz satırının bir kelimesi. */
+export interface PhotoLyricWord {
+  text: string;
+  state: WordState;
+  /** Söylenen kelime çubuk renginden ışıldar mı (Epilepsi güvenli modunda hiç). */
+  glow: boolean;
+}
+
+/**
+ * "Kendi resmin" başlık bloğundaki satırın kelimeleri. Kelime zamanı olmayan satır tek parça
+ * (okunur, ışıltısız) gösterilir. Güvenli modda ışıltı yoktur: kelimeler yalnızca saydamlıkla ayrılır.
+ */
+export function photoLyricWords(frame: LyricFrame, safe: boolean): PhotoLyricWord[] {
+  if (!frame.line) return [];
+  if (frame.words.length === 0) return [{ text: frame.line.text, state: "sung", glow: false }];
+  return frame.words.map((w) => ({
+    text: w.text,
+    state: w.state,
+    glow: !safe && w.state === "current",
+  }));
+}
+
+/** Uzun satır en çok bu orana küçülür (daha küçüğü okunmaz); yine sığmazsa kayar. */
+export const LYRIC_MIN_SCALE = 0.72;
+
+/**
+ * Tek satırlık sözün yerleşimi: `natural` yazının tam boydaki genişliği, `available` ayrılan
+ * genişlik (piksel). Sığmayan satır önce küçülür (en çok [`LYRIC_MIN_SCALE`]); o da yetmezse
+ * `overflow` kadar taşar ve söylendikçe kayar ([`lyricPan`]). Satır kesilmez, sonu kaybolmaz.
+ */
+export function lyricFit(
+  natural: number,
+  available: number,
+  minScale = LYRIC_MIN_SCALE,
+): { scale: number; overflow: number } {
+  if (!(natural > 0) || !(available > 0)) return { scale: 1, overflow: 0 };
+  const scale = Math.min(1, Math.max(minScale, available / natural));
+  return { scale, overflow: Math.max(0, natural * scale - available) };
+}
+
+/**
+ * Taşan satırın sola kayması (piksel, 0..`overflow`): söylenen kelimenin ortası her zaman görünür.
+ * Kayma harf sayısıyla orantılı ve kelime kelime ilerler (kelimenin içinde kıpırdamaz); satırın
+ * başında baş, sonunda son görünür.
+ */
+export function lyricPan(words: readonly { text: string; state: WordState }[], overflow: number) {
+  if (!(overflow > 0) || words.length === 0) return 0;
+  let total = 0;
+  let before = 0;
+  let found = false;
+  for (const w of words) {
+    const length = w.text.length;
+    if (!found) {
+      if (w.state === "sung") before += length;
+      else if (w.state === "current") {
+        before += length / 2;
+        found = true;
+      } else found = true;
+    }
+    total += length;
+  }
+  if (total === 0) return 0;
+  return Math.round(overflow * Math.min(1, Math.max(0, before / total)));
+}
+
 const VISIBLE_STORAGE_KEY = "lyraska.lyrics.visible";
 
 /** Sözler gösterilsin mi (varsayılan evet)? Tercih bu bilgisayarda hatırlanır. */
