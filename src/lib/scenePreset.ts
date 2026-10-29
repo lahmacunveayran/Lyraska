@@ -20,7 +20,6 @@ export interface ScenePreset {
 
 /** Programla gelen hazır ayarlar. */
 export const BUILT_IN_PRESETS: ScenePreset[] = [
-  { id: "calm-sea", name: "Sakin deniz", scene: "sea", speed: 0.6, palette: "ice", builtIn: true },
   {
     id: "embers",
     name: "Kor ateşi",
@@ -35,14 +34,6 @@ export const BUILT_IN_PRESETS: ScenePreset[] = [
     scene: "tunnel",
     speed: 1.6,
     palette: "theme",
-    builtIn: true,
-  },
-  {
-    id: "forest-night",
-    name: "Orman gecesi",
-    scene: "fireflies",
-    speed: 0.7,
-    palette: "forest",
     builtIn: true,
   },
   {

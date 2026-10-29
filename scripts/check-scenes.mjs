@@ -577,10 +577,8 @@ const SCENES = [
   // parlama sınırı en parlak iki temada ölçülür (denetim süresi). Renk alanı geniş iki sahne
   // ayrıca en parlak sabit palette ve en yüksek hızda (hazır ayarlar, src/lib/sceneLook.ts).
   ...[
-    ["sea", "Gece denizi"],
     ["nebula", "Bulutsu", true],
     ["tunnel", "Işık tüneli"],
-    ["fireflies", "Ateşböcekleri"],
     ["kaleido", "Kaleydoskop", true],
     ["ribbons", "İpek şeritler"],
     ["galaxy", "Sarmal gökada"],

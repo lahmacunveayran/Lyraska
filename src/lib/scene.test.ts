@@ -26,10 +26,8 @@ describe("sahneler", () => {
       "Gece sürüşü",
     ]);
     expect(GALLERY_SCENES.map((s) => s.name)).toEqual([
-      "Gece denizi",
       "Bulutsu",
       "Işık tüneli",
-      "Ateşböcekleri",
       "Kaleydoskop",
       "İpek şeritler",
       "Sarmal gökada",
@@ -37,16 +35,16 @@ describe("sahneler", () => {
       "Kendi resmin",
       "MilkDrop",
     ]);
-    expect(SCENES).toHaveLength(15);
-    expect(new Set(SCENES.map((s) => s.id)).size).toBe(15);
+    expect(SCENES).toHaveLength(13);
+    expect(new Set(SCENES.map((s) => s.id)).size).toBe(13);
     expect(["1", "2", "3", "4", "5", "6", "0"].map(sceneForKey)).toEqual([
       "sky",
       "highway",
       "vu",
       "spectrum",
       "drive",
-      "sea",
-      "kaleido",
+      "nebula",
+      "galaxy",
     ]);
     // İlk on sahnenin tuşu var ve o tuş o sahneyi seçer; gerisi PageDown/PageUp ile.
     for (const { id } of SCENES.slice(0, 10)) expect(sceneForKey(sceneKey(id)!)).toBe(id);
@@ -58,7 +56,7 @@ describe("sahneler", () => {
 
   it("sıradaki ve önceki sahne uçlarda başa ve sona döner", () => {
     expect(nextScene("sky", 1)).toBe("highway");
-    expect(nextScene("drive", 1)).toBe("sea");
+    expect(nextScene("drive", 1)).toBe("nebula");
     expect(nextScene("kaleido", 1)).toBe("ribbons");
     expect(nextScene("rain", 1)).toBe("photo");
     expect(nextScene("photo", 1)).toBe("milkdrop");

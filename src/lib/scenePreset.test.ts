@@ -18,7 +18,7 @@ import { isShaderScene } from "./shaderScene";
 const userPreset = (id: string, extra: Partial<ScenePreset> = {}): ScenePreset => ({
   id,
   name: `Ayar ${id}`,
-  scene: "sea",
+  scene: "nebula",
   speed: 1,
   palette: "theme",
   builtIn: false,
@@ -43,13 +43,13 @@ describe("hazır ayarlar", () => {
       expect(preset.speed).toBeLessThanOrEqual(SPEED_MAX);
       expect(sanitizePreset(preset)).toEqual({ ...preset, builtIn: false });
     }
-    expect(BUILT_IN_PRESETS.find((p) => p.id === "calm-sea")).toMatchObject({
-      name: "Sakin deniz",
-      scene: "sea",
-      speed: 0.6,
-      palette: "ice",
+    expect(BUILT_IN_PRESETS.find((p) => p.id === "embers")).toMatchObject({
+      name: "Kor ateşi",
+      scene: "nebula",
+      speed: 0.8,
+      palette: "ember",
     });
-    expect(presetSceneName(BUILT_IN_PRESETS[0]!)).toBe("Gece denizi");
+    expect(presetSceneName(BUILT_IN_PRESETS[0]!)).toBe("Bulutsu");
   });
 
   it("ad temizlenir: boşluklar, uzunluk sınırı (Türkçe harfler bölünmez)", () => {
@@ -66,11 +66,11 @@ describe("hazır ayarlar", () => {
       presets: [
         { id: "a", name: "Hızlı", scene: "tunnel", speed: 9, palette: "ember" },
         { id: "b", name: "Bilinmeyen sahne", scene: "disko", speed: 1, palette: "ice" },
-        { id: "c", name: "Bilinmeyen palet", scene: "sea", speed: 1, palette: "neon" },
-        { id: "d", name: "   ", scene: "sea", speed: 1, palette: "ice" },
-        { id: "a", name: "Aynı kimlik", scene: "sea", speed: 1, palette: "ice" },
-        { id: "calm-sea", name: "Programınkiyle aynı", scene: "sea", speed: 1, palette: "ice" },
-        { id: 7, name: "Sayı kimlik", scene: "sea", speed: 1, palette: "ice" },
+        { id: "c", name: "Bilinmeyen palet", scene: "nebula", speed: 1, palette: "neon" },
+        { id: "d", name: "   ", scene: "nebula", speed: 1, palette: "ice" },
+        { id: "a", name: "Aynı kimlik", scene: "nebula", speed: 1, palette: "ice" },
+        { id: "embers", name: "Programınkiyle aynı", scene: "nebula", speed: 1, palette: "ice" },
+        { id: 7, name: "Sayı kimlik", scene: "nebula", speed: 1, palette: "ice" },
         { id: "e", name: "Yavaş", scene: "rain", speed: "yavaş", palette: "rose", builtIn: true },
         null,
         "metin",
@@ -123,12 +123,12 @@ describe("hazır ayarlar", () => {
       palette: "rose",
       builtIn: false,
     });
-    const second = createUserPreset("İkinci", "sea", look, [first!], 1000);
+    const second = createUserPreset("İkinci", "nebula", look, [first!], 1000);
     expect(second?.id).toBe("user-rs-1");
-    expect(createUserPreset("   ", "sea", look, [])).toBeNull();
+    expect(createUserPreset("   ", "nebula", look, [])).toBeNull();
     const full = Array.from({ length: MAX_USER_PRESETS }, (_, i) => userPreset(`u${i}`));
-    expect(createUserPreset("Fazla", "sea", look, [...BUILT_IN_PRESETS, ...full])).toBeNull();
+    expect(createUserPreset("Fazla", "nebula", look, [...BUILT_IN_PRESETS, ...full])).toBeNull();
     // Bozuk görünüm sınırlanır.
-    expect(createUserPreset("Uç", "sea", { speed: 50, palette: "ice" }, [])?.speed).toBe(2);
+    expect(createUserPreset("Uç", "nebula", { speed: 50, palette: "ice" }, [])?.speed).toBe(2);
   });
 });

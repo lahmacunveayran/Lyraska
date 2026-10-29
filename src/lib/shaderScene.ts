@@ -8,8 +8,7 @@ import { AURORA_MAX_LUMINANCE, auroraLuminance, type SkyState } from "./sky";
  * parlaklığı tek bir çarpandan ([`sceneLevel`]) alır; çarpanın dar bandı tasarımdır.
  */
 
-export type ShaderSceneId =
-  "sea" | "nebula" | "tunnel" | "fireflies" | "kaleido" | "ribbons" | "galaxy" | "rain";
+export type ShaderSceneId = "nebula" | "tunnel" | "kaleido" | "ribbons" | "galaxy" | "rain";
 
 export interface ShaderSceneInfo {
   id: ShaderSceneId;
@@ -23,12 +22,6 @@ export interface ShaderSceneInfo {
 /** Galerideki sırayla. */
 export const SHADER_SCENES: ShaderSceneInfo[] = [
   {
-    id: "sea",
-    name: "Gece denizi",
-    hint: "Ayın denizdeki yolu; bas dalgaları büyütür.",
-    label: "Gece denizi: ayın ışığı dalgaların üstünde müziğe göre kırılıyor",
-  },
-  {
     id: "nebula",
     name: "Bulutsu",
     hint: "Yıldızların önünde akan renkli toz; drop'ta açılır.",
@@ -39,12 +32,6 @@ export const SHADER_SCENES: ShaderSceneInfo[] = [
     name: "Işık tüneli",
     hint: "Işık çizgilerinden bir tünelde süzülme.",
     label: "Işık tüneli: vuruşlarla hızlanan, ışık çizgilerinden bir tünel",
-  },
-  {
-    id: "fireflies",
-    name: "Ateşböcekleri",
-    hint: "Orman kıyısında yavaşça yanıp sönen ışıklar.",
-    label: "Ateşböcekleri: ağaçların önünde müziğe göre süzülen ışıklar",
   },
   {
     id: "kaleido",
