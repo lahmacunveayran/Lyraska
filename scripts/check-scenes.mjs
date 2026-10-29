@@ -1,5 +1,5 @@
-// Sahne denetimi: derlenmiş arayüzü gerçek bir tarayıcıda açar, "Gece göğü" ve
-// "Gece otoyolu" sahnelerini sahte müzik verisiyle çalıştırır ve ölçer:
+// Sahne denetimi: derlenmiş arayüzü gerçek bir tarayıcıda açar, sahneleri sahte müzik verisiyle
+// çalıştırır ve ölçer:
 //
 // - Ekran kartı çizimi (WebGL2) açıldı mı, gölgelendiriciler derlendi mi?
 // - Konsolda hata var mı? (Programın CSP'si de uygulanır: CSP ihlali konsol hatasıdır.)
@@ -82,10 +82,21 @@ const APP_URL = `http://localhost:${PORT}`;
  * Tarayıcıda Tauri yerine geçen sahte çekirdek: 128 BPM'lik bir şarkı çalıyor. `level` verilirse bütün bantlar ve
  * VU seviyeleri sabit o düzeyde (parlama sınırı ölçümü için: 0 = sessiz, 1 = tam). `theme`: bölümün renk teması.
  */
-const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama", image = null) => `
+const fakeCore = (
+  level = null,
+  theme = 1,
+  safe = false,
+  milk = "parlama",
+  image = null,
+  song = null,
+) => `
   const LEVEL = ${level === null ? "null" : level};
+  // Işık Ustası denetimi: şarkı haritası (drop'lu) ve sanal saat (song; yoksa tek bölümlük harita).
+  const SONG = ${JSON.stringify(song)};
   window.isTauri = true;
   const started = performance.now();
+  const songTime = () =>
+    SONG ? SONG.start + (window.__sceneTime?.now ?? 0) / 1000 : 60 + (performance.now() - started) / 1000;
   const track = { path: "C:/Müzik/deneme.flac", fileName: "deneme", title: "Deneme", artist: "Lyraska",
     codec: "flac", sampleRate: 44100, channels: 2, durationSecs: 240 };
   const status = { state: "playing", track, positionSecs: 60, underruns: 0, error: null, bpm: 128, output: null };
@@ -119,7 +130,8 @@ const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama", image
         preset: ${JSON.stringify(MILKDROP_PRESETS[milk].preset)} };
       case "audio_delay_get": return 0;
       // Tek bölümlük harita: arayüzün vurgu rengi (VU ve spektrum sahnelerinin halesi) de temada.
-      case "song_map": return { meter: 4, downbeatPhase: 0, grouping: [], meterConfidence: 1, downbeats: [],
+      case "song_map": if (SONG) return SONG.map;
+        return { meter: 4, downbeatPhase: 0, grouping: [], meterConfidence: 1, downbeats: [],
         drops: [], dropConfidence: [],
         energy: [], sections: [{ start: 0, end: 240, energy: 0.8, label: ${theme} }] };
       case "annotation_get": case "song_key": case "song_map_imported": return null;
@@ -166,7 +178,7 @@ const fakeCore = (level = null, theme = 1, safe = false, milk = "parlama", image
           LEVEL ?? Math.min(1, (i < 60 ? kick * (1 - i / 70) : 0.15) + 0.2 * Math.abs(Math.sin(i * 2.3 + t * 7))));
       }
       case "visual_frame": return {
-        positionSecs: 60 + t,
+        positionSecs: songTime(),
         bands: Array.from({ length: 32 }, (_, i) =>
           LEVEL ?? Math.max(0, 0.85 - i * 0.015 + 0.12 * Math.sin(i + t * 4))),
         rmsDb: LEVEL === null ? [-12, -12] : LEVEL ? [0, 0] : [-60, -60],
@@ -201,6 +213,7 @@ const initScript = (
     image = null,
     particles = null,
     lyrics = null,
+    song = null,
   } = {},
 ) =>
   // İlk açılış uyarısı (FlashWarning) görülmüş sayılır: sahnenin önüne geçmesin.
@@ -213,9 +226,12 @@ const initScript = (
         JSON.stringify({ version: 1, looks: { [sceneId]: sceneLook } }),
       )});`
     : "") +
+  (sceneId === "lightshow"
+    ? ` localStorage.setItem("lyraska.lightShowIntensity", "normal");`
+    : "") +
   ` } catch {}\n` +
   (lyrics ? `window.__fakeLyrics = ${JSON.stringify(lyrics)};\n` : "") +
-  fakeCore(level, theme, safe, milk, image);
+  fakeCore(level, theme, safe, milk, image, song);
 
 /** Tuvalin görüntüsünü çözüp parlaklık ölçer (bağıl parlaklık, 0..1). */
 function measure(png) {
@@ -568,6 +584,24 @@ const SKY_LOOKS = [
   { id: "snow", name: "Karlı vadi" },
 ];
 
+/**
+ * Yeni sahneler (sahneler v2, src/lib/scene.ts NEW_SCENES): eski sahnelerin listesinden ayrı tutulur
+ * (eski liste yeniler gelince kaldırılacak); denetimden aynı biçimde geçer.
+ */
+const NEW_SCENE_CHECKS = [
+  // Işık Ustası (yeni sahne): ekran kartında son işlem zinciriyle (kayan noktalı doku) çizilmeli.
+  // Parlaması zamana bağlı ölçülür (`checkLightShowFlashes`): drop'lu bir şarkı haritasında
+  // güvenli modda saniyede ≤ 1, varsayılan modda dropta gerçekten strob.
+  {
+    id: "lightshow",
+    name: "Işık Ustası",
+    extra: () => null,
+    timeBased: true,
+    requires: (state) =>
+      state.post === "on" ? null : `son işlem zinciri açılmadı (data-post=${state.post})`,
+  },
+];
+
 const SCENES = [
   {
     id: "sky",
@@ -793,6 +827,7 @@ async function checkScene(browser, scene, variant) {
     gpu: c.dataset.gpu ?? null,
     preset: c.dataset.preset ?? null,
     guard: c.dataset.guard ?? null,
+    post: c.dataset.post ?? null,
   }));
   const first = await page.evaluate(measure, await capture(page, canvas));
   await advance(page, 750);
@@ -2260,6 +2295,132 @@ async function checkMilkdropLoop(browser) {
   return problems;
 }
 
+/** Işık Ustası'nın deneme şarkısı: 128 BPM 4/4; giriş, kurulum, drop (ölçü 12), kırılma. */
+const LIGHTSHOW_BAR = (60 / 128) * 4;
+const LIGHTSHOW_DROP = 12 * LIGHTSHOW_BAR;
+const LIGHTSHOW_MAP = (() => {
+  const bar = LIGHTSHOW_BAR;
+  const section = (from, to, energy, label) => ({
+    start: from * bar,
+    end: to * bar,
+    energy,
+    label,
+  });
+  return {
+    meter: 4,
+    downbeatPhase: 0,
+    grouping: [],
+    meterConfidence: 0.9,
+    downbeats: Array.from({ length: 40 }, (_, i) => i * bar),
+    sections: [
+      section(0, 4, 0.3, 0),
+      section(4, 12, 0.6, 1),
+      section(12, 16, 1, 2),
+      section(16, 24, 0.3, 3),
+    ],
+    drops: [LIGHTSHOW_DROP],
+    dropConfidence: [0.95],
+    energy: Array.from({ length: Math.ceil(24 * bar) }, () => 0.5),
+  };
+})();
+/** Ölçülen pencere: drop'tan 1,5 sn önce (kurulumun sonu, boşluk) ile 2,5 sn sonrası. */
+const LIGHTSHOW_SECONDS = 4;
+const LIGHTSHOW_VIEWPORT = { width: 384, height: 216 };
+/** Güvenli modda bir karede pencere ortalamasının en büyük değişimi (60 kare/sn). */
+const LIGHTSHOW_SAFE_STEP = 0.03;
+
+/**
+ * Işık Ustası'nda zamana bağlı parlama ölçümü (60 kare/sn sanal zaman; şarkının konumu da sanal
+ * saatten): her karede tuval okunur, en kötü WCAG penceresinin parlamaları sayılır. Güvenli modda
+ * sahnenin kendi sakin yorumu saniyede ≤ 1 parlamalı (fren yok; koruma yapının içinde).
+ * Varsayılan modda (Normal yoğunluk) proje sahibinin istediği ışık şovu: dropta vuruşa kilitli
+ * strob, saniyede ≥ 2 parlama (frenlenmediğinin ve kurgunun gerçekten oynadığının kanıtı).
+ */
+async function checkLightShowFlashes(browser, bundle, safe) {
+  const label = `Işık Ustası · zamana bağlı parlama${safe ? " (güvenli mod)" : ""}`;
+  const step = 1000 / 60;
+  const page = await openPage(browser, { stepMs: step, viewport: LIGHTSHOW_VIEWPORT, scale: 1 });
+  const problems = [];
+  page.on("console", (m) => {
+    if (m.type() === "error") problems.push(`${label}: konsol: ${m.text()}`);
+  });
+  page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
+  await page.addInitScript(PRESERVE_DRAWING_BUFFER);
+  await page.addInitScript(`${bundle}\n;window.LyraskaFlashGuardCheck = LyraskaFlashGuardCheck;`);
+  const song = { start: LIGHTSHOW_DROP - 3.5, map: LIGHTSHOW_MAP };
+  await page.addInitScript(initScript("lightshow", { safe, song }));
+  const started = Date.now();
+  // Harita gelsin, ışıklar kurguya otursun (sanal 2 sn: drop'a 1,5 sn kala ölçüm başlar).
+  await startPlaying(page, 2000, step);
+  const canvas = page.locator(".lightshow-scene__canvas");
+  const problem = await renderProblem(page, canvas, problems);
+  if (problem) {
+    await page.close();
+    return [`${label}: ${problem}`];
+  }
+  await page.evaluate(() => {
+    const gl = document.querySelector(".lightshow-scene__canvas").getContext("webgl2");
+    const frames = [];
+    const phases = new Set();
+    window.__flashFrames = { frames, phases };
+    window.__frameProbe = () => {
+      frames.push(window.LyraskaFlashGuardCheck.screenWindows(gl));
+      phases.add(document.querySelector(".lightshow-scene__canvas").dataset.phase);
+    };
+  });
+  await advance(page, LIGHTSHOW_SECONDS * 1000, step);
+  const result = await page.evaluate((s) => {
+    window.__frameProbe = null;
+    const { frames, phases } = window.__flashFrames;
+    const canvasEl = document.querySelector(".lightshow-scene__canvas");
+    return {
+      error: window.__probeError ?? null,
+      frames: frames.length,
+      rate: window.LyraskaFlashGuardCheck.flashRate(frames, s),
+      phases: [...phases],
+      webgl: canvasEl.dataset.webgl,
+      post: canvasEl.dataset.post,
+      quality: canvasEl.dataset.quality,
+    };
+  }, LIGHTSHOW_SECONDS);
+  await page.close();
+  console.log(
+    `${label}: saniyede ${result.rate.flashesPerSecond.toFixed(2)} parlama (karede en büyük ` +
+      `değişim ${result.rate.maxStep.toFixed(4)}) · evreler ${result.phases.join(" → ")} · ` +
+      `${result.frames} kare · kalite ${result.quality} · ` +
+      `${((Date.now() - started) / 1000).toFixed(1)} sn`,
+  );
+  if (result.error) problems.push(`${label}: ölçüm hatası: ${result.error}`);
+  if (result.webgl !== "on" || result.post !== "on") {
+    problems.push(`${label}: sahne çizilmiyor (WebGL ${result.webgl}, son işlem ${result.post})`);
+  }
+  if (result.frames < LIGHTSHOW_SECONDS * 60 * 0.9) {
+    problems.push(`${label}: yalnızca ${result.frames} kare ölçüldü`);
+  }
+  for (const phase of ["build", "gap", "drop"]) {
+    if (!result.phases.includes(phase)) {
+      problems.push(`${label}: kurgu ${phase} evresini oynamadı (${result.phases.join(", ")})`);
+    }
+  }
+  if (safe && result.rate.flashesPerSecond > 1) {
+    problems.push(`${label}: saniyede ${result.rate.flashesPerSecond.toFixed(2)} parlama > 1`);
+  }
+  // Güvenli modda parlaklık yavaş değişir: hiçbir karede pencere ortalaması sıçramaz.
+  if (safe && result.rate.maxStep > LIGHTSHOW_SAFE_STEP) {
+    problems.push(
+      `${label}: bir karede parlaklık ${result.rate.maxStep.toFixed(3)} değişti ` +
+        `(> ${LIGHTSHOW_SAFE_STEP}; güvenli modda değişim yavaş olmalı)`,
+    );
+  }
+  if (!safe && result.rate.flashesPerSecond < 2) {
+    problems.push(
+      `${label}: varsayılan modda dropta strob ölçülmedi ` +
+        `(${result.rate.flashesPerSecond.toFixed(2)} < 2; sahne frenlenmiş ya da kurgu oynamıyor)`,
+    );
+  }
+  return problems;
+}
+
 const server = await preview({ preview: { port: PORT, strictPort: true }, logLevel: "warn" });
 const channel = process.env.SCENE_BROWSER_CHANNEL;
 const executablePath = channel ? undefined : process.env.SCENE_BROWSER_PATH;
@@ -2277,8 +2438,13 @@ if (EXPECT_FALLBACK) {
   const sky = SCENES.find((s) => s.id === "sky");
   add(() => checkScene(browser, sky, variants(sky)[0]));
 } else {
-  for (const scene of SCENES.filter(selected)) {
+  for (const scene of [...NEW_SCENE_CHECKS, ...SCENES].filter(selected)) {
     for (const variant of variants(scene)) add(() => checkScene(browser, scene, variant));
+  }
+  if (!ONLY || ONLY.includes("lightshow")) {
+    for (const safe of [true, false]) {
+      add(async () => checkLightShowFlashes(browser, await guardBundle(), safe));
+    }
   }
   if (!ONLY || ONLY.includes("flash-guard")) {
     add(async () => checkFlashGuard(browser, await guardBundle()));
