@@ -10,8 +10,9 @@ use std::time::{Duration, Instant};
 
 use rtrb::RingBuffer;
 
+use super::bit_perfect::{output_mode, signal_path};
 use super::decode_thread::decode_loop;
-use super::{signal_path, PlaybackState, SignalPath};
+use super::{PlaybackState, SignalPath};
 use crate::analysis::spectrogram::Spectrogram;
 use crate::audio::decode::{Decoder, TrackInfo};
 use crate::audio::normalize::TrackLevels;
@@ -251,26 +252,7 @@ impl Session {
         let info = decoder.info().clone();
         let device = output::device_info();
         let channels = Converter::output_channels(info.channels);
-        let (mode, notice) = if bit_perfect {
-            match output::exclusive_format(info.sample_rate, channels) {
-                // Aygıtın biçimi şarkıdan dar olamaz: 24 bit şarkı 16 bit aygıtta bit bit aynı
-                // çıkmaz (yuvarlanır); o zaman "bit-perfect" denmez, paylaşımlı yol kullanılır (#79).
-                Ok(format) => match decoder.source_bits() {
-                    Some(bits) if u32::from(format.valid_bits) < bits => (
-                        OutputMode::Shared,
-                        Some(format!(
-                            "şarkı {bits} bit, aygıt özel modda en çok {} bit kabul ediyor; \
-                             bit-perfect yerine paylaşımlı yol kullanıldı",
-                            format.valid_bits
-                        )),
-                    ),
-                    _ => (OutputMode::Exclusive(format), None),
-                },
-                Err(reason) => (OutputMode::Shared, Some(reason)),
-            }
-        } else {
-            (OutputMode::Shared, None)
-        };
+        let (mode, notice) = output_mode(bit_perfect, &decoder, &info, channels);
         let spec = OutputSpec {
             sample_rate: match mode {
                 // Bit-perfect: şarkının kendi hızında, dönüştürme yok.

@@ -25,7 +25,6 @@ use super::crossfeed::{CrossfeedControl, CrossfeedSettings};
 use super::decode::{Decoder, TrackInfo};
 use super::eq::{protection_db, Design, EqControl, EqSettings, EqState};
 use super::normalize::{LoudnessControl, TrackLevels};
-use super::output::{DeviceInfo, OutputMode, OutputSpec};
 use super::peq::{HeadphoneSettings, ParametricSettings, PeqControl};
 use super::render::RenderControls;
 use super::spectrum;
@@ -42,6 +41,7 @@ use crate::analysis::map_file::{
 use crate::analysis::spectrogram::{self, Spectrogram, BANDS};
 use crate::diagnostics;
 
+mod bit_perfect;
 mod decode_thread;
 mod next_track;
 mod normalization;
@@ -134,23 +134,6 @@ pub struct StructureNow {
     pub meter: usize,
     pub energy: Option<f32>,
     pub section: Option<usize>,
-}
-
-/// Ekranda gösterilecek sinyal yolu.
-fn signal_path(device: Option<DeviceInfo>, info: &TrackInfo, spec: OutputSpec) -> SignalPath {
-    SignalPath {
-        device_name: device.map(|d| d.name).unwrap_or_default(),
-        sample_rate: spec.sample_rate,
-        channels: spec.channels,
-        resampled: spec.sample_rate != info.sample_rate,
-        normalization_db: None,
-        bit_perfect: matches!(spec.mode, OutputMode::Exclusive(_)),
-        bit_depth: match spec.mode {
-            OutputMode::Exclusive(format) => Some(format.valid_bits),
-            OutputMode::Shared => None,
-        },
-        notice: None,
-    }
 }
 
 /// Bir şarkının arka planda süren (ya da biten) spektrum analizi.
@@ -1084,41 +1067,6 @@ impl Player {
             levels: Arc::new(TrackLevels::new()),
             // Oturum, aygıtı özel modda açabildiyse kendisi açar.
             bit_perfect: false,
-        }
-    }
-
-    /// Çalma seçenekleri.
-    pub fn playback_options(&self) -> super::PlaybackOptions {
-        super::PlaybackOptions {
-            normalize: self.loudness.enabled(),
-            bit_perfect: self.bit_perfect,
-        }
-    }
-
-    /// Çalma seçeneklerini uygular. Eşitleme değişince çalan şarkıda kazanç yumuşakça
-    /// değişir. Bit-perfect değişince aygıt yeniden açılır: çalan şarkı kaldığı yerden
-    /// (duraklatılmışsa duraklatılmış olarak) sürer.
-    pub fn set_playback_options(
-        &mut self,
-        options: super::PlaybackOptions,
-    ) -> Result<(), AudioError> {
-        self.loudness.set(options.normalize);
-        if options.bit_perfect == self.bit_perfect {
-            return Ok(());
-        }
-        self.bit_perfect = options.bit_perfect;
-        let Some(session) = &self.session else {
-            return Ok(());
-        };
-        match session.state() {
-            PlaybackState::Playing | PlaybackState::Paused => {
-                let (track, position) = session.now_playing();
-                let resume = session.state() == PlaybackState::Playing;
-                self.restart(&track.path, resume, Some(position))
-                    .map(|_| ())
-            }
-            // Bitmiş ya da hatalı oturum: bir sonraki açılışta uygulanır.
-            PlaybackState::Ended | PlaybackState::Error | PlaybackState::Idle => Ok(()),
         }
     }
 

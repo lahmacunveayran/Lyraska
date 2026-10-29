@@ -5,7 +5,7 @@ use rtrb::RingBuffer;
 use super::decode_thread::decode_loop;
 use super::session::{derive_state, Segment, RING_SECONDS};
 use super::*;
-use crate::audio::output;
+use crate::audio::output::{self, OutputMode, OutputSpec};
 use crate::audio::resample::Converter;
 use crate::audio::test_util::{temp_path, write_wav};
 use crate::audio::Sample;
