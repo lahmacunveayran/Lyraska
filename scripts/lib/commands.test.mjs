@@ -158,3 +158,20 @@ it("köprünün kullanılmayan fonksiyonları (denetimdeki kaçak: sarmalayıcı
   const bridge = `export function getA() {}\nexport async function getB() {}\nfunction ic() {}`;
   expect(unusedBridgeFunctions(bridge, ["getA();", "getAB();"])).toEqual(["getB"]);
 });
+
+describe("düzenli ifadeler kötü girdide yavaşlamaz (CodeQL: verimsiz düzenli ifade)", () => {
+  // Satır sonu olmayan uzun yorum: eski desen boşlukları iki yoldan eşleyip geri izlemede patlıyordu.
+  const spaces = " \t".repeat(20000);
+
+  it("rustCommands", () => {
+    const start = performance.now();
+    expect(() => rustCommands(`#[tauri::command]\n//${spaces}`)).toThrow();
+    expect(performance.now() - start).toBeLessThan(500);
+  });
+
+  it("tsRenames", () => {
+    const start = performance.now();
+    expect(tsRenames(`#[ts(rename = "A")]\n//${spaces}`).size).toBe(0);
+    expect(performance.now() - start).toBeLessThan(500);
+  });
+});
