@@ -177,3 +177,41 @@ describe("gölgelendirici", () => {
     expect(low).toContain("#define REFLECTIONS 0");
   });
 });
+
+describe("güvenli modda ışınlar sıçramaz", () => {
+  it("bütün şarkı boyunca ışın yönü ve rengi karede yavaş değişir", () => {
+    const sheet = cueSheet({ map: MAP });
+    const director = createShowDirector("high");
+    const fixtures = buildFixtures(QUALITY_PROFILES.high);
+    let prev = new Map<string, number[]>();
+    const dt = 1 / 60;
+    let worstTurn = 0;
+    for (let i = 0; i * dt < 24 * BAR; i++) {
+      const step = director.step({
+        sheet,
+        time: i * dt,
+        dt,
+        opts: { ...OPTS, safe: true, intensity: "wild" },
+        live: null,
+        bpm: 128,
+        palette: PALETTE,
+        jump: i === 0,
+        easing: false,
+      });
+      const now = new Map<string, number[]>();
+      for (let b = 0; b < step.beamCount; b++) {
+        const o = b * BEAM_FLOATS;
+        const key = `${step.beams[o]},${step.beams[o + 1]},${step.beams[o + 2]}`;
+        const dir = [step.beams[o + 4]!, step.beams[o + 5]!, step.beams[o + 6]!];
+        const before = prev.get(key);
+        if (before)
+          worstTurn = Math.max(worstTurn, Math.hypot(...dir.map((v, k) => v - before[k]!)));
+        now.set(key, dir);
+      }
+      prev = now;
+    }
+    expect(fixtures.length).toBeGreaterThan(0);
+    // 60 kare/sn'de karede en çok ~0,6 rad/sn × 1/60 (üç eksenin toplamı).
+    expect(worstTurn).toBeLessThan(0.025);
+  });
+});
