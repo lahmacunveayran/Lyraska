@@ -1,0 +1,69 @@
+const WEIGHTS: [f64; FEATURE_COUNT] = [0.2187, 0.0, 0.2128, 0.3517, 0.07604, 1.961, 2.841, -1.167];
+const BIAS: f64 = -6.173;
+const DECISION_WEIGHTS: [f64; FEATURE_COUNT] = [0.0, 0.05559, 0.007557, 0.2077, 0.1598, 5.34, 0.1844, -0.638];
+const DECISION_SCORE: f64 = 0.215;
+const DECISION_BIAS: f64 = -3.893;
+
+84 şarkı, 128 drop vuruşu, 219 aday
+
+| Kanıt | Yön | 1. aşama ağırlığı | standart etki | 2. aşama ağırlığı | standart etki |
+| --- | --- | --- | --- | --- | --- |
+| `bass_jump` | + | 0.219 | +1.59 | 0.000 | +0.00 |
+| `bass_far` | + | 0.000 | +0.00 | 0.056 | +0.70 |
+| `accent` | + | 0.213 | +1.06 | 0.008 | +0.06 |
+| `full` | + | 0.352 | +2.53 | 0.208 | +1.30 |
+| `level` | + | 0.076 | +1.00 | 0.160 | +1.82 |
+| `sustain` | + | 1.961 | +0.43 | 5.340 | +0.99 |
+| `downbeat` | + | 2.841 | +1.13 | 0.184 | +0.04 |
+| `inhomog` | − | -1.167 | -2.45 | -0.638 | -0.69 |
+| `z` (1. aşama puanı) | + | – | – | 0.215 | +1.13 |
+
+Tür dışarıda bırakılarak (her tür, kendisi hiç görülmeden; eşik 0.6):
+| Tür | İsabet ±1 vuruş | Yanlış |
+| --- | --- | --- |
+| akustik | – | 2 |
+| balad | – | 1 |
+| bas_donusu | 3/6 | 3 |
+| dnb | 5/6 | 1 |
+| dnb_sub | 0/6 | 3 |
+| dubstep | 4/6 | 2 |
+| filtre | 0/6 | 0 |
+| future_bass | 0/6 | 0 |
+| hiphop_drop | 2/6 | 0 |
+| house | 3/3 | 3 |
+| ikinci_drop | 4/6 | 0 |
+| kisa | 3/3 | 0 |
+| melodik | 0/6 | 3 |
+| pop | – | 3 |
+| riserisiz | 6/6 | 0 |
+| ritimsiz_giris | 6/6 | 0 |
+| rock | 6/6 | 0 |
+| sahte_drop | 5/6 | 0 |
+| sessizlik | 6/6 | 0 |
+| tempo_degisen | 2/3 | 0 |
+| tiz_artan | 0/6 | 0 |
+| trap | 6/6 | 0 |
+| turk_pop | – | 0 |
+| turk_remix | 6/6 | 0 |
+| uzun_giris | 5/6 | 0 |
+| vokal_cagri | 6/6 | 0 |
+| yuksek_yukselis | 6/6 | 0 |
+| yukselis | 4/6 | 0 |
+| **Toplam** | 88/135 | 21 |
+
+| Eşik | İsabet | Yanlış |
+| --- | --- | --- |
+| 0.3 | 98/135 | 32 |
+| 0.4 | 96/135 | 30 |
+| 0.5 | 92/135 | 27 |
+| 0.6 | 88/135 | 21 |
+| 0.7 | 76/135 | 13 |
+
+Kalibrasyon (güveni ≥ 0,05 olan 141 aday): Brier 0.160 (sabit tahmin 0.203)
+| Güven | Aday | Gerçekten drop | Ortalama güven |
+| --- | --- | --- | --- |
+| 0.05–0.20 | 4 | %50 | 0.13 |
+| 0.20–0.40 | 11 | %27 | 0.28 |
+| 0.40–0.60 | 17 | %47 | 0.52 |
+| 0.60–0.80 | 39 | %62 | 0.70 |
+| 0.80–1.00 | 70 | %91 | 0.91 |
