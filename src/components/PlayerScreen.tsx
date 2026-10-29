@@ -54,6 +54,7 @@ import { useLivePosition, type PlayerControls } from "../hooks/usePlayer";
 import { usePlaybackOptions } from "../hooks/usePlaybackOptions";
 import { useScene } from "../hooks/useScene";
 import { useScenePresets } from "../hooks/useScenePresets";
+import { useLightShowIntensity } from "../hooks/useLightShowIntensity";
 import { useBackgroundImage } from "../hooks/useBackgroundImage";
 import { usePhotoParticles } from "../hooks/usePhotoParticles";
 import { useMilkdrop } from "../hooks/useMilkdrop";
@@ -108,6 +109,7 @@ export function PlayerScreen() {
   const playbackOptions = usePlaybackOptions();
   const [scene, chooseScene] = useScene();
   const scenePresets = useScenePresets();
+  const [lightShowIntensity, setLightShowIntensity] = useLightShowIntensity();
   const milkdrop = useMilkdrop(scene === "milkdrop");
   const background = useBackgroundImage(scene === "photo");
   const photoParticles = usePhotoParticles();
@@ -344,6 +346,7 @@ export function PlayerScreen() {
           looks={scenePresets.looks}
           songMap={songMap}
           songKey={songKey}
+          intensity={lightShowIntensity}
           milkdrop={milkdrop}
           background={background}
           particles={photoParticles.style}
@@ -410,6 +413,8 @@ export function PlayerScreen() {
             <SceneGallery
               scene={scene}
               onChoose={chooseScene}
+              intensity={lightShowIntensity}
+              onIntensity={setLightShowIntensity}
               presets={scenePresets}
               milkdrop={milkdrop}
               background={background}
