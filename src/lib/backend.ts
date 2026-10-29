@@ -10,6 +10,7 @@ import type { AppInfo } from "./bindings/AppInfo";
 import type { BeatEvaluation } from "./bindings/BeatEvaluation";
 import type { BeatFrame } from "./bindings/BeatFrame";
 import type { ButterchurnPreset } from "./bindings/ButterchurnPreset";
+import type { DropDifference } from "./bindings/DropDifference";
 import type { ButterchurnShape } from "./bindings/ButterchurnShape";
 import type { ButterchurnWave } from "./bindings/ButterchurnWave";
 import type { CalibrationTrack } from "./bindings/CalibrationTrack";
@@ -73,6 +74,7 @@ export type {
   ButterchurnWave,
   CalibrationTrack,
   CrossfeedPreset,
+  DropDifference,
   CrossfeedSettings,
   CrossfeedState,
   DesignMethod,

@@ -29,7 +29,7 @@ export const DROP_COUNTDOWN_SECS = 30;
 /**
  * Drop sayılmak için gereken en düşük güven. Analiz bazı şarkılarda küçük bir bas artışını da
  * drop sayabiliyor; "drop yaklaşıyor" deyip hiçbir şey olmaması sayacın hiç olmamasından
- * kötüdür. Belirgin droplar ~0,8–1, sınırdakiler ~0,1–0,4 alır. Altındaki aday hiçbir yerde
+ * kötüdür. Güven bir olasılıktır (0,6: aday büyük olasılıkla drop). Altındaki aday hiçbir yerde
  * drop sayılmaz: sayaç, şarkı haritası şeridi, işaretleme ve Görsel Yönetmen (gökyüzünün
  * beklentisi ve açılımı). Çekirdekteki `DROP_CONFIDENCE_MIN` ile aynıdır (Rust testi denetler).
  */

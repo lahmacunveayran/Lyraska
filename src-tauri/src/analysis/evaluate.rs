@@ -44,16 +44,28 @@ pub struct BeatEvaluation {
     pub drop_hits: usize,
     #[serde(default)]
     pub marked_drops: usize,
-    /// İşaretlenen her drop için (sırasıyla) programın en yakın drop'unun farkı (ms; artı: program
-    /// işaretten sonra); ±`DROP_TOLERANCE` içinde drop yoksa `None`.
+    /// İşaretlenen her drop için (sırasıyla) programın en yakın drop adayı: farkı ve güveni.
+    /// Güveni [`super::structure::DROP_CONFIDENCE_MIN`]'in altındaki aday da yazılır (gösterilmez);
+    /// ±`DROP_TOLERANCE` içinde aday yoksa `None`.
     #[serde(default)]
-    pub drop_errors_ms: Vec<Option<f64>>,
+    pub drop_differences: Vec<Option<DropDifference>>,
     /// Programın bulduğu ton (güveni ne olursa olsun; düşükse programda gösterilmez).
     #[serde(default)]
     pub detected_key: Option<MusicalKey>,
     /// İşaretlenen ton varsa, bulunanın ona göre ilişkisi.
     #[serde(default)]
     pub key_relation: Option<KeyRelation>,
+}
+
+/// İşaretli bir drop'a en yakın drop adayı.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
+pub struct DropDifference {
+    /// Bulunan − işaretli (ms, 0,1 ms'ye yuvarlı; artı: program işaretten sonra).
+    pub error_ms: f64,
+    /// Adayın güveni (0..1).
+    pub confidence: f32,
 }
 
 /// Drop eşleşme toleransı (saniye): drop bir ölçü başıdır; parmak ve ölçü payı.
@@ -78,7 +90,7 @@ pub fn evaluate_beats(
         detected_drops: Vec::new(),
         drop_hits: 0,
         marked_drops: 0,
-        drop_errors_ms: Vec::new(),
+        drop_differences: Vec::new(),
         detected_key: None,
         key_relation: None,
     }
@@ -104,7 +116,18 @@ pub fn evaluate_file(
         .unwrap_or_default();
     result.drop_hits = drop_hits(&drops, marked_drops);
     result.marked_drops = marked_drops.len();
-    result.drop_errors_ms = drop_errors_ms(&drops, marked_drops);
+    // Fark, güveni düşük adaylar için de (neden gösterilmediği görülsün).
+    let candidates: Vec<(f64, f32)> = spectrogram
+        .song_map()
+        .map(|m| {
+            m.drops
+                .iter()
+                .copied()
+                .zip(m.drop_confidence.iter().copied())
+                .collect()
+        })
+        .unwrap_or_default();
+    result.drop_differences = drop_differences(&candidates, marked_drops);
     result.detected_drops = drops;
     result.detected_key = spectrogram.key().and_then(|k| k.key);
     result.key_relation = result
@@ -122,18 +145,21 @@ pub fn drop_hits(detected: &[f64], marked: &[f64]) -> usize {
         .count()
 }
 
-/// İşaretli her drop için en yakın bulunan drop'un farkı (ms, 0,1 ms'ye yuvarlı; artı: bulunan
-/// işaretten sonra); ±`DROP_TOLERANCE` içinde yoksa `None`.
-pub fn drop_errors_ms(detected: &[f64], marked: &[f64]) -> Vec<Option<f64>> {
+/// İşaretli her drop için en yakın drop adayı (`candidates`: saniye, güven) ±`DROP_TOLERANCE`
+/// içinde; yoksa `None`.
+pub fn drop_differences(candidates: &[(f64, f32)], marked: &[f64]) -> Vec<Option<DropDifference>> {
     marked
         .iter()
         .map(|&m| {
-            detected
+            candidates
                 .iter()
-                .map(|&d| d - m)
-                .filter(|e| e.abs() <= DROP_TOLERANCE)
-                .min_by(|a, b| a.abs().total_cmp(&b.abs()))
-                .map(|e| (e * 10_000.0).round() / 10.0)
+                .map(|&(d, confidence)| (d - m, confidence))
+                .filter(|(e, _)| e.abs() <= DROP_TOLERANCE)
+                .min_by(|a, b| a.0.abs().total_cmp(&b.0.abs()))
+                .map(|(e, confidence)| DropDifference {
+                    error_ms: (e * 10_000.0).round() / 10.0,
+                    confidence,
+                })
         })
         .collect()
 }
@@ -276,7 +302,7 @@ mod tests {
         assert!((e.detected_bpm.unwrap() - 120.0).abs() < 0.5, "{e:?}");
         assert_eq!(e.marked_drops, 1);
         assert_eq!(e.drop_hits, 0, "düz davul kaydında drop yok");
-        assert_eq!(e.drop_errors_ms, [None], "bulunmayan drop'un farkı yok");
+        assert_eq!(e.drop_differences, [None], "bulunmayan drop'un farkı yok");
         assert_eq!(e.key_relation, None, "ton işaretlenmedi");
         assert!(evaluate_file(&path.with_extension("yok"), &marked, &[], None).is_err());
         std::fs::remove_file(path).ok();
@@ -286,12 +312,25 @@ mod tests {
     fn drop_isabeti() {
         assert_eq!(drop_hits(&[30.0, 90.0], &[30.8, 60.0, 89.5]), 2);
         assert_eq!(drop_hits(&[], &[1.0]), 0);
-        // Her işaretli drop'un farkı (ms; artı: program geç), bulunamayan `None`.
+        // Her işaretli drop'a en yakın aday (ms; artı: program geç) ve güveni; güveni düşük
+        // (gösterilmeyen) aday da yazılır; ±1 sn'de aday yoksa `None`.
+        let d = |error_ms, confidence| {
+            Some(DropDifference {
+                error_ms,
+                confidence,
+            })
+        };
         assert_eq!(
-            drop_errors_ms(&[30.0, 90.0], &[30.8, 60.0, 89.5]),
-            [Some(-800.0), None, Some(500.0)]
+            drop_differences(
+                &[(30.0, 0.9), (60.5, 0.45), (90.0, 0.7)],
+                &[30.8, 60.0, 89.5, 120.0]
+            ),
+            [d(-800.0, 0.9), d(500.0, 0.45), d(500.0, 0.7), None]
         );
-        assert_eq!(drop_errors_ms(&[10.012_34], &[10.0]), [Some(12.3)]);
+        assert_eq!(
+            drop_differences(&[(10.012_34, 0.8)], &[10.0]),
+            [d(12.3, 0.8)]
+        );
         // Eski (dropsuz) sonuç dosyaları da okunur.
         let old: BeatEvaluation = serde_json::from_str(
             r#"{"fMeasure":0.9,"tapOffsetMs":40,"fMeasureAligned":0.95,"detectedBpm":120,
@@ -299,7 +338,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(old.drop_hits, 0);
-        assert!(old.drop_errors_ms.is_empty());
+        assert!(old.drop_differences.is_empty());
         assert_eq!((old.detected_key, old.key_relation), (None, None));
     }
 

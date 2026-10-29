@@ -1,6 +1,6 @@
 import type { MapFileControls } from "../hooks/useMapFile";
 import type { MarkerControls } from "../hooks/useMarker";
-import { openAnnotationFolder } from "../lib/backend";
+import { openAnnotationFolder, type DropDifference } from "../lib/backend";
 import { formatTime } from "../lib/format";
 import { importedSummary } from "../lib/mapFile";
 import { MIN_EVALUATION_BEATS, tapBpm } from "../lib/marks";
@@ -13,7 +13,7 @@ import {
   parseMarkedKey,
   relationText,
 } from "../lib/musicalKey";
-import { confidentDrops, confidentMeterLabel } from "../lib/songMap";
+import { confidentDrops, confidentMeterLabel, DROP_CONFIDENCE_MIN } from "../lib/songMap";
 import { timelineLayout } from "../lib/timeline";
 
 export interface MarkerPanelProps {
@@ -103,22 +103,36 @@ const SIGNED_MS = new Intl.NumberFormat("tr-TR", {
   maximumFractionDigits: 0,
   signDisplay: "exceptZero",
 });
+const CONFIDENCE = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 });
 
 /**
- * İşaretlenen her drop için programın farkı: "-180 ms" (program işaretten önce), "bulunamadı".
- * Beat'ler de işaretlendiyse parmak gecikmesi (beat'lerdeki ortanca kayma) düşülmüş hâli de yazılır:
- * D tuşu da Boşluk kadar geç basılır.
+ * İşaretlenen her drop için programın en yakın adayı: "-180 ms" (program işaretten önce), güveni
+ * gösterme eşiğinin altındaysa "(güven 0,45, gösterilmiyor)", ±1 sn'de aday yoksa "bulunamadı". Beat
+ * işaretleri programın vuruşlarıyla iyi örtüşüyorsa (gecikme düzeltilince F ≥ %80) parmak gecikmesi
+ * düşülmüş hâli de yazılır: D tuşu da Boşluk kadar geç basılır.
  */
-function dropErrorText(errors: (number | null)[], tapOffsetMs: number | null): string {
-  return errors
-    .map((e) => {
-      if (e === null) return "bulunamadı";
-      const raw = `${SIGNED_MS.format(e)} ms`;
-      if (tapOffsetMs === null || tapOffsetMs === 0) return raw;
-      return `${raw} (gecikme düşülünce ${SIGNED_MS.format(e + tapOffsetMs)} ms)`;
+function dropDifferenceText(
+  differences: (DropDifference | null)[],
+  tapOffsetMs: number | null,
+): string {
+  return differences
+    .map((d) => {
+      if (d === null) return "bulunamadı";
+      const notes: string[] = [];
+      if (d.confidence < DROP_CONFIDENCE_MIN) {
+        notes.push(`güven ${CONFIDENCE.format(d.confidence)}, gösterilmiyor`);
+      }
+      if (tapOffsetMs !== null && tapOffsetMs !== 0) {
+        notes.push(`gecikme düşülünce ${SIGNED_MS.format(d.errorMs + tapOffsetMs)} ms`);
+      }
+      const raw = `${SIGNED_MS.format(d.errorMs)} ms`;
+      return notes.length > 0 ? `${raw} (${notes.join("; ")})` : raw;
     })
     .join(", ");
 }
+
+/** Parmak gecikmesine güvenmek için gereken, gecikme düzeltilince beat F-ölçüsü. */
+const TAP_OFFSET_MIN_F = 0.8;
 
 /**
  * İşaretleme aracı: şarkı çalarken Boşluk ile beat'lere, D ile droplara vurulur.
@@ -354,13 +368,13 @@ export function MarkerPanel({
                 </dd>
               </div>
             )}
-            {evaluation.dropErrorsMs.length > 0 && (
+            {evaluation.dropDifferences.length > 0 && (
               <div>
                 <dt>Drop anı farkı (program − siz)</dt>
                 <dd>
-                  {dropErrorText(
-                    evaluation.dropErrorsMs,
-                    evaluation.markedCount >= 8 ? evaluation.tapOffsetMs : null,
+                  {dropDifferenceText(
+                    evaluation.dropDifferences,
+                    evaluation.fMeasureAligned >= TAP_OFFSET_MIN_F ? evaluation.tapOffsetMs : null,
                   )}
                 </dd>
               </div>
