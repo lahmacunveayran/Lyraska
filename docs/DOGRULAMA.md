@@ -491,19 +491,19 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 
 **E8. Galerideki yeni sahneler (0.0.57)**
 
-- Nasıl: üst çubukta **Galeri**'ye tıklayın; on sahne: **Gece denizi**, **Bulutsu**, **Işık tüneli**,
-  **Ateşböcekleri**, **Kaleydoskop**, **İpek şeritler**, **Sarmal gökada**, **Yağmurlu cam** (Kum tepeleri ve
-  Kristal ağ sahibinin isteğiyle 29 Ekim'de kaldırıldı). Klavyeden 6–9 ve 0; **PageDown/PageUp** bütün sahneleri sırayla gezer.
+- Nasıl: üst çubukta **Galeri**'ye tıklayın; sekiz sahne: **Bulutsu**, **Işık tüneli**, **Kaleydoskop**,
+  **İpek şeritler**, **Sarmal gökada**, **Yağmurlu cam**, **Kendi resmin**, **MilkDrop** (Kum tepeleri, Kristal ağ,
+  Gece denizi ve Ateşböcekleri sahibinin isteğiyle 29 Ekim'de kaldırıldı). Klavyeden 6–9 ve 0; **PageDown/PageUp** bütün sahneleri sırayla gezer.
 - Neye bakılır: her sahne müzikle akar (vuruşta hızlanır), bölüm değişince renkler yavaşça değişir, droptan önce
   toplanıp drop'ta açılır; hiçbirinde ani parlama yok. Tam ekranda akıcı mı (takılma, ısınma)?
 - Bildirin: beğendiğiniz ve beğenmediğiniz sahneler; takılan sahne varsa bilgisayarın ekran kartı.
 
 **E9. Galeride görünüm ve hazır ayarlar (0.0.58)**
 
-- Nasıl: bir şarkı çalarken **Galeri**'den bir sahne seçin (ör. **Gece denizi**) ve **Galeri**'yi yeniden açın.
+- Nasıl: bir şarkı çalarken **Galeri**'den bir sahne seçin (ör. **Bulutsu**) ve **Galeri**'yi yeniden açın.
   Listenin altında **Görünüm** var: **Hız** kaydırıcısını sağa sola çekin, renk düğmelerinden birini seçin
   (**Bölüm teması**, **Buz**, **Kor**, **Orman**, **Gül**). Sonra **Hazır ayarlar**'dan birine tıklayın (ör.
-  **Sakin deniz**, **Kor ateşi**). Beğendiğiniz bir görünümde **Kaydet**'e basın, bir ad yazıp yine **Kaydet**;
+  **Buzlu gökada**, **Kor ateşi**). Beğendiğiniz bir görünümde **Kaydet**'e basın, bir ad yazıp yine **Kaydet**;
   kendi ayarınız listede belirir, yanındaki **×** ile silinir. Programı kapatıp açın.
 - Neye bakılır: hız yalnızca hareketi hızlandırır ya da yavaşlatır, ışık parlamaz ve sönmez; renk değişince renkler
   bir saniyede yumuşakça geçer (ani renk değişimi yok). Hazır ayar sahneyi ve görünümü birlikte değiştirir. Kapatıp

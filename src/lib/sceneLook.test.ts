@@ -110,13 +110,13 @@ describe("galeri sahnesinin görünümü", () => {
     const looks = sanitizeLooks({
       version: 1,
       looks: {
-        sea: { speed: 0.6, palette: "ice" },
+        kaleido: { speed: 0.6, palette: "ice" },
         nebula: { speed: "hızlı", palette: "ember" },
         tunnel: { speed: 1.5, palette: "bilinmeyen" },
         sky: { speed: 2, palette: "rose" }, // galeri sahnesi değil
       },
     });
-    expect(looks.sea).toEqual({ speed: 0.6, palette: "ice" });
+    expect(looks.kaleido).toEqual({ speed: 0.6, palette: "ice" });
     expect(looks.nebula).toEqual({ speed: 1, palette: "ember" });
     expect(looks.tunnel).toEqual(DEFAULT_SCENE_LOOK);
     expect(Object.keys(looks).sort()).toEqual(SHADER_SCENES.map((s) => s.id).sort());

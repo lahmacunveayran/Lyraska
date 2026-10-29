@@ -2435,7 +2435,7 @@ describe("sahneler", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     await act(async () => fireEvent.click(toggle));
     const list = screen.getByRole("group", { name: "Galeri" });
-    expect(within(list).getAllByRole("button")).toHaveLength(10);
+    expect(within(list).getAllByRole("button")).toHaveLength(8);
     // Esc listeyi kapatır, çekmeceye dokunmaz.
     await act(async () => fireEvent.keyDown(list, { key: "Escape" }));
     expect(screen.queryByRole("group", { name: "Galeri" })).not.toBeInTheDocument();
@@ -2453,12 +2453,12 @@ describe("sahneler", () => {
     expect(window.localStorage.getItem("lyraska.scene")).toBe("nebula");
 
     await act(async () => fireEvent.keyDown(window, { key: "0" }));
-    expect(screen.getByRole("img", { name: /Kaleydoskop/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Sarmal gökada/ })).toBeInTheDocument();
     // Tuşu olmayan sahnelere PageDown/PageUp ile; sonda başa döner.
     await act(async () => fireEvent.keyDown(window, { key: "PageDown" }));
-    expect(screen.getByRole("img", { name: /İpek şeritler/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Yağmurlu cam/ })).toBeInTheDocument();
     await act(async () => fireEvent.keyDown(window, { key: "PageUp" }));
-    expect(screen.getByRole("img", { name: /Kaleydoskop/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Sarmal gökada/ })).toBeInTheDocument();
     await act(async () => fireEvent.keyDown(window, { key: "1" }));
     // Sondaki MilkDrop sahnesi: klasör seçilmemişken açıklama ve "Klasör seç" (hazır görsel yok).
     await act(async () => fireEvent.keyDown(window, { key: "PageUp" }));
@@ -2479,7 +2479,7 @@ describe("sahneler", () => {
       "true",
     );
     await act(async () => fireEvent.keyDown(window, { key: "6" }));
-    expect(screen.getByRole("img", { name: /Gece denizi/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Bulutsu/ })).toBeInTheDocument();
     // Klasik sahneye dönünce galeri düğmesi yeniden "Galeri".
     await act(async () => fireEvent.keyDown(window, { key: "1" }));
     expect(screen.getByRole("button", { name: /Galeri/ })).not.toHaveClass("is-on");
@@ -2504,16 +2504,14 @@ describe("sahneler", () => {
   });
 
   it("galeri listesi açılınca seçili sahneye odaklanır; seçimden sonra odak düğmeye döner", async () => {
-    window.localStorage.setItem("lyraska.scene", "fireflies");
+    window.localStorage.setItem("lyraska.scene", "tunnel");
     render(<App />);
-    const toggle = screen.getByRole("button", { name: /Ateşböcekleri/ });
+    const toggle = screen.getByRole("button", { name: /Işık tüneli/ });
     // Düğme bir açılır liste düğmesidir: basılı/basılı değil durumu taşımaz.
     expect(toggle).not.toHaveAttribute("aria-pressed");
     await act(async () => fireEvent.click(toggle));
     const list = screen.getByRole("group", { name: "Galeri" });
-    expect(document.activeElement).toBe(
-      within(list).getByRole("button", { name: /Ateşböcekleri/ }),
-    );
+    expect(document.activeElement).toBe(within(list).getByRole("button", { name: /Işık tüneli/ }));
     await act(async () =>
       fireEvent.click(within(list).getByRole("button", { name: /Yağmurlu cam/ })),
     );
@@ -2533,14 +2531,14 @@ describe("sahneler", () => {
 
   it("galeri: görünüm (hız, palet) ve hazır ayarlar; kullanıcı ayarı kaydedilir ve silinir", async () => {
     const { unmount } = render(<App />);
-    await act(async () => fireEvent.keyDown(window, { key: "6" }));
-    const sea = () => screen.getByRole("img", { name: /Gece denizi/ });
+    await act(async () => fireEvent.keyDown(window, { key: "0" }));
+    const galaxy = () => screen.getByRole("img", { name: /Sarmal gökada/ });
     // jsdom'da WebGL yok: görünüm tuvalin veri özniteliklerinden okunur.
-    expect(sea()).toHaveAttribute("data-speed", "1");
-    expect(sea()).toHaveAttribute("data-palette", "theme");
+    expect(galaxy()).toHaveAttribute("data-speed", "1");
+    expect(galaxy()).toHaveAttribute("data-palette", "theme");
 
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: /Gece denizi/ })));
-    const look = screen.getByRole("group", { name: "Görünüm: Gece denizi" });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /Sarmal gökada/ })));
+    const look = screen.getByRole("group", { name: "Görünüm: Sarmal gökada" });
     const palettes = within(look).getByRole("group", { name: "Renk paleti" });
     expect(within(palettes).getAllByRole("button")).toHaveLength(5);
     expect(within(palettes).getByRole("button", { name: "Bölüm teması" })).toHaveAttribute(
@@ -2548,7 +2546,7 @@ describe("sahneler", () => {
       "true",
     );
     await act(async () => fireEvent.click(within(palettes).getByRole("button", { name: "Kor" })));
-    expect(sea()).toHaveAttribute("data-palette", "ember");
+    expect(galaxy()).toHaveAttribute("data-palette", "ember");
     expect(within(palettes).getByRole("button", { name: "Kor" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -2556,16 +2554,16 @@ describe("sahneler", () => {
     const speed = within(look).getByRole("slider", { name: "Hareket hızı" });
     expect(speed).toHaveAttribute("aria-valuetext", "1×");
     await act(async () => fireEvent.change(speed, { target: { value: "1.5" } }));
-    expect(sea()).toHaveAttribute("data-speed", "1.5");
+    expect(galaxy()).toHaveAttribute("data-speed", "1.5");
     expect(speed).toHaveAttribute("aria-valuetext", "1,5×");
     // Görünüm değişince liste açık kalır; sahnenin görünümü hatırlanır.
     expect(screen.getByRole("group", { name: "Galeri" })).toBeInTheDocument();
-    expect(JSON.parse(window.localStorage.getItem("lyraska.sceneLooks") ?? "{}").looks.sea).toEqual(
-      {
-        speed: 1.5,
-        palette: "ember",
-      },
-    );
+    expect(
+      JSON.parse(window.localStorage.getItem("lyraska.sceneLooks") ?? "{}").looks.galaxy,
+    ).toEqual({
+      speed: 1.5,
+      palette: "ember",
+    });
 
     // Hazır ayar: sahne ve görünüm tek tıkla.
     const presets = screen.getByRole("group", { name: "Hazır ayarlar" });
@@ -2607,10 +2605,10 @@ describe("sahneler", () => {
 
     // Başka bir hazır ayardan sonra kullanıcınınki yine aynı görünümü kurar.
     await act(async () =>
-      fireEvent.click(within(presets).getByRole("button", { name: /^Sakin deniz/ })),
+      fireEvent.click(within(presets).getByRole("button", { name: /^Buzlu gökada/ })),
     );
-    expect(sea()).toHaveAttribute("data-speed", "0.6");
-    expect(sea()).toHaveAttribute("data-palette", "ice");
+    expect(galaxy()).toHaveAttribute("data-speed", "0.6");
+    expect(galaxy()).toHaveAttribute("data-palette", "ice");
     await act(async () =>
       fireEvent.click(within(presets).getByRole("button", { name: /^Benim bulutum/ })),
     );
@@ -2620,9 +2618,9 @@ describe("sahneler", () => {
     unmount();
     render(<App />);
     expect(screen.getByRole("img", { name: /Bulutsu/ })).toHaveAttribute("data-speed", "0.8");
-    await act(async () => fireEvent.keyDown(window, { key: "6" }));
-    expect(sea()).toHaveAttribute("data-palette", "ice");
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: /Gece denizi/ })));
+    await act(async () => fireEvent.keyDown(window, { key: "0" }));
+    expect(galaxy()).toHaveAttribute("data-palette", "ice");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /Sarmal gökada/ })));
     const again = screen.getByRole("group", { name: "Hazır ayarlar" });
     await act(async () =>
       fireEvent.click(

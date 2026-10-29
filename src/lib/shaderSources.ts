@@ -114,39 +114,6 @@ float stars(vec2 p, float scale) {
 `;
 
 const SCENES: Record<ShaderSceneId, string> = {
-  // Ay, ufukta tema renginde parıltı; denizde ayın yolu dalgaların eğimiyle kırılır. Bas dalgaları
-  // büyütür; parıltılar ince ve düzensiz olduğundan geniş bir alanın parlaklığı sabit kalır.
-  sea: `
-vec3 scene(vec2 uv, vec2 p) {
-  float horizon = -0.1;
-  vec2 moon = vec2(0.34 * uResolution.x / uResolution.y - 0.25, 0.24);
-  vec3 moonLight = mix(uHigh, vec3(1.0), 0.6);
-  vec3 col = vec3(0.0);
-  if (p.y > horizon) {
-    float h = p.y - horizon;
-    col += uHigh * 0.09 * exp(-h * 5.0);
-    float d = length(p - moon);
-    col += vec3(0.86, 0.89, 0.95) * smoothstep(0.066, 0.06, d);
-    col += moonLight * (0.09 * exp(-d * 9.0) + 0.03 * exp(-d * 2.5));
-    col += vec3(0.85) * stars(p, 70.0) * smoothstep(0.02, 0.3, h) * smoothstep(0.08, 0.2, d);
-  } else {
-    float depth = horizon - p.y;
-    float z = 0.1 / max(depth, 0.003);
-    float swell = 0.6 + 0.4 * uEnergy.x + 0.3 * uBloom;
-    vec2 w = vec2(p.x * z * 1.4, z * 3.0);
-    float waves = fbm(w * 0.9 + vec2(uTime * 0.12, uTime * 0.4));
-    float slope = (waves - 0.5) * swell;
-    float spread = 0.025 + 0.16 * depth + 0.03 * swell;
-    float dx = (p.x - moon.x + slope * 0.25 * (0.2 + depth)) / spread;
-    float path = exp(-dx * dx);
-    float glint = smoothstep(0.58, 0.85, noise(w * 5.0 + vec2(slope * 3.0, uTime * 0.9)));
-    col += moonLight * path * (0.12 + 0.6 * glint) * exp(-depth * 1.0);
-    col += mix(uLow, uHigh, 0.5) * 0.06 * smoothstep(0.45, 0.8, waves) * exp(-depth * 1.5);
-    col += uHigh * 0.08 * exp(-depth * 18.0);
-  }
-  return col;
-}`,
-
   // Alan bükmeli gürültüden renkli toz bulutları; gerilimde bulutsu içine çekilir, açılımda
   // genişler. Bulut seyrek yerlerde yıldızları gösterir.
   nebula: `
@@ -181,52 +148,6 @@ vec3 scene(vec2 uv, vec2 p) {
   vec3 tint = mix(uLow, uHigh, 0.5 + 0.5 * sin(a * 2.0 + depth * 0.2));
   vec3 col = tint * (0.7 * streak + 0.35 * fine + 0.05) * near;
   col += mix(uHigh, vec3(1.0), 0.3) * 0.16 * exp(-r * 6.0) * (1.0 - 0.4 * uTension);
-  return col;
-}`,
-
-  // Orman kıyısı: ağaçların karanlık silueti, önünde ve arkasında üç katman ateşböceği. Her biri
-  // kendi yavaş ritminde (≤ 0,5 Hz) yanıp söner; küçük oldukları için ekranın parlaklığı sabit.
-  fireflies: `
-float swarm(vec2 p, float scale, float seed, float density) {
-  vec2 g = p * scale;
-  vec2 cell = floor(g);
-  float glow = 0.0;
-  for (int y = -1; y <= 1; y++) {
-    for (int x = -1; x <= 1; x++) {
-      vec2 c = cell + vec2(float(x), float(y));
-      vec2 h = hash22(c + seed);
-      if (h.x > density) continue;
-      vec2 drift = vec2(sin(uTime * (0.25 + 0.2 * h.y) + h.x * 21.0),
-                        cos(uTime * (0.2 + 0.2 * h.x) + h.y * 17.0));
-      vec2 at = c + 0.5 + 0.38 * drift;
-      float d = length(g - at);
-      float blink = smoothstep(0.15, 1.0, 0.5 + 0.5 * sin(uTwinkle * (0.9 + 1.1 * h.y) + h.x * 40.0));
-      glow += blink * (exp(-d * d * 60.0) + 0.06 * exp(-d * 4.0));
-    }
-  }
-  return glow;
-}
-
-/** Çam sırası: iki sıra üçgen ağaç (yükseklik, sırtın üstünde). */
-float pines(float x, float k, float seed) {
-  float cell = floor(x * k);
-  float f = abs(fract(x * k) - 0.5) / k;
-  float h = hash12(vec2(cell, seed));
-  return 0.04 + 0.07 * h - f * (2.6 + 1.2 * h);
-}
-
-vec3 scene(vec2 uv, vec2 p) {
-  vec3 col = uHigh * 0.1 * smoothstep(0.55, -0.15, p.y);
-  col += vec3(0.8, 0.85, 1.0) * stars(p, 80.0) * smoothstep(0.0, 0.3, p.y);
-  float hill = -0.2 + 0.08 * fbm(vec2(p.x * 1.5, 1.0));
-  float ridge = hill + max(0.0, max(pines(p.x, 19.0, 4.0), pines(p.x + 0.031, 13.0, 9.0) - 0.015));
-  float tree = smoothstep(ridge + 0.004, ridge - 0.004, p.y);
-  float density = 0.32 + 0.12 * uEnergy.y + 0.08 * uBloom;
-  vec3 light = mix(uLow, vec3(1.0, 0.92, 0.6), 0.45);
-  col += light * 0.5 * swarm(p + vec2(0.0, 0.02), 9.0, 3.0, density) * (1.0 - tree);
-  col *= 1.0 - tree;
-  col += light * 0.8 * swarm(p, 5.0, 11.0, density);
-  col += light * 0.9 * swarm(p - vec2(0.3, 0.0), 3.0, 29.0, density * 0.6);
   return col;
 }`,
 
