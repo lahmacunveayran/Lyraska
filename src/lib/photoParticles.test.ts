@@ -191,6 +191,20 @@ describe("parçacık havuzu", () => {
     expect(born(loud, 0)).toBeGreaterThan(2 * born(quiet, 0));
   });
 
+  it("gerçek müzik seviyelerinde (ortalama ~%2, bas ~%10) parçacıklar görünür kalabalıkta", () => {
+    // Proje sahibinin kaydındaki (Flying High, −14 LUFS) çekirdek seviyelerine benzer çizgi.
+    const extents = new Array<number>(BARS).fill(0).map((_, i) => (i < 40 ? 0.1 : 0.012) * CAP);
+    for (const [style, least] of [
+      ["sparks", 60],
+      ["snow", 30],
+    ] as const) {
+      const pool = createParticlePool(31);
+      run(pool, style, (f) => input(extents, { pulse: Math.exp(-(f % 24) / 7) }), 5);
+      expect(pool.count).toBeGreaterThan(least);
+      expect(pool.count).toBeLessThan(PARTICLE_POOL);
+    }
+  });
+
   it("enerji: sessizde 0, tam seste 1, bas ağır basar", () => {
     expect(
       particleDrive(
