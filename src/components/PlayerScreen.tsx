@@ -7,6 +7,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { Dock } from "./Dock";
 import { DropOverlay } from "./DropOverlay";
 import { FlashWarning } from "./FlashWarning";
@@ -43,6 +44,8 @@ import { useCrossfeed } from "../hooks/useCrossfeed";
 import { useMapFile } from "../hooks/useMapFile";
 import { useLyrics } from "../hooks/useLyrics";
 import { LyricsOverlay } from "./LyricsOverlay";
+import { PhotoLyrics } from "./PhotoLyrics";
+import { hasTimedLyrics } from "../lib/lyrics";
 import type { Lyrics } from "../lib/backend";
 import { useIdle } from "../hooks/useIdle";
 import { useKeyboardFocusWithin } from "../hooks/useKeyboardFocus";
@@ -135,6 +138,10 @@ export function PlayerScreen() {
   );
   const marker = useMarker(statusPath, playing, player.positionNow, songMap, sync.delayMs);
   const lyrics = useLyrics(statusPath);
+  const shownLyrics = lyrics.visible ? lyrics.lyrics : null;
+  // "Kendi resmin"de sözler genel katmanda değil, sahnenin başlık bloğunda (sanatçı adının altında).
+  const photoLyrics = scene === "photo" && hasTimedLyrics(shownLyrics);
+  const [lyricsSlot, setLyricsSlot] = useState<HTMLElement | null>(null);
   // S karışık çalı açar/kapatır; işaretleme sürerken tuşlar işaretlemenindir.
   useShuffleShortcut(playback.toggleShuffle, player.available && !marker.recording);
 
@@ -339,6 +346,8 @@ export function PlayerScreen() {
           background={background}
           particles={photoParticles.style}
           particleDensity={photoParticles.density}
+          hasLyrics={photoLyrics}
+          lyricsSlot={setLyricsSlot}
           // Başlık etiketi yoksa (ör. yt-dlp'nin .webm'leri) dosya adı: "Lyraska" yazmasın.
           songTitle={credits?.title ?? null}
           songArtist={credits?.artist ?? null}
@@ -437,7 +446,9 @@ export function PlayerScreen() {
           cover={cover}
           songMap={songMap}
           songKey={songKey}
-          lyrics={lyrics.visible ? lyrics.lyrics : null}
+          lyrics={shownLyrics}
+          // Sahnenin başlık bloğu çizilemediyse (yer henüz yok, sahne hatası) söz gösterilmez.
+          lyricsSlot={photoLyrics ? lyricsSlot : undefined}
           audioDelaySecs={sync.delayMs / 1000}
           soundShaped={soundShaped}
           safe={visualSafe.safe}
@@ -621,6 +632,11 @@ interface LiveChromeProps {
   songKey: KeyMap | null;
   /** Gösterilecek şarkı sözleri (kapalıysa ya da yoksa `null`). */
   lyrics: Lyrics | null;
+  /**
+   * Verilirse sözler genel katman yerine bu yere ("Kendi resmin" başlık bloğu) çizilir; `null`:
+   * yer henüz hazır değil (söz gösterilmez, genel katman da çizilmez).
+   */
+  lyricsSlot?: HTMLElement | null;
   /** Ses aygıtının ek gecikmesi (saniye): sözler görseller gibi bu kadar geriden okunur. */
   audioDelaySecs: number;
   soundShaped: boolean;
@@ -646,6 +662,7 @@ function LiveChrome({
   songMap,
   songKey,
   lyrics,
+  lyricsSlot,
   audioDelaySecs,
   soundShaped,
   safe,
@@ -661,7 +678,15 @@ function LiveChrome({
   const { status } = player;
   return (
     <>
-      <LyricsOverlay lyrics={lyrics} positionSecs={position - audioDelaySecs} />
+      {lyricsSlot === undefined ? (
+        <LyricsOverlay lyrics={lyrics} positionSecs={position - audioDelaySecs} />
+      ) : (
+        lyricsSlot &&
+        createPortal(
+          <PhotoLyrics lyrics={lyrics} positionSecs={position - audioDelaySecs} safe={safe} />,
+          lyricsSlot,
+        )
+      )}
       <div className="lower">
         <div className="hero chrome">
           <NowPlaying
