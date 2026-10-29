@@ -54,6 +54,8 @@ kısaltılır.
 - **Çalışma kopyaları depo içinde** (`.claude/worktrees/`): Prettier, ESLint ve Vitest onları da görür. Ana kopyada
   `npx eslint . --ignore-pattern ".claude/**"`, `npx vitest run --exclude ".claude/**"` kullanılır ya da çalışma
   kopyaları silinir. `.git/info/exclude`'a `.claude/worktrees/` yazılır (depoya girmez).
+- **Sahne denetimi üç paralel parçada** (`SCENE_SHARD`, 29 Ekim 2026): bütün CI ~16 dk (en uzunu kurulum dosyası);
+  yeni denetim eklerken `check-scenes.mjs`'teki görev listesine `add(...)` ile eklenir.
 - **CI'da Linux işi `apt-get update`'te takılabiliyor:** test başlamadan 40 dakikada iptal olur. Bu altyapı
   hatasıdır; bir kez yeniden çalıştırılır (`rerun_failed_jobs`). Süreler: Windows sahne denetimi ~17–20 dk,
   kurulum dosyası ~10–25 dk, Rust ~3–4 dk.
@@ -128,11 +130,13 @@ kısaltılır.
 
 - Lyraska **ücretsiz** kalacak, ticarileştirme yok (22 Ekim 2026).
 - **Kod imzası olmayacak** (23 Ekim 2026).
-- **Görsel tasarım onayı Claude'da** (24 Ekim 2026: "görsel tasarım onayı için sana inisiyatif veriyorum, elinden
-  gelenin en iyisini yap"). Yine de her görsel iş tarayıcıda önizlenip sahibine gösterilir; beğenmezse değişir.
-- **Genel yetki** (24 Ekim 2026: "Sana genel yetki veriyorum, benim kararımı bekleme, inisiyatif alarak en iyi
-  sonucu çıkart"). Ürün kararları sorulmadan, en iyi bilinen yolla verilir ve sahibine ne yapıldığı bildirilir. Kalıcı
-  kurallar (CLAUDE.md, mevcut testlere dokunmama, bağımsız inceleme, `main`'e push yok) aynen geçerlidir.
+- Görsel tasarım onayı (24 Ekim 2026'da Claude'a verilmişti) genel yetkiyle birlikte sahibine döndü: her görsel iş
+  önizlenip sahibine gösterilir, onayı alınır.
+- ~~Genel yetki~~ (24 Ekim 2026) **geri alındı** (sahibi: "Sen benim dediğim gibi yap. Genel yetkiyi geri alıyorum."):
+  ürün ve görsel kararlar sahibine sorulur (seçenek + öneri); görsel işler önizleme videosuyla gösterilir.
+- Sahibinin kullanım limiti az: aynı anda **tek ajan**; küçük işler ajansız; gereksiz bekleme/denetim döngüsü yok.
+- **Mevcut testler** silinmez, atlanmaz, gevşetilmez; yeni test yanlışsa düzeltilip nedeni söylenir; mevcut test
+  bozulursa hangisi ve neden önce sahibine söylenir (sahibinin kuralı).
 - İşe yarayan GitHub repoları kullanılabilir; lisans kuralıyla birlikte.
 - YouTube'dan indirme (yt-dlp) önerilmedi (telif, çevrimdışı ilkesi, kalite); yasal "klasör izleme" önerildi;
   karar Faz 4 sonrasına kaldı.

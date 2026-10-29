@@ -3,13 +3,20 @@
 Her oturumda `CLAUDE.md` ve `BILGI-BIRIKIMI.md`'den sonra okunur. Yalnızca **şu an açık** olanlar durur: iş bitince
 satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince eklenir. Sınır 60 satır (`check:docs`).
 
-## İş sırası (proje sahibinin kararı, 23 Ekim 2026)
+## İş sırası (proje sahibinin kararı, 29 Ekim 2026)
 
-1. Sahnelerin baştan tasarımı (`docs/arastirma/sahneler-v2/`; sahibinin kararı 29 Ekim): ilk sahne Işık Ustası,
-   "Sakin / Normal / Çılgın" yoğunluk ayarı, sözler sahnenin içinde. Eski sahneler yenileri gelince kaldırılır.
-   Sahibinin ekran kartı RTX 4050 Laptop.
-2. Davul/bas/vokal ayrıştırma: Spleeter; önce eğitimsiz iyileştirmeler ölçülür.
-3. Otomatik DJ (Bölüm II), Aşama A'dan; her aşama ayrı oturumda (`docs/gorev/20-BOLUM-II-DJ.md`).
+1. Tempo oktav hataları (yarım tempolu dubstep 128, drum and bass 87).
+2. Drop yakalama baştan: her drop türünü içeren, anı bilinen deneme seti; geliştirme/doğrulama ayrı; ±1 vuruş,
+   yanlış ve kaçan drop oranı; sahibinin işaretleriyle doğrulama.
+3. Söz zamanlaması: programın ve ses gecikmesinin payı ölçülür ve düzeltilir (hedef < 1 kare).
+4. "Kendi resmin" çubuklarının tepkisi (iş tanımı: orta bölge 2–10 kat ölü; önce teşhis, gerekirse model baştan).
+5. Ses motoru denetimi: 64-bit, EQ, AutoEq, EBU R128, bit-perfect, ABX (var mı, testi, matematiği) + birleşmemiş
+   DENETIM-3 (dallar `ccr-a69bd749-djgi3v`, `ccr-a46535b3-m3v2i5`) + #56.
+6. Görev kitabı (`docs/gorev/`) ile ROADMAP/ACIK-KONULAR çelişkileri: tek doğruluk kaynağı ROADMAP + ACIK-KONULAR.
+7. Kaynak ayrıştırma: Spleeter ve Demucs karşılaştırması (kalite, hız, ağırlık lisansı birincil kaynaktan).
+8. Sözlerin sese otomatik hizalanması (vokal ayrıştırmadan sonra).
+9. Sahneler v2 (Işık Ustası hazır, sahibinin onayı bekleniyor; `docs/arastirma/sahneler-v2/`), sonra Otomatik DJ
+   (Bölüm II, Aşama A'dan; her aşama ayrı oturumda).
 
 ## Proje sahibinden beklenenler
 
@@ -21,10 +28,13 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 - Şarkı kapağı (0.0.82) küçükleri: kütüphaneden çıkan şarkının kapağı `kapaklar/`'da kalır (temizlik yok); arama
   süzgeci açıkken "sıradaki" kapağı albümsüz anahtarla okunur, şarkı başlayınca bir kez daha okunur.
 
-- Güvenlik uyarıları (Scorecard, 8): SAST → CodeQL ekle; Vulnerabilities → OSV'nin gördüğü bağımlılık uyarıları
-  (deny.toml'daki yok sayılanlar dahil) güncellenir; Branch-Protection → sahibinin GitHub ayarı; Code-Review (tek
-  kişilik proje), Maintained (depo 90 günden genç), Binary-Artifacts (`hlslparser.wasm`, CI baytı baytına aynı
-  derlendiğini denetler), CII-Best-Practices, Fuzzing → açıklamayla kapatılır ya da sonra.
+- Güvenlik uyarıları (Scorecard): SAST (CodeQL eklendi) ve Branch-Protection (sahibinin kuralı) bir sonraki
+  taramada kapanmalı; Code-Review ve Binary-Artifacts sahibi "Won't fix" ile kapattı; Maintained zamanla kapanır;
+  Vulnerabilities (Linux'a özgü GTK bağımlılığı), Fuzzing, CII-Best-Practices sonra.
+- `check:scenes`'teki "Resim seç…" tıklama denetimi #140'ta bir kez 5 sn'de tıklayamadı (yeniden çalıştırmada geçti);
+  ayrıntılı neden artık günlüğe yazılıyor: yinelenirse günlükteki nedene göre düzeltilir.
+- `PlaylistPage` çift tıklama testi (`playlists.test.tsx`) yüklü makinede bir kez düştü: `playRef` `useEffect`'te
+  güncelleniyor; `useLayoutEffect` önerildi (önce yakalayan test).
 - Kütüphane taslakları: Gökyüzü onaylandı ("fena olmuş"); kapak ve sanatçı levhalarının renk düzeyi soruldu, cevap
   yok. Araştırma `docs/arastirma/kutuphane-arastirma.md`.
 
