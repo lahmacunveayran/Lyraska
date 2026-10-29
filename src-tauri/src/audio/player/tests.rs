@@ -1,4 +1,10 @@
+use std::time::Instant;
+
+use rtrb::RingBuffer;
+
+use super::session::{derive_state, RING_SECONDS};
 use super::*;
+use crate::audio::output;
 use crate::audio::test_util::{temp_path, write_wav};
 
 fn test_segment() -> Segment {

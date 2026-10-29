@@ -13,12 +13,12 @@
 //! değişkenler üzerinden konuşur; gerçek zamanlı çıkış hiçbir zaman beklemez.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::thread::JoinHandle;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use rtrb::{Producer, RingBuffer};
+use rtrb::Producer;
 use serde::Serialize;
 
 use super::abx::{AbxChoice, AbxRequest, AbxSource, AbxStatus, AbxTest, PreparedAbx};
@@ -26,12 +26,12 @@ use super::crossfeed::{CrossfeedControl, CrossfeedSettings};
 use super::decode::{Decoder, TrackInfo};
 use super::eq::{protection_db, Design, EqControl, EqSettings, EqState};
 use super::normalize::{LoudnessControl, TrackLevels};
-use super::output::{self, DeviceInfo, OutputMode, OutputSpec};
+use super::output::{DeviceInfo, OutputMode, OutputSpec};
 use super::peq::{HeadphoneSettings, ParametricSettings, PeqControl};
 use super::render::RenderControls;
 use super::resample::Converter;
 use super::spectrum;
-use super::waveform::{self, Decimator, WaveformTap, Window};
+use super::waveform::{self, Decimator};
 use super::{AudioError, Sample};
 use crate::analysis::annotation::Annotation;
 use crate::analysis::background::ForegroundGuard;
@@ -44,213 +44,11 @@ use crate::analysis::map_file::{
 use crate::analysis::spectrogram::{self, Spectrogram, BANDS};
 use crate::diagnostics;
 
-/// Halka tamponun süresi. Çözme iş parçacığı bu kadar önden gider.
-const RING_SECONDS: usize = 2;
-/// Çıkış başlamadan önce tamponda olması istenen ses (takılmasız başlangıç için).
-const PREFILL_SECONDS: f64 = 0.25;
-/// Ön dolum için en fazla bu kadar beklenir.
-const PREFILL_TIMEOUT: Duration = Duration::from_secs(3);
-/// Tampon doluyken çözme iş parçacığının bekleme aralığı.
-const DECODE_IDLE: Duration = Duration::from_millis(5);
-/// Şarkı değiştirirken, sararken ya da durdururken sesin kısılmasının hoparlöre
-/// ulaşması için en fazla bu kadar beklenir (aygıt arabelleği ~100 ms + geçiş).
-pub(crate) const FADE_OUT_TIMEOUT: Duration = Duration::from_millis(300);
+mod session;
 
-/// İş parçacıkları arasında paylaşılan durum. Yalnızca atomik değişkenler
-/// gerçek zamanlı yolda kullanılır; `error` kilidi yalnızca hata anında alınır.
-#[derive(Debug, Default)]
-pub struct SharedState {
-    /// Kullanıcı duraklattı.
-    pub paused: AtomicBool,
-    /// Oturum kapanıyor; iş parçacıkları çıkmalı.
-    pub stop: AtomicBool,
-    /// Tamponda çalmaya başlamaya yetecek kadar veri var.
-    pub prefilled: AtomicBool,
-    /// Dosyanın sonuna gelindi (ya da çözme hatayla bitti).
-    pub decode_done: AtomicBool,
-    /// Son örnek de hoparlörden çıktı.
-    pub ended: AtomicBool,
-    /// Duraklatma geçişi hoparlöre ulaştı (ses tamamen sustu): oturum "tık" sesi
-    /// olmadan kapatılabilir. Çıkış iş parçacığı yazar.
-    pub faded_out: AtomicBool,
-    /// Oturum başından beri hoparlörden çıkan çıkış karesi sayısı (aygıt hızında).
-    /// Çıkış iş parçacığı yazar; şarkı konumu buradan [`Segment`]'lerle hesaplanır.
-    pub output_heard: AtomicU64,
-    /// Oturumda çalınan şarkılar: boşluksuz geçişte çözme iş parçacığı yenisini ekler.
-    /// Gerçek zamanlı yolda kullanılmaz.
-    segments: Mutex<Vec<Segment>>,
-    /// Boşluksuz geçiş için sıradaki şarkı; çözme iş parçacığı şarkı bitince alır.
-    next_path: Mutex<Option<PathBuf>>,
-    /// Çalma sırasında veri yetişmediği tur sayısı (hedef: her zaman 0).
-    pub underruns: AtomicU64,
-    /// Varsayılan ses aygıtı değişti ya da koptu (kulaklık takıldı/çıkarıldı): oynatıcı oturumu
-    /// yeni varsayılan aygıtta kaldığı yerden yeniden açar. Çıkış tarafı yazar (SES-01).
-    pub device_changed: AtomicBool,
-    /// Ses işlemenin ayarları: ekolayzer, kulaklık düzeltmesi, eşitleme (oynatıcı boyunca
-    /// aynı; her oturum paylaşır) ve bu oturumdaki şarkıların ses yükseklikleri.
-    pub controls: RenderControls,
-    /// Görseller için dalga biçimi: çözme iş parçacığı yazar, komut iş parçacığı okur. Gerçek
-    /// zamanlı yolda kullanılmaz. Oturuma aittir: sarmada ve şarkı açılınca yenisi kurulur.
-    waveform: WaveformTap,
-    error: Mutex<Option<String>>,
-}
-
-impl SharedState {
-    fn new(paused: bool, first: Segment, controls: RenderControls) -> Self {
-        let state = Self {
-            controls,
-            segments: Mutex::new(vec![first]),
-            waveform: WaveformTap::new(),
-            ..Self::default()
-        };
-        state.paused.store(paused, Ordering::Release);
-        state
-    }
-
-    /// Şarkı bilgisi olmayan bir oturum için (ör. kör dinleme testi).
-    pub(crate) fn with_controls(paused: bool, controls: RenderControls) -> Self {
-        let state = Self {
-            controls,
-            ..Self::default()
-        };
-        state.paused.store(paused, Ordering::Release);
-        state
-    }
-
-    /// Şu an duyulan şarkı ve o şarkıdaki konumu (saniye).
-    fn now_playing(&self) -> Option<(TrackInfo, f64)> {
-        self.playing_at(0.0)
-    }
-
-    /// Duyulan andan `offset_secs` ötedeki (eksi: önceki) şarkı ve konumu. Görseller ekran
-    /// gecikmesi kadar ileriden, ses aygıtının ek gecikmesi kadar geriden okunur; boşluksuz
-    /// geçişte şarkı da bu kaydırılmış ana göre seçilir ki Bluetooth'ta yeni şarkının ilk
-    /// 200 ms'inde eski şarkının sonu gösterilsin, yeni şarkı 0. karede donmasın.
-    fn playing_at(&self, offset_secs: f64) -> Option<(TrackInfo, f64)> {
-        let heard = self.output_heard.load(Ordering::Acquire);
-        let segments = self.segments.lock().ok()?;
-        let first = segments.first()?;
-        // Aygıt hızı oturum boyunca sabittir: şarkı hızı / oran.
-        let device_rate = f64::from(first.info.sample_rate.max(1)) / first.rate_ratio.max(1e-9);
-        let target = (heard as f64 + offset_secs * device_rate).max(0.0);
-        let segment = segments
-            .iter()
-            .rev()
-            .find(|s| s.first_output_frame as f64 <= target)
-            .unwrap_or(first);
-        let frames = segment.start_frame as f64
-            + (target - segment.first_output_frame as f64).max(0.0) * segment.rate_ratio;
-        let mut seconds = frames / f64::from(segment.info.sample_rate.max(1));
-        if let Some(duration) = segment.info.duration_secs {
-            seconds = seconds.min(duration);
-        }
-        Some((segment.info.clone(), seconds))
-    }
-
-    /// Akışın `heard`. karesinden `offset_secs` ötedeki ana kadarki son 1024 örneğin dalga
-    /// biçimi (karışım, sol, sağ; [`waveform::to_bytes`]). Her örneğe ait olduğu şarkının
-    /// −14 LUFS eşitleme kazancı uygulanır (kullanıcı eşitlemeyi kapatmış olsa da: sessiz
-    /// kaydedilmiş şarkıda da dalga görünsün); boşluksuz geçişte kazanç tam şarkı sınırında
-    /// değişir. Çözme henüz başlamadıysa `None`.
-    fn waveform_at(&self, heard: u64, offset_secs: f64) -> Option<Vec<u8>> {
-        let window = self.waveform.read(heard, offset_secs)?;
-        let gains = self.window_gains(&window)?;
-        Some(waveform::to_bytes(&window, &gains))
-    }
-
-    /// Pencereye düşen şarkıların (ilk örneğin sırası, doğrusal kazanç) çiftleri: her şarkının
-    /// −14 LUFS eşitleme kazancı ([`waveform::to_bytes`], [`waveform::mono_mix`]).
-    fn window_gains<const N: usize>(&self, window: &Window<N>) -> Option<Vec<(i64, f64)>> {
-        let levels = &self.controls.levels;
-        let last = window.first + N as i64 - 1;
-        let segments = self.segments.lock().ok()?;
-        let starts: Vec<i64> = segments
-            .iter()
-            .map(|s| window.index_at_frame(s.first_output_frame))
-            .collect();
-        Some(
-            starts
-                .iter()
-                .enumerate()
-                // Yalnızca pencereye düşen şarkılar.
-                .filter(|&(i, &start)| {
-                    start <= last && starts.get(i + 1).is_none_or(|&next| next > window.first)
-                })
-                .map(|(i, &start)| {
-                    let gain_db = levels.level(i, true).gain_db;
-                    (start, 10f64.powf(gain_db / 20.0))
-                })
-                .collect(),
-        )
-    }
-
-    /// Akışın `heard`. karesinden `offset_secs` ötedeki anın spektrum çubukları
-    /// ([`spectrum::bar_levels`]): pencere o anın üstüne ortalanır, her örneğe kendi şarkısının
-    /// eşitleme kazancı uygulanır ([`Self::waveform_at`] gibi). Çözme henüz başlamadıysa `None`.
-    fn spectrum_at(&self, heard: u64, offset_secs: f64) -> Option<Vec<f32>> {
-        let half = (spectrum::WINDOW / 2) as f64 / f64::from(waveform::WAVEFORM_RATE);
-        let window = self
-            .waveform
-            .read_window::<{ spectrum::WINDOW }>(heard, offset_secs + half)?;
-        let gains = self.window_gains(&window)?;
-        Some(spectrum::bar_levels(&waveform::mono_mix(&window, &gains)))
-    }
-
-    /// Şu an duyulan şarkının oturumdaki sırası.
-    fn now_playing_index(&self) -> Option<usize> {
-        let heard = self.output_heard.load(Ordering::Acquire);
-        let segments = self.segments.lock().ok()?;
-        Some(
-            segments
-                .iter()
-                .rposition(|s| s.first_output_frame <= heard)
-                .unwrap_or(0),
-        )
-    }
-
-    fn set_next(&self, path: Option<PathBuf>) {
-        if let Ok(mut next) = self.next_path.lock() {
-            *next = path;
-        }
-    }
-
-    fn take_next(&self) -> Option<PathBuf> {
-        self.next_path.lock().ok().and_then(|mut n| n.take())
-    }
-
-    fn push_segment(&self, segment: Segment) {
-        if let Ok(mut segments) = self.segments.lock() {
-            segments.push(segment);
-        }
-    }
-
-    /// İlk hatayı kaydeder (sonrakiler genellikle ilkinin sonucudur).
-    pub fn fail(&self, message: String) {
-        if let Ok(mut error) = self.error.lock() {
-            if error.is_none() {
-                crate::diagnostics::error(&format!("Çalma hatası: {message}"));
-            }
-            error.get_or_insert(message);
-        }
-    }
-
-    pub fn error(&self) -> Option<String> {
-        self.error.lock().ok().and_then(|e| e.clone())
-    }
-}
-
-/// Bir oturumda çalınan bir şarkı: çıkış akışında nerede başladığı ve konumun
-/// nasıl hesaplanacağı.
-#[derive(Debug, Clone)]
-struct Segment {
-    info: TrackInfo,
-    /// Şarkının ilk karesinin çıkış akışındaki yeri (aygıt karesi).
-    first_output_frame: u64,
-    /// O noktadaki şarkı konumu (şarkı karesi; sarmada sıfırdan farklı).
-    start_frame: u64,
-    /// Bir çıkış karesinin kaç şarkı karesine denk geldiği (şarkı hızı / aygıt hızı).
-    rate_ratio: f64,
-}
+pub use session::SharedState;
+pub(crate) use session::{wait_for_fade_out, wait_for_prefill, FADE_OUT_TIMEOUT};
+use session::{Segment, Session, DECODE_IDLE, PREFILL_SECONDS};
 
 /// Oynatıcının durumu.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -337,180 +135,6 @@ pub struct StructureNow {
     pub section: Option<usize>,
 }
 
-/// Bir şarkının çalınması için kurulan iş parçacıkları ve durumları.
-struct Session {
-    /// Oturumun açıldığı şarkı (boşluksuz geçişten sonra çalan şarkı farklı olabilir).
-    info: TrackInfo,
-    path: SignalPath,
-    shared: Arc<SharedState>,
-    decode: Option<JoinHandle<()>>,
-    output: Option<JoinHandle<()>>,
-}
-
-impl Session {
-    /// Oturumu başlatır. `start_secs` verilirse şarkının o noktasından başlar.
-    /// `controls`: oynatıcının ayarları (oturumun şarkı seviyeleri burada kurulur);
-    /// `analysis`: ilk şarkının analizi (ses yüksekliği ölçümü buradan okunur);
-    /// `bit_perfect`: aygıtı özel modda, şarkının kendi hızında açmayı dene. Aygıt bu
-    /// biçimi desteklemiyorsa paylaşımlı modda açılır ve nedeni sinyal yolunda yazar;
-    /// destekliyor ama akış açılamıyorsa [`AudioError::Exclusive`] döner.
-    fn start(
-        path: &Path,
-        autoplay: bool,
-        start_secs: Option<f64>,
-        next: Option<PathBuf>,
-        controls: &RenderControls,
-        analysis: Option<Arc<Spectrogram>>,
-        bit_perfect: bool,
-    ) -> Result<Self, AudioError> {
-        let mut decoder = Decoder::open(path)?;
-        let start_frame = match start_secs {
-            Some(secs) if secs > 0.0 => decoder.seek(secs)?,
-            _ => 0,
-        };
-        let info = decoder.info().clone();
-        let device = output::device_info();
-        let channels = Converter::output_channels(info.channels);
-        let (mode, notice) = if bit_perfect {
-            match output::exclusive_format(info.sample_rate, channels) {
-                // Aygıtın biçimi şarkıdan dar olamaz: 24 bit şarkı 16 bit aygıtta bit bit aynı
-                // çıkmaz (yuvarlanır); o zaman "bit-perfect" denmez, paylaşımlı yol kullanılır (#79).
-                Ok(format) => match decoder.source_bits() {
-                    Some(bits) if u32::from(format.valid_bits) < bits => (
-                        OutputMode::Shared,
-                        Some(format!(
-                            "şarkı {bits} bit, aygıt özel modda en çok {} bit kabul ediyor; \
-                             bit-perfect yerine paylaşımlı yol kullanıldı",
-                            format.valid_bits
-                        )),
-                    ),
-                    _ => (OutputMode::Exclusive(format), None),
-                },
-                Err(reason) => (OutputMode::Shared, Some(reason)),
-            }
-        } else {
-            (OutputMode::Shared, None)
-        };
-        let spec = OutputSpec {
-            sample_rate: match mode {
-                // Bit-perfect: şarkının kendi hızında, dönüştürme yok.
-                OutputMode::Exclusive(_) => info.sample_rate,
-                // Aygıtın kendi hızında çal: dönüştürmeyi Windows değil, biz yaparız.
-                OutputMode::Shared => device.as_ref().map_or(info.sample_rate, |d| d.sample_rate),
-            },
-            channels,
-            mode,
-        };
-        let converter = Converter::new(
-            info.sample_rate,
-            info.channels,
-            spec.sample_rate,
-            spec.channels,
-        )?;
-        let mut path = signal_path(device, &info, spec);
-        path.notice = notice;
-        let capacity = spec.sample_rate as usize * spec.channels * RING_SECONDS;
-        let (producer, consumer) = RingBuffer::new(capacity);
-        let first = Segment {
-            info: info.clone(),
-            first_output_frame: 0,
-            start_frame,
-            rate_ratio: f64::from(info.sample_rate) / f64::from(spec.sample_rate),
-        };
-        let levels = Arc::new(TrackLevels::new());
-        // Ölçüm hazırsa (önbellek, sarma) ilk örnekten uygulanır; yalnızca erken tahmin varsa
-        // onunla başlanır, kesin ölçüm gelince kazanç yumuşakça düzelir.
-        match analysis.as_ref() {
-            Some(a) => match a.measured_loudness() {
-                Some(measured) => levels.set_loudness(0, measured),
-                None => {
-                    if let Some(early) = a.early_loudness() {
-                        levels.set_loudness_estimate(0, early);
-                    }
-                }
-            },
-            // Analiz hiç başlatılamadı (dosya ikinci kez açılamadı): ölçüm gelmeyecek; ilk ses
-            // boşuna bekletilmez, eşitleme bu şarkıya uygulanmaz (SES-04).
-            None => levels.set_loudness(0, None),
-        }
-        if let Some(peaks) = analysis.as_ref().and_then(|a| a.bass_peaks()) {
-            levels.set_bass_peaks(0, &peaks);
-        }
-        let shared = Arc::new(SharedState::new(
-            !autoplay,
-            first,
-            RenderControls {
-                levels,
-                bit_perfect: matches!(mode, OutputMode::Exclusive(_)),
-                ..controls.clone()
-            },
-        ));
-        shared.set_next(next);
-
-        let decode_shared = Arc::clone(&shared);
-        let decode = std::thread::Builder::new()
-            .name("lyraska-cozme".to_owned())
-            .spawn(move || {
-                decode_loop(decoder, converter, spec, producer, &decode_shared, analysis)
-            })
-            .map_err(|e| AudioError::Decode(e.to_string()))?;
-
-        wait_for_prefill(&shared, PREFILL_TIMEOUT);
-
-        let output = match output::spawn(spec, consumer, Arc::clone(&shared)) {
-            Ok(handle) => handle,
-            Err(error) => {
-                shared.stop.store(true, Ordering::Release);
-                let _ = decode.join();
-                return Err(error);
-            }
-        };
-
-        Ok(Self {
-            info,
-            path,
-            shared,
-            decode: Some(decode),
-            output: Some(output),
-        })
-    }
-
-    /// Şu an duyulan şarkı ve konumu.
-    fn now_playing(&self) -> (TrackInfo, f64) {
-        self.shared
-            .now_playing()
-            .unwrap_or_else(|| (self.info.clone(), 0.0))
-    }
-
-    /// Duyulan andan `offset_secs` ötedeki şarkı ve konumu (görseller için).
-    fn playing_at(&self, offset_secs: f64) -> (TrackInfo, f64) {
-        self.shared
-            .playing_at(offset_secs)
-            .unwrap_or_else(|| (self.info.clone(), 0.0))
-    }
-
-    fn state(&self) -> PlaybackState {
-        derive_state(
-            self.shared.error().is_some(),
-            self.shared.ended.load(Ordering::Acquire),
-            self.shared.paused.load(Ordering::Acquire),
-        )
-    }
-}
-
-impl Drop for Session {
-    fn drop(&mut self) {
-        self.shared.stop.store(true, Ordering::Release);
-        // Önce çıkış: ses aygıtı hemen bırakılsın.
-        if let Some(handle) = self.output.take() {
-            let _ = handle.join();
-        }
-        if let Some(handle) = self.decode.take() {
-            let _ = handle.join();
-        }
-    }
-}
-
 /// Ekranda gösterilecek sinyal yolu.
 fn signal_path(device: Option<DeviceInfo>, info: &TrackInfo, spec: OutputSpec) -> SignalPath {
     SignalPath {
@@ -525,19 +149,6 @@ fn signal_path(device: Option<DeviceInfo>, info: &TrackInfo, spec: OutputSpec) -
             OutputMode::Shared => None,
         },
         notice: None,
-    }
-}
-
-/// Oturum işaretlerinden kullanıcıya gösterilecek durumu çıkarır.
-fn derive_state(has_error: bool, ended: bool, paused: bool) -> PlaybackState {
-    if has_error {
-        PlaybackState::Error
-    } else if ended {
-        PlaybackState::Ended
-    } else if paused {
-        PlaybackState::Paused
-    } else {
-        PlaybackState::Playing
     }
 }
 
@@ -2002,20 +1613,6 @@ fn attach_next(shared: &SharedState, spec: OutputSpec, info: TrackInfo, first_ou
     });
     // Eşitleme kazancı tam bu karede yeni şarkınınkine geçer (ölçümünü oynatıcı yazar).
     shared.controls.levels.begin_track(first_output_frame);
-}
-
-pub(crate) fn wait_for_fade_out(shared: &SharedState, timeout: Duration) {
-    let deadline = Instant::now() + timeout;
-    while !shared.faded_out.load(Ordering::Acquire) && Instant::now() < deadline {
-        std::thread::sleep(Duration::from_millis(2));
-    }
-}
-
-pub(crate) fn wait_for_prefill(shared: &SharedState, timeout: Duration) {
-    let deadline = Instant::now() + timeout;
-    while !shared.prefilled.load(Ordering::Acquire) && Instant::now() < deadline {
-        std::thread::sleep(Duration::from_millis(2));
-    }
 }
 
 #[cfg(test)]
