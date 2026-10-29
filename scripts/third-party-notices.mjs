@@ -91,16 +91,13 @@ function rustAuthors() {
 }
 
 /**
- * "Ad <e-posta> (adres)" → "Ad": bildirimde yalnızca ad yazılır. Silme bir şey kalmayana dek
- * tekrarlanır ("<<a>b>" bir geçişte "<b>" bırakırdı); eşi olmayan "<" ve ">" de atılır.
+ * "Ad <e-posta> (adres)" → "Ad": bildirimde yalnızca ad yazılır; ilk "<" ya da "(" sonrası atılır
+ * (düzenli ifadeyle silme iç içe eklerde yarım kalabilir).
  */
 function authorName(author) {
-  let text = typeof author === "string" ? author : (author?.name ?? "");
-  for (let previous = ""; previous !== text;) {
-    previous = text;
-    text = text.replace(/<[^<>]*>/g, "").replace(/\([^()]*\)/g, "");
-  }
-  return text.replace(/[<>]/g, "").trim();
+  const text = typeof author === "string" ? author : (author?.name ?? "");
+  const cut = text.search(/[<(]/);
+  return (cut < 0 ? text : text.slice(0, cut)).replace(/>/g, "").trim();
 }
 
 /**
