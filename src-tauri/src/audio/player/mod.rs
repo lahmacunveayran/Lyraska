@@ -11,6 +11,21 @@
 //!
 //! İş parçacıkları birbirleriyle yalnızca kilitsiz halka tampon ve atomik
 //! değişkenler üzerinden konuşur; gerçek zamanlı çıkış hiçbir zaman beklemez.
+//!
+//! Bu dosyada oynatıcının genel yüzü ([`Player`], durum özeti) durur; işler sorumluluğa göre
+//! alt modüllerdedir:
+//!
+//! - `session`: oturum, iş parçacıkları, halka tampon, paylaşılan durum
+//! - `decode_thread`: çözme iş parçacığı (halka tamponu doldurur)
+//! - `next_track`: boşluksuz geçiş (sıradaki şarkı)
+//! - `transition`: oturum geçişi (aç, sar, durdur, aygıt değişimi; kilit dışında hazırlık)
+//! - `normalization`: ses yüksekliği eşitlemesi (−14 LUFS) ve taşma boşluğu
+//! - `bit_perfect`: özel mod kararı, sinyal yolu, çalma seçenekleri
+//! - `controls`: ekolayzer, kulaklık düzeltmesi, parametrik EQ, crossfeed
+//! - `track_analysis`: çalan ve sıradaki şarkının analizi
+//! - `song_maps`: şarkı haritası dışa/içe aktarma
+//! - `visuals`: görsel verisi, dalga biçimi, ince spektrum
+//! - `blind_test`: kör dinleme testi (ABX) sırasında şarkının durması ve geri gelmesi
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
