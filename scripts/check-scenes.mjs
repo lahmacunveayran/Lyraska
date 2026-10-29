@@ -1463,8 +1463,9 @@ async function checkPhotoChooseButton(browser) {
     problems.push(
       `${label}: tıklanamıyor ya da pencere açılmıyor (${String(e)
         .split("\n")
-        .filter((l, i) => i === 0 || l.includes("intercepts"))
-        .slice(0, 2)
+        // Playwright'ın bekleme günlüğünden nedeni gösteren satırlar (örten öğe, kararsız, görünmez).
+        .filter((l, i) => i === 0 || /intercepts|element is|waiting for|retrying/.test(l))
+        .slice(0, 6)
         .join(" · ")})`,
     );
   }
