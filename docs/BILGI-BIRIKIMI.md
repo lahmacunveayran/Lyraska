@@ -119,6 +119,15 @@ kısaltılır.
   Doğrusu: tarayıcının çizdiği gibi çizen test + her karede ışık bütçesi (`limitExtents`).
 - **Görsel taklitte tahmin değil ölçüm:** sahibinin ekran kaydında ses de var; çubuklar kare kare ölçülüp sesle
   hizalanınca eksen doğrusal 20–2000 Hz çıktı (tahminle logaritmik yapılmıştı, bas bu yüzden düzdü).
+- **React 19'da `requestAnimationFrame` içindeki `setState` o kareye yetişmez** (29 Ekim 2026, söz zamanlaması): güncelleme
+  kare boyandıktan sonra işlenir, ekrandaki konum bir kare geride kalır (deneyle 60 karenin 0'ı aynı karede);
+  `flushSync` ile 60/60. Her karede yeniden hedeflenen CSS geçişi (ör. `transition: opacity 0.12s`) ~geçiş süresi
+  kadar gecikme süzgecidir: zamandan hesaplanan değere geçiş konmaz. Konum karenin damgasıyla okunur (`frameTime`).
+- **Başsız Chromium'da kare hızı ekran kartı işinden düşer:** sahne ve cam katmanlar (`backdrop-filter`) yazılımla
+  çizilince kareler ~110 ms'ye çıkar, ana iş parçacığı boşta görünür (profil "idle"). Zamanlama denetimi kare
+  hızından bağımsız yazılır (olayın göründüğü karenin aralığı); `waitForFunction` yoklaması yerine sayfa içinde beklenir.
+- Testler arasında sızan sahte çekirdek durumu (`usePlayer.test.ts`'te `backend.busy`) sonraki testi sessizce
+  kilitler (zaman aşımı): yeni `describe` kendi `beforeEach`'iyle sıfırlar.
 - Betikle metin değiştirirken eşleşme sayısı denetlenir (`count == 1`): bir CSS değişikliği Ayarlar başlıklarının
   büyük harfini de sildi.
 

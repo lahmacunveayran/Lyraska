@@ -782,18 +782,23 @@ kbd {
   line-height: 1.18;
   letter-spacing: -0.01em;
   color: var(--ink);
-  transition: opacity 0.12s linear;
 }
 
+/* Kelime söylendiği karede yanar: saydamlığın CSS geçişi onu geciktirirdi (söz zamanlaması). */
 .lyrics__word {
   display: inline-block;
   white-space: pre;
   opacity: 0.34;
-  transition: opacity 0.12s linear;
 }
 
 .lyrics__word.is-sung {
   opacity: 1;
+}
+
+/* Epilepsi güvenli modu: saydamlık yumuşak geçişle değişir (zamanlamadan önce güvenli mod). */
+.lyrics.is-safe .lyrics__line,
+.lyrics.is-safe .lyrics__word {
+  transition: opacity 0.12s linear;
 }
 
 /* Söylenen kelime: belirir ve alttan yerine oturur (yalnızca konum ve boyut; parlaklık sabit). */
@@ -824,8 +829,8 @@ kbd {
     transform: none;
   }
 
-  .lyrics__line,
-  .lyrics__word {
+  .lyrics.is-safe .lyrics__line,
+  .lyrics.is-safe .lyrics__word {
     transition: none;
   }
 }

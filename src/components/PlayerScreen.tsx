@@ -43,6 +43,7 @@ import { useCrossfeed } from "../hooks/useCrossfeed";
 import { useMapFile } from "../hooks/useMapFile";
 import { useLyrics } from "../hooks/useLyrics";
 import { LyricsOverlay } from "./LyricsOverlay";
+import { lyricTime } from "../lib/lyrics";
 import type { Lyrics } from "../lib/backend";
 import { useIdle } from "../hooks/useIdle";
 import { useKeyboardFocusWithin } from "../hooks/useKeyboardFocus";
@@ -621,7 +622,7 @@ interface LiveChromeProps {
   songKey: KeyMap | null;
   /** Gösterilecek şarkı sözleri (kapalıysa ya da yoksa `null`). */
   lyrics: Lyrics | null;
-  /** Ses aygıtının ek gecikmesi (saniye): sözler görseller gibi bu kadar geriden okunur. */
+  /** Ses aygıtının ek gecikmesi (saniye): sözler görseller gibi bu kadar geriden okunur (`lyricTime`). */
   audioDelaySecs: number;
   soundShaped: boolean;
   safe: boolean;
@@ -661,7 +662,11 @@ function LiveChrome({
   const { status } = player;
   return (
     <>
-      <LyricsOverlay lyrics={lyrics} positionSecs={position - audioDelaySecs} />
+      <LyricsOverlay
+        lyrics={lyrics}
+        positionSecs={lyricTime(position, audioDelaySecs)}
+        safe={safe}
+      />
       <div className="lower">
         <div className="hero chrome">
           <NowPlaying

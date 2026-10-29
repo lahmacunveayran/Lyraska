@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import type { PlaybackStatus, TrackInfo } from "../lib/backend";
 import { marqueeWindow } from "./Marquee";
 import { ArtistGrid } from "./ArtistGrid";
+import { LyricsOverlay } from "./LyricsOverlay";
 import { spectrumColumns } from "./SpectrumDemo";
 import { textToColumns } from "../lib/dotFont";
 import { clearCoverCache } from "../hooks/useCover";
@@ -3405,6 +3406,13 @@ describe("şarkı sözleri", () => {
       },
     ],
   };
+
+  it("yumuşak saydamlık geçişi yalnızca Epilepsi güvenli modunda (varsayılanda söz tam zamanında)", () => {
+    const { container, rerender } = render(<LyricsOverlay lyrics={synced} positionSecs={83.4} />);
+    expect(container.querySelector(".lyrics")).not.toHaveClass("is-safe");
+    rerender(<LyricsOverlay lyrics={synced} positionSecs={83.4} safe />);
+    expect(container.querySelector(".lyrics")).toHaveClass("is-safe");
+  });
 
   it("çalan satır sahnede kelime kelime; ayardan kapatılır ve hatırlanır", async () => {
     backend.desktop = true;

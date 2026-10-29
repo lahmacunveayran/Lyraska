@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   IDLE_STATUS,
   errorMessage,
@@ -12,7 +13,7 @@ import {
   togglePlayback,
   type PlaybackStatus,
 } from "../lib/backend";
-import { positionAt, reanchor, type ClockAnchor } from "../lib/clock";
+import { frameTime, positionAt, reanchor, type ClockAnchor } from "../lib/clock";
 
 /** Durum sorgulama aralığı. Ekrandaki süre arada saatle akıcı ilerler. */
 const POLL_MS = 250;
@@ -27,8 +28,11 @@ export interface PlayerControls {
    * her karede yeniden çizilmesin diye yalnızca onu gösteren bileşenler kullanır.
    */
   position: number;
-  /** Tam şu anki konum (saat ölçümü; React çizimini beklemez). İşaretleme için. */
-  positionNow: () => number;
+  /**
+   * Tam şu anki konum (saat ölçümü; React çizimini beklemez). İşaretleme için. `at` verilirse o
+   * andaki (`performance.now()` ms; ekran karesinin anı).
+   */
+  positionNow: (at?: number) => number;
   /** Ses çalınabilir mi? (Tarayıcı önizlemesinde hayır.) */
   available: boolean;
   /** Son komut hatası; bir sonraki başarılı komutta temizlenir. */
@@ -83,17 +87,19 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
   }, [options.onEnded]);
 
   /** Şu anki tahmini konum (saniye). */
-  const positionNow = useCallback(() => {
+  const positionNow = useCallback((at: number = now()) => {
     const current = statusRef.current;
     if (!anchor.current) return current.positionSecs;
-    return positionAt(anchor.current, now(), current.track?.durationSecs ?? null);
+    return positionAt(anchor.current, at, current.track?.durationSecs ?? null);
   }, []);
 
   /**
    * Ses motorundan gelen durumu uygular. `exact` ise konum olduğu gibi alınır
    * (komut cevapları); değilse küçük sapmalar yumuşakça düzeltilir (düzenli sorgular).
+   * `at`: konumun ses motorunda okunduğu an (`performance.now()` ms); düzenli sorguda isteğin
+   * gidişiyle yanıtın gelişinin ortası (IPC'nin dönüş yolu konumu geride bırakmasın).
    */
-  const applyStatus = useCallback((next: PlaybackStatus, exact: boolean) => {
+  const applyStatus = useCallback((next: PlaybackStatus, exact: boolean, at: number = now()) => {
     const previous = statusRef.current;
     statusRef.current = next;
     setStatus(next);
@@ -113,8 +119,8 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
     const trackChanged = previous.track?.path !== next.track?.path;
     anchor.current =
       exact || trackChanged
-        ? { position: next.positionSecs, at: now(), running }
-        : reanchor(anchor.current, next.positionSecs, running, now(), duration);
+        ? { position: next.positionSecs, at, running }
+        : reanchor(anchor.current, next.positionSecs, running, at, duration);
     setPosition(positionAt(anchor.current, now(), duration));
   }, []);
 
@@ -238,8 +244,9 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
     const timer = window.setInterval(() => {
       if (inFlight) return;
       inFlight = true;
+      const sentAt = now();
       getPlaybackStatus()
-        .then((next) => !cancelled && applyStatus(next, false))
+        .then((next) => !cancelled && applyStatus(next, false, (sentAt + now()) / 2))
         .catch(() => {
           /* Geçici hata: bir sonraki turda yeniden denenir. */
         })
@@ -326,8 +333,11 @@ export function useLivePosition(
   useEffect(() => {
     if (!playing || typeof window.requestAnimationFrame !== "function") return;
     let raf = 0;
-    const tick = () => {
-      setLive(positionNow());
+    const tick = (frameStamp: number) => {
+      // Konum karenin anında okunur ve bu karede hemen çizilir: React'in sıradan güncellemesi kare
+      // boyandıktan sonra işlenir, ekrandaki konum (sözler, süre) bir kare geride kalırdı.
+      const at = frameTime(frameStamp, now());
+      flushSync(() => setLive(positionNow(at)));
       raf = window.requestAnimationFrame(tick);
     };
     raf = window.requestAnimationFrame(tick);

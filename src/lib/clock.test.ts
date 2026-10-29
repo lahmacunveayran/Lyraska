@@ -1,4 +1,11 @@
-import { CORRECTION, positionAt, reanchor, type ClockAnchor } from "./clock";
+import {
+  CORRECTION,
+  FRAME_TIME_WINDOW_MS,
+  frameTime,
+  positionAt,
+  reanchor,
+  type ClockAnchor,
+} from "./clock";
 
 const playing: ClockAnchor = { position: 10, at: 1000, running: true };
 
@@ -34,5 +41,17 @@ describe("reanchor", () => {
       running: false,
     });
     expect(reanchor(null, 3, true, 1500, 200).position).toBe(3);
+  });
+});
+
+describe("frameTime", () => {
+  it("karenin başlangıcını kullanır: aynı karede önce koşan çizim konumu ileri kaydırmaz", () => {
+    expect(frameTime(1000, 1004)).toBe(1000);
+  });
+
+  it("başka saatten ya da çok eski damgada şimdiki an", () => {
+    expect(frameTime(250, 90_000)).toBe(90_000); // sahne denetiminin sanal saati
+    expect(frameTime(1000, 1000 + FRAME_TIME_WINDOW_MS + 1)).toBe(1000 + FRAME_TIME_WINDOW_MS + 1);
+    expect(frameTime(1010, 1000)).toBe(1000); // gelecekteki damga
   });
 });

@@ -21,6 +21,19 @@ export const SNAP_SECONDS = 0.3;
 /** Küçük sapmanın her bildirimde düzeltilen oranı. */
 export const CORRECTION = 0.25;
 
+/** Karenin zaman damgası bu kadar ms'den eskiyse (ya da gelecekteyse) güvenilmez. */
+export const FRAME_TIME_WINDOW_MS = 50;
+
+/**
+ * Bir ekran karesinin anı (`performance.now()` ms): `requestAnimationFrame`'in verdiği karenin
+ * başlangıcı. Kare, geri çağrı ne zaman koşarsa koşsun bu andan bir kare sonra ekrana çıkar; aynı
+ * karede önce koşan çizimler (sahne) konumu ileri kaydırmasın. Damga başka bir saatten geliyorsa
+ * (sahne denetiminin sanal saati) ya da çok eskiyse şimdiki an kullanılır.
+ */
+export function frameTime(frameStamp: number, now: number): number {
+  return frameStamp <= now && now - frameStamp <= FRAME_TIME_WINDOW_MS ? frameStamp : now;
+}
+
 /** Verilen anda tahmin edilen konum; [0, süre] aralığında. */
 export function positionAt(anchor: ClockAnchor, now: number, duration: number | null): number {
   const elapsed = anchor.running ? Math.max(0, now - anchor.at) / 1000 : 0;

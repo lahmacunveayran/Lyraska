@@ -1438,6 +1438,239 @@ async function photoGlowExtent(browser, scale) {
  * süzgecini ölçeklemez (`glowFilter`). Parlama sınırının modeli σ'yı CSS pikselinde varsayar;
  * DPR 2'de ışıltının taşması DPR 1'dekiyle aynı (en çok 1,5 CSS piksel farkla) olmalı.
  */
+/** Söz zamanlaması denetiminde sözlerin ilk satırının başladığı an (şarkı saniyesi; çalma 60'tan başlar). */
+const LYRIC_CHECK_START = 62;
+/** Ekrana çıkan karenin görünmesine kadar geçen süre (src/lib/lyrics.ts `DISPLAY_LEAD_SECONDS`). */
+const LYRIC_DISPLAY_LEAD = 1 / 60;
+/** Sahte çekirdeğin yanıt gecikmesi (ms; gidiş ve dönüş ayrı ayrı): IPC'nin payı da telafi edilmeli. */
+const LYRIC_IPC_MS = 8;
+/**
+ * Sözün ekrandaki anının sapabileceği en büyük süre (ms; yarım kare): oynatma saatinin tahmini
+ * (bildirimler arası yerel saat, IPC) birkaç ms oynar. Bir kare (16,7 ms) gecikme bunu aşar.
+ */
+const LYRIC_TOLERANCE_MS = 8;
+
+/**
+ * Denetimin sözleri: satırlar arasında boşluk var (satır söner, sıradaki belirir); her satırda dört
+ * kelime, her biri 0,2 sn. Biçim çekirdeğin `Lyrics` türü (src/lib/bindings/Lyrics.ts).
+ */
+function lyricCheckLyrics() {
+  const lines = Array.from({ length: 6 }, (_, i) => {
+    const start = LYRIC_CHECK_START + i * 1.5;
+    const words = ["Bir ", "iki ", "üç ", `dört${i}`].map((text, k) => ({
+      start: start + k * 0.2,
+      end: start + (k + 1) * 0.2,
+      text,
+    }));
+    return {
+      start,
+      end: start + 0.8,
+      text: words.map((w) => w.text).join(""),
+      translation: null,
+      words,
+      estimated: false,
+    };
+  });
+  return { source: "sidecar", synced: true, lines };
+}
+
+/**
+ * Sözler sesle tam zamanında mı (src/lib/lyrics.ts): gerçek tarayıcıda, sanal saat olmadan; sahte
+ * çekirdeğin konumu gerçek zamanla ilerler, yanıtları IPC gibi gecikir. Her karede ekrana çıkacak olan
+ * (boyamadan hemen önce, `ResizeObserver` anında; CSS geçişleri dahil hesaplanmış saydamlık) okunur ve
+ * o kare ekranda göründüğünde duyulan anla karşılaştırılır: kelime söylendiği karede yanmalı, satır
+ * belirip sönerken saydamlığı yarıyı doğru karede geçmeli. Ses aygıtı gecikmesi ayarı (100 ms) sözleri
+ * de o kadar geciktirmeli.
+ */
+async function checkLyricsTiming(browser, delayMs) {
+  const label = `Söz zamanlaması · ses gecikmesi ${delayMs} ms`;
+  // Küçük pencere: ekran kartsız makinede de sahne her karede çizilebilsin (ölçüm kare hızına bağlı).
+  const page = await browser.newPage({
+    viewport: { width: 640, height: 430 },
+    deviceScaleFactor: SCALE,
+  });
+  page.setDefaultTimeout(SLOW);
+  await page.route("**/*", async (route) => {
+    if (route.request().resourceType() !== "document") return route.continue();
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      headers: { ...response.headers(), "content-security-policy": APP_CSP },
+    });
+  });
+  const problems = [];
+  page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
+  const lyrics = lyricCheckLyrics();
+  // Çekirdeğin konumu: 60. saniyeden gerçek zamanla ilerler (sayfanın kendi saatiyle).
+  await page.addInitScript(
+    `${initScript("spectrum", {})}
+    (() => {
+      const base = window.__TAURI_INTERNALS__.invoke;
+      const started = performance.now();
+      window.__coreStarted = started;
+      const wait = (ms) => new Promise((done) => setTimeout(done, ms));
+      window.__TAURI_INTERNALS__.invoke = async (cmd, args) => {
+        if (cmd === "track_lyrics") return ${JSON.stringify(lyrics)};
+        if (cmd === "audio_delay_get") return ${delayMs};
+        // Sahne dinlenir (görsel verisi yok): ekran kartsız makinede de her kare çizilsin.
+        if (cmd === "visual_frame") return null;
+        const status = await base(cmd, args);
+        if (!status || status.state !== "playing" || !("underruns" in status)) return status;
+        // Konum gidiş ile dönüşün tam ortasında okunmuş sayılır (iki yol eşit; zamanlayıcının
+        // oynaması denetimin kendi hatası olmasın).
+        const sent = performance.now();
+        await wait(${LYRIC_IPC_MS});
+        await wait(${LYRIC_IPC_MS});
+        const read = (sent + performance.now()) / 2;
+        return { ...status, positionSecs: 60 + (read - started) / 1000 };
+      };
+      // Her karede, boyamadan hemen önce ekrana çıkacak sözler.
+      const samples = [];
+      window.__lyricSamples = samples;
+      let frameAt = 0;
+      let width = 1;
+      addEventListener("DOMContentLoaded", () => {
+        const probe = document.createElement("div");
+        probe.style.cssText = "position:fixed;left:0;top:0;height:1px;pointer-events:none";
+        document.body.append(probe);
+        new ResizeObserver(() => {
+          const line = document.querySelector(".lyrics__line");
+          const words = line ? [...line.querySelectorAll(".lyrics__word")] : [];
+          const current = words.findIndex((w) => w.classList.contains("is-current"));
+          samples.push({
+            // Söylenen kelimenin ilerlemesi (--p): programın bu karede kullandığı söz zamanı.
+            current: current < 0 ? null : { k: current, p: Number(words[current].style.getPropertyValue("--p")) },
+            at: frameAt,
+            text: line ? line.textContent : null,
+            opacity: line ? Number(getComputedStyle(line).opacity) : 0,
+            words: words.map((w) => Number(getComputedStyle(w).opacity)),
+          });
+        }).observe(probe);
+        const loop = (t) => {
+          frameAt = t;
+          width = 3 - width;
+          probe.style.width = width + "px";
+          requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+      });
+    })();`,
+  );
+  await page.goto(APP_URL);
+  await page.waitForTimeout(300);
+  await page.mouse.click(5, 5);
+  // Kütüphane boşken çekmece açık başlar: kapatılır (sözler sahnenin üstünde, çekmecesiz görünür).
+  if (await page.locator("#drawer.is-open").count()) {
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.querySelector("#drawer.is-open"));
+  }
+  await page.keyboard.press("Space"); // çal
+  const last = lyrics.lines.at(-1);
+  // Son satır sönene kadar (sanal saat yok: gerçek zamanla bekler). Sayfanın içinde beklenir:
+  // Playwright'ın sık yoklaması (`waitForFunction`) sayfanın karelerini yavaşlatıyor.
+  await page.evaluate(
+    (end) =>
+      new Promise((done) => {
+        const check = () =>
+          60 + (performance.now() - window.__coreStarted) / 1000 > end
+            ? done()
+            : setTimeout(check, 500);
+        check();
+      }),
+    last.end + 1,
+  );
+  const { samples, started } = await page.evaluate(() => ({
+    samples: window.__lyricSamples,
+    started: window.__coreStarted,
+  }));
+  await page.close();
+
+  // Karenin ekranda göründüğü anda duyulan şarkı anı ve sözlerin o anda olması gereken zamanı.
+  const shown = samples.map((s) => ({
+    ...s,
+    lyricTime: 60 + (s.at - started) / 1000 + LYRIC_DISPLAY_LEAD - delayMs / 1000,
+  }));
+  /**
+   * Bir olayın (ör. kelime yandı) ilk görüldüğü kare: olay o karenin şarkı zamanıyla bir önceki karenin
+   * zamanı arasında olmalı (± tolerans). Sapma: olayın görüldüğü aralığın hedefe uzaklığı (ms).
+   */
+  const events = [];
+  /** Olayı ölçer ve görüldüğü karenin sırasını döndürür (`from`: aramaya bu kareden başlanır). */
+  const measure = (name, target, happened, from = 1) => {
+    const i = shown.findIndex(
+      (s, k) => k >= Math.max(1, from) && happened(s) && !happened(shown[k - 1]),
+    );
+    if (i < 0) {
+      events.push({ name, error: null });
+      return -1;
+    }
+    const before = (shown[i - 1].lyricTime - target) * 1000;
+    const after = (shown[i].lyricTime - target) * 1000;
+    // Hedef aralığın içindeyse sapma 0; değilse en yakın ucu.
+    const error = after < 0 ? after : before > 0 ? before : 0;
+    events.push({ name, error });
+    return i;
+  };
+  const half = (0.34 + 1) / 2;
+  lyrics.lines.forEach((line, j) => {
+    const visible = (s) => s.text === line.text && s.opacity >= 0.5;
+    // Belirme: saydamlık LYRIC_LEAD (0,25 sn) içinde 0 → 1, yarısı başlangıçtan 0,125 sn önce;
+    // sönme: satırın bitişinden sonra LYRIC_TAIL (0,4 sn) içinde, yarısı 0,2 sn sonra.
+    const shownAt = measure(`satır ${j + 1} belirir`, line.start - 0.125, visible);
+    if (shownAt >= 0) measure(`satır ${j + 1} söner`, line.end + 0.2, (s) => !visible(s), shownAt);
+    line.words.forEach((word, k) => {
+      const lit = (s) => s.text === line.text && (s.words[k] ?? 0) >= half;
+      measure(`satır ${j + 1} kelime ${k + 1}`, word.start, lit);
+    });
+  });
+  const errors = events.map((e) => e.error).filter((e) => e !== null);
+  // Programın söz saati: söylenen kelimenin ilerlemesinden (0 < p < 1) geri hesaplanan zaman, karenin
+  // olması gereken zamanıyla karşılaştırılır (ms; + geç).
+  const clock = [];
+  for (const s of shown) {
+    if (!s.current || !(s.current.p > 0 && s.current.p < 1)) continue;
+    const line = lyrics.lines.find((l) => l.text === s.text);
+    const word = line?.words[s.current.k];
+    if (!word) continue;
+    clock.push((s.lyricTime - (word.start + s.current.p * (word.end - word.start))) * 1000);
+  }
+  const clockMean = clock.reduce((a, b) => a + b, 0) / Math.max(1, clock.length);
+  const clockWorst = clock.reduce((m, e) => (Math.abs(e) > Math.abs(m) ? e : m), 0);
+  const wordErrors = events
+    .filter((e) => e.name.includes("kelime") && e.error !== null)
+    .map((e) => e.error);
+  const lineErrors = events
+    .filter((e) => !e.name.includes("kelime") && e.error !== null)
+    .map((e) => e.error);
+  const stat = (list) => {
+    const sorted = [...list].sort((a, b) => a - b);
+    return list.length
+      ? `ortanca ${sorted[sorted.length >> 1].toFixed(1)} ms, en kötü ${sorted.reduce((m, e) => (Math.abs(e) > Math.abs(m) ? e : m), 0).toFixed(1)} ms`
+      : "ölçülemedi";
+  };
+  const intervals = shown.slice(1).map((s, i) => s.at - shown[i].at);
+  const frameMs = [...intervals].sort((a, b) => a - b)[intervals.length >> 1] ?? 0;
+  console.log(
+    `${label}: ${samples.length} kare (ortanca ${frameMs.toFixed(1)} ms) · kelimeler: ${stat(wordErrors)} · ` +
+      `satırlar: ${stat(lineErrors)} · söz saati (${clock.length} kare): ortalama ${clockMean.toFixed(1)} ms, ` +
+      `en kötü ${clockWorst.toFixed(1)} ms`,
+  );
+  if (clock.length < 10) problems.push(`${label}: söz saati ölçülemedi (${clock.length} kare)`);
+  else if (Math.abs(clockWorst) > LYRIC_TOLERANCE_MS) {
+    problems.push(`${label}: söz saati ${clockWorst.toFixed(1)} ms sapıyor`);
+  }
+  for (const e of events) {
+    if (e.error === null) problems.push(`${label}: ${e.name} hiç görülmedi`);
+    else if (Math.abs(e.error) > LYRIC_TOLERANCE_MS) {
+      problems.push(
+        `${label}: ${e.name} ${e.error > 0 ? "geç" : "erken"} (${e.error.toFixed(1)} ms)`,
+      );
+    }
+  }
+  if (errors.length === 0) problems.push(`${label}: hiçbir olay ölçülemedi`);
+  return problems;
+}
+
 /**
  * Resim seçilmemişken sahnenin ortasındaki "Resim seç…" düğmesi gerçekten tıklanabilmeli: tam
  * ekran çubuk tuvali (ya da başka bir katman) üstünü örtüp tıklamayı yutmamalı. Gerçek fareyle
@@ -1643,6 +1876,9 @@ if (EXPECT_FALLBACK) {
     add(() => checkPhotoGlowScale(browser));
     add(() => checkPhotoChooseButton(browser));
     add(() => checkPhotoParticles(browser));
+  }
+  if (!ONLY || ONLY.includes("lyrics")) {
+    for (const delayMs of [0, 100]) add(() => checkLyricsTiming(browser, delayMs));
   }
   const bright = brightestThemes(2);
   for (const scene of ALL_SCENES.filter(selected)) {

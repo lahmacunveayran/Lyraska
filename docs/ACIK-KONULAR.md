@@ -7,7 +7,8 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 
 Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/README.md` (yedek dallar).
 
-1. Söz zamanlaması: programın ve ses gecikmesinin payı ölçülür ve düzeltilir (< 1 kare); şarkı başına söz kaydırma.
+1. Söz zamanlaması: programın payı düzeltildi (0.0.91; `docs/arastirma/sozler/`). Kalan: şarkı başına söz kaydırma;
+   çekirdeğin duyulan konumu (WASAPI dönemi ~5 ms bayat, görselleri de etkiler); "Kendi resmin" sözlerinin CSS geçişleri.
 2. "Kendi resmin" çubuk tepkisi (orta bölge 2–10 kat ölü; önce teşhis, gerekirse model baştan).
 3. Ses motoru denetimi: 64-bit, EQ, AutoEq, EBU R128, bit-perfect, ABX + DENETIM-3 (dallar `ccr-a69bd749-djgi3v`,
    `ccr-a46535b3-m3v2i5`) + #56.

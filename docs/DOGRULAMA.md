@@ -552,6 +552,16 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
   yanıp sönme gördüyseniz (görselin adıyla, hemen); takılma ya da donma varsa görselin adı ve bilgisayarın ekran
   kartı.
 
+**E11. Sözler tam zamanında (0.0.91)**
+
+- Nasıl: Yanında zamanlı `.lrc` dosyası olan (ya da sözleri gömülü), iyi bildiğiniz bir şarkıyı çalın; kablolu
+  kulaklıkla, sonra Bluetooth kulaklıkla (önce **Senkron → Ölçümü başlat**).
+- Neye bakılır: her kelime, şarkıcı onu söylediği anda renklenmeli; satır, söylenmeye başlamadan hemen önce belirmeli.
+  Önceki sürüme göre sözler biraz daha erken (yaklaşık 0,1 sn) gelir: artık geride kalmamalı. Sarınca ve
+  duraklatıp sürdürünce de doğru yerden devam etmeli.
+- Bildirin: sözler hep geride ya da hep önde mi (bütün şarkılarda mı, yalnızca bir şarkıda mı: tek şarkıdaysa çoğu
+  zaman `.lrc` dosyasının kendi hatasıdır); şarkının adı.
+
 ## F. Hata günlüğü
 
 **F1. Hata günlüğü açılıyor**

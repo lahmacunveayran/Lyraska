@@ -6,19 +6,24 @@ import { lyricFrame } from "../lib/lyrics";
  * Kinetik şarkı sözleri: söylenen satır sahnenin üstünde büyük harflerle, kelime kelime belirir;
  * söylenen kelime hafifçe yükselip yerine oturur, sıradaki satır küçük ve soluk. Parlaklık
  * değişmez (yalnızca yazının saydamlığı yumuşakça); "animasyonları azalt" açıksa hareket yoktur
- * (CSS). `positionSecs` görsellerle aynı zamandır (ses aygıtının gecikmesi düşülmüş).
+ * (CSS). `positionSecs` görsellerle aynı zamandır (`lyricTime`: ekran ve ses aygıtı gecikmesi
+ * telafi edilmiş). Saydamlık her karede zamandan hesaplanır; varsayılan modda CSS geçişi yoktur
+ * (geçiş her karede yeniden başlayıp sözü ~0,1 sn geride bırakırdı). Epilepsi güvenli modunda
+ * (`safe`) saydamlık eskisi gibi yumuşak geçişle değişir (güvenli modun davranışı değişmez).
  */
 export function LyricsOverlay({
   lyrics,
   positionSecs,
+  safe = false,
 }: {
   lyrics: Lyrics | null;
   positionSecs: number;
+  safe?: boolean;
 }) {
   const frame = lyricFrame(lyrics, positionSecs);
   if (!frame.line && !frame.next) return null;
   return (
-    <div className="lyrics" aria-hidden>
+    <div className={safe ? "lyrics is-safe" : "lyrics"} aria-hidden>
       {frame.line && (
         <p className="lyrics__line" style={{ opacity: frame.opacity }}>
           {frame.words.length > 0
