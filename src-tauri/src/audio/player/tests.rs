@@ -10,6 +10,7 @@ use super::*;
 use crate::analysis::cache::{AnalysisCache, FileStamp};
 use crate::analysis::map_file::MapError;
 use crate::analysis::spectrogram::Spectrogram;
+use crate::audio::abx::{AbxChoice, AbxRequest, AbxSource};
 use crate::audio::output::{self, OutputMode, OutputSpec};
 use crate::audio::resample::Converter;
 use crate::audio::test_util::{temp_path, write_wav};
