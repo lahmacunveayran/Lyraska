@@ -167,6 +167,7 @@ lyraska/
 │   │   │   ├── evaluate.rs   #   analizi işaretlere göre ölçme (F-ölçüsü, parmak gecikmesi)
 │   │   │   ├── beats.rs      #   başlangıç gücü, tempo ve vuruşlar (dinamik programlama)
 │   │   │   ├── structure.rs  #   ölçü başları ve ölçü güveni, bölümler (Foote yeniliği), droplar, enerji eğrisi
+│   │   │   ├── drop.rs       #   drop modeli: vuruş başına 12 kanıt, iki aşamalı lojistik (sıralama + karar, güven olasılık)
 │   │   │   ├── tempo.rs      #   tempo oktavı (yarısı / iki katı): kick/snare vuruş arasında mı, yarım tempo hissi, boş aralar
 │   │   │   ├── meter.rs      #   aksak ölçü (5/8, 7/8, 9/8): sekizlik ızgarası, gruplama, grup başı vuruşlar
 │   │   │   ├── key.rs        #   ton tespiti: kroma, akort, Krumhansl–Kessler, Camelot, bölüm bölüm

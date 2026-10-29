@@ -681,6 +681,40 @@ pub fn rhythm_from_frames(
     (grid, map)
 }
 
+/// Araştırma için: saklanan karelerden vuruşlar, şarkı haritası ve drop araştırmasının ara sonuçları
+/// ([`structure::DropResearch`]; `examples/drop_olcum.rs`). Program kullanmaz.
+pub fn drop_research_from_frames(
+    levels: &[u8],
+    meters: &[u8],
+    onset: &[f32],
+    sample_rate: u32,
+) -> Option<(BeatGrid, SongMap, structure::DropResearch)> {
+    let latency = beats::onset_latency(sample_rate, fft_size(sample_rate));
+    let tracked = beats::track(onset, FRAMES_PER_SECOND, latency)
+        .map(|g| tempo::resolve_octave(g, onset, levels, BANDS, FRAMES_PER_SECOND, latency));
+    let aksak = tracked
+        .as_ref()
+        .and_then(|g| meter::detect(onset, levels, BANDS, g, FRAMES_PER_SECOND, latency));
+    let grid = match &aksak {
+        Some(aksak) => aksak.beat_grid(),
+        None => tracked?,
+    };
+    let loudness: Vec<f32> = meters
+        .chunks_exact(VALUES_PER_FRAME)
+        .filter_map(levels::decode_frame)
+        .map(|m| 0.5 * (m.rms_db[0] + m.rms_db[1]))
+        .collect();
+    let (map, research) = structure::map_song_research(
+        levels,
+        BANDS,
+        &loudness,
+        &grid,
+        FRAMES_PER_SECOND,
+        aksak.as_ref(),
+    )?;
+    Some((grid, map, research))
+}
+
 /// Verilen vuruşlara göre şarkı yapısı (ölçü başları, bölümler, droplar, enerji): analizin
 /// kendi vuruşlarıyla ya da kullanıcının işaretlediği vuruşlarla ([`super::map_file`]).
 pub fn structure_for_beats(

@@ -11,8 +11,9 @@
 //! - **Bölümler:** Ölçü başına özellik vektörü (bant seviyeleri, ses yüksekliği,
 //!   bas). Benzerlik matrisi üzerinde dama tahtası çekirdeğiyle yenilik eğrisi
 //!   (Foote 2000); tepeleri bölüm sınırıdır. En kısa bölüm 4 ölçü.
-//! - **Drop:** Bassız ya da sakin bir kısımdan sonra bas ve enerjinin birden
-//!   güçlü döndüğü ölçü başı (elektronik müzikteki "drop", rock'taki büyük giriş).
+//! - **Drop:** Bas ve enerjinin birden güçlü döndüğü, süren ve yeni bölüm başlatan an (elektronik
+//!   müzikteki "drop", rock'taki büyük giriş). Kanıtlar vuruş düzeyinde lojistik modelle
+//!   birleştirilir ([`super::drop`]); an basın döndüğü karedir.
 //! - **Enerji:** Ses yüksekliğinin 1 sn'lik ortalaması; şarkının en sessiz %5'i
 //!   0, en yüksek %5'i 1 olacak biçimde.
 
@@ -23,6 +24,8 @@ use super::meter::Aksak;
 
 /// Bas sayılan spektrum bantları (32 bandın ilk 8'i: ~30–150 Hz).
 const BASS_BANDS: usize = 8;
+/// Bant seviyesinin (0..1) desibel ölçeği: 0..255 seviye 60 dB'yi kapsar.
+const LEVEL_DB: f64 = 60.0;
 /// Bölüm sınırı aramada çekirdeğin yarı genişliği (ölçü).
 const NOVELTY_HALF_WIDTH: usize = 4;
 /// En kısa bölüm (ölçü).
@@ -180,6 +183,52 @@ pub fn map_song(
     fps: f64,
     aksak: Option<&Aksak>,
 ) -> Option<SongMap> {
+    map_song_inner(
+        bands,
+        bands_per_frame,
+        loudness_db,
+        beats,
+        fps,
+        aksak,
+        false,
+    )
+    .map(|m| m.0)
+}
+
+/// Vuruş başına drop özellikleri ([`super::drop::FEATURES`]; pencere sığmıyorsa `None`).
+pub type DropFeatures = Vec<Option<[f64; super::drop::FEATURE_COUNT]>>;
+
+/// Drop araştırması için ara sonuçlar (`examples/drop_olcum.rs`; program kullanmaz).
+pub struct DropResearch {
+    /// Her vuruşun drop özellikleri: modelin ağırlıkları bunlardan uydurulur.
+    pub features: DropFeatures,
+    /// Eski (1. sürüm, ölçü düzeyinde kurallı) yöntemin bulduğu droplar (saniye, güven): yeni
+    /// model aynı karelerde eskisiyle karşılaştırılsın diye korunur ([`legacy_drops`]).
+    pub legacy_drops: Vec<(f64, f32)>,
+}
+
+/// Şarkı haritası ve drop araştırmasının ara sonuçları ([`DropResearch`]).
+pub fn map_song_research(
+    bands: &[u8],
+    bands_per_frame: usize,
+    loudness_db: &[f32],
+    beats: &BeatGrid,
+    fps: f64,
+    aksak: Option<&Aksak>,
+) -> Option<(SongMap, DropResearch)> {
+    map_song_inner(bands, bands_per_frame, loudness_db, beats, fps, aksak, true)
+        .and_then(|(map, research)| Some((map, research?)))
+}
+
+fn map_song_inner(
+    bands: &[u8],
+    bands_per_frame: usize,
+    loudness_db: &[f32],
+    beats: &BeatGrid,
+    fps: f64,
+    aksak: Option<&Aksak>,
+    research: bool,
+) -> Option<(SongMap, Option<DropResearch>)> {
     let frames = loudness_db.len().min(bands.len() / bands_per_frame.max(1));
     if beats.beats.len() < 8 || frames == 0 || bands_per_frame < BASS_BANDS {
         return None;
@@ -356,19 +405,119 @@ pub fn map_song(
         section.label = label;
     }
 
+    // Droplar (vuruş düzeyinde model, `super::drop`): vuruş başına bas, tiz, ses yüksekliği ve bant
+    // ortalamaları (dB).
+    let beat_seconds = 60.0 / beats.bpm.max(1.0);
+    let signals = beat_signals(&spectra, &beat_frames, loudness_db, bands_per_frame);
+    let mut on_bar = vec![false; beats.beats.len()];
+    for &i in &downbeat_indices {
+        on_bar[i] = true;
+    }
+    let context = super::drop::BeatContext {
+        downbeat: &on_bar,
+        meter_confidence: f64::from(meter_confidence),
+    };
+    let found = super::drop::find(&signals, &context);
+    let (drops, drop_confidence): (Vec<f64>, Vec<f32>) = found
+        .iter()
+        .map(|&(i, confidence)| {
+            // An: yarım vuruş öncesiyle sonrası arasında basın döndüğü kare (vuruştakini açıkça
+            // geçmiyorsa vuruş kalır).
+            let at = refine_drop(
+                beats.beats[i],
+                beat_seconds,
+                beat_seconds,
+                fps,
+                frames,
+                &bass_at,
+            );
+            (at, confidence)
+        })
+        .unzip();
+    // Drop'un düştüğü ölçü (bölüm sınırını drop anına çekmek için).
+    let drop_bars: Vec<usize> = drops
+        .iter()
+        .map(|&t| {
+            downbeats
+                .partition_point(|&d| d <= t + 0.5 * beat_seconds)
+                .saturating_sub(1)
+        })
+        .collect();
+    align_sections_to_drops(&mut sections, &cuts, &drop_bars, &drops);
+
+    let research = research.then(|| DropResearch {
+        features: super::drop::features(&signals, &context),
+        legacy_drops: legacy_drops(&LegacyInput {
+            bars: &bars,
+            bar_bass: &bar_bass,
+            bar_energy: &bar_energy,
+            cuts: &cuts,
+            beat_frames: &beat_frames,
+            kicks: &kicks,
+            loudness_db,
+            bar_time: &bar_time,
+            beat_seconds,
+            meter,
+            fps,
+            frames,
+            bass_at: &bass_at,
+        }),
+    });
+    let map = SongMap {
+        meter,
+        downbeat_phase,
+        grouping,
+        meter_confidence,
+        downbeats,
+        sections,
+        drops,
+        drop_confidence,
+        energy,
+    };
+    Some((map, research))
+}
+
+/// Eski yöntemin girdileri ([`legacy_drops`]).
+struct LegacyInput<'a> {
+    bars: &'a [(usize, usize)],
+    bar_bass: &'a [f64],
+    bar_energy: &'a [f64],
+    cuts: &'a [usize],
+    beat_frames: &'a [(usize, usize)],
+    kicks: &'a [f64],
+    loudness_db: &'a [f32],
+    bar_time: &'a dyn Fn(usize) -> f64,
+    beat_seconds: f64,
+    meter: usize,
+    fps: f64,
+    frames: usize,
+    bass_at: &'a dyn Fn(usize) -> f64,
+}
+
+/// Eski (1. sürüm) drop bulma: ölçü düzeyinde kurallar ([`find_drops`], [`drop_confidence`]); an
+/// ölçü başının yarım ölçü çevresinde basın döndüğü kareye oturur. Program kullanmaz; ölçüm aracı
+/// yeni modeli aynı karelerde bununla karşılaştırır (`docs/arastirma/drop/MODEL.md`).
+fn legacy_drops(input: &LegacyInput) -> Vec<(f64, f32)> {
+    let bars = input.bars;
+    let bass_at = input.bass_at;
     // Ölçü başına kick gücü ve mutlak ses yüksekliği (dBFS; sessizlik eşiği için).
     // Vuruşlar ve ölçüler zamanda sıralı: tek geçişte (uzun miksajlarda da doğrusal).
     let mut bar_kick = vec![0.0; bars.len()];
     let mut beat = 0;
-    for (slot, &(s, e)) in bar_kick.iter_mut().zip(&bars) {
-        while beat_frames.get(beat).is_some_and(|&(start, _)| start < s) {
+    for (slot, &(s, e)) in bar_kick.iter_mut().zip(bars) {
+        while input
+            .beat_frames
+            .get(beat)
+            .is_some_and(|&(start, _)| start < s)
+        {
             beat += 1;
         }
         let (mut sum, mut count) = (0.0, 0usize);
-        while let Some(&kick) = beat_frames
+        while let Some(&kick) = input
+            .beat_frames
             .get(beat)
             .filter(|&&(start, _)| start < e)
-            .and(kicks.get(beat))
+            .and(input.kicks.get(beat))
         {
             sum += kick;
             count += 1;
@@ -393,47 +542,84 @@ pub fn map_song(
     let bar_db: Vec<f64> = bars
         .iter()
         .map(|&(s, e)| {
-            loudness_db[s..e].iter().map(|&d| f64::from(d)).sum::<f64>() / (e - s) as f64
+            let e = e.min(input.loudness_db.len());
+            if e > s {
+                input.loudness_db[s..e]
+                    .iter()
+                    .map(|&d| f64::from(d))
+                    .sum::<f64>()
+                    / (e - s) as f64
+            } else {
+                0.0
+            }
         })
         .collect();
-    let bar_signals = BarSignals {
-        bass: &bar_bass,
+    let signals = BarSignals {
+        bass: input.bar_bass,
         kick: &bar_kick,
-        energy: &bar_energy,
+        energy: input.bar_energy,
         db: &bar_db,
-        cuts: &cuts,
+        cuts: input.cuts,
         trend: &bar_trend,
     };
-    let beat_seconds = 60.0 / beats.bpm.max(1.0);
-    let drop_bars = find_drops(&bar_signals);
-    let (drops, drop_confidence): (Vec<f64>, Vec<f32>) = drop_bars
-        .iter()
-        .map(|&k| {
-            let bar_seconds = beat_seconds * meter.max(1) as f64;
+    let bar_seconds = input.beat_seconds * input.meter.max(1) as f64;
+    find_drops(&signals)
+        .into_iter()
+        .map(|k| {
             let at = refine_drop(
-                bar_time(k),
+                (input.bar_time)(k),
                 bar_seconds,
-                beat_seconds,
-                fps,
-                frames,
-                &bass_at,
+                input.beat_seconds,
+                input.fps,
+                input.frames,
+                bass_at,
             );
-            (at, drop_confidence(k, &bar_signals, &cuts))
+            (at, drop_confidence(k, &signals, input.cuts))
         })
-        .unzip();
-    align_sections_to_drops(&mut sections, &cuts, &drop_bars, &drops);
+        .collect()
+}
 
-    Some(SongMap {
-        meter,
-        downbeat_phase,
-        grouping,
-        meter_confidence,
-        downbeats,
-        sections,
-        drops,
-        drop_confidence,
-        energy,
-    })
+/// Vuruş başına drop sinyalleri (dB): bas, tiz (son dörtte bir bant), ses yüksekliği ve bant
+/// ortalamaları.
+fn beat_signals(
+    spectra: &[Vec<f64>],
+    beat_frames: &[(usize, usize)],
+    loudness_db: &[f32],
+    bands: usize,
+) -> super::drop::BeatSignals {
+    let db = |v: f64| v * LEVEL_DB;
+    let band_mean = |v: &Vec<f64>, a: usize, b: usize| {
+        if b > a {
+            db(v[a..b].iter().sum::<f64>() / (b - a) as f64)
+        } else {
+            0.0
+        }
+    };
+    super::drop::BeatSignals {
+        bass: spectra
+            .iter()
+            .map(|v| band_mean(v, 0, BASS_BANDS))
+            .collect(),
+        high: spectra
+            .iter()
+            .map(|v| band_mean(v, bands * 3 / 4, bands))
+            .collect(),
+        loud: beat_frames
+            .iter()
+            .map(|&(s, e)| {
+                let e = e.min(loudness_db.len());
+                if e > s {
+                    loudness_db[s..e].iter().map(|&d| f64::from(d)).sum::<f64>() / (e - s) as f64
+                } else {
+                    loudness_db.get(s).map_or(0.0, |&d| f64::from(d))
+                }
+            })
+            .collect(),
+        spectra: spectra
+            .iter()
+            .map(|v| v.iter().map(|&x| db(x)).collect())
+            .collect(),
+    }
 }
 
 /// Ölçü (3 ya da 4), ilk ölçü başının sırası ve ölçü başlarının diğer vuruşlardan ayrılışı
@@ -602,7 +788,7 @@ fn average(rows: &[Vec<f64>]) -> Vec<f64> {
         .collect()
 }
 
-/// Ölçü başına drop işaretleri.
+/// Ölçü başına drop işaretleri (eski yöntem, [`legacy_drops`]).
 struct BarSignals<'a> {
     /// Bas bantlarının ortalaması (0..1).
     bass: &'a [f64],
@@ -657,7 +843,9 @@ fn drop_jumps(k: usize, signals: &BarSignals) -> (f64, f64, f64) {
     (jump(signals.bass), jump(signals.kick), jump(signals.energy))
 }
 
-/// Drop olan ölçüler (sırası).
+/// Drop olan ölçüler (sırası). Eski (1. sürüm) yöntem: ölçü düzeyinde kurallar; program artık
+/// [`super::drop`] modelini kullanır, bu yalnızca karşılaştırma ölçümü için korunur
+/// ([`legacy_drops`]).
 fn find_drops(signals: &BarSignals) -> Vec<usize> {
     let n = signals.bass.len();
     // Sonrası şarkının yüksek kısmı olmalı. Sıkıştırılmış kayıtta yükseliş droptan yüksek olabilir:
@@ -752,10 +940,10 @@ fn align_sections_to_drops(
     }
 }
 
-/// Drop anını ölçü başından basın gerçekten döndüğü kareye oturtur. Vuruş ızgarası kaymış olabilir
-/// (yarım tempo, sessizlikle kayan faz): ölçü başının yarım ölçü öncesiyle yarım ölçü sonrası
-/// arasında, bir vuruş sonrasıyla bir vuruş öncesi arasındaki bas farkının en büyük olduğu kareye
-/// bakılır. Ölçü başındaki farkı açıkça geçmiyorsa (sürekli alt bas, yerinde drop) ölçü başı kalır.
+/// Drop anını aday andan (`bar_start`: ölçü başı ya da [`super::drop`] modelinin seçtiği vuruş)
+/// basın gerçekten döndüğü kareye oturtur. Vuruş ızgarası kaymış olabilir (yarım tempo, sessizlikle
+/// kayan faz): aday anın `bar_seconds`'ın yarısı kadar öncesiyle sonrası arasında, bir vuruş
+/// sonrasıyla bir vuruş öncesi arasındaki bas farkının en büyük olduğu kareye bakılır. Ölçü başındaki farkı açıkça geçmiyorsa (sürekli alt bas, yerinde drop) ölçü başı kalır.
 /// Yalnızca bas düzeyine bakılır: yükselişin sonundaki kick ya da trampet rulosu yoğun vuruşludur
 /// ama drop'un sürekli basına yetişmez; ses yüksekliğine de bakılmaz (sıkıştırılmış kayıtta
 /// yükselişin sonu droptan yüksek olabilir).
@@ -1126,6 +1314,27 @@ mod tests {
                 .rhythm
                 .anticipation,
             0.0
+        );
+    }
+
+    #[test]
+    fn sessizlikten_sonraki_drop_bulunur_ve_ani_basin_dondugu_an() {
+        // Aynı şarkı, drop'tan önceki iki vuruş sessiz. Eski yöntem öncesi sessiz ölçüyü şarkının
+        // başı sayıp bu drop'u atıyordu.
+        let rate = 22_050;
+        let (mut samples, drop_time, bar) = edm_track(rate);
+        let r = f64::from(rate);
+        let silence = ((drop_time - bar / 2.0) * r) as usize..(drop_time * r) as usize;
+        samples[silence].fill(0.0);
+        let map = analyze_samples(&samples, rate)
+            .song_map()
+            .expect("yapı bulunmalı");
+        let shown: Vec<f64> = map.confident_drops().collect();
+        assert_eq!(shown.len(), 1, "{:?} {:?}", map.drops, map.drop_confidence);
+        assert!(
+            (shown[0] - drop_time).abs() <= 0.05,
+            "drop {} (doğrusu {drop_time})",
+            shown[0]
         );
     }
 
