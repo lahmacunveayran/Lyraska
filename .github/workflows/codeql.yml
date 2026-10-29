@@ -1,0 +1,45 @@
+# Kodun güvenlik açısından statik çözümlemesi (CodeQL): arayüz (TypeScript), çekirdek (Rust) ve iş
+# akışlarının kendisi. main'e push, her PR ve haftada bir. Bulgular GitHub'da Security → Code
+# scanning altında görünür; dışarıya yayımlanmaz. Derleme gerekmez (build-mode: none).
+#
+# Üçüncü taraf eylemler commit SHA'sıyla sabitlenir (yorumdaki etiket bilgi içindir).
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "41 5 * * 1" # her pazartesi 08:41 (İstanbul)
+  workflow_dispatch:
+
+concurrency:
+  group: codeql-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  analyze:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read # iş akışı çalıştırmalarını okumak için
+      security-events: write # sonuçları Code scanning'e yüklemek için
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, rust, actions]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+      - uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          category: /language:${{ matrix.language }}
