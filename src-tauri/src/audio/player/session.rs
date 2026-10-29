@@ -10,7 +10,8 @@ use std::time::{Duration, Instant};
 
 use rtrb::RingBuffer;
 
-use super::{decode_loop, signal_path, PlaybackState, SignalPath};
+use super::decode_thread::decode_loop;
+use super::{signal_path, PlaybackState, SignalPath};
 use crate::analysis::spectrogram::Spectrogram;
 use crate::audio::decode::{Decoder, TrackInfo};
 use crate::audio::normalize::TrackLevels;

@@ -2,10 +2,12 @@ use std::time::Instant;
 
 use rtrb::RingBuffer;
 
+use super::decode_thread::decode_loop;
 use super::session::{derive_state, RING_SECONDS};
 use super::*;
 use crate::audio::output;
 use crate::audio::test_util::{temp_path, write_wav};
+use crate::audio::Sample;
 
 fn test_segment() -> Segment {
     Segment {
