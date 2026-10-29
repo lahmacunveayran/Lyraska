@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use rtrb::Producer;
 
+use super::next_track::{attach_next, open_next};
 use super::session::{SharedState, DECODE_IDLE, PREFILL_SECONDS};
-use super::{attach_next, open_next};
 use crate::analysis::spectrogram::Spectrogram;
 use crate::audio::decode::Decoder;
 use crate::audio::output::OutputSpec;

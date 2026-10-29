@@ -189,22 +189,6 @@ impl SharedState {
         )
     }
 
-    pub(super) fn set_next(&self, path: Option<PathBuf>) {
-        if let Ok(mut next) = self.next_path.lock() {
-            *next = path;
-        }
-    }
-
-    pub(super) fn take_next(&self) -> Option<PathBuf> {
-        self.next_path.lock().ok().and_then(|mut n| n.take())
-    }
-
-    pub(super) fn push_segment(&self, segment: Segment) {
-        if let Ok(mut segments) = self.segments.lock() {
-            segments.push(segment);
-        }
-    }
-
     /// İlk hatayı kaydeder (sonrakiler genellikle ilkinin sonucudur).
     pub fn fail(&self, message: String) {
         if let Ok(mut error) = self.error.lock() {

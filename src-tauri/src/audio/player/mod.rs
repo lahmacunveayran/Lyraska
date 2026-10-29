@@ -28,7 +28,6 @@ use super::normalize::{LoudnessControl, TrackLevels};
 use super::output::{DeviceInfo, OutputMode, OutputSpec};
 use super::peq::{HeadphoneSettings, ParametricSettings, PeqControl};
 use super::render::RenderControls;
-use super::resample::Converter;
 use super::spectrum;
 use super::waveform;
 use super::AudioError;
@@ -44,11 +43,12 @@ use crate::analysis::spectrogram::{self, Spectrogram, BANDS};
 use crate::diagnostics;
 
 mod decode_thread;
+mod next_track;
 mod session;
 
+use session::Session;
 pub use session::SharedState;
 pub(crate) use session::{wait_for_fade_out, wait_for_prefill, FADE_OUT_TIMEOUT};
-use session::{Segment, Session};
 
 /// Oynatıcının durumu.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -778,30 +778,6 @@ impl Player {
             .map_or_else(AbxStatus::inactive, AbxTest::status)
     }
 
-    /// Boşluksuz geçiş için sıradaki şarkıyı bildirir (`None`: sıra yok).
-    /// Çalan şarkı bitince ses akışı kesilmeden bu şarkıyla devam eder; analizi de
-    /// şimdiden başlar.
-    pub fn set_next(&mut self, path: Option<PathBuf>) {
-        if self.next_path == path {
-            return;
-        }
-        self.next_path = path.clone();
-        if let Some(session) = &self.session {
-            session.shared.set_next(path.clone());
-        }
-        self.next_analysis = match &path {
-            Some(p) if self.next_analysis.as_ref().is_some_and(|a| &a.path == p) => {
-                self.next_analysis.take()
-            }
-            Some(p) if self.analysis.as_ref().is_none_or(|a| &a.path != p) => {
-                // Sıradaki şarkı, çalanın analizi bitince analiz edilir.
-                let current = self.analysis.as_ref().map(|a| Arc::clone(&a.spectrogram));
-                Analysis::start(p, &self.analysis_context, current)
-            }
-            _ => None,
-        };
-    }
-
     /// Analiz önbelleğini bağlar: analizler önce önbellekten okunur, bitenler yazılır.
     pub fn set_analysis_cache(&mut self, cache: Arc<AnalysisCache>) {
         self.analysis_context.cache = Some(cache);
@@ -1439,35 +1415,6 @@ impl Player {
             },
         }
     }
-}
-
-/// Sıradaki şarkıyı açar. Sıra yoksa, açılamazsa ya da akışa uymuyorsa `None` (şarkı
-/// normal biçimde biter).
-fn open_next(shared: &SharedState, spec: OutputSpec) -> Option<Decoder> {
-    let path = shared.take_next()?;
-    let decoder = Decoder::open(&path).ok()?;
-    let info = decoder.info();
-    if Converter::output_channels(info.channels) != spec.channels {
-        return None;
-    }
-    // Bit-perfect akış şarkının kendi hızında açıldı: hızı farklı şarkı dönüştürülmez,
-    // oturum biter ve sıradaki şarkı kendi hızında yeni bir akışla açılır.
-    if matches!(spec.mode, OutputMode::Exclusive(_)) && info.sample_rate != spec.sample_rate {
-        return None;
-    }
-    Some(decoder)
-}
-
-/// Sıradaki şarkıyı oturuma ekler: çıkış akışında `first_output_frame` karesinde başlar.
-fn attach_next(shared: &SharedState, spec: OutputSpec, info: TrackInfo, first_output_frame: u64) {
-    shared.push_segment(Segment {
-        rate_ratio: f64::from(info.sample_rate) / f64::from(spec.sample_rate),
-        info,
-        first_output_frame,
-        start_frame: 0,
-    });
-    // Eşitleme kazancı tam bu karede yeni şarkınınkine geçer (ölçümünü oynatıcı yazar).
-    shared.controls.levels.begin_track(first_output_frame);
 }
 
 #[cfg(test)]
