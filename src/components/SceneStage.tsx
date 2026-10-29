@@ -1,5 +1,6 @@
 import { DriveScene } from "./DriveScene";
 import { HighwayScene } from "./HighwayScene";
+import { LightShowScene } from "./LightShowScene";
 import { MilkDropScene } from "./MilkDropScene";
 import { PhotoScene } from "./PhotoScene";
 import { ShaderScene } from "./ShaderScene";
@@ -9,6 +10,8 @@ import { SpectrumView } from "./SpectrumView";
 import { VuScene } from "./VuScene";
 import type { BackgroundImageControls } from "../hooks/useBackgroundImage";
 import type { MilkdropControls } from "../hooks/useMilkdrop";
+import type { KeyMap, SongMap } from "../lib/backend";
+import type { Intensity } from "../lib/lightShow";
 import type { Scene } from "../lib/scene";
 import type { SceneLooks } from "../lib/sceneLook";
 import { isShaderScene } from "../lib/shaderScene";
@@ -35,6 +38,11 @@ export interface SceneStageProps {
   background?: BackgroundImageControls;
   songTitle?: string | null;
   songArtist?: string | null;
+  /** Çalan şarkının haritası ve tonu (Işık Ustası'nın kurgusu ve renkleri). */
+  songMap?: SongMap | null;
+  songKey?: KeyMap | null;
+  /** Işık Ustası'nın yoğunluğu. */
+  intensity?: Intensity;
 }
 
 /** Tüm pencereyi kaplayan görsel sahne. Sahne değişince yenisi yavaşça belirir. */
@@ -50,12 +58,23 @@ export function SceneStage({
   background,
   songTitle = null,
   songArtist = null,
+  songMap = null,
+  songKey = null,
+  intensity = "normal",
 }: SceneStageProps) {
   return (
     <div className="stage" data-scene={scene}>
       {isShaderScene(scene) ? (
         // Her sahne kendi tuvalinde açılır: yenisi yavaşça belirir.
         <ShaderScene key={scene} id={scene} playing={playing} safe={safe} look={looks?.[scene]} />
+      ) : scene === "lightshow" ? (
+        <LightShowScene
+          playing={playing}
+          safe={safe}
+          songMap={songMap}
+          songKey={songKey}
+          intensity={intensity}
+        />
       ) : scene === "photo" ? (
         <PhotoScene
           playing={playing}

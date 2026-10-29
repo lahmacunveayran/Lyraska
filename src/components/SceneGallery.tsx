@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent 
 import type { BackgroundImageControls } from "../hooks/useBackgroundImage";
 import type { MilkdropControls } from "../hooks/useMilkdrop";
 import type { ScenePresetControls } from "../hooks/useScenePresets";
-import { GALLERY_SCENES, sceneKey, type Scene } from "../lib/scene";
+import { GALLERY_SCENES, NEW_SCENES, sceneKey, type Scene } from "../lib/scene";
 import {
   SCENE_PALETTES,
   SPEED_MAX,
@@ -154,6 +154,27 @@ export function SceneGallery({
       </button>
       {open && (
         <div className="scene-gallery__panel" id={panelId}>
+          <div className="scene-gallery__list" role="group" aria-label="Yeni sahneler">
+            {NEW_SCENES.map(({ id, name: sceneName, hint }) => (
+              <button
+                key={id}
+                type="button"
+                className="scene-gallery__item scene-gallery__item--new"
+                aria-pressed={scene === id}
+                onClick={() => {
+                  onChoose(id);
+                  setOpen(false);
+                  button.current?.focus();
+                }}
+              >
+                <span className="scene-gallery__name">
+                  {sceneName}
+                  <span className="scene-gallery__badge">Yeni</span>
+                </span>
+                <span className="scene-gallery__hint">{hint}</span>
+              </button>
+            ))}
+          </div>
           <div className="scene-gallery__list" role="group" aria-label="Galeri">
             {GALLERY_SCENES.map(({ id, name: sceneName, hint }) => {
               const key = sceneKey(id);
