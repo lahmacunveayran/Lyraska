@@ -242,6 +242,23 @@ describe("sceneCredits", () => {
     });
   });
 
+  it("dosya adının sonundaki kalite ekini atar", () => {
+    const ripped = {
+      ...track,
+      fileName: "DCX - Flying High (DJ Splash Remix) - Hoang Giang Pham (128K)",
+    };
+    expect(sceneCredits(ripped)).toEqual({
+      title: "Flying High (DJ Splash Remix) - Hoang Giang Pham",
+      artist: "DCX",
+    });
+    expect(sceneCredits({ ...track, fileName: "Gülpembe [320 kbps] (192kb/s)" }).title).toBe(
+      "Gülpembe",
+    );
+    // Şarkı adındaki parantez (remix, canlı) ve yalnızca ekten oluşan ad kalır.
+    expect(sceneCredits({ ...track, fileName: "Ay Işığı (Canlı)" }).title).toBe("Ay Işığı (Canlı)");
+    expect(sceneCredits({ ...track, fileName: "(128K)" }).title).toBe("(128K)");
+  });
+
   it("ayrılamayan dosya adı başlık olur, sanatçı yok", () => {
     expect(sceneCredits({ ...track, fileName: "Kaybolan Yıllar (Canlı)" })).toEqual({
       title: "Kaybolan Yıllar (Canlı)",

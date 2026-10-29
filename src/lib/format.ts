@@ -67,23 +67,34 @@ export function trackName(track: TrackInfo): string {
 
 /** Dosya adında sanatçıyı başlıktan ayıran tire (kısa çizgi, en ve em çizgi; iki yanı boşluklu). */
 const NAME_SEPARATOR = / [-–—] /;
+/** Dosya adının sonundaki indirme kalitesi eki: "(128K)", "[320 kbps]", "(192kb/s)". */
+const BITRATE_SUFFIX = /\s*[([]\s*\d{2,4}\s*(?:k|kbps|kb\/s)\s*[)\]]\s*$/i;
+
+/** Dosya adı, sondaki kalite ekleri atılmış (ad yalnızca ekten oluşuyorsa olduğu gibi). */
+function cleanFileName(name: string): string {
+  let cleaned = name;
+  while (BITRATE_SUFFIX.test(cleaned)) cleaned = cleaned.replace(BITRATE_SUFFIX, "");
+  return cleaned.trim() || name;
+}
 
 /**
  * "Kendi resmin" sahnesinin başlığı ve sanatçısı. Etiket varsa etiket; sanatçı etiketi yoksa
  * "Sanatçı - Şarkı" biçimindeki dosya adı ilk tireden ikiye ayrılır (ör. "Nightcore - Moonlight
- * Shadow"). Başlık etiketi varsa başlık o kalır, dosya adından yalnızca sanatçı alınır.
+ * Shadow"). Başlık etiketi varsa başlık o kalır, dosya adından yalnızca sanatçı alınır. Dosya
+ * adının sonundaki indirme kalitesi eki ("(128K)") gösterilmez.
  */
 export function sceneCredits(track: TrackInfo): { title: string; artist: string | null } {
   const title = track.title?.trim() || null;
   const artist = track.artist?.trim() || null;
-  if (artist) return { title: title ?? track.fileName, artist };
-  const match = NAME_SEPARATOR.exec(track.fileName);
+  const fileName = cleanFileName(track.fileName);
+  if (artist) return { title: title ?? fileName, artist };
+  const match = NAME_SEPARATOR.exec(fileName);
   if (match) {
-    const left = track.fileName.slice(0, match.index).trim();
-    const right = track.fileName.slice(match.index + match[0].length).trim();
+    const left = fileName.slice(0, match.index).trim();
+    const right = fileName.slice(match.index + match[0].length).trim();
     if (left && right) return { title: title ?? right, artist: left };
   }
-  return { title: title ?? track.fileName, artist: null };
+  return { title: title ?? fileName, artist: null };
 }
 
 /**
