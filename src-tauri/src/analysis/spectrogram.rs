@@ -17,6 +17,7 @@ use super::key::{ChromaAnalyzer, KeyAnalysis, MusicalKey};
 use super::levels::{self, ChannelLevels, LevelAccumulator, VALUES_PER_FRAME};
 use super::meter;
 use super::structure::{self, SongMap};
+use super::tempo;
 use crate::audio::bass::{BassPeakMeter, BassPeaks};
 use crate::audio::decode::{Decoder, TrackInfo};
 use crate::audio::loudness::{Loudness, LoudnessMeter};
@@ -662,7 +663,10 @@ pub fn rhythm_from_frames(
     sample_rate: u32,
 ) -> (Option<BeatGrid>, Option<SongMap>) {
     let latency = beats::onset_latency(sample_rate, fft_size(sample_rate));
-    let tracked = beats::track(onset, FRAMES_PER_SECOND, latency);
+    // Tempo oktavı (yarısı / iki katı) ızgaranın kendi kanıtıyla seçilir; aksak ölçü düzeltilmiş
+    // tempoya göre aranır.
+    let tracked = beats::track(onset, FRAMES_PER_SECOND, latency)
+        .map(|g| tempo::resolve_octave(g, onset, levels, BANDS, FRAMES_PER_SECOND, latency));
     // Aksak ölçü (9/8, 7/8, 5/8): vuruşlar grup başları olur, ölçü başları sekizlik ızgarasından.
     let aksak = tracked
         .as_ref()

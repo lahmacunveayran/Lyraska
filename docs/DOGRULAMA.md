@@ -175,6 +175,14 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 - Olmadıysa: hangi şarkıda, hangi saniyede (erken mi, geç mi, hiç mi) olduğunu yazın; işaret dosyalarınızı
   gönderin (İşaretle panelindeki **İşaret klasörünü aç** düğmesi). İçlerinde ses yoktur, yalnızca zamanlar vardır.
 
+**A16. Tempo (BPM) yarım ya da iki kat değil (0.0.90)**
+
+- Nasıl: Kütüphanede (BPM sütunu) bir drum and bass (170'ler), bir trap ya da dubstep (140), bir hip-hop (85–95),
+  bir yavaş balad (60–72) ve birkaç Türkçe pop/arabesk şarkıya bakın (ritim bir kez yeniden hesaplanır; birkaç
+  dakika sürebilir).
+- Neye bakılır: BPM şarkının hissettirdiği hızda; DnB 87, dubstep 70 ya da Türkçe pop 190 gibi yarısı/iki katı yok.
+- Olmadıysa: şarkının adını ve görünen BPM'i yazın ("dubstep 128" çıkan şarkının adı da istenir).
+
 ## B. Çalma ve ses
 
 **B1. Ses kalitesi (#25)**

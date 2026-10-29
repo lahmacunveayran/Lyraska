@@ -27,6 +27,7 @@ pub mod map_file;
 pub mod meter;
 pub mod spectrogram;
 pub mod structure;
+pub mod tempo;
 
 /// Analiz modülünün durumu.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

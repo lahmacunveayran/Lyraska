@@ -103,6 +103,11 @@ kısaltılır.
 - **Analiz, doğrusu bilinen seste ölçülmeden değiştirilmez** (24 Ekim 2026): oturumda gerçek şarkı yok (ağ yalnızca
   GitHub). Drop için `docs/arastirma/drop/uret.py` yeri tam bilinen deneme şarkıları üretir; geliştirme ve
   görülmemiş doğrulama seti (ayrı tohumlar) ayrı tutulur, eski algoritma da aynı sette ölçülür (ezber olmasın).
+- **Sentetik set fazla temizse yöntem yanıltır** (29 Ekim 2026, tempo oktavı): yalnız davul + pad'li sette "snare her
+  vuruşta mı" öz-ilintisi kusursuz ayırdı; sete akor vuruşları (klavye/gitar) eklenince hip-hop'u iki katına çıkardı
+  ve bırakıldı. Üreticiye orta bantta tonal ritim eklenir. Bant seviyeleri desibeldir: artışları sessizlikten çıkan
+  kısık sesi de sayar; "hangi davul yüksek" sorusu doğrusal güçle sorulur. 60 kare/sn'de kare sınırına düşen vuruş
+  (144 BPM sekizliği = 12,5 kare) iki kareye bölünür; tepe yerine üç karelik toplam alınır.
 - **Commit'ten önce `cargo clippy --all-targets`:** yalnızca kütüphaneyi derlemek örneklerdeki (`examples/`)
   uyarıyı göstermez; CI hepsini derler.
 - **Drop ölçü başına yapıştırılmaz:** vuruş ızgarası kayabilir (yarım tempo, sessizlik); an basın döndüğü karedir.

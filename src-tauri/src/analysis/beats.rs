@@ -336,7 +336,7 @@ pub(crate) fn mean_interval(beats: &[f64]) -> f64 {
 }
 
 /// Yavaş değişimi çıkarır (yerel ortalamanın üstü kalır) ve standart sapmaya böler.
-fn normalize(onset: &[f32], fps: f64) -> Option<Vec<f64>> {
+pub(crate) fn normalize(onset: &[f32], fps: f64) -> Option<Vec<f64>> {
     let radius = (fps * 0.25).round() as usize;
     let mut prefix = Vec::with_capacity(onset.len() + 1);
     prefix.push(0.0f64);

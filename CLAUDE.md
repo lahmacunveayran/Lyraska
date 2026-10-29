@@ -167,6 +167,7 @@ lyraska/
 │   │   │   ├── evaluate.rs   #   analizi işaretlere göre ölçme (F-ölçüsü, parmak gecikmesi)
 │   │   │   ├── beats.rs      #   başlangıç gücü, tempo ve vuruşlar (dinamik programlama)
 │   │   │   ├── structure.rs  #   ölçü başları ve ölçü güveni, bölümler (Foote yeniliği), droplar, enerji eğrisi
+│   │   │   ├── tempo.rs      #   tempo oktavı (yarısı / iki katı): kick/snare vuruş arasında mı, yarım tempo hissi, boş aralar
 │   │   │   ├── meter.rs      #   aksak ölçü (5/8, 7/8, 9/8): sekizlik ızgarası, gruplama, grup başı vuruşlar
 │   │   │   ├── key.rs        #   ton tespiti: kroma, akort, Krumhansl–Kessler, Camelot, bölüm bölüm
 │   │   │   ├── cache.rs      #   analiz önbelleği (SQLite; yol + boyut + değişme zamanı; parça sürümleri)
@@ -175,7 +176,8 @@ lyraska/
 │   │   │                     # drop beklentisi/açılımı; nabız: varsayılan modda her vuruş, güvenli modda ≤ 1/sn
 │   │   └── visual_bridge/    # Çalma zamanı + analiz → görseller (VisualFrame); gecikme telafisi (ekran +
 │   │                         # ses aygıtı), calibration.rs: senkron ölçümü için tıklama kaydı
-│   ├── examples/             # ses_denemesi.rs: gerçek ses aygıtıyla uçtan uca deneme; drop_olcum.rs: drop ölçümü
+│   ├── examples/             # ses_denemesi.rs: gerçek ses aygıtıyla uçtan uca deneme; drop_olcum.rs: drop ölçümü;
+│   │                         # tempo_olcum.rs: türlere göre tempo (oktav) ölçümü
 │   ├── tests/                # Gerçek kodek testleri (formats.rs) ve sentetik test verisi (data/; data/milkdrop/
 │   │                         # projenin özgün, bilerek parlayan deneme preseti)
 │   ├── hlsl/                 # MilkDrop gölgelendirici çeviricisi: shim.cpp köprüsü, build.sh (wasi-sdk 30.0;
