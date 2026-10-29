@@ -67,7 +67,7 @@ interface StyleMotion {
 export const PARTICLE_MOTION: Record<Exclude<ParticleStyle, "off">, StyleMotion> = {
   // Flying High: çizgiden kopan kıvılcımlar ekranın üstüne doğru yavaşça süzülür.
   sparks: {
-    rate: 40,
+    rate: 50,
     life: [2.0, 4.0],
     speed: [-0.15, -0.06],
     drift: 0.012,
@@ -173,7 +173,16 @@ export interface ParticleInput {
   spawn: boolean;
 }
 
-/** Çubukların enerjisi (0..1): ortalama boy ve bas (soldaki beşte bir) birlikte. */
+/**
+ * Gerçek müzikte çubukların tipik boyu (en büyük boyun oranı): çekirdeğin seviyeleri −14 LUFS'te
+ * ölçüldü (proje sahibinin kaydı, Flying High): bütün çubukların ortalaması ~0,02, basın (soldaki
+ * beşte bir) ortalaması vuruşta ~0,1–0,3. Enerji bu ölçeğe göre: ortalaması `DRIVE_MEAN`'e, bası
+ * `DRIVE_BASS`'a ulaşan çizgi tam enerjidir.
+ */
+const DRIVE_MEAN = 0.04;
+const DRIVE_BASS = 0.15;
+
+/** Çubukların enerjisi (0..1): ortalama boy ve bas (soldaki beşte bir) birlikte, bas ağır basar. */
 export function particleDrive(extents: ArrayLike<number>, cap: number): number {
   const n = extents.length;
   if (n === 0 || !(cap > 0)) return 0;
@@ -185,7 +194,7 @@ export function particleDrive(extents: ArrayLike<number>, cap: number): number {
     all += v;
     if (i < bassBars) bass += v;
   }
-  return Math.min(1, 0.9 * (all / n) + 0.9 * (bass / bassBars));
+  return 0.4 * Math.min(1, all / n / DRIVE_MEAN) + 0.6 * Math.min(1, bass / bassBars / DRIVE_BASS);
 }
 
 /**
