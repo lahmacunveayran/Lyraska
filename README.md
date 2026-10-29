@@ -37,7 +37,7 @@ flowchart LR
 
 ## Sahneler
 
-Beş klasik sahne, on sahnelik bir galeri ve kendi `.milk` dosyalarınızla MilkDrop. Sahneler arasında **1–9, 0**
+Beş klasik sahne, sekiz sahnelik bir galeri, kendi resminizle "Kendi resmin" ve kendi `.milk` dosyalarınızla MilkDrop. Sahneler arasında **1–9, 0**
 ve **PageUp / PageDown** tuşlarıyla geçilir.
 
 |                                                   |                                                       |
@@ -48,8 +48,8 @@ ve **PageUp / PageDown** tuşlarıyla geçilir.
 |   **Spektrum:** nokta vuruşlu frekans çubukları   |                 **Bulutsu** (galeri)                  |
 |  ![Sarmal gökada](docs/gorsel/sarmal-gokada.jpg)  |      ![Işık tüneli](docs/gorsel/isik-tuneli.jpg)      |
 |            **Sarmal gökada** (galeri)             |               **Işık tüneli** (galeri)                |
-|  ![İpek şeritler](docs/gorsel/ipek-seritler.jpg)  |       ![Kristal ağ](docs/gorsel/kristal-ag.jpg)       |
-|            **İpek şeritler** (galeri)             |                **Kristal ağ** (galeri)                |
+|  ![İpek şeritler](docs/gorsel/ipek-seritler.jpg)  |                                                       |
+|            **İpek şeritler** (galeri)             |                                                       |
 
 <sub>Görüntüler arayüzün tarayıcı önizlemesinden, şarkı çalmazken alındı. Gerçek programda sahneler müzikle
 birlikte hareket eder.</sub>

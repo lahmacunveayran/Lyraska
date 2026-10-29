@@ -9,16 +9,7 @@ import { AURORA_MAX_LUMINANCE, auroraLuminance, type SkyState } from "./sky";
  */
 
 export type ShaderSceneId =
-  | "sea"
-  | "nebula"
-  | "tunnel"
-  | "fireflies"
-  | "kaleido"
-  | "ribbons"
-  | "galaxy"
-  | "dunes"
-  | "rain"
-  | "crystal";
+  "sea" | "nebula" | "tunnel" | "fireflies" | "kaleido" | "ribbons" | "galaxy" | "rain";
 
 export interface ShaderSceneInfo {
   id: ShaderSceneId;
@@ -74,22 +65,10 @@ export const SHADER_SCENES: ShaderSceneInfo[] = [
     label: "Sarmal gökada: müziğe göre dönen yıldız kolları",
   },
   {
-    id: "dunes",
-    name: "Kum tepeleri",
-    hint: "Ay ışığında çöl; rüzgâr sırtlardan kum savurur.",
-    label: "Kum tepeleri: ay ışığında, rüzgârın kum savurduğu çöl",
-  },
-  {
     id: "rain",
     name: "Yağmurlu cam",
     hint: "Camdaki damlaların ardında bulanık şehir ışıkları.",
     label: "Yağmurlu cam: damlaların ardında müziğe göre süzülen şehir ışıkları",
-  },
-  {
-    id: "crystal",
-    name: "Kristal ağ",
-    hint: "Nefes alır gibi kıpırdayan, ışıyan kristal hücreler.",
-    label: "Kristal ağ: müziğe göre kıpırdayan ışıklı hücreler",
   },
 ];
 

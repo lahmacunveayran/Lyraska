@@ -114,11 +114,11 @@ describe("hazır ayarlar", () => {
 
   it("yeni hazır ayar: tekil kimlik, temiz ad; boş adda ve sınırda oluşturulmaz", () => {
     const look = { speed: 1.4, palette: "rose" as const };
-    const first = createUserPreset(" Benim  ayarım ", "crystal", look, [], 1000);
+    const first = createUserPreset(" Benim  ayarım ", "rain", look, [], 1000);
     expect(first).toEqual({
       id: "user-rs",
       name: "Benim ayarım",
-      scene: "crystal",
+      scene: "rain",
       speed: 1.4,
       palette: "rose",
       builtIn: false,
