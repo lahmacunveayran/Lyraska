@@ -487,7 +487,9 @@ function applyDrop(
   cue.step = pos.bar * 4 + pos.beat;
   cue.stepEase = smooth(0, 0.18, pos.beatPhase);
   cue.pulse = Math.exp(-pos.beatPhase * 6);
-  cue.colorMix = pos.bar % 2 === 0 ? 0.15 : 0.85;
+  // Renk her ölçü başında ana ve karşıt jel arasında yer değiştirir (vuruşun ilk onda birinde).
+  const swap = pos.bar + smooth(0, 0.1, pos.barPhase);
+  cue.colorMix = 0.5 - 0.35 * Math.cos(Math.PI * swap);
   // Strob: vuruşa kilitli (ölçü başlarından, mutlak zaman), ilk `strobeBars` ölçü.
   const barSecs = climax.barSecs;
   if (prof.strobePerBeat > 0 && seconds < prof.strobeBars * barSecs) {
@@ -685,7 +687,9 @@ function applySafe(
   cue.stepEase = 1;
   cue.fovKick = 0;
   cue.sweepSpeed = Math.min(cue.sweepSpeed, SAFE_SWEEP_SPEED);
-  cue.pulse = pos.barSecs >= 1 ? 0.25 * Math.exp(-pos.barPhase * 3) : 0;
+  // Ölçü başında yumuşak bir nefes (yükselişi de yumuşak: karede sıçrama yok).
+  cue.pulse =
+    pos.barSecs >= 1 ? 0.2 * smooth(0, 0.15, pos.barPhase) * Math.exp(-pos.barPhase * 3) : 0;
   if (cue.phase === "gap" || cue.phase === "build") {
     const climax = building!;
     // Karartma: doruktan 1,5 sn önce başlar, yarıya iner.
@@ -693,6 +697,10 @@ function applySafe(
     cue.level = Math.min(cue.level, 1.3) * (1 - dim);
     cue.fill = Math.max(cue.fill, 0.08);
     cue.push = 0;
+  }
+  if (cue.phase === "drop") {
+    // Renk değişimi yavaş (ölçü başında sıçramaz).
+    cue.colorMix = 0.5 - 0.35 * Math.cos(time * 0.5);
   }
   if (behind && cue.phase === "drop") {
     const open = smooth(0, 1.5, behind.seconds);

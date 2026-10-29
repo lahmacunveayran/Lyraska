@@ -266,6 +266,38 @@ const tmpB: Vec3 = [0, 0, 0];
  * başına yanma oranı (güvenli modda hız sınırlı). Renkler doğrusal ışıktadır; parlaklık (ışık
  * düzeyi, nabız, strob) renge katılır.
  */
+/**
+ * Güvenli modda ışınların yönü ve rengi de hız sınırlıdır (desen ya da bölüm değişiminde, ölçü
+ * başındaki renk değişiminde sıçramaz). Fikstür başına durum; diziler bir kez ayrılır.
+ */
+export interface BeamEase {
+  dirs: Float32Array;
+  cols: Float32Array;
+  ready: Uint8Array;
+}
+
+/** Güvenli modda yönün (radyan/sn, yaklaşık) ve renk kanallarının (1/sn) en yüksek değişim hızı. */
+export const SAFE_TURN_RATE = 0.6;
+export const SAFE_COLOR_RATE = 0.5;
+
+export function createBeamEase(count: number): BeamEase {
+  return {
+    dirs: new Float32Array(count * 3),
+    cols: new Float32Array(count * 3),
+    ready: new Uint8Array(count),
+  };
+}
+
+function approach(state: Float32Array, at: number, target: number, step: number, snap: boolean) {
+  const v = state[at]!;
+  state[at] = snap ? target : v + Math.max(-step, Math.min(step, target - v));
+}
+
+/**
+ * Işınları gölgelendiricinin dizisine yazar; yazılan ışın sayısını döndürür. `lit`: fikstür
+ * başına yanma oranı (güvenli modda hız sınırlı). Renkler doğrusal ışıktadır; parlaklık (ışık
+ * düzeyi, nabız, strob) renge katılır. `ease` verilirse (güvenli mod) yön ve renk hız sınırlıdır.
+ */
 export function packBeams(
   cue: ShowCue,
   t: number,
@@ -274,21 +306,23 @@ export function packBeams(
   palette: ShowPalette,
   seed: number,
   out: Float32Array,
+  ease: { state: BeamEase; dt: number; jump: boolean } | null = null,
 ): number {
   const seedPhase = ((seed % 1000) / 1000) * Math.PI * 2;
   const strobeMul = cue.strobeActive ? 0.1 + 1.5 * cue.strobe : 1;
   const mix = springMix(cue.patternMix);
+  const dt = ease ? Math.max(0, Math.min(ease.dt, 0.1)) : 0;
   let n = 0;
-  for (let i = 0; i < fixtures.length && n < out.length / BEAM_FLOATS; i++) {
+  for (let i = 0; i < fixtures.length; i++) {
     const f = fixtures[i]!;
     const on = lit[i] ?? 0;
-    if (on <= 0.002) continue;
+    if (on <= 0.002 && !ease) continue;
     const a = patternDir(cue.patternFrom, f, cue, t, seedPhase, tmpA);
     const b = patternDir(cue.pattern, f, cue, t, seedPhase, tmpB);
     let dx = a[0] + (b[0] - a[0]) * mix;
     let dy = a[1] + (b[1] - a[1]) * mix;
     let dz = a[2] + (b[2] - a[2]) * mix;
-    const len = Math.hypot(dx, dy, dz) || 1;
+    let len = Math.hypot(dx, dy, dz) || 1;
     dx /= len;
     dy /= len;
     dz /= len;
@@ -303,6 +337,34 @@ export function packBeams(
       const w = c + (palette.warm[k]! - c) * warm;
       return w + (palette.white[k]! - w) * white;
     };
+    let r = color(0);
+    let g = color(1);
+    let bl = color(2);
+    if (ease) {
+      const st = ease.state;
+      const snap = ease.jump || st.ready[i] === 0;
+      st.ready[i] = 1;
+      const turn = SAFE_TURN_RATE * dt;
+      approach(st.dirs, i * 3, dx, turn, snap);
+      approach(st.dirs, i * 3 + 1, dy, turn, snap);
+      approach(st.dirs, i * 3 + 2, dz, turn, snap);
+      dx = st.dirs[i * 3]!;
+      dy = st.dirs[i * 3 + 1]!;
+      dz = st.dirs[i * 3 + 2]!;
+      len = Math.hypot(dx, dy, dz) || 1;
+      dx /= len;
+      dy /= len;
+      dz /= len;
+      const shade = SAFE_COLOR_RATE * dt;
+      approach(st.cols, i * 3, r, shade, snap);
+      approach(st.cols, i * 3 + 1, g, shade, snap);
+      approach(st.cols, i * 3 + 2, bl, shade, snap);
+      r = st.cols[i * 3]!;
+      g = st.cols[i * 3 + 1]!;
+      bl = st.cols[i * 3 + 2]!;
+      if (on <= 0.002) continue;
+    }
+    if (n >= out.length / BEAM_FLOATS) continue;
     const pulse =
       (1 + 0.55 * cue.pulse * (f.group === "laser" ? 0.5 : 1)) *
       (1 - cue.flicker * (1 - cue.pulse));
@@ -316,9 +378,9 @@ export function packBeams(
     out[o + 5] = dy;
     out[o + 6] = dz;
     out[o + 7] = isSpot ? 0.055 : f.spread;
-    out[o + 8] = color(0) * power;
-    out[o + 9] = color(1) * power;
-    out[o + 10] = color(2) * power;
+    out[o + 8] = r * power;
+    out[o + 9] = g * power;
+    out[o + 10] = bl * power;
     out[o + 11] = f.glow;
     n++;
   }
@@ -479,6 +541,7 @@ export function createShowDirector(quality: Quality): ShowDirector {
   const fixtures = buildFixtures(profile);
   const lit = new Float32Array(fixtures.length);
   const safe = createSafeLights(fixtures.length);
+  const beamEase = createBeamEase(fixtures.length);
   const beams = new Float32Array(MAX_BEAMS * BEAM_FLOATS);
   const camera: Camera = { pos: [0, 1.7, 10], target: [0, 4, -14], fov: 58 };
   const fill: Rgb = [0, 0, 0];
@@ -503,7 +566,7 @@ export function createShowDirector(quality: Quality): ShowDirector {
         // Hız sınırı yokken de durum güncel kalsın (güvenli mod açılınca sıçramasın).
         stepSafeLights(safe, cue.level, cue.fill, lit, input.dt, true);
       }
-      first = false;
+      // Güvenli modda yön ve renk de hız sınırlı; değilse durum yalnızca güncel tutulur.
       const beamCount = packBeams(
         cue,
         time,
@@ -512,7 +575,9 @@ export function createShowDirector(quality: Quality): ShowDirector {
         palette,
         sheet.seed,
         beams,
+        { state: beamEase, dt: input.dt, jump: !opts.safe || input.jump || first },
       );
+      first = false;
       cameraAt(cue, time, INTENSITY_PROFILES[opts.intensity].camera, opts.safe, camera);
       hazeTime +=
         Math.max(0, Math.min(input.dt, 0.25)) * HAZE_DRIFT * (opts.reducedMotion ? 0.4 : 1);
