@@ -99,6 +99,27 @@ function bpmText(bpm: number | null): string {
   return bpm === null ? "—" : DECIMAL.format(bpm);
 }
 
+const SIGNED_MS = new Intl.NumberFormat("tr-TR", {
+  maximumFractionDigits: 0,
+  signDisplay: "exceptZero",
+});
+
+/**
+ * İşaretlenen her drop için programın farkı: "-180 ms" (program işaretten önce), "bulunamadı".
+ * Beat'ler de işaretlendiyse parmak gecikmesi (beat'lerdeki ortanca kayma) düşülmüş hâli de yazılır:
+ * D tuşu da Boşluk kadar geç basılır.
+ */
+function dropErrorText(errors: (number | null)[], tapOffsetMs: number | null): string {
+  return errors
+    .map((e) => {
+      if (e === null) return "bulunamadı";
+      const raw = `${SIGNED_MS.format(e)} ms`;
+      if (tapOffsetMs === null || tapOffsetMs === 0) return raw;
+      return `${raw} (gecikme düşülünce ${SIGNED_MS.format(e + tapOffsetMs)} ms)`;
+    })
+    .join(", ");
+}
+
 /**
  * İşaretleme aracı: şarkı çalarken Boşluk ile beat'lere, D ile droplara vurulur.
  * Sonuç şarkı başına bir dosyaya kendiliğinden kaydedilir (ses içermez) ve
@@ -330,6 +351,17 @@ export function MarkerPanel({
                 <dt>Drop isabeti</dt>
                 <dd>
                   {evaluation.dropHits} / {evaluation.markedDrops}
+                </dd>
+              </div>
+            )}
+            {evaluation.dropErrorsMs.length > 0 && (
+              <div>
+                <dt>Drop anı farkı (program − siz)</dt>
+                <dd>
+                  {dropErrorText(
+                    evaluation.dropErrorsMs,
+                    evaluation.markedCount >= 8 ? evaluation.tapOffsetMs : null,
+                  )}
                 </dd>
               </div>
             )}

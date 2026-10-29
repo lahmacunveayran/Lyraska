@@ -31,6 +31,11 @@ detectedDrops: Array<number>,
  */
 dropHits: number, markedDrops: number, 
 /**
+ * İşaretlenen her drop için (sırasıyla) programın en yakın drop'unun farkı (ms; artı: program
+ * işaretten sonra); ±`DROP_TOLERANCE` içinde drop yoksa `None`.
+ */
+dropErrorsMs: Array<number | null>, 
+/**
  * Programın bulduğu ton (güveni ne olursa olsun; düşükse programda gösterilmez).
  */
 detectedKey: MusicalKey | null, 

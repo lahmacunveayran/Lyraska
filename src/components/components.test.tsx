@@ -326,6 +326,8 @@ vi.mock("../lib/backend", async (importOriginal) => {
         detectedDrops: [61.5],
         dropHits: 1,
         markedDrops: 1,
+        // Program drop'u işaretten 0,2 sn önce buldu (D tuşu geç basıldı).
+        dropErrorsMs: [-200],
         // Program Do majör buldu; işaret La minör: paralel ton, isabet sayılır.
         detectedKey: { tonic: 0, minor: false, confidence: 0.7, camelot: 8 },
         keyRelation: "relative" as const,
@@ -3811,6 +3813,8 @@ describe("işaretleme", () => {
     expect(screen.getByText("%95,1")).toBeInTheDocument();
     expect(screen.getByText("128 / 127,9 BPM")).toBeInTheDocument();
     expect(screen.getByText("1 / 1")).toBeInTheDocument(); // drop isabeti
+    // Drop anının farkı; beat'lerdeki parmak gecikmesi (42 ms) düşülmüş hâli de.
+    expect(screen.getByText("-200 ms (gecikme düşülünce -158 ms)")).toBeInTheDocument();
     // Kayıtlı ton seçili; ölçüm programın tonuyla karşılaştırır.
     expect(screen.getByLabelText("Ton")).toHaveValue("9m");
     expect(
