@@ -1,4 +1,5 @@
-use std::time::Instant;
+use std::sync::atomic::AtomicUsize;
+use std::time::{Duration, Instant};
 
 use rtrb::RingBuffer;
 
@@ -6,6 +7,7 @@ use super::decode_thread::decode_loop;
 use super::session::{derive_state, Segment, RING_SECONDS};
 use super::transition::MAX_DEVICE_RECOVERIES;
 use super::*;
+use crate::analysis::cache::AnalysisCache;
 use crate::audio::output::{self, OutputMode, OutputSpec};
 use crate::audio::resample::Converter;
 use crate::audio::test_util::{temp_path, write_wav};
