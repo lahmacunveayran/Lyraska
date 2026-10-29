@@ -166,12 +166,16 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 - Olmadıysa: hangi adımda olmadığını (uyarı mı çıktı, şarkılar mı silindi, yeni şarkı mı gelmedi) ve hata günlüğünü
   gönderin.
 
-**A15. Drop doğru yerde (0.0.73)**
+**A15. Drop doğru yerde (0.0.73; drop modeli 2. sürüm)**
 
-- Nasıl: Dropu belli olan (NCS gibi) 5–10 şarkı açın; her birinde **İşaretle** panelinde şarkıyı dinlerken drop
-  anlarında `D`'ye basın (kılavuz: `docs/ISARETLEME.md`). Panel programın bulduğuyla karşılaştırır.
-- Neye bakılır: paneldeki şarkı haritası şeridinde ▼ (programın dropu) ile ▲ (sizin işaretiniz) üst üste; drop
-  sayacı gerçek drop anında sıfırlanıyor; dropu olmayan sakin şarkıda ▼ yok.
+- Nasıl: Dropu belli olan (NCS gibi) 5–10 şarkı ve dropsuz 2–3 şarkı (pop, balad) açın; her birinde **İşaretle**
+  panelinde şarkıyı dinlerken drop anlarında `D`'ye basın, birkaç ölçü de Boşluk ile beat'lere vurun (kılavuz:
+  `docs/ISARETLEME.md`). Sonra **Doğruluğu ölç**.
+- Neye bakılır: **Drop isabeti** tam (ör. 2 / 2); **Drop anı farkı** her drop için yarım saniyeden az, "gecikme
+  düşülünce" yazan değer ±50 ms civarında; şarkı haritası şeridinde ▼ (programın dropu) ile ▲ (sizin işaretiniz)
+  üst üste; drop sayacı gerçek drop anında sıfırlanıyor; dropu olmayan şarkıda ▼ yok. Program bir drop'u
+  bulamıyorsa (rock'ta grubun girişi, filtrenin açıldığı drop) hangi tür olduğunu yazın: yeni model bunlarda
+  temkinli (`docs/arastirma/drop/MODEL.md`, "Kalanlar").
 - Olmadıysa: hangi şarkıda, hangi saniyede (erken mi, geç mi, hiç mi) olduğunu yazın; işaret dosyalarınızı
   gönderin (İşaretle panelindeki **İşaret klasörünü aç** düğmesi). İçlerinde ses yoktur, yalnızca zamanlar vardır.
 

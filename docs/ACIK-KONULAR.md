@@ -6,8 +6,7 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 ## İş sırası (proje sahibinin kararı, 29 Ekim 2026)
 
 1. Tempo oktav hataları (yarım tempolu dubstep 128, drum and bass 87).
-2. Drop yakalama baştan: her drop türünü içeren, anı bilinen deneme seti; geliştirme/doğrulama ayrı; ±1 vuruş,
-   yanlış ve kaçan drop oranı; sahibinin işaretleriyle doğrulama.
+2. Drop yakalama baştan: 2. sürüm yapıldı (`docs/arastirma/drop/MODEL.md`); sahibinin işaretleriyle doğrulama (A15).
 3. Söz zamanlaması: programın ve ses gecikmesinin payı ölçülür ve düzeltilir (hedef < 1 kare).
 4. "Kendi resmin" çubuklarının tepkisi (iş tanımı: orta bölge 2–10 kat ölü; önce teşhis, gerekirse model baştan).
 5. Ses motoru denetimi: 64-bit, EQ, AutoEq, EBU R128, bit-perfect, ABX (var mı, testi, matematiği) + birleşmemiş
@@ -41,7 +40,8 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 - WebM'de şarkı adı okunmuyor (Matroska Segment Title; symphonia okumuyor) ve sondaki Opus dolgusu (≤ 20 ms)
   atılmıyor (DiscardPadding). İkisi de küçük; istenirse kendi küçük EBML okuyucusuyla.
 
-- Drop ve tempo (sahibi, 23 Ekim): 0.0.73–0.0.74'te sentetik ölçümle iyileşti (`docs/arastirma/drop/`); sahibinin
+- Drop ve tempo (sahibi, 23 Ekim): drop 2. sürüm (29 Ekim) sentetik ölçümde yanlış dropu 34–41'den 1–3'e indirdi;
+  filtre açılan, bası süren ve rock girişi droplarında güven düşük (`docs/arastirma/drop/MODEL.md`); sahibinin
   şarkılarıyla doğrulanacak (A15). Tempo oktavı (dnb 87, trap/dubstep 70, balad 2×) sentetik ölçümle düzeltildi
   (`docs/arastirma/tempo/`); sahibinin şarkılarıyla doğrulanacak. "Dubstep 128" sentetikte üretilemedi. Açık (öncelikli):
   maksumda, Türk pop'unda, swing'li hip-hop'ta ve breakbeat'te yanlış aksak (2+3, 3+2) bulunuyor, tempo yarıya düşüyor

@@ -1,5 +1,9 @@
 # Drop bulma ölçümü (24 Ekim 2026)
 
+> **29 Ekim 2026:** drop bulma 2. sürümle baştan kuruldu: vuruş düzeyinde 12 kanıt, iki aşamalı lojistik model,
+> 20 türlük yeni deneme seti (`uret2.py`), ±1 vuruş / ±50 ms ölçütleri. Bkz. [MODEL.md](MODEL.md). Aşağısı 1.
+> sürümün (ölçü düzeyinde kurallar) kaydıdır; o yöntem ölçüm aracında karşılaştırma için korunur.
+
 Proje sahibi (23 Ekim): "drop bazen yanlış yerde buluyor, bazen hiç bulmuyor". Gerçek şarkılar oturumda yok
 (ağ yalnızca GitHub'a açık, ses dosyası depoya girmez); bu yüzden drop anı **tam bilinen** sentetik deneme
 şarkılarıyla ölçüldü. Sahibinin şarkılarıyla doğrulama ayrıca yapılacak (İşaretle panelinde `D`).

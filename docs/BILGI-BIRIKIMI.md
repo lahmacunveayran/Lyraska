@@ -110,7 +110,12 @@ kısaltılır.
   (144 BPM sekizliği = 12,5 kare) iki kareye bölünür; tepe yerine üç karelik toplam alınır.
 - **Commit'ten önce `cargo clippy --all-targets`:** yalnızca kütüphaneyi derlemek örneklerdeki (`examples/`)
   uyarıyı göstermez; CI hepsini derler.
-- **Drop ölçü başına yapıştırılmaz:** vuruş ızgarası kayabilir (yarım tempo, sessizlik); an basın döndüğü karedir.
+- **Drop ölçü başına yapıştırılmaz:** vuruş ızgarası kayabilir (yarım tempo, sessizlik); an basın döndüğü karedir. 2. sürümde her vuruş adaydır, ölçü başı yalnızca olasılığı artıran bir kanıttır (`analysis/drop.rs`).
+- **Sentetik sette bir işaret hep varsa model ona yaslanır** (29 Ekim 2026, drop 2. sürüm): ilk deneme setinde her
+  dropta crash vardı; model crash'i en güçlü kanıt yaptı, crash'siz karşı sette 62 droptan 11'ini buldu. Üreteçte
+  işaretler olasılıklıdır (crash dropların %60'ında, başka bölümlerde de) ve her model "bu kanıt olmasa" karşı
+  setiyle de ölçülür (`uret2.py --vurgusuz`). Tek aşamalı lojistiğin güveni kalibre değildi (vuruşların %99'u
+  kolay negatif): karar ikinci bir modelle yalnızca yarışan adaylar arasında verilir.
 - **Push'tan önce filtresiz `cargo test`** (24 Ekim 2026): yalnızca `library::` çalıştırınca göçün kırdığı
   `storage` tablo listesi testi CI'da yakalandı. Yeni komut eklenince `check-scenes.mjs` sahte çekirdeğine de eklenir
   (bilinmeyen komuta durum nesnesi döner, `.map` arayüzü çökertir).

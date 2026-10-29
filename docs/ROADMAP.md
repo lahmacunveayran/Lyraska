@@ -58,7 +58,8 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       bölüm sınırı, sürme); drop sayacı yalnızca güveni yüksek droplar için. 0.0.39: aynı kural her yerde (şeritteki
       DROP, işaretleme, Görsel Yönetmen'in beklentisi ve açılımı). 0.0.73: drop anı basın döndüğü kareye oturur, rulo erkene çekmez,
       davulun dönüşü, sakin girişten sonra grup, sıkıştırılmış kayıt; ayar için kullanılmamış sentetik sette 11/38 → 22/38
-      (`docs/arastirma/drop/`)
+      (`docs/arastirma/drop/`). Drop 2. sürüm (29 Ekim): vuruş düzeyinde 12 kanıt, iki aşamalı lojistik model; 20
+      türlük son sınama setinde ±1 vuruş isabet 55/93 → 69/93, yanlış drop 34 → 3 (`docs/arastirma/drop/MODEL.md`)
 - [x] Şarkı haritası önbelleği (0.0.20): analiz sonuçları (spektrum, beat, ölçü başı, bölümler, drop, enerji)
       SQLite'ta; anahtar yol + boyut + değiştirilme zamanı + analiz sürümü (algoritma değişince kendiliğinden yeniden
       hesaplanır). Kütüphane arka planda, düşük öncelikle analiz edilir (önce çalan, sonra sıradaki, sonra geri

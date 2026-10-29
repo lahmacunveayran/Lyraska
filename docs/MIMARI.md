@@ -142,7 +142,8 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
 ## Görsel yolu
 
 - Şarkı açılınca (ya da önceden, arka planda) analiz edilir: spektrum (60 kare/sn), seviyeler, vuruşlar,
-  ölçü başları, bölümler, droplar, enerji. Sonuç `analysis::cache`'te saklanır.
+  ölçü başları, bölümler, droplar, enerji (droplar `analysis::drop`: vuruş düzeyinde kanıtların iki aşamalı
+  lojistik birleşimi; ağırlıklar ve ölçüm `docs/arastirma/drop/MODEL.md`). Sonuç `analysis::cache`'te saklanır.
 - Görsel Yönetmen (`director`) şarkı haritasından her an için bir not çıkarır (atmosfer, ritim, doku).
 - Tempo oktavı (`analysis/tempo.rs`): öz-ilinti tempoyu yarısı ya da iki katıyla karıştırabilir (drum and bass 87,
   yarım tempolu trap 70, yavaş balad 132). Takipçinin ızgarası bant seviyelerinden sınanır: kick ya da snare vuruş

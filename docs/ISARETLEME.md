@@ -30,13 +30,15 @@ biraz geç gelir. Program da aksak şarkıda vuruşları böyle sayar.
 
 ## Sonuçlar ne demek
 
-| Alan                      | Anlamı                                                                         |
-| ------------------------- | ------------------------------------------------------------------------------ |
-| Beat doğruluğu (F-ölçüsü) | Programın vuruşları sizinkilerle ±70 ms içinde ne kadar örtüşüyor              |
-| Parmak gecikmesi          | Tuşa vuruştan ortalama ne kadar geç (+) ya da erken (−) bastığınız             |
-| Gecikme düzeltilince      | Parmak gecikmeniz çıkarıldıktan sonraki doğruluk (asıl bakılacak sayı)         |
-| Tempo (program / siz)     | Programın ve sizin vuruşlarınızdan çıkan BPM; biri ötekinin 2 katıysa söyleyin |
-| Ton (program / siz)       | Programın bulduğu ton ve sizin seçtiğiniz; ✓ aynı ton ya da Camelot komşusu    |
+| Alan                      | Anlamı                                                                                                      |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Beat doğruluğu (F-ölçüsü) | Programın vuruşları sizinkilerle ±70 ms içinde ne kadar örtüşüyor                                           |
+| Parmak gecikmesi          | Tuşa vuruştan ortalama ne kadar geç (+) ya da erken (−) bastığınız                                          |
+| Gecikme düzeltilince      | Parmak gecikmeniz çıkarıldıktan sonraki doğruluk (asıl bakılacak sayı)                                      |
+| Tempo (program / siz)     | Programın ve sizin vuruşlarınızdan çıkan BPM; biri ötekinin 2 katıysa söyleyin                              |
+| Drop isabeti              | İşaretlediğiniz droplardan kaçını program ±1 sn içinde buldu                                                |
+| Drop anı farkı            | Her drop için program − siz (ms; eksi: program önce); "gecikme düşülünce" parmak gecikmeniz çıkarılmış hâli |
+| Ton (program / siz)       | Programın bulduğu ton ve sizin seçtiğiniz; ✓ aynı ton ya da Camelot komşusu                                 |
 
 Ton sonucundaki sözcükler: **aynı ton**; **komşu ton** (Camelot çarkında bir yan, ör. 8A ↔ 9A); **paralel ton**
 (aynı notalar, ör. La minör ↔ Do majör); **aynı adlı, öteki kip** (ör. La minör ↔ La majör; isabet sayılmaz);
