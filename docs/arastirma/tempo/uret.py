@@ -13,6 +13,8 @@ Türler, tempo oktav hatasının bilinen tuzaklarını taklit eder (bkz. README)
 - hiphop (84–96): kick/snare boom-bap, swing'li hi-hat (on altılık ya da sekizlik);
 - pop (100–118): kick 1 ve 3, snare 2 ve 4, sekizlik hi-hat (karşılaştırma için düz örnek);
 - balad (60–72): yumuşak davul, piyano akorları sekizliklerde;
+- maksum ve turkpop (88–100): darbuka düm/tek (tek'ler vuruş aralarında ve 4'te), saz sekizlikleri;
+  Türk pop'unda üstüne kick, snare ve hi-hat;
 - aksak9 (9/8 = 2+2+2+3) ve aksak7 (7/8 = 2+2+3): darbuka düm/tek; doğru tempo grup başlarının
   temposudur (programın aksak ölçüde verdiği vuruşlar, `analysis/meter.rs`).
 
@@ -157,6 +159,8 @@ def four_four(kind, rng):
         "hiphop": (84, 96),
         "pop": (100, 118),
         "balad": (60, 72),
+        "maksum": (88, 100),
+        "turkpop": (88, 100),
     }
     lo, hi = ranges[kind]
     bpm = float(rng.integers(lo, hi + 1))
@@ -304,6 +308,23 @@ def four_four(kind, rng):
                 for e in range(8):
                     song.add(tb + e * b / 2, kit.hat(vel(rng, 0.3)))
             song.tone(tb, bar, semis(chord, -12), "sine", 0.2, attack=0.02, release=0.3)
+        elif kind in ("maksum", "turkpop"):
+            # Maksum (düm tek . tek düm . tek .) ya da sayidi (düm tek . düm düm . tek .); tek'ler
+            # vuruş aralarında ve 4'te. Türk pop'unda üstüne kick 1 ve 3, snare 2 ve 4, hi-hat.
+            dums, teks = [((0, 2), (0.5, 1.5, 3)), ((0, 1.5, 2), (0.5, 3)), ((0, 2), (0.5, 1.5, 3, 3.5))][variant]
+            for q in dums:
+                song.add(tb + q * b, kit.dum(vel(rng)))
+            for q in teks:
+                song.add(tb + q * b, kit.tek(vel(rng, 0.9)))
+            if kind == "turkpop":
+                for q in (0, 2):
+                    song.add(tb + q * b, kit.kick(vel(rng, 0.8 * kick_gain)))
+                for q in (1, 3):
+                    song.add(tb + q * b, kit.snare(vel(rng, 0.8)))
+                for e in range(8):
+                    song.add(tb + e * b / 2, kit.hat(vel(rng, hat_level)))
+            for e in range(8):  # saz/yaylı sekizlikleri
+                song.tone(tb + e * b / 2, b * 0.45, semis(chord, 12 + [0, 3, 5, 7][e % 4]), "saw", 0.06, cutoff=2500)
     return bpm, song.render(), beats
 
 
@@ -341,7 +362,7 @@ def aksak(kind, rng):
     return bpm, song.render(), beats
 
 
-KINDS = ["dubstep", "trap", "dnb", "house", "hiphop", "pop", "balad", "aksak9", "aksak7"]
+KINDS = ["dubstep", "trap", "dnb", "house", "hiphop", "pop", "balad", "aksak9", "aksak7", "maksum", "turkpop"]
 
 
 def main():
