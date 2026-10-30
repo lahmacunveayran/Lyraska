@@ -7,7 +7,7 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 
 Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/README.md` (yedek dallar).
 
-1. Söz zamanlaması bitti (0.0.91–0.0.95 tek PR'da; `docs/arastirma/sozler/`). Kalan küçük iş: ölçülen kare süresi
+1. Söz zamanlaması birleşti (0.0.91–0.0.95, #144; `docs/arastirma/sozler/`). Kalan küçük iş: ölçülen kare süresi
    ve ortak saat görsellere de (şimdilik sabit 1/60 sn).
    1b. **Söz düzenleme** (sahibinin isteği, 30 Ekim): kullanıcı bulduğu düz metni yapıştırır, düzenler; Lyraska'nın veri
    klasöründe saklanır (müzik dosyasına dokunulmaz; isteğe bağlı .lrc dışa aktarma; öncelik: düzenlenen > yan .lrc >
@@ -20,8 +20,8 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
    bitenler, yeni sıra). Tek doğruluk kaynağı ROADMAP + ACIK-KONULAR.
 5. Kaynak ayrıştırma: Spleeter ve Demucs karşılaştırması (kalite, hız, ağırlık lisansı birincil kaynaktan).
 6. Sözlerin sese otomatik hizalanması (vokal ayrıştırmadan sonra).
-7. Sahneler v2, sonra Otomatik DJ. Işık Ustası onaylandı (Normal'de drop flaşı yumuşak): söz işlerinden hemen sonra
-   bağımsız inceleme + PR.
+7. Sahneler v2, sonra Otomatik DJ. Işık Ustası (0.0.96) PR'da: bağımsız inceleme yapıldı, bulgular düzeltildi;
+   sıradaki: sözler sahnenin içinde ışık olarak (iş tanımında "sonraki PR").
 8. En son: drop v2, karar **B** (ikisi programda, varsayılan eski, İşaretle'de yan yana; sahibinin işaretiyle seçim;
    `-yedek-drop` dalındaki `docs/arastirma/drop/DURUM.md`); önce DnB temposu (sürekli sub bas
    kick kanıtını örtüyor, `tempo.rs`) ve hip-hop drop'u; maksumda yanlış aksak (`meter.rs`).

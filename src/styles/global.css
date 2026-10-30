@@ -125,6 +125,9 @@
      yalnızca #rrggbb). Özgün renkler; parlaklıkları gece göğü temalarınınkini aşmaz (parlama
      sınırı, src/lib/sceneLook.test.ts denetler): alt renk ≤ en parlak temanın alt rengi, üst renk
      ≤ en parlak temanın üst rengi. */
+  /* Işık Ustası: sıcak beyaz spot (~3200 K) ve soğuk beyaz strob/lazer çekirdeği. */
+  --lightshow-warm: #ffc98a;
+  --lightshow-white: #eef4ff;
   --scene-palette-ice-low: #84d8f5;
   --scene-palette-ice-high: #5a7dff;
   --scene-palette-ember-low: #ffb36b;
@@ -2203,6 +2206,53 @@ kbd {
 
 .sky-scene__canvas[hidden] {
   display: none;
+}
+
+/* ---------- Işık Ustası ---------- */
+
+/* Durgun arka plan (WebGL2 yoksa ya da ilk kare çizilene kadar): karanlık salon. */
+.lightshow-scene__canvas {
+  background: radial-gradient(ellipse at 50% 70%, var(--sky-horizon), var(--sky-zenith) 70%);
+  pointer-events: none;
+}
+
+/* Geliştirici göstergesi (Ctrl+Shift+M): ekran kartı süresi, kare, sahne çözünürlüğü. */
+.lightshow-scene__debug {
+  position: absolute;
+  top: 64px;
+  left: 16px;
+  max-width: calc(100% - 32px);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+/* Yeni sahnelerin üst çubuktaki düğmesi: küçük pembe nokta. */
+.pill--new::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 7px;
+  border-radius: 50%;
+  vertical-align: 2px;
+  background: var(--library-accent);
+}
+
+.scene-gallery__badge {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink-dark);
+  background: var(--library-accent);
 }
 
 /* ---------- MilkDrop sahnesi ---------- */

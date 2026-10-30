@@ -68,7 +68,8 @@ lyraska/
 ├── src/                      # Arayüz (React + TypeScript)
 │   ├── components/           # React bileşenleri: PlayerScreen (sahne tüm pencere; üstünde cam katmanlar:
 │   │                         # NowPlaying büyük başlık, InfoStack drop sayacı ve sıradaki, SeekBar şarkı haritası
-│   │                         # şeridi, LyricsOverlay kinetik sözler, PhotoLyrics "Kendi resmin" başlığının altındaki söz satırı; sahneler SceneStage'de, galeri ShaderScene + SceneGallery, MilkDropScene kullanıcının .milk görselleri, PhotoScene kullanıcının resmi ve ışık çizgisi; sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
+│   │                         # şeridi, LyricsOverlay kinetik sözler, PhotoLyrics "Kendi resmin" başlığının altındaki söz satırı; sahneler SceneStage'de, galeri ShaderScene + SceneGallery, MilkDropScene kullanıcının .milk görselleri, PhotoScene kullanıcının resmi ve ışık çizgisi,
+│   │                         # yeni sahneler: LightShowScene (Işık Ustası); sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
 │   │                         # ayarlar; her panel ve sahne bir ErrorBoundary içinde: hata yalnızca o bölümü kapatır).
 │   │                         # Klasik sahneler SkyScene, HighwayScene, DriveScene, VuScene (VuMeter), SpectrumView
 │   │                         # (DotMatrix, SpectrumDemo karşılama gösterisi); paneller LibraryPanel (AlbumGrid albüm ızgarası, AlbumPage albüm sayfası: kapak, Çal, albüm sırasıyla şarkılar, ArtistGrid sanatçı levhaları, ArtistPage sanatçı sayfası: levha, albümler, şarkılar, TrackTable sayfaların şarkı listesi, SkyView gökyüzü: ton ve tempoya göre yıldızlar, PlaylistGrid ve PlaylistPage çalma listeleri, PlaylistCover kapak ya da kolaj, AddToPlaylist "Listeye ekle" menüsü, RevealButton şarkı satırında "dosya konumunu aç", SongCoverMenu şarkı satırında kapak seçme, songCoverContext onun işlemleri), EqualizerPanel
@@ -85,11 +86,14 @@ lyraska/
 │   │                         # useAbx (kör test), useSongKey (çalan şarkının tonu), useParametric (elle
 │   │                         # parametrik EQ), useCrossfeed (crossfeed), useMapFile (şarkı haritası dosyası),
 │   │                         # useLyrics (şarkı sözleri, şarkı başına söz kaydırma: Alt+←/→), useScenePresets (galeri sahnelerinin görünümü ve
-│   │                         # hazır ayarlar), useMilkdrop (MilkDrop klasörü, görseller, önceki/sonraki), useBackgroundImage ("Kendi resmin" sahnesinin resmi), useBackgroundSource (resim sabit mi hareketli mi; hareketlinin kareleri), usePhotoParticles ("Kendi resmin" parçacıkları: Kıvılcım, Kar, Kapalı), useAlbums (albüm listesi), useArtists (sanatçı listesi), usePlaylists (çalma listeleri)
+│   │                         # hazır ayarlar), useMilkdrop (MilkDrop klasörü, görseller, önceki/sonraki), useBackgroundImage ("Kendi resmin" sahnesinin resmi), useBackgroundSource (resim sabit mi hareketli mi; hareketlinin kareleri), usePhotoParticles ("Kendi resmin" parçacıkları: Kıvılcım, Kar, Kapalı), useAlbums (albüm listesi), useArtists (sanatçı listesi), usePlaylists (çalma listeleri),
+│   │                         # useLightShowIntensity (Işık Ustası'nın yoğunluğu: Sakin / Normal / Çılgın)
 │   ├── lib/                  # Saf yardımcılar (format, meter, dotFont, vu, sky, highway, queue, sync, songMap,
 │   │                         # analysis: BPM sütunu, drop: bırakma bildirimi, eq: ekolayzer bantları,
 │   │                         # timeline, cover, abx, stageLight, musicalKey, parametric, crossfeed, mapFile, lyrics,
 │   │                         # clock: akıcı oynatma saati, marks: işaret hesapları, scene: sahne listesi,
+│   │                         # cueSheet: kurgu defteri (doruk: drop ya da nakarat girişi, 8 → 1 geri sayım, boşluk,
+│   │                         # kırılma, çıkış, mutlak ölçü konumu, belirlenimci tohum; harita yoksa canlı mod),
 │   │                         # sceneClock: sahne iç saatleri, virtual: uzun listede görünen satırlar, librarySort: kütüphane sıralaması ve ton adı, printCover: kapağı olmayan albümün baskı kapağı, albumCovers: kapak sırası ve önbelleği, artistPlate: sanatçı adından yıldız atlası levhası, skyMap: gökyüzünde şarkının yeri, photoScene: "Kendi resmin" sahnesinin çubukları ve parlama sınırı (parlaklık ve kırmızı; hareketli arka planın zarfı ve payları), photoMeasure: onun ölçümü ayrı iş parçacığında (photoMeasure.worker.ts, işi photoMeasureJob.ts), photoParticles: çizgiden doğan parçacıklar (Kıvılcım yukarı, Kar aşağı; tohumlu, sabit havuz), animatedImage: hareketli arka planı tanıma, WebView'da çözme, kare zamanı, spectrumBars: ham dalgadan ince spektrum),
 │   │                         # usePrefersReducedMotion ("animasyonları azalt"), browserGuard (sürümde F5, sağ tık
 │   │                         # menüsü, geri gibi tarayıcı davranışlarını kapatır), Rust köprüsü (backend.ts; veri tipleri
@@ -97,7 +101,12 @@ lyraska/
 │   │                         # (errorReporting.ts), parlama sayacı (flash.ts), WebGL2 çizimi (gl.ts ortak;
 │   │                         # skyRenderer.ts, highwayRenderer.ts; galeri: shaderScene.ts, shaderSources.ts
 │   │                         # gölgelendiriciler, shaderRenderer.ts, sceneLook.ts hız ve palet, scenePreset.ts hazır
-│   │                         # ayarlar; milkdrop.ts MilkDrop geçiş zamanı ve ses verisi; milkdropShaders.ts ekran
+│   │                         # ayarlar; Işık Ustası: lightShow.ts kurgu (evreler, yoğunluk, kalite katmanı, tondan palet,
+│   │                         # güvenli yorum), lightRig.ts fikstürler, desenler, kamera, lightShowShader.ts gölgelendirici
+│   │                         # (analitik hacimli ışın, ıslak zemin), lightShowRenderer.ts ekran kartında; yeni sahnelerin son işlem zinciri: postProcess.ts bloom, pozlama, ton eşleme,
+│   │                         # vinyet, titretme ve dinamik çözünürlük hesapları + gölgelendiriciler, postChain.ts
+│   │                         # ekran kartında çalıştırır, blueNoise.ts mavi gürültü, gpuTimer.ts ekran kartı süresi
+│   │                         # (geliştirici göstergesi); milkdrop.ts MilkDrop geçiş zamanı ve ses verisi; milkdropShaders.ts ekran
 │   │                         # kartında derlenemeyen MilkDrop gölgelendiricisini varsayılanla değiştirir), WebGL2
 │   │                         # açılamazsa gece göğü için 2D yedek çizim (skyFallback.ts), parlaklık freni:
 │   │                         # güvenilmeyen sahnelerin (MilkDrop) son geçişi, yalnızca güvenli modda sınırlar, bölge parlaklığı karede ≤ r·dt, blok

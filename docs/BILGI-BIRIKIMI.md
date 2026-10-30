@@ -161,6 +161,11 @@ kısaltılır.
   zamanlayıcısı ağır sahnede ana iş parçacığını bekler, "okuma anı" gecikir; gerçekte gidiş beklemez, yalnızca yanıt
   bekler. Bu fark ortak saatin aşırı yükte 37 ms geç kalmasını gizliyordu (30 Ekim). Zaman ölçen sahte çekirdekte
   okuma anı gönderme anından sabit uzaklıkta yazılır.
+- **Güvenli modda ışın ve kamera (Işık Ustası, 30 Ekim):** parlaklığı hız sınırlamak yetmez; hareket de parlama
+  sayılır. Kameraya dönük geçen geniş ışın konisi ya da kayan kamera, ince parlak ışınları küçük bölgelerde karede
+  0,13 değiştirir. Çözüm: güvenli modda tek, yavaş süzülen çekim (kamera ≤ 0,5 m/sn); hedefinden uzak ışın önce söner,
+  karanlıkta döner, hizalanınca yanar; sarma (ok tuşu basılı) hiçbir şeyi bir karede oturtmaz. Ölçüt bölge başına
+  (`check:scenes`, `lightshow` incelemesinin karşı örnekleri).
 - **Ölçüm denetiminde uzun kare:** sonraki kare gecikince bu karenin ekrana çıkış anı bilinemez; denetim aralık kabul
   eder (en erken kare başı + bir kare, en geç sonraki kare başı). CI'nın ekran kartsız Windows'unda "Kendi resmin"
   karelerinin %12'si uzun.
