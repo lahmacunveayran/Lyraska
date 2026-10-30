@@ -59,6 +59,8 @@ kısaltılır.
   kopyaları silinir. `.git/info/exclude`'a `.claude/worktrees/` yazılır (depoya girmez).
 - **Sahne denetimi üç paralel parçada** (`SCENE_SHARD`, 29 Ekim 2026): bütün CI ~16 dk (en uzunu kurulum dosyası);
   yeni denetim eklerken `check-scenes.mjs`'teki görev listesine `add(...)` ile eklenir.
+- **CI'da test derlemesi ayrı adımda** (`cargo test --no-run`, 30 dk; 30 Ekim 2026): tract gelince Windows'ta
+  önbelleksiz derleme 15 dakikalık test adımını aştı (#158). Testlerin kendi süre sınırı 15 dk kaldı.
 - **CI'da Linux işi `apt-get update`'te takılabiliyor:** test başlamadan 40 dakikada iptal olur. Bu altyapı
   hatasıdır; bir kez yeniden çalıştırılır (`rerun_failed_jobs`). Süreler: Windows sahne denetimi ~17–20 dk,
   kurulum dosyası ~10–25 dk, Rust ~3–4 dk.
