@@ -43,6 +43,7 @@ import type { LyricLine } from "./bindings/LyricLine";
 import type { LyricWord } from "./bindings/LyricWord";
 import type { Lyrics } from "./bindings/Lyrics";
 import type { LyricsSource } from "./bindings/LyricsSource";
+import type { LyricsText } from "./bindings/LyricsText";
 import type { MarkedKey } from "./bindings/MarkedKey";
 import type { MilkdropEntry } from "./bindings/MilkdropEntry";
 import type { MilkdropFolder } from "./bindings/MilkdropFolder";
@@ -102,6 +103,7 @@ export type {
   LyricWord,
   Lyrics,
   LyricsSource,
+  LyricsText,
   MarkedKey,
   MilkdropEntry,
   MilkdropFolder,
@@ -124,12 +126,31 @@ export async function getTrackCover(path: string): Promise<string | null> {
 }
 
 /**
- * Şarkının sözleri: yanındaki `.lrc` dosyası ya da şarkıya gömülü sözler; yoksa ya da tarayıcı
- * önizlemesinde `null`. Sözler yalnızca kullanıcının kendi dosyalarından okunur.
+ * Şarkının sözleri: kullanıcının Lyraska'da düzenlediği, yoksa yanındaki `.lrc` dosyası ya da şarkıya
+ * gömülü sözler; yoksa ya da tarayıcı önizlemesinde `null`. Sözler yalnızca kullanıcıdan gelir.
  */
 export async function getTrackLyrics(path: string): Promise<Lyrics | null> {
   if (!isTauri()) return null;
   return invoke<Lyrics | null>("track_lyrics", { path });
+}
+
+/** Düzenlemek için sözlerin ham metni (LRC ya da düz metin) ve kaynağı; yoksa `null`. */
+export async function getTrackLyricsText(path: string): Promise<LyricsText | null> {
+  if (!isTauri()) return null;
+  return invoke<LyricsText | null>("track_lyrics_text", { path });
+}
+
+/**
+ * Düzenlenen sözleri Lyraska'nın klasöründe saklar (müzik dosyasına dokunulmaz); boş metin kaydı
+ * siler.
+ */
+export function saveTrackLyrics(path: string, text: string): Promise<void> {
+  return invoke<void>("track_lyrics_save", { path, text });
+}
+
+/** Düzenlenmiş sözleri siler: şarkının kendi sözlerine dönülür. */
+export function clearTrackLyrics(path: string): Promise<void> {
+  return invoke<void>("track_lyrics_clear", { path });
 }
 
 /** Çalan şarkının yapısı; analiz bitmediyse `null`. */

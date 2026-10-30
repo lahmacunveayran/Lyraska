@@ -1,10 +1,12 @@
 //! Şarkı sözleri: yalnızca kullanıcının kendi dosyalarından okunur ve hiçbir yere yazılmaz
 //! (önbellek, şarkı haritası dosyası, depo). Program söz dağıtmaz.
 //!
-//! **Kaynaklar** (zamanlı olan önce):
+//! **Kaynaklar:**
+//! 0. Kullanıcının Lyraska'da yapıştırıp düzenlediği sözler (`library::user_lyrics`; veri klasöründe,
+//!    müzik dosyasına dokunulmaz): varsa her zaman bunlar (kullanıcı seçti).
 //! 1. Şarkının yanındaki `.lrc` dosyası (`şarkı.lrc`, `şarkı.LRC` ya da `şarkı.mp3.lrc`).
 //! 2. Şarkıya gömülü sözler (ID3 USLT, Vorbis `LYRICS`, MP4 `©lyr`); çoğu araç zamanlı sözleri de
-//!    LRC biçiminde buraya yazar.
+//!    LRC biçiminde buraya yazar. 1 ile 2 arasında zamanlı olan önce.
 //!
 //! **LRC:** satır zamanları (`[mm:ss.xx]`, bir satırda birden çok), `[offset:±ms]`, kelime
 //! zamanları (`<mm:ss.xx>`, "enhanced LRC"). Aynı zamandaki ikinci satır çeviri sayılır. Zamanı
@@ -21,7 +23,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 /// Okunan söz dosyasının en büyük boyutu.
-const MAX_FILE_BYTES: u64 = 1024 * 1024;
+pub const MAX_FILE_BYTES: u64 = 1024 * 1024;
 /// Sonraki satır yoksa ya da çok uzaktaysa bir satırın en uzun süresi (saniye).
 const MAX_LINE_SECONDS: f64 = 10.0;
 /// Hecenin en uzun süresi (saniye): kelimeler satırın sonuna kadar yayılmaz.
@@ -37,6 +39,17 @@ pub enum LyricsSource {
     File,
     /// Şarkıya gömülü sözler.
     Embedded,
+    /// Kullanıcının Lyraska'da düzenlediği sözler.
+    User,
+}
+
+/// Düzenlemek için sözlerin ham metni (LRC ya da düz metin) ve nereden geldiği.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
+pub struct LyricsText {
+    pub source: LyricsSource,
+    pub text: String,
 }
 
 /// Bir şarkının sözleri.
@@ -77,6 +90,18 @@ pub struct LyricWord {
 
 /// Şarkının sözleri; hiç yoksa `None`. `duration_secs` son satırın bitişi için.
 pub fn for_track(path: &Path, duration_secs: Option<f64>) -> Option<Lyrics> {
+    for_track_with(path, duration_secs, None)
+}
+
+/// [`for_track`]; `user`: kullanıcının Lyraska'da düzenlediği metin, varsa (boş değilse) her zaman o.
+pub fn for_track_with(
+    path: &Path,
+    duration_secs: Option<f64>,
+    user: Option<&str>,
+) -> Option<Lyrics> {
+    if let Some(text) = user.filter(|t| !t.trim().is_empty()) {
+        return Some(parse(text, LyricsSource::User, duration_secs));
+    }
     let sidecar = sidecar_text(path).map(|text| parse(&text, LyricsSource::File, duration_secs));
     if sidecar.as_ref().is_some_and(|l| l.synced) {
         return sidecar;
@@ -90,6 +115,26 @@ pub fn for_track(path: &Path, duration_secs: Option<f64>) -> Option<Lyrics> {
         (Some(sidecar), _) => Some(sidecar).filter(|l| !l.lines.is_empty()),
         (None, embedded) => embedded.filter(|l| !l.lines.is_empty()),
     }
+}
+
+/// Düzenlemek için sözlerin ham metni: kullanıcının düzenlediği, yoksa [`for_track`]'ın seçtiği
+/// kaynağın (yan `.lrc` ya da gömülü) metni olduğu gibi; hiç yoksa `None`.
+pub fn text_for_track(path: &Path, user: Option<&str>) -> Option<LyricsText> {
+    if let Some(text) = user.filter(|t| !t.trim().is_empty()) {
+        return Some(LyricsText {
+            source: LyricsSource::User,
+            text: text.to_owned(),
+        });
+    }
+    let chosen = for_track(path, None)?;
+    let text = match chosen.source {
+        LyricsSource::File => sidecar_text(path)?,
+        _ => super::decode::read_lyrics(path).ok().flatten()?,
+    };
+    Some(LyricsText {
+        source: chosen.source,
+        text,
+    })
 }
 
 /// Şarkının yanındaki `.lrc` dosyalarının adayları.

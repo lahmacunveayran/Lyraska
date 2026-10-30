@@ -111,7 +111,7 @@ lyraska/
 │   │   ├── commands.rs       # Arayüzün çağırdığı ince Tauri komutları
 │   │   ├── audio/            # Ses motoru
 │   │   │   ├── decode.rs     #   symphonia ile çözme → f64 örnekler, etiketler, kapak resmi, gömülü sözler
-│   │   │   ├── lyrics.rs     #   şarkı sözleri: yan .lrc ya da gömülü; LRC, kelime zamanları, Türkçe kodlamalar (saklanmaz)
+│   │   │   ├── lyrics.rs     #   şarkı sözleri: kullanıcının düzenlediği, yan .lrc ya da gömülü; LRC, kelime zamanları, Türkçe kodlamalar
 │   │   │   ├── gapless.rs    #   boşluksuz çalma: MP4/AAC kodlayıcı dolgusu (iTunSMPB, elst)
 │   │   │   ├── eq.rs         #   10 bant ekolayzer: taşma düzeltmeli tasarım, kilitsiz ayar, yumuşak geçiş
 │   │   │   ├── bass.rs       #   bas düğmesi (raf, 0–18 dB), derinlik (alt oktav), küçük hoparlör bası, bas tepesi ölçümü
@@ -144,6 +144,7 @@ lyraska/
 │   │   │   ├── playlist_file.rs # çalma listesini taşıma: .m3u8 yazma/okuma, şarkıyı yol/etiket/dosya adıyla bulma
 │   │   │   ├── playlists.rs  #   çalma listeleri: ad, sıra (yolla; aynı şarkı iki kez olabilir), kolaj için albümler
 │   │   │   ├── covers.rs     #   kullanıcının albüme ve çalma listesine seçtiği kapaklar, "Kendi resmin" arka planı (hareketli resim en çok 600 kare / 50 milyon piksel; veri klasöründe `kapaklar/`; müzik dosyalarına dokunulmaz)
+│   │   │   ├── user_lyrics.rs #  kullanıcının yapıştırıp düzenlediği sözler (veri klasöründe `sozler/`; müzik dosyasına dokunulmaz; her zaman önce)
 │   │   │   ├── service.rs    #   arka plan taraması; komutların kullandığı katman
 │   │   │   └── watch.rs      #   klasör izleme (notify): eklenen/silinen şarkıda yalnızca o alt klasör taranır (2 sn
 │   │   │                     #   sessizlik; yazılan dosya bitene kadar beklenir); kaybolan kök 2 dk'da bir aranır, 30 dk'da bir izleme yenileme + tam tarama

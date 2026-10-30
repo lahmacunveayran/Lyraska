@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { getTrackLyrics, type Lyrics } from "../lib/backend";
+import {
+  clearTrackLyrics,
+  getTrackLyrics,
+  getTrackLyricsText,
+  saveTrackLyrics,
+  type Lyrics,
+  type LyricsText,
+} from "../lib/backend";
 import {
   clampLyricShift,
   formatLyricShift,
@@ -24,13 +31,19 @@ export interface LyricsControls {
   setShift: (ms: number) => void;
   /** Kısayolla kaydırınca kısa süre gösterilen not ("Sözler: +0,05 sn (daha geç)"); yoksa `null`. */
   shiftNotice: string | null;
+  /** Düzenlemek için çalan şarkının sözlerinin ham metni (LRC ya da düz metin); yoksa `null`. */
+  loadText: () => Promise<LyricsText | null>;
+  /** Düzenlenen sözleri saklar (Lyraska'nın klasöründe) ve yeniden okur; boş metin kaydı siler. */
+  saveText: (text: string) => Promise<void>;
+  /** Düzenlenmiş sözleri siler (şarkının kendi sözlerine dönülür) ve yeniden okur. */
+  clearText: () => Promise<void>;
 }
 
 /**
- * Çalan şarkının sözleri (yanındaki `.lrc` ya da gömülü). Şarkı değişince bir kez okunur;
- * önceki şarkının sözleri hemen bırakılır. Sözler hiçbir yere kaydedilmez; yalnızca kullanıcının
- * seçtiği kaydırma (şarkının yoluna göre, bu bilgisayarda) hatırlanır. Zamanlı sözler
- * gösterilirken Alt+← sözleri 50 ms erken, Alt+→ 50 ms geç getirir.
+ * Çalan şarkının sözleri (Lyraska'da düzenlenmiş, yanındaki `.lrc` ya da gömülü). Şarkı değişince ve
+ * sözler düzenlenince okunur; önceki şarkının sözleri hemen bırakılır. Kullanıcının düzenlediği metin
+ * Lyraska'nın klasöründe saklanır (müzik dosyasına dokunulmaz); kaydırma şarkının yoluna göre bu
+ * bilgisayarda hatırlanır. Zamanlı sözler gösterilirken Alt+← sözleri 50 ms erken, Alt+→ 50 ms geç getirir.
  */
 export function useLyrics(trackPath: string | null): LyricsControls {
   const [loaded, setLoaded] = useState<{ path: string; lyrics: Lyrics | null } | null>(null);
@@ -47,6 +60,8 @@ export function useLyrics(trackPath: string | null): LyricsControls {
     setNotice(null);
   }
 
+  // Sözler düzenlenince yeniden okunur.
+  const [revision, setRevision] = useState(0);
   useEffect(() => {
     if (!trackPath) return;
     let cancelled = false;
@@ -58,6 +73,24 @@ export function useLyrics(trackPath: string | null): LyricsControls {
     return () => {
       cancelled = true;
     };
+  }, [trackPath, revision]);
+
+  const loadText = useCallback(
+    () => (trackPath ? getTrackLyricsText(trackPath) : Promise.resolve(null)),
+    [trackPath],
+  );
+  const saveText = useCallback(
+    async (text: string) => {
+      if (!trackPath) return;
+      await saveTrackLyrics(trackPath, text);
+      setRevision((r) => r + 1);
+    },
+    [trackPath],
+  );
+  const clearText = useCallback(async () => {
+    if (!trackPath) return;
+    await clearTrackLyrics(trackPath);
+    setRevision((r) => r + 1);
   }, [trackPath]);
 
   const setVisible = useCallback((next: boolean) => {
@@ -108,5 +141,8 @@ export function useLyrics(trackPath: string | null): LyricsControls {
     shiftMs,
     setShift,
     shiftNotice: notice?.text ?? null,
+    loadText,
+    saveText,
+    clearText,
   };
 }

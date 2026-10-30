@@ -24,7 +24,7 @@ use crate::audio::abx::{AbxChoice, AbxRequest, AbxSource, AbxStatus, AbxTest};
 use crate::audio::crossfeed::{CrossfeedSettings, CrossfeedState};
 use crate::audio::decode::{Decoder, TrackInfo, SUPPORTED_EXTENSIONS};
 use crate::audio::eq::{EqSettings, EqState};
-use crate::audio::lyrics::Lyrics;
+use crate::audio::lyrics::{Lyrics, LyricsText};
 use crate::audio::peq::{
     HeadphoneProfile, HeadphoneSettings, HeadphoneState, ParametricSettings, ParametricState,
 };
@@ -229,17 +229,59 @@ pub async fn track_cover(path: PathBuf) -> Result<Option<String>, String> {
     .await
 }
 
-/// Şarkının sözleri: yanındaki `.lrc` dosyası ya da şarkıya gömülü sözler; yoksa `null`.
-/// Sözler yalnızca kullanıcının kendi dosyalarından okunur, hiçbir yere kaydedilmez.
+/// Şarkının sözleri: kullanıcının Lyraska'da düzenlediği, yoksa yanındaki `.lrc` dosyası ya da şarkıya
+/// gömülü sözler; yoksa `null`. Sözler yalnızca kullanıcının kendisinden gelir; program söz indirmez.
 #[tauri::command]
-pub async fn track_lyrics(path: PathBuf) -> Result<Option<Lyrics>, String> {
+pub async fn track_lyrics(
+    path: PathBuf,
+    big: State<'_, BigDataDir>,
+) -> Result<Option<Lyrics>, String> {
+    let store = user_lyrics_store(&big).ok();
     blocking(move || {
         let duration = Decoder::open(&path)
             .ok()
             .and_then(|d| d.info().duration_secs);
-        Ok(crate::audio::lyrics::for_track(&path, duration))
+        let user = store.and_then(|s| s.get(&path.to_string_lossy()));
+        Ok(crate::audio::lyrics::for_track_with(
+            &path,
+            duration,
+            user.as_deref(),
+        ))
     })
     .await
+}
+
+/// Düzenlemek için sözlerin ham metni (LRC ya da düz metin) ve kaynağı; söz yoksa `null`.
+#[tauri::command]
+pub async fn track_lyrics_text(
+    path: PathBuf,
+    big: State<'_, BigDataDir>,
+) -> Result<Option<LyricsText>, String> {
+    let store = user_lyrics_store(&big).ok();
+    blocking(move || {
+        let user = store.and_then(|s| s.get(&path.to_string_lossy()));
+        Ok(crate::audio::lyrics::text_for_track(&path, user.as_deref()))
+    })
+    .await
+}
+
+/// Kullanıcının düzenlediği sözleri saklar (Lyraska'nın klasöründe; müzik dosyasına dokunulmaz).
+/// Boş metin kaydı siler.
+#[tauri::command]
+pub async fn track_lyrics_save(
+    path: String,
+    text: String,
+    big: State<'_, BigDataDir>,
+) -> Result<(), String> {
+    let store = user_lyrics_store(&big)?;
+    blocking(move || store.set(&path, &text).map_err(|e| e.to_string())).await
+}
+
+/// Düzenlenmiş sözleri siler: şarkının kendi sözlerine (yan `.lrc`, gömülü) dönülür.
+#[tauri::command]
+pub async fn track_lyrics_clear(path: String, big: State<'_, BigDataDir>) -> Result<(), String> {
+    let store = user_lyrics_store(&big)?;
+    blocking(move || store.clear(&path).map_err(|e| reported(e.to_string()))).await
 }
 
 /// Boşluksuz geçiş için sıradaki şarkıyı bildirir (`null`: sıra yok).
@@ -434,6 +476,16 @@ pub async fn library_artist_tracks(
     library
         .run(move |service| service.artist_tracks(&artist).map_err(reported))
         .await
+}
+
+/// Kullanıcının düzenlediği sözlerin deposu (büyük veri klasöründe, kapakların yanında).
+fn user_lyrics_store(
+    big: &BigDataDir,
+) -> Result<crate::library::user_lyrics::UserLyricsStore, String> {
+    big.0
+        .as_ref()
+        .map(|dir| crate::library::user_lyrics::UserLyricsStore::new(dir))
+        .map_err(|e| reported(format!("Uygulama klasörü bulunamadı: {e}")))
 }
 
 /// Kullanıcının albüme seçtiği kapakların deposu (büyük veri klasöründe).

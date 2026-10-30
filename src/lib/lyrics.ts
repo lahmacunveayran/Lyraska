@@ -1,4 +1,11 @@
-import type { LyricLine, Lyrics } from "./backend";
+import type { LyricLine, Lyrics, LyricsSource } from "./backend";
+
+/** Sözlerin nereden geldiği, kullanıcıya görünen yazıyla. */
+export const LYRICS_SOURCE_TEXT: Record<LyricsSource, string> = {
+  file: ".lrc dosyasından",
+  embedded: "şarkının içinden",
+  user: "Lyraska'da düzenlediğiniz",
+};
 
 /** Satır başlamadan bu kadar önce belirmeye başlar (saniye). */
 export const LYRIC_LEAD = 0.25;

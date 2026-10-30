@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { errorMessage, openLog, type AppInfo, type PlaybackStatus } from "../lib/backend";
 import { signalPathText } from "../lib/format";
-import { LYRIC_SHIFT_STEP_MS, MAX_LYRIC_SHIFT_MS, formatLyricShift } from "../lib/lyrics";
+import {
+  LYRICS_SOURCE_TEXT,
+  LYRIC_SHIFT_STEP_MS,
+  MAX_LYRIC_SHIFT_MS,
+  formatLyricShift,
+} from "../lib/lyrics";
 import { SKY_LOOKS } from "../lib/sky";
 import type { PlaybackOptionsControls } from "../hooks/usePlaybackOptions";
 import type { SkyLookControls } from "../hooks/useSkyLook";
@@ -85,7 +90,7 @@ export function SettingsPanel({
             kelime akar; Lyraska söz indirmez, saklamaz.
             {lyrics.lyrics &&
               (lyrics.lyrics.synced
-                ? ` Çalan şarkının sözleri: ${lyrics.lyrics.source === "file" ? ".lrc dosyasından" : "şarkının içinden"}.`
+                ? ` Çalan şarkının sözleri: ${LYRICS_SOURCE_TEXT[lyrics.lyrics.source]}.`
                 : " Çalan şarkının sözleri zamanlı değil; sahnede gösterilmez.")}
           </p>
           {lyrics.lyrics?.synced && (

@@ -6,6 +6,7 @@
 //! Kütüphaneye "kaynak" eklenir: bir klasör (alt klasörleriyle birlikte) ya da
 //! tek bir şarkı dosyası. İkisi de aynı şekilde taranır, güncellenir ve çıkarılır.
 //! - [`covers`]: kullanıcının albümlere seçtiği kapaklar (veri klasöründe; müzik dosyalarına dokunulmaz).
+//! - [`user_lyrics`]: kullanıcının yapıştırıp düzenlediği şarkı sözleri (veri klasöründe `sozler/`).
 //! - [`service`]: veritabanı + arka plan taraması; Tauri komutlarının kullandığı katman.
 //! - [`watch`]: klasör izleme; sonradan eklenen, değişen ya da silinen şarkılar kendiliğinden taranır.
 //!
@@ -19,6 +20,7 @@ pub mod playlist_file;
 pub mod playlists;
 pub mod scan;
 pub mod service;
+pub mod user_lyrics;
 pub mod watch;
 
 use std::path::{Component, Path};
