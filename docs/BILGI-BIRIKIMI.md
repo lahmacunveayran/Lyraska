@@ -221,5 +221,10 @@ kısaltılır.
   Kıvılcım/Kar/Kapalı + yoğunluk kaydırıcısı; önerilen estetik fikirlerden **yalnızca şarkı sözleri** beğenildi (resmin
   basla nefes alması, drop parlaması, süzülme istenmedi); "gerekirse baştan kur, nihai mühendislik ve matematiksel
   çözüm". Tempo tanımı: DnB 170'ler, dubstep/trap 140, hip-hop 85–95. Drop v2 sonuçları saklandı, karar en sona.
+- **30 Ekim 2026: sahibi bekleyen dört soruyu Claude'a bıraktı** ("en iyi cevabı sen ver"): "Kendi resmin" sözleri
+  beğenildi sayılır, düğmeler görünürken de kalır, ışıltı şimdilik aynı (önce o dalın CSS gecikmeleri ölçülüp
+  düzeltilir); Işık Ustası'nda Normal'de drop flaşı yumuşar (tam flaş Çılgın'da), söz işlerinden hemen sonra bağımsız
+  inceleme + PR; drop v2 için **B** (ikisi programda, varsayılan eski, İşaretle'de yan yana; karar sahibinin 5–10
+  şarkılık işaretiyle), uygulaması sırada yine en sonda. Sahibinin kendi denemeleri (A16, #25, #27) ona kalır.
 - Görsel tasarımda sahibi zor beğenir: seçenekleri gerçek boyutta, yan yana görsel olarak sun; bağımsız sanat
   yönetmeni denetimi işe yarıyor (puan 6 → hedef 8+).
