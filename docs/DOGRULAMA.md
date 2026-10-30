@@ -449,7 +449,7 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
   yanıp sönme olmaz. Ekran kartınızda akıcı mı (Ctrl+Shift+D: ekran kartı süresi ve kare hızı).
 - Bildirin: drop anı yeterince "vay be" mi; Normal'in flaşı fazla mı, az mı; akıcılık.
 
-**D13. "Kendi resmin" çubukları orijinal kadar canlı (0.0.98)**
+**D13. "Kendi resmin" çubukları orijinal kadar canlı (0.0.98; yumuşak tavan 0.0.99)**
 
 - Nasıl: "Kendi resmin" sahnesinde Flying High'ı (ya da başka bir şarkıyı) çalın; YouTube'daki orijinalle aynı
   saniyelere bakın.
