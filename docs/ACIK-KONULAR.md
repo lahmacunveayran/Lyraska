@@ -7,22 +7,18 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 
 Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/README.md` (yedek dallar).
 
-1. Söz zamanlaması birleşti (0.0.91–0.0.95, #144; `docs/arastirma/sozler/`). Kalan küçük iş: ölçülen kare süresi
-   ve ortak saat görsellere de (şimdilik sabit 1/60 sn).
-   1b. **Söz düzenleme** (sahibinin isteği, 30 Ekim): kullanıcı bulduğu düz metni yapıştırır, düzenler; Lyraska'nın veri
-   klasöründe saklanır (müzik dosyasına dokunulmaz; isteğe bağlı .lrc dışa aktarma; öncelik: düzenlenen > yan .lrc >
-   gömülü); zamanlama şarkı çalarken dokunarak (Boşluk/Enter), sonra satır satır −/+. Üç parça: kayıt ve öncelik
-   (0.0.95, birleşti) → yapıştır/düzenle paneli (0.0.97, sahibi onayladı, PR'da) → dokunarak zamanlama. Otomatik hizalamanın (6) girdisi olur.
-2. "Kendi resmin" çubuk tepkisi: teşhis bitti, model doğru; tek fark ölçekti (0,72 kat), 0.0.98'de düzeltildi
-   (`docs/arastirma/kendi-resmin/` "Tepki teşhisi"). Moonlight Shadow ile doğrulanmadı (sesi yok).
+1. Söz düzenleme 3/3: şarkı çalarken dokunarak zamanlama (Boşluk/Enter), sonra satır satır −/+ (önce sahibine
+   görünüş); kayıt (0.0.95) ve panel (0.0.97) birleşti. Küçük iş: ölçülen kare süresi ve ortak saat görsellere de.
+2. "Kendi resmin": çubuk ölçeği, yumuşak tavan, saf renk 0.0.98'de (`docs/arastirma/kendi-resmin/` "Tepki
+   teşhisi"). Ayrı iş: güvenli modda kırmızı resimde çubuklar neredeyse kıpırdamıyor (`limitExtents`).
 3. Ses motoru denetimi: 64-bit, EQ, AutoEq, EBU R128, bit-perfect, ABX + DENETIM-3 (dallar `ccr-a69bd749-djgi3v`,
    `ccr-a46535b3-m3v2i5`) + #56.
 4. Görev kitabı (`docs/gorev/`) ile ROADMAP/ACIK-KONULAR çelişkileri; ROADMAP güncellenir (kaldırılan sahneler, bugün
    bitenler, yeni sıra). Tek doğruluk kaynağı ROADMAP + ACIK-KONULAR.
 5. Kaynak ayrıştırma: Spleeter ve Demucs karşılaştırması (kalite, hız, ağırlık lisansı birincil kaynaktan).
 6. Sözlerin sese otomatik hizalanması (vokal ayrıştırmadan sonra).
-7. Sahneler v2, sonra Otomatik DJ. Işık Ustası (0.0.96) PR'da: bağımsız inceleme yapıldı, bulgular düzeltildi;
-   sıradaki: sözler sahnenin içinde ışık olarak (iş tanımında "sonraki PR").
+7. Sahneler v2, sonra Otomatik DJ. Işık Ustası sahibinin kararıyla kaldırıldı (30 Ekim, "sıkıcı"); yeni sahne
+   fikri önce sahibine seçenek + önizlemeyle sorulur.
 8. En son: drop v2, karar **B** (ikisi programda, varsayılan eski, İşaretle'de yan yana; sahibinin işaretiyle seçim;
    `-yedek-drop` dalındaki `docs/arastirma/drop/DURUM.md`); önce DnB temposu (sürekli sub bas
    kick kanıtını örtüyor, `tempo.rs`) ve hip-hop drop'u; maksumda yanlış aksak (`meter.rs`).

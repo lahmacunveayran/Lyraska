@@ -438,23 +438,15 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 - Neye bakılır: ilk şarkının son vuruşları görsellerde görünür; ikinci şarkı başlarken görseller donup
   beklemez, kulağınıza gelenle birlikte geçer.
 
-**D12. Işık Ustası (0.0.96)**
+**D12. Işık Ustası (0.0.96)** — sahibinin kararıyla kaldırıldı (30 Ekim, 0.0.99); denenmesi gerekmez.
 
-- Nasıl: Galeri → Yeni sahneler → **Işık Ustası**; drop'lu bir şarkı (EDM) ve dropsuz bir şarkı (balad) çalın.
-  Galerinin altındaki **Sakin / Normal / Çılgın**'ı sırayla deneyin; bir kez de **Ayarlar → Epilepsi güvenli modu**
-  açıkken.
-- Neye bakılır: drop'a 8 ölçü kala ışınlar her ölçüde bir söner (8 → 1), drop'tan hemen önce karanlık, dropta
-  ışınlar birden açılır. Normal'de drop flaşı yumuşak, Çılgın'da tam; Sakin'de strob yok. Güvenli modda kamera
-  tek, yavaş bir çekimde kalır; ışınlar yer değiştirirken söner, karanlıkta döner; ← / → basılı tutulunca bile
-  yanıp sönme olmaz. Ekran kartınızda akıcı mı (Ctrl+Shift+D: ekran kartı süresi ve kare hızı).
-- Bildirin: drop anı yeterince "vay be" mi; Normal'in flaşı fazla mı, az mı; akıcılık.
-
-**D13. "Kendi resmin" çubukları orijinal kadar canlı (0.0.98)**
+**D13. "Kendi resmin" çubukları orijinal kadar canlı (0.0.98; yumuşak tavan 0.0.99)**
 
 - Nasıl: "Kendi resmin" sahnesinde Flying High'ı (ya da başka bir şarkıyı) çalın; YouTube'daki orijinalle aynı
   saniyelere bakın.
 - Neye bakılır: orta ve sağdaki çubuklar da oynuyor (eskiden yalnız soldaki bas); çubuklar sesle aynı anda; bas en
-  yüksek yerde ekranın ortasını aşmıyor. Çubuk rengi saf ve canlı (kızıl-pembe resimde saf kırmızı).
+  yüksek yerde ekranın ortasını aşmıyor; bas ağırlıklı şarkıda (trap, rap) bas çubukları tepede donmuyor. Çubuk rengi
+  saf ve canlı (kızıl-pembe resimde saf kırmızı); mavi ya da yeşil bir resimle de bir kez bakın.
 - Bildirin: fazla mı uzun, hâlâ pasif mi.
 
 ## E. Senkron ve işaretleme

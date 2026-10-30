@@ -165,13 +165,14 @@ kısaltılır.
   sayılır. Kameraya dönük geçen geniş ışın konisi ya da kayan kamera, ince parlak ışınları küçük bölgelerde karede
   0,13 değiştirir. Çözüm: güvenli modda tek, yavaş süzülen çekim (kamera ≤ 0,5 m/sn); hedefinden uzak ışın önce söner,
   karanlıkta döner, hizalanınca yanar; sarma (ok tuşu basılı) hiçbir şeyi bir karede oturtmaz. Ölçüt bölge başına
-  (`check:scenes`, `lightshow` incelemesinin karşı örnekleri).
+  (sahne kaldırıldı; kodu ve karşı örnekleri yedek dalda `claude/eloquent-shannon-0eigyf-yedek-isik-ustasi`).
 - **Ters mühendislikte kısa ekran kaydı yanıltır (30 Ekim):** 4 sn'lik kayıtlardan çıkan ölçek "Kendi resmin"
   çubuklarını orijinalin 0,72 katı bırakmıştı; sahibinin kaydındaki ses de Windows iyileştirmesiyle bozuktu. Doğrusu:
   orijinal dosyanın tamamı ve kendi sesi, aynı saniyeler, Lyraska'nın çıktısı gerçek kodla üretilip (Rust crate +
   PhotoScene) yan yana videoyla sahibine gösterilir.
-- **"Kendi resmin" çubuk rengi (30 Ekim, sahibinin seçimi):** resmin baskın tonu en yakın saf tona oturur (8 ton);
-  resimden aynen alınan ton orijinal videonun saf kırmızısı yerine pembemsi kızıl veriyordu.
+- **"Kendi resmin" çubuk rengi (30 Ekim, sahibinin seçimi; 24 Ekim'deki "birebir" kararının yerine):** resmin baskın
+  tonu en yakın saf tona oturur (8 ton); riskleri (sınırda ani değişim, gök mavisi → camgöbeği) söylendi. Çubuk
+  boyu yumuşak tavanlı (0,7'nin üstü `tanh`).
 - **Ölçüm denetiminde uzun kare:** sonraki kare gecikince bu karenin ekrana çıkış anı bilinemez; denetim aralık kabul
   eder (en erken kare başı + bir kare, en geç sonraki kare başı). CI'nın ekran kartsız Windows'unda "Kendi resmin"
   karelerinin %12'si uzun.
@@ -245,7 +246,8 @@ kısaltılır.
   ile taşınır (şarkı yoldan, olmazsa sanatçı + ad + süreden bulunur). PR yalnızca bağımsız incelemeden sonra açılır
   (sahibi istese de; "incelensin öyle PR edilsin").
 - **"Kendi resmin" sahnesi (24 Ekim 2026):** kullanıcının resmi + Nightcore videolarındaki ince çubuk çizgisi; renk
-  resmin baskın rengi "birebir" (tek renkliyse o ton tam canlı, karışıksa beyaz), yazı Michroma. Sahibi kararları
+  resmin baskın rengi (tek renkliyse o ton tam canlı, karışıksa beyaz; 30 Ekim'den beri en yakın saf ton), yazı
+  Michroma. Sahibi kararları
   iki kez (biri tamamen bağımsız) denetlenerek verilsin istiyor.
 - **29 Ekim 2026 kararları:** Gece denizi, Ateşböcekleri, Kum tepeleri, Kristal ağ kaldırıldı (VU ve Gece sürüşü de
   yeni sahneler gelince kalkacak); ilk yeni sahne Işık Ustası ("Sakin / Normal / Çılgın"). "Kendi resmin": parçacıklar
@@ -260,5 +262,8 @@ kısaltılır.
 - **Söz düzenleme (30 Ekim 2026):** bulunan düz metin Lyraska'da yapıştırılıp düzenlenir; Lyraska'nın klasöründe
   saklanır (kapaklardaki gibi; müzik dosyalarına dokunulmaz), zamanlama dokunarak + ince ayar; söz PR'larından hemen
   sonra (sıra 1b). Program söz indirmez, dağıtmaz.
+- **Işık Ustası kaldırıldı (30 Ekim 2026, sahibinin kararı: "beğenmedim, sıkıcı"):** programdan tamamen silindi
+  (sahne, yoğunluk ayarı, kendi testleri); kodu yedek dalda `claude/eloquent-shannon-0eigyf-yedek-isik-ustasi`.
+  Kayıtlı seçim "lightshow" ise program gece göğüyle açılır. Sahneler v2 yeni bir fikirle sahibine sorularak başlar.
 - Görsel tasarımda sahibi zor beğenir: seçenekleri gerçek boyutta, yan yana görsel olarak sun; bağımsız sanat
   yönetmeni denetimi işe yarıyor (puan 6 → hedef 8+).

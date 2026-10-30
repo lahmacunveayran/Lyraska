@@ -10,7 +10,7 @@ yeniden istenir.
 
 | İş tanımı               | Durum                                                                   | Kod nerede                                                                               |
 | ----------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `isik-ustasi.md`        | Bitti, onaylandı, incelendi ve düzeltildi (0.0.96, PR)                  | oturum dalı `claude/eloquent-shannon-0eigyf` (yedek `-yedek-isik`)                       |
+| `isik-ustasi.md`        | Birleşti (#149), sonra sahibi kaldırdı (30 Ekim: "sıkıcı")              | yedek dal `claude/eloquent-shannon-0eigyf-yedek-isik-ustasi`                             |
 | `drop-v2.md`            | Bitti, incelendi, düzeltildi; karar bekliyor (A/B/C), en sona bırakıldı | dal `claude/clever-euler-pmhee7-yedek-drop`; özet `docs/arastirma/drop/DURUM.md` o dalda |
 | `soz-zamanlamasi.md`    | Başlamadan durduruldu (sahibinin "dur"u)                                | — ("Kendi resmin" sözleri dalının üstüne kurulacak)                                      |
 | `kendi-resmin-tepki.md` | Başlamadı                                                               | — (ölçüm betiği `docs/arastirma/kendi-resmin/bolge_hareketi.py`)                         |

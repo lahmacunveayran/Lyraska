@@ -123,6 +123,12 @@ ortamda **gerçek kodla** üretildi: `spectrum.rs` ve `loudness.rs` değiştiril
   (bu resimde renklerin çoğu 340–350°: 346°, pembemsi kızıl). Yapımcı rengi resimden hesaplamıyor, saf renk seçiyor:
   baskın ton artık en yakın saf tona oturur (kırmızı, turuncu, sarı, yeşil, camgöbeği, mavi, mor, pembe;
   `nearestPureHue`). Sahibinin seçimi, üç satırlı önizlemeyle.
+- **Bağımsız değerlendirme** (ayrı ajan, kendi betikleri): model ve ölçek doğrulandı (yeni ölçek bu şarkıda orijinalin
+  1,03 katı), 0,12 sn öndelik doğru, Windows iyileştirmesi çubukları etkilemiyor. Risk: ölçek tek ve çok yüksek sesli
+  (−4,5 LUFS) bir şarkıdan; bas ağırlıklı türlerde sert kırpmada karelerin %70–99'unda 1–2 bas çubuğu tavanda. Çözüm:
+  **yumuşak tavan** (`SOFT_KNEE` 0,7'nin üstü `tanh`, dizinde eğim 1); sentetik trap'te tavandaki kare oranı %77 →
+  %19, Flying High'ta fark yok (sahibinin seçimi, önizlemeyle). Renk: saf tonlar arası sınırda ani renk değişimi ve gök
+  mavisi → camgöbeği riski sahibine söylendi; sahibi "en yakın saf renk" kalsın dedi.
 
 ## Epilepsi güvenliği
 
