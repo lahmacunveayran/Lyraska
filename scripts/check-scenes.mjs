@@ -1658,11 +1658,24 @@ async function checkLyricsTiming(
   }));
   await page.close();
 
-  // Karenin ekranda göründüğü anda duyulan şarkı anı ve sözlerin o anda olması gereken zamanı.
+  // Karenin ekranda göründüğü anda duyulan şarkı anı ve sözlerin o anda olması gereken zamanı. Kare
+  // en geç bir sonraki karenin başında görünür (`lyricTime`); bir sonraki kare gecikmişse (uzun kare)
+  // ne zaman göründüğü bilinemez: en erken kendi başından bir kare süresi sonra (`earliestTime`;
+  // önce bu kare mi taştı, yoksa araya giren iş mi sonrakini geciktirdi, tarayıcıdan okunamaz).
+  // Düzenli karede ikisi aynıdır: sistematik gecikme yine yakalanır.
+  const gaps = samples.slice(1).map((s, i) => s.at - samples[i].at);
+  const frameMs = [...gaps].sort((a, b) => a - b)[gaps.length >> 1] ?? 0;
+  const songTime = (at) => 60 + (at - started) / 1000 - delayMs / 1000;
   const shown = samples.slice(0, -1).map((s, i) => ({
     ...s,
-    lyricTime: 60 + (samples[i + 1].at - started) / 1000 - delayMs / 1000,
+    lyricTime: songTime(samples[i + 1].at),
+    earliestTime: songTime(Math.min(s.at + frameMs, samples[i + 1].at)),
   }));
+  /** Görünme anı belirsiz aralığın hedefe uzaklığı (ms; + geç, − erken, aralığın içindeyse 0). */
+  const distance = (earliest, latest, target) =>
+    earliest > target ? (earliest - target) * 1000 : latest < target ? (latest - target) * 1000 : 0;
+  /** Uzun karede (yarım kareden çok gecikmiş sonraki kare) görülen olaylar: yalnızca bilgi için. */
+  let longFrameEvents = 0;
   /**
    * Bir olayın (ör. kelime yandı) ilk görüldüğü kare: olay o karenin şarkı zamanıyla bir önceki karenin
    * zamanı arasında olmalı (± tolerans). Sapma: olayın görüldüğü aralığın hedefe uzaklığı (ms).
@@ -1677,10 +1690,11 @@ async function checkLyricsTiming(
       events.push({ name, error: null });
       return -1;
     }
-    const before = (shown[i - 1].lyricTime - target) * 1000;
-    const after = (shown[i].lyricTime - target) * 1000;
-    // Hedef aralığın içindeyse sapma 0; değilse en yakın ucu.
-    const error = after < 0 ? after : before > 0 ? before : 0;
+    // Olay önceki karede görülmedi, bu karede görüldü: hedef, önceki karenin en erken görünme anıyla bu
+    // karenin en geç görünme anı arasında olmalı. Hedef aralığın içindeyse sapma 0; değilse en yakın ucu.
+    const error = distance(shown[i - 1].earliestTime, shown[i].lyricTime, target);
+    if ((shown[i - 1].lyricTime - shown[i - 1].earliestTime) * 1000 > frameMs / 2)
+      longFrameEvents++;
     events.push({ name, error });
     return i;
   };
@@ -1705,7 +1719,9 @@ async function checkLyricsTiming(
     const line = lyrics.lines.find((l) => l.text === s.text);
     const word = line?.words[s.current.k];
     if (!word) continue;
-    clock.push((s.lyricTime - (word.start + s.current.p * (word.end - word.start))) * 1000);
+    clock.push(
+      distance(s.earliestTime, s.lyricTime, word.start + s.current.p * (word.end - word.start)),
+    );
   }
   const clockMean = clock.reduce((a, b) => a + b, 0) / Math.max(1, clock.length);
   const clockWorst = clock.reduce((m, e) => (Math.abs(e) > Math.abs(m) ? e : m), 0);
@@ -1721,10 +1737,10 @@ async function checkLyricsTiming(
       ? `ortanca ${sorted[sorted.length >> 1].toFixed(1)} ms, en kötü ${sorted.reduce((m, e) => (Math.abs(e) > Math.abs(m) ? e : m), 0).toFixed(1)} ms`
       : "ölçülemedi";
   };
-  const intervals = shown.slice(1).map((s, i) => s.at - shown[i].at);
-  const frameMs = [...intervals].sort((a, b) => a - b)[intervals.length >> 1] ?? 0;
+  const longFrames = gaps.filter((g) => g > frameMs * 1.5).length;
   console.log(
-    `${label}: ${samples.length} kare (ortanca ${frameMs.toFixed(1)} ms) · kelimeler: ${stat(wordErrors)} · ` +
+    `${label}: ${samples.length} kare (ortanca ${frameMs.toFixed(1)} ms; uzun ${longFrames}, ` +
+      `${longFrameEvents} olay uzun karede) · kelimeler: ${stat(wordErrors)} · ` +
       `satırlar: ${stat(lineErrors)} · söz saati (${clock.length} kare): ortalama ${clockMean.toFixed(1)} ms, ` +
       `en kötü ${clockWorst.toFixed(1)} ms`,
   );

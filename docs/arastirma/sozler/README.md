@@ -26,6 +26,14 @@ düşer). Değişkeler: ses gecikmesi ayarı 0 ve 100 ms (Bluetooth kulaklık gi
 "Kendi resmin" sözleri. Tolerans yarım kare (8 ms). Tarayıcı 50 kare/sn'nin altındaysa (ekran kartsız CI) kareler
 düzensizdir; tek olaylar değil ortancalar denetlenir.
 
+**Uzun kare (30 Ekim, CI'da bulundu):** bir sonraki kare gecikince bu karenin ekrana ne zaman çıktığı bilinemez
+(bu kare mi taştı, araya giren iş mi sonrakini geciktirdi, tarayıcı söylemez). Denetim o karede görünme anını bir
+aralık sayar: en erken karenin başından bir kare sonra, en geç sonraki karenin başı; sapma hedefin bu aralığa
+uzaklığıdır. Düzenli karede aralık tek noktadır, sistematik gecikme yine yakalanır (ekrana çıkış tahmini
+kaldırılınca 16 ms düşüyor). CI'nın ekran kartsız makinesinde "Kendi resmin" denetiminde kelimeler ara sıra bir
+kare "geç" görünüyordu; günlük artık uzun karelerin ve onlarda görülen olayların sayısını yazar (neden bu mu, CI
+günlüğü gösterir).
+
 **Denetim kendini sınar (mutasyon):** programa kasıtlı hata eklenince düşmeli. Aynı karede çizim kaldırılınca söz
 saati +17 ms, ekrana çıkış tahmini kaldırılınca +16 ms, sorgu ortası kaldırılınca +8,3 ms: üçü de yakalanıyor.
 Dikkat: mutasyonlu derleme başarısız olursa denetim eski derlemeyi çalıştırır ve "geçti" der; derleme sonucu
