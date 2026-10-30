@@ -19,7 +19,7 @@ import {
   nextFrameAt,
   positionAt,
   reanchor,
-  replyTime,
+  statusTime,
   type ClockAnchor,
 } from "../lib/clock";
 
@@ -104,8 +104,8 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
   /**
    * Ses motorundan gelen durumu uygular. `exact` ise konum olduğu gibi alınır
    * (komut cevapları); değilse küçük sapmalar yumuşakça düzeltilir (düzenli sorgular).
-   * `at`: konumun ses motorunda okunduğu an (`performance.now()` ms); düzenli sorguda `replyTime`
-   * (kısa sorguda istek ile yanıtın ortası).
+   * `at`: konumun geçerli olduğu an (`performance.now()` ms); düzenli sorguda `statusTime` (çekirdeğin
+   * ölçüm anı; bilinmiyorsa kısa sorguda istek ile yanıtın ortası).
    */
   const applyStatus = useCallback((next: PlaybackStatus, exact: boolean, at: number = now()) => {
     const previous = statusRef.current;
@@ -257,7 +257,17 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
         .then(
           (next) =>
             !cancelled &&
-            applyStatus(next, false, replyTime(sentAt, now(), anchor.current?.at ?? null)),
+            applyStatus(
+              next,
+              false,
+              statusTime(
+                next.positionAtMs,
+                performance.timeOrigin,
+                sentAt,
+                now(),
+                anchor.current?.at ?? null,
+              ),
+            ),
         )
         .catch(() => {
           /* Geçici hata: bir sonraki turda yeniden denenir. */

@@ -67,10 +67,10 @@ düzensiz: ±1 kare). Ses gecikmesi 100 ms iken sonuçlar aynı: sözler de 100 
 |                                                  | gösterir                                                      |                                       |
 | Kelime zamanı olmayan satır                      | Kelimeler hece sayısına göre dağıtılır ("tahmini")            | Yaklaşık; sese hizalama ayrı iş       |
 | Gömülü zamanlı sözler (ID3 SYLT)                 | Okunmuyor (USLT içindeki LRC okunuyor)                        | Açık (küçük iş)                       |
-| Aşırı yüklü kare (iş > kare süresi)              | Ana iş parçacığı dolu: sorgu yanıtı bir kare geç işlenir;     | Açık: sıradaki PR (çekirdek konumu    |
-|                                                  | 22 ms işte söz saati ~17 ms geç (en kötü ~47)                 | okuduğu anı ortak saatle bildirir)    |
-| Çekirdeğin "duyulan" konumu (WASAPI)             | Ses aygıtı her dönemde (~10 ms) bir güncelleniyor: ortalama   | Açık: aynı PR (görselleri de etkiler) |
-|                                                  | ~5 ms bayat; ölçmek için Windows gerekir                      |                                       |
+| Aşırı yüklü kare (iş > kare süresi)              | Ana iş parçacığı dolu: sorgu yanıtı bir kare geç işlenir;     | Düzeltildi (0.0.94): çekirdek konumu  |
+|                                                  | 22 ms işte söz saati ortalama +17 ms, en kötü 47 ms           | ölçtüğü anı bildirir; ortalama −6 ms  |
+| Çekirdeğin "duyulan" konumu (WASAPI)             | Ses aygıtı her dönemde (~10 ms) bir güncelleniyor: ortalama   | Düzeltildi (0.0.94): konum ölçüldüğü  |
+|                                                  | ~5 ms bayat                                                   | ana bağlanır (Windows'ta denenecek)   |
 
 `LYRIC_LEAD` (satır 0,25 sn önce belirmeye başlar) ve `LYRIC_TAIL` (0,4 sn'de söner) bilerek konmuş paylardır,
 hata değildir; denetim satırın bunlara göre doğru karede belirip söndüğünü ölçer.
@@ -107,9 +107,23 @@ Aynı ajan düzeltmeleri yeniden inceledi (`src/hooks/useLivePosition.review.tes
 Mutasyon (60 Hz): aynı karede çizim kaldırılınca söz saati +15,7 ms, ekrana çıkış payı kaldırılınca +16 ms: ikisi de
 düşer. Yavaş tarayıcıda (117 ms kareler) ortancalar 0–8 ms, tek kareler ±1 kare.
 
+## Ortak saat (0.0.94)
+
+Çıkış iş parçacığı "duyulan" sayacı her güncellediğinde ölçüm anını da yazar (`SharedState::record_heard`; Unix
+zamanı, mikrosaniye; önce an silinir, sonra sayaç, sonra yeni an: okuyan yarım çifti tanır, kilitsiz). Durum
+(`PlaybackStatus.positionAtMs`) bu anı bildirir; arayüz `performance.timeOrigin` ile kendi saatine çevirir ve
+konumu o ana bağlar (`statusTime`). İki saat aynı duvar saatine bağlı olsa da güvenilmez: an sorgudan 50 ms'den
+eski (çıkış durmuş) ya da yanıttan 2 ms'den sonraysa (saat farkı) eski kurala (`replyTime`) dönülür; an yanıtın
+anına kırpılır. Böylece ne sorgunun gidiş-dönüşü, ne ana iş parçacığının yanıtı geç işlemesi, ne de ses aygıtının
+dönemi (sayacın bayatlığı) konumu kaydırır.
+
+Ölçüm (60 Hz, ağır sahne 22 ms + asimetrik IPC): söz saati ortalama +17 ms → −6 ms (en kötü 47 → 16 ms). Kare
+bütçesine sığan ağır sahne (10 ms): ortalama 0,0 ms. Gerçek WASAPI aygıtında yalnızca Windows'ta denenebilir
+(DOGRULAMA E11).
+
 ## Kalanlar
 
-- Çekirdeğin konumu okuduğu an (ortak saat, sorgu aralığına kırpılarak) ve WASAPI dönemi bayatlığı: ses motorunda,
-  Windows'ta denenir. Aşırı yüklü kare değişkesi (22 ms) o PR'da sıkı denetime girer.
+- Görseller hâlâ sabit 1/60 sn ekran payı ve sorgu anı kullanır: ölçülen kare süresi ve ortak saat görsellere de
+  taşınabilir (ayrı iş).
 - ~~Şarkı başına söz kaydırma~~ (0.0.92): Alt+←/→ ve Ayarlar; şarkının yoluna göre hatırlanır (`lyrics.ts`).
 - "Kendi resmin" sözleri: aynı zaman yolunu kullanır; kendi CSS geçişleri kendi dalında ölçülüp düzeltildi (ayrı PR).

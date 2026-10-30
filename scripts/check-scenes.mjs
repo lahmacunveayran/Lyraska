@@ -1576,7 +1576,12 @@ async function checkLyricsTiming(
         const end = performance.now();
         await wait(${responseMs});
         const read = ${ipc === "simetrik"} ? (sent + performance.now()) / 2 : end;
-        return { ...status, positionSecs: 60 + (read - started) / 1000 };
+        // Çekirdek konumu ölçtüğü anı da bildirir (Unix ms; programın gerçek çekirdeği gibi).
+        return {
+          ...status,
+          positionSecs: 60 + (read - started) / 1000,
+          positionAtMs: performance.timeOrigin + read,
+        };
       };
       // Ağır sahne: her karede, sözlerden önce koşan çizim (ilk kaydedilen geri çağrı önce koşar).
       if (${heavyMs} > 0) {
@@ -2272,8 +2277,10 @@ if (EXPECT_FALLBACK) {
   }
   if (!ONLY || ONLY.includes("lyrics")) {
     for (const delayMs of [0, 100]) add(() => checkLyricsTiming(browser, { delayMs }));
-    // Kare bütçesine sığan ağır sahne (aşırı yüklü sahne: sıradaki iş, docs/arastirma/sozler).
+    // Ağır sahne: kare bütçesine sığan (10 ms) ve sığmayan (22 ms; ana iş parçacığı dolu, yanıtlar
+    // geç işlenir), konum gidişin sonunda okunur.
     add(() => checkLyricsTiming(browser, { heavyMs: 10, ipc: "asimetrik" }));
+    add(() => checkLyricsTiming(browser, { heavyMs: 22, ipc: "asimetrik" }));
     add(() => checkLyricsTiming(browser, { view: LYRIC_VIEWS.photo }));
   }
   const bright = brightestThemes(2);

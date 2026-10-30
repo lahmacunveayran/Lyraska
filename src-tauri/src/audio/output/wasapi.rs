@@ -445,9 +445,7 @@ fn run(
             .faded_out
             .store(fade.faded_out(padding), Ordering::Release);
         let latency = padding + renderer.latency_frames() as u64;
-        shared
-            .output_heard
-            .fetch_max(consumed.saturating_sub(latency), Ordering::AcqRel);
+        shared.record_heard(consumed.saturating_sub(latency), true);
 
         if draining {
             if exclusive && silence_written == 0 {
@@ -467,7 +465,7 @@ fn run(
             if padding <= silence_written {
                 // Şarkının bütün kareleri çalındı (aygıtta yalnızca sessizlik kaldı): konum tam
                 // şarkı sonu.
-                shared.output_heard.fetch_max(consumed, Ordering::AcqRel);
+                shared.record_heard(consumed, true);
                 shared.ended.store(true, Ordering::Release);
                 break Ok(());
             }

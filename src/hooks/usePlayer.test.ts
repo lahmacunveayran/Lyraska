@@ -108,6 +108,34 @@ describe("oynatma saati (söz zamanlaması)", () => {
     expect(Math.abs(result.current.positionNow(at) - truth(at))).toBeLessThan(0.0005);
   });
 
+  it("çekirdek ölçüm anını bildirince yanıtın geç işlenmesi konumu geride bırakmaz", async () => {
+    // Ağır sahne: ana iş parçacığı dolu, yanıt 60 ms geç işleniyor (gidiş-dönüş uzun: orta nokta
+    // kullanılamaz, yanıtın anı konumu 60 ms geride bırakırdı). Çekirdek ölçüm anını bildirir.
+    const { result } = renderHook(() => usePlayer(["flac"]));
+    await act(async () => {
+      await result.current.openPath("C:/Müzik/gece.flac");
+    });
+    const origin = performance.now();
+    const truth = (at: number) => 50 + (at - origin) / 1000;
+    let answered = 0;
+    backend.reply = () => {
+      const read = performance.now() + 1;
+      return new Promise((resolve) =>
+        setTimeout(() => {
+          answered++;
+          resolve({
+            ...playing,
+            positionSecs: truth(read),
+            positionAtMs: performance.timeOrigin + read,
+          });
+        }, 60),
+      );
+    };
+    await act(() => vi.waitFor(() => expect(answered).toBe(1), { timeout: 2000, interval: 5 }));
+    const at = performance.now();
+    expect(Math.abs(result.current.positionNow(at) - truth(at))).toBeLessThan(0.0005);
+  });
+
   it("akıcı konum karenin ekrana çıkacağı an için okunur ve aynı karede yazılır", () => {
     // React'in sıradan güncellemesi kare boyandıktan sonra işlenir: konum bir kare geride kalırdı.
     // Sayfa, geri çağrı döner dönmez boyanır; o anda ekrandaki konum bu karenin konumu olmalı.

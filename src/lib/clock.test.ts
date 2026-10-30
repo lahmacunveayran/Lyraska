@@ -8,6 +8,7 @@ import {
   positionAt,
   reanchor,
   replyTime,
+  statusTime,
   type ClockAnchor,
 } from "./clock";
 
@@ -121,5 +122,30 @@ describe("FrameClock: kare hızı değişince", () => {
     let t = 0;
     for (let i = 0; i < 15; i++) clock.tick((t += 166.6));
     expect(clock.frameMs()).toBeCloseTo(166.6, 9);
+  });
+});
+
+describe("statusTime", () => {
+  const origin = 1_700_000_000_000; // performance.timeOrigin (Unix ms)
+
+  it("çekirdeğin ölçüm anı: yanıt ana iş parçacığında geç işlense de konum geride kalmaz", () => {
+    // Sorgu 1000'de gitti, çekirdek konumu 1003'te ölçtü, yanıt meşgul karelerden sonra 1060'ta işlendi.
+    expect(statusTime(origin + 1003, origin, 1000, 1060, null)).toBeCloseTo(1003, 6);
+  });
+
+  it("ses aygıtının dönemi: ölçüm sorgudan biraz önce olabilir", () => {
+    expect(statusTime(origin + 992, origin, 1000, 1004, null)).toBeCloseTo(992, 6);
+  });
+
+  it("güvenilmez anda (çok eski: çıkış durdu; yanıttan sonra: saat farkı) eski kural", () => {
+    expect(statusTime(origin + 900, origin, 1000, 1010, null)).toBe(replyTime(1000, 1010, null));
+    expect(statusTime(origin + 1020, origin, 1000, 1010, null)).toBe(replyTime(1000, 1010, null));
+    expect(statusTime(null, origin, 1000, 1010, null)).toBe(1005);
+    expect(statusTime(undefined, origin, 1000, 1010, null)).toBe(1005);
+  });
+
+  it("küçük saat farkı yanıtın anına kırpılır; son bağlantıdan eski olmaz", () => {
+    expect(statusTime(origin + 1011, origin, 1000, 1010, null)).toBe(1010);
+    expect(statusTime(origin + 1003, origin, 1000, 1010, 1008)).toBe(1008);
   });
 });

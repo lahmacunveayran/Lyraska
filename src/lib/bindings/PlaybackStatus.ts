@@ -6,7 +6,12 @@ import type { TrackInfo } from "./TrackInfo";
 /**
  * Arayüzün düzenli aralıklarla sorguladığı durum özeti.
  */
-export type PlaybackStatus = { state: PlaybackState, track: TrackInfo | null, positionSecs: number, underruns: number, error: string | null, 
+export type PlaybackStatus = { state: PlaybackState, track: TrackInfo | null, positionSecs: number, 
+/**
+ * Konumun ses çıkışında ölçüldüğü an (Unix zamanı, milisaniye; bilinmiyorsa `None`). Arayüz
+ * saatini bu ana bağlar (sorgunun gidiş-dönüşünden ve ses aygıtının döneminden bağımsız).
+ */
+positionAtMs?: number, underruns: number, error: string | null, 
 /**
  * Şarkının temposu (BPM); analiz bitene kadar ya da belirgin ritim yoksa `None`.
  */

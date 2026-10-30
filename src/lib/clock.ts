@@ -120,3 +120,36 @@ export function reanchor(
   }
   return { position: reported, at: now, running };
 }
+
+/**
+ * Çekirdeğin bildirdiği ölçüm anı, sorgu gönderilmeden en çok bu kadar önce olabilir (ms): ses
+ * aygıtının dönemi (~10 ms) ve birkaç dönemlik pay. Daha eskiyse çıkış durmuş sayılır.
+ */
+export const MAX_HEARD_AGE_MS = 50;
+/** Çekirdeğin saatiyle arayüzün saati arasında kabul edilen en büyük fark (ms; duvar saatinin oynaması). */
+export const CLOCK_SKEW_MS = 2;
+
+/**
+ * Sorgu yanıtındaki konumun geçerli olduğu an (`performance.now()` ms). Çekirdek konumu ses
+ * çıkışında ölçtüğü anı bildirir (`positionAtMs`, Unix ms); arayüzün saatine çevrilir
+ * (`performance.timeOrigin`). Bu an sorgunun gidiş-dönüşünden ve ana iş parçacığının yanıtı geç
+ * işlemesinden bağımsızdır. Ama iki saat aynı duvar saatine bağlı olsa da güvenilmez: an sorgudan
+ * [`MAX_HEARD_AGE_MS`]'den eski ya da yanıttan sonraysa (saat farkı, duran çıkış) [`replyTime`]
+ * kullanılır. An, saatin son bağlandığı andan eski olamaz.
+ */
+export function statusTime(
+  positionAtMs: number | null | undefined,
+  timeOrigin: number,
+  sentAt: number,
+  receivedAt: number,
+  previousAt: number | null,
+): number {
+  if (typeof positionAtMs === "number" && Number.isFinite(positionAtMs)) {
+    const at = positionAtMs - timeOrigin;
+    if (at >= sentAt - MAX_HEARD_AGE_MS && at <= receivedAt + CLOCK_SKEW_MS) {
+      const bounded = Math.min(at, receivedAt);
+      return previousAt === null ? bounded : Math.max(bounded, previousAt);
+    }
+  }
+  return replyTime(sentAt, receivedAt, previousAt);
+}
