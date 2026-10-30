@@ -1569,13 +1569,13 @@ async function checkLyricsTiming(
         if (cmd === "visual_frame") return null;
         const status = await base(cmd, args);
         if (!status || status.state !== "playing" || !("underruns" in status)) return status;
-        // Simetrikte konum gidiş ile dönüşün tam ortasında okunmuş sayılır (iki yol eşit;
-        // zamanlayıcının oynaması denetimin kendi hatası olmasın); asimetrikte gidişin sonunda.
+        // Çekirdek ayrı süreçtedir: isteği gidişten tam ${requestMs} ms sonra okur, ana iş parçacığı dolu
+        // olsa da (sahte çekirdeğin zamanlayıcısı ana iş parçacığını bekler; gerçek gidiş beklemez). Yanıt
+        // ise ana iş parçacığı boşalınca işlenir (zamanlayıcılar bunu doğal olarak yapar).
         const sent = performance.now();
         await wait(${requestMs});
-        const end = performance.now();
         await wait(${responseMs});
-        const read = ${ipc === "simetrik"} ? (sent + performance.now()) / 2 : end;
+        const read = sent + ${requestMs};
         // Çekirdek konumu ölçtüğü anı ve durumu okuduğu anı da bildirir (duvar saati, Unix ms;
         // programın gerçek çekirdeği gibi). Duvar saati arayüzün saatinden 37 ms ileri kaymış (NTP
         // düzeltmesi): program farkı sorgulardan tahmin etmeli.

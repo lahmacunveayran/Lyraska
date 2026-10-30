@@ -124,13 +124,20 @@ arayüzün `performance.now()`'u) yalnızca sayfa açılırken hizalıdır: duva
 ve elle ayarda sıçrar (üçüncü bağımsız inceleme). Arayüz farkı NTP'deki gibi tahmin eder (`ClockOffset`): her sorgu
 farkı [okuma anı − yanıt, okuma anı − gidiş] aralığına sokar; son 10 sn'deki aralıkların kesişimi alınır. Sayfa
 açılışındaki fark kesişimin içindeyse aynen (saat kaymamış), değilse kesişimin ortası; kesişim boşalırsa (saat
-sıçradı) son sorgu. Konum ölçüm anına bağlanır (`statusTime`); an sorgudan 50 ms'den eskiyse (çıkış durmuş) eski
-kural (`replyTime`). Böylece ne sorgunun gidiş-dönüşü, ne ana iş parçacığının yanıtı geç işlemesi, ne ses aygıtının
+sıçradı) son sorgu. Kesişimin alt ucu, gidiş ucundan en çok 10 ms aşağıda sayılır: gidiş ana iş parçacığını beklemez
+(istek çağrı anında gider), yanıt bekler. Bu sınır olmadan aşırı yüklü sahnede gidiş-dönüş ~46 ms sürüyor, 37 ms'lik
+kaymayı içine alıyor ve sözler 37 ms geç kalıyordu; "Kendi resmin" yüklenirken yanıtlar 25–40 ms geç işleniyor,
+kesişimin ortası ilk satırı 11–22 ms geç gösteriyordu (CI, 30 Ekim; `clock.test.ts`). Sahne denetiminin sahte
+çekirdeği de buna göre isteği gidişten tam 3/6 ms sonra okur (eskiden zamanlayıcısı ana iş parçacığını bekliyor,
+okuma anı da gecikiyordu: gerçek çekirdek ayrı süreçtedir). Konum ölçüm anına bağlanır (`statusTime`); an
+sorgudan 50 ms'den eskiyse (çıkış durmuş) eski kural (`replyTime`). Böylece ne sorgunun gidiş-dönüşü, ne ana iş parçacığının yanıtı geç işlemesi, ne ses aygıtının
 dönemi (sayacın bayatlığı), ne de duvar saatinin kayması konumu kaydırır.
 
 Ölçüm (60 Hz; sahte çekirdeğin duvar saati 37 ms kaymış): hafif sahnede söz saati ortalama 0,1–0,2 ms; ağır sahne
 10 ms + asimetrik IPC −4,6 ms; aşırı yüklü sahne (22 ms) +17 ms → −6…−12 ms. Aşırı yüklü karede saat kayması ile
-asimetrik yanıt bir arada ayırt edilemez (hangi yolun uzun olduğu bilinmez): o değişkede hedef bir kare. Gerçek
+asimetrik yanıt bir arada ayırt edilemez (hangi yolun uzun olduğu bilinmez): o değişkede hedef bir kare. Gidiş
+sınırından ve gerçekçi sahte çekirdekten sonra (30 Ekim, yerel 60 Hz): hafif 0,3 ms, ağır 10 ms −0,8 ms, aşırı yüklü
+22 ms −7,5 ms, "Kendi resmin" kelimeler en kötü 1,2 ms. Gerçek
 WASAPI aygıtında yalnızca Windows'ta denenebilir (DOGRULAMA E11).
 
 ## Kalanlar

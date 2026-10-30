@@ -23,6 +23,9 @@ kısaltılır.
 - **Küçük PR (proje sahibinin isteği, 23 Ekim 2026):** bir PR = bir iş. Büyük iş en başta parçalara bölünür, ilk
   parça hızla birleştirilip test sürümüne girer. Büyük, çok parçalı PR'lar (ör. #104: çevirici + parlaklık freni
   birlikte) uzun sürdü; her parça ayrı olsaydı daha erken birleşirdi.
+- **Birbirine bağlı parçalar tek PR (sahibinin kararı, 30 Ekim):** her biri öncekinin üstüne kurulu PR zinciri
+  (#144–#148, söz işleri) tek tek CI'dan geçemedi: ilk parçanın eksiğini dördüncüsü kapatıyordu. Parçalar kendi
+  başına yeşil olamıyorsa tek PR açılır; ayrı commit'ler yeter. Zincir değil, bağımsız küçük PR.
 - **Paralel ajanlar ("swarm") işe yarıyor:** birbirinden bağımsız işler `isolation: "worktree"` ile ayrı ajanlara
   verilir (ör. kod, lisans araştırması, inceleme aynı anda). Ana oturum birleştirir, denetler, PR açar; ajanlar
   **push etmez, PR açmaz**, yalnızca kendi çalışma kopyasında commit eder.
@@ -154,6 +157,15 @@ kısaltılır.
   32 banttan basamaklı çizilir — çubuklar gerçek sesten `spectrum.rs` modeliyle (Python eşi) üretilir, video sesli olur.
 - **CI işi bölünürken eski ad korunur:** koruma kuralı denetimi adıyla bekleyebilir; parçalı işin yanında eski adla bir
   "ortak sonuç" işi kalır (`Sahneler (Windows, Edge)`, `Windows (Clippy, testler, kurulum dosyası)`).
+- **Sahte çekirdek ana iş parçacığında çalışır, gerçek çekirdek ayrı süreçte:** sahne denetiminde sahte çekirdeğin
+  zamanlayıcısı ağır sahnede ana iş parçacığını bekler, "okuma anı" gecikir; gerçekte gidiş beklemez, yalnızca yanıt
+  bekler. Bu fark ortak saatin aşırı yükte 37 ms geç kalmasını gizliyordu (30 Ekim). Zaman ölçen sahte çekirdekte
+  okuma anı gönderme anından sabit uzaklıkta yazılır.
+- **Ölçüm denetiminde uzun kare:** sonraki kare gecikince bu karenin ekrana çıkış anı bilinemez; denetim aralık kabul
+  eder (en erken kare başı + bir kare, en geç sonraki kare başı). CI'nın ekran kartsız Windows'unda "Kendi resmin"
+  karelerinin %12'si uzun.
+- `photoScene.test.ts`'in iki testi 2–5 sn sürüyor (5 sn sınırına yakın); yüklü CI'da bir kez süreyi aştı, yeniden
+  çalıştırmada geçti (30 Ekim). Yinelenirse önce sahibine sorulur (mevcut test).
 - **CodeQL "eksik çok karakterli temizleme":** tekrar eden `replace` döngüsünü de kabul etmez; metni kesmek (`slice`)
   kabul edilir.
 - **Bu oturumun GitHub yetkisi:** yalnızca oturum dalına ve `claude/clever-euler-pmhee7-yedek-*` adlı yedek dallara

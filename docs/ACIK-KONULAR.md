@@ -7,12 +7,12 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 
 Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/README.md` (yedek dallar).
 
-1. Söz zamanlaması bitti (0.0.91–0.0.94, PR'lar sırayla birleşir; `docs/arastirma/sozler/`). Kalan küçük iş:
-   ölçülen kare süresi ve ortak saat görsellere de (şimdilik sabit 1/60 sn).
+1. Söz zamanlaması bitti (0.0.91–0.0.95 tek PR'da; `docs/arastirma/sozler/`). Kalan küçük iş: ölçülen kare süresi
+   ve ortak saat görsellere de (şimdilik sabit 1/60 sn).
    1b. **Söz düzenleme** (sahibinin isteği, 30 Ekim): kullanıcı bulduğu düz metni yapıştırır, düzenler; Lyraska'nın veri
    klasöründe saklanır (müzik dosyasına dokunulmaz; isteğe bağlı .lrc dışa aktarma; öncelik: düzenlenen > yan .lrc >
-   gömülü); zamanlama şarkı çalarken dokunarak (Boşluk/Enter), sonra satır satır −/+. Üç küçük PR: kayıt ve öncelik
-   (0.0.95, bitti) → yapıştır/düzenle paneli → dokunarak zamanlama. Otomatik hizalamanın (6) girdisi olur.
+   gömülü); zamanlama şarkı çalarken dokunarak (Boşluk/Enter), sonra satır satır −/+. Üç parça: kayıt ve öncelik
+   (0.0.95, söz PR'ında) → yapıştır/düzenle paneli (`-yedek-soz-panel`, sahibinin onayında) → dokunarak zamanlama. Otomatik hizalamanın (6) girdisi olur.
 2. "Kendi resmin" çubuk tepkisi (orta bölge 2–10 kat ölü; önce teşhis, gerekirse model baştan).
 3. Ses motoru denetimi: 64-bit, EQ, AutoEq, EBU R128, bit-perfect, ABX + DENETIM-3 (dallar `ccr-a69bd749-djgi3v`,
    `ccr-a46535b3-m3v2i5`) + #56.

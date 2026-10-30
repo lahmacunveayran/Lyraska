@@ -171,6 +171,40 @@ describe("ClockOffset", () => {
     expect(Math.abs(estimate - (origin + 37))).toBeLessThanOrEqual(1);
   });
 
+  it("açılışta bütün yanıtlar geç işlenirse (ağır sahne yükleniyor) fark gidiş yolundan tahmin edilir", () => {
+    // CI'da "Kendi resmin" ilk satırı 11–22 ms geç: sahne yüklenirken ana iş parçacığı dolu, her
+    // yanıt 25–40 ms geç işleniyor. Gidiş beklemez (istek çağrı anında gönderilir): çekirdek isteği
+    // gidişten 3 ms sonra okur. Kesişimin ortası farkı yanıtın gecikmesinin yarısı kadar kaydırırdı.
+    const truth = origin + 37;
+    const offset = new ClockOffset();
+    for (const [sent, late] of [
+      [1000, 40],
+      [1250, 31],
+      [1500, 25],
+      [1750, 33],
+    ] as const) {
+      offset.add(truth + sent + 3, sent, sent + 3 + late);
+    }
+    // Gidiş 3 ms: kesişim [gidiş ucu − 10, gidiş ucu], ortası 2 ms yanılır (yanıtın gecikmesinden bağımsız).
+    expect(Math.abs(offset.estimate(origin)! - truth)).toBeLessThanOrEqual(2);
+  });
+
+  it("aşırı yüklü sahnede (gidiş-dönüş 46 ms) 37 ms'lik kayma kesişimin içinde kalmaz", () => {
+    // CI ve sahne denetimi: ağır sahne 22 ms, her yanıt ~40 ms geç; sayfa açılışındaki fark kesişime
+    // girerse (geniş aralık) kayma hiç görülmez, sözler 37 ms geç kalırdı.
+    const truth = origin + 37;
+    const offset = new ClockOffset();
+    for (const sent of [1000, 1250, 1500]) offset.add(truth + sent + 6, sent, sent + 46);
+    expect(Math.abs(offset.estimate(origin)! - truth)).toBeLessThanOrEqual(2);
+  });
+
+  it("asimetrik yolda (gidiş 6, dönüş 1 ms) hata yarım karenin altında", () => {
+    const truth = origin + 37;
+    const offset = new ClockOffset();
+    offset.add(truth + 1006, 1000, 1007);
+    expect(Math.abs(offset.estimate(origin)! - truth)).toBeLessThanOrEqual(3.5);
+  });
+
   it("duvar saati sıçrayınca eski sorgular atılır; eskiler pencereden çıkar", () => {
     const offset = new ClockOffset();
     offset.add(origin + 1003, 1000, 1006);

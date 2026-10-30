@@ -133,13 +133,22 @@ export const CLOCK_SKEW_MS = 2;
 export const OFFSET_WINDOW_MS = 10_000;
 
 /**
+ * Pencerenin en hızlı sorgusunda isteğin gidişi (gönderme → çekirdeğin okuması) en çok bu kadar sürer
+ * (ms). Gidiş ana iş parçacığını beklemez (istek çağrı anında gönderilir); yanıt ise ana iş parçacığı
+ * boşalınca işlenir, ağır sahnede onlarca ms gecikir. Bu sınır olmadan uzun gidiş-dönüş (ör. 46 ms)
+ * saat kaymasını (ör. 37 ms) içine alır, kayma görünmez ve sözler o kadar geç kalırdı.
+ */
+export const REQUEST_LEG_MAX_MS = 10;
+
+/**
  * Çekirdeğin duvar saati (Unix ms) ile arayüzün saati (`performance.now()` ms) arasındaki fark. İkisi
  * yalnızca sayfa açılırken hizalıdır (`performance.timeOrigin`): duvar saati NTP ile düzeltilir,
  * uykudan dönüşte ve elle ayarda sıçrar; arayüzün saati düzeltilmez. Her sorgu farkı sınırlar: çekirdek
  * durumu `readAtMs` anında okudu, bu an isteğin gidişi ile yanıtın gelişi arasındadır, yani fark
  * [readAtMs − yanıt, readAtMs − gidiş] aralığındadır (NTP'deki gibi). Son [`OFFSET_WINDOW_MS`]'deki
  * aralıkların kesişimi alınır (her birinden dar). Önceden bilinen fark (sayfa açılışındaki hizalama)
- * kesişimin içindeyse aynen kullanılır (saat kaymamış: tam); değilse kesişimin ortası.
+ * kesişimin içindeyse aynen kullanılır (saat kaymamış: tam); değilse kesişimin ortası. Kesişim gidiş
+ * ucundan en çok [`REQUEST_LEG_MAX_MS`] geniş sayılır (yanıtın geç işlenmesi aralığı açmaz).
  * Kesişim boşalırsa (duvar saati sıçradı) yalnızca son sorgu tutulur.
  */
 export class ClockOffset {
@@ -155,12 +164,16 @@ export class ClockOffset {
 
   /**
    * Farkın tahmini (ms; duvar saati − arayüzün saati): `prior` kesişimin içindeyse o (saat kaymamış),
-   * değilse kesişimin ortası (kaymış: iki yol eşit sayılır; en yakın uç bir yolun tamamı kadar yanılırdı).
+   * değilse kesişimin ortası (iki yol eşit sayılır; en yakın uç bir yolun tamamı kadar yanılırdı).
+   * Kesişimin alt ucu gidiş ucundan en çok [`REQUEST_LEG_MAX_MS`] aşağıda: daha aşağısını yalnızca
+   * yanıtın geç işlenmesi açar (ağır sahne), orta da kayma da o kadar yanılırdı.
    */
   estimate(prior: number): number | null {
     const bounds = this.bounds();
     if (!bounds) return null;
-    return prior >= bounds.low && prior <= bounds.high ? prior : (bounds.low + bounds.high) / 2;
+    const high = bounds.high;
+    const low = Math.max(bounds.low, high - REQUEST_LEG_MAX_MS);
+    return prior >= low && prior <= high ? prior : (low + high) / 2;
   }
 
   private bounds(): { low: number; high: number } | null {
