@@ -24,6 +24,7 @@ pub mod fingerprint;
 pub mod key;
 pub mod levels;
 pub mod lyrics_align;
+pub mod lyrics_model;
 pub mod lyrics_text;
 pub mod map_file;
 pub mod meter;

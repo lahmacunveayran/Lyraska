@@ -22,3 +22,20 @@ hizalama, ileri-geri güven ölçüsü (büyük hatayı AUROC 0,97 ile ayırır;
 Notlar: belgelerdeki `/tmp/claude-0/...` yolları o oturumun geçici bilgisayarındaydı. Ses dosyaları, model
 ağırlıkları, şarkı sözleri ve ölçüm çıktıları (JSON) depoya konmadı; deneme setlerinin kaynağı ve lisans notları
 RAPOR.md §3 ve DENETIM.md'de.
+
+## Model çalıştırıcı: pencere boyu ve ürün ölçümleri (30 Ekim 2026, söz hizalama 4/6)
+
+Denetimin "pencere boyu doğrulukla birlikte bir kez ölçülsün" önerisi, yalnızca geliştirme setinde (Jamendo + makam +
+vekil, 1043 satır; onnxruntime, satır atlamalı yerleşim):
+
+| Pencere / adım | ≤0,3 sn | Ortalama hata |
+| -------------- | ------- | ------------- |
+| 30 / 20 sn     | %94,15  | 0,55 sn       |
+| 15 / 10 sn     | %94,15  | 0,53 sn       |
+| 10 / 6 sn      | %92,33  | 0,74 sn       |
+
+10 sn pencere satırları ve (bağımsız incelemeye göre) güven ölçüsünü bozuyor; üründe araştırmanın uçtan uca ölçtüğü
+30 / 20 sn. Bağımsız inceleme tract'ın emisyonunu onnxruntime'la kare kare karşılaştırdı: argmax uyuşması %99,4,
+fark int8 modelin kendi oynaklığı kadar. Uçtan uca (`examples/soz_hizalama.rs`, Kinematic – Peyote, 183 sn, bu
+sunucu): model 5,6 sn'de açılır, emisyon 87 sn (iki iş parçacığı, gerçek zamanın 0,47 katı), yerleşim 0,8 sn;
+14 satırın 13'ü 0,3 sn içinde, hüküm "iyi". Windows'ta hız ölçümü sıradaki işte.
