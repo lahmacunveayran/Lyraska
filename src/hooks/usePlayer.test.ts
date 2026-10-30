@@ -10,6 +10,8 @@ const backend = vi.hoisted(() => ({
   busy: false,
   /** Verilirse durum sorgusunun yanıtı (IPC gecikmesini taklit etmek için). */
   reply: null as (() => Promise<PlaybackStatus>) | null,
+  /** Verilirse çal/duraklat komutunun yanıtı. */
+  toggle: null as (() => Promise<PlaybackStatus>) | null,
 }));
 
 const playing: PlaybackStatus = {
@@ -41,6 +43,7 @@ vi.mock("../lib/backend", async (importOriginal) => {
     ...actual,
     isDesktop: () => true,
     openTrack: async () => playing.track,
+    togglePlayback: () => (backend.toggle ? backend.toggle() : Promise.resolve(playing)),
     getPlaybackStatus: () => {
       backend.statusCalls++;
       if (backend.reply) return backend.reply();
@@ -79,7 +82,39 @@ describe("oynatma saati (söz zamanlaması)", () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
     backend.reply = null;
+    backend.toggle = null;
     backend.busy = false;
+  });
+
+  it("komut yanıtı (Çal) geç işlenince konum yine çekirdeğin ölçüm anına bağlanır", async () => {
+    // CI'da "Kendi resmin" açılırken ilk satır 12–24 ms geç: Çal'ın yanıtı ana iş parçacığı dolu
+    // olduğu için geç işleniyor, konum yanıtın geldiği ana bağlanıyordu. Düzenli sorgular hatayı
+    // her seferinde dörtte bir düzeltir: ilk satıra (2 sn) yetişmez.
+    const { result } = renderHook(() => usePlayer(["flac"]));
+    await act(async () => {
+      await result.current.openPath("C:/Müzik/gece.flac");
+    });
+    const origin = performance.now();
+    const truth = (at: number) => 50 + (at - origin) / 1000;
+    const wall = (at: number) => performance.timeOrigin + at;
+    backend.toggle = () => {
+      const read = performance.now() + 1;
+      return new Promise((resolve) =>
+        setTimeout(
+          () =>
+            resolve({
+              ...playing,
+              positionSecs: truth(read),
+              positionAtMs: wall(read),
+              readAtMs: wall(read),
+            }),
+          80,
+        ),
+      );
+    };
+    await act(() => result.current.toggle());
+    const at = performance.now();
+    expect(Math.abs(result.current.positionNow(at) - truth(at))).toBeLessThan(0.003);
   });
 
   it("düzenli sorgunun konumu isteğin gidişiyle yanıtın gelişinin ortasına bağlanır", async () => {

@@ -136,6 +136,25 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
   }, []);
 
   /**
+   * Yanıttaki konumun geçerli olduğu an: çekirdeğin ölçüm anı (`statusTime`), yanıt geç işlense de
+   * (ağır sahne açılırken). Yanıtın okunduğu an saat farkı tahminine de eklenir.
+   */
+  const replyAt = useCallback(
+    (next: PlaybackStatus, sentAt: number, previousAt: number | null = null) => {
+      const receivedAt = now();
+      if (next.readAtMs !== undefined) clockOffset.current.add(next.readAtMs, sentAt, receivedAt);
+      return statusTime(
+        next.positionAtMs,
+        clockOffset.current.estimate(performance.timeOrigin),
+        sentAt,
+        receivedAt,
+        previousAt,
+      );
+    },
+    [],
+  );
+
+  /**
    * Komutları sıraya koyar: aynı anda iki komut gönderilmez. Bir komut sürerken gelen komut
    * yok sayılır (art arda basışlar birikmez); yalnızca açılmak istenen şarkı bekletilir ve
    * komut bitince açılır (#52).
@@ -151,8 +170,10 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
         let first = true;
         while (next) {
           try {
+            const sentAt = now();
             const result = await next();
-            applyStatus(result ?? (await getPlaybackStatus()), true);
+            const status = result ?? (await getPlaybackStatus());
+            applyStatus(status, true, replyAt(status, sentAt));
             setError(null);
           } catch (e) {
             if (first) succeeded = false;
@@ -169,7 +190,7 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
       }
       return succeeded;
     },
-    [applyStatus],
+    [applyStatus, replyAt],
   );
 
   const openPath = useCallback(
@@ -259,20 +280,7 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
       getPlaybackStatus()
         .then((next) => {
           if (cancelled) return;
-          const receivedAt = now();
-          if (next.readAtMs !== undefined)
-            clockOffset.current.add(next.readAtMs, sentAt, receivedAt);
-          applyStatus(
-            next,
-            false,
-            statusTime(
-              next.positionAtMs,
-              clockOffset.current.estimate(performance.timeOrigin),
-              sentAt,
-              receivedAt,
-              anchor.current?.at ?? null,
-            ),
-          );
+          applyStatus(next, false, replyAt(next, sentAt, anchor.current?.at ?? null));
         })
         .catch(() => {
           /* Geçici hata: bir sonraki turda yeniden denenir. */
@@ -285,7 +293,7 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [available, hasTrack, applyStatus]);
+  }, [available, hasTrack, applyStatus, replyAt]);
 
   const refresh = useCallback(async () => {
     if (!available) return;

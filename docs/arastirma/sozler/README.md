@@ -129,7 +129,9 @@ sıçradı) son sorgu. Kesişimin alt ucu, gidiş ucundan en çok 10 ms aşağı
 kaymayı içine alıyor ve sözler 37 ms geç kalıyordu; "Kendi resmin" yüklenirken yanıtlar 25–40 ms geç işleniyor,
 kesişimin ortası ilk satırı 11–22 ms geç gösteriyordu (CI, 30 Ekim; `clock.test.ts`). Sahne denetiminin sahte
 çekirdeği de buna göre isteği gidişten tam 3/6 ms sonra okur (eskiden zamanlayıcısı ana iş parçacığını bekliyor,
-okuma anı da gecikiyordu: gerçek çekirdek ayrı süreçtedir). Konum ölçüm anına bağlanır (`statusTime`); an
+okuma anı da gecikiyordu: gerçek çekirdek ayrı süreçtedir). Komut yanıtları (Çal, aç) da ölçüm anına bağlanır:
+yanıtın geldiği ana bağlanınca "Kendi resmin" açılırken ilk satır 12–24 ms geç kalıyordu (düzenli sorgu hatayı her
+seferinde dörtte bir düzeltir, 2 sn'ye yetişmez; `usePlayer.test.ts`). Konum ölçüm anına bağlanır (`statusTime`); an
 sorgudan 50 ms'den eskiyse (çıkış durmuş) eski kural (`replyTime`). Böylece ne sorgunun gidiş-dönüşü, ne ana iş parçacığının yanıtı geç işlemesi, ne ses aygıtının
 dönemi (sayacın bayatlığı), ne de duvar saatinin kayması konumu kaydırır.
 
