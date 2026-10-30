@@ -52,7 +52,7 @@ import { chromium } from "playwright-core";
 import { build, preview } from "vite";
 import { parseShard, pickShard } from "./lib/shard.mjs";
 
-const PORT = 4179;
+const PORT = Number(process.env.SCENE_PORT ?? 4179);
 /** Programın içerik güvenlik politikası (Tauri penceresindekiyle aynı). */
 const APP_CSP = JSON.parse(
   readFileSync(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"),
@@ -95,8 +95,17 @@ const fakeCore = (
   const SONG = ${JSON.stringify(song)};
   window.isTauri = true;
   const started = performance.now();
+  // İnceleme: SONG.seek = { after, every, step, count } (ms, ms, sn): ← / → basılı tutulmuş gibi
+  // konum sıçrar; SONG.nulls = [[ms, ms], ...]: o aralıkta görsel veri yok (analiz yetişmedi).
+  const seekOffset = (now) => {
+    const k = SONG?.seek;
+    if (!k || now < k.after) return 0;
+    return Math.min(k.count, Math.floor((now - k.after) / k.every) + 1) * k.step;
+  };
   const songTime = () =>
-    SONG ? SONG.start + (window.__sceneTime?.now ?? 0) / 1000 : 60 + (performance.now() - started) / 1000;
+    SONG
+      ? SONG.start + (window.__sceneTime?.now ?? 0) / 1000 + seekOffset(window.__sceneTime?.now ?? 0)
+      : 60 + (performance.now() - started) / 1000;
   const track = { path: "C:/Müzik/deneme.flac", fileName: "deneme", title: "Deneme", artist: "Lyraska",
     codec: "flac", sampleRate: 44100, channels: 2, durationSecs: 240 };
   const status = { state: "playing", track, positionSecs: 60, underruns: 0, error: null, bpm: 128, output: null };
@@ -177,7 +186,9 @@ const fakeCore = (
         return Array.from({ length: 200 }, (_, i) =>
           LEVEL ?? Math.min(1, (i < 60 ? kick * (1 - i / 70) : 0.15) + 0.2 * Math.abs(Math.sin(i * 2.3 + t * 7))));
       }
-      case "visual_frame": return {
+      case "visual_frame":
+        if (SONG?.nulls?.some(([a, b]) => (window.__sceneTime?.now ?? 0) >= a && (window.__sceneTime?.now ?? 0) < b)) return null;
+        return {
         positionSecs: songTime(),
         bands: Array.from({ length: 32 }, (_, i) =>
           LEVEL ?? Math.max(0, 0.85 - i * 0.015 + 0.12 * Math.sin(i + t * 4))),
@@ -214,6 +225,7 @@ const initScript = (
     particles = null,
     lyrics = null,
     song = null,
+    intensity = "normal",
   } = {},
 ) =>
   // İlk açılış uyarısı (FlashWarning) görülmüş sayılır: sahnenin önüne geçmesin.
@@ -227,7 +239,7 @@ const initScript = (
       )});`
     : "") +
   (sceneId === "lightshow"
-    ? ` localStorage.setItem("lyraska.lightShowIntensity", "normal");`
+    ? ` localStorage.setItem("lyraska.lightShowIntensity", ${JSON.stringify(intensity)});`
     : "") +
   ` } catch {}\n` +
   (lyrics ? `window.__fakeLyrics = ${JSON.stringify(lyrics)};\n` : "") +
@@ -2336,8 +2348,11 @@ const LIGHTSHOW_SAFE_STEP = 0.03;
  * Varsayılan modda (Normal yoğunluk) proje sahibinin istediği ışık şovu: dropta vuruşa kilitli
  * strob, saniyede ≥ 2 parlama (frenlenmediğinin ve kurgunun gerçekten oynadığının kanıtı).
  */
-async function checkLightShowFlashes(browser, bundle, safe) {
-  const label = `Işık Ustası · zamana bağlı parlama${safe ? " (güvenli mod)" : ""}`;
+async function checkLightShowFlashes(browser, bundle, safe, review = null) {
+  const label =
+    `Işık Ustası · zamana bağlı parlama${safe ? " (güvenli mod)" : ""}` +
+    (review ? ` · inceleme: ${review.name}` : "");
+  const seconds = review?.seconds ?? LIGHTSHOW_SECONDS;
   const step = 1000 / 60;
   const page = await openPage(browser, { stepMs: step, viewport: LIGHTSHOW_VIEWPORT, scale: 1 });
   const problems = [];
@@ -2347,8 +2362,10 @@ async function checkLightShowFlashes(browser, bundle, safe) {
   page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
   await page.addInitScript(PRESERVE_DRAWING_BUFFER);
   await page.addInitScript(`${bundle}\n;window.LyraskaFlashGuardCheck = LyraskaFlashGuardCheck;`);
-  const song = { start: LIGHTSHOW_DROP - 3.5, map: LIGHTSHOW_MAP };
-  await page.addInitScript(initScript("lightshow", { safe, song }));
+  const song = review?.song ?? { start: LIGHTSHOW_DROP - 3.5, map: LIGHTSHOW_MAP };
+  await page.addInitScript(
+    initScript("lightshow", { safe, song, intensity: review?.intensity ?? "normal" }),
+  );
   const started = Date.now();
   // Harita gelsin, ışıklar kurguya otursun (sanal 2 sn: drop'a 1,5 sn kala ölçüm başlar).
   await startPlaying(page, 2000, step);
@@ -2368,7 +2385,7 @@ async function checkLightShowFlashes(browser, bundle, safe) {
       phases.add(document.querySelector(".lightshow-scene__canvas").dataset.phase);
     };
   });
-  await advance(page, LIGHTSHOW_SECONDS * 1000, step);
+  await advance(page, seconds * 1000, step);
   const result = await page.evaluate((s) => {
     window.__frameProbe = null;
     const { frames, phases } = window.__flashFrames;
@@ -2382,7 +2399,7 @@ async function checkLightShowFlashes(browser, bundle, safe) {
       post: canvasEl.dataset.post,
       quality: canvasEl.dataset.quality,
     };
-  }, LIGHTSHOW_SECONDS);
+  }, seconds);
   await page.close();
   console.log(
     `${label}: saniyede ${result.rate.flashesPerSecond.toFixed(2)} parlama (karede en büyük ` +
@@ -2394,10 +2411,10 @@ async function checkLightShowFlashes(browser, bundle, safe) {
   if (result.webgl !== "on" || result.post !== "on") {
     problems.push(`${label}: sahne çizilmiyor (WebGL ${result.webgl}, son işlem ${result.post})`);
   }
-  if (result.frames < LIGHTSHOW_SECONDS * 60 * 0.9) {
+  if (result.frames < seconds * 60 * 0.9) {
     problems.push(`${label}: yalnızca ${result.frames} kare ölçüldü`);
   }
-  for (const phase of ["build", "gap", "drop"]) {
+  for (const phase of review ? [] : ["build", "gap", "drop"]) {
     if (!result.phases.includes(phase)) {
       problems.push(`${label}: kurgu ${phase} evresini oynamadı (${result.phases.join(", ")})`);
     }
@@ -2420,6 +2437,124 @@ async function checkLightShowFlashes(browser, bundle, safe) {
   }
   return problems;
 }
+
+/**
+ * Bağımsız inceleme (Işık Ustası, güvenli mod): `SCENE_ONLY=lightshow-review`. Her durum bir karşı
+ * örnektir; güvenli modun iki ölçütüyle (saniyede ≤ 1 parlama, karede ≤ LIGHTSHOW_SAFE_STEP) ölçülür.
+ */
+const REVIEW_BAR = (60 / 128) * 4;
+const reviewMap = (sections, drops, bars = 80) => ({
+  meter: 4,
+  downbeatPhase: 0,
+  grouping: [],
+  meterConfidence: 0.9,
+  downbeats: Array.from({ length: bars + 1 }, (_, i) => i * REVIEW_BAR),
+  sections: sections.map(([from, to, energy, label]) => ({
+    start: from * REVIEW_BAR,
+    end: to * REVIEW_BAR,
+    energy,
+    label,
+  })),
+  drops: drops.map((b) => b * REVIEW_BAR),
+  dropConfidence: drops.map(() => 0.95),
+  energy: Array.from({ length: Math.ceil(bars * REVIEW_BAR) }, () => 0.5),
+});
+/** `lightShow.test.ts`'teki EDM haritası (drop ölçü 24 ve 56; 40–48 kırılma). */
+const REVIEW_EDM = reviewMap(
+  [
+    [0, 8, 0.3, 0],
+    [8, 24, 0.55, 1],
+    [24, 40, 0.95, 2],
+    [40, 48, 0.3, 3],
+    [48, 56, 0.6, 1],
+    [56, 72, 1, 2],
+    [72, 80, 0.2, 4],
+  ],
+  [24, 56],
+);
+const LIGHTSHOW_REVIEW = [
+  {
+    // → basılı: ölçüm başladıktan 0,5 sn sonra 25 basış, 33 ms arayla (Windows tuş yinelemesi), 5 sn.
+    name: "→ tuşu basılı (sarma)",
+    seconds: 3,
+    song: {
+      start: 8,
+      map: REVIEW_EDM,
+      seek: { after: 2600, every: 1000 / 30, step: 5, count: 25 },
+    },
+  },
+  {
+    // Aynı, uzun bir şarkıda (160 ölçü, her 16 ölçüde drop, arada kırılma): 2 sn basılı.
+    name: "→ tuşu basılı, uzun şarkı (sarma)",
+    seconds: 3,
+    song: {
+      start: 8,
+      map: reviewMap(
+        Array.from({ length: 20 }, (_, i) => [i * 8, i * 8 + 8, i % 2 ? 0.95 : 0.3, i % 2 ? 2 : 3]),
+        Array.from({ length: 9 }, (_, i) => 24 + i * 16),
+        160,
+      ),
+      seek: { after: 2500, every: 1000 / 30, step: 5, count: 60 },
+    },
+  },
+  {
+    // Dropun 0,3 sn sonrasında çekirdek iki kare görsel veri vermez (analiz o ana yetişmedi).
+    name: "dropta boş kare",
+    intensity: "wild",
+    seconds: 3,
+    song: {
+      start: 24 * REVIEW_BAR - 3.5,
+      map: REVIEW_EDM,
+      nulls: [[3800, 3835]],
+    },
+  },
+  {
+    // Kırılmanın sıcak spotu ölçü 48'de (ikinci kurulumun başı) bir karede daralır.
+    name: "kırılma → kurulum (spot)",
+    seconds: 2,
+    song: { start: 48 * REVIEW_BAR - 3, map: REVIEW_EDM },
+  },
+  {
+    // Drop açılımı (4 ölçü) bölüm sınırından 0,4 sn önce biter: kamera kayması yarıda kesilir.
+    name: "açılımın ardından bölüm (kamera)",
+    seconds: 2,
+    song: {
+      start: 28 * REVIEW_BAR + 0.4 - 3,
+      map: (() => {
+        const m = reviewMap(
+          [
+            [0, 24, 0.5, 0],
+            [24, 28, 0.9, 1],
+            [28, 60, 0.5, 2],
+            [60, 80, 0.9, 1],
+          ],
+          [24, 64],
+        );
+        m.sections[1].end += 0.4;
+        m.sections[2].start += 0.4;
+        return m;
+      })(),
+    },
+  },
+  {
+    // Doruksuz şarkı; ölçü 32'de etiketi 4 olan bölüm ilkiyle aynı çekimi alır (ön çekim: tohum
+    // bu haritadan; `lightShowReview.test.ts` aynı haritayı arar). Çekimin saati sıfırlanır.
+    name: "aynı çekimli iki bölüm (kamera)",
+    seconds: 2,
+    song: {
+      start: 32 * REVIEW_BAR - 3,
+      map: reviewMap(
+        [
+          [0, 32, 0.9, 0],
+          [32, 56, 0.5, 4],
+          [56, 64, 0.5, 39],
+        ],
+        [],
+        64,
+      ),
+    },
+  },
+];
 
 const server = await preview({ preview: { port: PORT, strictPort: true }, logLevel: "warn" });
 const channel = process.env.SCENE_BROWSER_CHANNEL;
@@ -2444,6 +2579,11 @@ if (EXPECT_FALLBACK) {
   if (!ONLY || ONLY.includes("lightshow")) {
     for (const safe of [true, false]) {
       add(async () => checkLightShowFlashes(browser, await guardBundle(), safe));
+    }
+  }
+  if (ONLY?.includes("lightshow-review")) {
+    for (const review of LIGHTSHOW_REVIEW) {
+      add(async () => checkLightShowFlashes(browser, await guardBundle(), true, review));
     }
   }
   if (!ONLY || ONLY.includes("flash-guard")) {
