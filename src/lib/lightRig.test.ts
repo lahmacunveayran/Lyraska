@@ -74,7 +74,8 @@ describe("ışık düzeni", () => {
     const lit = new Float32Array(fixtures.length);
     const out = new Float32Array(MAX_BEAMS * BEAM_FLOATS);
     const t = 12 * BAR + 0.01;
-    const cue = showCue(sheet, t, OPTS, QUALITY_PROFILES.high);
+    // Tam çakma Çılgın'da (Normal'de yumuşak: sahibinin kararı, 30 Ekim).
+    const cue = showCue(sheet, t, { ...OPTS, intensity: "wild" }, QUALITY_PROFILES.high);
     expect(cue.strobe).toBeGreaterThan(0.5);
     targetLit(cue, fixtures, lit);
     packBeams(cue, t, fixtures, lit, PALETTE, 0, out);
@@ -100,6 +101,33 @@ describe("kamera", () => {
     };
     expect(jump(false)).toBeGreaterThan(1);
     expect(jump(true)).toBeLessThan(0.05);
+  });
+
+  it("güvenli modda kamera bütün şarkı boyunca (bölüm, drop, sarma) karede 1 cm'den az kayar", () => {
+    // Kamera kayınca ince parlak ışınlar ekranda hızla yer değiştirir; küçük bölgelerde parlama sayılır
+    // (inceleme, 30 Ekim: çekim geçişinde karede 0,13).
+    const director = createShowDirector("low");
+    let last: number[] | null = null;
+    let worst = 0;
+    for (let i = 0; i < 60 * 24 * BAR; i++) {
+      // 10. saniyede ileri sarma (ok tuşu): kamera da yavaşça yerine kayar.
+      const time = i / 60 + (i >= 600 ? 20 : 0);
+      const step = director.step({
+        sheet,
+        time,
+        dt: 1 / 60,
+        opts: { ...OPTS, safe: true },
+        live: { bass: 0.5, level: 0.6 },
+        bpm: 128,
+        palette: PALETTE,
+        jump: i === 0 || i === 600,
+        easing: false,
+      });
+      const pos = [...step.camera.pos];
+      if (last) worst = Math.max(worst, Math.hypot(...pos.map((v, k) => v - last![k]!)));
+      last = pos;
+    }
+    expect(worst).toBeLessThan(0.01);
   });
 
   it("kamera hiçbir zaman zeminin altına inmez", () => {

@@ -139,9 +139,8 @@ export function LightShowScene({
         const k = 1 - Math.exp(-Math.max(0, Math.min(dt, 0.25)) / 0.12);
         s.level.bass += (live.bass - s.level.bass) * k;
         s.level.level += (live.level - s.level.level) * k;
-      } else {
-        s.lastTime = null;
       }
+      // Boş kare (analiz yetişmedi) saati sıfırlamaz: yoksa sonraki kare sarma sayılırdı.
       if (s.sheet !== sheet) {
         // Harita geldi ya da şarkı değişti: ışıklar birkaç saniyede kurguya otursun.
         if (s.sheet !== null) s.easeLeft = EASE_SECONDS;

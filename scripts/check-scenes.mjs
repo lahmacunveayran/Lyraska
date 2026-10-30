@@ -22,6 +22,7 @@
 //   SCENE_EXPECT           "webgl" (varsayılan) ya da "fallback": WebGL kapalı bir
 //                          tarayıcıda gece göğünün 2D yedek çizimle (Lyra dahil) göründüğü denetlenir
 //   SCENE_SHARD            "2/3": denetimlerin yalnızca bu parçası (CI'da üç paralel iş; boşsa hepsi)
+//   SCENE_PORT             önizleme sunucusunun kapısı (varsayılan 4179; başka bir denetim kullanıyorsa)
 //
 // Ayrıca parlaklık freni (src/lib/flashGuard.ts) güvenli modda zamana bağlı ölçülür
 // (`SCENE_ONLY=flash-guard`): bilerek parlayan bir desen frenden geçirilir, ekrandaki parlamalar
@@ -2439,8 +2440,9 @@ async function checkLightShowFlashes(browser, bundle, safe, review = null) {
 }
 
 /**
- * Bağımsız inceleme (Işık Ustası, güvenli mod): `SCENE_ONLY=lightshow-review`. Her durum bir karşı
- * örnektir; güvenli modun iki ölçütüyle (saniyede ≤ 1 parlama, karede ≤ LIGHTSHOW_SAFE_STEP) ölçülür.
+ * Bağımsız inceleme (Işık Ustası, güvenli mod; 30 Ekim): her durum bulunmuş bir hatanın karşı
+ * örneğidir (düzeltildi); güvenli modun iki ölçütüyle (saniyede ≤ 1 parlama, karede ≤
+ * LIGHTSHOW_SAFE_STEP) ölçülür. `SCENE_ONLY=lightshow` ya da yalnızca `lightshow-review`.
  */
 const REVIEW_BAR = (60 / 128) * 4;
 const reviewMap = (sections, drops, bars = 80) => ({
@@ -2581,7 +2583,8 @@ if (EXPECT_FALLBACK) {
       add(async () => checkLightShowFlashes(browser, await guardBundle(), safe));
     }
   }
-  if (ONLY?.includes("lightshow-review")) {
+  // Bağımsız incelemenin karşı örnekleri (sarma, boş kare, spot, kamera): her denetimde koşar.
+  if (!ONLY || ONLY.includes("lightshow") || ONLY.includes("lightshow-review")) {
     for (const review of LIGHTSHOW_REVIEW) {
       add(async () => checkLightShowFlashes(browser, await guardBundle(), true, review));
     }

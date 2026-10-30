@@ -50,6 +50,11 @@ export interface LightShowRenderer {
 }
 
 const NAME = "Işık Ustası";
+/**
+ * Pusun saati bu kadar saniyede başa sarar (float duyarlılığı uzun çalmada düşmesin). Gölgelendiricideki
+ * doku kaydırma katsayılarının hepsi × 1000 tam sayıdır: sarma anında desen sıçramaz.
+ */
+export const HAZE_TIME_WRAP = 1000;
 const GOLDEN = 0.6180339887;
 const R2_X = 0.7548776662;
 const R2_Y = 0.569840291;
@@ -177,7 +182,7 @@ export function createLightShowRenderer(
       gl.uniform1f(u.uPixelAngle, (2 * tanHalf) / scene.height);
       gl.uniform1i(u.uBeamCount, frame.beamCount);
       if (frame.beamCount > 0) gl.uniform4fv(u.uBeams, frame.beams, 0, frame.beamCount * 12);
-      gl.uniform1f(u.uTime, frame.hazeTime % 4096);
+      gl.uniform1f(u.uTime, frame.hazeTime % HAZE_TIME_WRAP);
       gl.uniform3f(u.uFill, frame.fill[0], frame.fill[1], frame.fill[2]);
       gl.uniform3f(u.uBack, frame.back[0], frame.back[1], frame.back[2]);
       gl.uniform1f(u.uHaze, frame.haze);

@@ -718,9 +718,10 @@ function applySafe(
     pos.barSecs >= 1 ? 0.2 * smooth(0, 0.15, pos.barPhase) * Math.exp(-pos.barPhase * 3) : 0;
   if (cue.phase === "gap" || cue.phase === "build") {
     const climax = building!;
-    // Karartma: doruktan 1,5 sn önce başlar, yarıya iner.
+    // Karartma: doruktan 1,5 sn önce başlar, yarıya iner (boşluğun kendi tam karanlığı yerine: hedef
+    // kurulumun düzeyinden, hız sınırlı yarıya).
     const dim = 0.5 * climax.gapDepth * smooth(climax.time - 1.5, climax.time, time);
-    cue.level = Math.min(cue.level, 1.3) * (1 - dim);
+    cue.level = (cue.phase === "gap" ? 1 : Math.min(cue.level, 1.3)) * (1 - dim);
     cue.fill = Math.max(cue.fill, 0.08);
     cue.push = 0;
   }

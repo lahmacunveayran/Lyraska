@@ -15,6 +15,7 @@ import {
   type ShowOptions,
 } from "./lightShow";
 import { createShowDirector, type ShowStep } from "./lightRig";
+import { HAZE_TIME_WRAP } from "./lightShowRenderer";
 
 const BAR = (60 / 128) * 4;
 const at = (bar: number) => bar * BAR;
@@ -222,10 +223,10 @@ describe("Işık Ustası, güvenli mod: ışın ve salon ışığı sıçramaz (
     for (let i = 1; i < frames.length; i++) {
       const a = frames[i - 1]!.step.fill;
       const b = frames[i]!.step.fill;
-      // Kanalın bağıl değişimi (değerin büyüklüğüne göre).
-      for (let k = 0; k < 3; k++) {
-        worst = Math.max(worst, Math.abs(a[k]! - b[k]!) / Math.max(a[k]!, b[k]!, 1e-6));
-      }
+      // Kanalın değişimi, ışığın büyüklüğüne (en parlak kanal) göre: neredeyse sıfır bir kanalın
+      // (ör. kırmızı jelde mavi, 0,002) binde birlik kıpırtısı sıçrama sayılmasın.
+      const size = Math.max(...a, ...b, 1e-6);
+      for (let k = 0; k < 3; k++) worst = Math.max(worst, Math.abs(a[k]! - b[k]!) / size);
     }
     // Işınların rengi SAFE_COLOR_RATE ile sınırlı (0,5/sn → karede ~%1); salonunki de öyle olmalı.
     expect(worst, "fill kanalının bir karedeki bağıl değişimi").toBeLessThan(0.05);
@@ -261,9 +262,9 @@ describe("Işık Ustası: belgeyle davranış (bağımsız inceleme, düşük ö
   it("pusun saati 4096 sn'de sararken pus deseni sıçramaz", () => {
     // Gölgelendiricideki pus/çizgi doku kaydırma katsayıları (lightShowShader.ts, uTime ile çarpılan).
     const rates = [0.012, 0.005, 0.008, 0.006, 0.011, 0.003];
-    // `uTime % 4096`: sarma anında doku koordinatı rate × 4096 kadar geri atlar; tam sayı değilse
-    // tekrarlanan doku bir karede kayar (68 dakikalık kesintisiz çalmada bir kez).
-    const jumps = rates.map((r) => (r * 4096) % 1).filter((f) => f > 1e-3 && f < 0.999);
+    // `uTime % HAZE_TIME_WRAP`: sarma anında doku koordinatı rate × sarma kadar geri atlar; tam sayı
+    // değilse tekrarlanan doku bir karede kayar (ilk sürümde 4096 sn: 68 dakikada bir).
+    const jumps = rates.map((r) => (r * HAZE_TIME_WRAP) % 1).filter((f) => f > 1e-3 && f < 0.999);
     expect(jumps, "sarmada sıçrayan doku katmanlarının kesirleri").toEqual([]);
   });
 });

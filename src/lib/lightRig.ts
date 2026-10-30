@@ -273,17 +273,34 @@ const tmpB: Vec3 = [0, 0, 0];
 export interface BeamEase {
   dirs: Float32Array;
   cols: Float32Array;
+  /** Fikstürün sıcak spot payı (0..1): kırılmanın spotu genişliğini ve gücünü yavaşça alır, bırakır. */
+  spot: Float32Array;
+  /**
+   * Yeniden nişan alma görünürlüğü (0..1): hedefinden uzak ışın söner, karanlıkta döner, hizalanınca
+   * yanar (ışıkçıların "karanlıkta yer değiştirme"si). Dönen ışın yolda kameraya bakarsa geniş
+   * parlak konisi bütün ekranı süpürürdü (inceleme, 30 Ekim: kırılma → kurulum, karede 0,13).
+   */
+  vis: Float32Array;
   ready: Uint8Array;
 }
 
 /** Güvenli modda yönün (radyan/sn, yaklaşık) ve renk kanallarının (1/sn) en yüksek değişim hızı. */
-export const SAFE_TURN_RATE = 0.6;
+export const SAFE_TURN_RATE = 0.3;
 export const SAFE_COLOR_RATE = 0.5;
+/** Güvenli modda sıcak spot payının en yüksek değişim hızı (1/sn): spot ~2 sn'de açılır, kapanır. */
+export const SAFE_SPOT_RATE = 0.5;
+/** Yön farkı (birim vektör farkı) bunun altındaysa ışın görünür, `SAFE_REAIM_DARK` üstünde söner. */
+export const SAFE_REAIM_LIT = 0.12;
+export const SAFE_REAIM_DARK = 0.3;
+/** Yeniden nişan almada sönme ve yanma hızı (1/sn). */
+export const SAFE_REAIM_RATE = 0.8;
 
 export function createBeamEase(count: number): BeamEase {
   return {
     dirs: new Float32Array(count * 3),
     cols: new Float32Array(count * 3),
+    spot: new Float32Array(count),
+    vis: new Float32Array(count),
     ready: new Uint8Array(count),
   };
 }
@@ -330,7 +347,14 @@ export function packBeams(
     const alt = f.rank % 2 === 1 ? 1 - cue.colorMix : cue.colorMix;
     const gel = f.group === "laser" ? 1 - cue.colorMix * 0.5 : alt;
     const isSpot = cue.pattern === "spot" && f.group === "back" && f.rank === 0;
-    const warm = isSpot ? 1 : cue.warmth * 0.5;
+    // Spot payı: güvenli modda hız sınırlı (genişliği ve gücü bir karede değişmez).
+    let spot = isSpot ? 1 : 0;
+    if (ease) {
+      const st = ease.state;
+      approach(st.spot, i, spot, SAFE_SPOT_RATE * dt, ease.jump || st.ready[i] === 0);
+      spot = st.spot[i]!;
+    }
+    const warm = cue.warmth * 0.5 + (1 - cue.warmth * 0.5) * spot;
     const white = cue.strobeActive ? cue.strobe : 0;
     const color = (k: number) => {
       const c = palette.primary[k]! + (palette.secondary[k]! - palette.primary[k]!) * gel;
@@ -344,6 +368,15 @@ export function packBeams(
       const st = ease.state;
       const snap = ease.jump || st.ready[i] === 0;
       st.ready[i] = 1;
+      const miss = Math.hypot(
+        dx - st.dirs[i * 3]!,
+        dy - st.dirs[i * 3 + 1]!,
+        dz - st.dirs[i * 3 + 2]!,
+      );
+      const aimed = snap
+        ? 0
+        : clamp01((miss - SAFE_REAIM_LIT) / (SAFE_REAIM_DARK - SAFE_REAIM_LIT));
+      approach(st.vis, i, 1 - aimed, SAFE_REAIM_RATE * dt, snap);
       const turn = SAFE_TURN_RATE * dt;
       approach(st.dirs, i * 3, dx, turn, snap);
       approach(st.dirs, i * 3 + 1, dy, turn, snap);
@@ -376,7 +409,8 @@ export function packBeams(
     const pulse =
       (chase ? 0.55 + 0.9 * accent : 1 + 0.55 * accent * (f.group === "laser" ? 0.5 : 1)) *
       (1 - cue.flicker * (1 - cue.pulse));
-    const power = f.power * on * cue.level * pulse * strobeMul * (isSpot ? 1.3 : 1);
+    const shown = ease ? ease.state.vis[i]! : 1;
+    const power = f.power * on * shown * cue.level * pulse * strobeMul * (1 + 0.3 * spot);
     const o = n * BEAM_FLOATS;
     out[o] = f.pos[0];
     out[o + 1] = f.pos[1];
@@ -385,7 +419,7 @@ export function packBeams(
     out[o + 4] = dx;
     out[o + 5] = dy;
     out[o + 6] = dz;
-    out[o + 7] = isSpot ? 0.055 : f.spread;
+    out[o + 7] = f.spread + (0.055 - f.spread) * spot;
     out[o + 8] = r * power;
     out[o + 9] = g * power;
     out[o + 10] = bl * power;
@@ -418,7 +452,8 @@ export function shotPose(shot: Shot, s: number, speed: number, out: Camera): Cam
       return out;
     }
     case "crane": {
-      const a = 0.55 + 0.025 * k;
+      // Vinç salonun önünde gidip gelir (açı 0,55–1,35 rad): uzun bölümde ışıkların arkasına dönmez.
+      const a = 0.55 + 0.4 * (1 - Math.cos(0.05 * k));
       out.pos = [Math.sin(a) * 13, 8.2 + 0.6 * Math.sin(0.05 * k), -6 + Math.cos(a) * 13];
       out.target = [0, 1.2, -9];
       out.fov = 56;
@@ -448,16 +483,28 @@ export function shotPose(shot: Shot, s: number, speed: number, out: Camera): Cam
   }
 }
 
-const poseA: Camera = { pos: [0, 0, 0], target: [0, 0, 0], fov: 60 };
-const poseB: Camera = { pos: [0, 0, 0], target: [0, 0, 0], fov: 60 };
+const pose: Camera = { pos: [0, 0, 0], target: [0, 0, 0], fov: 60 };
 
-/** Güvenli modda çekimler arası geçiş (sn): kesme yerine yavaş kayma. */
-export const SAFE_SHOT_BLEND = 2.5;
+/**
+ * Güvenli modun tek çekimi: salonun önünden geniş bakış, şarkının saatiyle çok yavaş süzülür (en çok
+ * ~5 cm/sn). Çekim değişmez: kamera kayınca ince parlak ışınlar ekranda hızla yer değiştirir, bu da
+ * küçük bölgelerde parlama sayılır (inceleme, 30 Ekim: çekim geçişinde karede 0,13).
+ */
+export function safePose(t: number, out: Camera): Camera {
+  out.pos = [
+    0.6 * Math.sin(0.07 * t),
+    1.75 + 0.1 * Math.sin(0.11 * t),
+    9 + 1.2 * Math.sin(0.04 * t),
+  ];
+  out.target = [0, 3.2, -14];
+  out.fov = 58;
+  return out;
+}
 
 /**
  * Kameranın `t` anındaki duruşu: çekim, itiş (beklenti ve yaylı aşma), görüş açısı vuruşu, drop
- * sarsıntısı. Varsayılan modda çekim değişimi kesmedir; güvenli modda önceki çekimden yavaşça
- * kayar.
+ * sarsıntısı. Varsayılan modda çekim değişimi kesmedir; güvenli modda tek, yavaş süzülen çekim
+ * ([`safePose`]; sarmadan sonra yürütücü kamerayı hız sınırıyla yerine kaydırır).
  */
 export function cameraAt(
   cue: ShowCue,
@@ -465,26 +512,18 @@ export function cameraAt(
   speed: number,
   safe: boolean,
   out: Camera,
+  reducedMotion = false,
 ): Camera {
-  const s = t - cue.shotStart;
-  shotPose(cue.shot, s, speed, poseB);
-  let pos = poseB.pos;
-  let target = poseB.target;
-  let fov = poseB.fov;
-  if (safe && s < SAFE_SHOT_BLEND && cue.prevShot !== cue.shot) {
-    shotPose(cue.prevShot, t - cue.prevShotStart, speed, poseA);
-    const m = clamp01(s / SAFE_SHOT_BLEND);
-    const e = m * m * (3 - 2 * m);
-    pos = lerp3(poseA.pos, poseB.pos, e);
-    target = lerp3(poseA.target, poseB.target, e);
-    fov = poseA.fov + (poseB.fov - poseA.fov) * e;
-  }
+  // "Animasyonları azalt": kamera durur (çekimin saati işlemez, sarsıntı yok).
+  if (safe) safePose(reducedMotion ? 0 : t, pose);
+  else shotPose(cue.shot, reducedMotion ? 0 : t - cue.shotStart, speed, pose);
+  const { pos, target, fov } = pose;
   // İtiş: kameranın bakış yönünde.
   const fx = target[0] - pos[0];
   const fy = target[1] - pos[1];
   const fz = target[2] - pos[2];
   const fl = Math.hypot(fx, fy, fz) || 1;
-  const shake = cue.hit * 0.06;
+  const shake = reducedMotion ? 0 : cue.hit * 0.06;
   out.pos = [
     pos[0] + (fx / fl) * cue.push + shake * Math.sin(t * 53),
     pos[1] + (fy / fl) * cue.push + shake * Math.sin(t * 61 + 1),
@@ -495,8 +534,22 @@ export function cameraAt(
   return out;
 }
 
-function lerp3(a: Vec3, b: Vec3, m: number): Vec3 {
-  return [a[0] + (b[0] - a[0]) * m, a[1] + (b[1] - a[1]) * m, a[2] + (b[2] - a[2]) * m];
+/** Kamerayı hedefine en çok `move` metre (konum ve bakış noktası) ve `turn` derece kaydırır. */
+function followCamera(cam: Camera, goal: Camera, move: number, turn: number) {
+  for (const key of ["pos", "target"] as const) {
+    const a = cam[key];
+    const b = goal[key];
+    const d = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+    const k = d > move ? move / d : 1;
+    cam[key] = [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+  }
+  cam.fov += Math.max(-turn, Math.min(turn, goal.fov - cam.fov));
+}
+
+function copyCamera(to: Camera, from: Camera) {
+  to.pos = [from.pos[0], from.pos[1], from.pos[2]];
+  to.target = [from.target[0], from.target[1], from.target[2]];
+  to.fov = from.fov;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -536,6 +589,16 @@ export interface ShowDirector {
   step(input: ShowStepInput): ShowStep;
 }
 
+/**
+ * Güvenli modda kameranın en yüksek hızı (m/sn) ve görüş açısının en yüksek değişimi (derece/sn).
+ * Kamera ekrandaki son duruşundan hedefine bu hızla kayar: çekim değişimi, aynı çekimin yeniden
+ * başlaması ya da sarma kesme olmaz (karede ≤ 0,8 cm).
+ */
+export const SAFE_CAMERA_SPEED = 0.5;
+export const SAFE_FOV_RATE = 6;
+/** Güvenli modda salon ışığının renk tonunun zaman sabiti (sn): bölüm sınırında yavaşça döner. */
+export const SAFE_HUE_SECONDS = 1;
+
 /** Pusun sürüklenme hızı (sn/sn): müzik durunca da yavaşça kıpırdar. */
 const HAZE_DRIFT = 1;
 
@@ -554,6 +617,10 @@ export function createShowDirector(quality: Quality): ShowDirector {
   const camera: Camera = { pos: [0, 1.7, 10], target: [0, 4, -14], fov: 58 };
   const fill: Rgb = [0, 0, 0];
   const back: Rgb = [0, 0, 0];
+  // Güvenli modda ekrandaki kamera ve salon ışığının tonu (hız sınırlı izleyiciler).
+  const shown: Camera = { pos: [0, 1.7, 10], target: [0, 4, -14], fov: 58 };
+  const hue: Rgb = [0, 0, 0];
+  const gelHue: Rgb = [0, 0, 0];
   let hazeTime = 0;
   let first = true;
   return {
@@ -562,10 +629,13 @@ export function createShowDirector(quality: Quality): ShowDirector {
       const cue = showCue(sheet, time, opts, profile, input.live, input.bpm);
       targetLit(cue, fixtures, lit);
       const limited = opts.safe || input.easing;
+      // Sarma ya da şarkı değişimi değerleri hemen yerine oturtur; güvenli modda asla (ok tuşu basılı
+      // tutulunca saniyede onlarca sarma olur: her biri bir parlama olurdu). Yalnızca ilk kare oturur.
+      const snap = first || (input.jump && !opts.safe);
       let level = cue.level;
       let fillLevel = cue.fill;
       if (limited) {
-        stepSafeLights(safe, cue.level, cue.fill, lit, input.dt, input.jump || first);
+        stepSafeLights(safe, cue.level, cue.fill, lit, input.dt, snap);
         level = safe.level;
         fillLevel = safe.fill;
         cue.level = level;
@@ -583,21 +653,39 @@ export function createShowDirector(quality: Quality): ShowDirector {
         palette,
         sheet.seed,
         beams,
-        { state: beamEase, dt: input.dt, jump: !opts.safe || input.jump || first },
+        { state: beamEase, dt: input.dt, jump: !opts.safe || first },
       );
-      first = false;
-      cameraAt(cue, time, INTENSITY_PROFILES[opts.intensity].camera, opts.safe, camera);
+      cameraAt(
+        cue,
+        time,
+        INTENSITY_PROFILES[opts.intensity].camera,
+        opts.safe,
+        camera,
+        opts.reducedMotion,
+      );
+      const dt = Math.max(0, Math.min(input.dt, 0.1));
+      if (opts.safe && !first) {
+        followCamera(shown, camera, SAFE_CAMERA_SPEED * dt, SAFE_FOV_RATE * dt);
+        copyCamera(camera, shown);
+      } else {
+        copyCamera(shown, camera);
+      }
       hazeTime +=
         Math.max(0, Math.min(input.dt, 0.25)) * HAZE_DRIFT * (opts.reducedMotion ? 0.4 : 1);
 
       const strobe = cue.strobeActive ? cue.strobe : 0;
-      const gel = (k: number) =>
-        palette.primary[k]! + (palette.secondary[k]! - palette.primary[k]!) * cue.colorMix;
+      // Salon ışığının tonu: güvenli modda yavaşça döner (bölüm sınırında ve ölçü başında sıçramaz).
+      const toneStep = opts.safe && !first ? 1 - Math.exp(-dt / SAFE_HUE_SECONDS) : 1;
       for (let k = 0; k < 3; k++) {
-        const warm = gel(k) + (palette.warm[k]! - gel(k)) * cue.warmth * 0.6;
-        fill[k] = warm * fillLevel * level * 0.14 + palette.white[k]! * strobe * 0.05;
-        back[k] = gel(k) * 0.018 * Math.min(1.5, level);
+        const gel =
+          palette.primary[k]! + (palette.secondary[k]! - palette.primary[k]!) * cue.colorMix;
+        const warm = gel + (palette.warm[k]! - gel) * cue.warmth * 0.6;
+        gelHue[k] = gelHue[k]! + (gel - gelHue[k]!) * toneStep;
+        hue[k] = hue[k]! + (warm - hue[k]!) * toneStep;
+        fill[k] = hue[k]! * fillLevel * level * 0.14 + palette.white[k]! * strobe * 0.05;
+        back[k] = gelHue[k]! * 0.018 * Math.min(1.5, level);
       }
+      first = false;
       return {
         cue,
         camera,
