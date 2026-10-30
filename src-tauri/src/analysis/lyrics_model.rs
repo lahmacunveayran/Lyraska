@@ -338,7 +338,7 @@ mod tests {
     fn audio(frames: usize) -> Vec<f32> {
         (0..frames * FRAME_SAMPLES)
             .map(|i| {
-                if (i / FRAME_SAMPLES / 37) % 2 == 0 {
+                if (i / FRAME_SAMPLES / 37).is_multiple_of(2) {
                     0.5
                 } else {
                     -0.5
@@ -373,7 +373,7 @@ mod tests {
         assert_eq!(em.frames, frames);
         assert_eq!(em.frame_secs, 0.02);
         let expected: Vec<char> = (0..frames)
-            .map(|g| if (g / 37) % 2 == 0 { 'a' } else { 'b' })
+            .map(|g| if (g / 37).is_multiple_of(2) { 'a' } else { 'b' })
             .collect();
         assert_eq!(argmax_letters(&model, &em), expected);
         // Satırlar log-olasılık: bütün sözlük üzerinden normalize (saklanan sütunların toplamı ≤ 1).
@@ -392,7 +392,7 @@ mod tests {
             .expect("emisyon");
         assert_eq!(em.frames, 150);
         let expected: Vec<char> = (0..150)
-            .map(|g| if (g / 37) % 2 == 0 { 'a' } else { 'b' })
+            .map(|g| if (g / 37).is_multiple_of(2) { 'a' } else { 'b' })
             .collect();
         assert_eq!(argmax_letters(&model, &em), expected);
         // Bütünüyle sessiz ses de çalışır (sapma 0: ölçek sınırlı).
