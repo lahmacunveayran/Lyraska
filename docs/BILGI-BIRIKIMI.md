@@ -262,7 +262,10 @@ kısaltılır.
 - **Söz düzenleme (30 Ekim 2026):** bulunan düz metin Lyraska'da yapıştırılıp düzenlenir; Lyraska'nın klasöründe
   saklanır (kapaklardaki gibi; müzik dosyalarına dokunulmaz). Program söz indirmez, dağıtmaz. Zamanlama **dokunarak
   değil, otomatik** (sahibi: "onu ben yapamam, çözüm bul"; iki kez irdelensin, ikincisi bağımsız ve üst düzey):
-  `docs/arastirma/soz-hizalama/`.
+  `docs/arastirma/soz-hizalama/`. Sahibinin kararları (30 Ekim): model ayrı "Söz paketi" dosyası (aynı sürüm
+  sayfasında; Lyraska'da "Dosyadan ekle"; programa ağ kodu girmez), emin olunmayan satır soluk + "tahmini" (şarkının
+  çoğu oturmadıysa uyarı), zamanlama söz kaydedilince kendiliğinden (arka planda, düşük öncelik); ilk sürümde sahibi
+  5–10 Türk pop/arabesk/rap şarkısında kayan satırları bildirir (yalnızca doğru/yanlış).
 - **Işık Ustası kaldırıldı (30 Ekim 2026, sahibinin kararı: "beğenmedim, sıkıcı"):** programdan tamamen silindi
   (sahne, yoğunluk ayarı, kendi testleri); kodu yedek dalda `claude/eloquent-shannon-0eigyf-yedek-isik-ustasi`.
   Kayıtlı seçim "lightshow" ise program gece göğüyle açılır. Sahneler v2 yeni bir fikirle sahibine sorularak başlar.

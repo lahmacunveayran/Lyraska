@@ -8,8 +8,8 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/README.md` (yedek dallar).
 
 1. Sözleri sese otomatik hizalama (dokunarak zamanlamanın yerine; sahibi elle yapamıyor): iki irdeleme bitti
-   (`docs/arastirma/soz-hizalama/`), sahibinin kararları (model nasıl gelir, güvensiz satır) bekleniyor; sonra
-   küçük PR'lar. Küçük iş: ölçülen kare süresi ve ortak saat görsellere de.
+   (`docs/arastirma/soz-hizalama/`), sahibi kararları verdi (BILGI §7); sıra RAPOR §8 + DENETIM önerileri, küçük
+   PR'lar: Viterbi hizalayıcı → model çalıştırıcı (tract) → arka plan işi → arayüz. Küçük iş: ölçülen kare süresi ve ortak saat görsellere de.
 2. "Kendi resmin": çubuk ölçeği, yumuşak tavan, saf renk 0.0.98'de (`docs/arastirma/kendi-resmin/` "Tepki
    teşhisi"). Ayrı iş: güvenli modda kırmızı resimde çubuklar neredeyse kıpırdamıyor (`limitExtents`).
 3. Ses motoru denetimi: 64-bit, EQ, AutoEq, EBU R128, bit-perfect, ABX + DENETIM-3 (dallar `ccr-a69bd749-djgi3v`,
