@@ -11,7 +11,12 @@ export type PlaybackStatus = { state: PlaybackState, track: TrackInfo | null, po
  * Konumun ses çıkışında ölçüldüğü an (Unix zamanı, milisaniye; bilinmiyorsa `None`). Arayüz
  * saatini bu ana bağlar (sorgunun gidiş-dönüşünden ve ses aygıtının döneminden bağımsız).
  */
-positionAtMs?: number, underruns: number, error: string | null, 
+positionAtMs?: number, 
+/**
+ * Durumun okunduğu an (Unix zamanı, milisaniye). Arayüz iki saatin farkını sorgunun gidiş-dönüşüyle
+ * sınırlayıp tahmin eder (duvar saati kayar, arayüzün saati kaymaz): `position_at_ms` ona göre çevrilir.
+ */
+readAtMs?: number, underruns: number, error: string | null, 
 /**
  * Şarkının temposu (BPM); analiz bitene kadar ya da belirgin ritim yoksa `None`.
  */

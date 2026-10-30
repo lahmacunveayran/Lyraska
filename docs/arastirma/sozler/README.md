@@ -110,16 +110,20 @@ düşer. Yavaş tarayıcıda (117 ms kareler) ortancalar 0–8 ms, tek kareler �
 ## Ortak saat (0.0.94)
 
 Çıkış iş parçacığı "duyulan" sayacı her güncellediğinde ölçüm anını da yazar (`SharedState::record_heard`; Unix
-zamanı, mikrosaniye; önce an silinir, sonra sayaç, sonra yeni an: okuyan yarım çifti tanır, kilitsiz). Durum
-(`PlaybackStatus.positionAtMs`) bu anı bildirir; arayüz `performance.timeOrigin` ile kendi saatine çevirir ve
-konumu o ana bağlar (`statusTime`). İki saat aynı duvar saatine bağlı olsa da güvenilmez: an sorgudan 50 ms'den
-eski (çıkış durmuş) ya da yanıttan 2 ms'den sonraysa (saat farkı) eski kurala (`replyTime`) dönülür; an yanıtın
-anına kırpılır. Böylece ne sorgunun gidiş-dönüşü, ne ana iş parçacığının yanıtı geç işlemesi, ne de ses aygıtının
-dönemi (sayacın bayatlığı) konumu kaydırır.
+zamanı, mikrosaniye; önce an silinir, sonra sayaç, sonra yeni an: okuyan yarım çifti tanır, kilitsiz). Durum bu anı
+(`PlaybackStatus.positionAtMs`) ve durumun okunduğu anı (`readAtMs`) bildirir. İki saat (çekirdeğin duvar saati,
+arayüzün `performance.now()`'u) yalnızca sayfa açılırken hizalıdır: duvar saati NTP ile düzeltilir, uykudan dönüşte
+ve elle ayarda sıçrar (üçüncü bağımsız inceleme). Arayüz farkı NTP'deki gibi tahmin eder (`ClockOffset`): her sorgu
+farkı [okuma anı − yanıt, okuma anı − gidiş] aralığına sokar; son 10 sn'deki aralıkların kesişimi alınır. Sayfa
+açılışındaki fark kesişimin içindeyse aynen (saat kaymamış), değilse kesişimin ortası; kesişim boşalırsa (saat
+sıçradı) son sorgu. Konum ölçüm anına bağlanır (`statusTime`); an sorgudan 50 ms'den eskiyse (çıkış durmuş) eski
+kural (`replyTime`). Böylece ne sorgunun gidiş-dönüşü, ne ana iş parçacığının yanıtı geç işlemesi, ne ses aygıtının
+dönemi (sayacın bayatlığı), ne de duvar saatinin kayması konumu kaydırır.
 
-Ölçüm (60 Hz, ağır sahne 22 ms + asimetrik IPC): söz saati ortalama +17 ms → −6 ms (en kötü 47 → 16 ms). Kare
-bütçesine sığan ağır sahne (10 ms): ortalama 0,0 ms. Gerçek WASAPI aygıtında yalnızca Windows'ta denenebilir
-(DOGRULAMA E11).
+Ölçüm (60 Hz; sahte çekirdeğin duvar saati 37 ms kaymış): hafif sahnede söz saati ortalama 0,1–0,2 ms; ağır sahne
+10 ms + asimetrik IPC −4,6 ms; aşırı yüklü sahne (22 ms) +17 ms → −6…−12 ms. Aşırı yüklü karede saat kayması ile
+asimetrik yanıt bir arada ayırt edilemez (hangi yolun uzun olduğu bilinmez): o değişkede hedef bir kare. Gerçek
+WASAPI aygıtında yalnızca Windows'ta denenebilir (DOGRULAMA E11).
 
 ## Kalanlar
 

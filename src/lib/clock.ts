@@ -126,26 +126,71 @@ export function reanchor(
  * aygıtının dönemi (~10 ms) ve birkaç dönemlik pay. Daha eskiyse çıkış durmuş sayılır.
  */
 export const MAX_HEARD_AGE_MS = 50;
-/** Çekirdeğin saatiyle arayüzün saati arasında kabul edilen en büyük fark (ms; duvar saatinin oynaması). */
+/** Farkın tahmin hatası için pay (ms): ölçüm anı yanıttan bu kadar sonra görünebilir. */
 export const CLOCK_SKEW_MS = 2;
+
+/** Saat farkı tahmininde bu kadar ms'lik son sorgular kullanılır (duvar saatinin yavaş kayması izlenir). */
+export const OFFSET_WINDOW_MS = 10_000;
+
+/**
+ * Çekirdeğin duvar saati (Unix ms) ile arayüzün saati (`performance.now()` ms) arasındaki fark. İkisi
+ * yalnızca sayfa açılırken hizalıdır (`performance.timeOrigin`): duvar saati NTP ile düzeltilir,
+ * uykudan dönüşte ve elle ayarda sıçrar; arayüzün saati düzeltilmez. Her sorgu farkı sınırlar: çekirdek
+ * durumu `readAtMs` anında okudu, bu an isteğin gidişi ile yanıtın gelişi arasındadır, yani fark
+ * [readAtMs − yanıt, readAtMs − gidiş] aralığındadır (NTP'deki gibi). Son [`OFFSET_WINDOW_MS`]'deki
+ * aralıkların kesişimi alınır (her birinden dar). Önceden bilinen fark (sayfa açılışındaki hizalama)
+ * kesişimin içindeyse aynen kullanılır (saat kaymamış: tam); değilse kesişimin ortası.
+ * Kesişim boşalırsa (duvar saati sıçradı) yalnızca son sorgu tutulur.
+ */
+export class ClockOffset {
+  private samples: { at: number; low: number; high: number }[] = [];
+
+  add(readAtMs: number, sentAt: number, receivedAt: number): void {
+    if (!Number.isFinite(readAtMs) || !(receivedAt >= sentAt)) return;
+    this.samples.push({ at: receivedAt, low: readAtMs - receivedAt, high: readAtMs - sentAt });
+    while (this.samples[0]!.at < receivedAt - OFFSET_WINDOW_MS) this.samples.shift();
+    const bounds = this.bounds();
+    if (bounds && bounds.low > bounds.high) this.samples = this.samples.slice(-1);
+  }
+
+  /**
+   * Farkın tahmini (ms; duvar saati − arayüzün saati): `prior` kesişimin içindeyse o (saat kaymamış),
+   * değilse kesişimin ortası (kaymış: iki yol eşit sayılır; en yakın uç bir yolun tamamı kadar yanılırdı).
+   */
+  estimate(prior: number): number | null {
+    const bounds = this.bounds();
+    if (!bounds) return null;
+    return prior >= bounds.low && prior <= bounds.high ? prior : (bounds.low + bounds.high) / 2;
+  }
+
+  private bounds(): { low: number; high: number } | null {
+    if (this.samples.length === 0) return null;
+    let low = -Infinity;
+    let high = Infinity;
+    for (const s of this.samples) {
+      low = Math.max(low, s.low);
+      high = Math.min(high, s.high);
+    }
+    return { low, high };
+  }
+}
 
 /**
  * Sorgu yanıtındaki konumun geçerli olduğu an (`performance.now()` ms). Çekirdek konumu ses
- * çıkışında ölçtüğü anı bildirir (`positionAtMs`, Unix ms); arayüzün saatine çevrilir
- * (`performance.timeOrigin`). Bu an sorgunun gidiş-dönüşünden ve ana iş parçacığının yanıtı geç
- * işlemesinden bağımsızdır. Ama iki saat aynı duvar saatine bağlı olsa da güvenilmez: an sorgudan
- * [`MAX_HEARD_AGE_MS`]'den eski ya da yanıttan sonraysa (saat farkı, duran çıkış) [`replyTime`]
- * kullanılır. An, saatin son bağlandığı andan eski olamaz.
+ * çıkışında ölçtüğü anı bildirir (`positionAtMs`, duvar saati); arayüzün saatine `offsetMs`
+ * ([`ClockOffset`]) ile çevrilir. Bu an sorgunun gidiş-dönüşünden ve ana iş parçacığının yanıtı geç
+ * işlemesinden bağımsızdır. An sorgudan [`MAX_HEARD_AGE_MS`]'den eski (çıkış durmuş) ya da yanıttan
+ * sonraysa ya da fark bilinmiyorsa [`replyTime`] kullanılır. An, saatin son bağlandığı andan eski olamaz.
  */
 export function statusTime(
   positionAtMs: number | null | undefined,
-  timeOrigin: number,
+  offsetMs: number | null,
   sentAt: number,
   receivedAt: number,
   previousAt: number | null,
 ): number {
-  if (typeof positionAtMs === "number" && Number.isFinite(positionAtMs)) {
-    const at = positionAtMs - timeOrigin;
+  if (typeof positionAtMs === "number" && Number.isFinite(positionAtMs) && offsetMs !== null) {
+    const at = positionAtMs - offsetMs;
     if (at >= sentAt - MAX_HEARD_AGE_MS && at <= receivedAt + CLOCK_SKEW_MS) {
       const bounded = Math.min(at, receivedAt);
       return previousAt === null ? bounded : Math.max(bounded, previousAt);

@@ -14,6 +14,7 @@ import {
   type PlaybackStatus,
 } from "../lib/backend";
 import {
+  ClockOffset,
   FrameClock,
   displayTime,
   nextFrameAt,
@@ -84,6 +85,8 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
 
   const statusRef = useRef(status);
   const anchor = useRef<ClockAnchor | null>(null);
+  /** Çekirdeğin duvar saati ile arayüzün saati arasındaki farkın tahmini. */
+  const clockOffset = useRef(new ClockOffset());
   const busy = useRef(false);
   /** Bir komut sürerken açılmak istenen şarkı (o komut bitince açılır). */
   const pendingOpen = useRef<string | null>(null);
@@ -254,21 +257,23 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
       inFlight = true;
       const sentAt = now();
       getPlaybackStatus()
-        .then(
-          (next) =>
-            !cancelled &&
-            applyStatus(
-              next,
-              false,
-              statusTime(
-                next.positionAtMs,
-                performance.timeOrigin,
-                sentAt,
-                now(),
-                anchor.current?.at ?? null,
-              ),
+        .then((next) => {
+          if (cancelled) return;
+          const receivedAt = now();
+          if (next.readAtMs !== undefined)
+            clockOffset.current.add(next.readAtMs, sentAt, receivedAt);
+          applyStatus(
+            next,
+            false,
+            statusTime(
+              next.positionAtMs,
+              clockOffset.current.estimate(performance.timeOrigin),
+              sentAt,
+              receivedAt,
+              anchor.current?.at ?? null,
             ),
-        )
+          );
+        })
         .catch(() => {
           /* Geçici hata: bir sonraki turda yeniden denenir. */
         })

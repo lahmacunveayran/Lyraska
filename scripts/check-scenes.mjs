@@ -1576,11 +1576,15 @@ async function checkLyricsTiming(
         const end = performance.now();
         await wait(${responseMs});
         const read = ${ipc === "simetrik"} ? (sent + performance.now()) / 2 : end;
-        // Çekirdek konumu ölçtüğü anı da bildirir (Unix ms; programın gerçek çekirdeği gibi).
+        // Çekirdek konumu ölçtüğü anı ve durumu okuduğu anı da bildirir (duvar saati, Unix ms;
+        // programın gerçek çekirdeği gibi). Duvar saati arayüzün saatinden 37 ms ileri kaymış (NTP
+        // düzeltmesi): program farkı sorgulardan tahmin etmeli.
+        const wall = performance.timeOrigin + read + 37;
         return {
           ...status,
           positionSecs: 60 + (read - started) / 1000,
-          positionAtMs: performance.timeOrigin + read,
+          positionAtMs: wall,
+          readAtMs: wall,
         };
       };
       // Ağır sahne: her karede, sözlerden önce koşan çizim (ilk kaydedilen geri çağrı önce koşar).
@@ -1738,8 +1742,11 @@ async function checkLyricsTiming(
       ["kelimeler", wordErrors],
       ["satırlar", lineErrors],
     ];
+    // Aşırı yüklü karede (iş > kare süresi) saat kaymasıyla asimetrik yanıt bir arada ayırt edilemez
+    // (hangi yolun uzun olduğu bilinmez): hedef bir kare (docs/arastirma/sozler).
+    const tolerance = heavyMs > 1000 / 60 ? 1000 / 60 : LYRIC_TOLERANCE_MS;
     for (const [name, list] of checks) {
-      if (list.length > 0 && Math.abs(median(list)) > LYRIC_TOLERANCE_MS) {
+      if (list.length > 0 && Math.abs(median(list)) > tolerance) {
         problems.push(`${label}: ${name} ortancası ${median(list).toFixed(1)} ms sapıyor`);
       }
     }

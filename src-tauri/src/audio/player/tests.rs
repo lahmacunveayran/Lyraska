@@ -1843,6 +1843,11 @@ fn durum_konumun_olculdugu_ani_bildirir() {
     let before = unix_micros() as f64 / 1000.0;
     let status = player.status();
     let at = status.position_at_ms.expect("çalarken ölçüm anı bilinir");
+    let read = status.read_at_ms.expect("durumun okunduğu an bilinir");
+    assert!(
+        at <= read && read <= unix_micros() as f64 / 1000.0 + 1.0,
+        "{at} ≤ {read}"
+    );
     // Sanal çıkış birkaç ms'de bir yazar: ölçüm sorgudan kısa süre önce.
     assert!(
         at <= before + 1.0 && before - at < 500.0,

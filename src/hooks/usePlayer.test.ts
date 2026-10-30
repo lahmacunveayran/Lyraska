@@ -108,32 +108,36 @@ describe("oynatma saati (söz zamanlaması)", () => {
     expect(Math.abs(result.current.positionNow(at) - truth(at))).toBeLessThan(0.0005);
   });
 
-  it("çekirdek ölçüm anını bildirince yanıtın geç işlenmesi konumu geride bırakmaz", async () => {
-    // Ağır sahne: ana iş parçacığı dolu, yanıt 60 ms geç işleniyor (gidiş-dönüş uzun: orta nokta
-    // kullanılamaz, yanıtın anı konumu 60 ms geride bırakırdı). Çekirdek ölçüm anını bildirir.
+  it("çekirdek ölçüm anını bildirince yanıtın geç işlenmesi ve saat kayması konumu kaydırmaz", async () => {
+    // Çekirdeğin duvar saati arayüzün saatinden 37 ms ileri kaymış (NTP düzeltmesi). Önce kısa sorgular
+    // (fark onlardan tahmin edilir), sonra ağır sahne: yanıt 60 ms geç işleniyor (gidiş-dönüş uzun:
+    // orta nokta kullanılamaz, yanıtın anı konumu 60 ms geride bırakırdı).
     const { result } = renderHook(() => usePlayer(["flac"]));
     await act(async () => {
       await result.current.openPath("C:/Müzik/gece.flac");
     });
     const origin = performance.now();
     const truth = (at: number) => 50 + (at - origin) / 1000;
+    const wall = (at: number) => performance.timeOrigin + at + 37;
     let answered = 0;
     backend.reply = () => {
       const read = performance.now() + 1;
+      const delay = answered < 3 ? 2 : 60;
       return new Promise((resolve) =>
         setTimeout(() => {
           answered++;
           resolve({
             ...playing,
             positionSecs: truth(read),
-            positionAtMs: performance.timeOrigin + read,
+            positionAtMs: wall(read),
+            readAtMs: wall(read),
           });
-        }, 60),
+        }, delay),
       );
     };
-    await act(() => vi.waitFor(() => expect(answered).toBe(1), { timeout: 2000, interval: 5 }));
+    await act(() => vi.waitFor(() => expect(answered).toBe(4), { timeout: 3000, interval: 5 }));
     const at = performance.now();
-    expect(Math.abs(result.current.positionNow(at) - truth(at))).toBeLessThan(0.0005);
+    expect(Math.abs(result.current.positionNow(at) - truth(at))).toBeLessThan(0.003);
   });
 
   it("akıcı konum karenin ekrana çıkacağı an için okunur ve aynı karede yazılır", () => {

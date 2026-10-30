@@ -1,5 +1,7 @@
 import {
   CORRECTION,
+  ClockOffset,
+  OFFSET_WINDOW_MS,
   FrameClock,
   MAX_FRAME_MS,
   MAX_MIDPOINT_RTT_MS,
@@ -147,5 +149,40 @@ describe("statusTime", () => {
   it("küçük saat farkı yanıtın anına kırpılır; son bağlantıdan eski olmaz", () => {
     expect(statusTime(origin + 1011, origin, 1000, 1010, null)).toBe(1010);
     expect(statusTime(origin + 1003, origin, 1000, 1010, 1008)).toBe(1008);
+  });
+});
+
+describe("ClockOffset", () => {
+  const origin = 1_700_000_000_000;
+
+  it("saat kaymamışsa sayfa açılışındaki fark aynen kullanılır", () => {
+    const offset = new ClockOffset();
+    expect(offset.estimate(origin)).toBeNull();
+    offset.add(origin + 1003, 1000, 1006); // çekirdek 1003'te okudu
+    expect(offset.estimate(origin)).toBe(origin);
+  });
+
+  it("duvar saati kayınca fark sorguların kesişimine çekilir (en kısa gidiş-dönüş kadar doğru)", () => {
+    const offset = new ClockOffset();
+    // Duvar saati 37 ms ileri: okuma anı 1003 + 37.
+    offset.add(origin + 37 + 1003, 1000, 1080); // ağır sahne: yanıt geç işlendi, geniş aralık
+    offset.add(origin + 37 + 1252, 1250, 1253); // kısa sorgu: dar aralık
+    const estimate = offset.estimate(origin)!;
+    expect(Math.abs(estimate - (origin + 37))).toBeLessThanOrEqual(1);
+  });
+
+  it("duvar saati sıçrayınca eski sorgular atılır; eskiler pencereden çıkar", () => {
+    const offset = new ClockOffset();
+    offset.add(origin + 1003, 1000, 1006);
+    offset.add(origin + 5000 + 2003, 2000, 2006); // saat elle 5 sn ileri alındı
+    expect(Math.abs(offset.estimate(origin)! - (origin + 5000))).toBeLessThanOrEqual(6);
+    const old = new ClockOffset();
+    old.add(origin + 1003, 1000, 1001); // çok dar ama eski
+    old.add(
+      origin + 20 + 1000 + OFFSET_WINDOW_MS + 3,
+      1000 + OFFSET_WINDOW_MS + 1,
+      1000 + OFFSET_WINDOW_MS + 6,
+    );
+    expect(old.estimate(origin)).toBeGreaterThan(origin + 15);
   });
 });
