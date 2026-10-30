@@ -58,14 +58,14 @@ fn main() {
         let truth = meta["truth"].as_array().unwrap();
         for (j, line) in a.lines.iter().enumerate() {
             let (Some(tr), Some(py), Some(pc)) = (truth.get(j).and_then(Value::as_f64), meta["py_start"][j].as_f64(), meta["py_conf"][j].as_f64()) else { continue };
-            rows.entry(key.clone()).or_default().push(((line.start - tr).abs(), (py - tr).abs(), if line.skipped { 0.0 } else { line.confidence }, pc, (line.start - py).abs()));
+            rows.entry(key.clone()).or_default().push(((line.start - tr).abs(), (py - tr).abs(), if line.skipped { 0.0 } else { line.confidence }, pc, if line.skipped { 0.0 } else { (line.start - py).abs() }));
         }
     }
     let status = std::fs::read_to_string("/proc/self/status").unwrap();
     println!("tepe bellek: {}", status.lines().find(|l| l.starts_with("VmHWM")).unwrap());
     println!("hız: {:.1} sn hesap / {:.0} sn ses (gerçek zamanın {:.3} katı)", total_secs, audio_secs, total_secs / audio_secs);
     println!("şarkı hükmü: {verdicts:?}");
-    println!("| set | bölüm | satır | ≤0,3 sn Rust | ≤0,3 sn Python | Rust≠Python (>1 kare) | AUROC Rust | AUROC Python | işaretli | yakalanan büyük hata | işaretsizde >1 sn |");
+    println!("| set | bölüm | satır | ≤0,3 sn Rust | ≤0,3 sn Python | Rust≠Python (>1 kare, atlanmayan satır) | AUROC Rust | AUROC Python | işaretli | yakalanan büyük hata | işaretsizde >1 sn |");
     println!("|---|---|---|---|---|---|---|---|---|---|---|");
     for ((set, split), r) in &rows {
         let n = r.len() as f64;
