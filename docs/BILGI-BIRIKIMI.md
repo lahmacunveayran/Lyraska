@@ -234,5 +234,8 @@ kısaltılır.
   düzeltilir); Işık Ustası'nda Normal'de drop flaşı yumuşar (tam flaş Çılgın'da), söz işlerinden hemen sonra bağımsız
   inceleme + PR; drop v2 için **B** (ikisi programda, varsayılan eski, İşaretle'de yan yana; karar sahibinin 5–10
   şarkılık işaretiyle), uygulaması sırada yine en sonda. Sahibinin kendi denemeleri (A16, #25, #27) ona kalır.
+- **Söz düzenleme (30 Ekim 2026):** bulunan düz metin Lyraska'da yapıştırılıp düzenlenir; Lyraska'nın klasöründe
+  saklanır (kapaklardaki gibi; müzik dosyalarına dokunulmaz), zamanlama dokunarak + ince ayar; söz PR'larından hemen
+  sonra (sıra 1b). Program söz indirmez, dağıtmaz.
 - Görsel tasarımda sahibi zor beğenir: seçenekleri gerçek boyutta, yan yana görsel olarak sun; bağımsız sanat
   yönetmeni denetimi işe yarıyor (puan 6 → hedef 8+).
