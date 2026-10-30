@@ -45,6 +45,11 @@ symphonia-adapter-libopus = "0.3.0"
 # Kütüphane klasörlerini izleme (library/watch.rs; Windows'ta ReadDirectoryChangesW). CC0-1.0; macOS
 # FSEvents özelliği kapalı (macOS sonra; ağ bağımlılığı yok).
 notify = { version = "8", default-features = false }
+# Sözleri sese oturtmak için modelin emisyonları (analysis/lyrics_model.rs): saf Rust ONNX çalıştırıcı
+# (MIT OR Apache-2.0; ek DLL yok), sürüm sabit. Model programla gelmez ("Söz paketi").
+tract-onnx = { version = "=0.23.9", default-features = false }
+# Söz paketindeki model dosyasının SHA-256 denetimi (MIT OR Apache-2.0; bağımlılık ağacında zaten var).
+sha2 = "0.10"
 
 [profile.release]
 codegen-units = 1
