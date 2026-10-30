@@ -166,6 +166,12 @@ kısaltılır.
   0,13 değiştirir. Çözüm: güvenli modda tek, yavaş süzülen çekim (kamera ≤ 0,5 m/sn); hedefinden uzak ışın önce söner,
   karanlıkta döner, hizalanınca yanar; sarma (ok tuşu basılı) hiçbir şeyi bir karede oturtmaz. Ölçüt bölge başına
   (`check:scenes`, `lightshow` incelemesinin karşı örnekleri).
+- **Ters mühendislikte kısa ekran kaydı yanıltır (30 Ekim):** 4 sn'lik kayıtlardan çıkan ölçek "Kendi resmin"
+  çubuklarını orijinalin 0,72 katı bırakmıştı; sahibinin kaydındaki ses de Windows iyileştirmesiyle bozuktu. Doğrusu:
+  orijinal dosyanın tamamı ve kendi sesi, aynı saniyeler, Lyraska'nın çıktısı gerçek kodla üretilip (Rust crate +
+  PhotoScene) yan yana videoyla sahibine gösterilir.
+- **"Kendi resmin" çubuk rengi (30 Ekim, sahibinin seçimi):** resmin baskın tonu en yakın saf tona oturur (8 ton);
+  resimden aynen alınan ton orijinal videonun saf kırmızısı yerine pembemsi kızıl veriyordu.
 - **Ölçüm denetiminde uzun kare:** sonraki kare gecikince bu karenin ekrana çıkış anı bilinemez; denetim aralık kabul
   eder (en erken kare başı + bir kare, en geç sonraki kare başı). CI'nın ekran kartsız Windows'unda "Kendi resmin"
   karelerinin %12'si uzun.
