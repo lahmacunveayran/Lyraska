@@ -4920,6 +4920,51 @@ kbd {
   text-align: right;
 }
 
+/* ---------- Söz düzenleme (Sözler paneli) ---------- */
+
+.lyricsedit__label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.lyricsedit__text {
+  width: 100%;
+  min-height: 260px;
+  resize: vertical;
+  padding: 12px 14px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  background: var(--well);
+  color: var(--ink);
+  font-family: var(--font-songs);
+  font-size: 13px;
+  line-height: 1.7;
+  tab-size: 2;
+}
+
+.lyricsedit__text:focus-visible {
+  outline: 2px solid var(--aurora);
+  outline-offset: 1px;
+}
+
+.lyricsedit__text:disabled {
+  opacity: 0.55;
+}
+
+.lyricsedit__stats,
+.lyricsedit__message {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.lyricsedit__message {
+  color: var(--ink-2);
+}
+
 .sync__caption {
   margin: 0 0 8px;
   font-size: 12px;
@@ -5700,14 +5745,11 @@ kbd {
   gap: 24px;
   font-family: "Audiowide", var(--font-display);
   color: #fff;
-  /* Örnekteki gibi kalın harf (yazı tipinin tek kalınlığı biraz kalınlaştırılır) ve sıkı koyu
-     kenar: açık resimde de okunur. */
+  /* Örnekteki gibi kalın harf (yazı tipinin tek kalınlığı biraz kalınlaştırılır) ve çok hafif gölge:
+     harflerin çevresi gri-siyah görünmez, açık resimde (beyaz kanat) yine biraz okunur (sahibinin
+     seçimi, 30 Ekim; önceki koyu kenar harfleri griye boğuyordu). */
   -webkit-text-stroke: 0.04em #fff;
-  text-shadow:
-    0 0 1px rgba(0, 0, 0, 0.85),
-    0 0 3px rgba(0, 0, 0, 0.6),
-    0 1px 8px rgba(0, 0, 0, 0.45),
-    0 2px 18px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
   pointer-events: none;
   /* Denetimler görünürken alttaki büyük başlık zaten şarkıyı söyler; yazı sinema görünümünde. */
   opacity: 0;

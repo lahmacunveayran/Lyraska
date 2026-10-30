@@ -147,6 +147,8 @@ const fakeCore = (
       case "annotation_get": case "song_key": case "song_map_imported": return null;
       // Şarkı sözleri: yalnızca söz denetiminde (\`window.__fakeLyrics\`), yoksa sözsüz şarkı.
       case "track_lyrics": return window.__fakeLyrics ?? null;
+      // Düzenlemek için sözlerin metni (Sözler paneli): denetimde yok.
+      case "track_lyrics_text": return null;
       // "Kendi resmin": resim seçilmemiş (koyu zemin, vurgu yeşili çizgi) ya da IMAGE renginde düz
       // bir resim (pencere boyunda; tarayıcı kendisi çizer, programın sayfasındaki gibi \`data:\`).
       case "background_image_get": {

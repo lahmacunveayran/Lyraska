@@ -15,6 +15,7 @@ import {
   lyricPan,
   lyricShiftKey,
   lyricTime,
+  lyricsTextStats,
   photoLyricWords,
   saveLyricShift,
   type WordState,
@@ -250,5 +251,24 @@ describe("şarkı başına söz kaydırma", () => {
     expect(key("ArrowRight")).toBeNull(); // düz ok: sarma
     expect(key("ArrowRight", { altKey: true, shiftKey: true })).toBeNull();
     expect(key("ArrowUp", { altKey: true })).toBeNull();
+  });
+});
+
+describe("lyricsTextStats", () => {
+  it("söz satırlarını ve zamanlı olanları sayar; boş, künye ve sözsüz ara sayılmaz", () => {
+    expect(lyricsTextStats("")).toEqual({ lines: 0, timed: 0 });
+    expect(lyricsTextStats("Gece yolunda yalnız\n\nIşıklar akıyor\n")).toEqual({
+      lines: 2,
+      timed: 0,
+    });
+    expect(
+      lyricsTextStats(
+        "[ar:Lyraska]\n[offset:+200]\n[00:01.00]Bir\n[00:02.50][01:10.00]İki\n[00:03.00]\nÜç",
+      ),
+    ).toEqual({ lines: 3, timed: 2 });
+    expect(lyricsTextStats("[00:01:50]Salise iki nokta\r\n[1:02]Kısa")).toEqual({
+      lines: 2,
+      timed: 2,
+    });
   });
 });

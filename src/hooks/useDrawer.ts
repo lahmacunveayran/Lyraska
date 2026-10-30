@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 /** Sağ çekmecedeki paneller. */
-export type Panel = "library" | "eq" | "marker" | "sync" | "abx" | "settings";
+export type Panel = "library" | "eq" | "marker" | "sync" | "lyrics" | "abx" | "settings";
 
 export interface DrawerControls {
   open: boolean;
