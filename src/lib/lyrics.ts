@@ -264,3 +264,23 @@ export function saveLyricsVisible(visible: boolean): void {
     /* Kaydedilemezse bir sonraki açılışta gösterilir. */
   }
 }
+
+/** LRC satırının başındaki zaman damgaları (`[01:23.45]`, birden çok olabilir). */
+const LRC_STAMP = /^\s*(\[\d+:\d{1,2}(?:[.:]\d{1,3})?\]\s*)+/;
+/** LRC künye satırı (`[ar:…]`, `[offset:…]`): söz değildir. */
+const LRC_ID_TAG = /^\s*\[[a-z]+:[^\]]*\]\s*$/i;
+
+/** Düzenlenen metindeki söz satırı sayısı ve kaçının zamanlı olduğu (boş ve künye satırları sayılmaz). */
+export function lyricsTextStats(text: string): { lines: number; timed: number } {
+  let lines = 0;
+  let timed = 0;
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.trim() || LRC_ID_TAG.test(line)) continue;
+    const stamped = LRC_STAMP.exec(line);
+    // Yalnızca zamanı olan boş satır sözsüz bir aradır (satır sayılmaz).
+    if (stamped && !line.slice(stamped[0].length).trim()) continue;
+    lines++;
+    if (stamped) timed++;
+  }
+  return { lines, timed };
+}
