@@ -36,6 +36,11 @@ pub const LOW_CONFIDENCE: f64 = 0.225;
 pub const UNALIGNED_CONFIDENCE: f64 = 0.5;
 /// İleri değerlerin saklandığı aralık (kare).
 const CHECKPOINT: usize = 64;
+/// Kare × durum bütçesi: geri izleme bu kadar bayt (+%12 saklama noktası). 10 dk şarkı ve 4000
+/// harf ~240 M; daha büyüğü bellek ayrılmadan reddedilir (yanlış ya da çok uzun yapıştırılan metin).
+pub const MAX_CELLS: usize = 300_000_000;
+// Geri izleme kodu bir bayt: 0–2 düz geçiş, 3 + k gelen k. yay (bir duruma en çok 2 × MAX_SKIP yay).
+const _: () = assert!(3 + 2 * MAX_SKIP <= u8::MAX as usize);
 
 const NEG: f64 = -1e30;
 
@@ -117,6 +122,8 @@ pub enum AlignError {
     TooShort,
     #[error("emisyon matrisi bozuk")]
     BadEmissions,
+    #[error("ses ya da söz hizalanamayacak kadar uzun")]
+    TooLong,
 }
 
 /// Etiket dizisi: harfler ve ayırıcılar; her kelimenin ve satırın etiket aralığı.
@@ -359,8 +366,8 @@ fn entry_mass(em: &Emissions, st: &States, first: &[usize], window: usize) -> Ve
     let mut mass = vec![0.0; first.len()];
     // Karede penceresi bu kareyi içeren etiketler: first sıralıdır.
     let labels_near = |t: usize| -> (usize, usize) {
-        let lo = first.partition_point(|&f| f + window < t);
-        let hi = first.partition_point(|&f| f <= t + window);
+        let lo = first.partition_point(|&f| f.saturating_add(window) < t);
+        let hi = first.partition_point(|&f| f <= t.saturating_add(window));
         (lo, hi)
     };
     let mut beta = vec![NEG; s_count];
@@ -439,7 +446,7 @@ pub fn align(
     lines: &[Vec<String>],
 ) -> Result<Alignment, AlignError> {
     if em.columns == 0
-        || em.log_probs.len() != em.frames * em.columns
+        || em.frames.checked_mul(em.columns) != Some(em.log_probs.len())
         || !em.frame_secs.is_finite()
         || em.frame_secs <= 0.0
         || vocab.blank >= em.columns
@@ -453,10 +460,15 @@ pub fn align(
     if labels.columns.is_empty() {
         return Err(AlignError::NoLetters);
     }
-    // Her etiket en az bir kare; ardışık aynı etiketlerin arasına bir blank.
+    // Her etiket en az bir kare; ardışık aynı etiketlerin arasına bir blank. (Düz CTC'ye göre: satır
+    // atlayarak sığabilecek sözü de reddeder; saniyede 50 harf sınırı gerçek şarkıda aşılmaz.)
     let repeats = labels.columns.windows(2).filter(|w| w[0] == w[1]).count();
     if em.frames < labels.columns.len() + repeats {
         return Err(AlignError::TooShort);
+    }
+    let state_count = 2 * labels.columns.len() + 1;
+    if em.frames.saturating_mul(state_count) > MAX_CELLS {
+        return Err(AlignError::TooLong);
     }
     let st = states(&labels.columns, vocab.blank);
     let arcs = skip_arcs(&labels, st.emit.len());
@@ -486,7 +498,7 @@ pub fn align(
         }
     }
 
-    let window = (CONFIDENCE_WINDOW / em.frame_secs) as usize;
+    let window = ((CONFIDENCE_WINDOW / em.frame_secs) as usize).min(em.frames);
     let mass = entry_mass(em, &st, &first, window);
 
     let secs = |frame: usize| frame as f64 * em.frame_secs;
@@ -525,25 +537,48 @@ pub fn align(
             None => out.push(LineTiming {
                 start: 0.0,
                 end: 0.0,
-                words: vec![],
+                words: vec![
+                    WordTiming {
+                        start: 0.0,
+                        end: 0.0
+                    };
+                    words.len()
+                ],
                 confidence: 0.0,
                 skipped: true,
             }),
         }
     }
-    // Harfi olmayan satır: bir önceki satırın sonuna oturur.
-    let mut previous_end = 0.0;
-    for line in &mut out {
-        if line.words.is_empty() && line.skipped {
-            line.start = previous_end;
-            line.end = previous_end;
+    // Atlanan ya da harfi olmayan satır sıfır uzunlukta: önceki satırın sonunda, sonraki yerleşen
+    // satırın başını geçmeden (satırların sırası ve zamanları hiç geri gitmez).
+    let mut previous_end: f64 = 0.0;
+    for j in 0..out.len() {
+        if out[j].skipped {
+            let next_start = out[j + 1..]
+                .iter()
+                .find(|l| !l.skipped)
+                .map_or(secs(em.frames), |l| l.start);
+            let at = previous_end.min(next_start);
+            out[j].start = at;
+            out[j].end = at;
+            for word in &mut out[j].words {
+                *word = WordTiming { start: at, end: at };
+            }
         }
-        previous_end = line.end;
+        previous_end = out[j].end;
     }
 
-    let n = out.len().max(1) as f64;
-    let weak = out.iter().filter(|l| l.low_confidence()).count();
-    let doubtful = out
+    // Hüküm yalnızca harfi olan satırlardan (modelin alfabesinde olmayan çeviri satırı sayılmaz).
+    // Şarkı düzeyindeki eşik 0,5: denetimin yanlış söz denemesindeki ölçü (`guven_esik.py`).
+    let lettered: Vec<&LineTiming> = out
+        .iter()
+        .zip(&labels.lines)
+        .filter(|(_, range)| range.is_some())
+        .map(|(line, _)| line)
+        .collect();
+    let n = lettered.len().max(1) as f64;
+    let weak = lettered.iter().filter(|l| l.low_confidence()).count();
+    let doubtful = lettered
         .iter()
         .filter(|l| l.skipped || l.confidence < UNALIGNED_CONFIDENCE)
         .count();
@@ -878,5 +913,145 @@ mod tests {
             assert!((a - b).abs() < 1e-9, "{a} != {b}");
         }
         assert!(fast.iter().any(|&m| m > 0.9) && fast.iter().any(|&m| m < 0.5));
+    }
+
+    // Bağımsız incelemenin karşı örnekleri (önce eski kodda düştüler).
+
+    #[test]
+    fn atlanan_ve_harfsiz_satirlar_sirayi_bozmaz() {
+        // Söylenmeyen satır (atlanır) ve sözlükte harfi olmayan satır (Kiril) art arda.
+        let (frames, _) = song(
+            700,
+            &[(50, "gel bana"), (250, "kal burada"), (450, "ışık söndü")],
+        );
+        let lyrics = words(&[
+            "gel bana",
+            "come to me now",
+            "привет мир",
+            "kal burada",
+            "ışık söndü",
+        ]);
+        let a = align(&emissions(&frames), &vocab(), &lyrics).expect("hizalanır");
+        assert!(a.lines[1].skipped);
+        for (i, w) in a.lines.windows(2).enumerate() {
+            assert!(
+                w[1].start + 1e-9 >= w[0].start,
+                "satır {} başı ({}) öncekinin başından ({}) önce",
+                i + 1,
+                w[1].start,
+                w[0].start
+            );
+            assert!(
+                w[0].end <= w[1].start + 1e-9,
+                "satır {i} sonu ({}) sonrakinin başından ({}) sonra",
+                w[0].end,
+                w[1].start
+            );
+        }
+    }
+
+    #[test]
+    fn sondaki_atlanan_satir_oncekiyle_cakismaz() {
+        // Son satır söylenmiyor; şarkı son satırın bittiği karede bitiyor.
+        let (frames, _) = song(110, &[(50, "gel bana")]);
+        let n = frames.iter().rposition(|f| *f != Some(0)).unwrap() + 1;
+        let lyrics = words(&["gel bana", "outro end"]);
+        let a = align(&emissions(&frames[..n]), &vocab(), &lyrics).expect("hizalanır");
+        assert!(a.lines[1].skipped);
+        assert!(
+            a.lines[1].start + 1e-9 >= a.lines[0].end,
+            "atlanan son satır ({}) önceki satırın içinde (sonu {})",
+            a.lines[1].start,
+            a.lines[0].end
+        );
+    }
+
+    #[test]
+    fn harfsiz_satirin_kelimeleri_kaybolmaz() {
+        let (frames, _) = song(300, &[(40, "gel bana")]);
+        let lyrics = words(&["gel bana", "привет мир"]);
+        let a = align(&emissions(&frames), &vocab(), &lyrics).expect("hizalanır");
+        assert_eq!(
+            a.lines[1].words.len(),
+            2,
+            "girişteki her kelimenin bir zamanı olmalı"
+        );
+    }
+
+    #[test]
+    fn harfsiz_satirlar_sarkiyi_oturmadi_saydirmaz() {
+        // Bütün söylenen satırlar net oturuyor; aradaki çeviri satırları modelin alfabesinde yok.
+        let (frames, _) = song(
+            700,
+            &[(50, "gel bana"), (250, "kal burada"), (450, "ışık söndü")],
+        );
+        let lyrics = words(&[
+            "gel bana",
+            "иди ко мне",
+            "kal burada",
+            "останься здесь",
+            "ışık söndü",
+            "свет погас",
+            "ночь",
+        ]);
+        let a = align(&emissions(&frames), &vocab(), &lyrics).expect("hizalanır");
+        assert!(a
+            .lines
+            .iter()
+            .filter(|l| !l.skipped) // kelimeler artık korunduğu için harfsiz satır `skipped` ile ayrılır
+            .all(|l| l.confidence > 0.9));
+        assert_ne!(a.verdict, Verdict::Unaligned);
+    }
+
+    #[test]
+    fn cok_kucuk_kare_suresi_panik_yapmaz() {
+        let (frames, _) = song(200, &[(40, "gel bana")]);
+        let mut em = emissions(&frames);
+        em.frame_secs = 1e-30;
+        let a = align(&em, &vocab(), &words(&["gel bana"])).expect("hizalanır");
+        // Pencere bütün şarkıyı kapsar: her harfe bir kez girilir, güven 1.
+        assert!(
+            a.lines[0].confidence > 0.99,
+            "güven {}",
+            a.lines[0].confidence
+        );
+    }
+
+    #[test]
+    fn boyut_carpimi_tasmaz() {
+        let em = Emissions {
+            frames: usize::MAX / 2 + 1,
+            columns: 2,
+            log_probs: vec![],
+            frame_secs: DT,
+        };
+        let v = Vocabulary {
+            blank: 0,
+            space: None,
+            letters: [('a', 1)].into_iter().collect(),
+        };
+        assert_eq!(
+            align(&em, &v, &words(&["a"])),
+            Err(AlignError::BadEmissions)
+        );
+    }
+
+    #[test]
+    fn cok_uzun_girdi_bellek_ayirmadan_reddedilir() {
+        // 2 saat ses × 4000 harf: bütçeyi aşar, matris ayrılmadan hata döner.
+        let frames = 360_000;
+        let em = Emissions {
+            frames,
+            columns: 3,
+            log_probs: vec![-1.0; frames * 3],
+            frame_secs: DT,
+        };
+        let v = Vocabulary {
+            blank: 0,
+            space: Some(1),
+            letters: [('a', 2)].into_iter().collect(),
+        };
+        let line = vec!["a".repeat(4000)];
+        assert_eq!(align(&em, &v, &[line]), Err(AlignError::TooLong));
     }
 }
