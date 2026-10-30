@@ -44,6 +44,7 @@ import { useCrossfeed } from "../hooks/useCrossfeed";
 import { useMapFile } from "../hooks/useMapFile";
 import { useLyrics } from "../hooks/useLyrics";
 import { LyricsOverlay } from "./LyricsOverlay";
+import { LyricsPanel } from "./LyricsPanel";
 import { hasTimedLyrics, lyricTime } from "../lib/lyrics";
 import { PhotoLyrics } from "./PhotoLyrics";
 import type { Lyrics } from "../lib/backend";
@@ -73,6 +74,7 @@ const PANELS: [Panel, string][] = [
   ["eq", "Ekolayzer"],
   ["marker", "İşaretle"],
   ["sync", "Senkron"],
+  ["lyrics", "Sözler"],
   ["abx", "Kör test"],
   ["settings", "Ayarlar"],
 ];
@@ -600,6 +602,22 @@ export function PlayerScreen() {
               playing={playing}
               available={player.available}
               visible={drawer.open && drawer.panel === "sync"}
+            />
+          </ErrorBoundary>
+        </div>
+        <div
+          className="drawer__panel"
+          role="tabpanel"
+          id="drawer-panel-lyrics"
+          aria-labelledby="drawer-tab-lyrics"
+          hidden={drawer.panel !== "lyrics"}
+        >
+          <ErrorBoundary name="Sözler">
+            <LyricsPanel
+              lyrics={lyrics}
+              trackPath={statusPath}
+              trackTitle={status.track ? (status.track.title ?? status.track.fileName) : null}
+              visible={drawer.open && drawer.panel === "lyrics"}
             />
           </ErrorBoundary>
         </div>

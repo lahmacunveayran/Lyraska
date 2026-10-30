@@ -12,7 +12,7 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
    1b. **Söz düzenleme** (sahibinin isteği, 30 Ekim): kullanıcı bulduğu düz metni yapıştırır, düzenler; Lyraska'nın veri
    klasöründe saklanır (müzik dosyasına dokunulmaz; isteğe bağlı .lrc dışa aktarma; öncelik: düzenlenen > yan .lrc >
    gömülü); zamanlama şarkı çalarken dokunarak (Boşluk/Enter), sonra satır satır −/+. Üç parça: kayıt ve öncelik
-   (0.0.95, söz PR'ında) → yapıştır/düzenle paneli (`-yedek-soz-panel`, sahibinin onayında) → dokunarak zamanlama. Otomatik hizalamanın (6) girdisi olur.
+   (0.0.95, birleşti) → yapıştır/düzenle paneli (0.0.97, sahibi onayladı, PR'da) → dokunarak zamanlama. Otomatik hizalamanın (6) girdisi olur.
 2. "Kendi resmin" çubuk tepkisi (orta bölge 2–10 kat ölü; önce teşhis, gerekirse model baştan).
 3. Ses motoru denetimi: 64-bit, EQ, AutoEq, EBU R128, bit-perfect, ABX + DENETIM-3 (dallar `ccr-a69bd749-djgi3v`,
    `ccr-a46535b3-m3v2i5`) + #56.

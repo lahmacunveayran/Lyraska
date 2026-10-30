@@ -4920,6 +4920,51 @@ kbd {
   text-align: right;
 }
 
+/* ---------- Söz düzenleme (Sözler paneli) ---------- */
+
+.lyricsedit__label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.lyricsedit__text {
+  width: 100%;
+  min-height: 260px;
+  resize: vertical;
+  padding: 12px 14px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  background: var(--well);
+  color: var(--ink);
+  font-family: var(--font-songs);
+  font-size: 13px;
+  line-height: 1.7;
+  tab-size: 2;
+}
+
+.lyricsedit__text:focus-visible {
+  outline: 2px solid var(--aurora);
+  outline-offset: 1px;
+}
+
+.lyricsedit__text:disabled {
+  opacity: 0.55;
+}
+
+.lyricsedit__stats,
+.lyricsedit__message {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.lyricsedit__message {
+  color: var(--ink-2);
+}
+
 .sync__caption {
   margin: 0 0 8px;
   font-size: 12px;
