@@ -575,8 +575,8 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 
 - Nasıl: Zamanlı sözü olan bir şarkıyı "Kendi resmin" sahnesinde çalın; fareyi kıpırdatın, sonra bırakın.
 - Neye bakılır: sözler çubuk çizgisinin üstünde, sanatçı adının altında tek satır; söylenen kelime çubuk renginde
-  ışıldar ve tam söylendiği anda yanar. Fare kıpırdarken (düğmeler görünürken) de söz satırı kalır; başlık ve saat
-  yalnızca sinema görünümünde gelir. Uzun satır önce küçülür, sığmazsa söylendikçe kayar. Epilepsi güvenli modunda
+  ışıldar ve tam söylendiği anda yanar. Fare kıpırdarken (düğmeler görünürken) aynı söz satırı ekranın üst ortasına
+  geçer (alttaki büyük başlıkla çakışmasın); başlık ve saat yalnızca sinema görünümünde gelir. Uzun satır önce küçülür, sığmazsa söylendikçe kayar. Epilepsi güvenli modunda
   ışıltı yok, kelimeler yavaşça belirir.
 - Bildirin: söz satırı başka bir şeyin üstüne biniyor mu; ışıltı yeterince görünür mü (daha belirgin olsun mu).
 

@@ -5668,22 +5668,6 @@ kbd {
   opacity: 1;
 }
 
-/* Sözü olan şarkıda sözler denetimler görünürken de kalır (yalnızca söz satırı; başlık, sanatçı ve saat
-   sinema görünümünde gelir). */
-.photo-scene.has-lyrics .photo-scene__text {
-  opacity: 1;
-}
-
-.photo-scene.has-lyrics :is(.photo-scene__title, .photo-scene__artist, .photo-scene__clock) {
-  transition: opacity 0.8s ease;
-}
-
-.app:not(.is-cinema)
-  .photo-scene.has-lyrics
-  :is(.photo-scene__title, .photo-scene__artist, .photo-scene__clock) {
-  opacity: 0;
-}
-
 .photo-scene__song {
   display: flex;
   flex-direction: column;
@@ -5714,6 +5698,37 @@ kbd {
    harfler olduğu gibi), başlığın kalın kenarı da yok. */
 .photo-scene.has-lyrics .photo-scene__song {
   flex: 1 1 auto;
+}
+
+/* Denetimler görünürken "Kendi resmin" sözleri üst ortada aynı tek satır (başlık bloğunun yeri alttaki
+   büyük başlıkla çakışır); uzun satır kırılmaz, küçülür ya da kayar. */
+.photo-lyrics-top {
+  --lyric-size: clamp(15px, 1.45vw, 26px);
+  position: absolute;
+  top: 16%;
+  left: 50%;
+  z-index: 3;
+  width: min(900px, 80vw);
+  height: calc(var(--lyric-size) * 1.5);
+  overflow: hidden;
+  transform: translateX(-50%);
+  font-family: "Inter Variable", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  font-size: var(--lyric-size);
+  color: var(--ink);
+  text-align: center;
+  text-shadow:
+    0 0 1px rgba(0, 0, 0, 0.85),
+    0 1px 8px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.photo-lyrics-top .photo-lyrics.is-panning {
+  text-align: left;
+}
+
+.app.has-drawer .photo-lyrics-top {
+  left: calc((100vw - var(--drawer-width)) / 2);
+  width: min(800px, calc(100vw - var(--drawer-width) - 80px));
 }
 
 .photo-scene__lyrics {

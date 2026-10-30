@@ -1867,6 +1867,118 @@ function fakeLyrics(long) {
  * görünmez ve ışık çizgisiyle (ışıltısıyla) çakışmaz; uzun satır kesilmeden ayrılan yerde kalır.
  * Güvenli modda söylenen kelime ışıldamaz.
  */
+/**
+ * "Kendi resmin"de söz satırı başka bir öğenin üstüne biniyor mu (bağımsız incelemenin ölçümü,
+ * docs/arastirma/sozler/inceleme/): denetimler görünürken üst ortadaki satır, sinema görünümünde
+ * başlık bloğundaki satır; birkaç pencere boyunda, uzun satırla. Söz satırının görünen kutusu ile
+ * görünür (yazısı, arka planı ya da kenarı olan) her öğenin kesişimi ölçülür. Sahnenin kendi çizimi,
+ * sözlerin kendi parçaları ve çekmece (sözleri bilerek örter) sayılmaz; sahnedeki düğmeler sayılır.
+ */
+async function checkLyricsOverlap(browser) {
+  const problems = [];
+  const cases = [
+    { width: 1280, height: 720, long: false },
+    { width: 1280, height: 720, long: true },
+    { width: 1024, height: 600, long: true },
+    { width: 800, height: 600, long: true },
+    { width: 1920, height: 1080, long: false },
+  ];
+  const measure = ([selector, clipSelector]) => {
+    const visible = (el) => {
+      let v = 1;
+      for (let e = el; e; e = e.parentElement) {
+        const st = getComputedStyle(e);
+        if (st.display === "none" || st.visibility === "hidden") return 0;
+        v *= parseFloat(st.opacity);
+      }
+      return v;
+    };
+    const line = document.querySelector(selector);
+    if (!line) return { error: `${selector} yok` };
+    const a = line.getBoundingClientRect();
+    const clip = clipSelector ? document.querySelector(clipSelector)?.getBoundingClientRect() : a;
+    const box = {
+      left: Math.max(a.left, clip.left),
+      right: Math.min(a.right, clip.right),
+      top: Math.max(a.top, clip.top),
+      bottom: Math.min(a.bottom, clip.bottom),
+    };
+    const stage = document.querySelector(".stage");
+    const hits = [];
+    for (const el of document.body.querySelectorAll("*")) {
+      if (el.contains(line) || el.closest(".lyrics, .lyrics-notice, .photo-lyrics, #drawer"))
+        continue;
+      if (stage?.contains(el) && el.tagName !== "BUTTON") continue;
+      const v = visible(el);
+      if (v < 0.05) continue;
+      const st = getComputedStyle(el);
+      const hasText = [...el.childNodes].some(
+        (n) => n.nodeType === 3 && n.textContent.trim() !== "",
+      );
+      const painted =
+        hasText ||
+        ["BUTTON", "svg", "CANVAS", "IMG", "INPUT"].includes(el.tagName) ||
+        (st.backgroundColor !== "rgba(0, 0, 0, 0)" && st.backgroundColor !== "transparent") ||
+        st.backdropFilter !== "none";
+      if (!painted) continue;
+      const r = el.getBoundingClientRect();
+      const w = Math.min(r.right, box.right) - Math.max(r.left, box.left);
+      const h = Math.min(r.bottom, box.bottom) - Math.max(r.top, box.top);
+      if (w > 1 && h > 1) {
+        hits.push(
+          `${el.tagName.toLowerCase()}.${[...el.classList].join(".")} (${Math.round(w)}×${Math.round(h)} px)`,
+        );
+      }
+    }
+    return {
+      cinema: !!document.querySelector(".app.is-cinema"),
+      opacity: visible(line),
+      hits: [...new Set(hits)].slice(0, 6),
+    };
+  };
+  for (const { width, height, long } of cases) {
+    const label = `Kendi resmin · söz üst üste · ${width}×${height}${long ? " uzun satır" : ""}`;
+    const page = await openPage(browser, { viewport: { width, height }, scale: 1 });
+    page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
+    await page.addInitScript(initScript("photo", { lyrics: fakeLyrics(long) }));
+    await startPlaying(page, 1500);
+    if (await page.locator("#drawer.is-open").count()) {
+      await page.keyboard.press("Escape");
+      await page.waitForFunction(() => !document.querySelector("#drawer.is-open"));
+    }
+    await page.mouse.move(width / 3, height / 3);
+    await page.mouse.move(width / 3 + 20, height / 3 + 10);
+    await page.waitForTimeout(1200);
+    const controls = await page.evaluate(measure, [
+      ".photo-lyrics-top .photo-lyrics__line",
+      ".photo-lyrics-top",
+    ]);
+    // Fare kıpırdamaz: sinema görünümü (gerçek saatle 4 sn), yazı CSS geçişiyle (0,8 sn) gelir.
+    await advance(page, 6000);
+    await page.waitForFunction(() => !!document.querySelector(".app.is-cinema"), null, {
+      timeout: 20_000,
+    });
+    await page.waitForTimeout(1200);
+    const cinema = await page.evaluate(measure, [".photo-lyrics__line", ".photo-scene__lyrics"]);
+    await page.close();
+    console.log(
+      `${label}: denetimler görünürken ${controls.hits?.length ?? "?"} kesişim, sinemada ` +
+        `${cinema.hits?.length ?? "?"} kesişim`,
+    );
+    for (const [mode, r, wantCinema] of [
+      ["denetimler görünürken", controls, false],
+      ["sinema görünümünde", cinema, true],
+    ]) {
+      if (r.error) problems.push(`${label} (${mode}): ${r.error}`);
+      else if (r.cinema !== wantCinema) problems.push(`${label} (${mode}): görünüm beklenmedik`);
+      else if (!(r.opacity > 0.5)) problems.push(`${label} (${mode}): söz görünmüyor`);
+      else if (r.hits.length > 0)
+        problems.push(`${label} (${mode}): söz üstünde: ${r.hits.join(", ")}`);
+    }
+  }
+  return problems;
+}
+
 async function checkPhotoLyrics(browser) {
   const problems = [];
   const cases = [
@@ -1885,7 +1997,8 @@ async function checkPhotoLyrics(browser) {
       await page.waitForFunction(() => !document.querySelector("#drawer.is-open"));
     }
     if (!safe && !long) {
-      // Denetimler görünürken (fare kıpırdadı): söz satırı görünür, başlık ve saat görünmez.
+      // Denetimler görünürken (fare kıpırdadı): sözler üst ortada aynı tek satır (başlık bloğunun yeri
+      // alttaki büyük başlıkla çakışır); başlık bloğu görünmez.
       await page.mouse.move(400, 300);
       await page.mouse.move(420, 310);
       await page.waitForTimeout(1200); // CSS geçişi (gerçek saatle 0,8 sn)
@@ -1898,26 +2011,31 @@ async function checkPhotoLyrics(browser) {
         };
         return {
           cinema: !!document.querySelector(".app.is-cinema"),
-          lyrics: opacity(".photo-lyrics__line"),
+          overlay: opacity(".photo-lyrics-top .photo-lyrics__line"),
+          photo: opacity(".photo-scene__lyrics .photo-lyrics__line"),
           title: opacity(".photo-scene__title"),
-          clock: opacity(".photo-scene__clock"),
         };
       });
       console.log(
-        `${label} · denetimler görünürken: söz ${shown.lyrics.toFixed(2)}, başlık ${shown.title.toFixed(2)}, ` +
-          `saat ${shown.clock.toFixed(2)}`,
+        `${label} · denetimler görünürken: üstteki söz ${shown.overlay.toFixed(2)}, başlık altındaki ` +
+          `${shown.photo.toFixed(2)}, başlık ${shown.title.toFixed(2)}`,
       );
-      if (shown.cinema)
+      if (shown.cinema) {
         problems.push(`${label}: denetimler görünürken sinema görünümüne geçti (ölçülemedi)`);
-      else if (!(shown.lyrics > 0.9) || !(shown.title < 0.05) || !(shown.clock < 0.05)) {
+      } else if (!(shown.overlay > 0.9) || !(shown.photo < 0.05) || !(shown.title < 0.05)) {
         problems.push(
-          `${label}: denetimler görünürken söz görünmeli, başlık ve saat görünmemeli ` +
-            `(söz ${shown.lyrics.toFixed(2)}, başlık ${shown.title.toFixed(2)}, saat ${shown.clock.toFixed(2)})`,
+          `${label}: denetimler görünürken söz üstte görünmeli, başlık bloğu görünmemeli ` +
+            `(üstte ${shown.overlay.toFixed(2)}, başlık altında ${shown.photo.toFixed(2)}, başlık ` +
+            `${shown.title.toFixed(2)})`,
         );
       }
     }
-    // Fare kıpırdamaz: sinema görünümü (başlık ve sözler görünür).
+    // Fare kıpırdamaz: sinema görünümü (başlık ve sözler görünür; gerçek saatle 4 sn, hızlı tarayıcıda
+    // sanal saat bundan önce biter: açıkça beklenir).
     await advance(page, 6000);
+    await page.waitForFunction(() => !!document.querySelector(".app.is-cinema"), null, {
+      timeout: 20_000,
+    });
     // Yazı sinema görünümüne CSS geçişiyle (gerçek saatle, 0,8 sn) gelir.
     await page.waitForTimeout(1500);
     const samples = [];
@@ -2150,6 +2268,7 @@ if (EXPECT_FALLBACK) {
     add(() => checkPhotoChooseButton(browser));
     add(() => checkPhotoParticles(browser));
     add(() => checkPhotoLyrics(browser));
+    add(() => checkLyricsOverlap(browser));
   }
   if (!ONLY || ONLY.includes("lyrics")) {
     for (const delayMs of [0, 100]) add(() => checkLyricsTiming(browser, { delayMs }));

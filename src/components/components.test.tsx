@@ -3460,11 +3460,13 @@ describe("şarkı sözleri", () => {
     return view;
   }
 
-  it("Kendi resmin: sözler başlık bloğunda, sanatçının altında; genel katmanda değil", async () => {
+  it("Kendi resmin: denetimler görünürken sözler üst ortada tek satır; başlık bloğunda yer ayrılı", async () => {
+    // Sinema görünümünde sözler başlık bloğunda, sanatçının altında (check:scenes ölçer); denetimler
+    // görünürken o yer alttaki büyük başlıkla çakışır: aynı tek satır üst ortada (bağımsız inceleme 3).
     backend.lyrics = synced;
     const { container } = await playInPhoto();
     const words = await waitFor(() => {
-      const found = container.querySelectorAll(".photo-scene__song .photo-lyrics__word");
+      const found = container.querySelectorAll(".photo-lyrics-top .photo-lyrics__word");
       expect(found.length).toBe(3);
       return Array.from(found);
     });
@@ -3473,14 +3475,15 @@ describe("şarkı sözleri", () => {
       ["yolunda ", "photo-lyrics__word is-current is-glow"],
       ["yalnız", "photo-lyrics__word is-upcoming"],
     ]);
-    // Sanatçı adının altında; yeri sahne açıkken hep ayrılı (başlık zıplamaz).
+    // Başlık bloğundaki yer sahne açıkken hep ayrılı (sinemaya geçince başlık zıplamaz).
     const slot = container.querySelector(".photo-scene__lyrics");
     expect(slot?.previousElementSibling).toHaveClass("photo-scene__artist");
     expect(container.querySelector(".photo-scene")).toHaveClass("has-lyrics");
+    expect(slot?.textContent).toBe("");
     // Çift görünmez: genel üst-orta katman çizilmez.
     expect(container.querySelector(".lyrics")).toBeNull();
     // Büyük harfe çevrilmez (Türkçe harfler olduğu gibi).
-    expect(slot?.textContent).toBe("Gece yolunda yalnız");
+    expect(container.querySelector(".photo-lyrics-top")?.textContent).toBe("Gece yolunda yalnız");
   });
 
   it("Kendi resmin: Epilepsi güvenli modunda söylenen kelime ışıldamaz", async () => {

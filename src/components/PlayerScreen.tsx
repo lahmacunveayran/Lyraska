@@ -451,6 +451,7 @@ export function PlayerScreen() {
           lyricNotice={lyrics.visible ? lyrics.shiftNotice : null}
           // Sahnenin başlık bloğu çizilemediyse (yer henüz yok, sahne hatası) söz gösterilmez.
           lyricsSlot={photoLyrics ? lyricsSlot : undefined}
+          cinema={cinema}
           audioDelaySecs={sync.delayMs / 1000}
           soundShaped={soundShaped}
           safe={visualSafe.safe}
@@ -643,6 +644,11 @@ interface LiveChromeProps {
    * yer henüz hazır değil (söz gösterilmez, genel katman da çizilmez).
    */
   lyricsSlot?: HTMLElement | null;
+  /**
+   * Sinema görünümü mü? "Kendi resmin"de sözler sinemada başlık bloğunda; denetimler görünürken üst
+   * ortada aynı tek satır (başlık bloğunun yeri alttaki büyük başlıkla çakışır).
+   */
+  cinema: boolean;
   /** Ses aygıtının ek gecikmesi (saniye): sözler görseller gibi bu kadar geriden okunur (`lyricTime`). */
   audioDelaySecs: number;
   soundShaped: boolean;
@@ -671,6 +677,7 @@ function LiveChrome({
   lyricShiftSecs,
   lyricNotice,
   lyricsSlot,
+  cinema,
   audioDelaySecs,
   soundShaped,
   safe,
@@ -695,9 +702,10 @@ function LiveChrome({
         />
       ) : (
         <>
-          {/* Kaydırma notu "Kendi resmin"de de görünür (sözler başlık bloğunda). */}
+          {/* Kaydırma notu "Kendi resmin"de de görünür. */}
           <LyricsOverlay lyrics={null} positionSecs={0} notice={lyricNotice} />
-          {lyricsSlot &&
+          {cinema ? (
+            lyricsSlot &&
             createPortal(
               <PhotoLyrics
                 lyrics={lyrics}
@@ -705,7 +713,16 @@ function LiveChrome({
                 safe={safe}
               />,
               lyricsSlot,
-            )}
+            )
+          ) : (
+            <div className="photo-lyrics-top" aria-hidden>
+              <PhotoLyrics
+                lyrics={lyrics}
+                positionSecs={lyricTime(position, audioDelaySecs, lyricShiftSecs)}
+                safe={safe}
+              />
+            </div>
+          )}
         </>
       )}
       <div className="lower">
