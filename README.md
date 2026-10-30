@@ -13,9 +13,9 @@ Adını lir çalgısından (_lyre_) ve Lyra takımyıldızından alır.
 
 </div>
 
-> **Erken geliştirme (1.0 hedefi: Mart 2027).** [Yol haritasının](docs/ROADMAP.md) 1–3. fazları (çalan
-> program, Görsel Yönetmen, profesyonel ses) tamam; 4. faz (görsel kütüphane ve 1.0) sürüyor. Test sürümleri
-> sürekli yayımlanır; bkz. **İndir**.
+> **Erken geliştirme (1.0, 7. faz bittikten sonra).** [Yol haritasının](docs/ROADMAP.md) 1–3. fazları (çalan
+> program, Görsel Yönetmen, profesyonel ses) tamam; 4. faz (görsel kütüphane, kütüphane, şarkı sözleri) sürüyor.
+> Test sürümleri sürekli yayımlanır; bkz. **İndir**.
 
 ## Nasıl çalışır?
 
