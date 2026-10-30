@@ -1735,6 +1735,7 @@ export const DEFAULT_ACCENT: Rgb = [70, 240, 166];
  * Örnekteki kırmızı çubukların ışıltısı da saf kırmızıydı (doygunluk ≈ 0,97); resmin kendi
  * kırmızısı koyu (doygunluk 0,76) olduğundan onu parlatmak pembe verirdi. Resmin kendi rengi
  * soluksa (bej, pastel) çizgi de soluk ya da beyaz: soluk resme parlak turuncu çizgi yakışmaz.
+ * Ton en yakın saf tona oturur ([`nearestPureHue`]).
  */
 export function dominantColor(rgba: ArrayLike<number>): Rgb {
   let x = 0;
@@ -1765,8 +1766,25 @@ export function dominantColor(rgba: ArrayLike<number>): Rgb {
     Math.max(0, Math.min(1, (coherence - 0.5) / 0.4)) *
     Math.max(0, Math.min(1, chroma / count / 0.08)) *
     Math.max(0, Math.min(1, (own - 0.2) / 0.25));
-  const hue = (Math.atan2(y, x) / (2 * Math.PI) + 1) % 1;
+  const hue = nearestPureHue((Math.atan2(y, x) / (2 * Math.PI) + 1) % 1);
   return fromHsv(hue, saturation);
+}
+
+/**
+ * Çubukların seçilebileceği saf tonlar (0..1): kırmızı, turuncu, sarı, yeşil, camgöbeği, mavi, mor,
+ * pembe. Örnek videoların yapımcısı rengi resimden hesaplamıyor, saf bir renk seçiyor: sahibinin
+ * resminde renklerin çoğu 340–350° (pembe kanat, kızıl zemin) iken orijinalin çubukları saf kırmızı
+ * (ton ≈ 0–6°; 30 Ekim, sahibinin seçimi). Baskın ton en yakın saf tona oturur.
+ */
+export const PURE_HUES = [0, 30, 60, 120, 180, 240, 280, 320].map((d) => d / 360);
+
+/** Tonun (0..1, çember) en yakın saf ton karşılığı. */
+export function nearestPureHue(hue: number): number {
+  const distance = (h: number) => {
+    const d = Math.abs(h - hue) % 1;
+    return Math.min(d, 1 - d);
+  };
+  return PURE_HUES.reduce((best, h) => (distance(h) < distance(best) ? h : best), PURE_HUES[0]!);
 }
 
 /** Türkçeye özgü harfler: şarkının adında ya da sanatçısında biri varsa Türkçe kuralı. */

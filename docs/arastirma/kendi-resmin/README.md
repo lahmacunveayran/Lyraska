@@ -119,6 +119,10 @@ ortamda **gerçek kodla** üretildi: `spectrum.rs` ve `loudness.rs` değiştiril
   etkilemiyor (sahibinin ekranındaki çubuklar bu ortamdaki çizimle aynı: hareketli kare % 67/49/39 ↔ 68/53/42).
   İlk turda bu farkı Lyraska'nın ekolayzerine bağlayan sonuç bu yüzden geri alındı.
 - Beyaz zeminde (kanat, saç) çubuklar görünmez: orijinalde de aynı; benzerlik için değişiklik gerekmiyor.
+- **Renk:** orijinalin ışıltısı saf kırmızı (eklenen ışığın tonu 5,7°); Lyraska resmin baskın tonunu aynen alıyordu
+  (bu resimde renklerin çoğu 340–350°: 346°, pembemsi kızıl). Yapımcı rengi resimden hesaplamıyor, saf renk seçiyor:
+  baskın ton artık en yakın saf tona oturur (kırmızı, turuncu, sarı, yeşil, camgöbeği, mavi, mor, pembe;
+  `nearestPureHue`). Sahibinin seçimi, üç satırlı önizlemeyle.
 
 ## Epilepsi güvenliği
 

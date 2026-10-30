@@ -108,6 +108,22 @@ describe("kendi resmin sahnesi: görünüş (örnek videolardan ölçülen)", ()
     expect(blue[0]).toBeLessThan(40);
   });
 
+  it("baskın ton en yakın saf renge oturur: pembe-kızıl resimde saf kırmızı (orijinal video gibi)", () => {
+    // Sahibinin resmi (30 Ekim): renklerin çoğu 340–350° (pembe kanat, kızıl zemin); orijinal videonun
+    // çubukları saf kırmızı (ton ≈ 0–6°), resimden aynen alınan ton pembemsi kızıldı (346°).
+    const pixels = (rgb: Rgb, n: number) => Array.from({ length: n }, () => [...rgb, 255]).flat();
+    const crimson = dominantColor([
+      ...pixels([120, 20, 50], 40),
+      ...pixels([230, 150, 180], 30),
+      ...pixels([250, 235, 240], 20),
+    ]);
+    expect(crimson).toEqual([255, 0, 0]);
+    // Saf renkler: turuncu, sarı, yeşil, camgöbeği, mavi, mor, pembe kendine oturur.
+    expect(dominantColor(pixels([200, 100, 20], 50))).toEqual([255, 128, 0]);
+    expect(dominantColor(pixels([20, 60, 210], 50))).toEqual([0, 0, 255]);
+    expect(dominantColor(pixels([150, 30, 200], 50))).toEqual([170, 0, 255]);
+  });
+
   it("soluk tek renkli resimde (bej) çizgi de soluk: parlak turuncu değil", () => {
     const pixels = (rgb: Rgb, n: number) => Array.from({ length: n }, () => [...rgb, 255]).flat();
     const beige = dominantColor([...pixels([222, 205, 180], 70), ...pixels([200, 182, 160], 30)]);

@@ -170,6 +170,8 @@ kısaltılır.
   çubuklarını orijinalin 0,72 katı bırakmıştı; sahibinin kaydındaki ses de Windows iyileştirmesiyle bozuktu. Doğrusu:
   orijinal dosyanın tamamı ve kendi sesi, aynı saniyeler, Lyraska'nın çıktısı gerçek kodla üretilip (Rust crate +
   PhotoScene) yan yana videoyla sahibine gösterilir.
+- **"Kendi resmin" çubuk rengi (30 Ekim, sahibinin seçimi):** resmin baskın tonu en yakın saf tona oturur (8 ton);
+  resimden aynen alınan ton orijinal videonun saf kırmızısı yerine pembemsi kızıl veriyordu.
 - **Ölçüm denetiminde uzun kare:** sonraki kare gecikince bu karenin ekrana çıkış anı bilinemez; denetim aralık kabul
   eder (en erken kare başı + bir kare, en geç sonraki kare başı). CI'nın ekran kartsız Windows'unda "Kendi resmin"
   karelerinin %12'si uzun.
