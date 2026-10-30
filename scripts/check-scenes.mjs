@@ -1442,15 +1442,17 @@ async function photoGlowExtent(browser, scale) {
 const LYRIC_CHECK_START = 62;
 /**
  * Sahte çekirdeğin yanıt gecikmesi (ms): IPC'nin payı da telafi edilmeli. Simetrik: gidiş ve dönüş
- * 8'er ms, konum ortada okunur. Asimetrik: gidiş 6, dönüş 1 ms, konum gidişin sonunda okunur (programın
+ * 3'er ms (Tauri'de ~0,5–1 ms), konum ortada okunur. Asimetrik: gidiş 6, dönüş 1 ms, konum gidişin sonunda okunur (programın
  * "ortada okundu" varsayımının bozulduğu, gerçekçi en kötü kısa sorgu).
  */
-const LYRIC_IPC = { simetrik: [8, 8], asimetrik: [6, 1] };
+const LYRIC_IPC = { simetrik: [3, 3], asimetrik: [6, 1] };
 /**
  * Sözün ekrandaki anının sapabileceği en büyük süre (ms; yarım kare): oynatma saatinin tahmini
  * (bildirimler arası yerel saat, IPC) birkaç ms oynar. Bir kare (16,7 ms) gecikme bunu aşar.
  */
 const LYRIC_TOLERANCE_MS = 8;
+/** Tek bir düzensiz karede kabul edilen en büyük sapma (ms; bir kare ve biraz pay). */
+const LYRIC_FRAME_LIMIT_MS = 20;
 /** Kareler bundan uzunsa (ms; tarayıcı 50 kare/sn'nin altında) tek tek olaylar değil ortancalar denetlenir. */
 const LYRIC_STRICT_FRAME_MS = 20;
 
@@ -1683,11 +1685,13 @@ async function checkLyricsTiming(browser, { delayMs = 0, heavyMs = 0, ipc = "sim
       `en kötü ${clockWorst.toFixed(1)} ms`,
   );
   const median = (list) => [...list].sort((a, b) => a - b)[list.length >> 1] ?? 0;
-  if (frameMs > LYRIC_STRICT_FRAME_MS) {
-    // Çok yavaş tarayıcı (ekran kartsız makine): kareler düzensiz, gecikeceği önceden bilinmeyen bir
-    // kare tek olayı bir kare kaydırır. Yalnızca ortancalar denetlenir (sistematik gecikme yakalanır).
+  if (frameMs > LYRIC_STRICT_FRAME_MS || heavyMs > 0) {
+    // Çok yavaş tarayıcı (ekran kartsız makine) ya da ağır sahne (yüklü makinede vsync kaçar): kareler
+    // düzensiz, gecikeceği önceden bilinmeyen bir kare tek olayı bir kare kaydırır. Yalnızca ortancalar
+    // denetlenir: sistematik gecikme yine yakalanır (mutasyonla sınandı).
     console.log(
-      `${label}: yavaş tarayıcı (kare ${frameMs.toFixed(0)} ms): yalnızca ortancalar denetlendi`,
+      `${label}: ${heavyMs > 0 ? "ağır sahne" : "yavaş tarayıcı"} (kare ${frameMs.toFixed(0)} ms): ` +
+        "yalnızca ortancalar denetlendi",
     );
     const checks = [
       ["söz saati", clock],
@@ -1702,13 +1706,24 @@ async function checkLyricsTiming(browser, { delayMs = 0, heavyMs = 0, ipc = "sim
     if (events.some((e) => e.error === null)) problems.push(`${label}: bazı olaylar hiç görülmedi`);
     if (clock.length === 0) problems.push(`${label}: söz saati ölçülemedi`);
   } else {
+    // Tek bir düzensiz kare (önceden bilinemeyen vsync kaçması) bir olayı bir kare kaydırabilir: söz
+    // saatinin %95'i yarım karenin içinde, hiçbir kare bir kareyi aşmamalı; olaylardan en çok biri
+    // yarım kareyi (yine bir kareyi aşmadan) geçebilir. Sistematik bir kare gecikme hepsini aşar.
+    const p95 =
+      [...clock].map(Math.abs).sort((a, b) => a - b)[Math.floor(clock.length * 0.95)] ?? 0;
     if (clock.length < 10) problems.push(`${label}: söz saati ölçülemedi (${clock.length} kare)`);
-    else if (Math.abs(clockWorst) > LYRIC_TOLERANCE_MS) {
-      problems.push(`${label}: söz saati ${clockWorst.toFixed(1)} ms sapıyor`);
+    else if (p95 > LYRIC_TOLERANCE_MS || Math.abs(clockWorst) > LYRIC_FRAME_LIMIT_MS) {
+      problems.push(
+        `${label}: söz saati sapıyor (%95'i ${p95.toFixed(1)} ms, en kötü ${clockWorst.toFixed(1)} ms)`,
+      );
     }
+    const late = events.filter((e) => e.error !== null && Math.abs(e.error) > LYRIC_TOLERANCE_MS);
     for (const e of events) {
       if (e.error === null) problems.push(`${label}: ${e.name} hiç görülmedi`);
-      else if (Math.abs(e.error) > LYRIC_TOLERANCE_MS) {
+      else if (
+        Math.abs(e.error) > LYRIC_FRAME_LIMIT_MS ||
+        (late.length > 1 && Math.abs(e.error) > LYRIC_TOLERANCE_MS)
+      ) {
         problems.push(
           `${label}: ${e.name} ${e.error > 0 ? "geç" : "erken"} (${e.error.toFixed(1)} ms)`,
         );

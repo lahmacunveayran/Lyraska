@@ -4,6 +4,7 @@ import {
   MAX_FRAME_MS,
   MAX_MIDPOINT_RTT_MS,
   displayTime,
+  nextFrameAt,
   positionAt,
   reanchor,
   replyTime,
@@ -95,5 +96,30 @@ describe("replyTime", () => {
 
   it("saatin son bağlandığı andan eski olmaz (sorgu sürerken biten sarma)", () => {
     expect(replyTime(1000, 1010, 1008)).toBe(1008);
+  });
+});
+
+describe("nextFrameAt", () => {
+  it("küçük geri adımda (bir kareye kadar) önceki an tutulur; büyükte yeni an", () => {
+    expect(nextFrameAt(1000, 1010, 16)).toBe(1010);
+    expect(nextFrameAt(1000, 990, 16)).toBe(1000); // geri gitmez: söz yanıp sönmesin
+    expect(nextFrameAt(1000, 900, 16)).toBe(900); // önceki tahmin fazla ileriydi: donmasın
+  });
+});
+
+describe("FrameClock: kare hızı değişince", () => {
+  it("ağır sahneden hafif sahneye geçince tahmin hemen kısalır", () => {
+    const clock = new FrameClock();
+    let t = 0;
+    for (let i = 0; i < 15; i++) clock.tick((t += 125));
+    expect(clock.frameMs()).toBe(125);
+    expect(clock.tick(t + 1000 / 60)).toBeCloseTo(1000 / 60, 9);
+  });
+
+  it("4 kare/sn'ye kadar yavaş kareyi izler", () => {
+    const clock = new FrameClock();
+    let t = 0;
+    for (let i = 0; i < 15; i++) clock.tick((t += 166.6));
+    expect(clock.frameMs()).toBeCloseTo(166.6, 9);
   });
 });

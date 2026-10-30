@@ -16,6 +16,7 @@ import {
 import {
   FrameClock,
   displayTime,
+  nextFrameAt,
   positionAt,
   reanchor,
   replyTime,
@@ -336,29 +337,33 @@ export function useLivePosition(
   const { status, position, positionNow } = player;
   const playing = status.state === "playing";
   const [live, setLive] = useState(position);
-  // Sarma ve ses motorunun bildirimi bir sonraki kareyi beklemeden görünsün.
+  // Kare saati duraklat/sürdürde sıfırlanmaz (yavaş makinede ilk kareler yeniden 60 Hz sanılmasın).
+  const [clock] = useState(() => new FrameClock());
+  // Sarma ve ses motorunun bildirimi bir sonraki kareyi beklemeden görünsün. Bildirim şimdiki anın
+  // konumudur; çalarken ekrandaki konum karenin ekrana çıkacağı anınki: bir kare eklenir (yoksa her
+  // bildirimde söz bir kare geri sıçrardı).
   const [known, setKnown] = useState(position);
   if (known !== position) {
     setKnown(position);
-    setLive(position);
+    setLive(playing ? position + clock.frameMs() / 1000 : position);
   }
   useEffect(() => {
     if (!playing || typeof window.requestAnimationFrame !== "function") return;
     let raf = 0;
     let lastAt = -Infinity;
-    const frames = new FrameClock();
     const tick = (frameStamp: number) => {
       // Konum, karenin ekrana çıkacağı ana göre okunur (ölçülen kare süresiyle; ardışık karelerde an
-      // geri gitmez, söz bir kelime geri dönüp yanıp sönmesin) ve bu karede hemen çizilir: React'in
-      // sıradan güncellemesi kare boyandıktan sonra işlenir, ekrandaki konum bir kare geride kalırdı.
-      lastAt = Math.max(lastAt, displayTime(frameStamp, now(), frames.tick(frameStamp)));
+      // küçük adımlarla geri gitmez, söz bir kelime geri dönüp yanıp sönmesin) ve bu karede hemen
+      // çizilir: React'in sıradan güncellemesi kare boyandıktan sonra işlenir, konum bir kare geride kalırdı.
+      const frameMs = clock.tick(frameStamp);
+      lastAt = nextFrameAt(lastAt, displayTime(frameStamp, now(), frameMs), frameMs);
       const at = lastAt;
       flushSync(() => setLive(positionNow(at)));
       raf = window.requestAnimationFrame(tick);
     };
     raf = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(raf);
-  }, [playing, positionNow]);
+  }, [playing, positionNow, clock]);
   // Duraklatılmışken ya da sarınca (bir sonraki kareden önce) bilinen konum.
   return playing ? live : position;
 }

@@ -131,6 +131,9 @@ kısaltılır.
 - **Zamanlama modeli denetimde tekrarlanmaz:** ilk söz denetimi programla aynı sabiti (1/60 sn, simetrik IPC,
   düzenli kelime aralığı) kullandı; bağımsız inceleme bunu buldu. Ekrana çıkış anı programdan bağımsız ölçülür
   (bir sonraki karenin damgası), değişkeler ağır sahne ve asimetrik IPC içerir.
+- **İnceleyenin testi anlattığı senaryoyu sınamalı:** "duraklat-sürdürde sıfırlanıyor" bulgusunun testi her seferinde
+  yeni bileşen kuruyordu (ilk açılışı sınıyordu, orada düzeltme imkânsız). Test senaryoya göre düzeltilir, eski kodda
+  düştüğü gösterilir, nedeni yazılır.
 - Testler arasında sızan sahte çekirdek durumu (`usePlayer.test.ts`'te `backend.busy`) sonraki testi sessizce
   kilitler (zaman aşımı): yeni `describe` kendi `beforeEach`'iyle sıfırlar.
 - Betikle metin değiştirirken eşleşme sayısı denetlenir (`count == 1`): bir CSS değişikliği Ayarlar başlıklarının

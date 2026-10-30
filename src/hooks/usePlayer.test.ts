@@ -135,3 +135,34 @@ describe("oynatma saati (söz zamanlaması)", () => {
     expect(screen.getByText("5.017")).toBeTruthy();
   });
 });
+
+describe("akıcı konum: düzenli bildirim gelince", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("çalarken yeni bildirim ekrandaki konumu bir kare geriye çekmez", () => {
+    // Kareler 60 Hz; ekrandaki konum karenin ekrana çıkacağı anınki. Bildirim gelince (saniyede
+    // birkaç kez) ham konum yazılsaydı o kare bir kare geride görünürdü (sözde 16 ms sıçrama).
+    const callbacks: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callbacks.push(callback);
+      return callbacks.length;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+    let clock = 1000;
+    vi.spyOn(performance, "now").mockImplementation(() => clock);
+    const positionNow = (at?: number) => (at ?? clock) / 1000;
+    let shown = 0;
+    function Live({ position }: { position: number }) {
+      shown = useLivePosition({ status: playing, position, positionNow });
+      return null;
+    }
+    const view = render(createElement(Live, { position: 1 }));
+    for (let i = 1; i <= 10; i++) {
+      clock = 1000 + (i * 1000) / 60 + 1;
+      callbacks.at(-1)!(1000 + (i * 1000) / 60);
+    }
+    // Bildirim: ses motorunun şimdiki konumu (ham).
+    view.rerender(createElement(Live, { position: clock / 1000 }));
+    expect(shown * 1000).toBeCloseTo(clock + 1000 / 60, 0);
+  });
+});

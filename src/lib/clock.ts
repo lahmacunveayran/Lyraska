@@ -22,18 +22,21 @@ export const SNAP_SECONDS = 0.3;
 export const CORRECTION = 0.25;
 
 /**
- * Kare süresi tahmininin sınırları (ms): 240 Hz ile 8 kare/sn arası (ekran kartı olmayan çok yavaş
- * makinede de kareler 100 ms'yi aşabilir; sözler yine o karenin ekrana çıktığı ana göre okunur).
+ * Kare süresi tahmininin sınırları (ms): 240 Hz ile 4 kare/sn arası (ekran kartı olmayan çok yavaş,
+ * yüklü makinede kareler 150 ms'yi aşabilir; sözler yine o karenin ekrana çıktığı ana göre okunur).
  */
 export const MIN_FRAME_MS = 1000 / 240;
-export const MAX_FRAME_MS = 1000 / 8;
+export const MAX_FRAME_MS = 1000 / 4;
 /** Kare süresi bu kadar son karenin ortancasıdır (tek takılma tahmini bozmaz). */
 export const FRAME_HISTORY = 15;
 
 /**
  * Ekran karelerinin süresi (ms): son karelerin `requestAnimationFrame` damgaları arasındaki sürelerin
- * ortancası. Ekranın tazelenme hızını (60, 144 Hz) ve ağır sahnede yavaşlayan kareyi (30 kare/sn) izler.
- * Damgalar başka bir saatten gelse de (sahne denetiminin sanal saati) sonuç sınırlar içindedir.
+ * ortancası, ama son aralıktan uzun değil. Ortanca tek takılmayı (sekme arka plandan dönüşü) yok
+ * sayar; son aralık, ağır sahneden hafif sahneye geçince tahminin hemen kısalmasını sağlar (yoksa
+ * sözler birkaç kare boyunca erken gelirdi). Ekranın tazelenme hızını (60, 144 Hz) ve ağır sahnede
+ * yavaşlayan kareyi (30 kare/sn) izler. Damgalar başka bir saatten gelse de (sahne denetiminin sanal
+ * saati) sonuç sınırlar içindedir.
  */
 export class FrameClock {
   private last: number | null = null;
@@ -52,7 +55,8 @@ export class FrameClock {
   frameMs(): number {
     if (this.intervals.length === 0) return 1000 / 60;
     const sorted = [...this.intervals].sort((a, b) => a - b);
-    return Math.min(MAX_FRAME_MS, Math.max(MIN_FRAME_MS, sorted[sorted.length >> 1]!));
+    const estimate = Math.min(sorted[sorted.length >> 1]!, this.intervals.at(-1)!);
+    return Math.min(MAX_FRAME_MS, Math.max(MIN_FRAME_MS, estimate));
   }
 }
 
@@ -66,8 +70,20 @@ export function displayTime(frameStamp: number, now: number, frameMs: number): n
   return Math.min(now + frameMs, Math.max(frameStamp + frameMs, now));
 }
 
-/** Gidiş-dönüşü bundan uzun sorguda (çekirdek meşgul) konumun okunduğu an bilinmez (ms). */
-export const MAX_MIDPOINT_RTT_MS = 40;
+/**
+ * Ardışık karelerin anı: geri gitmez (söz bir kelime geri dönüp yanıp sönmesin), ama yalnızca küçük
+ * geri adımda (en çok bir kare); büyük geri adımda (ağır sahneden hafif sahneye geçince önceki tahmin
+ * fazla ileriydi) yeni an alınır, yoksa sözler o kadar donardı.
+ */
+export function nextFrameAt(lastAt: number, at: number, frameMs: number): number {
+  return at < lastAt && lastAt - at <= frameMs ? lastAt : at;
+}
+
+/**
+ * Gidiş-dönüşü bundan uzun sorguda konumun okunduğu an bilinmez (ms; çekirdek meşgul ya da yanıt geç
+ * işlendi): orta nokta yarısı kadar yanılabilir; eşik yarım kareyi aşmayacak kadar kısa.
+ */
+export const MAX_MIDPOINT_RTT_MS = 16;
 
 /**
  * Sorgu yanıtındaki konumun okunduğu tahmini an (ms). Kısa sorguda istek ile yanıtın ortası (IPC'nin
