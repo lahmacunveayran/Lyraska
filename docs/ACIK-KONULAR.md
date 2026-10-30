@@ -17,8 +17,8 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
    bitenler, yeni sıra). Tek doğruluk kaynağı ROADMAP + ACIK-KONULAR.
 5. Kaynak ayrıştırma: Spleeter ve Demucs karşılaştırması (kalite, hız, ağırlık lisansı birincil kaynaktan).
 6. Sözlerin sese otomatik hizalanması (vokal ayrıştırmadan sonra).
-7. Sahneler v2, sonra Otomatik DJ. Işık Ustası (0.0.96) PR'da: bağımsız inceleme yapıldı, bulgular düzeltildi;
-   sıradaki: sözler sahnenin içinde ışık olarak (iş tanımında "sonraki PR").
+7. Sahneler v2, sonra Otomatik DJ. Işık Ustası sahibinin kararıyla kaldırıldı (30 Ekim, "sıkıcı"); yeni sahne
+   fikri önce sahibine seçenek + önizlemeyle sorulur.
 8. En son: drop v2, karar **B** (ikisi programda, varsayılan eski, İşaretle'de yan yana; sahibinin işaretiyle seçim;
    `-yedek-drop` dalındaki `docs/arastirma/drop/DURUM.md`); önce DnB temposu (sürekli sub bas
    kick kanıtını örtüyor, `tempo.rs`) ve hip-hop drop'u; maksumda yanlış aksak (`meter.rs`).

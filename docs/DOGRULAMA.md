@@ -438,16 +438,7 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 - Neye bakılır: ilk şarkının son vuruşları görsellerde görünür; ikinci şarkı başlarken görseller donup
   beklemez, kulağınıza gelenle birlikte geçer.
 
-**D12. Işık Ustası (0.0.96)**
-
-- Nasıl: Galeri → Yeni sahneler → **Işık Ustası**; drop'lu bir şarkı (EDM) ve dropsuz bir şarkı (balad) çalın.
-  Galerinin altındaki **Sakin / Normal / Çılgın**'ı sırayla deneyin; bir kez de **Ayarlar → Epilepsi güvenli modu**
-  açıkken.
-- Neye bakılır: drop'a 8 ölçü kala ışınlar her ölçüde bir söner (8 → 1), drop'tan hemen önce karanlık, dropta
-  ışınlar birden açılır. Normal'de drop flaşı yumuşak, Çılgın'da tam; Sakin'de strob yok. Güvenli modda kamera
-  tek, yavaş bir çekimde kalır; ışınlar yer değiştirirken söner, karanlıkta döner; ← / → basılı tutulunca bile
-  yanıp sönme olmaz. Ekran kartınızda akıcı mı (Ctrl+Shift+D: ekran kartı süresi ve kare hızı).
-- Bildirin: drop anı yeterince "vay be" mi; Normal'in flaşı fazla mı, az mı; akıcılık.
+**D12. Işık Ustası (0.0.96)** — sahibinin kararıyla kaldırıldı (30 Ekim, 0.0.99); denenmesi gerekmez.
 
 **D13. "Kendi resmin" çubukları orijinal kadar canlı (0.0.98; yumuşak tavan 0.0.99)**
 

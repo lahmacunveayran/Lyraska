@@ -165,7 +165,7 @@ kısaltılır.
   sayılır. Kameraya dönük geçen geniş ışın konisi ya da kayan kamera, ince parlak ışınları küçük bölgelerde karede
   0,13 değiştirir. Çözüm: güvenli modda tek, yavaş süzülen çekim (kamera ≤ 0,5 m/sn); hedefinden uzak ışın önce söner,
   karanlıkta döner, hizalanınca yanar; sarma (ok tuşu basılı) hiçbir şeyi bir karede oturtmaz. Ölçüt bölge başına
-  (`check:scenes`, `lightshow` incelemesinin karşı örnekleri).
+  (sahne kaldırıldı; kodu ve karşı örnekleri yedek dalda `claude/eloquent-shannon-0eigyf-yedek-isik-ustasi`).
 - **Ters mühendislikte kısa ekran kaydı yanıltır (30 Ekim):** 4 sn'lik kayıtlardan çıkan ölçek "Kendi resmin"
   çubuklarını orijinalin 0,72 katı bırakmıştı; sahibinin kaydındaki ses de Windows iyileştirmesiyle bozuktu. Doğrusu:
   orijinal dosyanın tamamı ve kendi sesi, aynı saniyeler, Lyraska'nın çıktısı gerçek kodla üretilip (Rust crate +
@@ -262,5 +262,8 @@ kısaltılır.
 - **Söz düzenleme (30 Ekim 2026):** bulunan düz metin Lyraska'da yapıştırılıp düzenlenir; Lyraska'nın klasöründe
   saklanır (kapaklardaki gibi; müzik dosyalarına dokunulmaz), zamanlama dokunarak + ince ayar; söz PR'larından hemen
   sonra (sıra 1b). Program söz indirmez, dağıtmaz.
+- **Işık Ustası kaldırıldı (30 Ekim 2026, sahibinin kararı: "beğenmedim, sıkıcı"):** programdan tamamen silindi
+  (sahne, yoğunluk ayarı, kendi testleri); kodu yedek dalda `claude/eloquent-shannon-0eigyf-yedek-isik-ustasi`.
+  Kayıtlı seçim "lightshow" ise program gece göğüyle açılır. Sahneler v2 yeni bir fikirle sahibine sorularak başlar.
 - Görsel tasarımda sahibi zor beğenir: seçenekleri gerçek boyutta, yan yana görsel olarak sun; bağımsız sanat
   yönetmeni denetimi işe yarıyor (puan 6 → hedef 8+).

@@ -31,7 +31,7 @@ import {
   type KeyMap,
   type SongMap,
 } from "../lib/backend";
-import { CLASSIC_SCENES, NEW_SCENES } from "../lib/scene";
+import { CLASSIC_SCENES } from "../lib/scene";
 import { fileStem, sceneCredits, trackTitle } from "../lib/format";
 import { confidentDrops, themeAt } from "../lib/songMap";
 import { timelineLayout, type TimelineLayout } from "../lib/timeline";
@@ -55,7 +55,6 @@ import { useLivePosition, type PlayerControls } from "../hooks/usePlayer";
 import { usePlaybackOptions } from "../hooks/usePlaybackOptions";
 import { useScene } from "../hooks/useScene";
 import { useScenePresets } from "../hooks/useScenePresets";
-import { useLightShowIntensity } from "../hooks/useLightShowIntensity";
 import { useBackgroundImage } from "../hooks/useBackgroundImage";
 import { usePhotoParticles } from "../hooks/usePhotoParticles";
 import { useMilkdrop } from "../hooks/useMilkdrop";
@@ -111,7 +110,6 @@ export function PlayerScreen() {
   const playbackOptions = usePlaybackOptions();
   const [scene, chooseScene] = useScene();
   const scenePresets = useScenePresets();
-  const [lightShowIntensity, setLightShowIntensity] = useLightShowIntensity();
   const milkdrop = useMilkdrop(scene === "milkdrop");
   const background = useBackgroundImage(scene === "photo");
   const photoParticles = usePhotoParticles();
@@ -346,9 +344,6 @@ export function PlayerScreen() {
           safe={visualSafe.safe}
           skyLook={skyLook.look}
           looks={scenePresets.looks}
-          songMap={songMap}
-          songKey={songKey}
-          intensity={lightShowIntensity}
           milkdrop={milkdrop}
           background={background}
           particles={photoParticles.style}
@@ -388,18 +383,6 @@ export function PlayerScreen() {
             <span className="brand__name">Lyraska</span>
           </div>
           <nav className="scenes" aria-label="Sahne">
-            {NEW_SCENES.map(({ id, name, hint }) => (
-              <button
-                key={id}
-                type="button"
-                className={`pill pill--new${scene === id ? " is-on" : ""}`}
-                aria-pressed={scene === id}
-                title={`${name}: ${hint}`}
-                onClick={() => chooseScene(id)}
-              >
-                {name}
-              </button>
-            ))}
             {CLASSIC_SCENES.map(({ id, name }, index) => (
               <button
                 key={id}
@@ -415,8 +398,6 @@ export function PlayerScreen() {
             <SceneGallery
               scene={scene}
               onChoose={chooseScene}
-              intensity={lightShowIntensity}
-              onIntensity={setLightShowIntensity}
               presets={scenePresets}
               milkdrop={milkdrop}
               background={background}

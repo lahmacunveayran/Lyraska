@@ -90,6 +90,11 @@ describe("sahneler", () => {
     expect(() => saveScene("vu")).not.toThrow();
   });
 
+  it("kaldırılan Işık Ustası kayıtlıysa gece göğüyle başlar", () => {
+    window.localStorage.setItem("lyraska.scene", "lightshow");
+    expect(loadScene()).toBe("sky");
+  });
+
   it("üst çubuk (galeri listesi) çekmecenin üstünde çizilir", () => {
     // Galeri listesi üst çubuğun katmanındadır; üst çubuk çekmecenin altında kalırsa liste açık
     // çekmecenin arkasında görünmez olur (1280×800'de tamamen). Üst çubuğun kutusu çekmeceyle
