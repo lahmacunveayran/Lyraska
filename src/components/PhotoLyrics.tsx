@@ -11,7 +11,8 @@ import { lyricFit, lyricFrame, lyricPan, photoLyricWords } from "../lib/lyrics";
  *
  * Uzun satır kesilmez: önce küçülür, o da yetmezse söylendikçe kelime kelime sola kayar
  * (`lyricFit`, `lyricPan`): sözün sonu hiçbir zaman kaybolmaz, söylenen kelime hep görünür.
- * `positionSecs` genel söz katmanıyla aynı zamandır (ses aygıtının gecikmesi düşülmüş).
+ * `positionSecs` genel söz katmanıyla aynı zamandır (`lyricTime`). Varsayılan modda saydamlık ve
+ * ışıltı söylendiği karede değişir (CSS geçişi sözü geride bırakırdı); güvenli modda yavaş geçiş.
  */
 export function PhotoLyrics({
   lyrics,

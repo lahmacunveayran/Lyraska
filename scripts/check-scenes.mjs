@@ -1502,10 +1502,39 @@ function lyricCheckLyrics() {
  * gösterir (DOGRULAMA E11).
  * `heavyMs`: her karede sözlerden önce koşan ağır bir sahne (ms iş); `ipc`: `LYRIC_IPC`'deki biçim.
  */
-async function checkLyricsTiming(browser, { delayMs = 0, heavyMs = 0, ipc = "simetrik" } = {}) {
+/**
+ * Sözlerin göründüğü iki yer: sahnenin üstündeki genel katman (`LyricsOverlay`) ve "Kendi resmin"in
+ * başlık bloğu (`PhotoLyrics`). `box`: satırın saydamlığını taşıyan öğe; `lit`: kelimenin yandığı
+ * saydamlık (sıradaki ile söylenenin ortası); `clock`: söylenen kelimenin ilerlemesi (`--p`) var mı.
+ */
+const LYRIC_VIEWS = {
+  overlay: {
+    name: "genel",
+    scene: "spectrum",
+    line: ".lyrics__line",
+    box: ".lyrics__line",
+    word: ".lyrics__word",
+    lit: (0.34 + 1) / 2,
+    clock: true,
+  },
+  photo: {
+    name: "Kendi resmin",
+    scene: "photo",
+    line: ".photo-lyrics__line",
+    box: ".photo-lyrics",
+    word: ".photo-lyrics__word",
+    lit: (0.5 + 1) / 2,
+    clock: false,
+  },
+};
+
+async function checkLyricsTiming(
+  browser,
+  { delayMs = 0, heavyMs = 0, ipc = "simetrik", view = LYRIC_VIEWS.overlay } = {},
+) {
   const [requestMs, responseMs] = LYRIC_IPC[ipc];
   const label =
-    `Söz zamanlaması · ses gecikmesi ${delayMs} ms` +
+    `Söz zamanlaması (${view.name}) · ses gecikmesi ${delayMs} ms` +
     (heavyMs ? ` · ağır sahne ${heavyMs} ms` : "") +
     (ipc === "simetrik" ? "" : ` · IPC ${ipc}`);
   // Küçük pencere: ekran kartsız makinede de sahne her karede çizilebilsin (ölçüm kare hızına bağlı).
@@ -1527,7 +1556,7 @@ async function checkLyricsTiming(browser, { delayMs = 0, heavyMs = 0, ipc = "sim
   const lyrics = lyricCheckLyrics();
   // Çekirdeğin konumu: 60. saniyeden gerçek zamanla ilerler (sayfanın kendi saatiyle).
   await page.addInitScript(
-    `${initScript("spectrum", {})}
+    `${initScript(view.scene, {})}
     (() => {
       const base = window.__TAURI_INTERNALS__.invoke;
       const started = performance.now();
@@ -1568,15 +1597,16 @@ async function checkLyricsTiming(browser, { delayMs = 0, heavyMs = 0, ipc = "sim
         probe.style.cssText = "position:fixed;left:0;top:0;height:1px;pointer-events:none";
         document.body.append(probe);
         new ResizeObserver(() => {
-          const line = document.querySelector(".lyrics__line");
-          const words = line ? [...line.querySelectorAll(".lyrics__word")] : [];
+          const line = document.querySelector(${JSON.stringify(view.line)});
+          const box = document.querySelector(${JSON.stringify(view.box)});
+          const words = line ? [...line.querySelectorAll(${JSON.stringify(view.word)})] : [];
           const current = words.findIndex((w) => w.classList.contains("is-current"));
           samples.push({
             // Söylenen kelimenin ilerlemesi (--p): programın bu karede kullandığı söz zamanı.
             current: current < 0 ? null : { k: current, p: Number(words[current].style.getPropertyValue("--p")) },
             at: frameAt,
             text: line ? line.textContent : null,
-            opacity: line ? Number(getComputedStyle(line).opacity) : 0,
+            opacity: line && box ? Number(getComputedStyle(box).opacity) : 0,
             words: words.map((w) => Number(getComputedStyle(w).opacity)),
           });
         }).observe(probe);
@@ -1645,7 +1675,7 @@ async function checkLyricsTiming(browser, { delayMs = 0, heavyMs = 0, ipc = "sim
     events.push({ name, error });
     return i;
   };
-  const half = (0.34 + 1) / 2;
+  const half = view.lit;
   lyrics.lines.forEach((line, j) => {
     const visible = (s) => s.text === line.text && s.opacity >= 0.5;
     // Belirme: saydamlık LYRIC_LEAD (0,25 sn) içinde 0 → 1, yarısı başlangıçtan 0,125 sn önce;
@@ -1709,7 +1739,7 @@ async function checkLyricsTiming(browser, { delayMs = 0, heavyMs = 0, ipc = "sim
       }
     }
     if (events.some((e) => e.error === null)) problems.push(`${label}: bazı olaylar hiç görülmedi`);
-    if (clock.length === 0) problems.push(`${label}: söz saati ölçülemedi`);
+    if (view.clock && clock.length === 0) problems.push(`${label}: söz saati ölçülemedi`);
   } else {
     // Tek tük düzensiz kare (önceden bilinemeyen vsync kaçması, çöp toplama) bir olayı bir iki kare
     // kaydırabilir: söz saatinin %95'i yarım karenin, %99'u bir karenin içinde olmalı; olaylardan en
@@ -1717,8 +1747,11 @@ async function checkLyricsTiming(browser, { delayMs = 0, heavyMs = 0, ipc = "sim
     const sortedClock = [...clock].map(Math.abs).sort((a, b) => a - b);
     const p95 = sortedClock[Math.floor(clock.length * 0.95)] ?? 0;
     const p99 = sortedClock[Math.floor(clock.length * 0.99)] ?? 0;
-    if (clock.length < 10) problems.push(`${label}: söz saati ölçülemedi (${clock.length} kare)`);
-    else if (p95 > LYRIC_TOLERANCE_MS || p99 > LYRIC_FRAME_LIMIT_MS) {
+    if (!view.clock) {
+      // Söylenen kelimenin ilerlemesi yok: saat genel katmanda ölçülür (aynı zaman yolu).
+    } else if (clock.length < 10) {
+      problems.push(`${label}: söz saati ölçülemedi (${clock.length} kare)`);
+    } else if (p95 > LYRIC_TOLERANCE_MS || p99 > LYRIC_FRAME_LIMIT_MS) {
       problems.push(
         `${label}: söz saati sapıyor (%95'i ${p95.toFixed(1)} ms, %99'u ${p99.toFixed(1)} ms)`,
       );
@@ -2090,6 +2123,7 @@ if (EXPECT_FALLBACK) {
     for (const delayMs of [0, 100]) add(() => checkLyricsTiming(browser, { delayMs }));
     // Kare bütçesine sığan ağır sahne (aşırı yüklü sahne: sıradaki iş, docs/arastirma/sozler).
     add(() => checkLyricsTiming(browser, { heavyMs: 10, ipc: "asimetrik" }));
+    add(() => checkLyricsTiming(browser, { view: LYRIC_VIEWS.photo }));
   }
   const bright = brightestThemes(2);
   for (const scene of ALL_SCENES.filter(selected)) {
