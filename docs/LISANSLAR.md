@@ -155,6 +155,15 @@ kuralları). Kod bağımlılıklarının lisanslarını CI denetler (`npm run ch
 - **Lisans:** yayımlanmış ölçüm sonuçları (bilimsel olgu); bir kod, veri seti ya da model dosyası alınmadı. Lisans
   gerektirmez; kaynak burada ve kodda belirtilir.
 
+## Söz modeli çalıştırıcısı ve deneme modeli
+
+- **tract** (`tract-onnx` 0.23.9 ve bağımlılıkları, Sonos): MIT OR Apache-2.0 (crate üst verisi; `cargo deny`
+  denetler). Saf Rust ONNX çalıştırıcı; ek DLL ya da ağ bağımlılığı yok. Bildirimleri `UCUNCU-TARAF.txt`'de.
+- **Deneme modeli** (`src-tauri/tests/data/soz-modeli/`): projenin `uret.py` ile ürettiği 10 KB'lık özgün ONNX
+  dosyası (bir yeniden şekillendirme ve bir çarpım); dışarıdan alınmadı, proje lisansıyla.
+- **Asıl model** (Omnilingual ASR CTC 300M v2 int8) programla gelmez; "Söz paketi" olarak ayrı dağıtılınca lisansı
+  ve değiştirilmiş eser notu (Apache-2.0 §4) burada ve `public/lisanslar/`'da yazılır.
+
 ## Programa girmeyen araştırma dosyaları
 
 ### LAME 3.100 ölçüm yaması

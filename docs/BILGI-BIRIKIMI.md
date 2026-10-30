@@ -66,6 +66,12 @@ kısaltılır.
 --use-angle=swiftshader --enable-unsafe-swiftshader"`; `SCENE_ONLY=sahne1,sahne2` ile tek sahne. Port 4179'u
   aynı anda yalnızca bir denetim kullanabilir.
 
+- **Buluttan Remote Control Windows'ta çalışmıyor** (30 Ekim 2026): sahibinin bilgisayarı ve klasörü listede görünür
+  ama "kullanılamaz"; yalnızca Mac ve Linux. Sahibinin bilgisayarında çalışmak için Claude masaüstü uygulamasında
+  Code sekmesinden yerel oturum açılır; bağlam depodaki belgelerle (bu dosya, ACIK-KONULAR, devir notu) taşınır.
+- **Disk dolunca önce eski `lyraska` derleme çıktıları silinir** (`target/debug/deps/lyraska*`, `liblyraska*`;
+  her biri ~0,5–1,5 GB, her derlemede yenisi birikir). `CARGO_INCREMENTAL=0` ile derlemek birikmeyi azaltır.
+
 ## 5. Teknik dersler
 
 - **Oynatıcı düzeltmesi arayüzün yolunda sınanır:** arayüz şarkıyı `Player::load` ile değil `open_track`'in üç
@@ -166,6 +172,12 @@ kısaltılır.
   0,13 değiştirir. Çözüm: güvenli modda tek, yavaş süzülen çekim (kamera ≤ 0,5 m/sn); hedefinden uzak ışın önce söner,
   karanlıkta döner, hizalanınca yanar; sarma (ok tuşu basılı) hiçbir şeyi bir karede oturtmaz. Ölçüt bölge başına
   (sahne kaldırıldı; kodu ve karşı örnekleri yedek dalda `claude/eloquent-shannon-0eigyf-yedek-isik-ustasi`).
+- **tract'ın AVX çekirdekleri `vzeroupper` yapmadan döner** (30 Ekim 2026, bağımsız inceleme): modeli çalıştıran iş
+  parçacığındaki sonraki SSE kayan nokta işi Intel'de ~19 kat yavaşlar (söz yerleşimi 0,8 → 15 sn). Model her zaman
+  kısa ömürlü ayrı iş parçacığında çalıştırılır (`lyrics_model.rs`); test `model_cagiran_is_parcacigini_yavaslatmaz`.
+- **Modelin kare geometrisi sorulmadan varsayılmaz:** wav2vec2 tipi modelde kare 400 örnek alıcı alan, 320 adım;
+  karenin merkezi 320·j + 200 (araştırma (j + 0,5)·320,64 sayıyordu, ikinci yarı 20 ms geç). Deneme modeli gerçek
+  geometride olmalı (Reshape tabanlı deneme modeli hatayı göremedi).
 - **Ters mühendislikte kısa ekran kaydı yanıltır (30 Ekim):** 4 sn'lik kayıtlardan çıkan ölçek "Kendi resmin"
   çubuklarını orijinalin 0,72 katı bırakmıştı; sahibinin kaydındaki ses de Windows iyileştirmesiyle bozuktu. Doğrusu:
   orijinal dosyanın tamamı ve kendi sesi, aynı saniyeler, Lyraska'nın çıktısı gerçek kodla üretilip (Rust crate +
