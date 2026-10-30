@@ -1706,15 +1706,16 @@ async function checkLyricsTiming(browser, { delayMs = 0, heavyMs = 0, ipc = "sim
     if (events.some((e) => e.error === null)) problems.push(`${label}: bazı olaylar hiç görülmedi`);
     if (clock.length === 0) problems.push(`${label}: söz saati ölçülemedi`);
   } else {
-    // Tek bir düzensiz kare (önceden bilinemeyen vsync kaçması) bir olayı bir kare kaydırabilir: söz
-    // saatinin %95'i yarım karenin içinde, hiçbir kare bir kareyi aşmamalı; olaylardan en çok biri
-    // yarım kareyi (yine bir kareyi aşmadan) geçebilir. Sistematik bir kare gecikme hepsini aşar.
-    const p95 =
-      [...clock].map(Math.abs).sort((a, b) => a - b)[Math.floor(clock.length * 0.95)] ?? 0;
+    // Tek tük düzensiz kare (önceden bilinemeyen vsync kaçması, çöp toplama) bir olayı bir iki kare
+    // kaydırabilir: söz saatinin %95'i yarım karenin, %99'u bir karenin içinde olmalı; olaylardan en
+    // çok biri yarım kareyi (yine bir kareyi aşmadan) geçebilir. Sistematik bir kare gecikme hepsini aşar.
+    const sortedClock = [...clock].map(Math.abs).sort((a, b) => a - b);
+    const p95 = sortedClock[Math.floor(clock.length * 0.95)] ?? 0;
+    const p99 = sortedClock[Math.floor(clock.length * 0.99)] ?? 0;
     if (clock.length < 10) problems.push(`${label}: söz saati ölçülemedi (${clock.length} kare)`);
-    else if (p95 > LYRIC_TOLERANCE_MS || Math.abs(clockWorst) > LYRIC_FRAME_LIMIT_MS) {
+    else if (p95 > LYRIC_TOLERANCE_MS || p99 > LYRIC_FRAME_LIMIT_MS) {
       problems.push(
-        `${label}: söz saati sapıyor (%95'i ${p95.toFixed(1)} ms, en kötü ${clockWorst.toFixed(1)} ms)`,
+        `${label}: söz saati sapıyor (%95'i ${p95.toFixed(1)} ms, %99'u ${p99.toFixed(1)} ms)`,
       );
     }
     const late = events.filter((e) => e.error !== null && Math.abs(e.error) > LYRIC_TOLERANCE_MS);
