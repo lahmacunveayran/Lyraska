@@ -1,7 +1,8 @@
 # Lyraska — Yol haritası
 
 Görselleri şarkıyı önceden bilen, tamamen çevrimdışı çalışan Windows müzik çalar.
-Lansman hedefi: **Mart 2027 başı (v1.0)**.
+**Çıkış (v1.0): Faz 7 bittikten sonra** (proje sahibinin kararı, 30 Ekim 2026; eski hedef Faz 4'ün sonu, Mart
+2027 başıydı). Çıkış tarihi Faz 4 bitince, kalan fazların büyüklüğüne göre planlanır.
 
 ## Kalite hedefleri
 
@@ -178,13 +179,23 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       ses yolunda bellek ayırma testi; Clippy ile unwrap/expect/panic yasağı; veritabanı göçleri (`storage.rs`);
       ana ekran hook'lara ayrıldı; `docs/MIMARI.md`
 
-## Faz 4 — Görsel kütüphane ve v1.0 (18 Ocak – 28 Şubat 2027; lansman Mart 2027 başı)
+## Faz 4 — Görsel kütüphane, kütüphane ve şarkı sözleri (18 Ocak – 28 Şubat 2027)
 
 - [x] 15+ özgün sahne (0.0.57): beş klasik sahneye on sahnelik galeri eklendi: gece denizi, bulutsu, ışık tüneli,
       ateşböcekleri, kaleydoskop, ipek şeritler, sarmal gökada, kum tepeleri, yağmurlu cam, kristal ağ. Ortak
       gölgelendirici çatısı: sahne yalnızca biçimi çizer, parlaklık gece göğünün
       hız sınırlı hesabından tek çarpanla gelir; her sahne gerçek tarayıcıda parlama sınırıyla denetlenir.
-      Klavye: 1–9, 0; PageDown/PageUp
+      Klavye: 1–9, 0; PageDown/PageUp. Proje sahibinin kararıyla (29 Ekim 2026) Kum tepeleri, Kristal ağ (0.0.85),
+      Gece denizi ve Ateşböcekleri (0.0.86) kaldırıldı; galeride altı sahne kaldı (bulutsu, ışık tüneli, kaleydoskop,
+      ipek şeritler, sarmal gökada, yağmurlu cam). VU ve Gece sürüşü yeni sahneler gelince kalkacak
+- [x] **"Kendi resmin" sahnesi** (24 Ekim 2026): kullanıcının resmi (sabit ya da hareketli) ve Nightcore
+      videolarındaki ince ışık çizgisi; çizginin rengi resmin baskın renginin en yakın saf tonu, çubuklar ham
+      dalgadan ince spektrum (0.0.98: orijinal ölçeğinde ×1,4; 0.0.99: bas tepede donmasın diye yumuşak tavan);
+      parçacıklar (Kıvılcım, Kar, Kapalı); başlığın altında söylenen kelimesi ışıldayan söz satırı
+- ~~**Işık Ustası**~~ (sahneler v2'nin ilk sahnesi, 0.0.96): proje sahibi beğenmedi ("sıkıcı"), 0.0.99'da kaldırıldı
+  (30 Ekim 2026); kodu yedek dalda `claude/eloquent-shannon-0eigyf-yedek-isik-ustasi`
+- [ ] **Sahneler v2**: yeni sahne fikirleri önce proje sahibine seçenek ve önizleme videosuyla gösterilir
+      (`docs/arastirma/sahneler-v2/`); hazır olanlar gelince VU ve Gece sürüşü kaldırılır
 - [x] Butterchurn / MilkDrop desteği (0.0.60): galerinin 16. sahnesi **MilkDrop**, kullanıcının **kendi** `.milk`
       görsellerini Butterchurn 3.0.0-beta.5 (MIT) ile çizer; **Lyraska hazır görsel içermez** (yaygın paketlerin
       yazarları lisans vermemiş). Klasör seçilir ve hatırlanır; `.milk` Rust'ta Butterchurn biçimine çevrilir
@@ -215,6 +226,18 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       Windows-1254 (eski Türkçe `.lrc` dosyaları). Kelime zamanı yoksa hece sayısıyla tahmin. Sahnede söylenen satır
       kelime kelime belirir (parlaklık değişmez, "animasyonları azalt"ta hareket yok), sıradaki satır soluk; ses
       aygıtının gecikmesi düşülür. Ayarlar > Şarkı sözleri: aç/kapa
+  - [x] Sözler sesle aynı karede (0.0.91; `docs/arastirma/sozler/`): programın kendi payı ölçülüp düzeltildi (söz
+        saati 40 ms geçten bir kare içine); şarkı başına söz kaydırma (Alt+←/→)
+  - [x] Söz düzenleme: kullanıcı bulduğu düz metni Lyraska'da yapıştırıp düzenler (0.0.95 kayıt, 0.0.97 Sözler
+        paneli); Lyraska'nın veri klasöründe saklanır, müzik dosyasına dokunulmaz, her zaman önce gelir
+  - [ ] **Sözleri sese otomatik oturtma** (proje sahibinin isteği, 30 Ekim 2026; elle zamanlamanın yerine): iki
+        irdeleme (biri bağımsız denetim) `docs/arastirma/soz-hizalama/`. Omnilingual ASR CTC 300M (Apache-2.0) ile
+        zorlanmış hizalama, vokal ayrıştırmasız; model ayrı "Söz paketi" dosyası; emin olunmayan satır soluk ve
+        "tahmini". Altı parça: sözün hazırlığı ✅, hizalayıcı ✅, model çalıştırıcı, arka plan işi, arayüz, proje
+        sahibinin 5–10 Türkçe şarkıyla denemesi
+- [x] **Kütüphane sayfaları**: albüm ızgarası ve albüm sayfası, sanatçı levhaları ve sanatçı sayfası, gökyüzü
+      görünümü (ton ve tempoya göre yıldızlar), çalma listeleri (kapak ya da kolaj; `.m3u8` ile taşıma); albüme,
+      çalma listesine ve şarkıya kullanıcının seçtiği kapak; klasör izleme (yeni ve silinen şarkılar kendiliğinden)
 - [x] Preset sistemi (0.0.58): galerinin her sahnesinde **Görünüm**: hız (0,5–2×; yalnızca hareket, parlaklık
       değişmez) ve renk paleti (bölüm teması ya da özgün Buz, Kor, Orman, Gül paletleri; geçiş 1 saniyede karışarak,
       parlaklıkları temalardan yüksek değil). **Hazır ayarlar**: sahne ve görünümü tek tıkla kurar; altı hazır ayar
@@ -242,20 +265,20 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
   - İçe aktarılan harita analiz önbelleğine yazılmaz; kaldırılınca programın analizi geri gelir; şarkı dosyası
     değişirse uygulanmaz. Bulunan kayma (başka baskının başına eklenmiş sessizlik) zamanlara uygulanır.
 
-## Faz 5 — Büyüme (v1.0 sonrası)
+## Faz 5 — Büyüme
 
 - [ ] **Kaynak ayrıştırma** (proje sahibinin seçimi, 22 Ekim 2026): şarkı arka plan analizinde davul, bas, vokal ve
       diğerlerine ayrılır; Görsel Yönetmen her birine ayrı tepki verir (davul vuruşu, bas titreşimi, vokalin girişi;
       sözler vokalle). Yalnızca türetilen zarf ve başlangıç verisi saklanır, ayrılmış ses asla. Önce lisans
       araştırması: kod **ve** model ağırlıkları (eğitim verisi ticari kullanımı yasaklıyorsa GPL-3.0 ile çelişir);
-      temiz model yoksa yedek: klasik sinyal işlemeyle (vurmalı/ezgisel ayrıştırma, bas izleme, vokal sezimi) Rust'ta
+      temiz model yoksa yedek: klasik sinyal işlemeyle (vurmalı/ezgisel ayrıştırma, bas izleme, vokal sezimi) Rust'ta.
+      Sözlerin sese oturtulması buna bağlı değil (ölçüldü: ayrıştırma Türkçe setlerde fark getirmiyor)
 - [ ] Sistem sesi modu (bilgisayarda çalan her sesi görselleştirme)
 - [ ] Video dışa aktarma
-- [ ] macOS ve Linux sürümleri
 - [ ] Oda ışıkları entegrasyonu
 - [ ] Yapay zekâ destekli analiz
 
-## Faz 6 — Akıllı Geçiş (v1.0 sonrası)
+## Faz 6 — Akıllı Geçiş
 
 Şarkıları ve sırayı kullanıcı seçer; Lyraska yalnızca aralarındaki geçişi yapar.
 
@@ -274,7 +297,7 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
 - Kalite hedefi: üst üste binme boyunca iki şarkının vuruşları arasındaki fark en fazla 10 ms; şüphede düz
   geçişe düşülür
 
-## Faz 7 — Otomatik DJ (v1.0 sonrası; plan, 9 Ekim 2026)
+## Faz 7 — Otomatik DJ (plan, 9 Ekim 2026)
 
 Faz 6'da sırayı kullanıcı seçer; burada **sırayı program seçer**, geçişi Akıllı Geçiş yapar.
 
@@ -291,13 +314,19 @@ Faz 6'da sırayı kullanıcı seçer; burada **sırayı program seçer**, geçi�
 - [ ] Kalite hedefi: proje sahibinin dinleme denemesinde "elle seçmiş gibi" bulunan geçiş oranı; ölçütler ve
       ağırlıklar ayarlanabilir, testlerde sentetik kütüphaneyle sınanır.
 
+## Çıkış — v1.0 (Faz 7'den sonra)
+
+- [ ] Faz 1–7 bitince son bağımsız denetim (ses, analiz, görseller, kurulum), proje sahibinin gerçek cihaz
+      denemeleri (`docs/DOGRULAMA.md`) ve v1.0 yayımı; tarih Faz 4 bitince planlanır
+- Çıkıştan sonra: macOS ve Linux sürümleri (teknik karar: önce Windows)
+
 ## Bekleyen kararlar (proje sahibinde)
 
 - ~~**Ses iş parçacığına Windows ses önceliği (MMCSS, "Pro Audio")**~~: proje sahibi kararı Claude'a bıraktı
   (22 Ekim 2026); 0.0.52'de yalnızca `output/wasapi.rs` içinde `// GÜVENLİK:` gerekçeli tek `unsafe` çağrıyla
   eklendi (DENETIM-2 bölüm 5.3).
-- **Ekolayzerde sıradaki iş** ([#26](https://github.com/lahmacunveayran/Lyraska/issues/26)): elle parametrik EQ
-  arayüzü (öneri; lisans beklemiyor), hazır kulaklık listesi (önce ölçüm kaynaklarının lisansı), loudness.
+- **Ekolayzerde sıradaki iş** ([#26](https://github.com/lahmacunveayran/Lyraska/issues/26)): hazır kulaklık
+  listesi (önce ölçüm kaynaklarının lisansı); elle parametrik EQ arayüzü 0.0.53'te geldi.
 - **Retriever / Veritas** ([VERITAS.md](VERITAS.md)): yol haritasında kapandı (22 Ekim 2026; "araştırıldı, MP3 için
   kapıdan geçmedi"). Açık kalan tek seçenek: AAC için aynı deneyin yapılıp yapılmayacağı (öneri: şimdilik hayır;
   MP3 sonucu beklentiyi düşürüyor). Kör test (ABX) "320 kbps ile FLAC'ı ayırabiliyor muyum?" sorusunu kulakla

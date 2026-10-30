@@ -266,6 +266,8 @@ kısaltılır.
   sayfasında; Lyraska'da "Dosyadan ekle"; programa ağ kodu girmez), emin olunmayan satır soluk + "tahmini" (şarkının
   çoğu oturmadıysa uyarı), zamanlama söz kaydedilince kendiliğinden (arka planda, düşük öncelik); ilk sürümde sahibi
   5–10 Türk pop/arabesk/rap şarkısında kayan satırları bildirir (yalnızca doğru/yanlış).
+- **Çıkış (v1.0) Faz 7'den sonra** (30 Ekim 2026, sahibinin kararı): eski hedef Faz 4'ün sonu (Mart 2027 başı)
+  değil; Faz 5 (büyüme), 6 (Akıllı Geçiş) ve 7 (Otomatik DJ) çıkıştan önce. macOS/Linux çıkıştan sonra kalır.
 - **Işık Ustası kaldırıldı (30 Ekim 2026, sahibinin kararı: "beğenmedim, sıkıcı"):** programdan tamamen silindi
   (sahne, yoğunluk ayarı, kendi testleri); kodu yedek dalda `claude/eloquent-shannon-0eigyf-yedek-isik-ustasi`.
   Kayıtlı seçim "lightshow" ise program gece göğüyle açılır. Sahneler v2 yeni bir fikirle sahibine sorularak başlar.

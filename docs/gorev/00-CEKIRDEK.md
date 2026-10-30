@@ -117,7 +117,8 @@ kural hatırlatılır; sahibi açıkça isterse yapılır. Bu yüzden bu kitapta
   kararları var. Denetçilere verilen kural metni `docs/denetim-2/BRIEF.md`: rapor biçimi (önem: Kritik/Yüksek/Orta/
   Düşük; güven: kesin/yüksek/olası; dosya:satır; kanıt; etki; test; düzeltme) bu kitapta da geçerli.
 - `docs/DOGRULAMA.md`: sahibinin gerçek cihazda yaptığı elle test listesi (bölümler A–F, "Bildirdikleriniz" tablosu).
-- `docs/ROADMAP.md`: fazlar; Faz 6 (Akıllı Geçiş) ve Faz 7 (Otomatik DJ) v1.0 sonrası, henüz yazılmadı.
+- `docs/ROADMAP.md`: fazlar; Faz 6 (Akıllı Geçiş) ve Faz 7 (Otomatik DJ) henüz yazılmadı. Çıkış (v1.0) Faz 7'den
+  sonra (proje sahibinin kararı, 30 Ekim 2026).
 
 </gercekler>
 
