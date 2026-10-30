@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LyricLine, Lyrics } from "./backend";
-import {
-  DISPLAY_LEAD_SECONDS,
-  LYRIC_LEAD,
-  LYRIC_TAIL,
-  NEXT_PREVIEW,
-  lyricFrame,
-  lyricTime,
-} from "./lyrics";
+import { LYRIC_LEAD, LYRIC_TAIL, NEXT_PREVIEW, lyricFrame, lyricTime } from "./lyrics";
 
 function line(start: number, end: number, text: string): LyricLine {
   const words = text.split(" ");
@@ -98,11 +91,9 @@ describe("kinetik sözler", () => {
 });
 
 describe("lyricTime", () => {
-  it("görsellerle aynı kural: ekran gecikmesi kadar ileri, ses aygıtı gecikmesi kadar geri", () => {
-    // Kare ekrana bir kare sonra çıkar: o anda duyulan sözü göstermeli.
-    expect(DISPLAY_LEAD_SECONDS).toBeCloseTo(1 / 60, 12);
-    expect(lyricTime(10, 0)).toBeCloseTo(10 + 1 / 60, 12);
+  it("ses aygıtı gecikmesi kadar geriden okunur (konum zaten karenin ekrana çıktığı an)", () => {
+    expect(lyricTime(10, 0)).toBe(10);
     // Bluetooth kulaklık sesi 100 ms geç çalıyor: söz de 100 ms geç.
-    expect(lyricTime(10, 0.1)).toBeCloseTo(10 + 1 / 60 - 0.1, 12);
+    expect(lyricTime(10, 0.1)).toBeCloseTo(9.9, 12);
   });
 });

@@ -108,7 +108,7 @@ describe("oynatma saati (söz zamanlaması)", () => {
     expect(Math.abs(result.current.positionNow(at) - truth(at))).toBeLessThan(0.0005);
   });
 
-  it("akıcı konum karenin anında okunur ve aynı karede ekrana yazılır", () => {
+  it("akıcı konum karenin ekrana çıkacağı an için okunur ve aynı karede yazılır", () => {
     // React'in sıradan güncellemesi kare boyandıktan sonra işlenir: konum bir kare geride kalırdı.
     // Sayfa, geri çağrı döner dönmez boyanır; o anda ekrandaki konum bu karenin konumu olmalı.
     const frames: FrameRequestCallback[] = [];
@@ -128,9 +128,10 @@ describe("oynatma saati (söz zamanlaması)", () => {
       return createElement("p", null, useLivePosition(player).toFixed(3));
     }
     render(createElement(Live));
-    // Kare 5000. ms'de başladı, geri çağrı 4 ms sonra koşuyor (önce sahne çizildi).
+    // Kare 5000. ms'de başladı, geri çağrı 4 ms sonra koşuyor (önce sahne çizildi): konum, karenin
+    // ekrana çıkacağı an (bir kare sonra, 60 Hz; henüz kare ölçülmedi) için okunur.
     frames.at(-1)!(5000);
-    expect(positionNow).toHaveBeenLastCalledWith(5000);
-    expect(screen.getByText("5.000")).toBeTruthy();
+    expect(positionNow).toHaveBeenLastCalledWith(5000 + 1000 / 60);
+    expect(screen.getByText("5.017")).toBeTruthy();
   });
 });

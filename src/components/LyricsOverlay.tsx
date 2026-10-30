@@ -6,8 +6,8 @@ import { lyricFrame } from "../lib/lyrics";
  * Kinetik şarkı sözleri: söylenen satır sahnenin üstünde büyük harflerle, kelime kelime belirir;
  * söylenen kelime hafifçe yükselip yerine oturur, sıradaki satır küçük ve soluk. Parlaklık
  * değişmez (yalnızca yazının saydamlığı yumuşakça); "animasyonları azalt" açıksa hareket yoktur
- * (CSS). `positionSecs` görsellerle aynı zamandır (`lyricTime`: ekran ve ses aygıtı gecikmesi
- * telafi edilmiş). Saydamlık her karede zamandan hesaplanır; varsayılan modda CSS geçişi yoktur
+ * (CSS). `positionSecs`: karenin ekrana çıkacağı anda duyulan söz zamanı (`lyricTime`: ses aygıtı
+ * gecikmesi telafi edilmiş). Saydamlık her karede zamandan hesaplanır; varsayılan modda CSS geçişi yoktur
  * (geçiş her karede yeniden başlayıp sözü ~0,1 sn geride bırakırdı). Epilepsi güvenli modunda
  * (`safe`) saydamlık eskisi gibi yumuşak geçişle değişir (güvenli modun davranışı değişmez).
  */

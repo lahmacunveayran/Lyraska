@@ -1,9 +1,12 @@
 import {
   CORRECTION,
-  FRAME_TIME_WINDOW_MS,
-  frameTime,
+  FrameClock,
+  MAX_FRAME_MS,
+  MAX_MIDPOINT_RTT_MS,
+  displayTime,
   positionAt,
   reanchor,
+  replyTime,
   type ClockAnchor,
 } from "./clock";
 
@@ -44,14 +47,53 @@ describe("reanchor", () => {
   });
 });
 
-describe("frameTime", () => {
-  it("karenin başlangıcını kullanır: aynı karede önce koşan çizim konumu ileri kaydırmaz", () => {
-    expect(frameTime(1000, 1004)).toBe(1000);
+describe("displayTime", () => {
+  it("karenin başlangıcından bir kare sonra: aynı karede önce koşan çizim anı kaydırmaz", () => {
+    expect(displayTime(1000, 1004, 1000 / 60)).toBeCloseTo(1000 + 1000 / 60, 9);
+    expect(displayTime(1000, 1004, 1000 / 144)).toBeCloseTo(1000 + 1000 / 144, 9); // 144 Hz
   });
 
-  it("başka saatten ya da çok eski damgada şimdiki an", () => {
-    expect(frameTime(250, 90_000)).toBe(90_000); // sahne denetiminin sanal saati
-    expect(frameTime(1000, 1000 + FRAME_TIME_WINDOW_MS + 1)).toBe(1000 + FRAME_TIME_WINDOW_MS + 1);
-    expect(frameTime(1010, 1000)).toBe(1000); // gelecekteki damga
+  it("ağır karede geri çağrının anından önce değil; damga gelecekte ya da başka saatten olsa da sınırlı", () => {
+    expect(displayTime(1000, 1051, 1000 / 60)).toBe(1051);
+    expect(displayTime(250, 90_000, 1000 / 60)).toBe(90_000); // sahne denetiminin sanal saati
+    expect(displayTime(5000, 1000, 1000 / 60)).toBeCloseTo(1000 + 1000 / 60, 9);
+  });
+});
+
+describe("FrameClock", () => {
+  it("kare süresi son karelerin ortancası: tek takılma tahmini bozmaz", () => {
+    const clock = new FrameClock();
+    let t = 0;
+    for (let i = 0; i < 10; i++) clock.tick((t += 1000 / 144));
+    clock.tick(t + 200); // takılma
+    expect(clock.frameMs()).toBeCloseTo(1000 / 144, 9);
+  });
+
+  it("ağır sahnede yavaşlayan kareyi izler; sınırlar içinde kalır", () => {
+    const clock = new FrameClock();
+    let t = 0;
+    for (let i = 0; i < 20; i++) clock.tick((t += 33.3));
+    expect(clock.frameMs()).toBeCloseTo(33.3, 9);
+    expect(new FrameClock().frameMs()).toBeCloseTo(1000 / 60, 9); // henüz ölçüm yok
+    const odd = new FrameClock();
+    for (let i = 0; i < 5; i++) odd.tick(i * 250); // sanal saat: 250 ms adım
+    expect(odd.frameMs()).toBe(MAX_FRAME_MS);
+    expect(odd.tick(-5)).toBe(MAX_FRAME_MS); // geri giden damga sayılmaz
+  });
+});
+
+describe("replyTime", () => {
+  it("kısa sorguda istek ile yanıtın ortası", () => {
+    expect(replyTime(1000, 1010, null)).toBe(1005);
+  });
+
+  it("uzun sorguda (çekirdek meşgul) yanıtın geldiği an: orta nokta saati öne iterdi", () => {
+    expect(replyTime(1000, 1000 + MAX_MIDPOINT_RTT_MS + 1, null)).toBe(
+      1000 + MAX_MIDPOINT_RTT_MS + 1,
+    );
+  });
+
+  it("saatin son bağlandığı andan eski olmaz (sorgu sürerken biten sarma)", () => {
+    expect(replyTime(1000, 1010, 1008)).toBe(1008);
   });
 });

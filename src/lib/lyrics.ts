@@ -7,18 +7,12 @@ export const LYRIC_TAIL = 0.4;
 /** Sözsüz arada sıradaki satır, başlamasına bu kadar kala gösterilir (saniye). */
 export const NEXT_PREVIEW = 2.5;
 /**
- * Çizilen karenin ekranda görünmesine kadar geçen süre (saniye; 60 Hz'de bir kare). Görsellerle
- * aynı pay (`visual_bridge::DISPLAY_LEAD_SECONDS`): sözler bu kadar ileriden okunur.
- */
-export const DISPLAY_LEAD_SECONDS = 1 / 60;
-
-/**
- * Sözlerin bu karede okunacağı şarkı anı (saniye): duyulan an + ekran gecikmesi − ses aygıtının ek
- * gecikmesi (`audioDelaySecs`, senkron ayarı). Kare ekrana çıktığında duyulan sözü gösterir;
- * görsellerin zamanıyla aynı kural (`visual_bridge::visual_offset_secs`).
+ * Sözlerin okunacağı şarkı anı (saniye): `heardSecs` karenin ekrana çıkacağı andaki duyulan konum
+ * (`useLivePosition`, ölçülen kare süresiyle); ses aygıtının ek gecikmesi (`audioDelaySecs`, senkron
+ * ayarı) kadar geriden okunur. Görsellerin kuralıyla aynı yön (`visual_bridge::visual_offset_secs`).
  */
 export function lyricTime(heardSecs: number, audioDelaySecs: number): number {
-  return heardSecs + DISPLAY_LEAD_SECONDS - audioDelaySecs;
+  return heardSecs - audioDelaySecs;
 }
 
 export type WordState = "sung" | "current" | "upcoming";

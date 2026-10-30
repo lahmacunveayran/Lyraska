@@ -1440,31 +1440,38 @@ async function photoGlowExtent(browser, scale) {
  */
 /** Söz zamanlaması denetiminde sözlerin ilk satırının başladığı an (şarkı saniyesi; çalma 60'tan başlar). */
 const LYRIC_CHECK_START = 62;
-/** Ekrana çıkan karenin görünmesine kadar geçen süre (src/lib/lyrics.ts `DISPLAY_LEAD_SECONDS`). */
-const LYRIC_DISPLAY_LEAD = 1 / 60;
-/** Sahte çekirdeğin yanıt gecikmesi (ms; gidiş ve dönüş ayrı ayrı): IPC'nin payı da telafi edilmeli. */
-const LYRIC_IPC_MS = 8;
+/**
+ * Sahte çekirdeğin yanıt gecikmesi (ms): IPC'nin payı da telafi edilmeli. Simetrik: gidiş ve dönüş
+ * 8'er ms, konum ortada okunur. Asimetrik: gidiş 6, dönüş 1 ms, konum gidişin sonunda okunur (programın
+ * "ortada okundu" varsayımının bozulduğu, gerçekçi en kötü kısa sorgu).
+ */
+const LYRIC_IPC = { simetrik: [8, 8], asimetrik: [6, 1] };
 /**
  * Sözün ekrandaki anının sapabileceği en büyük süre (ms; yarım kare): oynatma saatinin tahmini
  * (bildirimler arası yerel saat, IPC) birkaç ms oynar. Bir kare (16,7 ms) gecikme bunu aşar.
  */
 const LYRIC_TOLERANCE_MS = 8;
+/** Kareler bundan uzunsa (ms; tarayıcı 50 kare/sn'nin altında) tek tek olaylar değil ortancalar denetlenir. */
+const LYRIC_STRICT_FRAME_MS = 20;
 
 /**
  * Denetimin sözleri: satırlar arasında boşluk var (satır söner, sıradaki belirir); her satırda dört
- * kelime, her biri 0,2 sn. Biçim çekirdeğin `Lyrics` türü (src/lib/bindings/Lyrics.ts).
+ * kelime, süreleri düzensiz (0,17–0,31 sn; kelime başları kare ızgarasının farklı yerlerine düşer, bir
+ * karelik gecikme hep aynı fazda gizlenmesin). Biçim çekirdeğin `Lyrics` türü (src/lib/bindings/Lyrics.ts).
  */
 function lyricCheckLyrics() {
   const lines = Array.from({ length: 6 }, (_, i) => {
-    const start = LYRIC_CHECK_START + i * 1.5;
-    const words = ["Bir ", "iki ", "üç ", `dört${i}`].map((text, k) => ({
-      start: start + k * 0.2,
-      end: start + (k + 1) * 0.2,
-      text,
-    }));
+    const start = LYRIC_CHECK_START + i * 1.537;
+    const lengths = [0.17, 0.23, 0.31, 0.19].map((_, k, all) => all[(k + i) % all.length]);
+    let at = start;
+    const words = ["Bir ", "iki ", "üç ", `dört${i}`].map((text, k) => {
+      const word = { start: at, end: at + lengths[k], text };
+      at = word.end;
+      return word;
+    });
     return {
       start,
-      end: start + 0.8,
+      end: at,
       text: words.map((w) => w.text).join(""),
       translation: null,
       words,
@@ -1481,9 +1488,19 @@ function lyricCheckLyrics() {
  * o kare ekranda göründüğünde duyulan anla karşılaştırılır: kelime söylendiği karede yanmalı, satır
  * belirip sönerken saydamlığı yarıyı doğru karede geçmeli. Ses aygıtı gecikmesi ayarı (100 ms) sözleri
  * de o kadar geciktirmeli.
+ *
+ * Karenin ekrana çıktığı an: bir sonraki karenin başlangıcı (tarayıcı kareyi o vsync'te gösterir; ağır
+ * karede de). Programın tahmininden (ölçülen kare süresi) bağımsızdır. Yine de tarayıcının anıdır,
+ * ekranın değil: ekranla sesin fiziksel olarak aynı anda olduğunu yalnızca gerçek cihazda gözle deneme
+ * gösterir (DOGRULAMA E11).
+ * `heavyMs`: her karede sözlerden önce koşan ağır bir sahne (ms iş); `ipc`: `LYRIC_IPC`'deki biçim.
  */
-async function checkLyricsTiming(browser, delayMs) {
-  const label = `Söz zamanlaması · ses gecikmesi ${delayMs} ms`;
+async function checkLyricsTiming(browser, { delayMs = 0, heavyMs = 0, ipc = "simetrik" } = {}) {
+  const [requestMs, responseMs] = LYRIC_IPC[ipc];
+  const label =
+    `Söz zamanlaması · ses gecikmesi ${delayMs} ms` +
+    (heavyMs ? ` · ağır sahne ${heavyMs} ms` : "") +
+    (ipc === "simetrik" ? "" : ` · IPC ${ipc}`);
   // Küçük pencere: ekran kartsız makinede de sahne her karede çizilebilsin (ölçüm kare hızına bağlı).
   const page = await browser.newPage({
     viewport: { width: 640, height: 430 },
@@ -1516,14 +1533,24 @@ async function checkLyricsTiming(browser, delayMs) {
         if (cmd === "visual_frame") return null;
         const status = await base(cmd, args);
         if (!status || status.state !== "playing" || !("underruns" in status)) return status;
-        // Konum gidiş ile dönüşün tam ortasında okunmuş sayılır (iki yol eşit; zamanlayıcının
-        // oynaması denetimin kendi hatası olmasın).
+        // Simetrikte konum gidiş ile dönüşün tam ortasında okunmuş sayılır (iki yol eşit;
+        // zamanlayıcının oynaması denetimin kendi hatası olmasın); asimetrikte gidişin sonunda.
         const sent = performance.now();
-        await wait(${LYRIC_IPC_MS});
-        await wait(${LYRIC_IPC_MS});
-        const read = (sent + performance.now()) / 2;
+        await wait(${requestMs});
+        const end = performance.now();
+        await wait(${responseMs});
+        const read = ${ipc === "simetrik"} ? (sent + performance.now()) / 2 : end;
         return { ...status, positionSecs: 60 + (read - started) / 1000 };
       };
+      // Ağır sahne: her karede, sözlerden önce koşan çizim (ilk kaydedilen geri çağrı önce koşar).
+      if (${heavyMs} > 0) {
+        const busy = () => {
+          const until = performance.now() + ${heavyMs};
+          while (performance.now() < until) {}
+          requestAnimationFrame(busy);
+        };
+        requestAnimationFrame(busy);
+      }
       // Her karede, boyamadan hemen önce ekrana çıkacak sözler.
       const samples = [];
       window.__lyricSamples = samples;
@@ -1586,9 +1613,9 @@ async function checkLyricsTiming(browser, delayMs) {
   await page.close();
 
   // Karenin ekranda göründüğü anda duyulan şarkı anı ve sözlerin o anda olması gereken zamanı.
-  const shown = samples.map((s) => ({
+  const shown = samples.slice(0, -1).map((s, i) => ({
     ...s,
-    lyricTime: 60 + (s.at - started) / 1000 + LYRIC_DISPLAY_LEAD - delayMs / 1000,
+    lyricTime: 60 + (samples[i + 1].at - started) / 1000 - delayMs / 1000,
   }));
   /**
    * Bir olayın (ör. kelime yandı) ilk görüldüğü kare: olay o karenin şarkı zamanıyla bir önceki karenin
@@ -1655,16 +1682,37 @@ async function checkLyricsTiming(browser, delayMs) {
       `satırlar: ${stat(lineErrors)} · söz saati (${clock.length} kare): ortalama ${clockMean.toFixed(1)} ms, ` +
       `en kötü ${clockWorst.toFixed(1)} ms`,
   );
-  if (clock.length < 10) problems.push(`${label}: söz saati ölçülemedi (${clock.length} kare)`);
-  else if (Math.abs(clockWorst) > LYRIC_TOLERANCE_MS) {
-    problems.push(`${label}: söz saati ${clockWorst.toFixed(1)} ms sapıyor`);
-  }
-  for (const e of events) {
-    if (e.error === null) problems.push(`${label}: ${e.name} hiç görülmedi`);
-    else if (Math.abs(e.error) > LYRIC_TOLERANCE_MS) {
-      problems.push(
-        `${label}: ${e.name} ${e.error > 0 ? "geç" : "erken"} (${e.error.toFixed(1)} ms)`,
-      );
+  const median = (list) => [...list].sort((a, b) => a - b)[list.length >> 1] ?? 0;
+  if (frameMs > LYRIC_STRICT_FRAME_MS) {
+    // Çok yavaş tarayıcı (ekran kartsız makine): kareler düzensiz, gecikeceği önceden bilinmeyen bir
+    // kare tek olayı bir kare kaydırır. Yalnızca ortancalar denetlenir (sistematik gecikme yakalanır).
+    console.log(
+      `${label}: yavaş tarayıcı (kare ${frameMs.toFixed(0)} ms): yalnızca ortancalar denetlendi`,
+    );
+    const checks = [
+      ["söz saati", clock],
+      ["kelimeler", wordErrors],
+      ["satırlar", lineErrors],
+    ];
+    for (const [name, list] of checks) {
+      if (list.length > 0 && Math.abs(median(list)) > LYRIC_TOLERANCE_MS) {
+        problems.push(`${label}: ${name} ortancası ${median(list).toFixed(1)} ms sapıyor`);
+      }
+    }
+    if (events.some((e) => e.error === null)) problems.push(`${label}: bazı olaylar hiç görülmedi`);
+    if (clock.length === 0) problems.push(`${label}: söz saati ölçülemedi`);
+  } else {
+    if (clock.length < 10) problems.push(`${label}: söz saati ölçülemedi (${clock.length} kare)`);
+    else if (Math.abs(clockWorst) > LYRIC_TOLERANCE_MS) {
+      problems.push(`${label}: söz saati ${clockWorst.toFixed(1)} ms sapıyor`);
+    }
+    for (const e of events) {
+      if (e.error === null) problems.push(`${label}: ${e.name} hiç görülmedi`);
+      else if (Math.abs(e.error) > LYRIC_TOLERANCE_MS) {
+        problems.push(
+          `${label}: ${e.name} ${e.error > 0 ? "geç" : "erken"} (${e.error.toFixed(1)} ms)`,
+        );
+      }
     }
   }
   if (errors.length === 0) problems.push(`${label}: hiçbir olay ölçülemedi`);
@@ -1878,7 +1926,9 @@ if (EXPECT_FALLBACK) {
     add(() => checkPhotoParticles(browser));
   }
   if (!ONLY || ONLY.includes("lyrics")) {
-    for (const delayMs of [0, 100]) add(() => checkLyricsTiming(browser, delayMs));
+    for (const delayMs of [0, 100]) add(() => checkLyricsTiming(browser, { delayMs }));
+    // Kare bütçesine sığan ağır sahne (aşırı yüklü sahne: sıradaki iş, docs/arastirma/sozler).
+    add(() => checkLyricsTiming(browser, { heavyMs: 10, ipc: "asimetrik" }));
   }
   const bright = brightestThemes(2);
   for (const scene of ALL_SCENES.filter(selected)) {

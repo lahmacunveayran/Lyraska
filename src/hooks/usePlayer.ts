@@ -13,7 +13,14 @@ import {
   togglePlayback,
   type PlaybackStatus,
 } from "../lib/backend";
-import { frameTime, positionAt, reanchor, type ClockAnchor } from "../lib/clock";
+import {
+  FrameClock,
+  displayTime,
+  positionAt,
+  reanchor,
+  replyTime,
+  type ClockAnchor,
+} from "../lib/clock";
 
 /** Durum sorgulama aralığı. Ekrandaki süre arada saatle akıcı ilerler. */
 const POLL_MS = 250;
@@ -96,8 +103,8 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
   /**
    * Ses motorundan gelen durumu uygular. `exact` ise konum olduğu gibi alınır
    * (komut cevapları); değilse küçük sapmalar yumuşakça düzeltilir (düzenli sorgular).
-   * `at`: konumun ses motorunda okunduğu an (`performance.now()` ms); düzenli sorguda isteğin
-   * gidişiyle yanıtın gelişinin ortası (IPC'nin dönüş yolu konumu geride bırakmasın).
+   * `at`: konumun ses motorunda okunduğu an (`performance.now()` ms); düzenli sorguda `replyTime`
+   * (kısa sorguda istek ile yanıtın ortası).
    */
   const applyStatus = useCallback((next: PlaybackStatus, exact: boolean, at: number = now()) => {
     const previous = statusRef.current;
@@ -246,7 +253,11 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
       inFlight = true;
       const sentAt = now();
       getPlaybackStatus()
-        .then((next) => !cancelled && applyStatus(next, false, (sentAt + now()) / 2))
+        .then(
+          (next) =>
+            !cancelled &&
+            applyStatus(next, false, replyTime(sentAt, now(), anchor.current?.at ?? null)),
+        )
         .catch(() => {
           /* Geçici hata: bir sonraki turda yeniden denenir. */
         })
@@ -313,7 +324,8 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
 }
 
 /**
- * Çalarken her ekran karesinde akıcı ilerleyen konum (duraklatılmışken son bilinen konum).
+ * Çalarken her ekran karesinde akıcı ilerleyen konum: bu karenin ekrana çıkacağı andaki konum
+ * (duraklatılmışken son bilinen konum).
  * Yalnızca konumu gösteren küçük bileşenler (süre, şarkı haritası şeridi, drop sayacı)
  * kullanır: yoksa her karede bütün ekran (çekmecedeki paneller, kütüphane listesi) yeniden
  * çizilirdi; büyük kütüphanede bu, karenin önemli bir kısmını yiyordu.
@@ -333,10 +345,14 @@ export function useLivePosition(
   useEffect(() => {
     if (!playing || typeof window.requestAnimationFrame !== "function") return;
     let raf = 0;
+    let lastAt = -Infinity;
+    const frames = new FrameClock();
     const tick = (frameStamp: number) => {
-      // Konum karenin anında okunur ve bu karede hemen çizilir: React'in sıradan güncellemesi kare
-      // boyandıktan sonra işlenir, ekrandaki konum (sözler, süre) bir kare geride kalırdı.
-      const at = frameTime(frameStamp, now());
+      // Konum, karenin ekrana çıkacağı ana göre okunur (ölçülen kare süresiyle; ardışık karelerde an
+      // geri gitmez, söz bir kelime geri dönüp yanıp sönmesin) ve bu karede hemen çizilir: React'in
+      // sıradan güncellemesi kare boyandıktan sonra işlenir, ekrandaki konum bir kare geride kalırdı.
+      lastAt = Math.max(lastAt, displayTime(frameStamp, now(), frames.tick(frameStamp)));
+      const at = lastAt;
       flushSync(() => setLive(positionNow(at)));
       raf = window.requestAnimationFrame(tick);
     };

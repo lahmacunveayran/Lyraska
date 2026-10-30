@@ -21,17 +21,63 @@ export const SNAP_SECONDS = 0.3;
 /** Küçük sapmanın her bildirimde düzeltilen oranı. */
 export const CORRECTION = 0.25;
 
-/** Karenin zaman damgası bu kadar ms'den eskiyse (ya da gelecekteyse) güvenilmez. */
-export const FRAME_TIME_WINDOW_MS = 50;
+/**
+ * Kare süresi tahmininin sınırları (ms): 240 Hz ile 8 kare/sn arası (ekran kartı olmayan çok yavaş
+ * makinede de kareler 100 ms'yi aşabilir; sözler yine o karenin ekrana çıktığı ana göre okunur).
+ */
+export const MIN_FRAME_MS = 1000 / 240;
+export const MAX_FRAME_MS = 1000 / 8;
+/** Kare süresi bu kadar son karenin ortancasıdır (tek takılma tahmini bozmaz). */
+export const FRAME_HISTORY = 15;
 
 /**
- * Bir ekran karesinin anı (`performance.now()` ms): `requestAnimationFrame`'in verdiği karenin
- * başlangıcı. Kare, geri çağrı ne zaman koşarsa koşsun bu andan bir kare sonra ekrana çıkar; aynı
- * karede önce koşan çizimler (sahne) konumu ileri kaydırmasın. Damga başka bir saatten geliyorsa
- * (sahne denetiminin sanal saati) ya da çok eskiyse şimdiki an kullanılır.
+ * Ekran karelerinin süresi (ms): son karelerin `requestAnimationFrame` damgaları arasındaki sürelerin
+ * ortancası. Ekranın tazelenme hızını (60, 144 Hz) ve ağır sahnede yavaşlayan kareyi (30 kare/sn) izler.
+ * Damgalar başka bir saatten gelse de (sahne denetiminin sanal saati) sonuç sınırlar içindedir.
  */
-export function frameTime(frameStamp: number, now: number): number {
-  return frameStamp <= now && now - frameStamp <= FRAME_TIME_WINDOW_MS ? frameStamp : now;
+export class FrameClock {
+  private last: number | null = null;
+  private readonly intervals: number[] = [];
+
+  /** Yeni karenin damgasını kaydeder; güncel kare süresini döndürür. */
+  tick(frameStamp: number): number {
+    if (this.last !== null && frameStamp > this.last) {
+      this.intervals.push(frameStamp - this.last);
+      if (this.intervals.length > FRAME_HISTORY) this.intervals.shift();
+    }
+    this.last = frameStamp;
+    return this.frameMs();
+  }
+
+  frameMs(): number {
+    if (this.intervals.length === 0) return 1000 / 60;
+    const sorted = [...this.intervals].sort((a, b) => a - b);
+    return Math.min(MAX_FRAME_MS, Math.max(MIN_FRAME_MS, sorted[sorted.length >> 1]!));
+  }
+}
+
+/**
+ * Bu karenin ekrana çıkacağı tahmini an (`performance.now()` ms): karenin başlangıcından
+ * (`requestAnimationFrame` damgası) bir kare sonra; ama geri çağrının koştuğu andan önce değil (ağır
+ * karede, geri çağrı damgadan geç koşar) ve ondan bir kareden sonra da değil (damga gelecekte ya da
+ * başka bir saatten). Aynı karede önce koşan çizimler (sahne) anı ileri kaydırmaz.
+ */
+export function displayTime(frameStamp: number, now: number, frameMs: number): number {
+  return Math.min(now + frameMs, Math.max(frameStamp + frameMs, now));
+}
+
+/** Gidiş-dönüşü bundan uzun sorguda (çekirdek meşgul) konumun okunduğu an bilinmez (ms). */
+export const MAX_MIDPOINT_RTT_MS = 40;
+
+/**
+ * Sorgu yanıtındaki konumun okunduğu tahmini an (ms). Kısa sorguda istek ile yanıtın ortası (IPC'nin
+ * dönüş yolu konumu geride bırakmasın); uzun sorguda (çekirdek kilit ya da iş bekledi, konum yolun
+ * herhangi bir yerinde okunmuş olabilir) yanıtın geldiği an: orta nokta saati öne itebilirdi. Saatin
+ * son bağlandığı andan (`previousAt`; ör. sorgu sürerken biten sarma) eski olamaz.
+ */
+export function replyTime(sentAt: number, receivedAt: number, previousAt: number | null): number {
+  const at = receivedAt - sentAt <= MAX_MIDPOINT_RTT_MS ? (sentAt + receivedAt) / 2 : receivedAt;
+  return previousAt === null ? at : Math.max(at, previousAt);
 }
 
 /** Verilen anda tahmin edilen konum; [0, süre] aralığında. */

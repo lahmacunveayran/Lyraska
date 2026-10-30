@@ -126,6 +126,11 @@ kısaltılır.
 - **Başsız Chromium'da kare hızı ekran kartı işinden düşer:** sahne ve cam katmanlar (`backdrop-filter`) yazılımla
   çizilince kareler ~110 ms'ye çıkar, ana iş parçacığı boşta görünür (profil "idle"). Zamanlama denetimi kare
   hızından bağımsız yazılır (olayın göründüğü karenin aralığı); `waitForFunction` yoklaması yerine sayfa içinde beklenir.
+- **Mutasyon deneyinde derleme sonucu denetlenir** (30 Ekim 2026): kasıtlı hata kullanılmayan içe aktarma bırakınca
+  `npm run build` sessizce düştü, denetim eski `dist/`'i çalıştırıp "geçti" dedi (hata yakalanmıyor sanıldı).
+- **Zamanlama modeli denetimde tekrarlanmaz:** ilk söz denetimi programla aynı sabiti (1/60 sn, simetrik IPC,
+  düzenli kelime aralığı) kullandı; bağımsız inceleme bunu buldu. Ekrana çıkış anı programdan bağımsız ölçülür
+  (bir sonraki karenin damgası), değişkeler ağır sahne ve asimetrik IPC içerir.
 - Testler arasında sızan sahte çekirdek durumu (`usePlayer.test.ts`'te `backend.busy`) sonraki testi sessizce
   kilitler (zaman aşımı): yeni `describe` kendi `beforeEach`'iyle sıfırlar.
 - Betikle metin değiştirirken eşleşme sayısı denetlenir (`count == 1`): bir CSS değişikliği Ayarlar başlıklarının
