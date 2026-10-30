@@ -260,8 +260,9 @@ kısaltılır.
   inceleme + PR; drop v2 için **B** (ikisi programda, varsayılan eski, İşaretle'de yan yana; karar sahibinin 5–10
   şarkılık işaretiyle), uygulaması sırada yine en sonda. Sahibinin kendi denemeleri (A16, #25, #27) ona kalır.
 - **Söz düzenleme (30 Ekim 2026):** bulunan düz metin Lyraska'da yapıştırılıp düzenlenir; Lyraska'nın klasöründe
-  saklanır (kapaklardaki gibi; müzik dosyalarına dokunulmaz), zamanlama dokunarak + ince ayar; söz PR'larından hemen
-  sonra (sıra 1b). Program söz indirmez, dağıtmaz.
+  saklanır (kapaklardaki gibi; müzik dosyalarına dokunulmaz). Program söz indirmez, dağıtmaz. Zamanlama **dokunarak
+  değil, otomatik** (sahibi: "onu ben yapamam, çözüm bul"; iki kez irdelensin, ikincisi bağımsız ve üst düzey):
+  `docs/arastirma/soz-hizalama/`.
 - **Işık Ustası kaldırıldı (30 Ekim 2026, sahibinin kararı: "beğenmedim, sıkıcı"):** programdan tamamen silindi
   (sahne, yoğunluk ayarı, kendi testleri); kodu yedek dalda `claude/eloquent-shannon-0eigyf-yedek-isik-ustasi`.
   Kayıtlı seçim "lightshow" ise program gece göğüyle açılır. Sahneler v2 yeni bir fikirle sahibine sorularak başlar.

@@ -1,0 +1,130 @@
+@@HIZ_TABLOSU
+Bu makine: 4 çekirdek Intel Xeon (sanal), ekran kartı yok, Linux. Şarkı: 240 sn (Jamendo, "The One"). Her aşama
+ayrı süreçte, önbelleksiz (`hiz.py` + `bellek.py`). Tepe bellek Python + kütüphaneleri dahil (yalnızca içe aktarma
+~150 MB; model yüklü oturum ~600 MB).
+
+| Aşama | İş parçacığı | Süre (sn) | Süre / ses | Tepe bellek (MB) |
+|---|---|---|---|---|
+| Omnilingual CTC, 30 sn pencere (ONNX Runtime 1.31, int8) | 4 | 30,9 | 0,129 | 1849 |
+| aynı | 2 | 58,8 | 0,245 | 1736 |
+| aynı | 1 | 116,8 | 0,487 | 1756 |
+| Omnilingual CTC, 15 sn pencere | 4 | 27,2 | 0,113 | 1334 |
+| CTC Viterbi (sözler, 4 dk ≈ 2000 harf × 12 000 kare; numba) | 1 | 0,14 | 0,0006 | — |
+| Spleeter 2 kanal (sherpa-onnx, fp16) | 4 | 10,7 | 0,045 | **5269** |
+| UVR MDX-Net Voc_FT (sherpa-onnx) | 4 | ~73 (183 sn şarkı) | 0,40 | ölçülmedi |
+| Whisper base (kodlayıcı + bir kod çözücü geçişi / pencere + DTW) | 4 | 27,4 | 0,114 | 1402 |
+| Omnilingual, **tract 0.23.9 (saf Rust)**, tek 30 sn pencere | tract varsayılanı | 16,5 (30 sn ses; yük altında) | ~0,55 | 1106 |
+
+`tract` (Sonos; MIT/Apache-2.0) aynı int8 ONNX'i çalıştırdı (girişi sabit 1×480 000 yapıp grafikteki şekil notlarını
+silmek gerekti): karelerin %98,7'sinde en olası harf ONNX Runtime ile aynı, serbest tanıma metni neredeyse aynı.
+Bu ölçüm başka işler çalışırken yapıldı (yük altında); TRACT_TEMIZ
+
+Boyut: Omnilingual int8 ONNX 366 MB (xz -6: 280 MB; sherpa-onnx'in bz2 paketi 292 MB). Spleeter yalnızca vokal
+modeli 19,7 MB (xz 17,6 MB). ONNX Runtime Windows DLL'i ayrıca (~10–20 MB; ölçülmedi); tract ikili dosyaya gömülür.
+Windows'ta ölçülmedi: bu sayılar yalnızca bu makine içindir; tipik dört çekirdekli dizüstünde aynı mertebe beklenir.
+
+@@ONERI_BOLUMU
+**Önerilen yol: A — Omnilingual ASR CTC 300M v2 (int8) + Viterbi, karışımın kendisi üzerinde, 30 sn pencere.**
+
+1. **Doğruluk:** her üç sette, her bölümde en iyi ya da en iyiye eşit; son sınamada da (4.4). Whisper base'den
+   kelime ≤0,3 sn oranında ~35–40 puan iyi; model gerektirmeyen yoldan kat kat iyi.
+2. **Türkçe:** gerçek Türkçe şarkıda (makam) öbek başlarının %93–100'ü 0,3 sn içinde. Model Türkçe harfleri
+   (ç, ğ, ı, ö, ş, ü, â, î, û) doğrudan biliyor; Türkçe küçük harf kuralı (I→ı, İ→i) yeterli, sözlük ya da sesbirim
+   dönüştürücü gerekmiyor (Whisper'ın alt-sözcük belirteçlerine ve MFA'nın sözlüğüne göre büyük kolaylık).
+3. **Basitlik:** tek model, tek geçiş, sonra ~150 satırlık deterministik Viterbi (Rust'ta saf fonksiyon, birim testli).
+   Vokal ayrıştırma gerekmiyor (5,3 GB bellek ve bir model daha yok).
+4. **Lisans:** kod ve ağırlık Apache-2.0 (deny.toml'da izinli). Eğitim verisinin bir kısmı açıklanmamış (bkz. risk).
+5. **Gerçek zaman kurallarına uyum:** iş tamamen arka planda, ses yolundan bağımsız; sonuç küçük (kelime başları).
+
+Neden B (Whisper) değil: aynı hızda ama kelime başları bulanık; uzun ses için pencereye hangi sözün düştüğünü ayrıca
+çözmek gerekiyor (burada EOT sıçramasıyla çözüldü ama satır başları ~0,5 sn kayıyor); makamda çöküyor. Daha büyük
+Whisper (small/medium) daha iyi olabilir ama 3–10 kat yavaş ve büyük; ölçülmedi.
+Neden D (önce ayrıştırma) değil: ölçüme göre kazanç yok ya da küçük (Jamendo doğrulamada kayıp, vekil sette kazanç),
+maliyet büyük. Ayrıştırma ileride başka işler için programa girerse "karışım + vokal" birleşimi ucuz bir ek iyileştirme
+olarak yeniden ölçülebilir.
+Neden E değil: satır başını bile bulamıyor (ortanca 0,4–4 sn).
+
+@@RISK_BOLUMU
+| Risk | Etki | Ölçüldü mü | Önlem |
+|---|---|---|---|
+| Türk pop/arabesk/rap ölçülmedi | Gerçek başarı bilinmiyor | Hayır (set yok) | Sahibinin 5–10 şarkısında dinleyerek doğrulama (DOGRULAMA'ya madde); sahibinin elinde zamanlı `.lrc`'li şarkı varsa doğru zaman olarak kullanılır |
+| Makam seti öbek düzeyinde, vekil set yapay | Türkçe kelime düzeyi ancak vekilde ölçüldü | Kısmen | Yukarıdaki doğrulama; gerekirse sahibi birkaç şarkıda "doğru / yanlış satır" işaretler |
+| Eğitim verisinin açıklanmamış kısmı (Omnilingual; Whisper'da da aynı) | Proje kuralı "eğitim verisi NC ise alınmaz"; NC olduğu bilinmiyor, olmadığı da tam bilinmiyor | Birincil kaynak: README "code and models … Apache 2.0", derlemleri CC-BY-4.0; makale okunamadı | Sahibine sorulacak (karar 3); meta'nın makalesi açık bir ağdan okunup not edilmeli |
+| Ağırlık dosyasının kaynağı | sherpa-onnx'in dönüşümü; Meta'nın resmî `.pt` karmasıyla karşılaştırılamadı (dl.fbaipublicfiles kapalı; dönüşüm zaten baytları değiştirir) | İndirilen dosyanın SHA-256'sı kaydedildi (`model-sha256.txt`) | Ürün için Meta'nın resmî kontrol noktasından sherpa-onnx'in açık betiğiyle (`scripts/omnilingual-asr/export-onnx.py`) kendimiz dönüştürüp karmayı sabitlemek |
+| Model büyük (366 MB; kurulum ~+280 MB) | İndirme/kurulum boyutu | Evet | Karar 1 (ayrı paket / isteğe bağlı) |
+| Yapıştırılan söz eksik ya da fazla | Eksik 3 satır: ortalama 0,61 → 1,21 sn (ortanca aynı) | Evet (4.3) | Arayüzde "Nakarat ×2" gibi satırlar için uyarı; kullanıcı düzeltmesi |
+| Söylenen ama sözlerde olmayan sesler ("oh oh", fon vokal, konuşma) | Bölüm kayması (Jamendo'da en kötü şarkılar: 2–3 sn ortalama) | Evet | Güven ölçüsü henüz zayıf (4.5); kullanıcı satır satır düzeltebilmeli |
+| Güven ölçüsü zayıf | Hangi satırın yanlış olduğunu güvenle söyleyemiyoruz | Evet: geliştirmede büyük hataların 2/3'ü, doğrulamada 3/10'u yakalandı | Ürüne yalnızca şarkı düzeyinde bilgi ("otomatik zamanlandı") ile girer; satır gizleme yok; ayrı araştırma işi |
+| Rakamlar ve kısaltmalar ("2 kere", "Dr.") | Harfe çevrilmezse o kelime atlanır | Hayır | Türkçe sayı okuma (küçük iş) |
+| Windows hızı ve belleği | 1 iş parçacığında 4 dk şarkı ~2 dk, ~1,8 GB | Yalnızca Linux | Gerçek cihazda deneme (DOGRULAMA); 15 sn pencere ~1,3 GB (biraz daha az doğru) |
+| Saf Rust yolu yavaş | tract ~4–5 kat yavaş olabilir | Kabaca | ONNX Runtime (`ort` crate, MIT/Apache; ORT MIT) seçeneği; derleme zamanında ikili indirir → CI ve kurulum için yerel kopya |
+
+@@PLAN_BOLUMU
+Model dosyası **depoya girmez** (ses gibi büyük ikili; VERITAS'taki ağırlık kuralı). Küçük PR'lar, her biri kendi
+başına yeşil:
+
+1. **PR 1 — Araştırma belgesi** (kod yok): bu raporun özü `docs/arastirma/sozler/hizalama.md`'ye, betikler
+   `docs/arastirma/sozler/hizalama/` altına (ses ve model hariç); `docs/LISANSLAR.md` "Programa girmeyen araştırma
+   dosyaları"na JamendoLyrics, makam seti, Piper sesleri, FluidR3; ACIK-KONULAR sırası güncellenir.
+2. **PR 2 — Saf hizalayıcı** (`src-tauri/src/analysis/lyrics_align.rs`): girdi = kare × harf log-olasılık matrisi +
+   satırlar; çıktı = kelime başları + satır güveni. Türkçe küçük harf, harf kümesi, boşluk simgesi, CTC Viterbi (geri
+   izleme `u8`, 4 dk ≈ 50 MB; gerekirse kontrol noktalı). Testler: bilinen yollu yapay matrisler, tekrar eden harf,
+   boş kelime (yalnızca noktalama), Türkçe İ/ı. Model yok, ağ yok, bağımlılık yok.
+3. **PR 3 — Model çalıştırıcı** (`analysis/lyrics_model.rs`): ONNX çalıştırma (`ort` ya da `tract-onnx`; karar 4),
+   30 sn pencere / 20 sn adım, pencere başına normalleştirme (ortalama 0, varyans 1), yalnızca ~60 harf sütunu
+   saklanır. Ses `audio::decode` + `resample` ile 16 kHz mono; f64 → f32 dönüşümü yalnızca model girişinde. Model
+   yolu: veri klasöründe `modeller/omnilingual-ctc-300m-v2-int8.onnx`; SHA-256 denetlenir; yoksa özellik kapalı.
+   CI: model sherpa-onnx sürümünden (karmalı) önbellekle indirilir ve bir kısa sentetik deneme sesiyle (ffmpeg) test
+   edilir; gerçek şarkı yok.
+4. **PR 4 — Arka plan işi ve kayıt:** kullanıcı düz metin sözü kaydedince (ya da şarkının zamansız sözü varsa ve
+   kullanıcı isterse) iş kuyruğa girer; `analysis/background.rs` deseni: çalan şarkı önce, düşük öncelik (1 iş
+   parçacığı, zamanın yarısı bekleme), çökme koruması (`CrashGuard`). Sonuç, kullanıcının metnine dokunmadan ayrı
+   bir LRC olarak `sozler/<özet>.otomatik.lrc` (kelime zamanlı "enhanced LRC") — müzik dosyasına dokunulmaz. Anahtar:
+   dosya damgası + söz metninin özeti + hizalayıcı sürümü (metin değişince ya da yöntem değişince yeniden). Önbellek
+   `analysis/cache.rs`'e girerse yeni bir parça sürümü (`lyrics_align`) olarak; yalnızca o parça yeniden hesaplanır.
+   `LyricsSource` yeni değer: `Auto` ("otomatik zamanlandı"). Kaynak önceliği: kullanıcının zamanlı sözü > yan/gömülü
+   zamanlı > otomatik > zamansız.
+5. **PR 5 — Arayüz:** Söz panelinde "Sözleri otomatik zamanla" (ilerleme yüzdesi; iptal); bittiğinde sözler
+   kayar; kaynak yazısı "otomatik zamanlandı". Düzeltme: mevcut şarkı başına kaydırma (Alt+←/→) + satır satır
+   −/+ (açık konu 1'deki planla aynı) + LRC'yi elle düzenleme. "Nakarat ×2", "[Nakarat]" gibi satırlar için uyarı.
+   Görünüşü önce sahibine gösterilir (önizleme videosu).
+6. (İsteğe bağlı, sonra) Türkçe sayı okuma; ayrıştırma programa girerse "karışım + vokal" birleşimi yeniden ölçülür;
+   güven ölçüsü araştırması.
+
+Her PR'dan önce bağımsız inceleme (BILGI-BIRIKIMI §2); PR 2 ve 3 için inceleyen kendi karşı örneklerini üretir.
+
+@@KARAR_BOLUMU
+1. **Model nasıl gelsin?** (366 MB dosya; sıkıştırılmış ~280 MB)
+   - (a) Kurulum dosyasının içinde: herkes hemen kullanır, kurulum ~+280 MB büyür, söz kullanmayan da indirir.
+   - (b) **Ayrı "Söz paketi" dosyası** (aynı GitHub sürümünde, ayrı indirme): kullanıcı indirir, Lyraska'da
+     "Dosyadan ekle…" ile seçer (ya da çift tıklar); program internete hiç bağlanmaz, ağ kodu eklenmez.
+   - (c) Programın içinden isteğe bağlı indirme düğmesi ("Söz zamanlama modelini indir, 280 MB"): en kolay, ama
+     programa ilk kez ağ kodu girer (telemetri yok, yalnızca kullanıcı basınca). "İnternete bağlanmak zorunda değil"
+     ilkesi korunur ama "hiç bağlanmaz" değişir.
+   - **Öneri: (b)** — ilke aynen kalır, kurulum küçük kalır; ikinci adım olarak (c) ancak sahibi isterse.
+2. **Vokal ayrıştırma bu işe girsin mi?** Öneri: **hayır** (ölçüme göre gerek yok; 5,3 GB bellek).
+3. **Eğitim verisi tam açıklanmamış modeller** (Omnilingual; Whisper da öyle): ağırlık lisansı Apache-2.0/MIT ve
+   NC olduğu bilinmiyorsa kabul mü? Öneri: **kabul**, şartıyla: Meta'nın makalesindeki veri listesi açık bir ağdan
+   okunup `docs/LISANSLAR.md`'ye yazılır; NC bir derlem bulunursa vazgeçilir.
+4. **Çalıştırıcı:** (a) ONNX Runtime (`ort`; hızlı, Windows DLL'i ~10–20 MB, C++ bağımlılığı) ya da (b) `tract`
+   (saf Rust, `unsafe` ve C++ yok, daha yavaş). Öneri: **önce (b) tract ile Windows'ta hız ölçülsün**; 4 dk şarkı
+   arka planda 5 dk'nın altındaysa tract, değilse ort.
+5. **Güvensiz sonuç nasıl gösterilsin?** Öneri: satır gizlenmez; şarkı "otomatik zamanlandı (yanlış satırı
+   kaydırarak düzeltebilirsiniz)" yazar; kullanıcı düzeltince otomatik sonuç kullanıcının sözü olur.
+
+@@YENIDEN_BOLUMU
+Her şey geçici klasörde: `KOK = /tmp/claude-0/-home-user-Lyraska/4262c203-a61e-5ac0-b0bb-3cada8e7b304/scratchpad/soz-hizalama`.
+
+- `betikler/hepsini_calistir.sh`: veri setlerini (git clone), modelleri (sherpa-onnx sürüm dosyaları, karma
+  denetimiyle), Python ortamlarını kurar; vekil seti üretir; bütün ölçümleri çalıştırır; tabloları yazar.
+- Tek tek: `venv/bin/python betikler/olc.py <jamendo|makam|vekil> <gelistirme|dogrulama|son_sinama> <yöntem…>`;
+  `bozuk.py`, `guven.py <sonuç.json>`, `hiz.py` (+ `bellek.py`), `tablo.py`.
+- Kod: `ortak.py` (veri, bölme, ölçüt), `ctc.py` (Omnilingual + Viterbi), `whisper_hiza.py` (Whisper DTW),
+  `ayrim.py` (Spleeter/UVR), `vekil_uret.py` (vekil set; ayrı ortam `venv-tts`: sherpa-onnx 2.x Piper'ın espeak
+  önişlemesini içermiyor, 1.12.40 kullanıldı).
+- Sonuçlar: `cache/sonuc/*.json` (şarkı başına hatalar, tahminler, güven); günlükler `cache/log_*.txt`;
+  hız `cache/hiz.txt`; model karmaları `model-sha256.txt`; kod dondurma `kod-dondurma-md5.txt` (son sınamadan önce;
+  `olc.py`'ye sonradan yalnızca 15 sn pencere değişkesi eklendi, varsayılan yol aynı — md5 bu yüzden farklı).
+- Saf Rust denemesi: `tract/deneme/` (`cargo build --release`), model `tract/omni-sabit30.onnx` (giriş şekli sabit).
+- Belirlenimcilik: geliştirmede `ctc:karisim` iki kez çalıştı, sonuç aynı.
+- Ölçüm sırasında yapılan ve rapora girmeyen: UVR yalnızca bir şarkıda hız için denendi (lisans belirsiz).
