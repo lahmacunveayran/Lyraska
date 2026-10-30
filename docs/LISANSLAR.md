@@ -188,3 +188,17 @@ kuralları). Kod bağımlılıklarının lisanslarını CI denetler (`npm run ch
   için Apache-2.0, MIT, BSD-2-Clause ve BSL-1.0 da sayar. AGPL ya da ticari kullanım yasağı yok.
 - **Eğitim müziği:** `r2_beste.py` ile programla yazılan rastgele parçalar, yine FluidR3_GM (MIT) ile çalınır. Hazır
   şarkı, MUSDB18, MoisesDB ya da telifli kayıt kullanılmadı. Eğitilen ağırlıklar depoya konmadı (kapı geçilmedi).
+
+### Söz hizalama araştırması (30 Ekim 2026)
+
+- **Ne için:** sözleri sese otomatik hizalama ([arastirma/soz-hizalama/](arastirma/soz-hizalama/README.md)). Aşağıdaki
+  veri setleri programa girmez, dağıtılmaz, depoya konmaz; yalnızca geçici klasörde ölçüm için kullanıldı.
+- **JamendoLyrics** (GitHub `f90/jamendolyrics`): şarkılar şarkı başına Creative Commons lisanslı, çoğu NC/ND.
+- **Türk sanat müziği seti** (Dzhambazov, GitHub): deposunda lisans dosyası yok, sesler ticari kayıtlardır; yalnızca
+  yerel ölçüm.
+- **Piper Türkçe `dfki` sesi** (vekil seti üretmek için): ses verisi CC BY-NC-SA (ticari olmayan); yalnızca yerel
+  ölçüm.
+- **Önerilen model** (henüz programa girmedi): Omnilingual ASR CTC 300M v2, Meta; kod ve ağırlık Apache-2.0
+  (birincil kaynak: GitHub'daki LICENSE ve README). Eğitim verisinin tam listesi doğrulanamadı. sherpa-onnx int8
+  dönüşümü Apache-2.0 §4(b) anlamında değiştirilmiş eserdir; programa girdiğinde burada ve `public/lisanslar/`'da
+  belirtilir.
