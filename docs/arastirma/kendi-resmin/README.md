@@ -95,6 +95,31 @@ seviyeler, ölçülen boylarla:
 %95'i 82 px; Lyraska 12,9 / 61 px. `c`'nin sesi ve açık test resmiyle: bas 13 / 84 / 137 px (örnek
 `c` 9 / 55 / 172 px).
 
+## Tepki teşhisi (30 Ekim 2026; `teshis-2026-10-30/`)
+
+Sahibi: "asıl hali daha canlı, daha tepkisel; bizimkinde orta bölge oynamıyor". Önce sahibinin Windows kaydı ile
+örneğin kısa kaydı karşılaştırıldı (şarkının farklı anları), sonra sahibinin yüklediği **orijinal videonun tamamı**
+(854×480, 30 kare/sn, kendi sesi; sahibinin dosyası aynı videonun sesi) ile aynı saniyeler. Lyraska'nın çıktısı bu
+ortamda **gerçek kodla** üretildi: `spectrum.rs` ve `loudness.rs` değiştirilmeden ayrı bir crate'te derlendi
+(`lyraska-cubuk/`; model.py ile en büyük fark 4,9e-4), çubuklar gerçek PhotoScene'de başsız Chromium'da çizildi
+(`ciz.mjs`; çizilen boy ↔ seviye r 0,9999).
+
+- **Model doğru:** orijinal videonun çubukları kendi sesiyle havuz r 0,996, çubuk başı r 0,938; 17 pencerede (10 sn)
+  bölge oranı (ölçülen / model) ortanca 0,99, %10–90 aralığı 0,96–1,00; ses yüksekliğiyle değişmiyor
+  (< 0,011/dB): orijinalde sıkıştırma, otomatik kazanç, bant normalizesi yok; doğrusal genlik, (L+R)/2.
+- **Tek fark ölçek:** orijinal boy/H = 0,732 · ham genlik; Lyraska (−14 LUFS kazancı −9,52 dB ile) 0,524 · ham
+  genlik: **0,72 kat** (−2,9 dB), her bölgede aynı. Küçük çubuklar taban çentiğinden ayrılamadığı için orta seslerde
+  hareketli kare % düşüyordu (bastan tize, 20–35 sn): orijinal 74 65 53 46 39 31 28 33 32, Lyraska 67 56 43 34 25 21
+  17 19 19; ×1,4 ile 75 68 54 47 39 32 29 31 31. Seviyesi 1'e değen çubuk-kare oranı %0,015. Düzeltme:
+  `FULL_AMPLITUDE` 0,285 → 0,204 (0.0.98; sahibinin seçimi, yan yana videolarla).
+- **Zamanlama:** orijinal çubuklar sesten **0,12 sn önce** oynuyor (ekranda aynı saniyede benzerlik 0,23; kaydırınca
+  0,96). Lyraska sesle aynı anda kalır (±20 ms kuralı); sahibi "1,4 kat, önden değil"i seçti.
+- **Sahibinin kaydındaki ses** dosyadan farklı: orta kanalda bas ~−10 dB, tiz +6 dB, yan kanal şişirilmiş, sol–sağ
+  ters faz (Windows/sürücü "uzamsal ses / netlik" iyileştirmesine benziyor; Lyraska'da ekolayzer kapalıydı). Çubukları
+  etkilemiyor (sahibinin ekranındaki çubuklar bu ortamdaki çizimle aynı: hareketli kare % 67/49/39 ↔ 68/53/42).
+  İlk turda bu farkı Lyraska'nın ekolayzerine bağlayan sonuç bu yüzden geri alındı.
+- Beyaz zeminde (kanat, saç) çubuklar görünmez: orijinalde de aynı; benzerlik için değişiklik gerekmiyor.
+
 ## Epilepsi güvenliği
 
 Işık yalnızca **eklenir** (tuval `mix-blend-mode: plus-lighter`): hiçbir piksel kararmaz. Her

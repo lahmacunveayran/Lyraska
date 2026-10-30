@@ -449,6 +449,14 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
   yanıp sönme olmaz. Ekran kartınızda akıcı mı (Ctrl+Shift+D: ekran kartı süresi ve kare hızı).
 - Bildirin: drop anı yeterince "vay be" mi; Normal'in flaşı fazla mı, az mı; akıcılık.
 
+**D13. "Kendi resmin" çubukları orijinal kadar canlı (0.0.98)**
+
+- Nasıl: "Kendi resmin" sahnesinde Flying High'ı (ya da başka bir şarkıyı) çalın; YouTube'daki orijinalle aynı
+  saniyelere bakın.
+- Neye bakılır: orta ve sağdaki çubuklar da oynuyor (eskiden yalnız soldaki bas); çubuklar sesle aynı anda; bas en
+  yüksek yerde ekranın ortasını aşmıyor.
+- Bildirin: fazla mı uzun, hâlâ pasif mi.
+
 ## E. Senkron ve işaretleme
 
 **E1. Kablolu kulaklıkta senkron (0.0.21)**

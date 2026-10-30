@@ -43,10 +43,13 @@ const PAD: usize = 4;
 /// `START_HZ + k · (END_HZ − START_HZ) / BARS`.
 pub const START_HZ: f64 = 20.0;
 pub const END_HZ: f64 = 2000.0;
-/// Çubuğu dolduran genlik (sol ve sağın ortalaması; tam ölçekli sinüs 1). Örnek videolarda
-/// −14 LUFS'e göre ölçülen eğim: boy ≈ 1,58 · genlik · ekran yüksekliği; arayüzün en büyük boyu
-/// ekranın %45'i: 0,45 / 1,58 ≈ 0,285.
-pub const FULL_AMPLITUDE: f64 = 0.285;
+/// Çubuğu dolduran genlik (sol ve sağın ortalaması; tam ölçekli sinüs 1). Orijinal videonun tamamı
+/// ve kendi sesiyle ölçüldü (30 Ekim; `docs/arastirma/kendi-resmin/`): boy = 0,732 · ham genlik ·
+/// ekran yüksekliği, şarkı boyunca sabit (sıkıştırma, otomatik kazanç yok; 17 pencerede oran
+/// 0,96–1,00). −14 LUFS kazancıyla (bu şarkıda −9,52 dB) eğim ≈ 2,2 · genlik; arayüzün en büyük boyu
+/// ekranın %45'i: 0,45 / 2,2 ≈ 0,204. İlk ölçek (0,285, kısa ekran kayıtlarından) çubukları
+/// orijinalin 0,72 katı bırakıyordu: orta seslerde hareket görünmüyordu.
+pub const FULL_AMPLITUDE: f64 = 0.204;
 
 /// `k`. çubuğun frekansı (Hz).
 pub fn bar_hz(k: usize) -> f64 {
@@ -209,6 +212,16 @@ mod tests {
         // Dolduran genlikte 1'de kırpılır.
         let loud = bar_levels(&tones(&[(1_010.0, 0.9)]));
         assert_eq!(loud[k], 1.0);
+    }
+
+    #[test]
+    fn olcek_orijinal_videoyla_olculen_egim() {
+        // Orijinal video (eşitlenmiş seste): boy ≈ 2,2 · genlik · ekran yüksekliği; arayüzün en
+        // büyük boyu ekranın %45'i. 0,1 genlikli ton ekranın ~%22'si kadar çubuk (seviye ~0,49).
+        // İlk ölçekle 0,35'te kalıyordu (orijinalin 0,72 katı).
+        let k = bar_of(1_010.0);
+        let level = f64::from(bar_levels(&tones(&[(1_010.0, 0.1)]))[k]);
+        assert!((0.45 * level - 2.2 * 0.1).abs() < 0.01, "{level}");
     }
 
     #[test]

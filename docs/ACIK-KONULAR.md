@@ -13,7 +13,8 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
    klasöründe saklanır (müzik dosyasına dokunulmaz; isteğe bağlı .lrc dışa aktarma; öncelik: düzenlenen > yan .lrc >
    gömülü); zamanlama şarkı çalarken dokunarak (Boşluk/Enter), sonra satır satır −/+. Üç parça: kayıt ve öncelik
    (0.0.95, birleşti) → yapıştır/düzenle paneli (0.0.97, sahibi onayladı, PR'da) → dokunarak zamanlama. Otomatik hizalamanın (6) girdisi olur.
-2. "Kendi resmin" çubuk tepkisi (orta bölge 2–10 kat ölü; önce teşhis, gerekirse model baştan).
+2. "Kendi resmin" çubuk tepkisi: teşhis bitti, model doğru; tek fark ölçekti (0,72 kat), 0.0.98'de düzeltildi
+   (`docs/arastirma/kendi-resmin/` "Tepki teşhisi"). Moonlight Shadow ile doğrulanmadı (sesi yok).
 3. Ses motoru denetimi: 64-bit, EQ, AutoEq, EBU R128, bit-perfect, ABX + DENETIM-3 (dallar `ccr-a69bd749-djgi3v`,
    `ccr-a46535b3-m3v2i5`) + #56.
 4. Görev kitabı (`docs/gorev/`) ile ROADMAP/ACIK-KONULAR çelişkileri; ROADMAP güncellenir (kaldırılan sahneler, bugün

@@ -1,0 +1,12 @@
+[package]
+name = "lyraska-cubuk"
+version = "0.1.0"
+edition = "2021"
+
+# Lyraska'nın GERÇEK spectrum.rs ve loudness.rs dosyaları değiştirilmeden derlenir (#[path]); yalnız
+# `waveform::WAVEFORM_RATE` ve `Sample` sağlanır. Depoya girmez.
+[dependencies]
+rustfft = "=6.4.1"
+serde = { version = "=1.0.229", features = ["derive"] }
+
+[workspace]
