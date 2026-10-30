@@ -116,13 +116,24 @@ fn at(spectrum: &[Sample], bin: f64) -> Sample {
         + spectrum.get(hi).copied().unwrap_or(0.0) * t
 }
 
-/// Genlikten çubuk seviyesi (0..1): doğrusal.
+/// Yumuşak tavanın başladığı seviye: altı doğrusal (çubukların %99'u burada), üstü 1'e yaklaşır.
+pub const SOFT_KNEE: f64 = 0.7;
+
+/// Genlikten çubuk seviyesi (0..1): [`SOFT_KNEE`]'e kadar doğrusal, üstü yumuşak tavan
+/// (`tanh`; dizinde eğim 1, sürekli): bas ağırlıklı şarkıda bas çubukları tavanda donmaz, büyük
+/// vuruş küçüğünden yine uzun görünür (sert kırpmada karelerin %70–99'unda 1–2 çubuk tavandaydı;
+/// bağımsız inceleme, 30 Ekim).
 fn level(amplitude: Sample) -> f32 {
-    if amplitude.is_finite() {
-        (amplitude / FULL_AMPLITUDE).clamp(0.0, 1.0) as f32
-    } else {
-        0.0
+    if !amplitude.is_finite() {
+        return 0.0;
     }
+    let x = (amplitude / FULL_AMPLITUDE).max(0.0);
+    let soft = if x <= SOFT_KNEE {
+        x
+    } else {
+        SOFT_KNEE + (1.0 - SOFT_KNEE) * ((x - SOFT_KNEE) / (1.0 - SOFT_KNEE)).tanh()
+    };
+    soft.min(1.0) as f32
 }
 
 /// [`BARS`] çubuğun seviyesi (0..1, bas solda). `signal`: 44,1 kHz tek kanallı [`WINDOW`] örnek,
@@ -199,19 +210,22 @@ mod tests {
 
     #[test]
     fn genlik_dogrusal_yari_genlik_yari_boy() {
+        // Yumuşak tavanın altında (SOFT_KNEE) ölçülür: 0,1 genlik ~0,49, 0,05 genlik ~0,25 (sahibinin
+        // onayıyla güncellendi, 30 Ekim: önceki sürüm 0,98'de doğrusallık ve tam 1'de kırpılma
+        // diyordu; yumuşak tavan tam olarak bunu değiştirir).
         let k = bar_of(1_010.0);
-        let full = bar_levels(&tones(&[(1_010.0, 0.2)]));
-        let half = bar_levels(&tones(&[(1_010.0, 0.1)]));
-        // Tam ölçekli sinüs kendi frekansında 1: 0,2 genlik 0,2 / FULL_AMPLITUDE.
+        let full = bar_levels(&tones(&[(1_010.0, 0.1)]));
+        let half = bar_levels(&tones(&[(1_010.0, 0.05)]));
+        // Tam ölçekli sinüs kendi frekansında 1: 0,1 genlik 0,1 / FULL_AMPLITUDE.
         assert!(
-            (f64::from(full[k]) - 0.2 / FULL_AMPLITUDE).abs() < 0.01,
+            (f64::from(full[k]) - 0.1 / FULL_AMPLITUDE).abs() < 0.01,
             "{}",
             full[k]
         );
         assert!((f64::from(half[k]) * 2.0 - f64::from(full[k])).abs() < 0.005);
-        // Dolduran genlikte 1'de kırpılır.
+        // Dolduran genliğin çok üstünde 1'i geçmez, 1'e çok yaklaşır.
         let loud = bar_levels(&tones(&[(1_010.0, 0.9)]));
-        assert_eq!(loud[k], 1.0);
+        assert!(loud[k] <= 1.0 && loud[k] > 0.999, "{}", loud[k]);
     }
 
     #[test]
@@ -222,6 +236,20 @@ mod tests {
         let k = bar_of(1_010.0);
         let level = f64::from(bar_levels(&tones(&[(1_010.0, 0.1)]))[k]);
         assert!((0.45 * level - 2.2 * 0.1).abs() < 0.01, "{level}");
+    }
+
+    #[test]
+    fn yumusak_tavan_alt_kisim_aynen_ust_kisim_tavanda_donmaz() {
+        // Bas ağırlıklı şarkıda (trap, bass boosted) bas çubukları karelerin %70–99'unda tavana
+        // değiyordu (bağımsız inceleme, 30 Ekim): sert kırpmada 1,2 ile 1,6 katı aynı boyda donar.
+        let k = bar_of(1_010.0);
+        let at = |a: f64| f64::from(bar_levels(&tones(&[(1_010.0, a)]))[k]);
+        // Dizin altı (seviye ≤ SOFT_KNEE) aynen doğrusal.
+        assert!((at(0.1) - 0.1 / FULL_AMPLITUDE).abs() < 0.01);
+        // Üstü: sıra korunur, 1'e yaklaşır ama değmez.
+        let (a, b, c) = (at(0.25), at(0.33), at(0.5));
+        assert!(a < b && b < c && c < 1.0, "{a} {b} {c}");
+        assert!(at(5.0) <= 1.0);
     }
 
     #[test]

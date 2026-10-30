@@ -454,7 +454,8 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 - Nasıl: "Kendi resmin" sahnesinde Flying High'ı (ya da başka bir şarkıyı) çalın; YouTube'daki orijinalle aynı
   saniyelere bakın.
 - Neye bakılır: orta ve sağdaki çubuklar da oynuyor (eskiden yalnız soldaki bas); çubuklar sesle aynı anda; bas en
-  yüksek yerde ekranın ortasını aşmıyor. Çubuk rengi saf ve canlı (kızıl-pembe resimde saf kırmızı).
+  yüksek yerde ekranın ortasını aşmıyor; bas ağırlıklı şarkıda (trap, rap) bas çubukları tepede donmuyor. Çubuk rengi
+  saf ve canlı (kızıl-pembe resimde saf kırmızı); mavi ya da yeşil bir resimle de bir kez bakın.
 - Bildirin: fazla mı uzun, hâlâ pasif mi.
 
 ## E. Senkron ve işaretleme
