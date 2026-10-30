@@ -8,7 +8,9 @@
 //! `<şarkı>` yerine `--sessiz <saniye>` verilirse yalnızca modelin hızı ölçülür (sessiz ses).
 
 use lyraska_lib::analysis::lyrics_align::align;
-use lyraska_lib::analysis::lyrics_model::{decode_mono, LyricsModel, MODEL_SHA256, SAMPLE_RATE};
+use lyraska_lib::analysis::lyrics_model::{
+    decode_mono, LyricsModel, MODEL_SHA256, SAMPLE_RATE, TOKENS_SHA256,
+};
 use lyraska_lib::analysis::lyrics_text::prepare;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
@@ -22,12 +24,14 @@ fn lrc_time(secs: f64) -> String {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 3 {
-        eprintln!("kullanım: soz_hizalama <söz paketi> <şarkı> <söz.txt> | <söz paketi> --sessiz <sn>");
+        eprintln!(
+            "kullanım: soz_hizalama <söz paketi> <şarkı> <söz.txt> | <söz paketi> --sessiz <sn>"
+        );
         std::process::exit(2);
     }
     let cancel = AtomicBool::new(false);
     let t0 = Instant::now();
-    let model = LyricsModel::open(Path::new(&args[1]), MODEL_SHA256)?;
+    let model = LyricsModel::open(Path::new(&args[1]), MODEL_SHA256, TOKENS_SHA256)?;
     let load = t0.elapsed().as_secs_f64();
 
     if args[2] == "--sessiz" {

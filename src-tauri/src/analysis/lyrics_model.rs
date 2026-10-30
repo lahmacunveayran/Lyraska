@@ -2,17 +2,22 @@
 //! 20 ms'lik karede hangi harfin söylendiğine dair log-olasılıklara çevrilir; yerleşim `lyrics_align`.
 //!
 //! Model Omnilingual ASR CTC 300M v2 (Meta, Apache-2.0; sherpa-onnx int8 dönüşümü). Programla gelmez:
-//! kullanıcı "Söz paketi"ni ekler, dosyalar veri klasöründe durur. Model dosyası güvenilmez girdi
-//! sayılır: SHA-256'sı bilinen dosyayla aynı değilse açılmaz.
+//! kullanıcı "Söz paketi"ni ekler, dosyalar veri klasöründe durur. Paket güvenilmez girdi sayılır:
+//! model dosyası ve simge listesi bilinen dosyalarla (SHA-256) aynı değilse açılmaz; model dosyası bir
+//! kez okunur, aynı baytlar hem özetlenir hem açılır.
 //!
-//! - **Çalıştırıcı:** `tract` (saf Rust, ek DLL yok), tek iş parçacığı. Model dosyası değiştirilmez;
-//!   giriş şekli kodda sabitlenir (`WINDOW_SAMPLES`).
-//! - **Pencere:** ses `WINDOW_SECS` sn'lik pencerelerle (`HOP_SECS` adım) modele verilir; her pencere
-//!   kendi ortalaması ve sapmasıyla ölçeklenir, karelerin pencerenin kenarından uzak olanı alınır
-//!   (birinci ekibin ve denetimin yöntemi). Pencereler arasında iptal denetlenir.
-//! - **Sütunlar:** blank, kelime ayırıcısı, kesme işareti ve Latin, Yunan, Kiril harfleri (~410);
-//!   log-olasılık bütün sözlük (10 288 simge) üzerinden hesaplanır, yalnızca bu sütunlar saklanır.
-//!   Böylece emisyonlar sözden bağımsızdır: söz düzeltilince model yeniden çalışmaz.
+//! - **Çalıştırıcı:** `tract` (saf Rust, ek DLL yok). Model dosyası değiştirilmez; giriş şekli kodda
+//!   sabitlenir. Pencereler `THREADS` kısa ömürlü iş parçacığında çalışır: tract'ın AVX çekirdekleri
+//!   dönüşte `vzeroupper` yapmadığı için aynı iş parçacığındaki sonraki kayan nokta işi Intel
+//!   işlemcide ~19 kat yavaşlıyordu (bağımsız inceleme; yerleşim 0,8 → 15 sn).
+//! - **Pencere:** `WINDOW_SECS` sn pencere, `HOP_SECS` sn adım (araştırmanın uçtan uca ölçtüğü ayar;
+//!   10 sn pencere geliştirme setinde satırların %94,2 → %92,3'ü ve güven ölçüsünü bozdu). Her pencere
+//!   kendi ortalaması ve sapmasıyla ölçeklenir, karelerin pencere kenarından uzak olanı alınır.
+//! - **Kare geometrisi:** modelin karesi 400 örneklik alıcı alan, 320 örnek adım: pencerenin j. karesinin
+//!   merkezi 320·j + 200 (araştırmanın Python sürümü (j + 0,5)·320,64 sayıyordu: ikinci yarıda 20 ms geç).
+//! - **Sütunlar:** blank, kelime ayırıcısı, kesme işareti ve Latin, Yunan, Kiril küçük harfler (410);
+//!   log-olasılık bütün sözlük (10 288 simge) üzerinden. Emisyonlar sözden bağımsızdır.
+//! - **Sınırlar:** ses en çok `MAX_SECS` sn; sonlu olmayan örnek sessizlik sayılır.
 
 use std::collections::HashMap;
 use std::io::Read;
@@ -28,19 +33,33 @@ use crate::audio::resample::Converter;
 
 /// Modelin beklediği örnekleme hızı.
 pub const SAMPLE_RATE: u32 = 16_000;
-/// Bir karenin örnek sayısı (20 ms).
+/// Karenin adımı (20 ms) ve alıcı alanı (örnek).
 pub const FRAME_SAMPLES: usize = 320;
+const RECEPTIVE_SAMPLES: usize = 400;
 /// Pencere ve adım (sn).
-pub const WINDOW_SECS: usize = 10;
-pub const HOP_SECS: usize = 6;
+pub const WINDOW_SECS: usize = 30;
+pub const HOP_SECS: usize = 20;
 const WINDOW_SAMPLES: usize = WINDOW_SECS * SAMPLE_RATE as usize;
 const HOP_SAMPLES: usize = HOP_SECS * SAMPLE_RATE as usize;
+/// Bir penceredeki kare sayısı (480 000 örnek → 1499).
+const WINDOW_FRAMES: usize = (WINDOW_SAMPLES - RECEPTIVE_SAMPLES) / FRAME_SAMPLES + 1;
+/// Aynı anda çalışan pencere.
+pub const THREADS: usize = 2;
+/// En uzun ses (sn): daha uzunu çözülmeden reddedilir (1 saatlik kayıtta saatlerce boşa hesap olmasın).
+pub const MAX_SECS: usize = 20 * 60;
+/// En kısa ses (örnek, 0,1 sn).
+const MIN_SAMPLES: usize = 1600;
 
-/// Söz paketindeki dosyalar.
+/// Söz paketindeki dosyalar ve bilinen özetleri (`docs/arastirma/soz-hizalama/model-sha256.txt`).
 pub const MODEL_FILE: &str = "model.int8.onnx";
 pub const TOKENS_FILE: &str = "tokens.txt";
-/// Ölçülen model dosyasının SHA-256'sı (`docs/arastirma/soz-hizalama/model-sha256.txt`).
 pub const MODEL_SHA256: &str = "e3042b2f3b3ef0af2211bf99d2b4bf94a21f5ac0e9898827e7dd6d003a860e91";
+pub const TOKENS_SHA256: &str = "7d99997ef207ff14c2cfe825f2aa037528ea250113cc3c6392bfe49326884ba6";
+/// Paket dosyalarının en büyük boyu (gerçekleri 365 841 453 ve 90 630 bayt).
+const MAX_MODEL_BYTES: u64 = 512 << 20;
+const MAX_TOKENS_BYTES: u64 = 1 << 20;
+/// Simge kimliğinin üst sınırı (gerçek sözlük 10 288 simge).
+const MAX_TOKEN_ID: usize = 1 << 20;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ModelError {
@@ -48,10 +67,16 @@ pub enum ModelError {
     Io(#[from] std::io::Error),
     #[error("söz paketinin model dosyası bilinen dosya değil (bozuk ya da başka bir model)")]
     WrongModel,
-    #[error("söz paketinin simge listesi bozuk")]
+    #[error("söz paketinin simge listesi bilinen liste değil ya da bozuk")]
     BadTokens,
     #[error("model çalıştırılamadı: {0}")]
     Run(String),
+    #[error("şarkı çözülemedi: {0}")]
+    Decode(String),
+    #[error("şarkı sözleri oturtmak için çok kısa")]
+    TooShort,
+    #[error("şarkı sözleri oturtmak için çok uzun (en çok {} dk)", MAX_SECS / 60)]
+    TooLong,
     #[error("iptal edildi")]
     Cancelled,
 }
@@ -62,20 +87,34 @@ impl From<TractError> for ModelError {
     }
 }
 
-/// Şarkıyı modelin girişine çevirir: kanalların ortalaması, 16 kHz (`resample` ile), f32.
-/// `cancel` her çözülen dilimde denetlenir.
+/// Sonlu olmayan örnek (bozuk dosya) sessizlik sayılır: tek bir NaN bütün pencereyi bozmasın.
+fn finite(v: f32) -> f32 {
+    if v.is_finite() {
+        v
+    } else {
+        0.0
+    }
+}
+
+/// Şarkıyı modelin girişine çevirir: kanalların ortalaması, 16 kHz (`resample` ile), f32. `cancel`
+/// her çözülen dilimde denetlenir; `MAX_SECS`'ten uzun şarkı çözülmeden reddedilir.
 pub fn decode_mono(path: &Path, cancel: &AtomicBool) -> Result<Vec<f32>, ModelError> {
-    let mut decoder = Decoder::open(path).map_err(|e| ModelError::Run(e.to_string()))?;
+    let decode = |e: crate::audio::AudioError| ModelError::Decode(e.to_string());
+    let mut decoder = Decoder::open(path).map_err(decode)?;
+    if decoder
+        .info()
+        .duration_secs
+        .is_some_and(|d| d > MAX_SECS as f64)
+    {
+        return Err(ModelError::TooLong);
+    }
     let channels = decoder.info().channels.max(1);
     let rate = decoder.info().sample_rate;
-    let mut converter =
-        Converter::new(rate, 1, SAMPLE_RATE, 1).map_err(|e| ModelError::Run(e.to_string()))?;
+    let mut converter = Converter::new(rate, 1, SAMPLE_RATE, 1).map_err(decode)?;
+    let limit = MAX_SECS * SAMPLE_RATE as usize;
     let mut mono = Vec::new();
     let mut out = Vec::new();
-    while let Some(chunk) = decoder
-        .next_chunk()
-        .map_err(|e| ModelError::Run(e.to_string()))?
-    {
+    while let Some(chunk) = decoder.next_chunk().map_err(decode)? {
         if cancel.load(Ordering::Relaxed) {
             return Err(ModelError::Cancelled);
         }
@@ -85,16 +124,20 @@ pub fn decode_mono(path: &Path, cancel: &AtomicBool) -> Result<Vec<f32>, ModelEr
                 .chunks_exact(channels)
                 .map(|frame| frame.iter().sum::<f64>() / channels as f64),
         );
-        let converted = converter
-            .process(&mono)
-            .map_err(|e| ModelError::Run(e.to_string()))?;
-        out.extend(converted.iter().map(|&v| v as f32));
+        let converted = converter.process(&mono).map_err(decode)?;
+        out.extend(converted.iter().map(|&v| finite(v as f32)));
+        // Süresini bildirmeyen dosya: sınır çözerken de denetlenir.
+        if out.len() > limit {
+            return Err(ModelError::TooLong);
+        }
     }
-    let rest = converter
-        .finish()
-        .map_err(|e| ModelError::Run(e.to_string()))?;
-    out.extend(rest.iter().map(|&v| v as f32));
+    let rest = converter.finish().map_err(decode)?;
+    out.extend(rest.iter().map(|&v| finite(v as f32)));
     Ok(out)
+}
+
+fn hex(digest: &[u8]) -> String {
+    digest.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// Dosyanın SHA-256'sı (onaltılık).
@@ -109,11 +152,22 @@ pub fn file_sha256(path: &Path) -> Result<String, ModelError> {
         }
         hasher.update(&buffer[..n]);
     }
-    Ok(hasher
-        .finalize()
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect())
+    Ok(hex(&hasher.finalize()))
+}
+
+/// Dosyayı en çok `limit` bayt okur; daha büyüğü bozuk paket sayılır.
+fn read_limited(path: &Path, limit: u64, too_big: ModelError) -> Result<Vec<u8>, ModelError> {
+    if std::fs::metadata(path)?.len() > limit {
+        return Err(too_big);
+    }
+    let mut bytes = Vec::new();
+    std::fs::File::open(path)?
+        .take(limit + 1)
+        .read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > limit {
+        return Err(too_big);
+    }
+    Ok(bytes)
 }
 
 /// Saklanan sütun: kelime ayırıcısı, kesme işareti ya da Latin/Yunan/Kiril küçük harf.
@@ -124,17 +178,19 @@ fn kept_letter(c: char) -> bool {
 }
 
 /// Simge listesi (`tokens.txt`: "simge kimlik" satırları; kelime ayırıcısının adı boştur) →
-/// saklanan simgelerin kimlikleri (sütun sırası) ve harf → sütun sözlüğü.
+/// saklanan simgelerin kimlikleri (sütun sırası) ve harf → sütun sözlüğü. Blank 0. simgedir ("<s>";
+/// araştırmanın ölçtüğü düzen).
 fn parse_tokens(text: &str) -> Result<(Vec<usize>, Vocabulary), ModelError> {
     let mut space = None;
     let mut letters: Vec<(char, usize)> = Vec::new();
-    let mut count = 0;
     for line in text.lines() {
         let Some((name, id)) = line.rsplit_once(' ') else {
             continue;
         };
         let id: usize = id.trim().parse().map_err(|_| ModelError::BadTokens)?;
-        count = count.max(id + 1);
+        if id > MAX_TOKEN_ID {
+            return Err(ModelError::BadTokens);
+        }
         let name = name.trim_end_matches(' ');
         let mut chars = name.chars();
         match (chars.next(), chars.next()) {
@@ -143,11 +199,10 @@ fn parse_tokens(text: &str) -> Result<(Vec<usize>, Vocabulary), ModelError> {
             _ => {}
         }
     }
-    // Blank 0. simge ("<s>"; birinci ekibin ve denetimin ölçtüğü düzen).
     let Some(space) = space else {
         return Err(ModelError::BadTokens);
     };
-    if letters.is_empty() || count < 2 {
+    if letters.is_empty() {
         return Err(ModelError::BadTokens);
     }
     letters.sort_by_key(|&(_, id)| id);
@@ -176,17 +231,30 @@ pub struct LyricsModel {
 }
 
 impl LyricsModel {
-    /// Söz paketinin klasöründen açar; model dosyasının özeti `expected_sha256` olmalı.
-    pub fn open(dir: &Path, expected_sha256: &str) -> Result<Self, ModelError> {
-        let model_path = dir.join(MODEL_FILE);
-        if file_sha256(&model_path)? != expected_sha256 {
+    /// Söz paketinin klasöründen açar; iki dosyanın özeti verilenlerle aynı olmalı.
+    pub fn open(dir: &Path, model_sha256: &str, tokens_sha256: &str) -> Result<Self, ModelError> {
+        let tokens = read_limited(
+            &dir.join(TOKENS_FILE),
+            MAX_TOKENS_BYTES,
+            ModelError::BadTokens,
+        )?;
+        if hex(&Sha256::digest(&tokens)) != tokens_sha256 {
+            return Err(ModelError::BadTokens);
+        }
+        let text = String::from_utf8(tokens).map_err(|_| ModelError::BadTokens)?;
+        let (ids, vocab) = parse_tokens(&text)?;
+        let model = read_limited(
+            &dir.join(MODEL_FILE),
+            MAX_MODEL_BYTES,
+            ModelError::WrongModel,
+        )?;
+        if hex(&Sha256::digest(&model)) != model_sha256 {
             return Err(ModelError::WrongModel);
         }
-        let (ids, vocab) = parse_tokens(&std::fs::read_to_string(dir.join(TOKENS_FILE))?)?;
         let plan = tract_onnx::onnx()
             .with_ignore_output_shapes(true)
             .with_ignore_value_info(true)
-            .model_for_path(&model_path)?
+            .model_for_read(&mut model.as_slice())?
             .with_input_fact(0, f32::fact([1, WINDOW_SAMPLES]).into())?
             .into_optimized()?
             .into_runnable()?;
@@ -197,9 +265,10 @@ impl LyricsModel {
         &self.vocab
     }
 
-    /// Bir pencerenin karelerinin log-olasılıkları (saklanan sütunlar), satır satır.
-    fn run_window(&self, samples: &[f32]) -> Result<(usize, Vec<f32>), ModelError> {
-        let n = samples.len() as f64;
+    /// Bir pencerenin karelerinin log-olasılıkları (saklanan sütunlar), satır satır, `WINDOW_FRAMES`
+    /// kare.
+    fn run_window(&self, samples: &[f32]) -> Result<Vec<f32>, ModelError> {
+        let n = samples.len().max(1) as f64;
         let mean = samples.iter().map(|&v| f64::from(v)).sum::<f64>() / n;
         let var = samples
             .iter()
@@ -207,7 +276,7 @@ impl LyricsModel {
             .sum::<f64>()
             / n;
         let scale = 1.0 / (var + 1e-5).sqrt();
-        // Pencere kısa kalırsa (şarkının sonu) sessizlikle tamamlanır: giriş şekli sabit.
+        // Pencere kısa kalırsa (şarkının sonu ya da kısa şarkı) sessizlikle tamamlanır: şekil sabit.
         let mut input = vec![0f32; WINDOW_SAMPLES];
         for (out, &v) in input.iter_mut().zip(samples) {
             *out = ((f64::from(v) - mean) * scale) as f32;
@@ -221,19 +290,17 @@ impl LyricsModel {
             .ok_or_else(|| ModelError::Run("çıktı yok".into()))?
             .to_plain_array_view::<f32>()?;
         let shape = logits.shape().to_vec();
-        if shape.len() != 3
-            || shape[0] != 1
-            || shape[2] <= self.ids.iter().copied().max().unwrap_or(0)
-        {
+        let max_id = self.ids.iter().copied().max().unwrap_or(0);
+        if shape.len() != 3 || shape[0] != 1 || shape[1] != WINDOW_FRAMES || shape[2] <= max_id {
             return Err(ModelError::Run(format!(
                 "beklenmeyen çıktı şekli {shape:?}"
             )));
         }
-        let (frames, tokens) = (shape[1], shape[2]);
+        let tokens = shape[2];
         let flat = logits
             .as_slice()
             .ok_or_else(|| ModelError::Run("çıktı bitişik değil".into()))?;
-        let mut out = Vec::with_capacity(frames * self.ids.len());
+        let mut out = Vec::with_capacity(WINDOW_FRAMES * self.ids.len());
         for row in flat.chunks_exact(tokens) {
             let max = row.iter().copied().fold(f32::NEG_INFINITY, f32::max);
             let sum: f64 = row.iter().map(|&v| f64::from(v - max).exp()).sum();
@@ -244,16 +311,23 @@ impl LyricsModel {
                     .map(|&id| (f64::from(row[id]) - log_z) as f32),
             );
         }
-        Ok((frames, out))
+        Ok(out)
     }
 
-    /// Şarkının emisyonları. `audio`: 16 kHz mono. `cancel` her pencereden önce denetlenir.
+    /// Şarkının emisyonları. `audio`: 16 kHz mono. `cancel` her pencere grubundan önce denetlenir.
     pub fn emissions(&self, audio: &[f32], cancel: &AtomicBool) -> Result<Emissions, ModelError> {
+        if audio.len() < MIN_SAMPLES {
+            return Err(ModelError::TooShort);
+        }
+        if audio.len() > MAX_SECS * SAMPLE_RATE as usize {
+            return Err(ModelError::TooLong);
+        }
+        let audio: Vec<f32> = audio.iter().copied().map(finite).collect();
         let columns = self.ids.len();
-        let total = audio.len().div_ceil(FRAME_SAMPLES).max(1);
+        let total = audio.len().div_ceil(FRAME_SAMPLES);
         let mut log_probs = vec![0f32; total * columns];
         let mut filled = vec![false; total];
-        let margin = (WINDOW_SAMPLES - HOP_SAMPLES) as f64 / 2.0;
+        let margin = (WINDOW_SAMPLES - HOP_SAMPLES) / 2;
         let mut starts: Vec<usize> = (0..=audio.len().saturating_sub(WINDOW_SAMPLES))
             .step_by(HOP_SAMPLES)
             .collect();
@@ -263,50 +337,66 @@ impl LyricsModel {
         {
             starts.push(audio.len() - WINDOW_SAMPLES);
         }
-        for (k, &start) in starts.iter().enumerate() {
+        for (group, batch) in starts.chunks(THREADS).enumerate() {
             if cancel.load(Ordering::Relaxed) {
                 return Err(ModelError::Cancelled);
             }
-            let end = (start + WINDOW_SAMPLES).min(audio.len());
-            let (frames, window) = self.run_window(&audio[start..end])?;
-            if frames == 0 {
-                continue;
-            }
-            // Karenin pencere içindeki orta noktası; kenar payı ilk ve son pencerede yok.
-            let step = WINDOW_SAMPLES as f64 / frames as f64;
-            let low = if k == 0 { 0.0 } else { margin };
-            let high = if end >= audio.len() {
-                (end - start) as f64
-            } else {
-                WINDOW_SAMPLES as f64 - margin
-            };
-            for (j, row) in window.chunks_exact(columns).enumerate() {
-                let center = (j as f64 + 0.5) * step;
-                if center < low || center > high {
-                    continue;
-                }
-                let g = ((start as f64 + center) / FRAME_SAMPLES as f64) as usize;
-                if g < total && !filled[g] {
-                    log_probs[g * columns..(g + 1) * columns].copy_from_slice(row);
-                    filled[g] = true;
+            // Her pencere kendi kısa ömürlü iş parçacığında (bkz. modül açıklaması: AVX durumu).
+            let results: Vec<Result<Vec<f32>, ModelError>> = std::thread::scope(|scope| {
+                let handles: Vec<_> = batch
+                    .iter()
+                    .map(|&start| {
+                        let end = (start + WINDOW_SAMPLES).min(audio.len());
+                        let window = &audio[start..end];
+                        scope.spawn(move || self.run_window(window))
+                    })
+                    .collect();
+                handles
+                    .into_iter()
+                    .map(|h| {
+                        h.join()
+                            .unwrap_or_else(|_| Err(ModelError::Run("pencere çöktü".into())))
+                    })
+                    .collect()
+            });
+            for (i, (result, &start)) in results.into_iter().zip(batch).enumerate() {
+                let window = result?;
+                let k = group * THREADS + i;
+                let end = (start + WINDOW_SAMPLES).min(audio.len());
+                // Kenar payı ilk ve son pencerede yok.
+                let low = if k == 0 { 0 } else { margin };
+                let high = if end >= audio.len() {
+                    end - start
+                } else {
+                    WINDOW_SAMPLES - margin
+                };
+                for (j, row) in window.chunks_exact(columns).enumerate() {
+                    let center = FRAME_SAMPLES * j + RECEPTIVE_SAMPLES / 2;
+                    if center < low || center > high {
+                        continue;
+                    }
+                    let g = (start + center) / FRAME_SAMPLES;
+                    if g < total && !filled[g] {
+                        log_probs[g * columns..(g + 1) * columns].copy_from_slice(row);
+                        filled[g] = true;
+                    }
                 }
             }
         }
-        // Boş kalan kare (pencere sınırındaki yuvarlama): en yakın dolu kare.
-        let any = filled.iter().position(|&f| f);
-        if let Some(first) = any {
-            let mut last_filled = first;
-            for (g, &done) in filled.iter().enumerate() {
-                if done {
-                    last_filled = g;
-                } else {
-                    let source = if g < first { first } else { last_filled };
-                    let (a, b) = (source * columns, g * columns);
-                    log_probs.copy_within(a..a + columns, b);
-                }
+        // Boş kalan kare (pencerenin ucundaki son yarım kare ya da sınır yuvarlaması): önceki dolu
+        // kare; baştakiler ilk dolu kare.
+        let Some(first) = filled.iter().position(|&f| f) else {
+            return Err(ModelError::TooShort);
+        };
+        let mut last_filled = first;
+        for (g, &done) in filled.iter().enumerate() {
+            if done {
+                last_filled = g;
+            } else {
+                let source = if g < first { first } else { last_filled };
+                let (a, b) = (source * columns, g * columns);
+                log_probs.copy_within(a..a + columns, b);
             }
-        } else {
-            return Err(ModelError::Run("hiç kare üretilmedi".into()));
         }
         Ok(Emissions {
             frames: total,
@@ -322,16 +412,23 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    /// Projenin küçük deneme modeli (`tests/data/soz-modeli/uret.py`): 'a' logiti karenin toplamı
-    /// ×0,1, 'b' ×−0,1.
+    /// Projenin küçük deneme modeli (`tests/data/soz-modeli/uret.py`): gerçek modelin kare geometrisi
+    /// (alıcı alan 400, adım 320); 'a' logiti alıcı alanın toplamı ×0,1, 'b' ×−0,1.
     fn test_dir() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/soz-modeli")
     }
 
+    fn shas(dir: &Path) -> (String, String) {
+        (
+            file_sha256(&dir.join(MODEL_FILE)).expect("özet"),
+            file_sha256(&dir.join(TOKENS_FILE)).expect("özet"),
+        )
+    }
+
     fn open_test_model() -> LyricsModel {
         let dir = test_dir();
-        let sha = file_sha256(&dir.join(MODEL_FILE)).expect("özet");
-        LyricsModel::open(&dir, &sha).expect("model açılır")
+        let (model, tokens) = shas(&dir);
+        LyricsModel::open(&dir, &model, &tokens).expect("model açılır")
     }
 
     /// 37 karelik bloklar (pencere sınırlarıyla hizasız): çift blok +0,5 ('a'), tek blok −0,5 ('b').
@@ -344,6 +441,12 @@ mod tests {
                     -0.5
                 }
             })
+            .collect()
+    }
+
+    fn expected(frames: usize) -> Vec<char> {
+        (0..frames)
+            .map(|g: usize| if (g / 37).is_multiple_of(2) { 'a' } else { 'b' })
             .collect()
     }
 
@@ -364,18 +467,20 @@ mod tests {
 
     #[test]
     fn pencereler_birlesince_her_kare_dogru_yerde() {
+        // 80 sn: dört pencere (0, 20, 40, 50 sn), iki grup; gerçek geometride kare kaymaz (bağımsız
+        // incelemenin karşı örneği: eski eşleme pencerelerin ikinci yarısında 17 kareyi kaydırıyordu).
         let model = open_test_model();
-        // 23,3 sn: üç tam pencere + kısa son; her karenin harfi kendi bloğunun.
-        let frames = 1165;
+        let frames = 4000;
         let em = model
             .emissions(&audio(frames), &AtomicBool::new(false))
             .expect("emisyon");
         assert_eq!(em.frames, frames);
         assert_eq!(em.frame_secs, 0.02);
-        let expected: Vec<char> = (0..frames)
-            .map(|g| if (g / 37).is_multiple_of(2) { 'a' } else { 'b' })
+        let got = argmax_letters(&model, &em);
+        let wrong: Vec<usize> = (0..frames)
+            .filter(|&g| got[g] != expected(frames)[g])
             .collect();
-        assert_eq!(argmax_letters(&model, &em), expected);
+        assert!(wrong.is_empty(), "{} kare yanlış: {wrong:?}", wrong.len());
         // Satırlar log-olasılık: bütün sözlük üzerinden normalize (saklanan sütunların toplamı ≤ 1).
         for t in 0..em.frames {
             let row = &em.log_probs[t * em.columns..(t + 1) * em.columns];
@@ -391,15 +496,64 @@ mod tests {
             .emissions(&audio(150), &AtomicBool::new(false))
             .expect("emisyon");
         assert_eq!(em.frames, 150);
-        let expected: Vec<char> = (0..150)
-            .map(|g| if (g / 37).is_multiple_of(2) { 'a' } else { 'b' })
-            .collect();
-        assert_eq!(argmax_letters(&model, &em), expected);
+        assert_eq!(argmax_letters(&model, &em), expected(150));
         // Bütünüyle sessiz ses de çalışır (sapma 0: ölçek sınırlı).
         let silent = model
             .emissions(&vec![0.0; 3200], &AtomicBool::new(false))
             .expect("emisyon");
         assert!(silent.log_probs.iter().all(|v| v.is_finite()));
+    }
+
+    #[test]
+    fn cok_kisa_ve_cok_uzun_ses() {
+        let model = open_test_model();
+        let no = AtomicBool::new(false);
+        assert!(matches!(
+            model.emissions(&[0.1; 100], &no),
+            Err(ModelError::TooShort)
+        ));
+        let long = vec![0f32; MAX_SECS * SAMPLE_RATE as usize + 1];
+        assert!(matches!(
+            model.emissions(&long, &no),
+            Err(ModelError::TooLong)
+        ));
+    }
+
+    #[test]
+    fn nan_ornek_emisyonu_bozmaz() {
+        // Bağımsız incelemenin karşı örneği: tek bir NaN bütün pencereyi bozuyordu.
+        let model = open_test_model();
+        let mut samples = audio(4000);
+        samples[100_000] = f32::NAN;
+        samples[200_000] = f32::INFINITY;
+        let em = model
+            .emissions(&samples, &AtomicBool::new(false))
+            .expect("emisyon");
+        assert!(em.log_probs.iter().all(|v| v.is_finite()));
+        assert_eq!(argmax_letters(&model, &em), expected(4000));
+    }
+
+    #[test]
+    fn model_cagiran_is_parcacigini_yavaslatmaz() {
+        // Bağımsız incelemenin karşı örneği: tract'ın AVX çekirdekleri `vzeroupper` yapmadan döner;
+        // aynı iş parçacığındaki sonraki kayan nokta işi Intel'de ~19 kat yavaşlıyordu (AMD'de ceza
+        // yok, test orada yanlış alarm vermez).
+        fn work() -> f64 {
+            let t = std::time::Instant::now();
+            let mut x = 0.0f64;
+            for i in 0..3_000_000 {
+                x = (x + (f64::from(i) * -1e-6).exp().ln_1p()) * 0.5;
+            }
+            std::hint::black_box(x);
+            t.elapsed().as_secs_f64()
+        }
+        let model = open_test_model();
+        let before = work().min(work());
+        model
+            .emissions(&audio(1165), &AtomicBool::new(false))
+            .expect("emisyon");
+        let after = work().min(work());
+        assert!(after < 5.0 * before, "{before:.3} → {after:.3} sn");
     }
 
     #[test]
@@ -428,16 +582,35 @@ mod tests {
     }
 
     #[test]
-    fn bilinmeyen_model_acilmaz() {
+    fn bilinmeyen_paket_acilmaz() {
+        let dir = test_dir();
+        let (model, tokens) = shas(&dir);
         assert!(matches!(
-            LyricsModel::open(&test_dir(), MODEL_SHA256),
+            LyricsModel::open(&dir, MODEL_SHA256, &tokens),
             Err(ModelError::WrongModel)
         ));
-        let missing = test_dir().join("yok");
         assert!(matches!(
-            LyricsModel::open(&missing, MODEL_SHA256),
+            LyricsModel::open(&dir, &model, TOKENS_SHA256),
+            Err(ModelError::BadTokens)
+        ));
+        assert!(matches!(
+            LyricsModel::open(&dir.join("yok"), &model, &tokens),
             Err(ModelError::Io(_))
         ));
+        // Bağımsız incelemenin karşı örneği: harfleri karıştırılmış simge listesi (model aynı).
+        let copy = std::env::temp_dir().join(format!("lyraska-soz-paketi-{}", std::process::id()));
+        std::fs::create_dir_all(&copy).expect("klasör");
+        std::fs::copy(dir.join(MODEL_FILE), copy.join(MODEL_FILE)).expect("kopya");
+        std::fs::write(
+            copy.join(TOKENS_FILE),
+            "<s> 0\n<pad> 1\n</s> 2\n<unk> 3\n  4\nb 5\na 6\nR 7\n",
+        )
+        .expect("yaz");
+        assert!(matches!(
+            LyricsModel::open(&copy, &model, &tokens),
+            Err(ModelError::BadTokens)
+        ));
+        let _ = std::fs::remove_dir_all(&copy);
     }
 
     #[test]
@@ -460,6 +633,11 @@ mod tests {
         ));
         assert!(matches!(
             parse_tokens("  4\na x\n"),
+            Err(ModelError::BadTokens)
+        ));
+        // Bağımsız incelemenin karşı örneği: çok büyük kimlik taşmaz, reddedilir.
+        assert!(matches!(
+            parse_tokens("<s> 0\n  4\na 18446744073709551615\n"),
             Err(ModelError::BadTokens)
         ));
     }
