@@ -48,17 +48,43 @@ export interface IntensityProfile {
   /** Dropta strobun notası (vuruş başına çakma; 0 = strob yok) ve süresi (ölçü). */
   strobePerBeat: number;
   strobeBars: number;
+  /** Strob çakmasının gücü (0..1): Normal'de yumuşak, tam çakma Çılgın'da (sahibinin kararı, 30 Ekim). */
+  strobeLevel: number;
   /** Kamera hareketinin ve süpürmenin hız katı. */
   camera: number;
   sweep: number;
-  /** Drop vuruşunun gücü (pozlama sıçraması). */
+  /** Drop vuruşunun gücü (pozlama sıçraması: drop flaşı). Normal'de yumuşak, tam flaş Çılgın'da. */
   hit: number;
 }
 
 export const INTENSITY_PROFILES: Record<Intensity, IntensityProfile> = {
-  calm: { beams: 0.55, strobePerBeat: 0, strobeBars: 0, camera: 0.6, sweep: 0.6, hit: 0.45 },
-  normal: { beams: 1, strobePerBeat: 2, strobeBars: 2, camera: 1, sweep: 1, hit: 1 },
-  wild: { beams: 1.4, strobePerBeat: 4, strobeBars: 4, camera: 1.45, sweep: 1.5, hit: 1.3 },
+  calm: {
+    beams: 0.55,
+    strobePerBeat: 0,
+    strobeBars: 0,
+    strobeLevel: 0,
+    camera: 0.6,
+    sweep: 0.6,
+    hit: 0.45,
+  },
+  normal: {
+    beams: 1,
+    strobePerBeat: 2,
+    strobeBars: 2,
+    strobeLevel: 0.4,
+    camera: 1,
+    sweep: 1,
+    hit: 0.6,
+  },
+  wild: {
+    beams: 1.4,
+    strobePerBeat: 4,
+    strobeBars: 4,
+    strobeLevel: 1,
+    camera: 1.45,
+    sweep: 1.5,
+    hit: 1.3,
+  },
 };
 
 export function isIntensity(value: unknown): value is Intensity {
@@ -495,7 +521,7 @@ function applyDrop(
   if (prof.strobePerBeat > 0 && seconds < prof.strobeBars * barSecs) {
     const flashes = pos.beatPhase * prof.strobePerBeat;
     const phase = flashes - Math.floor(flashes);
-    cue.strobe = (phase < 0.32 ? 1 : 0) * Math.max(0.6, strength);
+    cue.strobe = (phase < 0.32 ? 1 : 0) * Math.max(0.6, strength) * prof.strobeLevel;
     cue.strobeActive = true;
   }
   // Kamera: drop karesinde ileri fırlar, yayla oturur; görüş açısı açılıp daralır.

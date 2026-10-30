@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { useLightShowIntensity } from "../hooks/useLightShowIntensity";
 import type { ScenePresetControls } from "../hooks/useScenePresets";
 import { defaultLooks } from "../lib/sceneLook";
+import { GALLERY_SCENES } from "../lib/scene";
 import { SceneGallery } from "./SceneGallery";
 
 const presets: ScenePresetControls = {
@@ -46,7 +47,7 @@ describe("Işık Ustası'nın yoğunluğu", () => {
     );
     expect(
       within(screen.getByRole("group", { name: "Galeri" })).getAllByRole("button"),
-    ).toHaveLength(10);
+    ).toHaveLength(GALLERY_SCENES.length);
     const chips = within(screen.getByRole("group", { name: "Yoğunluk" })).getAllByRole("button");
     expect(chips.map((c) => c.textContent)).toEqual(["Sakin", "Normal", "Çılgın"]);
     expect(chips[1]).toHaveAttribute("aria-pressed", "true");
@@ -55,7 +56,7 @@ describe("Işık Ustası'nın yoğunluğu", () => {
     // Başka sahnede yoğunluk görünmez.
     rerender(
       <SceneGallery
-        scene="sea"
+        scene="nebula"
         onChoose={() => undefined}
         presets={presets}
         intensity="normal"

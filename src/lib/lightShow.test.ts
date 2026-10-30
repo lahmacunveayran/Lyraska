@@ -18,6 +18,7 @@ import {
   keyPalette,
   liveInput,
   loadIntensity,
+  lightProxy,
   saveIntensity,
   secondaryKey,
   showCue,
@@ -188,8 +189,10 @@ describe("kurgu: şarkının evreleri", () => {
     const drop = cue(at(24) + 0.01);
     expect(drop.phase).toBe("drop");
     expect(drop.back + drop.floor + drop.laser).toBeGreaterThan(20);
-    expect(drop.hit).toBeGreaterThan(0.85);
-    expect(drop.level).toBeGreaterThan(1.5);
+    // Normal'de drop flaşı yumuşak (sahibinin kararı, 30 Ekim); tam flaş Çılgın'da.
+    expect(drop.hit).toBeGreaterThan(0.5);
+    expect(cue(at(24) + 0.01, { intensity: "wild" }).hit).toBeGreaterThan(1);
+    expect(drop.level).toBeGreaterThan(1.4);
     // Kurulumda çakma doruğa yaklaştıkça hızlanır.
     expect([8, 4, 2, 1].map(buildRate)).toEqual([1, 2, 4, 8]);
   });
@@ -199,17 +202,34 @@ describe("kurgu: şarkının evreleri", () => {
       const onBeat = cue(at(24) + k * BEAT + 0.01);
       const offBeat = cue(at(24) + k * BEAT + BEAT * 0.4);
       expect(onBeat.strobeActive).toBe(true);
-      expect(onBeat.strobe).toBeGreaterThan(0.5);
+      // Normal'de çakma yumuşak (tam çakma Çılgın'da).
+      expect(onBeat.strobe).toBeGreaterThan(0.3);
+      expect(onBeat.strobe).toBeLessThan(0.5);
+      expect(cue(at(24) + k * BEAT + 0.01, { intensity: "wild" }).strobe).toBeGreaterThan(0.5);
       expect(offBeat.strobe).toBe(0);
     }
     // Normal: vuruşta iki çakma; Çılgın: dört.
-    expect(cue(at(24) + BEAT * 0.55).strobe).toBeGreaterThan(0.5);
+    expect(cue(at(24) + BEAT * 0.55).strobe).toBeGreaterThan(0.3);
     expect(cue(at(24) + BEAT * 0.3, { intensity: "wild" }).strobe).toBeGreaterThan(0.5);
     expect(cue(at(24) + BEAT * 0.3).strobe).toBe(0);
     // Normal'de strob iki ölçü sürer.
     expect(cue(at(26) + 0.01).strobeActive).toBe(false);
     for (let k = 0; k < 8; k++)
       expect(cue(at(24) + k * BEAT + 0.01, { intensity: "calm" }).strobe).toBe(0);
+  });
+
+  it("Normal'de drop flaşı yumuşak: dropun ilk ölçüsünün en parlak anı Çılgın'ınkinin yarısı kadar", () => {
+    // Sahibinin kararı (30 Ekim): Normal'de drop flaşı yumuşar, tam flaş Çılgın'da.
+    const peak = (intensity: Intensity) => {
+      let max = 0;
+      for (let t = 0; t < 4 * BEAT; t += 1 / 120) {
+        max = Math.max(max, lightProxy(cue(at(24) + t, { intensity })));
+      }
+      return max;
+    };
+    const [calm, normal, wild] = (["calm", "normal", "wild"] as Intensity[]).map(peak);
+    expect(normal).toBeLessThan(0.6 * wild!);
+    expect(normal).toBeGreaterThan(calm!);
   });
 
   it("kırılma, yüksek bölüm, çıkış; son doruk geniş çekim", () => {
