@@ -84,6 +84,16 @@ pub struct PlaybackStatus {
     pub state: PlaybackState,
     pub track: Option<TrackInfo>,
     pub position_secs: f64,
+    /// Konumun ses çıkışında ölçüldüğü an (Unix zamanı, milisaniye; bilinmiyorsa `None`). Arayüz
+    /// saatini bu ana bağlar (sorgunun gidiş-dönüşünden ve ses aygıtının döneminden bağımsız).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub position_at_ms: Option<f64>,
+    /// Durumun okunduğu an (Unix zamanı, milisaniye). Arayüz iki saatin farkını sorgunun gidiş-dönüşüyle
+    /// sınırlayıp tahmin eder (duvar saati kayar, arayüzün saati kaymaz): `position_at_ms` ona göre çevrilir.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub read_at_ms: Option<f64>,
     #[cfg_attr(test, ts(type = "number"))]
     pub underruns: u64,
     pub error: Option<String>,
@@ -268,7 +278,7 @@ impl Player {
         let level = self.current_level();
         match &self.session {
             Some(session) => {
-                let (track, position_secs) = session.now_playing();
+                let (track, position_secs, heard_at_us) = session.now_playing_timed();
                 let bpm = self
                     .analysis_for(&track.path)
                     .and_then(|a| a.spectrogram.beat_grid())
@@ -282,6 +292,8 @@ impl Player {
                     state: session.state(),
                     track: Some(track),
                     position_secs,
+                    position_at_ms: heard_at_us.map(|us| us as f64 / 1000.0),
+                    read_at_ms: Some(session::unix_micros() as f64 / 1000.0),
                     underruns: session.shared.underruns.load(Ordering::Relaxed),
                     error: session.shared.error(),
                     bpm,
@@ -293,6 +305,8 @@ impl Player {
                 state: self.state(),
                 track: self.pending.as_ref().and_then(|p| p.track.clone()),
                 position_secs: self.pending.as_ref().map_or(0.0, |p| p.position_secs),
+                position_at_ms: None,
+                read_at_ms: None,
                 underruns: 0,
                 error: self.last_error.clone(),
                 bpm: None,

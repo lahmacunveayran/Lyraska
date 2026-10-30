@@ -68,7 +68,7 @@ lyraska/
 ├── src/                      # Arayüz (React + TypeScript)
 │   ├── components/           # React bileşenleri: PlayerScreen (sahne tüm pencere; üstünde cam katmanlar:
 │   │                         # NowPlaying büyük başlık, InfoStack drop sayacı ve sıradaki, SeekBar şarkı haritası
-│   │                         # şeridi, LyricsOverlay kinetik sözler; sahneler SceneStage'de, galeri ShaderScene + SceneGallery, MilkDropScene kullanıcının .milk görselleri, PhotoScene kullanıcının resmi ve ışık çizgisi; sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
+│   │                         # şeridi, LyricsOverlay kinetik sözler, PhotoLyrics "Kendi resmin" başlığının altındaki söz satırı; sahneler SceneStage'de, galeri ShaderScene + SceneGallery, MilkDropScene kullanıcının .milk görselleri, PhotoScene kullanıcının resmi ve ışık çizgisi; sağdan açılan çekmecede kütüphane, ekolayzer, işaretleme, senkron, kör test,
 │   │                         # ayarlar; her panel ve sahne bir ErrorBoundary içinde: hata yalnızca o bölümü kapatır).
 │   │                         # Klasik sahneler SkyScene, HighwayScene, DriveScene, VuScene (VuMeter), SpectrumView
 │   │                         # (DotMatrix, SpectrumDemo karşılama gösterisi); paneller LibraryPanel (AlbumGrid albüm ızgarası, AlbumPage albüm sayfası: kapak, Çal, albüm sırasıyla şarkılar, ArtistGrid sanatçı levhaları, ArtistPage sanatçı sayfası: levha, albümler, şarkılar, TrackTable sayfaların şarkı listesi, SkyView gökyüzü: ton ve tempoya göre yıldızlar, PlaylistGrid ve PlaylistPage çalma listeleri, PlaylistCover kapak ya da kolaj, AddToPlaylist "Listeye ekle" menüsü, RevealButton şarkı satırında "dosya konumunu aç", SongCoverMenu şarkı satırında kapak seçme, songCoverContext onun işlemleri), EqualizerPanel
@@ -84,7 +84,7 @@ lyraska/
 │   │                         # useSkyLook (gece göğünün manzarası: göl, korona, karlı vadi), useCover (kapak),
 │   │                         # useAbx (kör test), useSongKey (çalan şarkının tonu), useParametric (elle
 │   │                         # parametrik EQ), useCrossfeed (crossfeed), useMapFile (şarkı haritası dosyası),
-│   │                         # useLyrics (şarkı sözleri), useScenePresets (galeri sahnelerinin görünümü ve
+│   │                         # useLyrics (şarkı sözleri, şarkı başına söz kaydırma: Alt+←/→), useScenePresets (galeri sahnelerinin görünümü ve
 │   │                         # hazır ayarlar), useMilkdrop (MilkDrop klasörü, görseller, önceki/sonraki), useBackgroundImage ("Kendi resmin" sahnesinin resmi), useBackgroundSource (resim sabit mi hareketli mi; hareketlinin kareleri), usePhotoParticles ("Kendi resmin" parçacıkları: Kıvılcım, Kar, Kapalı), useAlbums (albüm listesi), useArtists (sanatçı listesi), usePlaylists (çalma listeleri)
 │   ├── lib/                  # Saf yardımcılar (format, meter, dotFont, vu, sky, highway, queue, sync, songMap,
 │   │                         # analysis: BPM sütunu, drop: bırakma bildirimi, eq: ekolayzer bantları,
@@ -111,7 +111,7 @@ lyraska/
 │   │   ├── commands.rs       # Arayüzün çağırdığı ince Tauri komutları
 │   │   ├── audio/            # Ses motoru
 │   │   │   ├── decode.rs     #   symphonia ile çözme → f64 örnekler, etiketler, kapak resmi, gömülü sözler
-│   │   │   ├── lyrics.rs     #   şarkı sözleri: yan .lrc ya da gömülü; LRC, kelime zamanları, Türkçe kodlamalar (saklanmaz)
+│   │   │   ├── lyrics.rs     #   şarkı sözleri: kullanıcının düzenlediği, yan .lrc ya da gömülü; LRC, kelime zamanları, Türkçe kodlamalar
 │   │   │   ├── gapless.rs    #   boşluksuz çalma: MP4/AAC kodlayıcı dolgusu (iTunSMPB, elst)
 │   │   │   ├── eq.rs         #   10 bant ekolayzer: taşma düzeltmeli tasarım, kilitsiz ayar, yumuşak geçiş
 │   │   │   ├── bass.rs       #   bas düğmesi (raf, 0–18 dB), derinlik (alt oktav), küçük hoparlör bası, bas tepesi ölçümü
@@ -144,6 +144,7 @@ lyraska/
 │   │   │   ├── playlist_file.rs # çalma listesini taşıma: .m3u8 yazma/okuma, şarkıyı yol/etiket/dosya adıyla bulma
 │   │   │   ├── playlists.rs  #   çalma listeleri: ad, sıra (yolla; aynı şarkı iki kez olabilir), kolaj için albümler
 │   │   │   ├── covers.rs     #   kullanıcının albüme ve çalma listesine seçtiği kapaklar, "Kendi resmin" arka planı (hareketli resim en çok 600 kare / 50 milyon piksel; veri klasöründe `kapaklar/`; müzik dosyalarına dokunulmaz)
+│   │   │   ├── user_lyrics.rs #  kullanıcının yapıştırıp düzenlediği sözler (veri klasöründe `sozler/`; müzik dosyasına dokunulmaz; her zaman önce)
 │   │   │   ├── service.rs    #   arka plan taraması; komutların kullandığı katman
 │   │   │   └── watch.rs      #   klasör izleme (notify): eklenen/silinen şarkıda yalnızca o alt klasör taranır (2 sn
 │   │   │                     #   sessizlik; yazılan dosya bitene kadar beklenir); kaybolan kök 2 dk'da bir aranır, 30 dk'da bir izleme yenileme + tam tarama

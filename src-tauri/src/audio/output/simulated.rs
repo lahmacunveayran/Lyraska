@@ -85,7 +85,7 @@ pub fn spawn(
                 let paused = shared.paused.load(Ordering::Acquire);
                 let outcome = renderer.render(&mut source, &mut out, paused);
                 consumed += outcome.frames_consumed as u64;
-                shared.output_heard.store(consumed, Ordering::Release);
+                shared.record_heard(consumed, false);
                 // Sanal aygıtın arabelleği yok: yazılan hemen "çalınır".
                 let silent = paused && renderer.gain() == 0.0;
                 fade.wrote(frames_per_step, silent, renderer.latency_frames());

@@ -552,6 +552,34 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
   yanıp sönme gördüyseniz (görselin adıyla, hemen); takılma ya da donma varsa görselin adı ve bilgisayarın ekran
   kartı.
 
+**E11. Sözler tam zamanında (0.0.91)**
+
+- Nasıl: Yanında zamanlı `.lrc` dosyası olan (ya da sözleri gömülü), iyi bildiğiniz bir şarkıyı çalın; kablolu
+  kulaklıkla, sonra Bluetooth kulaklıkla (önce **Senkron → Ölçümü başlat**).
+- Neye bakılır: her kelime, şarkıcı onu söylediği anda renklenmeli; satır, söylenmeye başlamadan hemen önce belirmeli.
+  Önceki sürüme göre sözler biraz daha erken (yaklaşık 0,1 sn) gelir: artık geride kalmamalı. Sarınca ve
+  duraklatıp sürdürünce de doğru yerden devam etmeli.
+- Bildirin: sözler hep geride ya da hep önde mi (bütün şarkılarda mı, yalnızca bir şarkıda mı: tek şarkıdaysa çoğu
+  zaman `.lrc` dosyasının kendi hatasıdır); şarkının adı.
+
+**E12. Şarkı başına söz kaydırma (0.0.92)**
+
+- Nasıl: Sözleri hep biraz erken ya da geç gelen bir şarkıda, çalarken **Alt+→** (sözler 50 ms daha geç) ya da
+  **Alt+←** (daha erken) basın; sözlerin üstünde kısa bir not ("Sözler: +0,15 sn (daha geç)") çıkar. Aynı ayar
+  **Ayarlar → Şarkı sözleri → Bu şarkının sözleri** satırında − / + / Sıfırla ile de yapılır.
+- Neye bakılır: birkaç basışta sözler tam oturmalı; başka bir şarkıya geçince o şarkının kendi ayarı (genelde 0)
+  gelmeli; programı kapatıp açınca ayar hatırlanmalı. Düz ←/→ eskisi gibi 5 sn sarar, Alt'lı olanlar sarmaz.
+- Bildirin: kısayol çalışmıyorsa ya da başka bir şey yapıyorsa (ör. sayfa değişiyor).
+
+**E13. "Kendi resmin" sözleri (0.0.93)**
+
+- Nasıl: Zamanlı sözü olan bir şarkıyı "Kendi resmin" sahnesinde çalın; fareyi kıpırdatın, sonra bırakın.
+- Neye bakılır: sözler çubuk çizgisinin üstünde, sanatçı adının altında tek satır; söylenen kelime çubuk renginde
+  ışıldar ve tam söylendiği anda yanar. Fare kıpırdarken (düğmeler görünürken) aynı söz satırı ekranın üst ortasına
+  geçer (alttaki büyük başlıkla çakışmasın); başlık ve saat yalnızca sinema görünümünde gelir. Uzun satır önce küçülür, sığmazsa söylendikçe kayar. Epilepsi güvenli modunda
+  ışıltı yok, kelimeler yavaşça belirir.
+- Bildirin: söz satırı başka bir şeyin üstüne biniyor mu; ışıltı yeterince görünür mü (daha belirgin olsun mu).
+
 ## F. Hata günlüğü
 
 **F1. Hata günlüğü açılıyor**

@@ -782,18 +782,23 @@ kbd {
   line-height: 1.18;
   letter-spacing: -0.01em;
   color: var(--ink);
-  transition: opacity 0.12s linear;
 }
 
+/* Kelime söylendiği karede yanar: saydamlığın CSS geçişi onu geciktirirdi (söz zamanlaması). */
 .lyrics__word {
   display: inline-block;
   white-space: pre;
   opacity: 0.34;
-  transition: opacity 0.12s linear;
 }
 
 .lyrics__word.is-sung {
   opacity: 1;
+}
+
+/* Epilepsi güvenli modu: saydamlık yumuşak geçişle değişir (zamanlamadan önce güvenli mod). */
+.lyrics.is-safe .lyrics__line,
+.lyrics.is-safe .lyrics__word {
+  transition: opacity 0.12s linear;
 }
 
 /* Söylenen kelime: belirir ve alttan yerine oturur (yalnızca konum ve boyut; parlaklık sabit). */
@@ -819,13 +824,34 @@ kbd {
   color: var(--ink-3);
 }
 
+/* Söz kaydırma kısayolunun kısa notu: sözlerin üstünde küçük. */
+.lyrics-notice {
+  position: absolute;
+  top: calc(16% - 44px);
+  left: 50%;
+  z-index: 3;
+  margin: 0;
+  padding: 4px 12px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: var(--glass-strong);
+  color: var(--ink-2);
+  font-family: var(--font-figures);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.app.has-drawer .lyrics-notice {
+  left: calc((100vw - var(--drawer-width)) / 2);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lyrics__word.is-current {
     transform: none;
   }
 
-  .lyrics__line,
-  .lyrics__word {
+  .lyrics.is-safe .lyrics__line,
+  .lyrics.is-safe .lyrics__word {
     transition: none;
   }
 }
@@ -1653,6 +1679,24 @@ kbd {
   font-size: 13px;
   line-height: 1.55;
   color: var(--ink-3);
+}
+
+/* Ayar satırı: ad, − değer + ve Sıfırla (söz kaydırma). */
+.settings__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.settings__value {
+  min-width: 150px;
+  font-family: var(--font-figures);
+  color: var(--ink);
+  text-align: center;
 }
 
 .settings__warn {
@@ -5647,6 +5691,114 @@ kbd {
   white-space: nowrap;
   text-overflow: ellipsis;
   opacity: 0.85;
+}
+
+/* Şarkı sözleri (sözü olan şarkıda): sanatçı adının altında tek satır. Yer sabit (satır değişince
+   başlık zıplamaz); sütun saatin yanına dek genişler. İnce, okunur yazı; büyük harf yok (Türkçe
+   harfler olduğu gibi), başlığın kalın kenarı da yok. */
+.photo-scene.has-lyrics .photo-scene__song {
+  flex: 1 1 auto;
+}
+
+/* Denetimler görünürken "Kendi resmin" sözleri üst ortada aynı tek satır (başlık bloğunun yeri alttaki
+   büyük başlıkla çakışır); uzun satır kırılmaz, küçülür ya da kayar. */
+.photo-lyrics-top {
+  --lyric-size: clamp(15px, 1.45vw, 26px);
+  position: absolute;
+  top: 16%;
+  left: 50%;
+  z-index: 3;
+  width: min(900px, 80vw);
+  height: calc(var(--lyric-size) * 1.5);
+  overflow: hidden;
+  transform: translateX(-50%);
+  font-family: "Inter Variable", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  font-size: var(--lyric-size);
+  color: var(--ink);
+  text-align: center;
+  text-shadow:
+    0 0 1px rgba(0, 0, 0, 0.85),
+    0 1px 8px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.photo-lyrics-top .photo-lyrics.is-panning {
+  text-align: left;
+}
+
+.app.has-drawer .photo-lyrics-top {
+  left: calc((100vw - var(--drawer-width)) / 2);
+  width: min(800px, calc(100vw - var(--drawer-width) - 80px));
+}
+
+.photo-scene__lyrics {
+  --lyric-size: clamp(15px, 1.45vw, 26px);
+  height: calc(var(--lyric-size) * 1.5);
+  margin-top: 0.55em;
+  overflow: hidden;
+  font-family: "Inter Variable", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  font-size: var(--lyric-size);
+  -webkit-text-stroke: 0;
+}
+
+.photo-lyrics {
+  margin: 0;
+  overflow: hidden;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.photo-lyrics__line {
+  display: inline-block;
+  font-size: calc(var(--lyric-size) * var(--lyric-scale, 1));
+  font-weight: 360;
+  letter-spacing: 0.03em;
+  transition: transform 0.6s cubic-bezier(0.3, 0, 0.2, 1);
+}
+
+/* Saydamlık ve ışıltı söylendiği karede değişir (CSS geçişi gecikme süzgeci olurdu; söz
+   zamanlaması, docs/arastirma/sozler); yalnızca ışıltının sönüşü yavaş. */
+.photo-lyrics__word {
+  white-space: pre;
+  opacity: 0.5;
+  transition: text-shadow 0.45s ease-out;
+}
+
+.photo-lyrics__word.is-sung {
+  opacity: 0.9;
+}
+
+.photo-lyrics__word.is-current {
+  opacity: 1;
+}
+
+/* Söylenen kelime çubuk renginden hafifçe ışıldar (`--photo-glow`, PhotoScene yazar). */
+.photo-lyrics__word.is-glow {
+  color: color-mix(in srgb, #fff 74%, rgb(var(--photo-glow, 255 255 255)));
+  text-shadow:
+    0 0 1px rgba(0, 0, 0, 0.6),
+    0 0 0.25em rgb(var(--photo-glow, 255 255 255) / 0.95),
+    0 0 0.7em rgb(var(--photo-glow, 255 255 255) / 0.75),
+    0 0 1.4em rgb(var(--photo-glow, 255 255 255) / 0.4);
+  transition: none;
+}
+
+/* Epilepsi güvenli modu: ışıltı yok, kelimeler yalnızca yavaş saydamlıkla ayrılır. */
+.photo-lyrics.is-safe {
+  transition: opacity 0.5s linear;
+}
+
+.photo-lyrics.is-safe .photo-lyrics__word {
+  transition: opacity 0.6s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo-lyrics,
+  .photo-lyrics__line,
+  .photo-lyrics__word,
+  .photo-lyrics__word.is-glow {
+    transition: none;
+  }
 }
 
 .photo-scene__clock {

@@ -7,7 +7,12 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 
 Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/README.md` (yedek dallar).
 
-1. Söz zamanlaması: programın ve ses gecikmesinin payı ölçülür ve düzeltilir (< 1 kare); şarkı başına söz kaydırma.
+1. Söz zamanlaması bitti (0.0.91–0.0.95 tek PR'da; `docs/arastirma/sozler/`). Kalan küçük iş: ölçülen kare süresi
+   ve ortak saat görsellere de (şimdilik sabit 1/60 sn).
+   1b. **Söz düzenleme** (sahibinin isteği, 30 Ekim): kullanıcı bulduğu düz metni yapıştırır, düzenler; Lyraska'nın veri
+   klasöründe saklanır (müzik dosyasına dokunulmaz; isteğe bağlı .lrc dışa aktarma; öncelik: düzenlenen > yan .lrc >
+   gömülü); zamanlama şarkı çalarken dokunarak (Boşluk/Enter), sonra satır satır −/+. Üç parça: kayıt ve öncelik
+   (0.0.95, söz PR'ında) → yapıştır/düzenle paneli (`-yedek-soz-panel`, sahibinin onayında) → dokunarak zamanlama. Otomatik hizalamanın (6) girdisi olur.
 2. "Kendi resmin" çubuk tepkisi (orta bölge 2–10 kat ölü; önce teşhis, gerekirse model baştan).
 3. Ses motoru denetimi: 64-bit, EQ, AutoEq, EBU R128, bit-perfect, ABX + DENETIM-3 (dallar `ccr-a69bd749-djgi3v`,
    `ccr-a46535b3-m3v2i5`) + #56.
@@ -15,8 +20,10 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
    bitenler, yeni sıra). Tek doğruluk kaynağı ROADMAP + ACIK-KONULAR.
 5. Kaynak ayrıştırma: Spleeter ve Demucs karşılaştırması (kalite, hız, ağırlık lisansı birincil kaynaktan).
 6. Sözlerin sese otomatik hizalanması (vokal ayrıştırmadan sonra).
-7. Sahneler v2 (Işık Ustası hazır: onay + bağımsız inceleme), sonra Otomatik DJ.
-8. En son: drop v2 kararı (`-yedek-drop` dalındaki `docs/arastirma/drop/DURUM.md`); önce DnB temposu (sürekli sub bas
+7. Sahneler v2, sonra Otomatik DJ. Işık Ustası onaylandı (Normal'de drop flaşı yumuşak): söz işlerinden hemen sonra
+   bağımsız inceleme + PR.
+8. En son: drop v2, karar **B** (ikisi programda, varsayılan eski, İşaretle'de yan yana; sahibinin işaretiyle seçim;
+   `-yedek-drop` dalındaki `docs/arastirma/drop/DURUM.md`); önce DnB temposu (sürekli sub bas
    kick kanıtını örtüyor, `tempo.rs`) ve hip-hop drop'u; maksumda yanlış aksak (`meter.rs`).
 
 ## Proje sahibinden beklenenler

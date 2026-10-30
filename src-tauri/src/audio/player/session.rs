@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use rtrb::RingBuffer;
 
@@ -54,6 +54,10 @@ pub struct SharedState {
     /// Oturum başından beri hoparlörden çıkan çıkış karesi sayısı (aygıt hızında).
     /// Çıkış iş parçacığı yazar; şarkı konumu buradan [`Segment`]'lerle hesaplanır.
     pub output_heard: AtomicU64,
+    /// [`Self::output_heard`]'ün ölçüldüğü an (Unix zamanı, mikrosaniye; 0: yazılıyor ya da henüz
+    /// ölçülmedi). Arayüz konumu bu ana bağlar: sorgunun gidiş-dönüşü ve ses aygıtının dönemi
+    /// boyunca sayacın bayatlığı konumu geride bırakmaz. Yalnızca [`Self::record_heard`] yazar.
+    pub output_heard_at_us: AtomicU64,
     /// Oturumda çalınan şarkılar: boşluksuz geçişte çözme iş parçacığı yenisini ekler.
     /// Gerçek zamanlı yolda kullanılmaz.
     pub(super) segments: Mutex<Vec<Segment>>,
@@ -95,9 +99,45 @@ impl SharedState {
         state
     }
 
+    /// Çıkış iş parçacığı: duyulan çıkış karesini ve ölçüldüğü anı birlikte yazar. Önce an
+    /// silinir, sonra sayaç, sonra yeni an: okuyan ([`Self::heard_with_time`]) yarım yazılmış
+    /// çifti tanır. Gerçek zamanlı yolda: bellek ayırmaz, kilit beklemez. `monotonic`: sayaç
+    /// geri gitmez (aygıt tamponunun tahmini bir an geriye kayabilir).
+    pub fn record_heard(&self, frames: u64, monotonic: bool) {
+        self.output_heard_at_us.store(0, Ordering::SeqCst);
+        if monotonic {
+            self.output_heard.fetch_max(frames, Ordering::SeqCst);
+        } else {
+            self.output_heard.store(frames, Ordering::SeqCst);
+        }
+        self.output_heard_at_us
+            .store(unix_micros().max(1), Ordering::SeqCst);
+    }
+
+    /// Duyulan çıkış karesi ve ölçüldüğü an (Unix mikrosaniye) tutarlı bir çift olarak; yazma
+    /// sürerken birkaç kez yeniden okunur, yine olmazsa an bilinmez (`None`).
+    pub(super) fn heard_with_time(&self) -> (u64, Option<u64>) {
+        for _ in 0..4 {
+            let before = self.output_heard_at_us.load(Ordering::SeqCst);
+            let heard = self.output_heard.load(Ordering::SeqCst);
+            let after = self.output_heard_at_us.load(Ordering::SeqCst);
+            if before != 0 && before == after {
+                return (heard, Some(before));
+            }
+        }
+        (self.output_heard.load(Ordering::Acquire), None)
+    }
+
     /// Şu an duyulan şarkı ve o şarkıdaki konumu (saniye).
     pub(super) fn now_playing(&self) -> Option<(TrackInfo, f64)> {
         self.playing_at(0.0)
+    }
+
+    /// Şu an duyulan şarkı, konumu ve konumun ölçüldüğü an (Unix mikrosaniye; bilinmiyorsa `None`).
+    pub(super) fn now_playing_timed(&self) -> Option<(TrackInfo, f64, Option<u64>)> {
+        let (heard, at) = self.heard_with_time();
+        let (info, seconds) = self.playing_at_frame(heard, 0.0)?;
+        Some((info, seconds, at))
     }
 
     /// Duyulan andan `offset_secs` ötedeki (eksi: önceki) şarkı ve konumu. Görseller ekran
@@ -105,7 +145,11 @@ impl SharedState {
     /// geçişte şarkı da bu kaydırılmış ana göre seçilir ki Bluetooth'ta yeni şarkının ilk
     /// 200 ms'inde eski şarkının sonu gösterilsin, yeni şarkı 0. karede donmasın.
     pub(super) fn playing_at(&self, offset_secs: f64) -> Option<(TrackInfo, f64)> {
-        let heard = self.output_heard.load(Ordering::Acquire);
+        self.playing_at_frame(self.output_heard.load(Ordering::Acquire), offset_secs)
+    }
+
+    /// `heard` çıkış karesinden `offset_secs` ötedeki şarkı ve konumu.
+    fn playing_at_frame(&self, heard: u64, offset_secs: f64) -> Option<(TrackInfo, f64)> {
         let segments = self.segments.lock().ok()?;
         let first = segments.first()?;
         // Aygıt hızı oturum boyunca sabittir: şarkı hızı / oran.
@@ -291,6 +335,13 @@ impl Session {
             .unwrap_or_else(|| (self.info.clone(), 0.0))
     }
 
+    /// Şu an duyulan şarkı, konumu ve konumun ölçüldüğü an (Unix mikrosaniye).
+    pub(super) fn now_playing_timed(&self) -> (TrackInfo, f64, Option<u64>) {
+        self.shared
+            .now_playing_timed()
+            .unwrap_or_else(|| (self.info.clone(), 0.0, None))
+    }
+
     /// Duyulan andan `offset_secs` ötedeki şarkı ve konumu (görseller için).
     pub(super) fn playing_at(&self, offset_secs: f64) -> (TrackInfo, f64) {
         self.shared
@@ -345,4 +396,14 @@ pub(crate) fn wait_for_prefill(shared: &SharedState, timeout: Duration) {
     while !shared.prefilled.load(Ordering::Acquire) && Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(2));
     }
+}
+
+/// Şimdiki an (Unix zamanı, mikrosaniye; saat 1970'ten önceyse 0). Arayüzün saati
+/// (`performance.timeOrigin + performance.now()`) aynı duvar saatine bağlıdır.
+pub(crate) fn unix_micros() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| u64::try_from(d.as_micros()).ok())
+        .unwrap_or(0)
 }

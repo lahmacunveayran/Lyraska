@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use rtrb::RingBuffer;
 
 use super::decode_thread::decode_loop;
-use super::session::{derive_state, Segment, RING_SECONDS};
+use super::session::{derive_state, unix_micros, Segment, RING_SECONDS};
 use super::transition::MAX_DEVICE_RECOVERIES;
 use super::*;
 use crate::analysis::cache::{AnalysisCache, FileStamp};
@@ -1771,5 +1771,89 @@ fn spektrum_calarken_ses_gorunur() {
     let levels = player.visual_spectrum().unwrap();
     assert_eq!(levels.len(), spectrum::BARS);
     assert!(levels.iter().all(|v| (0.0..=1.0).contains(v)));
+    std::fs::remove_file(path).ok();
+}
+
+#[test]
+fn duyulan_sayac_olculdugu_anla_birlikte_okunur() {
+    // Söz zamanlaması: arayüz konumu, çıkışın sayacı ölçtüğü ana bağlar.
+    let shared = SharedState::new(false, test_segment(), RenderControls::default());
+    assert_eq!(shared.heard_with_time(), (0, None)); // henüz ölçülmedi
+    let before = unix_micros();
+    shared.record_heard(8_000, true);
+    let after = unix_micros();
+    let (heard, at) = shared.heard_with_time();
+    assert_eq!(heard, 8_000);
+    let at = at.unwrap();
+    assert!(before <= at && at <= after, "{before} ≤ {at} ≤ {after}");
+    // Sayaç geri gitmez (aygıt tamponunun tahmini); an yine güncellenir.
+    std::thread::sleep(Duration::from_millis(2));
+    shared.record_heard(4_000, true);
+    let (heard, later) = shared.heard_with_time();
+    assert_eq!(heard, 8_000);
+    assert!(later.unwrap() > at);
+    // Konum ölçüm anıyla: 8000 kare = 8 kHz'de 1 sn.
+    let (_, seconds, timed) = shared.now_playing_timed().unwrap();
+    assert!((seconds - 1.0).abs() < 1e-12);
+    assert_eq!(timed, later);
+}
+
+#[test]
+fn yazilirken_okunan_cift_tutarli() {
+    // Yazan iş parçacığı sayacı ve anı sürekli yeniler; okuyan hiçbir zaman yarım yazılmış çifti
+    // (yeni sayaç + 0 an) almamalı; an bilindiğinde sayaçla birlikte ileri gitmeli.
+    let shared = Arc::new(SharedState::new(
+        false,
+        test_segment(),
+        RenderControls::default(),
+    ));
+    shared.record_heard(1, false);
+    let writer = {
+        let shared = Arc::clone(&shared);
+        std::thread::spawn(move || {
+            for frames in 2..200_000u64 {
+                shared.record_heard(frames, false);
+            }
+        })
+    };
+    let mut last = (0u64, 0u64);
+    let mut timed = 0;
+    while !writer.is_finished() {
+        let (heard, at) = shared.heard_with_time();
+        if let Some(at) = at {
+            timed += 1;
+            assert!(at > 0);
+            assert!(
+                heard >= last.0 && at >= last.1,
+                "geri gitti: {last:?} → ({heard}, {at})"
+            );
+            last = (heard, at);
+        }
+    }
+    writer.join().unwrap();
+    assert!(timed > 0);
+}
+
+#[test]
+fn durum_konumun_olculdugu_ani_bildirir() {
+    let path = ramp_song("olcum-ani.wav");
+    let mut player = Player::new();
+    player.load(&path, true).unwrap();
+    assert!(wait_until(|| player.status().position_secs > 0.05));
+    let before = unix_micros() as f64 / 1000.0;
+    let status = player.status();
+    let at = status.position_at_ms.expect("çalarken ölçüm anı bilinir");
+    let read = status.read_at_ms.expect("durumun okunduğu an bilinir");
+    assert!(
+        at <= read && read <= unix_micros() as f64 / 1000.0 + 1.0,
+        "{at} ≤ {read}"
+    );
+    // Sanal çıkış birkaç ms'de bir yazar: ölçüm sorgudan kısa süre önce.
+    assert!(
+        at <= before + 1.0 && before - at < 500.0,
+        "an {at}, sorgu {before}"
+    );
+    player.stop().unwrap();
+    assert_eq!(player.status().position_at_ms, None);
     std::fs::remove_file(path).ok();
 }

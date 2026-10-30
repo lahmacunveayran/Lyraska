@@ -23,6 +23,9 @@ kısaltılır.
 - **Küçük PR (proje sahibinin isteği, 23 Ekim 2026):** bir PR = bir iş. Büyük iş en başta parçalara bölünür, ilk
   parça hızla birleştirilip test sürümüne girer. Büyük, çok parçalı PR'lar (ör. #104: çevirici + parlaklık freni
   birlikte) uzun sürdü; her parça ayrı olsaydı daha erken birleşirdi.
+- **Birbirine bağlı parçalar tek PR (sahibinin kararı, 30 Ekim):** her biri öncekinin üstüne kurulu PR zinciri
+  (#144–#148, söz işleri) tek tek CI'dan geçemedi: ilk parçanın eksiğini dördüncüsü kapatıyordu. Parçalar kendi
+  başına yeşil olamıyorsa tek PR açılır; ayrı commit'ler yeter. Zincir değil, bağımsız küçük PR.
 - **Paralel ajanlar ("swarm") işe yarıyor:** birbirinden bağımsız işler `isolation: "worktree"` ile ayrı ajanlara
   verilir (ör. kod, lisans araştırması, inceleme aynı anda). Ana oturum birleştirir, denetler, PR açar; ajanlar
   **push etmez, PR açmaz**, yalnızca kendi çalışma kopyasında commit eder.
@@ -119,6 +122,23 @@ kısaltılır.
   Doğrusu: tarayıcının çizdiği gibi çizen test + her karede ışık bütçesi (`limitExtents`).
 - **Görsel taklitte tahmin değil ölçüm:** sahibinin ekran kaydında ses de var; çubuklar kare kare ölçülüp sesle
   hizalanınca eksen doğrusal 20–2000 Hz çıktı (tahminle logaritmik yapılmıştı, bas bu yüzden düzdü).
+- **React 19'da `requestAnimationFrame` içindeki `setState` o kareye yetişmez** (29 Ekim 2026, söz zamanlaması): güncelleme
+  kare boyandıktan sonra işlenir, ekrandaki konum bir kare geride kalır (deneyle 60 karenin 0'ı aynı karede);
+  `flushSync` ile 60/60. Her karede yeniden hedeflenen CSS geçişi (ör. `transition: opacity 0.12s`) ~geçiş süresi
+  kadar gecikme süzgecidir: zamandan hesaplanan değere geçiş konmaz. Konum karenin damgasıyla okunur (`frameTime`).
+- **Başsız Chromium'da kare hızı ekran kartı işinden düşer:** sahne ve cam katmanlar (`backdrop-filter`) yazılımla
+  çizilince kareler ~110 ms'ye çıkar, ana iş parçacığı boşta görünür (profil "idle"). Zamanlama denetimi kare
+  hızından bağımsız yazılır (olayın göründüğü karenin aralığı); `waitForFunction` yoklaması yerine sayfa içinde beklenir.
+- **Mutasyon deneyinde derleme sonucu denetlenir** (30 Ekim 2026): kasıtlı hata kullanılmayan içe aktarma bırakınca
+  `npm run build` sessizce düştü, denetim eski `dist/`'i çalıştırıp "geçti" dedi (hata yakalanmıyor sanıldı).
+- **Zamanlama modeli denetimde tekrarlanmaz:** ilk söz denetimi programla aynı sabiti (1/60 sn, simetrik IPC,
+  düzenli kelime aralığı) kullandı; bağımsız inceleme bunu buldu. Ekrana çıkış anı programdan bağımsız ölçülür
+  (bir sonraki karenin damgası), değişkeler ağır sahne ve asimetrik IPC içerir.
+- **İnceleyenin testi anlattığı senaryoyu sınamalı:** "duraklat-sürdürde sıfırlanıyor" bulgusunun testi her seferinde
+  yeni bileşen kuruyordu (ilk açılışı sınıyordu, orada düzeltme imkânsız). Test senaryoya göre düzeltilir, eski kodda
+  düştüğü gösterilir, nedeni yazılır.
+- Testler arasında sızan sahte çekirdek durumu (`usePlayer.test.ts`'te `backend.busy`) sonraki testi sessizce
+  kilitler (zaman aşımı): yeni `describe` kendi `beforeEach`'iyle sıfırlar.
 - Betikle metin değiştirirken eşleşme sayısı denetlenir (`count == 1`): bir CSS değişikliği Ayarlar başlıklarının
   büyük harfini de sildi.
 
@@ -137,6 +157,15 @@ kısaltılır.
   32 banttan basamaklı çizilir — çubuklar gerçek sesten `spectrum.rs` modeliyle (Python eşi) üretilir, video sesli olur.
 - **CI işi bölünürken eski ad korunur:** koruma kuralı denetimi adıyla bekleyebilir; parçalı işin yanında eski adla bir
   "ortak sonuç" işi kalır (`Sahneler (Windows, Edge)`, `Windows (Clippy, testler, kurulum dosyası)`).
+- **Sahte çekirdek ana iş parçacığında çalışır, gerçek çekirdek ayrı süreçte:** sahne denetiminde sahte çekirdeğin
+  zamanlayıcısı ağır sahnede ana iş parçacığını bekler, "okuma anı" gecikir; gerçekte gidiş beklemez, yalnızca yanıt
+  bekler. Bu fark ortak saatin aşırı yükte 37 ms geç kalmasını gizliyordu (30 Ekim). Zaman ölçen sahte çekirdekte
+  okuma anı gönderme anından sabit uzaklıkta yazılır.
+- **Ölçüm denetiminde uzun kare:** sonraki kare gecikince bu karenin ekrana çıkış anı bilinemez; denetim aralık kabul
+  eder (en erken kare başı + bir kare, en geç sonraki kare başı). CI'nın ekran kartsız Windows'unda "Kendi resmin"
+  karelerinin %12'si uzun.
+- `photoScene.test.ts`'in iki testi 2–5 sn sürüyor (5 sn sınırına yakın); yüklü CI'da bir kez süreyi aştı, yeniden
+  çalıştırmada geçti (30 Ekim). Yinelenirse önce sahibine sorulur (mevcut test).
 - **CodeQL "eksik çok karakterli temizleme":** tekrar eden `replace` döngüsünü de kabul etmez; metni kesmek (`slice`)
   kabul edilir.
 - **Bu oturumun GitHub yetkisi:** yalnızca oturum dalına ve `claude/clever-euler-pmhee7-yedek-*` adlı yedek dallara
@@ -212,5 +241,13 @@ kısaltılır.
   Kıvılcım/Kar/Kapalı + yoğunluk kaydırıcısı; önerilen estetik fikirlerden **yalnızca şarkı sözleri** beğenildi (resmin
   basla nefes alması, drop parlaması, süzülme istenmedi); "gerekirse baştan kur, nihai mühendislik ve matematiksel
   çözüm". Tempo tanımı: DnB 170'ler, dubstep/trap 140, hip-hop 85–95. Drop v2 sonuçları saklandı, karar en sona.
+- **30 Ekim 2026: sahibi bekleyen dört soruyu Claude'a bıraktı** ("en iyi cevabı sen ver"): "Kendi resmin" sözleri
+  beğenildi sayılır, düğmeler görünürken de kalır (üst ortada; başlık bloğunda alttaki başlıkla çakışıyordu), ışıltı şimdilik aynı (önce o dalın CSS gecikmeleri ölçülüp
+  düzeltilir); Işık Ustası'nda Normal'de drop flaşı yumuşar (tam flaş Çılgın'da), söz işlerinden hemen sonra bağımsız
+  inceleme + PR; drop v2 için **B** (ikisi programda, varsayılan eski, İşaretle'de yan yana; karar sahibinin 5–10
+  şarkılık işaretiyle), uygulaması sırada yine en sonda. Sahibinin kendi denemeleri (A16, #25, #27) ona kalır.
+- **Söz düzenleme (30 Ekim 2026):** bulunan düz metin Lyraska'da yapıştırılıp düzenlenir; Lyraska'nın klasöründe
+  saklanır (kapaklardaki gibi; müzik dosyalarına dokunulmaz), zamanlama dokunarak + ince ayar; söz PR'larından hemen
+  sonra (sıra 1b). Program söz indirmez, dağıtmaz.
 - Görsel tasarımda sahibi zor beğenir: seçenekleri gerçek boyutta, yan yana görsel olarak sun; bağımsız sanat
   yönetmeni denetimi işe yarıyor (puan 6 → hedef 8+).

@@ -1,4 +1,11 @@
-import type { LyricLine, Lyrics } from "./backend";
+import type { LyricLine, Lyrics, LyricsSource } from "./backend";
+
+/** Sözlerin nereden geldiği, kullanıcıya görünen yazıyla. */
+export const LYRICS_SOURCE_TEXT: Record<LyricsSource, string> = {
+  file: ".lrc dosyasından",
+  embedded: "şarkının içinden",
+  user: "Lyraska'da düzenlediğiniz",
+};
 
 /** Satır başlamadan bu kadar önce belirmeye başlar (saniye). */
 export const LYRIC_LEAD = 0.25;
@@ -6,6 +13,83 @@ export const LYRIC_LEAD = 0.25;
 export const LYRIC_TAIL = 0.4;
 /** Sözsüz arada sıradaki satır, başlamasına bu kadar kala gösterilir (saniye). */
 export const NEXT_PREVIEW = 2.5;
+/**
+ * Sözlerin okunacağı şarkı anı (saniye): `heardSecs` karenin ekrana çıkacağı andaki duyulan konum
+ * (`useLivePosition`, ölçülen kare süresiyle); ses aygıtının ek gecikmesi (`audioDelaySecs`, senkron
+ * ayarı) kadar geriden okunur. Görsellerin kuralıyla aynı yön (`visual_bridge::visual_offset_secs`).
+ * `shiftSecs`: kullanıcının bu şarkı için seçtiği kaydırma (artı: sözler o kadar geç gelir; dosyanın
+ * kendi hatası için).
+ */
+export function lyricTime(heardSecs: number, audioDelaySecs: number, shiftSecs = 0): number {
+  return heardSecs - audioDelaySecs - shiftSecs;
+}
+
+/** Şarkı başına söz kaydırmanın adımı ve sınırı (ms). */
+export const LYRIC_SHIFT_STEP_MS = 50;
+export const MAX_LYRIC_SHIFT_MS = 2000;
+/** Bu kadar şarkının kaydırması hatırlanır (en eski değiştirilen unutulur). */
+export const MAX_SAVED_SHIFTS = 500;
+
+/** Kaydırmayı adıma yuvarlar ve sınırlar (ms); geçersiz değer 0. */
+export function clampLyricShift(ms: number): number {
+  if (!Number.isFinite(ms)) return 0;
+  const stepped = Math.round(ms / LYRIC_SHIFT_STEP_MS) * LYRIC_SHIFT_STEP_MS;
+  return Math.max(-MAX_LYRIC_SHIFT_MS, Math.min(MAX_LYRIC_SHIFT_MS, stepped)) || 0;
+}
+
+/** Kaydırmanın yazısı: "0,00 sn", "+0,15 sn (daha geç)", "−0,10 sn (daha erken)". */
+export function formatLyricShift(ms: number): string {
+  const value = (Math.abs(ms) / 1000).toFixed(2).replace(".", ",");
+  if (ms === 0) return `${value} sn`;
+  return ms > 0 ? `+${value} sn (daha geç)` : `−${value} sn (daha erken)`;
+}
+
+const SHIFT_STORAGE_KEY = "lyraska.lyrics.shift";
+
+function readShifts(): Record<string, number> {
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(SHIFT_STORAGE_KEY) ?? "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, number>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Şarkının kayıtlı söz kaydırması (ms; yoksa 0). Bu bilgisayarda, şarkının yoluna göre. */
+export function loadLyricShift(path: string): number {
+  const value = readShifts()[path];
+  return typeof value === "number" ? clampLyricShift(value) : 0;
+}
+
+/** Kaydırmayı kaydeder (0: kayıt silinir). En çok [`MAX_SAVED_SHIFTS`] şarkı; en eskisi unutulur. */
+export function saveLyricShift(path: string, ms: number): void {
+  const shifts = readShifts();
+  delete shifts[path];
+  const value = clampLyricShift(ms);
+  if (value !== 0) shifts[path] = value;
+  const kept = Object.entries(shifts).slice(-MAX_SAVED_SHIFTS);
+  try {
+    window.localStorage.setItem(SHIFT_STORAGE_KEY, JSON.stringify(Object.fromEntries(kept)));
+  } catch {
+    /* Kaydedilemezse yalnızca bu açılışta geçerli kalır. */
+  }
+}
+
+/** Söz kaydırma kısayolu mu (Alt+← daha erken, Alt+→ daha geç)? Adım (ms) ya da `null`. */
+export function lyricShiftKey(event: {
+  key: string;
+  altKey: boolean;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  shiftKey: boolean;
+}): number | null {
+  if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return null;
+  if (event.key === "ArrowLeft") return -LYRIC_SHIFT_STEP_MS;
+  if (event.key === "ArrowRight") return LYRIC_SHIFT_STEP_MS;
+  return null;
+}
 
 export type WordState = "sung" | "current" | "upcoming";
 
@@ -90,6 +174,76 @@ export function lyricFrame(lyrics: Lyrics | null, t: number): LyricFrame {
     };
   });
   return { line, next, opacity, words };
+}
+
+/** Sahnede gösterilecek (zamanlı, satırı olan) sözler mi? Yer ayırmak için: satırdan bağımsız. */
+export function hasTimedLyrics(lyrics: Lyrics | null): boolean {
+  return !!lyrics?.synced && lyrics.lines.length > 0;
+}
+
+/** "Kendi resmin" başlık bloğundaki söz satırının bir kelimesi. */
+export interface PhotoLyricWord {
+  text: string;
+  state: WordState;
+  /** Söylenen kelime çubuk renginden ışıldar mı (Epilepsi güvenli modunda hiç). */
+  glow: boolean;
+}
+
+/**
+ * "Kendi resmin" başlık bloğundaki satırın kelimeleri. Kelime zamanı olmayan satır tek parça
+ * (okunur, ışıltısız) gösterilir. Güvenli modda ışıltı yoktur: kelimeler yalnızca saydamlıkla ayrılır.
+ */
+export function photoLyricWords(frame: LyricFrame, safe: boolean): PhotoLyricWord[] {
+  if (!frame.line) return [];
+  if (frame.words.length === 0) return [{ text: frame.line.text, state: "sung", glow: false }];
+  return frame.words.map((w) => ({
+    text: w.text,
+    state: w.state,
+    glow: !safe && w.state === "current",
+  }));
+}
+
+/** Uzun satır en çok bu orana küçülür (daha küçüğü okunmaz); yine sığmazsa kayar. */
+export const LYRIC_MIN_SCALE = 0.72;
+
+/**
+ * Tek satırlık sözün yerleşimi: `natural` yazının tam boydaki genişliği, `available` ayrılan
+ * genişlik (piksel). Sığmayan satır önce küçülür (en çok [`LYRIC_MIN_SCALE`]); o da yetmezse
+ * `overflow` kadar taşar ve söylendikçe kayar ([`lyricPan`]). Satır kesilmez, sonu kaybolmaz.
+ */
+export function lyricFit(
+  natural: number,
+  available: number,
+  minScale = LYRIC_MIN_SCALE,
+): { scale: number; overflow: number } {
+  if (!(natural > 0) || !(available > 0)) return { scale: 1, overflow: 0 };
+  const scale = Math.min(1, Math.max(minScale, available / natural));
+  return { scale, overflow: Math.max(0, natural * scale - available) };
+}
+
+/**
+ * Taşan satırın sola kayması (piksel, 0..`overflow`): söylenen kelimenin ortası her zaman görünür.
+ * Kayma harf sayısıyla orantılı ve kelime kelime ilerler (kelimenin içinde kıpırdamaz); satırın
+ * başında baş, sonunda son görünür.
+ */
+export function lyricPan(words: readonly { text: string; state: WordState }[], overflow: number) {
+  if (!(overflow > 0) || words.length === 0) return 0;
+  let total = 0;
+  let before = 0;
+  let found = false;
+  for (const w of words) {
+    const length = w.text.length;
+    if (!found) {
+      if (w.state === "sung") before += length;
+      else if (w.state === "current") {
+        before += length / 2;
+        found = true;
+      } else found = true;
+    }
+    total += length;
+  }
+  if (total === 0) return 0;
+  return Math.round(overflow * Math.min(1, Math.max(0, before / total)));
 }
 
 const VISIBLE_STORAGE_KEY = "lyraska.lyrics.visible";

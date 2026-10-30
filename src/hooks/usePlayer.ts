@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   IDLE_STATUS,
   errorMessage,
@@ -12,7 +13,16 @@ import {
   togglePlayback,
   type PlaybackStatus,
 } from "../lib/backend";
-import { positionAt, reanchor, type ClockAnchor } from "../lib/clock";
+import {
+  ClockOffset,
+  FrameClock,
+  displayTime,
+  nextFrameAt,
+  positionAt,
+  reanchor,
+  statusTime,
+  type ClockAnchor,
+} from "../lib/clock";
 
 /** Durum sorgulama aralığı. Ekrandaki süre arada saatle akıcı ilerler. */
 const POLL_MS = 250;
@@ -27,8 +37,11 @@ export interface PlayerControls {
    * her karede yeniden çizilmesin diye yalnızca onu gösteren bileşenler kullanır.
    */
   position: number;
-  /** Tam şu anki konum (saat ölçümü; React çizimini beklemez). İşaretleme için. */
-  positionNow: () => number;
+  /**
+   * Tam şu anki konum (saat ölçümü; React çizimini beklemez). İşaretleme için. `at` verilirse o
+   * andaki (`performance.now()` ms; ekran karesinin anı).
+   */
+  positionNow: (at?: number) => number;
   /** Ses çalınabilir mi? (Tarayıcı önizlemesinde hayır.) */
   available: boolean;
   /** Son komut hatası; bir sonraki başarılı komutta temizlenir. */
@@ -72,6 +85,8 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
 
   const statusRef = useRef(status);
   const anchor = useRef<ClockAnchor | null>(null);
+  /** Çekirdeğin duvar saati ile arayüzün saati arasındaki farkın tahmini. */
+  const clockOffset = useRef(new ClockOffset());
   const busy = useRef(false);
   /** Bir komut sürerken açılmak istenen şarkı (o komut bitince açılır). */
   const pendingOpen = useRef<string | null>(null);
@@ -83,17 +98,19 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
   }, [options.onEnded]);
 
   /** Şu anki tahmini konum (saniye). */
-  const positionNow = useCallback(() => {
+  const positionNow = useCallback((at: number = now()) => {
     const current = statusRef.current;
     if (!anchor.current) return current.positionSecs;
-    return positionAt(anchor.current, now(), current.track?.durationSecs ?? null);
+    return positionAt(anchor.current, at, current.track?.durationSecs ?? null);
   }, []);
 
   /**
    * Ses motorundan gelen durumu uygular. `exact` ise konum olduğu gibi alınır
    * (komut cevapları); değilse küçük sapmalar yumuşakça düzeltilir (düzenli sorgular).
+   * `at`: konumun geçerli olduğu an (`performance.now()` ms); düzenli sorguda `statusTime` (çekirdeğin
+   * ölçüm anı; bilinmiyorsa kısa sorguda istek ile yanıtın ortası).
    */
-  const applyStatus = useCallback((next: PlaybackStatus, exact: boolean) => {
+  const applyStatus = useCallback((next: PlaybackStatus, exact: boolean, at: number = now()) => {
     const previous = statusRef.current;
     statusRef.current = next;
     setStatus(next);
@@ -113,10 +130,29 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
     const trackChanged = previous.track?.path !== next.track?.path;
     anchor.current =
       exact || trackChanged
-        ? { position: next.positionSecs, at: now(), running }
-        : reanchor(anchor.current, next.positionSecs, running, now(), duration);
+        ? { position: next.positionSecs, at, running }
+        : reanchor(anchor.current, next.positionSecs, running, at, duration);
     setPosition(positionAt(anchor.current, now(), duration));
   }, []);
+
+  /**
+   * Yanıttaki konumun geçerli olduğu an: çekirdeğin ölçüm anı (`statusTime`), yanıt geç işlense de
+   * (ağır sahne açılırken). Yanıtın okunduğu an saat farkı tahminine de eklenir.
+   */
+  const replyAt = useCallback(
+    (next: PlaybackStatus, sentAt: number, previousAt: number | null = null) => {
+      const receivedAt = now();
+      if (next.readAtMs !== undefined) clockOffset.current.add(next.readAtMs, sentAt, receivedAt);
+      return statusTime(
+        next.positionAtMs,
+        clockOffset.current.estimate(performance.timeOrigin),
+        sentAt,
+        receivedAt,
+        previousAt,
+      );
+    },
+    [],
+  );
 
   /**
    * Komutları sıraya koyar: aynı anda iki komut gönderilmez. Bir komut sürerken gelen komut
@@ -134,8 +170,10 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
         let first = true;
         while (next) {
           try {
+            const sentAt = now();
             const result = await next();
-            applyStatus(result ?? (await getPlaybackStatus()), true);
+            const status = result ?? (await getPlaybackStatus());
+            applyStatus(status, true, replyAt(status, sentAt));
             setError(null);
           } catch (e) {
             if (first) succeeded = false;
@@ -152,7 +190,7 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
       }
       return succeeded;
     },
-    [applyStatus],
+    [applyStatus, replyAt],
   );
 
   const openPath = useCallback(
@@ -238,8 +276,12 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
     const timer = window.setInterval(() => {
       if (inFlight) return;
       inFlight = true;
+      const sentAt = now();
       getPlaybackStatus()
-        .then((next) => !cancelled && applyStatus(next, false))
+        .then((next) => {
+          if (cancelled) return;
+          applyStatus(next, false, replyAt(next, sentAt, anchor.current?.at ?? null));
+        })
         .catch(() => {
           /* Geçici hata: bir sonraki turda yeniden denenir. */
         })
@@ -251,7 +293,7 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [available, hasTrack, applyStatus]);
+  }, [available, hasTrack, applyStatus, replyAt]);
 
   const refresh = useCallback(async () => {
     if (!available) return;
@@ -274,6 +316,7 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
         void toggle();
       } else if (
         (event.key === "ArrowLeft" || event.key === "ArrowRight") &&
+        !event.altKey && // Alt+←/→: sözleri kaydırır (useLyrics)
         !interactive &&
         statusRef.current.track
       ) {
@@ -306,7 +349,8 @@ export function usePlayer(extensions: string[], options: PlayerOptions = {}): Pl
 }
 
 /**
- * Çalarken her ekran karesinde akıcı ilerleyen konum (duraklatılmışken son bilinen konum).
+ * Çalarken her ekran karesinde akıcı ilerleyen konum: bu karenin ekrana çıkacağı andaki konum
+ * (duraklatılmışken son bilinen konum).
  * Yalnızca konumu gösteren küçük bileşenler (süre, şarkı haritası şeridi, drop sayacı)
  * kullanır: yoksa her karede bütün ekran (çekmecedeki paneller, kütüphane listesi) yeniden
  * çizilirdi; büyük kütüphanede bu, karenin önemli bir kısmını yiyordu.
@@ -317,22 +361,33 @@ export function useLivePosition(
   const { status, position, positionNow } = player;
   const playing = status.state === "playing";
   const [live, setLive] = useState(position);
-  // Sarma ve ses motorunun bildirimi bir sonraki kareyi beklemeden görünsün.
+  // Kare saati duraklat/sürdürde sıfırlanmaz (yavaş makinede ilk kareler yeniden 60 Hz sanılmasın).
+  const [clock] = useState(() => new FrameClock());
+  // Sarma ve ses motorunun bildirimi bir sonraki kareyi beklemeden görünsün. Bildirim şimdiki anın
+  // konumudur; çalarken ekrandaki konum karenin ekrana çıkacağı anınki: bir kare eklenir (yoksa her
+  // bildirimde söz bir kare geri sıçrardı).
   const [known, setKnown] = useState(position);
   if (known !== position) {
     setKnown(position);
-    setLive(position);
+    setLive(playing ? position + clock.frameMs() / 1000 : position);
   }
   useEffect(() => {
     if (!playing || typeof window.requestAnimationFrame !== "function") return;
     let raf = 0;
-    const tick = () => {
-      setLive(positionNow());
+    let lastAt = -Infinity;
+    const tick = (frameStamp: number) => {
+      // Konum, karenin ekrana çıkacağı ana göre okunur (ölçülen kare süresiyle; ardışık karelerde an
+      // küçük adımlarla geri gitmez, söz bir kelime geri dönüp yanıp sönmesin) ve bu karede hemen
+      // çizilir: React'in sıradan güncellemesi kare boyandıktan sonra işlenir, konum bir kare geride kalırdı.
+      const frameMs = clock.tick(frameStamp);
+      lastAt = nextFrameAt(lastAt, displayTime(frameStamp, now(), frameMs), frameMs);
+      const at = lastAt;
+      flushSync(() => setLive(positionNow(at)));
       raf = window.requestAnimationFrame(tick);
     };
     raf = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(raf);
-  }, [playing, positionNow]);
+  }, [playing, positionNow, clock]);
   // Duraklatılmışken ya da sarınca (bir sonraki kareden önce) bilinen konum.
   return playing ? live : position;
 }

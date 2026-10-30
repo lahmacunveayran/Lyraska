@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import type { PlaybackStatus, TrackInfo } from "../lib/backend";
 import { marqueeWindow } from "./Marquee";
 import { ArtistGrid } from "./ArtistGrid";
+import { LyricsOverlay } from "./LyricsOverlay";
 import { spectrumColumns } from "./SpectrumDemo";
 import { textToColumns } from "../lib/dotFont";
 import { clearCoverCache } from "../hooks/useCover";
@@ -3406,6 +3407,13 @@ describe("şarkı sözleri", () => {
     ],
   };
 
+  it("yumuşak saydamlık geçişi yalnızca Epilepsi güvenli modunda (varsayılanda söz tam zamanında)", () => {
+    const { container, rerender } = render(<LyricsOverlay lyrics={synced} positionSecs={83.4} />);
+    expect(container.querySelector(".lyrics")).not.toHaveClass("is-safe");
+    rerender(<LyricsOverlay lyrics={synced} positionSecs={83.4} safe />);
+    expect(container.querySelector(".lyrics")).toHaveClass("is-safe");
+  });
+
   it("çalan satır sahnede kelime kelime; ayardan kapatılır ve hatırlanır", async () => {
     backend.desktop = true;
     backend.status = { ...playing, state: "paused" };
@@ -3439,6 +3447,119 @@ describe("şarkı sözleri", () => {
     const again = render(<App />);
     await act(async () => fireEvent.keyDown(window, { code: "Space", key: " " }));
     expect(again.container.querySelector(".lyrics")).toBeNull();
+  });
+
+  /** "Kendi resmin" sahnesinde şarkıyı çalar; sözler (varsa) başlık bloğuna gelir. */
+  async function playInPhoto() {
+    backend.desktop = true;
+    window.localStorage.setItem("lyraska.scene", "photo");
+    backend.status = { ...playing, state: "paused" };
+    const view = render(<App />);
+    await act(async () => fireEvent.keyDown(window, { code: "Space", key: " " }));
+    await waitFor(() => expect(view.container.querySelector(".photo-scene__title")).not.toBeNull());
+    return view;
+  }
+
+  it("Kendi resmin: denetimler görünürken sözler üst ortada tek satır; başlık bloğunda yer ayrılı", async () => {
+    // Sinema görünümünde sözler başlık bloğunda, sanatçının altında (check:scenes ölçer); denetimler
+    // görünürken o yer alttaki büyük başlıkla çakışır: aynı tek satır üst ortada (bağımsız inceleme 3).
+    backend.lyrics = synced;
+    const { container } = await playInPhoto();
+    const words = await waitFor(() => {
+      const found = container.querySelectorAll(".photo-lyrics-top .photo-lyrics__word");
+      expect(found.length).toBe(3);
+      return Array.from(found);
+    });
+    expect(words.map((w) => [w.textContent, w.className])).toEqual([
+      ["Gece ", "photo-lyrics__word is-sung"],
+      ["yolunda ", "photo-lyrics__word is-current is-glow"],
+      ["yalnız", "photo-lyrics__word is-upcoming"],
+    ]);
+    // Başlık bloğundaki yer sahne açıkken hep ayrılı (sinemaya geçince başlık zıplamaz).
+    const slot = container.querySelector(".photo-scene__lyrics");
+    expect(slot?.previousElementSibling).toHaveClass("photo-scene__artist");
+    expect(container.querySelector(".photo-scene")).toHaveClass("has-lyrics");
+    expect(slot?.textContent).toBe("");
+    // Çift görünmez: genel üst-orta katman çizilmez.
+    expect(container.querySelector(".lyrics")).toBeNull();
+    // Büyük harfe çevrilmez (Türkçe harfler olduğu gibi).
+    expect(container.querySelector(".photo-lyrics-top")?.textContent).toBe("Gece yolunda yalnız");
+  });
+
+  it("Kendi resmin: Epilepsi güvenli modunda söylenen kelime ışıldamaz", async () => {
+    backend.lyrics = synced;
+    backend.safe = true;
+    try {
+      const { container } = await playInPhoto();
+      await waitFor(() =>
+        expect(container.querySelector(".photo-lyrics__word.is-current")).not.toBeNull(),
+      );
+      expect(container.querySelector(".photo-lyrics")).toHaveClass("is-safe");
+      expect(container.querySelector(".is-glow")).toBeNull();
+    } finally {
+      backend.safe = false;
+    }
+  });
+
+  it("Kendi resmin: sözsüz şarkıda ya da sözler kapalıyken düzen değişmez", async () => {
+    const { container, unmount } = await playInPhoto();
+    expect(container.querySelector(".photo-scene")).not.toHaveClass("has-lyrics");
+    expect(container.querySelector(".photo-scene__lyrics")).toBeNull();
+    expect(container.querySelector(".lyrics")).toBeNull();
+    unmount();
+    backend.lyrics = synced;
+    window.localStorage.setItem("lyraska.lyrics.visible", "0");
+    const again = await playInPhoto();
+    expect(again.container.querySelector(".photo-scene")).not.toHaveClass("has-lyrics");
+    expect(again.container.querySelector(".photo-lyrics")).toBeNull();
+    expect(again.container.querySelector(".lyrics")).toBeNull();
+  });
+
+  it("başka sahnede sözler genel katmanda kalır (başlık bloğunda değil)", async () => {
+    backend.desktop = true;
+    window.localStorage.setItem("lyraska.scene", "vu");
+    backend.status = { ...playing, state: "paused" };
+    backend.lyrics = synced;
+    const { container } = render(<App />);
+    await act(async () => fireEvent.keyDown(window, { code: "Space", key: " " }));
+    await waitFor(() => expect(container.querySelector(".lyrics__line")).not.toBeNull());
+    expect(container.querySelector(".photo-lyrics")).toBeNull();
+  });
+
+  it("şarkı başına söz kaydırma: Alt+→ sözleri geciktirir, sarmaz; Ayarlar'da görünür ve hatırlanır", async () => {
+    backend.desktop = true;
+    backend.status = { ...playing, state: "paused" };
+    backend.lyrics = synced;
+    backend.seek.mockClear();
+    const { container, unmount } = render(<App />);
+    await act(async () => fireEvent.keyDown(window, { code: "Space", key: " " }));
+    await waitFor(() => expect(container.querySelector(".lyrics__line")).not.toBeNull());
+    const current = () => container.querySelector(".lyrics__word.is-current")?.textContent;
+    // Konum 83,4 sn: "yolunda" söyleniyor. Sözler 0,5 sn geç gelsin: "Gece" (82–83) söyleniyor olmalı.
+    expect(current()).toBe("yolunda ");
+    for (let i = 0; i < 10; i++) {
+      await act(async () => fireEvent.keyDown(window, { key: "ArrowRight", altKey: true }));
+    }
+    expect(current()).toBe("Gece ");
+    expect(container.querySelector(".lyrics-notice")).toHaveTextContent(
+      "Sözler: +0,50 sn (daha geç)",
+    );
+    expect(backend.seek).not.toHaveBeenCalled(); // Alt+→ 5 sn ileri sarmaz
+    await act(async () => fireEvent.click(screen.getByRole("tab", { name: "Ayarlar" })));
+    expect(screen.getByText("+0,50 sn (daha geç)")).toBeInTheDocument();
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Sözleri 50 ms erken getir" })),
+    );
+    expect(screen.getByText("+0,45 sn (daha geç)")).toBeInTheDocument();
+    unmount();
+    // Aynı şarkı yeniden açılınca kaydırma hatırlanır.
+    const again = render(<App />);
+    await act(async () => fireEvent.keyDown(window, { code: "Space", key: " " }));
+    await act(async () => fireEvent.click(screen.getByRole("tab", { name: "Ayarlar" })));
+    await waitFor(() => expect(screen.getByText("+0,45 sn (daha geç)")).toBeInTheDocument());
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Sıfırla" })));
+    expect(screen.getByText("0,00 sn")).toBeInTheDocument();
+    again.unmount();
   });
 
   it("zamansız sözler sahnede gösterilmez, ayarda nedeni yazar", async () => {

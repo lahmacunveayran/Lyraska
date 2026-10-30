@@ -39,6 +39,9 @@ export interface SceneStageProps {
   /** "Kendi resmin" sahnesinin parçacıkları. */
   particles?: ParticleStyle;
   particleDensity?: number;
+  /** "Kendi resmin": zamanlı sözler gösteriliyor mu ve söz satırının yeri (`PhotoScene`). */
+  hasLyrics?: boolean;
+  lyricsSlot?: (element: HTMLElement | null) => void;
 }
 
 /** Tüm pencereyi kaplayan görsel sahne. Sahne değişince yenisi yavaşça belirir. */
@@ -56,6 +59,8 @@ export function SceneStage({
   songArtist = null,
   particles,
   particleDensity,
+  hasLyrics,
+  lyricsSlot,
 }: SceneStageProps) {
   return (
     <div className="stage" data-scene={scene}>
@@ -72,6 +77,8 @@ export function SceneStage({
           onChooseImage={background ? () => void background.choose() : undefined}
           particles={particles}
           particleDensity={particleDensity}
+          hasLyrics={hasLyrics}
+          lyricsSlot={lyricsSlot}
         />
       ) : scene === "milkdrop" ? (
         <MilkDropScene playing={playing} safe={safe} controls={milkdrop} />
