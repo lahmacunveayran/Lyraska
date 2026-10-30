@@ -571,6 +571,15 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
   gelmeli; programı kapatıp açınca ayar hatırlanmalı. Düz ←/→ eskisi gibi 5 sn sarar, Alt'lı olanlar sarmaz.
 - Bildirin: kısayol çalışmıyorsa ya da başka bir şey yapıyorsa (ör. sayfa değişiyor).
 
+**E13. "Kendi resmin" sözleri (0.0.93)**
+
+- Nasıl: Zamanlı sözü olan bir şarkıyı "Kendi resmin" sahnesinde çalın; fareyi kıpırdatın, sonra bırakın.
+- Neye bakılır: sözler çubuk çizgisinin üstünde, sanatçı adının altında tek satır; söylenen kelime çubuk renginde
+  ışıldar ve tam söylendiği anda yanar. Fare kıpırdarken (düğmeler görünürken) de söz satırı kalır; başlık ve saat
+  yalnızca sinema görünümünde gelir. Uzun satır önce küçülür, sığmazsa söylendikçe kayar. Epilepsi güvenli modunda
+  ışıltı yok, kelimeler yavaşça belirir.
+- Bildirin: söz satırı başka bir şeyin üstüne biniyor mu; ışıltı yeterince görünür mü (daha belirgin olsun mu).
+
 ## F. Hata günlüğü
 
 **F1. Hata günlüğü açılıyor**

@@ -5668,6 +5668,22 @@ kbd {
   opacity: 1;
 }
 
+/* Sözü olan şarkıda sözler denetimler görünürken de kalır (yalnızca söz satırı; başlık, sanatçı ve saat
+   sinema görünümünde gelir). */
+.photo-scene.has-lyrics .photo-scene__text {
+  opacity: 1;
+}
+
+.photo-scene.has-lyrics :is(.photo-scene__title, .photo-scene__artist, .photo-scene__clock) {
+  transition: opacity 0.8s ease;
+}
+
+.app:not(.is-cinema)
+  .photo-scene.has-lyrics
+  :is(.photo-scene__title, .photo-scene__artist, .photo-scene__clock) {
+  opacity: 0;
+}
+
 .photo-scene__song {
   display: flex;
   flex-direction: column;

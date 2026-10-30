@@ -1884,6 +1884,38 @@ async function checkPhotoLyrics(browser) {
       await page.keyboard.press("Escape");
       await page.waitForFunction(() => !document.querySelector("#drawer.is-open"));
     }
+    if (!safe && !long) {
+      // Denetimler görünürken (fare kıpırdadı): söz satırı görünür, başlık ve saat görünmez.
+      await page.mouse.move(400, 300);
+      await page.mouse.move(420, 310);
+      await page.waitForTimeout(1200); // CSS geçişi (gerçek saatle 0,8 sn)
+      const shown = await page.evaluate(() => {
+        const opacity = (selector) => {
+          let el = document.querySelector(selector);
+          let value = el ? 1 : 0;
+          for (; el; el = el.parentElement) value *= parseFloat(getComputedStyle(el).opacity);
+          return value;
+        };
+        return {
+          cinema: !!document.querySelector(".app.is-cinema"),
+          lyrics: opacity(".photo-lyrics__line"),
+          title: opacity(".photo-scene__title"),
+          clock: opacity(".photo-scene__clock"),
+        };
+      });
+      console.log(
+        `${label} · denetimler görünürken: söz ${shown.lyrics.toFixed(2)}, başlık ${shown.title.toFixed(2)}, ` +
+          `saat ${shown.clock.toFixed(2)}`,
+      );
+      if (shown.cinema)
+        problems.push(`${label}: denetimler görünürken sinema görünümüne geçti (ölçülemedi)`);
+      else if (!(shown.lyrics > 0.9) || !(shown.title < 0.05) || !(shown.clock < 0.05)) {
+        problems.push(
+          `${label}: denetimler görünürken söz görünmeli, başlık ve saat görünmemeli ` +
+            `(söz ${shown.lyrics.toFixed(2)}, başlık ${shown.title.toFixed(2)}, saat ${shown.clock.toFixed(2)})`,
+        );
+      }
+    }
     // Fare kıpırdamaz: sinema görünümü (başlık ve sözler görünür).
     await advance(page, 6000);
     // Yazı sinema görünümüne CSS geçişiyle (gerçek saatle, 0,8 sn) gelir.
