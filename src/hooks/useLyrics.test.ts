@@ -8,6 +8,8 @@ const core = vi.hoisted(() => ({
   own: "[00:01.00]Dosyadaki satır",
   user: null as string | null,
   saved: [] as [string, string][],
+  onAligned: null as ((path: string) => void) | null,
+  reads: 0,
 }));
 
 function parse(text: string, source: Lyrics["source"]): Lyrics {
@@ -33,7 +35,16 @@ vi.mock("../lib/backend", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/backend")>();
   return {
     ...actual,
-    getTrackLyrics: async () => (core.user ? parse(core.user, "user") : parse(core.own, "file")),
+    getTrackLyrics: async () => {
+      core.reads += 1;
+      return core.user ? parse(core.user, "user") : parse(core.own, "file");
+    },
+    onLyricsAligned: async (handler: (path: string) => void) => {
+      core.onAligned = handler;
+      return () => {
+        core.onAligned = null;
+      };
+    },
     getTrackLyricsText: async () =>
       core.user ? { source: "user", text: core.user } : { source: "file", text: core.own },
     saveTrackLyrics: async (path: string, text: string) => {
@@ -68,5 +79,28 @@ describe("useLyrics: düzenlenen sözler", () => {
     expect(await result.current.loadText()).toBeNull();
     await act(() => result.current.saveText("x"));
     expect(core.saved).toEqual([]);
+  });
+});
+
+describe("useLyrics: arka planda zamanlanan sözler", () => {
+  it("çalan şarkının sözü zamanlanınca yeniden okunur, başka şarkınınki okunmaz", async () => {
+    core.user = null;
+    core.own = "Zamansız satır";
+    const { result, unmount } = renderHook(() => useLyrics("C:/Müzik/zamansiz.flac"));
+    await waitFor(() => expect(result.current.lyrics?.synced).toBe(false));
+    await waitFor(() => expect(core.onAligned).not.toBeNull());
+    const reads = core.reads;
+
+    act(() => core.onAligned?.("C:/Müzik/baska.flac"));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(core.reads).toBe(reads);
+
+    core.own = "[00:01.00]Zamanlı satır";
+    act(() => core.onAligned?.("C:/Müzik/zamansiz.flac"));
+    await waitFor(() => expect(result.current.lyrics?.synced).toBe(true));
+    expect(core.reads).toBe(reads + 1);
+
+    unmount();
+    expect(core.onAligned).toBeNull();
   });
 });

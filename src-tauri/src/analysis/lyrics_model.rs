@@ -88,6 +88,9 @@ pub enum ModelError {
     TooLong,
     #[error("iptal edildi")]
     Cancelled,
+    /// Söz paketi bu oturumda açılamadı; yeniden eklenene kadar denenmez (`ModelSlot`).
+    #[error("söz paketi yok ya da açılamadı")]
+    Unavailable,
 }
 
 impl From<TractError> for ModelError {

@@ -136,6 +136,11 @@ pub fn for_track_with(
     }
 }
 
+/// Metin zamansız bir söz mü (boş değil, satırlarında zaman yok)? Otomatik zamanlama yalnızca bunlara.
+pub fn is_untimed(text: &str) -> bool {
+    !text.trim().is_empty() && !parse(text, LyricsSource::User, None).synced
+}
+
 /// Düzenlemek için sözlerin ham metni: kullanıcının düzenlediği, yoksa [`for_track`]'ın seçtiği
 /// kaynağın (yan `.lrc` ya da gömülü) metni olduğu gibi; hiç yoksa `None`.
 pub fn text_for_track(path: &Path, user: Option<&str>) -> Option<LyricsText> {
@@ -483,6 +488,14 @@ mod tests {
 
     fn lrc(text: &str) -> Lyrics {
         parse(text, LyricsSource::File, Some(240.0))
+    }
+
+    #[test]
+    fn otomatik_zamanlama_yalnizca_zamansiz_soze() {
+        assert!(is_untimed("Gülümse hadi gülümse\nBulutlar gitsin"));
+        assert!(!is_untimed("[00:12.30]Gülümse hadi gülümse"));
+        assert!(!is_untimed(""));
+        assert!(!is_untimed(" \n\t"));
     }
 
     #[test]

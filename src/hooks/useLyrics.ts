@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import {
   clearTrackLyrics,
   getTrackLyrics,
+  errorMessage,
   getTrackLyricsText,
+  logFrontendError,
+  onLyricsAligned,
   saveTrackLyrics,
   type Lyrics,
   type LyricsText,
@@ -40,8 +43,8 @@ export interface LyricsControls {
 }
 
 /**
- * Çalan şarkının sözleri (Lyraska'da düzenlenmiş, yanındaki `.lrc` ya da gömülü). Şarkı değişince ve
- * sözler düzenlenince okunur; önceki şarkının sözleri hemen bırakılır. Kullanıcının düzenlediği metin
+ * Çalan şarkının sözleri (Lyraska'da düzenlenmiş, yanındaki `.lrc` ya da gömülü). Şarkı değişince,
+ * sözler düzenlenince ve çekirdek zamansız sözü arka planda sese oturtunca okunur; önceki şarkının sözleri hemen bırakılır. Kullanıcının düzenlediği metin
  * Lyraska'nın klasöründe saklanır (müzik dosyasına dokunulmaz); kaydırma şarkının yoluna göre bu
  * bilgisayarda hatırlanır. Zamanlı sözler gösterilirken Alt+← sözleri 50 ms erken, Alt+→ 50 ms geç getirir.
  */
@@ -74,6 +77,26 @@ export function useLyrics(trackPath: string | null): LyricsControls {
       cancelled = true;
     };
   }, [trackPath, revision]);
+
+  // Zamansız söz arka planda zamanlandı: otomatik zamanlısı okunur.
+  useEffect(() => {
+    if (!trackPath) return;
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    onLyricsAligned((path) => {
+      if (path === trackPath) setRevision((r) => r + 1);
+    })
+      .then((fn) => (cancelled ? fn() : (unlisten = fn)))
+      .catch((e) => {
+        logFrontendError(`Söz zamanlama haberi dinlenemedi: ${errorMessage(e)}`).catch(() => {
+          /* Günlüğe yazılamazsa yapılacak bir şey yok. */
+        });
+      });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [trackPath]);
 
   const loadText = useCallback(
     () => (trackPath ? getTrackLyricsText(trackPath) : Promise.resolve(null)),

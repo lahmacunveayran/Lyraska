@@ -31,6 +31,8 @@ use tauri::Manager;
 
 /// Kütüphane bir taramayla değişince arayüze gönderilen olay (`src/lib/backend.ts` dinler).
 pub const LIBRARY_CHANGED_EVENT: &str = "kutuphane-degisti";
+/// Bir şarkının zamansız sözü arka planda sese oturtuldu (yük: şarkının yolu).
+pub const LYRICS_ALIGNED_EVENT: &str = "sozler-zamanlandi";
 
 /// Programı başlatır.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -125,7 +127,7 @@ pub fn run() {
 
             // Şarkı haritası önbelleği kütüphaneyle aynı veritabanında; kütüphane arka
             // planda, düşük öncelikle analiz edilir (önce çalan, sonra sıradaki şarkı).
-            let background = big
+            let cache = big
                 .clone()
                 .and_then(|dir| {
                     analysis::cache::AnalysisCache::open(&dir.join("library.sqlite3"))
@@ -133,19 +135,38 @@ pub fn run() {
                 })
                 .map_err(|e| diagnostics::error(&format!("Analiz önbelleği açılamadı: {e}")))
                 .ok()
-                .and_then(|cache| {
-                    // Çökme döngüsü koruması: analizi programı kapatan dosya atlanır.
-                    let guard = match &big {
-                        Ok(dir) => analysis::background::CrashGuard::new(dir.clone()),
-                        Err(_) => analysis::background::CrashGuard::disabled(),
-                    };
-                    commands::start_analysis_cache(
-                        &app.state::<commands::PlayerState>(),
-                        std::sync::Arc::new(cache),
-                        guard,
-                    )
-                });
+                .map(std::sync::Arc::new);
+            let background = cache.clone().and_then(|cache| {
+                // Çökme döngüsü koruması: analizi programı kapatan dosya atlanır.
+                let guard = match &big {
+                    Ok(dir) => analysis::background::CrashGuard::new(dir.clone()),
+                    Err(_) => analysis::background::CrashGuard::disabled(),
+                };
+                commands::start_analysis_cache(&app.state::<commands::PlayerState>(), cache, guard)
+            });
             app.manage(commands::BackgroundState(background));
+
+            // Zamansız sözler arka planda sese oturtulur (söz paketi varsa); bitince arayüz
+            // sözleri yeniden okur.
+            let lyrics = match (cache, &big) {
+                (Some(cache), Ok(dir)) => {
+                    let handle = app.handle().clone();
+                    commands::start_lyrics_worker(
+                        &app.state::<commands::PlayerState>(),
+                        cache,
+                        dir,
+                        move |path| {
+                            let _ = tauri::Emitter::emit(
+                                &handle,
+                                LYRICS_ALIGNED_EVENT,
+                                path.to_string_lossy(),
+                            );
+                        },
+                    )
+                }
+                _ => None,
+            };
+            app.manage(commands::LyricsState(lyrics));
 
             // Ayarlar (ekolayzer) kaldığı gibi geri yüklenir.
             let store = match &roaming {
@@ -306,6 +327,7 @@ pub fn run() {
             commands::stop_on_exit(&app.state::<commands::PlayerState>());
             app.state::<commands::LibraryState>().shutdown();
             app.state::<commands::BackgroundState>().shutdown();
+            app.state::<commands::LyricsState>().shutdown();
             if let Some(dir) = &session_dir {
                 data_dirs::end_session(dir);
             }
