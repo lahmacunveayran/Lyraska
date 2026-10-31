@@ -11,8 +11,8 @@
 //! - [`cache`]: analiz sonuçlarının SQLite önbelleği (yol + boyut + değiştirilme
 //!   zamanı; her parçanın kendi sürümü: spektrum, ritim, ses yüksekliği, bas tepeleri).
 //! - [`lyrics_align`], [`lyrics_model`], [`lyrics_text`], [`lyrics_cache`], [`lyrics_job`],
-//!   [`lyrics_worker`]: sözleri sese oturtma (hizalama, model, metin hazırlığı, emisyon önbelleği,
-//!   işin kendisi ve sonucu, arka plan iş parçacığı).
+//!   [`lyrics_worker`], [`lyrics_package`]: sözleri sese oturtma (hizalama, model, metin hazırlığı,
+//!   emisyon önbelleği, işin kendisi ve sonucu, arka plan iş parçacığı, söz paketinin kurulumu).
 //! - [`background`]: kütüphanenin arka planda, düşük öncelikle analizi.
 //!
 //! Analiz şarkı çalmadan önce yapılır ve sonuç SQLite'ta saklanır; böylece
@@ -30,6 +30,7 @@ pub mod lyrics_align;
 pub mod lyrics_cache;
 pub mod lyrics_job;
 pub mod lyrics_model;
+pub mod lyrics_package;
 pub mod lyrics_text;
 pub mod lyrics_worker;
 pub mod map_file;
