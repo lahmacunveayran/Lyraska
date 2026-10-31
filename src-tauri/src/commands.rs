@@ -433,15 +433,22 @@ pub async fn seek_playback(
 }
 
 /// Şu an duyulan anın görsel verisi. Arayüz her ekran karesinde sorar;
-/// analiz o ana yetişmediyse `null` döner.
+/// analiz o ana yetişmediyse `null` döner. `display_lead_secs`: arayüzün ölçtüğü kare süresi
+/// (karenin ekrana çıkmasına kadar; görseller o kadar ileriden okunur).
 #[tauri::command]
-pub async fn visual_frame(player: State<'_, PlayerState>) -> Result<Option<VisualFrame>, String> {
+pub async fn visual_frame(
+    player: State<'_, PlayerState>,
+    display_lead_secs: f64,
+) -> Result<Option<VisualFrame>, String> {
     // Aygıt değiştiyse şarkı yeni aygıtta kilit dışında yeniden açılır (bkz. `playback_status`).
     let transition = player.lock()?.begin_device_recovery();
     if transition.is_some() {
         finish_transition(transition, &player).await?;
     }
-    Ok(player.lock()?.visual_now().map(VisualFrame::from))
+    Ok(player
+        .lock()?
+        .visual_ahead(display_lead_secs)
+        .map(VisualFrame::from))
 }
 
 /// Şu an duyulan anın ham dalga biçimi (MilkDrop sahnesi): ham bayt olarak 3 × 1024 bayt —
@@ -451,16 +458,26 @@ pub async fn visual_frame(player: State<'_, PlayerState>) -> Result<Option<Visua
 #[tauri::command]
 pub async fn visual_waveform(
     player: State<'_, PlayerState>,
+    display_lead_secs: f64,
 ) -> Result<tauri::ipc::Response, String> {
-    let bytes = player.lock()?.visual_waveform().unwrap_or_default();
+    let bytes = player
+        .lock()?
+        .visual_waveform_ahead(display_lead_secs)
+        .unwrap_or_default();
     Ok(tauri::ipc::Response::new(bytes))
 }
 
 /// Şu an duyulan anın ince spektrum çubukları ("Kendi resmin" sahnesi): 200 seviye, 0..1, bas
 /// solda (20 Hz – 2 kHz, doğrusal). Duraklatılmışsa hepsi 0; çalan şarkı yoksa boş dizi.
 #[tauri::command]
-pub async fn visual_spectrum(player: State<'_, PlayerState>) -> Result<Vec<f32>, String> {
-    Ok(player.lock()?.visual_spectrum().unwrap_or_default())
+pub async fn visual_spectrum(
+    player: State<'_, PlayerState>,
+    display_lead_secs: f64,
+) -> Result<Vec<f32>, String> {
+    Ok(player
+        .lock()?
+        .visual_spectrum_ahead(display_lead_secs)
+        .unwrap_or_default())
 }
 
 /// Kütüphane durumu: klasörler, şarkı sayısı, tarama ilerlemesi.

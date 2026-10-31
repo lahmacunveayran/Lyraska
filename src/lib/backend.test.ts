@@ -6,7 +6,7 @@ const core = vi.hoisted(() => ({
 }));
 vi.mock("@tauri-apps/api/core", () => core);
 
-import { getVisualSpectrum, getVisualWaveform, WAVEFORM_BYTES } from "./backend";
+import { DISPLAY_LEAD_SECS, getVisualSpectrum, getVisualWaveform, WAVEFORM_BYTES } from "./backend";
 
 describe("dalga biçimi köprüsü", () => {
   beforeEach(() => {
@@ -19,7 +19,12 @@ describe("dalga biçimi köprüsü", () => {
     buffer[0] = 255;
     core.invoke.mockResolvedValue(buffer.buffer);
     const waveform = await getVisualWaveform();
-    expect(core.invoke).toHaveBeenCalledWith("visual_waveform");
+    // İstek ekran gecikmesini taşır: verilmezse 60 Hz, verilirse ölçülen kare süresi.
+    expect(core.invoke).toHaveBeenCalledWith("visual_waveform", {
+      displayLeadSecs: DISPLAY_LEAD_SECS,
+    });
+    await getVisualWaveform(1 / 144);
+    expect(core.invoke).toHaveBeenLastCalledWith("visual_waveform", { displayLeadSecs: 1 / 144 });
     expect(waveform).toBeInstanceOf(Uint8Array);
     expect(waveform?.length).toBe(WAVEFORM_BYTES);
     expect(waveform?.[0]).toBe(255);
@@ -48,7 +53,11 @@ describe("spektrum çubukları köprüsü", () => {
   it("beklenen sayıda seviyeyi 0..1'e kırparak verir", async () => {
     core.invoke.mockResolvedValue([0, 0.5, 1.2]);
     expect(await getVisualSpectrum(3)).toEqual([0, 0.5, 1]);
-    expect(core.invoke).toHaveBeenCalledWith("visual_spectrum");
+    expect(core.invoke).toHaveBeenCalledWith("visual_spectrum", {
+      displayLeadSecs: DISPLAY_LEAD_SECS,
+    });
+    await getVisualSpectrum(3, 1 / 30);
+    expect(core.invoke).toHaveBeenLastCalledWith("visual_spectrum", { displayLeadSecs: 1 / 30 });
   });
 
   it("boş yanıt, yanlış uzunluk, sayı olmayan değer ve tarayıcı önizlemesi null verir", async () => {

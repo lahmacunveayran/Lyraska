@@ -306,5 +306,8 @@ kısaltılır.
 - **Işık Ustası kaldırıldı (30 Ekim 2026, sahibinin kararı: "beğenmedim, sıkıcı"):** programdan tamamen silindi
   (sahne, yoğunluk ayarı, kendi testleri); kodu yedek dalda `claude/eloquent-shannon-0eigyf-yedek-isik-ustasi`.
   Kayıtlı seçim "lightshow" ise program gece göğüyle açılır. Sahneler v2 yeni bir fikirle sahibine sorularak başlar.
+- **Sözlerin "Mürekkep" görünümü reddedildi (31 Ekim 2026, sahibinin kararı: "olmamış, iptal"):** sözlerin ekran
+  kartında akışkan dumana dönüştüğü görünüm (önizleme videosuyla gösterildi). Kodu `claude/soz-murekkep` dalında,
+  birleşmez. Sözlerde kalan görünümler Takımyıldız / Lir / Sade (#165).
 - Görsel tasarımda sahibi zor beğenir: seçenekleri gerçek boyutta, yan yana görsel olarak sun; bağımsız sanat
   yönetmeni denetimi işe yarıyor (puan 6 → hedef 8+).
