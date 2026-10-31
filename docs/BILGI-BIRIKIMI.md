@@ -5,7 +5,7 @@ kurallar değil, **deneyimle öğrenilenler** durur: nasıl çalışınca iş h�
 düşüldü, proje sahibi neye karar verdi. Yeni bir ders öğrenildiğinde ilgili bölüme kısa bir madde eklenir (tarihiyle).
 Kalıcı bir kural hâline gelmesi gereken şey proje sahibine sorulup `CLAUDE.md`'ye taşınır.
 Sıradaki işler ve cevap bekleyen sorular burada değil, `docs/ACIK-KONULAR.md`'de durur. İki dosyanın da satır sınırı
-vardır (`check:docs`; bu dosya 640, açık konular 60; sahibinin kararı, 24 Ekim 2026): sınır aşılınca eski maddeler
+vardır (`check:docs`; bu dosya 2048, açık konular 60; sahibinin kararları, 24 ve 31 Ekim 2026): sınır aşılınca eski maddeler
 kısaltılır.
 
 ## 1. Proje sahibiyle çalışma
