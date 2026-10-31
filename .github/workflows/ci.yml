@@ -99,6 +99,10 @@ jobs:
       # Klasör önce boşaltılır: silinen bir Rust tipinin eski .ts dosyası da fark edilir.
       - name: Eski arayüz tiplerini kaldır
         run: rm -f src/lib/bindings/*.ts
+      - name: Testleri derle
+        working-directory: src-tauri
+        timeout-minutes: 30
+        run: cargo test --locked --no-run
       - name: Testler
         working-directory: src-tauri
         # Takılan bir test işi bütün süre boyunca bekletmesin.
@@ -238,7 +242,7 @@ jobs:
     # Windows'a özel kod (WASAPI) her push ve PR'da denetlenir: test sürümüne giden commit de
     # Windows'ta sınanmış olur.
     runs-on: windows-2025
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -264,6 +268,12 @@ jobs:
         working-directory: src-tauri
         timeout-minutes: 15
         run: cargo clippy --all-targets --locked -- -D warnings
+      # Derleme ayrı adımda: önbelleksiz derleme (ör. yeni bağımlılık; söz modeli çalıştırıcısı tract)
+      # 15 dakikayı aşabiliyor; testlerin kendisi takılırsa yine 15 dakikada kesilir.
+      - name: Testleri derle (Windows)
+        working-directory: src-tauri
+        timeout-minutes: 30
+        run: cargo test --locked --no-run
       - name: Testler (Windows)
         working-directory: src-tauri
         timeout-minutes: 15
