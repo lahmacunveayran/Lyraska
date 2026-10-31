@@ -11,6 +11,7 @@ import { lyricFrame } from "../lib/lyrics";
  * (geçiş her karede yeniden başlayıp sözü ~0,1 sn geride bırakırdı). Epilepsi güvenli modunda
  * (`safe`) saydamlık eskisi gibi yumuşak geçişle değişir (güvenli modun davranışı değişmez).
  * `notice`: söz kaydırma kısayolunun kısa notu (sözlerin üstünde küçük; ekran okuyucu da duyurur).
+ * Otomatik zamanlamada emin olunamayan satır soluk görünür ve yanında küçük "tahmini" yazar.
  */
 export function LyricsOverlay({
   lyrics,
@@ -35,7 +36,10 @@ export function LyricsOverlay({
       {note}
       <div className={safe ? "lyrics is-safe" : "lyrics"} aria-hidden>
         {frame.line && (
-          <p className="lyrics__line" style={{ opacity: frame.opacity }}>
+          <p
+            className={frame.line.uncertain ? "lyrics__line is-uncertain" : "lyrics__line"}
+            style={{ opacity: frame.opacity }}
+          >
             {frame.words.length > 0
               ? frame.words.map((word, i) => (
                   <span
@@ -47,6 +51,12 @@ export function LyricsOverlay({
                   </span>
                 ))
               : frame.line.text}
+          </p>
+        )}
+        {/* Satırın dışında: satırın metni sözün metnine eşit kalır (zamanlama denetimi). */}
+        {frame.line?.uncertain && (
+          <p className="lyrics__note" style={{ opacity: frame.opacity }}>
+            <span className="lyrics__tag">tahmini</span>
           </p>
         )}
         {frame.line?.translation && (

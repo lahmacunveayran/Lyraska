@@ -810,6 +810,41 @@ kbd {
     scale(calc(1 + (1 - min(1, var(--p) * 4)) * 0.06));
 }
 
+/* Otomatik zamanlamada emin olunamayan satır: soluk, yanında küçük "tahmini" (sahibinin kararı). */
+.lyrics__line.is-uncertain {
+  color: var(--ink-2);
+}
+
+.lyrics__line.is-uncertain .lyrics__word.is-sung {
+  opacity: 0.8; /* söylenen kelimeyle aynı: kelime bitince parlaklık basamak yapmaz */
+}
+
+.lyrics__line.is-uncertain .lyrics__word.is-current {
+  opacity: 0.8;
+  color: var(--ink-2);
+}
+
+.lyrics__note {
+  margin: 6px 0 0;
+  line-height: 1;
+}
+
+.lyrics__tag,
+.photo-lyrics__tag {
+  display: inline-block;
+  margin-left: 0.6em;
+  padding: 0.12em 0.6em;
+  border: 1px solid var(--glass-edge);
+  border-radius: 999px;
+  vertical-align: middle;
+  font-family: var(--font-figures);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  text-shadow: none;
+}
+
 .lyrics__translation {
   margin: 10px 0 0;
   font-size: clamp(15px, 1.6vw, 24px);
@@ -4915,6 +4950,35 @@ kbd {
   color: var(--ink-2);
 }
 
+/* Otomatik zamanlamanın durumu: kısa not; sözlerin çoğu oturmadıysa uyarı. */
+.lyricsedit__auto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  background: var(--well);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.lyricsedit__auto p {
+  flex: 1 1 260px;
+  margin: 0;
+}
+
+.lyricsedit__auto.is-good {
+  border-color: color-mix(in srgb, var(--aurora) 40%, transparent);
+}
+
+.lyricsedit__auto.is-unaligned {
+  border-color: color-mix(in srgb, var(--key-7) 60%, transparent);
+  color: var(--ink);
+}
+
 .sync__caption {
   margin: 0 0 8px;
   font-size: 12px;
@@ -5808,6 +5872,15 @@ kbd {
 
 .photo-lyrics__word.is-sung {
   opacity: 0.9;
+}
+
+.photo-lyrics__line.is-uncertain .photo-lyrics__word {
+  opacity: 0.4;
+}
+
+.photo-lyrics__line.is-uncertain .photo-lyrics__word.is-sung,
+.photo-lyrics__line.is-uncertain .photo-lyrics__word.is-current {
+  opacity: 0.62;
 }
 
 .photo-lyrics__word.is-current {

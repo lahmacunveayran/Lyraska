@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { LyricLine, Lyrics } from "./backend";
 import {
+  AUTO_TIMING_TEXT,
   LYRIC_LEAD,
   LYRIC_MIN_SCALE,
   LYRIC_TAIL,
   MAX_SAVED_SHIFTS,
   NEXT_PREVIEW,
+  autoTiming,
   clampLyricShift,
   formatLyricShift,
   hasTimedLyrics,
@@ -273,5 +275,27 @@ describe("lyricsTextStats", () => {
       lines: 2,
       timed: 2,
     });
+  });
+});
+
+describe("otomatik zamanlamanın durumu", () => {
+  const untimed: Lyrics = { ...lyrics, synced: false, auto: null };
+
+  it("zamansız sözde paket kurulu mu, oturtulmuşta hüküm; dosyadan zamanlıda ve sözsüzde yok", () => {
+    expect(autoTiming(untimed, false)).toBe("noPackage");
+    expect(autoTiming(untimed, true)).toBe("pending");
+    expect(autoTiming(untimed, null)).toBeNull(); // henüz bilinmiyor: yanlış not gösterilmez
+    expect(autoTiming({ ...lyrics, auto: "good" }, false)).toBe("good");
+    expect(autoTiming({ ...lyrics, auto: "partlyEstimated" }, null)).toBe("partly");
+    expect(autoTiming({ ...lyrics, auto: "unaligned" }, true)).toBe("unaligned");
+    expect(autoTiming(lyrics, false)).toBeNull();
+    expect(autoTiming(null, false)).toBeNull();
+    expect(autoTiming({ ...untimed, lines: [] }, false)).toBeNull();
+  });
+
+  it("her durumun yazısı var", () => {
+    for (const state of ["noPackage", "pending", "good", "partly", "unaligned"] as const) {
+      expect(AUTO_TIMING_TEXT[state].length).toBeGreaterThan(10);
+    }
   });
 });

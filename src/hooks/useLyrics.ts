@@ -40,6 +40,8 @@ export interface LyricsControls {
   saveText: (text: string) => Promise<void>;
   /** Düzenlenmiş sözleri siler (şarkının kendi sözlerine dönülür) ve yeniden okur. */
   clearText: () => Promise<void>;
+  /** Sözleri yeniden okur (ör. söz paketi eklendi: zamansız söz oturtulmak üzere istenir). */
+  refresh?: () => void;
 }
 
 /**
@@ -116,6 +118,8 @@ export function useLyrics(trackPath: string | null): LyricsControls {
     setRevision((r) => r + 1);
   }, [trackPath]);
 
+  const refresh = useCallback(() => setRevision((r) => r + 1), []);
+
   const setVisible = useCallback((next: boolean) => {
     setVisibleState(next);
     saveLyricsVisible(next);
@@ -167,5 +171,6 @@ export function useLyrics(trackPath: string | null): LyricsControls {
     loadText,
     saveText,
     clearText,
+    refresh,
   };
 }
