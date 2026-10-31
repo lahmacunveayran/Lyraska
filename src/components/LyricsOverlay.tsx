@@ -1,5 +1,5 @@
 import { useMemo, useRef, type CSSProperties } from "react";
-import type { LyricLine, Lyrics } from "../lib/backend";
+import type { LyricLine, Lyrics, SongMap } from "../lib/backend";
 import {
   graphemes,
   heldGlyph,
@@ -10,8 +10,9 @@ import {
   meteorState,
   type LyricEffect,
 } from "../lib/lyricMotion";
-import { lyricFrame, type WordFrame } from "../lib/lyrics";
+import { hasTimedLyrics, lyricFrame, type WordFrame } from "../lib/lyrics";
 import { usePrefersReducedMotion } from "../lib/usePrefersReducedMotion";
+import { LyricInk } from "./LyricInk";
 import { LyricSky } from "./LyricSky";
 
 /** Meteorun yolu (piksel) ve açısı (yataydan aşağı, derece): Vega'nın yönünden (sağ üst) gelir. */
@@ -30,6 +31,9 @@ const METEOR_ANGLE = 8;
  * Epilepsi güvenli modunda (`safe`) görünüm eskisi gibidir: saydamlık yumuşak geçişle değişir, ışık
  * cephesi, tel, yıldız ve meteor yoktur (güvenli modun davranışı değişmez). "Animasyonları azalt"
  * açıksa hareket yoktur (yay, tel, yıldız, meteor, yükselme); kelimeler yine ışıkla dolar.
+ * "Mürekkep"te (`effect="ink"`) satırın arkasında gerçek akışkan vardır (`LyricInk`): şarkının haritası
+ * (`songMap`; `musicShift`: harita saati − söz saati) akışı sürer; tel, yıldız, meteor ve hayalet yoktur
+ * (biten satır dumana dönüşür).
  * `notice`: söz kaydırma kısayolunun kısa notu (sözlerin üstünde küçük; ekran okuyucu da duyurur).
  * Otomatik zamanlamada emin olunamayan satır soluk görünür ve yanında küçük "tahmini" yazar.
  */
@@ -39,15 +43,20 @@ export function LyricsOverlay({
   safe = false,
   notice = null,
   effect = "constellation",
+  songMap = null,
+  musicShift = 0,
 }: {
   lyrics: Lyrics | null;
   positionSecs: number;
   safe?: boolean;
   notice?: string | null;
   effect?: LyricEffect;
+  songMap?: SongMap | null;
+  musicShift?: number;
 }) {
   const reduced = usePrefersReducedMotion();
   const lineRef = useRef<HTMLParagraphElement | null>(null);
+  const boxRef = useRef<HTMLDivElement | null>(null);
   const meteors = useMemo(() => meteorLines(lyrics?.lines ?? []), [lyrics]);
   const frame = lyricFrame(lyrics, positionSecs);
   const note = notice && (
@@ -55,21 +64,42 @@ export function LyricsOverlay({
       {notice}
     </p>
   );
-  if (!frame.line && !frame.next) return note || null;
   const lit = !safe;
   const motion = lit && !reduced;
   const lines = lyrics?.lines ?? [];
   const move = motion && frame.line ? lineMotion(lines, frame.line, positionSecs) : null;
+  // Mürekkep: tuval satır yokken de durur (duman dağılmayı sürdürür). Söz bloğundan sonra: ref'ler bağlı.
+  const ink = motion && effect === "ink" && lyrics && hasTimedLyrics(lyrics) && (
+    <LyricInk
+      lyrics={lyrics}
+      boxRef={boxRef}
+      lineRef={lineRef}
+      line={frame.line}
+      words={frame.words}
+      t={positionSecs}
+      lift={move?.y ?? 0}
+      map={songMap}
+      musicShift={musicShift}
+    />
+  );
+  if (!frame.line && !frame.next)
+    return note || ink ? (
+      <>
+        {note}
+        {ink}
+      </>
+    ) : null;
+  const sky = motion && effect !== "plain" && effect !== "ink";
   const index = frame.line ? lines.indexOf(frame.line) : -1;
   const meteor =
-    motion && effect !== "plain" && index >= 0 && meteors.has(index)
+    sky && index >= 0 && meteors.has(index)
       ? meteorState(positionSecs - lineShownAt(lines, index))
       : null;
   const uncertain = !!frame.line?.uncertain;
   return (
     <>
       {note}
-      <div className={`lyrics${safe ? " is-safe" : " is-lit"}`} aria-hidden>
+      <div className={`lyrics${safe ? " is-safe" : " is-lit"}`} ref={boxRef} aria-hidden>
         {frame.line && (
           <div
             className="lyrics__stack"
@@ -88,7 +118,7 @@ export function LyricsOverlay({
               <Words line={frame.line} words={frame.words} motion={motion} shade={false} />
             </p>
             {/* Satırdan sonra: satırın ref'i bağlanmış olur, tel ilk karede çizilir (CSS'te arkada). */}
-            {motion && effect !== "plain" && (
+            {sky && (
               <LyricSky
                 lineRef={lineRef}
                 line={frame.line}
@@ -101,7 +131,7 @@ export function LyricsOverlay({
             )}
           </div>
         )}
-        {move?.ghost && (
+        {move?.ghost && effect !== "ink" && (
           <p
             className="lyrics__ghost"
             style={{ transform: `translateY(${move.ghost.y}em)`, opacity: move.ghost.opacity }}
@@ -134,6 +164,7 @@ export function LyricsOverlay({
         )}
         {frame.next && <p className="lyrics__next">{frame.next.text}</p>}
       </div>
+      {ink}
     </>
   );
 }

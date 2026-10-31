@@ -6143,3 +6143,20 @@ kbd {
   gap: 10px;
   margin-top: 6px;
 }
+
+/* "Mürekkep" sözlerin akışkanı: söz bloğundan geniş ve yüksek (duman yükselir), yeri sabit. */
+.lyrics-ink {
+  position: absolute;
+  z-index: 2;
+  top: calc(16% - 240px);
+  left: 50%;
+  width: min(1400px, 100vw);
+  height: 560px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.app.has-drawer .lyrics-ink {
+  left: calc((100vw - var(--drawer-width)) / 2);
+  width: calc(100vw - var(--drawer-width));
+}

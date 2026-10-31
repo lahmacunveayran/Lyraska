@@ -3473,6 +3473,11 @@ describe("şarkı sözleri", () => {
     expect(container.querySelector(".lyrics__sky")).toBeNull();
     expect(container.querySelector(".lyrics__shade")).not.toBeNull();
     expect(window.localStorage.getItem("lyraska.lyricEffect")).toBe("plain");
+    // Mürekkep: sözlerin arkasında akışkanın tuvali, tel ve yıldız yok.
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Mürekkep" })));
+    expect(container.querySelector(".lyrics-ink")).not.toBeNull();
+    expect(container.querySelector(".lyrics__sky")).toBeNull();
+    expect(window.localStorage.getItem("lyraska.lyricEffect")).toBe("ink");
     unmount();
     // Güvenli modda eskisi gibi: gölge katmanı, tuval yok.
     window.localStorage.setItem("lyraska.lyricEffect", "constellation");

@@ -1533,11 +1533,11 @@ const LYRIC_VIEWS = {
 
 async function checkLyricsTiming(
   browser,
-  { delayMs = 0, heavyMs = 0, ipc = "simetrik", view = LYRIC_VIEWS.overlay } = {},
+  { delayMs = 0, heavyMs = 0, ipc = "simetrik", view = LYRIC_VIEWS.overlay, effect = null } = {},
 ) {
   const [requestMs, responseMs] = LYRIC_IPC[ipc];
   const label =
-    `Söz zamanlaması (${view.name}) · ses gecikmesi ${delayMs} ms` +
+    `Söz zamanlaması (${view.name}${effect ? `, ${effect}` : ""}) · ses gecikmesi ${delayMs} ms` +
     (heavyMs ? ` · ağır sahne ${heavyMs} ms` : "") +
     (ipc === "simetrik" ? "" : ` · IPC ${ipc}`);
   // Küçük pencere: ekran kartsız makinede de sahne her karede çizilebilsin (ölçüm kare hızına bağlı).
@@ -1560,6 +1560,7 @@ async function checkLyricsTiming(
   // Çekirdeğin konumu: 60. saniyeden gerçek zamanla ilerler (sayfanın kendi saatiyle).
   await page.addInitScript(
     `${initScript(view.scene, {})}
+    ${effect ? `try { localStorage.setItem("lyraska.lyricEffect", ${JSON.stringify(effect)}); } catch {}` : ""}
     (() => {
       const base = window.__TAURI_INTERNALS__.invoke;
       const started = performance.now();
@@ -1801,6 +1802,84 @@ async function checkLyricsTiming(
     }
   }
   if (errors.length === 0) problems.push(`${label}: hiçbir olay ölçülemedi`);
+  return problems;
+}
+
+/**
+ * "Mürekkep" sözlerinin akışkanı gerçek tarayıcıda (src/lib/inkRenderer.ts): sözler çalarken akışkan
+ * kurulur (ekran kartı hatası yok), mürekkep sonlu kalır (taşma, NaN yok: kalemin ucundaki üs taşması
+ * bir kez yakalandı) ve bir basınç çözümü (Jacobi, 24 yineleme) hız alanının ıraksaklığının çoğunu
+ * siler. Ölçüm programın kendisinden istenir (`data-ink-measure`), sonucu tuvale yazılır.
+ */
+async function checkInkFluid(browser) {
+  const label = "Mürekkep akışkanı";
+  const page = await browser.newPage({
+    viewport: { width: 960, height: 600 },
+    deviceScaleFactor: 1,
+  });
+  page.setDefaultTimeout(SLOW);
+  const problems = [];
+  page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
+  const lyrics = lyricCheckLyrics();
+  await page.addInitScript(
+    `${initScript("sky", {})}
+    try { localStorage.setItem("lyraska.lyricEffect", "ink"); } catch {}
+    (() => {
+      const base = window.__TAURI_INTERNALS__.invoke;
+      const started = performance.now();
+      window.__TAURI_INTERNALS__.invoke = async (cmd, args) => {
+        if (cmd === "track_lyrics") return ${JSON.stringify(lyrics)};
+        const status = await base(cmd, args);
+        if (!status || status.state !== "playing" || !("underruns" in status)) return status;
+        return { ...status, positionSecs: 60 + (performance.now() - started) / 1000 };
+      };
+    })();`,
+  );
+  await page.goto(APP_URL);
+  await page.waitForTimeout(300);
+  await page.mouse.click(5, 5);
+  if (await page.locator("#drawer.is-open").count()) {
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.querySelector("#drawer.is-open"));
+  }
+  await page.keyboard.press("Space");
+  await page.waitForSelector(".lyrics-ink");
+  await page.waitForTimeout((LYRIC_CHECK_START - 60 + 0.5) * 1000);
+  const results = [];
+  for (let i = 0; i < 12; i++) {
+    await page.waitForTimeout(450);
+    const result = await page.evaluate(async () => {
+      const canvas = document.querySelector(".lyrics-ink");
+      if (!canvas) return { missing: true };
+      if (canvas.dataset.webglError) return { error: canvas.dataset.webglError };
+      delete canvas.dataset.inkResult;
+      canvas.dataset.inkMeasure = "1";
+      for (let k = 0; k < 40 && !canvas.dataset.inkResult; k++)
+        await new Promise((done) => requestAnimationFrame(done));
+      return canvas.dataset.inkResult ? JSON.parse(canvas.dataset.inkResult) : { timeout: true };
+    });
+    results.push(result);
+  }
+  await page.close();
+  const failed = results.find((r) => r.missing || r.error || r.timeout);
+  if (failed) {
+    problems.push(
+      `${label}: ${failed.error ? `ekran kartı: ${failed.error}` : failed.missing ? "tuval yok" : "ölçüm yanıtsız"}`,
+    );
+    return problems;
+  }
+  if (results.some((r) => !r.finite)) problems.push(`${label}: mürekkepte sonlu olmayan değer var`);
+  if (!results.some((r) => r.total > 1)) problems.push(`${label}: hiç mürekkep yok`);
+  const moving = results.filter((r) => r.before > 0.01);
+  const ratios = moving.map((r) => r.after / r.before).sort((a, b) => a - b);
+  const median = ratios[ratios.length >> 1];
+  console.log(
+    `${label}: ${results.length} ölçüm · mürekkep ${Math.round(Math.max(...results.map((r) => r.total)))} · ` +
+      `ıraksaklık bir çözümde ortanca ×${median?.toFixed(2) ?? "?"} (${moving.length} ölçüm)`,
+  );
+  if (moving.length < 3) problems.push(`${label}: akış ölçülemedi (${moving.length} ölçüm)`);
+  else if (median > 0.5)
+    problems.push(`${label}: basınç çözümü ıraksaklığı silmiyor (×${median.toFixed(2)})`);
   return problems;
 }
 
@@ -2308,6 +2387,9 @@ if (EXPECT_FALLBACK) {
     add(() => checkLyricsTiming(browser, { heavyMs: 10, ipc: "asimetrik" }));
     add(() => checkLyricsTiming(browser, { heavyMs: 22, ipc: "asimetrik" }));
     add(() => checkLyricsTiming(browser, { view: LYRIC_VIEWS.photo }));
+    // Mürekkebin akışkanı her karede ekran kartında koşarken de sözler zamanında.
+    add(() => checkLyricsTiming(browser, { effect: "ink" }));
+    add(() => checkInkFluid(browser));
   }
   const bright = brightestThemes(2);
   for (const scene of ALL_SCENES.filter(selected)) {

@@ -169,6 +169,17 @@ kuralları). Kod bağımlılıklarının lisanslarını CI denetler (`npm run ch
   çevirip int8'e nicemlemesi) ve lisans metni: `public/lisanslar/Omnilingual-ASR-Apache-2.0.txt`. Eğitim verisinin
   tam listesi doğrulanamadı (proje sahibinin kararı, RAPOR karar 3).
 
+## "Mürekkep" sözlerinin akışkanı: yöntem kaynakları
+
+Kod Lyraska'nındır; dışarıdan kod alınmadı. Yöntemler yayımlanmış kaynaklardan:
+
+- Stam, J. (1999). "Stable Fluids". SIGGRAPH '99 (yarı Lagrange taşıma, basınç Poisson denklemi).
+- Fedkiw, R., Stam, J., Jensen, H. W. (2001). "Visual Simulation of Smoke". SIGGRAPH '01 (girdap güçlendirme).
+- Harris, M. (2004). "Fast Fluid Dynamics Simulation on the GPU". GPU Gems, böl. 38 (Jacobi basınç çözümü).
+- Mitchell, K. (2007). "Volumetric Light Scattering as a Post-Process". GPU Gems 3, böl. 13 (ışık huzmeleri).
+- Dobryakov, P. "WebGL Fluid Simulation" (MIT, github.com/PavelDoGreat/WebGL-Fluid-Simulation): ayarların
+  (önceki basınçtan başlama 0,8, girdap katsayısının büyüklüğü) ve gölgelendirmenin başvuru noktası.
+
 ## Programa girmeyen araştırma dosyaları
 
 ### LAME 3.100 ölçüm yaması

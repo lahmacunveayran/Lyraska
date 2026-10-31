@@ -18,9 +18,10 @@ import { LYRIC_LEAD, LYRIC_TAIL } from "./lyrics";
  * Sözlerin görünümü (Epilepsi güvenli modunda hep sade, eskisi gibi):
  * - `constellation`: lir teli + kelimeler yıldız olup takımyıldız çizgileriyle bağlanır + meteor.
  * - `lyre`: lir teli + meteor.
+ * - `ink`: sözler gerçek bir akışkanın içinde yazılır, satır bitince dumana dönüşür (`inkFluid`).
  * - `plain`: yalnızca ışıkla dolan kelimeler ve yayla oturan satır.
  */
-export type LyricEffect = "constellation" | "lyre" | "plain";
+export type LyricEffect = "constellation" | "lyre" | "ink" | "plain";
 
 export const LYRIC_EFFECTS: readonly { id: LyricEffect; name: string; hint: string }[] = [
   {
@@ -29,6 +30,11 @@ export const LYRIC_EFFECTS: readonly { id: LyricEffect; name: string; hint: stri
     hint: "Söylenen kelime yıldız olur, yıldızlar çizgiyle bağlanır; altta lir teli titrer.",
   },
   { id: "lyre", name: "Lir", hint: "Kelimeler satırın altındaki lir telini çeker; yıldız yok." },
+  {
+    id: "ink",
+    name: "Mürekkep",
+    hint: "Söylenen kelimeden mürekkep akar, müzikle dalgalanır; satır bitince dumana dönüşür.",
+  },
   { id: "plain", name: "Sade", hint: "Yalnızca kelimelerin içinden geçen ışık ve yumuşak geçiş." },
 ];
 const EFFECT_KEY = "lyraska.lyricEffect";

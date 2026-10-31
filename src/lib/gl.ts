@@ -17,8 +17,11 @@ void main() {
  * açılır (hiç sahne olmamasından iyidir) ama tuvale `data-gpu-caveat="software"` işlenir:
  * sahneler çözünürlüğü düşürür ([`fitCanvas`]) ki işlemci her kareyi zamanında yetiştirsin.
  */
-export function getWebGl2(canvas: HTMLCanvasElement): WebGL2RenderingContext | null {
-  const base: WebGLContextAttributes = { antialias: false, alpha: false, depth: false };
+export function getWebGl2(
+  canvas: HTMLCanvasElement,
+  extra: WebGLContextAttributes = {},
+): WebGL2RenderingContext | null {
+  const base: WebGLContextAttributes = { antialias: false, alpha: false, depth: false, ...extra };
   try {
     const hardware = canvas.getContext("webgl2", { ...base, failIfMajorPerformanceCaveat: true });
     if (hardware) {

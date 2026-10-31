@@ -218,6 +218,14 @@ kısaltılır.
 - **Bu oturumun GitHub yetkisi:** yalnızca oturum dalına ve `claude/clever-euler-pmhee7-yedek-*` adlı yedek dallara
   push edilebilir; başka dal silinemez (403) — sahibi `/branches/all` sayfasından siler. Yarım iş oturum kapanmadan
   yedek dala gönderilir (geçici bilgisayar silinir).
+- **Akışkan gölgelendiricide üs taşması (31 Ekim, "Mürekkep"):** `exp(−(cephe − x)/k)` cephenin ilerisinde pozitif
+  üsle 16 bit dokuda sonsuza gider, sonra `sonsuz × 0 = NaN` bütün mürekkebe yayılır (kare kenarlı lekeler, sonra
+  hiç duman). Üs yalnızca geçerli bölgede hesaplanır; `check:scenes`'in "Mürekkep akışkanı" denetimi NaN'ı okur
+  (hatayı geri koyunca kırmızı yandığı denendi).
+- **Sıkıştırılamaz akışta "dışa itiş" işe yaramaz:** ıraksaklık basınç çözümünde silinir. Damla, zıt dönen girdap
+  çiftiyle yapılır (mantar). Güçlü girdap güçlendirme ızgara ölçeğinde dama tahtası gürültüsü büyütür (tırtıklı
+  kenarlar): küçük açık viskozite (k = 0,1; dama tahtası adımda ×0,2) giderir. Geniş itiş satırı bütün halinde
+  kaldırır; dar itiş harfleri dikey uzatır.
 - **Disk:** `CARGO_TARGET_DIR` unutulursa her çalışma kopyası kendi `target`'ını kurar ve disk dolar; önizleme ham
   kareleri (GB'larca) iş bitince silinir.
 

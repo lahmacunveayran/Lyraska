@@ -667,7 +667,7 @@ interface LiveChromeProps {
    * yer henüz hazır değil (söz gösterilmez, genel katman da çizilmez).
    */
   lyricsSlot?: HTMLElement | null;
-  /** Sözlerin görünümü (takımyıldız, lir, sade). */
+  /** Sözlerin görünümü (takımyıldız, lir, mürekkep, sade). */
   lyricEffect: LyricEffect;
   /**
    * Sinema görünümü mü? "Kendi resmin"de sözler sinemada başlık bloğunda; denetimler görünürken üst
@@ -726,6 +726,8 @@ function LiveChrome({
           safe={safe}
           notice={lyricNotice}
           effect={lyricEffect}
+          songMap={songMap}
+          musicShift={lyricShiftSecs}
         />
       ) : (
         <>
