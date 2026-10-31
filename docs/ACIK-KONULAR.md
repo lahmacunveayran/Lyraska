@@ -12,7 +12,7 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
    PR'lar: hazırlıktan arayüze ve Lyra görünümüne (#165) kadar birleşti → paketin test sürümü sayfasında korunması
    (PR'da), birleşince paket yüklenir → sahibinin 5–10 Türkçe şarkı denemesi.
 2. Ses motoru denetimi (64-bit, EQ, AutoEq, R128, bit-perfect, ABX): Denetim 3 §5.1 (`ccr-a69bd749-djgi3v`,
-   `ccr-a46535b3-m3v2i5`) + #56; RTS-03 düzeltildi (PR'da), sırada D1-01, DSP-01, eğri aygıt hızında, RTS-01.
+   `ccr-a46535b3-m3v2i5`) + #56; RTS-03 (#168) ve D1-01 düzeltildi (PR'da), sırada DSP-01, eğri aygıt hızında, RTS-01.
 3. Görev kitabı (`docs/gorev/`) ile ROADMAP/ACIK-KONULAR çelişkileri (ROADMAP 30 Ekim'de güncellendi: kaldırılan
    sahneler, söz işleri, çıkış Faz 7'den sonra). Tek doğruluk kaynağı ROADMAP + ACIK-KONULAR.
 4. Kaynak ayrıştırma: Spleeter ve Demucs karşılaştırması (kalite, hız, ağırlık lisansı birincil kaynaktan).
