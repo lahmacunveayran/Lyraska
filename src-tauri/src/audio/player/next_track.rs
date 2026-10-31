@@ -69,6 +69,16 @@ pub(super) fn open_next(shared: &SharedState, spec: OutputSpec) -> Option<Decode
     if matches!(spec.mode, OutputMode::Exclusive(_)) && info.sample_rate != spec.sample_rate {
         return None;
     }
+    // Aygıtın özel mod biçiminden derin şarkı orada bit bit aynı çıkamaz (ilk şarkıdaki denetim,
+    // `bit_perfect::output_mode`): oturum biter, sıradaki kendi biçiminde açılır (Denetim 3, RTS-03).
+    if let OutputMode::Exclusive(format) = spec.mode {
+        if decoder
+            .source_bits()
+            .is_some_and(|bits| bits > u32::from(format.valid_bits))
+        {
+            return None;
+        }
+    }
     Some(decoder)
 }
 
