@@ -1485,9 +1485,10 @@ function lyricCheckLyrics() {
       translation: null,
       words,
       estimated: false,
+      uncertain: false,
     };
   });
-  return { source: "sidecar", synced: true, lines };
+  return { source: "sidecar", synced: true, lines, auto: null };
 }
 
 /**

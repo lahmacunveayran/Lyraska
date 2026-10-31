@@ -10,8 +10,8 @@
 //! - [`evaluate`]: analizin doğruluğunu insan işaretlerine göre ölçme (F-ölçüsü).
 //! - [`cache`]: analiz sonuçlarının SQLite önbelleği (yol + boyut + değiştirilme
 //!   zamanı; her parçanın kendi sürümü: spektrum, ritim, ses yüksekliği, bas tepeleri).
-//! - [`lyrics_align`], [`lyrics_model`], [`lyrics_text`], [`lyrics_cache`]: sözleri sese oturtma
-//!   (hizalama, model, metin hazırlığı, modelin emisyonlarının önbelleği).
+//! - [`lyrics_align`], [`lyrics_model`], [`lyrics_text`], [`lyrics_cache`], [`lyrics_job`]: sözleri
+//!   sese oturtma (hizalama, model, metin hazırlığı, emisyon önbelleği, işin kendisi ve sonucu).
 //! - [`background`]: kütüphanenin arka planda, düşük öncelikle analizi.
 //!
 //! Analiz şarkı çalmadan önce yapılır ve sonuç SQLite'ta saklanır; böylece
@@ -27,6 +27,7 @@ pub mod key;
 pub mod levels;
 pub mod lyrics_align;
 pub mod lyrics_cache;
+pub mod lyrics_job;
 pub mod lyrics_model;
 pub mod lyrics_text;
 pub mod map_file;

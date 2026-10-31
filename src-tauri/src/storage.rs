@@ -13,7 +13,7 @@
 //!   sürüm 1 yazıyordu ama bu adımın hepsini kurmuyordu (analiz tablosu 0.0.20'de, silme
 //!   tetikleyicisi 0.0.22'de geldi). Sürümü 1 olan dosyada adım yeniden uygulanır; eksik olan
 //!   kurulur.
-//! - Önbellek (analizler, söz modelinin emisyonları; `CACHE_OBJECTS`) yeniden hesaplanabilir,
+//! - Önbellek (analizler, söz modelinin emisyonları ve hizalamaları; `CACHE_OBJECTS`) yeniden hesaplanabilir,
 //!   kütüphane verisi değildir: bir adım önbellek tablosunda takılırsa ya da bir önbellek tablosu bu
 //!   sürümün beklediği sütunlardan ya da silme tetikleyicisinden yoksunsa önbellek boşaltılıp
 //!   yeniden kurulur (şarkılar arka planda yeniden analiz edilir). Klasörlere ve
@@ -174,8 +174,25 @@ CREATE TRIGGER IF NOT EXISTS lyrics_emissions_follow_tracks AFTER DELETE ON trac
 BEGIN DELETE FROM lyrics_emissions WHERE path = old.path; END;
 ";
 
+/// 10: otomatik zamanlanan sözler ([`crate::analysis::lyrics_job`]): şarkı başına son metnin
+/// hizalaması (JSON). Anahtar yol + damga + modelin SHA-256'sı + hesap sürümü + metnin SHA-256'sı.
+/// Şarkı kütüphaneden çıkınca kaydı da silinir.
+const V10: &str = "
+CREATE TABLE IF NOT EXISTS lyrics_alignments (
+    path         TEXT PRIMARY KEY,
+    file_size    INTEGER NOT NULL,
+    modified     INTEGER NOT NULL,
+    model_sha256 TEXT NOT NULL,
+    version      INTEGER NOT NULL,
+    text_sha256  TEXT NOT NULL,
+    result       TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS lyrics_alignments_follow_tracks AFTER DELETE ON tracks
+BEGIN DELETE FROM lyrics_alignments WHERE path = old.path; END;
+";
+
 /// Sıralı göç adımları (bkz. modül belgesi). Yalnızca sona eklenir.
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10];
 
 /// Bu sürümün bildiği en yeni şema.
 pub const SCHEMA_VERSION: i64 = MIGRATIONS.len() as i64;
@@ -306,6 +323,7 @@ fn columns(conn: &Connection, table: &str) -> rusqlite::Result<Vec<(String, Stri
 const CACHE_OBJECTS: &[(&str, &str)] = &[
     ("analyses", "analyses_follow_tracks"),
     ("lyrics_emissions", "lyrics_emissions_follow_tracks"),
+    ("lyrics_alignments", "lyrics_alignments_follow_tracks"),
 ];
 
 /// Nesne (tablo ya da tetikleyici) var mı?
@@ -378,12 +396,13 @@ mod tests {
         migrate(&mut conn).unwrap();
         assert_eq!(version(&conn), SCHEMA_VERSION);
         // V8: çalma listeleri; `sqlite_sequence` listelerin AUTOINCREMENT sayacı (SQLite'ın kendi tablosu).
-        // V9: söz modelinin emisyonları.
+        // V9: söz modelinin emisyonları. V10: otomatik zamanlanan sözler.
         assert_eq!(
             tables(&conn),
             [
                 "analyses",
                 "folders",
+                "lyrics_alignments",
                 "lyrics_emissions",
                 "playlist_entries",
                 "playlists",
