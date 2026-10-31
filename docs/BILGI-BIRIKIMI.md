@@ -309,5 +309,9 @@ kısaltılır.
 - **Sözlerin "Mürekkep" görünümü reddedildi (31 Ekim 2026, sahibinin kararı: "olmamış, iptal"):** sözlerin ekran
   kartında akışkan dumana dönüştüğü görünüm (önizleme videosuyla gösterildi). Kodu `claude/soz-murekkep` dalında,
   birleşmez. Sözlerde kalan görünümler Takımyıldız / Lir / Sade (#165).
+- **"Kendi resmin" güvenli modda kırmızı resimde çubuklar durur, bilerek** (31 Ekim 2026; sahibi kararı Claude'a
+  bıraktı): kırmızı pay (8) sessizlik boyunda doluyor, kusursuz sınır bile 3–12 px verirdi; beyaz ışık ve sınırı
+  inceltmek görünüşü değiştirip büyük iş isterdi. Güvenli mod ışığa duyarlı kullanıcı için; normal modda çubuklar her
+  resimde tam. Ölçüm: `docs/arastirma/kendi-resmin/README.md` "Güvenli modda kırmızı resim".
 - Görsel tasarımda sahibi zor beğenir: seçenekleri gerçek boyutta, yan yana görsel olarak sun; bağımsız sanat
   yönetmeni denetimi işe yarıyor (puan 6 → hedef 8+).

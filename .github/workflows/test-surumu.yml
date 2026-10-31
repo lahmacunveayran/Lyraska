@@ -36,6 +36,11 @@ env:
   CARGO_TERM_COLOR: always
   RELEASE_TAG: test-surumu
   ASSET_NAME: Lyraska-Kurulum.exe
+  # Söz paketi (sözleri sese oturtan model; Omnilingual ASR, Apache-2.0): elle bir kez yüklenir, her
+  # yenilemede korunur. Boyutu ve SHA-256'sı programın beklediği (src-tauri/src/analysis/lyrics_package.rs;
+  # check:rules denetler).
+  PACKAGE_NAME: Lyraska-Soz-Paketi.onnx
+  PACKAGE_SHA256: e3042b2f3b3ef0af2211bf99d2b4bf94a21f5ac0e9898827e7dd6d003a860e91
 
 jobs:
   derle:
@@ -197,6 +202,13 @@ jobs:
           2. Windows "Windows kişisel bilgisayarınızı korudu" derse **Ek bilgi** → **Yine de çalıştır**'a basın.
              (Program henüz dijital olarak imzalanmadığı için bu uyarı normaldir; imzalama Faz 4'te.)
           3. Kurulum yönetici izni istemez; program Başlat menüsüne "Lyraska" adıyla eklenir.
+
+          ### Söz paketi (isteğe bağlı, 349 MB)
+          Zamansız sözleri şarkının sesine kendiliğinden oturtur. Bir kez eklenir; program internete bağlanmaz.
+          1. **$PACKAGE_NAME** dosyasını indirin.
+          2. Lyraska'da **Sözler** panelinde **Söz paketini ekle…** düğmesine basıp bu dosyayı seçin.
+          - SHA-256: \`$PACKAGE_SHA256\` (program eklerken denetler)
+          - Model: Omnilingual ASR (Meta), Apache-2.0; lisans metni programın içinde.
           NOTES
       - name: Dosyayı yükle, sonra etiketi ve notları yenile
         if: steps.guncel.outputs.yayinla == 'true'
@@ -218,7 +230,8 @@ jobs:
           assets=$(gh api "repos/$GH_REPO/releases/tags/$RELEASE_TAG" --jq '.assets[] | "\(.id) \(.name)"')
           while read -r id name; do
             [ -n "$id" ] || continue
-            if [ "$name" != "$temp_name" ]; then
+            # Söz paketi korunur: kurulum dosyasından bağımsız, elle yüklenir.
+            if [ "$name" != "$temp_name" ] && [ "$name" != "$PACKAGE_NAME" ]; then
               echo "Eski dosya siliniyor: $name"
               gh api -X DELETE "repos/$GH_REPO/releases/assets/$id" >/dev/null
             fi
