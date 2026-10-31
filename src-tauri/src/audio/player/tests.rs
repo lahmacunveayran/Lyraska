@@ -1415,6 +1415,39 @@ fn bit_perfect_hizi_farkli_siradaki_sarkiya_bosluksuz_gecilmez() {
 }
 
 #[test]
+fn bit_perfect_bit_derinligi_buyuk_siradaki_sarkiya_bosluksuz_gecilmez() {
+    // Denetim 3, RTS-03: aygıt özel modda yalnızca 16 bit kabul ediyor. 24 bitlik şarkı ilk şarkı
+    // olarak bit-perfect açılmaz; 16 bitlik şarkının ardından sıradaki olarak da akışa eklenmemeli
+    // (alt 8 biti yuvarlanır, ekran "bit-perfect, 16 bit" derdi).
+    exclusive_device(Some(output::IntFormat::new(16, 16)), false);
+    let first = temp_path("bp-16.wav");
+    write_wav(&first, 8_000, 1, 8_000 * 3, |_, _| 0.1);
+    let deep = temp_path("bp-24.wav");
+    crate::audio::test_util::write_wav_bits(&deep, 8_000, 1, 24, 8_000 * 3, |_, _| 0.1);
+    let mut player = Player::new();
+    player.set_playback_options(bit_perfect(true)).unwrap();
+
+    player.load(&deep, false).unwrap();
+    assert!(
+        !player.status().output.unwrap().bit_perfect,
+        "ilk şarkıda denetleniyor"
+    );
+
+    player.load(&first, true).unwrap();
+    assert!(player.status().output.unwrap().bit_perfect);
+    player.set_next(Some(deep.clone()));
+    assert!(wait_until(|| player.state() == PlaybackState::Ended));
+    // Oturum biter; arayüz sıradakini kendi biçiminde açar (bit-perfect değil, nedeniyle).
+    assert_eq!(player.status().track.unwrap().path, first);
+    player.load(&deep, true).unwrap();
+    assert!(!player.status().output.unwrap().bit_perfect);
+    reset_device();
+    for path in [first, deep] {
+        std::fs::remove_file(path).ok();
+    }
+}
+
+#[test]
 fn bit_perfect_zinciri_dosyadaki_tamsayilari_aynen_aygita_verir() {
     use crate::audio::render::Renderer;
     // 16 bitlik stereo dosya; değerler tam ölçek dahil bütün aralığa yayılır.
