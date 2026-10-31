@@ -13,9 +13,8 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
    → iş parçacığı → Söz paketi (birleşti) → arayüz (PR'da) → Lyra görünümü (`claude/soz-efekt`). Küçük iş: ölçülen kare süresi ve ortak saat görsellere de.
 2. "Kendi resmin": çubuk ölçeği, yumuşak tavan, saf renk 0.0.98'de (`docs/arastirma/kendi-resmin/` "Tepki
    teşhisi"). Ayrı iş: güvenli modda kırmızı resimde çubuklar neredeyse kıpırdamıyor (`limitExtents`).
-3. Ses motoru denetimi: 64-bit, EQ, AutoEq, EBU R128, bit-perfect, ABX + DENETIM-3 (dallar `ccr-a69bd749-djgi3v`,
-   `ccr-a46535b3-m3v2i5`) + #56. Öncelik `DENETIM-3.md` §5.1 (dalda): RTS-03 düzeltildi (PR'da); sırada D1-01
-   (koruma −1 dBTP'ye göre), DSP-01 (20 Hz altı tepe taraması), parametrik eğri aygıtın hızında, RTS-01.
+3. Ses motoru denetimi (64-bit, EQ, AutoEq, R128, bit-perfect, ABX): Denetim 3 §5.1 (`ccr-a69bd749-djgi3v`,
+   `ccr-a46535b3-m3v2i5`) + #56; RTS-03 düzeltildi (PR'da), sırada D1-01, DSP-01, eğri aygıt hızında, RTS-01.
 4. Görev kitabı (`docs/gorev/`) ile ROADMAP/ACIK-KONULAR çelişkileri (ROADMAP 30 Ekim'de güncellendi: kaldırılan
    sahneler, söz işleri, çıkış Faz 7'den sonra). Tek doğruluk kaynağı ROADMAP + ACIK-KONULAR.
 5. Kaynak ayrıştırma: Spleeter ve Demucs karşılaştırması (kalite, hız, ağırlık lisansı birincil kaynaktan).
