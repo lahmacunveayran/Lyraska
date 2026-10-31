@@ -9,8 +9,8 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 
 1. Sözleri sese otomatik hizalama (dokunarak zamanlamanın yerine; sahibi elle yapamıyor): iki irdeleme bitti
    (`docs/arastirma/soz-hizalama/`), sahibi kararları verdi (BILGI §7); sıra RAPOR §8 + DENETIM önerileri, küçük
-   PR'lar: hazırlık, hizalayıcı, model çalıştırıcı, Windows hızı, emisyon önbelleği, zamanlama işi (birleşti)
-   → iş parçacığı → Söz paketi (birleşti) → arayüz (PR'da) → Lyra görünümü (`claude/soz-efekt`). Küçük iş: ölçülen kare süresi ve ortak saat görsellere de.
+   PR'lar: hazırlıktan arayüze ve Lyra görünümüne (#165) kadar birleşti → paketin test sürümü sayfasında korunması
+   (PR'da), birleşince paket yüklenir → sahibinin 5–10 Türkçe şarkı denemesi.
 2. "Kendi resmin": çubuk ölçeği, yumuşak tavan, saf renk 0.0.98'de (`docs/arastirma/kendi-resmin/` "Tepki
    teşhisi"). Ayrı iş: güvenli modda kırmızı resimde çubuklar neredeyse kıpırdamıyor (`limitExtents`).
 3. Ses motoru denetimi: 64-bit, EQ, AutoEq, EBU R128, bit-perfect, ABX + DENETIM-3 (dallar `ccr-a69bd749-djgi3v`,
