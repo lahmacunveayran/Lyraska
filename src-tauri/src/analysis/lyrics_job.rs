@@ -742,3 +742,510 @@ mod tests {
             .is_empty());
     }
 }
+
+/// Bağımsız inceleme: söz zamanlama işinin karşı örnekleri (yazarın testlerinden ayrı). Rastgele
+/// (tohumlu) söz metinleri → `prepare` → yapay emisyonlar → `align` → `AutoAlignment::new` →
+/// `auto_lyrics`; kayıt/okuma ve deneme modeliyle uçtan uca.
+#[cfg(test)]
+mod inceleme_karsi_ornekler {
+    use super::*;
+    use crate::analysis::lyrics_align::{Emissions, Vocabulary};
+    use crate::analysis::lyrics_cache::BASE_LETTERS;
+    use crate::analysis::lyrics_model::{
+        file_sha256, FRAME_SAMPLES, MODEL_FILE, SAMPLE_RATE, TOKENS_FILE,
+    };
+    use crate::analysis::lyrics_text::{detect_language, prepare_as, Language};
+    use crate::audio::test_util::{temp_path, write_wav};
+
+    const DT: f64 = 0.02;
+    const EPS: f64 = 1e-9;
+
+    /// Tohumlu xorshift.
+    struct Rng(u64);
+
+    impl Rng {
+        fn next(&mut self) -> u64 {
+            self.0 ^= self.0 << 13;
+            self.0 ^= self.0 >> 7;
+            self.0 ^= self.0 << 17;
+            self.0
+        }
+        fn below(&mut self, n: usize) -> usize {
+            (self.next() % n as u64) as usize
+        }
+        fn chance(&mut self, p: f64) -> bool {
+            (self.next() % 10_000) as f64 / 10_000.0 < p
+        }
+        fn pick<'a>(&mut self, items: &[&'a str]) -> &'a str {
+            items[self.below(items.len())]
+        }
+    }
+
+    /// Söz satırları: Türkçe, İngilizce, rakamlı, tireli, emojili, başka alfabe, görünmez boşluklu,
+    /// ayrışık harfli.
+    const LYRIC_LINES: &[&str] = &[
+        "Gece uzun, yollar ıssız",
+        "Seni sevdim İstanbul'da",
+        "Gel bana 21:30'da",
+        "Saat 3'te buluşalım",
+        "Yirmi yıl geçti 1990'dan beri",
+        "Şu çılgın gönlüm",
+        "Ah - of - aman",
+        "Bir — iki — üç",
+        "Twenty-one pilots — on stage",
+        "Hip-hop & you don't stop",
+        "This/that love",
+        "I was born in 1984",
+        "Rock 'n' roll all night",
+        "We're the 99%",
+        "Seni seviyorum ❤️",
+        "😢 21 gece",
+        "♪ la la la ♪",
+        "Привет мир",
+        "こんにちは 世界",
+        "Ｅｖｅｒｙ ｎｉｇｈｔ",
+        "Kalbim\u{a0}senin\u{200b}için",
+        "Yar   gel\tbeni bul",
+        "(Arka vokal burada)",
+        "S\u{327}imdi I\u{307}stanbul",
+    ];
+    /// Söylenmeyen satırlar: başlık, künye, tekrar işareti, yalnızca noktalama, boş.
+    const OTHER_LINES: &[&str] = &[
+        "[Nakarat]",
+        "Nakarat:",
+        "[Verse 1: Biri & Öteki]",
+        "[Chorus x2]",
+        "Söz-Müzik: Biri",
+        "(x2)",
+        "Tekrar",
+        "...",
+        "—",
+        "♪",
+        "❤️❤️❤️",
+        "",
+        "",
+    ];
+
+    fn random_text(rng: &mut Rng) -> String {
+        let count = 1 + rng.below(14);
+        let newline = if rng.chance(0.4) { "\r\n" } else { "\n" };
+        let mut out = String::new();
+        if rng.chance(0.1) {
+            out.push('\u{feff}');
+        }
+        for _ in 0..count {
+            let line = if rng.chance(0.65) {
+                let base = rng.pick(LYRIC_LINES).to_string();
+                match rng.below(8) {
+                    0 => format!("{base} (x2)"),
+                    1 => format!("{base}  "),
+                    _ => base,
+                }
+            } else {
+                rng.pick(OTHER_LINES).to_string()
+            };
+            out.push_str(&line);
+            out.push_str(newline);
+        }
+        if rng.chance(0.5) {
+            out.truncate(out.trim_end().len());
+        }
+        out
+    }
+
+    fn vocabulary() -> Vocabulary {
+        Vocabulary {
+            blank: 0,
+            space: Some(1),
+            letters: BASE_LETTERS.chars().zip(2..).collect(),
+        }
+    }
+
+    /// Yapay şarkı: satırların çoğu söylenir (harf başına 2–4 kare), bazıları atlanır; aralarda
+    /// sessizlik, ara sıra gürültü harfi ve bulanık kare.
+    fn emissions_for(rng: &mut Rng, lines: &[Vec<String>], vocab: &Vocabulary) -> Emissions {
+        let columns = vocab.letters.len() + 2;
+        let mut targets: Vec<usize> = vec![0; 5 + rng.below(30)];
+        for line in lines {
+            if !rng.chance(0.85) {
+                continue;
+            }
+            for (w, word) in line.iter().enumerate() {
+                if w > 0 {
+                    targets.push(1);
+                }
+                for c in word.chars() {
+                    if let Some(&col) = vocab.letters.get(&c) {
+                        let frames = 2 + rng.below(3);
+                        targets.extend(std::iter::repeat_n(col, frames));
+                        targets.push(0);
+                    }
+                }
+            }
+            targets.extend(std::iter::repeat_n(0, 5 + rng.below(40)));
+            if rng.chance(0.2) {
+                targets.push(2 + rng.below(vocab.letters.len()));
+                targets.push(0);
+            }
+        }
+        targets.extend(std::iter::repeat_n(0, 10));
+        let sharp = 0.97f64;
+        let mut log_probs = Vec::with_capacity(targets.len() * columns);
+        for &target in &targets {
+            let fuzzy = rng.chance(0.05);
+            for col in 0..columns {
+                let p = if fuzzy {
+                    1.0 / columns as f64
+                } else if col == target {
+                    sharp
+                } else {
+                    (1.0 - sharp) / (columns - 1) as f64
+                };
+                log_probs.push(p.ln() as f32);
+            }
+        }
+        Emissions {
+            frames: targets.len(),
+            columns,
+            log_probs,
+            frame_secs: DT,
+        }
+    }
+
+    fn tokens(text: &str) -> Vec<&str> {
+        text.split_inclusive(' ')
+            .filter(|w| !w.trim().is_empty())
+            .collect()
+    }
+
+    /// Bir vaka: metin, hazırlanan satırlar, hizalama sonucu, gösterim, şarkının süresi.
+    struct Case {
+        text: String,
+        prepared: Vec<AlignLine>,
+        result: AutoAlignment,
+        shown: Lyrics,
+        total_secs: f64,
+    }
+
+    fn cases(count: usize, seed: u64) -> Vec<Case> {
+        let mut rng = Rng(seed);
+        let vocab = vocabulary();
+        let mut out = Vec::new();
+        for _ in 0..count {
+            let text = random_text(&mut rng);
+            let prepared = prepare(&text);
+            let words: Vec<Vec<String>> = prepared.iter().map(|l| l.words.clone()).collect();
+            let em = emissions_for(&mut rng, &words, &vocab);
+            let total_secs = em.frames as f64 * em.frame_secs;
+            let Ok(alignment) = align(&em, &vocab, &words) else {
+                continue;
+            };
+            let result = AutoAlignment::new(&prepared, &alignment);
+            let shown = auto_lyrics(&result, LyricsSource::User);
+            out.push(Case {
+                text,
+                prepared,
+                result,
+                shown,
+                total_secs,
+            });
+        }
+        out
+    }
+
+    const SEED: u64 = 0x9e37_79b9_7f4a_7c15;
+
+    #[test]
+    fn uretec_degismezleri_tutar() {
+        let cases = cases(400, SEED);
+        assert!(cases.len() > 300, "çok az vaka hizalandı: {}", cases.len());
+        let (mut matched, mut estimated, mut skipped) = (0, 0, 0);
+        let cache = AnalysisCache::open_in_memory().unwrap();
+        let stamp = FileStamp {
+            size: 1,
+            modified: 1,
+        };
+        for (n, case) in cases.iter().enumerate() {
+            let ctx = format!("{:?}", case.text);
+            let r = &case.result;
+            // Hazırlanan satırlarla bire bir.
+            assert_eq!(r.lines.len(), case.prepared.len(), "{ctx}");
+            let mut previous_start = 0.0f64;
+            for (line, prep) in r.lines.iter().zip(&case.prepared) {
+                assert_eq!(line.text, prep.text, "{ctx}");
+                assert!(!line.text.contains('\r') && !line.text.is_empty(), "{ctx}");
+                assert_eq!(line.words.len(), prep.words.len(), "{ctx}");
+                assert!(line.start.is_finite() && line.end.is_finite(), "{ctx}");
+                assert!(0.0 <= line.start && line.start <= line.end, "{ctx}");
+                assert!(line.end <= case.total_secs + EPS, "{ctx}");
+                assert!(
+                    line.start + EPS >= previous_start,
+                    "satır geri gitti: {ctx}"
+                );
+                previous_start = line.start;
+                assert!((0.0..=1.0).contains(&line.confidence), "{ctx}");
+                let mut cursor = line.start;
+                for &(s, e) in &line.words {
+                    assert!(
+                        s <= e && s + EPS >= cursor,
+                        "kelime geri gitti: {ctx} {line:?}"
+                    );
+                    assert!(
+                        s + EPS >= line.start && e <= line.end + EPS,
+                        "{ctx} {line:?}"
+                    );
+                    cursor = s;
+                }
+                if line.skipped {
+                    skipped += 1;
+                    assert_eq!(line.start, line.end, "{ctx}");
+                    assert_eq!(line.confidence, 0.0, "{ctx}");
+                }
+            }
+            assert!(r.valid(), "{ctx}");
+            // Kayıt ve geri okuma.
+            let path = PathBuf::from(format!("inceleme-{n}"));
+            cache
+                .store_alignment(&path, stamp, "m", &case.text, r)
+                .unwrap();
+            assert_eq!(
+                cache
+                    .load_alignment(&path, stamp, "m", &case.text)
+                    .unwrap()
+                    .as_ref(),
+                Some(r),
+                "{ctx}"
+            );
+            // Gösterim.
+            let shown = &case.shown;
+            assert!(shown.synced && shown.auto == Some(r.verdict), "{ctx}");
+            assert_eq!(shown.lines.len(), r.lines.len(), "{ctx}");
+            for (out, line) in shown.lines.iter().zip(&r.lines) {
+                assert_eq!(
+                    out.uncertain,
+                    line.skipped || line.confidence < LOW_CONFIDENCE,
+                    "{ctx}"
+                );
+                assert_eq!((out.start, out.end), (line.start, line.end), "{ctx}");
+                let joined: String = out.words.iter().map(|w| w.text.as_str()).collect();
+                assert_eq!(joined, tokens(&line.text).concat(), "{ctx}");
+                let mut cursor = out.start;
+                for w in &out.words {
+                    assert!(w.start.is_finite() && w.end.is_finite(), "{ctx}");
+                    assert!(w.start <= w.end && w.start + EPS >= cursor, "{ctx} {out:?}");
+                    assert!(
+                        w.start + EPS >= out.start && w.end <= out.end + EPS,
+                        "{ctx}"
+                    );
+                    cursor = w.start;
+                }
+                if out.estimated {
+                    estimated += 1;
+                } else {
+                    matched += 1;
+                    assert!(!line.skipped, "{ctx}");
+                    assert_eq!(out.words.len(), line.words.len(), "{ctx}");
+                }
+            }
+        }
+        // Üretecin kapsamı: üç yol da sınandı.
+        assert!(
+            matched > 100 && estimated > 100 && skipped > 20,
+            "{matched} {estimated} {skipped}"
+        );
+    }
+
+    /// Ekrandaki bir kelimenin söylenen kaç kelimeye açıldığı (aynı dilde, tek başına hazırlanarak).
+    fn spoken_count(token: &str, language: Language) -> usize {
+        prepare_as(token.trim(), language)
+            .first()
+            .map_or(0, |l| l.words.len())
+    }
+
+    /// BULGU: ekrandaki kelime sayısı söylenen kelime sayısına tesadüfen eşitse ("Twenty-one" iki
+    /// kelime, "—" sıfır kelime) zamanlar bire bir dağıtılır ve kayar.
+    #[test]
+    fn uretec_bire_bir_eslesmede_her_kelime_tek_soylenen_kelimedir() {
+        for case in cases(400, SEED) {
+            let language = detect_language(&case.text);
+            for (out, line) in case.shown.lines.iter().zip(&case.result.lines) {
+                if out.estimated {
+                    continue;
+                }
+                let counts: Vec<usize> = tokens(&line.text)
+                    .iter()
+                    .map(|t| spoken_count(t, language))
+                    .collect();
+                assert!(
+                    counts.iter().all(|&c| c == 1),
+                    "satır {:?}: ekrandaki kelimelerin söylenen kelime sayıları {counts:?}, yine de \
+                     zamanlar bire bir dağıtıldı",
+                    line.text
+                );
+            }
+        }
+    }
+
+    /// Aynı bulgu, somut girdiyle: "—" "pilots"un zamanını, "pilots" "one"ın zamanını alır.
+    #[test]
+    fn tireli_kelime_ve_tek_basina_tire_zamanlari_kaydirmaz() {
+        let prepared = prepare("Twenty-one pilots — on stage");
+        assert_eq!(
+            prepared[0].words,
+            ["twenty", "one", "pilots", "on", "stage"]
+        );
+        let result = AutoAlignment {
+            verdict: AutoVerdict::Good,
+            lines: vec![AutoLine {
+                text: prepared[0].text.clone(),
+                start: 1.0,
+                end: 6.0,
+                words: vec![(1.0, 1.5), (1.5, 2.0), (2.0, 3.0), (4.0, 4.5), (4.5, 6.0)],
+                confidence: 0.9,
+                skipped: false,
+            }],
+        };
+        let shown = auto_lyrics(&result, LyricsSource::User);
+        let words: Vec<(&str, f64, f64)> = shown.lines[0]
+            .words
+            .iter()
+            .map(|w| (w.text.as_str(), w.start, w.end))
+            .collect();
+        let pilots = words.iter().find(|w| w.0.trim() == "pilots").unwrap();
+        assert_eq!(
+            (pilots.1, pilots.2),
+            (2.0, 3.0),
+            "\"pilots\" kendi zamanını almalı: {words:?}"
+        );
+    }
+
+    fn slot() -> ModelSlot {
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/soz-modeli");
+        let model = file_sha256(&dir.join(MODEL_FILE)).unwrap();
+        let tokens = file_sha256(&dir.join(TOKENS_FILE)).unwrap();
+        ModelSlot::new(dir, &model, &tokens)
+    }
+
+    /// Deneme modeli: artı blok 'a', eksi blok 'b' (37 kare).
+    fn song(name: &str, blocks: usize) -> PathBuf {
+        const BLOCK: usize = 37;
+        let path = temp_path(name).with_extension("wav");
+        write_wav(
+            &path,
+            SAMPLE_RATE,
+            1,
+            blocks * BLOCK * FRAME_SAMPLES,
+            |i, _| {
+                if (i / FRAME_SAMPLES / BLOCK).is_multiple_of(2) {
+                    0.5
+                } else {
+                    -0.5
+                }
+            },
+        );
+        path
+    }
+
+    /// BULGU, uçtan uca deneme modeliyle: "ab-ab" iki söylenen kelime, "❤" hiç; ekranda üç kelime,
+    /// sözde üç söylenen kelime. "ab-ab" iki kelimenin ikisini de kapsamalı.
+    #[test]
+    fn uctan_uca_tireli_kelime_iki_soylenen_kelimeyi_kapsar() {
+        let cache = AnalysisCache::open_in_memory().unwrap();
+        let path = song("inceleme-tireli", 8);
+        let text = "ab-ab ❤ ab\nab";
+        let result =
+            align_track(&cache, &path, text, &mut slot(), &AtomicBool::new(false)).unwrap();
+        assert_eq!(result.lines[0].words.len(), 3);
+        let shown = auto_lyrics(&result, LyricsSource::User);
+        let first = &shown.lines[0];
+        assert_eq!(first.words[0].text, "ab-ab ");
+        assert_eq!(
+            first.words[0].end, result.lines[0].words[1].1,
+            "\"ab-ab\" ikinci 'ab'nin sonunda bitmeli: {first:?} / {:?}",
+            result.lines[0]
+        );
+    }
+
+    /// Uçtan uca: modelin tanımadığı satır atlanır, zamanı komşularının arasında; hiç tanımadığı söz
+    /// `NoLetters` verir ve modeli yeniden çalıştırmaz (emisyonlar önbellekte).
+    #[test]
+    fn uctan_uca_taninmayan_satir_ve_soz() {
+        let cache = AnalysisCache::open_in_memory().unwrap();
+        let path = song("inceleme-taninmayan", 8);
+        let mut slot = slot();
+        let text = "ab ab\r\nxyz qq\r\nab ab\r\n";
+        let result = align_track(&cache, &path, text, &mut slot, &AtomicBool::new(false)).unwrap();
+        assert_eq!(result.lines.len(), 3);
+        assert!(result.lines[1].skipped);
+        assert!(result.lines[1].start + EPS >= result.lines[0].end);
+        assert!(result.lines[1].start <= result.lines[2].start + EPS);
+        let shown = auto_lyrics(&result, LyricsSource::File);
+        assert!(shown.lines[1].uncertain && shown.lines[1].estimated);
+        assert!(result.valid());
+        let opened = slot.times_opened();
+        slot.release();
+        let none = align_track(&cache, &path, "xyz qq", &mut slot, &AtomicBool::new(false));
+        assert!(
+            matches!(none, Err(JobError::Align(AlignError::NoLetters))),
+            "{none:?}"
+        );
+        assert_eq!(slot.times_opened(), opened);
+        // Anahtar ham metin: CRLF'li metnin sonucu LF'li metinle bulunmaz. Sonraki PR aynı metni
+        // (`text_for_track`) hem işe hem `with_auto`'ya vermeli.
+        let stamp = FileStamp::of(&path).unwrap();
+        let sha = slot.model_sha256().to_owned();
+        assert!(cache
+            .load_alignment(&path, stamp, &sha, &text.replace("\r\n", "\n"))
+            .unwrap()
+            .is_none());
+        assert!(cache
+            .load_alignment(&path, stamp, &sha, text)
+            .unwrap()
+            .is_some());
+    }
+
+    /// BULGU (düşük): `valid` satırların sırasını ve kelimelerin satırın içinde olduğunu denetlemez.
+    /// Geri giden satırlar arayüzün ikili aramasını (`lastStartedBefore`) bozar.
+    #[test]
+    fn sirasi_bozuk_ya_da_kelimesi_satir_disinda_kayit_yok_sayilir() {
+        let cache = AnalysisCache::open_in_memory().unwrap();
+        let path = PathBuf::from("inceleme-bozuk-sira");
+        let stamp = FileStamp {
+            size: 1,
+            modified: 1,
+        };
+        let line = |start: f64, end: f64, words: Vec<(f64, f64)>| AutoLine {
+            text: "ab".into(),
+            start,
+            end,
+            words,
+            confidence: 1.0,
+            skipped: false,
+        };
+        let bad = [
+            // Satırlar geri gidiyor.
+            vec![
+                line(5.0, 6.0, vec![(5.0, 6.0)]),
+                line(1.0, 2.0, vec![(1.0, 2.0)]),
+            ],
+            // Kelime satırın dışında.
+            vec![line(1.0, 2.0, vec![(8.0, 9.0)])],
+        ];
+        for lines in bad {
+            let result = AutoAlignment {
+                verdict: AutoVerdict::Good,
+                lines,
+            };
+            cache
+                .store_alignment(&path, stamp, "m", "ab", &result)
+                .unwrap();
+            assert!(
+                cache
+                    .load_alignment(&path, stamp, "m", "ab")
+                    .unwrap()
+                    .is_none(),
+                "{result:?}"
+            );
+        }
+    }
+}
