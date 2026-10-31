@@ -25,6 +25,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use sha2::{Digest, Sha256};
+use tract_onnx::pb;
 use tract_onnx::prelude::*;
 
 use super::lyrics_align::{Emissions, Vocabulary};
@@ -170,6 +171,235 @@ fn read_limited(path: &Path, limit: u64, too_big: ModelError) -> Result<Vec<u8>,
     Ok(bytes)
 }
 
+/// ONNX tensörünün değerleri f32 olarak; yalnızca dosyanın içindeki uint8, int8 ve float veri (başka tür
+/// ya da dış dosyadaki veri `None`: çarpım olduğu gibi kalır). Öğe sayısı boyutlarla uyuşmalı.
+fn tensor_f32(t: &pb::TensorProto) -> Option<Vec<f32>> {
+    use pb::tensor_proto::DataType;
+    if !t.external_data.is_empty() || t.dims.iter().any(|&d| d < 0) {
+        return None;
+    }
+    let raw = !t.raw_data.is_empty();
+    let values: Vec<f32> = match DataType::try_from(t.data_type).ok()? {
+        DataType::Uint8 if raw => t.raw_data.iter().map(|&b| f32::from(b)).collect(),
+        DataType::Uint8 => t
+            .int32_data
+            .iter()
+            .map(|&v| u8::try_from(v).ok().map(f32::from))
+            .collect::<Option<_>>()?,
+        DataType::Int8 if raw => t
+            .raw_data
+            .iter()
+            .map(|&b| f32::from(i8::from_le_bytes([b])))
+            .collect(),
+        DataType::Int8 => t
+            .int32_data
+            .iter()
+            .map(|&v| i8::try_from(v).ok().map(f32::from))
+            .collect::<Option<_>>()?,
+        DataType::Float if raw && t.raw_data.len() % 4 != 0 => return None,
+        DataType::Float if raw => t
+            .raw_data
+            .chunks_exact(4)
+            .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+            .collect(),
+        DataType::Float => t.float_data.clone(),
+        _ => return None,
+    };
+    let count = t
+        .dims
+        .iter()
+        .try_fold(1usize, |n, &d| n.checked_mul(usize::try_from(d).ok()?))?;
+    (values.len() == count).then_some(values)
+}
+
+/// Dinamik nicemlenmiş çarpımları ondalıklı çarpıma çevirir (model dosyası değişmez; yalnızca bellekteki
+/// tanım). onnxruntime'ın `quantize_dynamic` kalıbı:
+/// `x → DynamicQuantizeLinear → (x_q, s_x, z_x)`, `MatMulInteger(x_q, W_q, z_x, z_w) → Cast(float) →
+/// Mul(·, s_x·s_w)`. Bu, `y = (x_q − z_x)·s_x · (W_q − z_w)·s_w` demektir; yerine `y = x · W` konur,
+/// `W = (W_q − z_w)·s_w` (ağırlığın tam değeri; nicemlemenin tanımı). Fark yalnızca girdinin
+/// nicemlenmemesidir: `|x − (x_q − z_x)·s_x| ≤ s_x/2` olduğundan her çıktıda `|Δy_j| ≤ (s_x/2)·Σ_k |W_kj|`
+/// (testi `eski_yolla_fark_nicemleme_sinirinda`). Ölçek ve sıfır noktası tensör başına (skaler) olmalı;
+/// kalıba tam uymayan çarpım olduğu gibi kalır. Kullanılmayan düğüm ve ağırlıklar atılır. Çevrilen çarpım
+/// sayısı döner.
+fn dequantize_matmuls(model: &mut pb::ModelProto) -> usize {
+    let Some(graph) = model.graph.as_mut() else {
+        return 0;
+    };
+    struct Rewrite {
+        matmul: usize,
+        input: String,
+        weight: String,
+        output: String,
+        drop: [usize; 2],
+    }
+    let mut weights: HashMap<String, (String, Vec<i64>, Vec<f32>)> = HashMap::new();
+    let mut rewrites = Vec::new();
+    {
+        let mut consts: HashMap<&str, &pb::TensorProto> = graph
+            .initializer
+            .iter()
+            .map(|t| (t.name.as_str(), t))
+            .collect();
+        for node in graph.node.iter().filter(|n| n.op_type == "Constant") {
+            let value = node.attribute.iter().find(|a| a.name == "value");
+            if let (Some(out), Some(t)) = (node.output.first(), value.and_then(|a| a.t.as_ref())) {
+                consts.insert(out.as_str(), t);
+            }
+        }
+        let mut producer: HashMap<&str, usize> = HashMap::new();
+        let mut consumers: HashMap<&str, Vec<usize>> = HashMap::new();
+        for (i, node) in graph.node.iter().enumerate() {
+            for out in &node.output {
+                producer.insert(out.as_str(), i);
+            }
+            for input in &node.input {
+                consumers.entry(input.as_str()).or_default().push(i);
+            }
+        }
+        let outputs: std::collections::HashSet<&str> =
+            graph.output.iter().map(|o| o.name.as_str()).collect();
+        // Tek tüketicisi olan, grafiğin çıktısı olmayan ara değerin tüketicisi.
+        let only_consumer = |name: &str| match consumers.get(name).map(Vec::as_slice) {
+            Some(&[i]) if !outputs.contains(name) => Some(i),
+            _ => None,
+        };
+        let scalar = |name: &str| match consts.get(name).and_then(|t| tensor_f32(t)) {
+            Some(v) if v.len() == 1 => v.first().copied(),
+            _ => None,
+        };
+        let standard = |n: &pb::NodeProto| n.domain.is_empty() || n.domain == "ai.onnx";
+        for (i, node) in graph.node.iter().enumerate() {
+            if node.op_type != "MatMulInteger" || !standard(node) || node.input.len() != 4 {
+                continue;
+            }
+            let (x_q, w_q, z_x, z_w) = (
+                &node.input[0],
+                &node.input[1],
+                &node.input[2],
+                &node.input[3],
+            );
+            let Some(quant) = producer.get(x_q.as_str()).map(|&p| &graph.node[p]) else {
+                continue;
+            };
+            if quant.op_type != "DynamicQuantizeLinear"
+                || !standard(quant)
+                || quant.input.len() != 1
+                || quant.output.len() != 3
+                || quant.output[0] != *x_q
+                || quant.output[2] != *z_x
+            {
+                continue;
+            }
+            let Some(cast) = node.output.first().and_then(|o| only_consumer(o)) else {
+                continue;
+            };
+            let to_float = graph.node[cast]
+                .attribute
+                .iter()
+                .any(|a| a.name == "to" && a.i == pb::tensor_proto::DataType::Float as i64);
+            if graph.node[cast].op_type != "Cast" || !to_float {
+                continue;
+            }
+            let Some(mul) = graph.node[cast]
+                .output
+                .first()
+                .and_then(|o| only_consumer(o))
+            else {
+                continue;
+            };
+            let mul_node = &graph.node[mul];
+            if mul_node.op_type != "Mul" || !standard(mul_node) || mul_node.input.len() != 2 {
+                continue;
+            }
+            let cast_out = &graph.node[cast].output[0];
+            let Some(scales) = mul_node.input.iter().find(|n| *n != cast_out) else {
+                continue;
+            };
+            // Ölçek çarpımı s_x·s_w: girdinin ölçeği ile ağırlığın skaler ölçeği.
+            let Some(scale_node) = producer.get(scales.as_str()).map(|&p| &graph.node[p]) else {
+                continue;
+            };
+            let s_x = &quant.output[1];
+            let w_scale = match scale_node.input.as_slice() {
+                [a, b] if a == s_x => b,
+                [a, b] if b == s_x => a,
+                _ => continue,
+            };
+            if scale_node.op_type != "Mul" || !standard(scale_node) {
+                continue;
+            }
+            let (Some(s_w), Some(z)) = (scalar(w_scale), scalar(z_w)) else {
+                continue;
+            };
+            if !weights.contains_key(w_q.as_str()) {
+                let Some(t) = consts.get(w_q.as_str()) else {
+                    continue;
+                };
+                let (Some(q), 2) = (tensor_f32(t), t.dims.len()) else {
+                    continue;
+                };
+                let w: Vec<f32> = q.iter().map(|&v| (v - z) * s_w).collect();
+                if w.iter().any(|v| !v.is_finite()) {
+                    continue;
+                }
+                let name = format!("{w_q}::lyraska_f32");
+                weights.insert(w_q.clone(), (name, t.dims.clone(), w));
+            }
+            rewrites.push(Rewrite {
+                matmul: i,
+                input: quant.input[0].clone(),
+                weight: weights[w_q.as_str()].0.clone(),
+                output: mul_node.output[0].clone(),
+                drop: [cast, mul],
+            });
+        }
+    }
+    let mut dropped = vec![false; graph.node.len()];
+    for r in &rewrites {
+        let node = &mut graph.node[r.matmul];
+        node.op_type = "MatMul".into();
+        node.input = vec![r.input.clone(), r.weight.clone()];
+        node.output = vec![r.output.clone()];
+        node.attribute.clear();
+        for &d in &r.drop {
+            dropped[d] = true;
+        }
+    }
+    let mut keep = dropped.iter().map(|&d| !d);
+    graph.node.retain(|_| keep.next().unwrap_or(true));
+    graph.initializer.extend(
+        weights
+            .into_values()
+            .map(|(name, dims, w)| pb::TensorProto {
+                name,
+                dims,
+                data_type: pb::tensor_proto::DataType::Float as i32,
+                float_data: w,
+                ..Default::default()
+            }),
+    );
+    // Artık kullanılmayan düğümler (DynamicQuantizeLinear, ölçek çarpımı) ve ağırlıklar (W_q).
+    if !rewrites.is_empty() {
+        loop {
+            let used: std::collections::HashSet<String> = graph
+                .node
+                .iter()
+                .flat_map(|n| n.input.iter().cloned())
+                .chain(graph.output.iter().map(|o| o.name.clone()))
+                .collect();
+            let before = graph.node.len();
+            graph
+                .node
+                .retain(|n| n.output.iter().any(|o| used.contains(o)));
+            if graph.node.len() == before {
+                graph.initializer.retain(|t| used.contains(&t.name));
+                break;
+            }
+        }
+    }
+    rewrites.len()
+}
+
 /// Saklanan sütun: kelime ayırıcısı, kesme işareti ya da Latin/Yunan/Kiril küçük harf.
 fn kept_letter(c: char) -> bool {
     let code = c as u32;
@@ -228,6 +458,7 @@ pub struct LyricsModel {
     /// Saklanan simgelerin kimlikleri; emisyonun k. sütunu `ids[k]` simgesi.
     ids: Vec<usize>,
     vocab: Vocabulary,
+    dequantized: usize,
 }
 
 impl LyricsModel {
@@ -251,14 +482,28 @@ impl LyricsModel {
         if hex(&Sha256::digest(&model)) != model_sha256 {
             return Err(ModelError::WrongModel);
         }
-        let plan = tract_onnx::onnx()
+        let onnx = tract_onnx::onnx()
             .with_ignore_output_shapes(true)
-            .with_ignore_value_info(true)
-            .model_for_read(&mut model.as_slice())?
+            .with_ignore_value_info(true);
+        let mut proto = onnx.proto_model_for_read(&mut model.as_slice())?;
+        drop(model);
+        let dequantized = dequantize_matmuls(&mut proto);
+        let plan = onnx
+            .model_for_proto_model(&proto)?
             .with_input_fact(0, f32::fact([1, WINDOW_SAMPLES]).into())?
             .into_optimized()?
             .into_runnable()?;
-        Ok(Self { plan, ids, vocab })
+        Ok(Self {
+            plan,
+            ids,
+            vocab,
+            dequantized,
+        })
+    }
+
+    /// Ondalıklı çarpıma çevrilen tamsayı çarpımı sayısı (`dequantize_matmuls`; gerçek modelde 146).
+    pub fn dequantized_matmuls(&self) -> usize {
+        self.dequantized
     }
 
     pub fn vocabulary(&self) -> &Vocabulary {
@@ -640,5 +885,236 @@ mod tests {
             parse_tokens("<s> 0\n  4\na 18446744073709551615\n"),
             Err(ModelError::BadTokens)
         ));
+    }
+
+    /// onnxruntime'ın dinamik nicemlemesiyle üretilmiş iki katmanlı deneme modeli
+    /// (`tests/data/soz-modeli/nicemli_uret.py`): x(16) → W1 → Relu → W2 → y(8).
+    fn quantized_proto() -> pb::ModelProto {
+        let bytes = std::fs::read(test_dir().join("nicemli.onnx")).expect("deneme modeli");
+        tract_onnx::onnx()
+            .proto_model_for_read(&mut bytes.as_slice())
+            .expect("okunur")
+    }
+
+    const ROWS: usize = 5;
+
+    fn run_proto(proto: &pb::ModelProto, x: &[f32]) -> Vec<f32> {
+        let plan = tract_onnx::onnx()
+            .with_ignore_output_shapes(true)
+            .with_ignore_value_info(true)
+            .model_for_proto_model(proto)
+            .and_then(|m| m.with_input_fact(0, f32::fact([ROWS, 16]).into()))
+            .and_then(|m| m.into_optimized())
+            .and_then(|m| m.into_runnable())
+            .expect("model kurulur");
+        let input: Tensor = tract_ndarray::Array2::from_shape_vec((ROWS, 16), x.to_vec())
+            .expect("şekil")
+            .into();
+        let out = plan.run(tvec!(input.into())).expect("çalışır");
+        out[0]
+            .to_plain_array_view::<f32>()
+            .expect("f32")
+            .iter()
+            .copied()
+            .collect()
+    }
+
+    /// Girdi: tohumlu, işaretli, bir satırda büyük bir değer (girdi ölçeği büyüsün, nicemleme hatası
+    /// görünür olsun).
+    fn quantized_input() -> Vec<f32> {
+        let mut state = 12345u32;
+        let mut x: Vec<f32> = (0..ROWS * 16)
+            .map(|_| {
+                state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                (state >> 8) as f32 / (1u32 << 24) as f32 * 2.0 - 1.0
+            })
+            .collect();
+        x[3] = 4.0;
+        x
+    }
+
+    /// Ağırlığın tanımdan elle hesaplanmış değeri (kodun okuyucusundan bağımsız): W = (W_q − z)·s;
+    /// W_q ham uint8, z `int32_data`, s `float_data` (onnxruntime'ın yazdığı biçim).
+    fn manual_weight(proto: &pb::ModelProto, name: &str) -> (Vec<f64>, usize, usize) {
+        let graph = proto.graph.as_ref().expect("grafik");
+        let get = |n: String| {
+            graph
+                .initializer
+                .iter()
+                .find(|t| t.name == n)
+                .unwrap_or_else(|| panic!("{n} yok"))
+        };
+        let q = get(format!("{name}_quantized"));
+        let z = f64::from(get(format!("{name}_zero_point")).int32_data[0]);
+        let s = f64::from(get(format!("{name}_scale")).float_data[0]);
+        let w = q.raw_data.iter().map(|&b| (f64::from(b) - z) * s).collect();
+        (w, q.dims[0] as usize, q.dims[1] as usize)
+    }
+
+    /// `x · W` (f64) ve her çıktının `Σ_k |x_k·W_kj|` toplamı (yuvarlama payı için).
+    fn matmul(x: &[f64], w: &[f64], k: usize, n: usize) -> (Vec<f64>, Vec<f64>) {
+        let rows = x.len() / k;
+        let mut y = vec![0.0; rows * n];
+        let mut abs = vec![0.0; rows * n];
+        for r in 0..rows {
+            for j in 0..n {
+                for i in 0..k {
+                    let p = x[r * k + i] * w[i * n + j];
+                    y[r * n + j] += p;
+                    abs[r * n + j] += p.abs();
+                }
+            }
+        }
+        (y, abs)
+    }
+
+    #[test]
+    fn nicemli_carpimlar_ondalikli_carpima_cevrilir() {
+        let mut proto = quantized_proto();
+        assert_eq!(dequantize_matmuls(&mut proto), 2);
+        let graph = proto.graph.as_ref().expect("grafik");
+        let ops: Vec<&str> = graph.node.iter().map(|n| n.op_type.as_str()).collect();
+        assert_eq!(ops, ["MatMul", "Relu", "MatMul"]);
+        // Tamsayı ağırlıklar bellekte kalmaz; yalnızca iki ondalıklı ağırlık.
+        let inits: Vec<(i32, &[i64])> = graph
+            .initializer
+            .iter()
+            .map(|t| (t.data_type, t.dims.as_slice()))
+            .collect();
+        assert_eq!(inits.len(), 2);
+        assert!(inits
+            .iter()
+            .all(|&(ty, _)| ty == pb::tensor_proto::DataType::Float as i32));
+    }
+
+    #[test]
+    fn cevrilen_model_elle_hesapla_ayni() {
+        let original = quantized_proto();
+        let mut proto = original.clone();
+        dequantize_matmuls(&mut proto);
+        let x = quantized_input();
+        let got = run_proto(&proto, &x);
+        let (w1, k1, n1) = manual_weight(&original, "W1");
+        let (w2, k2, n2) = manual_weight(&original, "W2");
+        let x64: Vec<f64> = x.iter().map(|&v| f64::from(v)).collect();
+        let (h, h_abs) = matmul(&x64, &w1, k1, n1);
+        let r: Vec<f64> = h.iter().map(|&v| v.max(0.0)).collect();
+        let (y, y_abs) = matmul(&r, &w2, k2, n2);
+        assert_eq!(got.len(), y.len());
+        // f32 yuvarlaması: her çarpım ve toplama ≤ 2⁻²⁴ göreli; k ≤ 16 terimde ~k·2⁻²⁴·Σ|terim|.
+        let h_err = h_abs.iter().copied().fold(0.0, f64::max) * 16.0 * 2f64.powi(-23);
+        let w2_abs: f64 = w2.iter().map(|v| v.abs()).fold(0.0, f64::max) * k2 as f64;
+        for (j, (&g, &e)) in got.iter().zip(&y).enumerate() {
+            let bound = y_abs[j] * 16.0 * 2f64.powi(-23) + h_err * w2_abs + 1e-6;
+            assert!(
+                (f64::from(g) - e).abs() <= bound,
+                "çıktı {j}: {g} ≠ {e} (sınır {bound})"
+            );
+        }
+    }
+
+    #[test]
+    fn eski_yolla_fark_nicemleme_sinirinda() {
+        // Eski yol girdiyi nicemler: |x − x̂| ≤ s_x/2, s_x = (max(x, 0) − min(x, 0))/255 (ONNX
+        // DynamicQuantizeLinear). Birinci katmanda |Δh_j| ≤ (s_x/2)·Σ_k |W1_kj|; Relu 1-Lipschitz;
+        // ikinci katmanda |Δy_m| ≤ Σ_j (|Δh_j| + s_r/2)·|W2_jm|, s_r ≤ (max r + max |Δh|)/255.
+        let original = quantized_proto();
+        let mut proto = original.clone();
+        dequantize_matmuls(&mut proto);
+        let x = quantized_input();
+        let old = run_proto(&original, &x);
+        let new = run_proto(&proto, &x);
+        let (w1, k1, n1) = manual_weight(&original, "W1");
+        let (w2, k2, n2) = manual_weight(&original, "W2");
+        let x64: Vec<f64> = x.iter().map(|&v| f64::from(v)).collect();
+        let range = |v: &[f64]| {
+            v.iter().fold(0f64, |a, &b| a.max(b)) - v.iter().fold(0f64, |a, &b| a.min(b))
+        };
+        let s_x = range(&x64) / 255.0;
+        let col_abs = |w: &[f64], k: usize, n: usize, j: usize| {
+            (0..k).map(|i| w[i * n + j].abs()).sum::<f64>()
+        };
+        let dh: Vec<f64> = (0..n1)
+            .map(|j| s_x / 2.0 * col_abs(&w1, k1, n1, j))
+            .collect();
+        let (h, _) = matmul(&x64, &w1, k1, n1);
+        let max_r = h.iter().fold(0f64, |a, &b| a.max(b));
+        let max_dh = dh.iter().copied().fold(0.0, f64::max);
+        let s_r = (max_r + max_dh) / 255.0;
+        let mut largest = 0f64;
+        for (idx, (&o, &n)) in old.iter().zip(&new).enumerate() {
+            let m = idx % n2;
+            let bound: f64 = (0..k2)
+                .map(|j| (dh[j] + s_r / 2.0) * w2[j * n2 + m].abs())
+                .sum::<f64>()
+                + 1e-4;
+            let diff = (f64::from(o) - f64::from(n)).abs();
+            largest = largest.max(diff / bound);
+            assert!(diff <= bound, "çıktı {idx}: fark {diff} > sınır {bound}");
+        }
+        // Sınır boş değil: eski yol gerçekten farklı hesaplıyor (nicemleme hatası görünür).
+        assert!(largest > 0.01, "fark sınırın %{:.1}'i", largest * 100.0);
+    }
+
+    #[test]
+    fn kaliba_uymayan_carpim_dokunulmaz() {
+        // Birinci çarpımın Cast'i float'a değil int64'e: kalıp bozuk, o çarpım olduğu gibi kalır;
+        // ikincisi çevrilir.
+        let mut proto = quantized_proto();
+        let graph = proto.graph.as_mut().expect("grafik");
+        let cast = graph
+            .node
+            .iter_mut()
+            .find(|n| n.op_type == "Cast")
+            .expect("cast");
+        cast.attribute[0].i = pb::tensor_proto::DataType::Int64 as i64;
+        let before = graph.node[..5].to_vec();
+        assert_eq!(dequantize_matmuls(&mut proto), 1);
+        let graph = proto.graph.as_ref().expect("grafik");
+        assert_eq!(&graph.node[..5], before.as_slice());
+        // Ölçek bir sabit değil de girdi olunca da (skaler değil) dokunulmaz.
+        let mut proto = quantized_proto();
+        let graph = proto.graph.as_mut().expect("grafik");
+        graph.initializer.retain(|t| t.name != "W2_scale");
+        assert_eq!(dequantize_matmuls(&mut proto), 1);
+    }
+
+    #[test]
+    fn tensor_degerleri_bicimlerden_okunur() {
+        use pb::tensor_proto::DataType;
+        let t = |data_type: DataType, dims: Vec<i64>| pb::TensorProto {
+            data_type: data_type as i32,
+            dims,
+            ..Default::default()
+        };
+        let mut u8_raw = t(DataType::Uint8, vec![3]);
+        u8_raw.raw_data = vec![0, 128, 255];
+        assert_eq!(tensor_f32(&u8_raw), Some(vec![0.0, 128.0, 255.0]));
+        let mut i8_raw = t(DataType::Int8, vec![2]);
+        i8_raw.raw_data = vec![0x80, 0x7f];
+        assert_eq!(tensor_f32(&i8_raw), Some(vec![-128.0, 127.0]));
+        let mut f_raw = t(DataType::Float, vec![1]);
+        f_raw.raw_data = 0.25f32.to_le_bytes().to_vec();
+        assert_eq!(tensor_f32(&f_raw), Some(vec![0.25]));
+        // Boyutla uyuşmayan, aralık dışı, eksik bayt, dış dosya ya da başka tür okunmaz.
+        let mut short = t(DataType::Uint8, vec![4]);
+        short.raw_data = vec![1, 2];
+        assert_eq!(tensor_f32(&short), None);
+        let mut big = t(DataType::Uint8, vec![1]);
+        big.int32_data = vec![256];
+        assert_eq!(tensor_f32(&big), None);
+        let mut odd = t(DataType::Float, vec![1]);
+        odd.raw_data = vec![0, 0, 0, 0, 0];
+        assert_eq!(tensor_f32(&odd), None);
+        let mut external = t(DataType::Uint8, vec![1]);
+        external.raw_data = vec![1];
+        external.external_data = vec![pb::StringStringEntryProto::default()];
+        assert_eq!(tensor_f32(&external), None);
+        let mut other = t(DataType::Int64, vec![1]);
+        other.raw_data = vec![0; 8];
+        assert_eq!(tensor_f32(&other), None);
+        let mut negative = t(DataType::Uint8, vec![-1]);
+        negative.raw_data = vec![1];
+        assert_eq!(tensor_f32(&negative), None);
     }
 }
