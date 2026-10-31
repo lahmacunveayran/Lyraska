@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 import type { LyricLine } from "../lib/backend";
 import {
   linkProgress,
@@ -22,6 +22,10 @@ interface Measured {
   height: number;
   font: number;
   words: WordBox[];
+  /** Tuvalin CSS boyu ve satırın tuvaldeki üst kenarı. */
+  cssWidth: number;
+  cssHeight: number;
+  top: number;
 }
 
 /** Telin örnek noktası sayısı. */
@@ -86,6 +90,24 @@ export function LyricSky({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const measured = useRef<Measured | null>(null);
   const sprite = useRef<{ radius: number; image: HTMLCanvasElement | null } | null>(null);
+  // Yerleşim yalnızca satır değişince, tuvalin boyu değişince ya da yazı tipi yüklenince yeniden
+  // ölçülür: her karede okumak tarayıcıyı her karede yerleşim hesabına zorlardı.
+  const stale = useRef(true);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const mark = () => {
+      stale.current = true;
+    };
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(mark);
+    if (canvas) observer?.observe(canvas);
+    const fonts = typeof document !== "undefined" ? document.fonts : undefined;
+    fonts?.addEventListener?.("loadingdone", mark);
+    return () => {
+      observer?.disconnect();
+      fonts?.removeEventListener?.("loadingdone", mark);
+    };
+  }, []);
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
@@ -93,9 +115,10 @@ export function LyricSky({
     if (!canvas || !element) return;
     const g = canvas.getContext("2d");
     if (!g) return;
-    // Kelimelerin yeri: satır ya da genişlik değişince bir kez.
+    // Kelimelerin yeri: satır değişince ya da yerleşim değişince bir kez.
     let m = measured.current;
-    if (!m || m.line !== line || m.width !== element.clientWidth) {
+    if (!m || m.line !== line || stale.current) {
+      stale.current = false;
       const font = parseFloat(getComputedStyle(element).fontSize) || 40;
       const spans = element.querySelectorAll<HTMLElement>(".lyrics__word");
       m = {
@@ -108,12 +131,14 @@ export function LyricSky({
           width: s.offsetWidth,
           top: s.offsetTop,
         })),
+        cssWidth: canvas.clientWidth,
+        cssHeight: canvas.clientHeight,
+        top: canvas.offsetTop < 0 ? -canvas.offsetTop : 0,
       };
       measured.current = m;
     }
     const dpr = window.devicePixelRatio || 1;
-    const cssWidth = canvas.clientWidth;
-    const cssHeight = canvas.clientHeight;
+    const { cssWidth, cssHeight } = m;
     if (cssWidth === 0 || cssHeight === 0) return;
     if (
       canvas.width !== Math.round(cssWidth * dpr) ||
@@ -128,7 +153,7 @@ export function LyricSky({
     if (fade <= 0) return;
     // Tuval satırı her yandan taşar: satırın sol üstü tuvalde (ox, oy).
     const ox = (cssWidth - m.width) / 2;
-    const oy = canvas.offsetTop < 0 ? -canvas.offsetTop : 0;
+    const oy = m.top;
 
     // ---- Lir teli ----
     // Tel yazının iki ucunu biraz aşar (lirin iki kolu arasında gergin).

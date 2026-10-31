@@ -75,17 +75,6 @@ export function LyricsOverlay({
             className="lyrics__stack"
             style={move ? { transform: `translateY(${move.y}em) scale(${move.scale})` } : undefined}
           >
-            {motion && effect !== "plain" && (
-              <LyricSky
-                lineRef={lineRef}
-                line={frame.line}
-                words={frame.words}
-                t={positionSecs}
-                opacity={frame.opacity}
-                stars={effect === "constellation"}
-                dim={uncertain}
-              />
-            )}
             {lit && (
               <p className="lyrics__shade" style={{ opacity: frame.opacity }}>
                 <Words line={frame.line} words={frame.words} motion={motion} shade />
@@ -98,6 +87,18 @@ export function LyricsOverlay({
             >
               <Words line={frame.line} words={frame.words} motion={motion} shade={false} />
             </p>
+            {/* Satırdan sonra: satırın ref'i bağlanmış olur, tel ilk karede çizilir (CSS'te arkada). */}
+            {motion && effect !== "plain" && (
+              <LyricSky
+                lineRef={lineRef}
+                line={frame.line}
+                words={frame.words}
+                t={positionSecs}
+                opacity={frame.opacity}
+                stars={effect === "constellation"}
+                dim={uncertain}
+              />
+            )}
           </div>
         )}
         {move?.ghost && (
@@ -106,6 +107,12 @@ export function LyricsOverlay({
             style={{ transform: `translateY(${move.ghost.y}em)`, opacity: move.ghost.opacity }}
           >
             {move.ghost.line.text}
+          </p>
+        )}
+        {/* Satırın dışında: satırın metni sözün metnine eşit kalır (zamanlama denetimi). */}
+        {uncertain && (
+          <p className="lyrics__note" style={{ opacity: frame.opacity }}>
+            <span className="lyrics__tag">tahmini</span>
           </p>
         )}
         {meteor && (
@@ -187,7 +194,6 @@ function Words({
             );
           })
         : line.text}
-      {line.uncertain && <span className="lyrics__tag">tahmini</span>}
     </>
   );
 }

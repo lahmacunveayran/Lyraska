@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { LyricsControls } from "../hooks/useLyrics";
 import {
   errorMessage,
@@ -34,6 +34,7 @@ export function LyricsPanel({ lyrics, trackPath, trackTitle, visible }: LyricsPa
   const [busy, setBusy] = useState(false);
   // Söz paketi kurulu mu (panel açılınca okunur; bilinmiyorsa `null`).
   const [packageInstalled, setPackageInstalled] = useState<boolean | null>(null);
+  const adding = useRef(false);
   const { loadText } = lyrics;
 
   useEffect(() => {
@@ -86,11 +87,14 @@ export function LyricsPanel({ lyrics, trackPath, trackTitle, visible }: LyricsPa
 
   const timing = trackPath ? autoTiming(lyrics.lyrics, packageInstalled) : null;
   const addPackage = async () => {
-    const file = await pickLyricsPackageFile().catch(() => null);
-    if (!file) return;
+    // Çift tıklama ikinci seçim penceresini ve ikinci kurulumu açmaz (düğme pencere açılmadan kilitlenir).
+    if (adding.current) return;
+    adding.current = true;
     setBusy(true);
-    setMessage("Söz paketi denetleniyor ve ekleniyor…");
     try {
+      const file = await pickLyricsPackageFile();
+      if (!file) return;
+      setMessage("Söz paketi denetleniyor ve ekleniyor…");
       await installLyricsPackage(file);
       setPackageInstalled(true);
       lyrics.refresh?.();
@@ -98,6 +102,7 @@ export function LyricsPanel({ lyrics, trackPath, trackTitle, visible }: LyricsPa
     } catch (e) {
       setMessage(errorMessage(e));
     } finally {
+      adding.current = false;
       setBusy(false);
     }
   };

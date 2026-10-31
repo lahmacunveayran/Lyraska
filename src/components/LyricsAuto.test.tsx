@@ -9,13 +9,14 @@ import { PhotoLyrics } from "./PhotoLyrics";
 const pkg = vi.hoisted(() => ({
   installed: false,
   picked: null as string | null,
+  pick: vi.fn<() => Promise<string | null>>(),
   install: vi.fn<(path: string) => Promise<void>>(async () => undefined),
 }));
 
 vi.mock("../lib/backend", async (original) => ({
   ...(await original<typeof import("../lib/backend")>()),
   isLyricsPackageInstalled: async () => pkg.installed,
-  pickLyricsPackageFile: async () => pkg.picked,
+  pickLyricsPackageFile: () => pkg.pick(),
   installLyricsPackage: (path: string) => pkg.install(path),
 }));
 
@@ -63,6 +64,8 @@ function controls(shown: Lyrics | null) {
 beforeEach(() => {
   pkg.installed = false;
   pkg.picked = null;
+  pkg.pick.mockReset();
+  pkg.pick.mockImplementation(async () => pkg.picked);
   pkg.install.mockClear();
 });
 
@@ -74,6 +77,8 @@ describe("otomatik zamanlanan sözler sahnede", () => {
     rerender(<LyricsOverlay lyrics={auto} positionSecs={13} />);
     expect(container.querySelector(".lyrics__line")).toHaveClass("is-uncertain");
     expect(container.querySelector(".lyrics__tag")).toHaveTextContent("tahmini");
+    // Etiket satırın dışında: satırın metni sözün metnidir (zamanlama denetimi buna bakar).
+    expect(container.querySelector(".lyrics__line")).toHaveTextContent(/^Işıklar akıyor$/);
   });
 
   it('"Kendi resmin" söz satırında da tahmini satır işaretli', () => {
@@ -84,6 +89,7 @@ describe("otomatik zamanlanan sözler sahnede", () => {
     rerender(<PhotoLyrics lyrics={auto} positionSecs={13} safe={false} />);
     expect(container.querySelector(".photo-lyrics__line")).toHaveClass("is-uncertain");
     expect(container.querySelector(".photo-lyrics__tag")).toHaveTextContent("tahmini");
+    expect(container.querySelector(".photo-lyrics__line")).toHaveTextContent(/^Işıklar akıyor$/);
   });
 });
 
@@ -115,6 +121,35 @@ describe("Sözler panelinde otomatik zamanlama", () => {
     expect(screen.getByRole("status")).toHaveTextContent("söz paketi değil");
     expect(lyrics.refresh).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Söz paketini ekle…" })).toBeEnabled();
+  });
+
+  it("çift tıklama ikinci seçim penceresini ve ikinci kurulumu açmaz", async () => {
+    let choose: (path: string | null) => void = () => undefined;
+    pkg.pick.mockImplementation(
+      () =>
+        new Promise<string | null>((done) => {
+          choose = done;
+        }),
+    );
+    render(<LyricsPanel lyrics={controls(untimed)} trackPath="C:/a.flac" trackTitle="A" visible />);
+    const add = await screen.findByRole("button", { name: "Söz paketini ekle…" });
+    await act(async () => {
+      fireEvent.click(add);
+      fireEvent.click(add);
+    });
+    expect(add).toBeDisabled();
+    await act(async () => choose("C:/model.onnx"));
+    expect(pkg.pick).toHaveBeenCalledTimes(1);
+    expect(pkg.install).toHaveBeenCalledTimes(1);
+  });
+
+  it("seçim penceresi açılamazsa nedeni yazar, düğme yeniden basılabilir", async () => {
+    pkg.pick.mockRejectedValueOnce("Pencere açılamadı.");
+    render(<LyricsPanel lyrics={controls(untimed)} trackPath="C:/a.flac" trackTitle="A" visible />);
+    const add = await screen.findByRole("button", { name: "Söz paketini ekle…" });
+    await act(async () => fireEvent.click(add));
+    expect(screen.getByRole("status")).toHaveTextContent("Pencere açılamadı.");
+    expect(add).toBeEnabled();
   });
 
   it("oturtulmuş sözün hükmü yazar; çoğu oturmadıysa uyarı", async () => {

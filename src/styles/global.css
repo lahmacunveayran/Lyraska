@@ -818,12 +818,17 @@ kbd {
 }
 
 .lyrics__line.is-uncertain .lyrics__word.is-sung {
-  opacity: 0.62;
+  opacity: 0.8; /* söylenen kelimeyle aynı: kelime bitince parlaklık basamak yapmaz */
 }
 
 .lyrics__line.is-uncertain .lyrics__word.is-current {
   opacity: 0.8;
   color: var(--ink-2);
+}
+
+.lyrics__note {
+  margin: 6px 0 0;
+  line-height: 1;
 }
 
 .lyrics__tag,
@@ -876,6 +881,7 @@ kbd {
 /* Satır, gölgesi ve gökyüzü birlikte yayla oturur; yazı tipi boyu burada (em'ler buna göre). */
 .lyrics__stack {
   position: relative;
+  isolation: isolate;
   font-size: clamp(26px, 3.8vw, 58px);
 }
 
@@ -941,10 +947,6 @@ kbd {
     0 0 2px rgba(0, 0, 0, 0.8);
 }
 
-.lyrics__shade .lyrics__tag {
-  visibility: hidden;
-}
-
 .lyrics__halo {
   display: inline-block;
   white-space: pre;
@@ -970,6 +972,7 @@ kbd {
 /* Satırın gökyüzü (lir teli, yıldızlar): satırı üstten ve alttan taşar. */
 .lyrics__sky {
   position: absolute;
+  z-index: -1; /* DOM'da satırdan sonra, görüntüde yazının arkasında */
   top: -1.3em;
   left: -4%;
   width: 108%;
