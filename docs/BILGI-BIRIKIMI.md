@@ -192,6 +192,9 @@ kısaltılır.
   (VNNI'siz) AVX2 çekirdeğini kullanıyor (1,2 G işlem/sn; f32 ~99 G). Bulmanın yolu katman katman süre
   (`run_plan_with_eval`) ve işlem sayısı / süre hesabı oldu. Çözüm açılışta `W = (W_q − z)·s` ile f32
   (`dequantize_matmuls`; 29–40 kat hızlı, bellek 2,6 GB). Yeni model ya da çalıştırıcıda önce VNNI'siz işlemcide ölç.
+- **Belgedeki boyut varsayımını koddan önce ölç** (31 Ekim 2026): denetim emisyonları "~60 sütun, ~1 MB" sanmıştı;
+  model 410 harf sütunu veriyordu (~7,5 MB/şarkı). Gerçek modelle 1 dakikalık ölçüm tasarımı değiştirdi (yalnızca
+  gereken sütunlar, kayıpsız, ~0,6 MB).
 - **Modelin kare geometrisi sorulmadan varsayılmaz:** wav2vec2 tipi modelde kare 400 örnek alıcı alan, 320 adım;
   karenin merkezi 320·j + 200 (araştırma (j + 0,5)·320,64 sayıyordu, ikinci yarı 20 ms geç). Deneme modeli gerçek
   geometride olmalı (Reshape tabanlı deneme modeli hatayı göremedi).

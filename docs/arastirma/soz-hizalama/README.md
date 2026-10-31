@@ -79,3 +79,20 @@ simge uyuşması **%98,96** (eskinin blank dışı dediği 242 konuşma karesind
 11,1 (olasılığı çok düşük simgelerde); 6 satırın başlangıcı **iki yolda birebir aynı** (fark 0,000 sn), hüküm ikisinde
 de "iyi". Süre: eski 830 sn, yeni 20,5 sn. Açık: gerçek Türkçe şarkıyla karşılaştırma (sahibinin 5–10 şarkılık
 denemesi).
+
+## Emisyon önbelleği: yalnızca gereken sütunlar, f16 (31 Ekim 2026)
+
+Denetim emisyonları "~60 sütun, şarkı başına ~0,7–1,4 MB" varsaymıştı; ölçüm başka çıktı: modelin saklanan harfleri
+(Latin, Yunan, Kiril küçük harf) **410 sütun**, f16 ile dakikada 2,46 MB (deflate 1,88; 4 dk şarkı ~7,5 MB). Çözüm
+(`analysis/lyrics_cache.rs`): blank, ayırıcı, Türkçe + İngilizce alfabe ve sözün harfleri saklanır (~38 sütun).
+Kayıpsızdır (log-olasılıklar bütün simgelere göre normalleşmiş gelir); söze saklanmamış harf girerse model yeniden
+çalışır. Ölçümler (31 Ekim; konuşma kaydı temiz ve gürültülü, 17 sn; gerçek şarkı 173 sn, sözsüz yalnızca boyut):
+
+| Biçim                                      | Dakikada |
+| ------------------------------------------ | -------- |
+| 410 sütun, f16, deflate                    | 1,88 MB  |
+| 38 sütun, f16, deflate                     | 0,181 MB |
+| 38 sütun, f16, üst/alt bayt ayrı + deflate | 0,145 MB |
+
+f16 yuvarlamasının en büyük hatası 0,0078 nat (−28 nat'ta); 6 satırın başı, kelimeleri, güveni ve hüküm f32 ile
+birebir aynı. Yuvarlama saklamadan önce yapılır: yeni hesaplanan ve önbellekten okunan emisyon aynı sonucu verir.
