@@ -223,6 +223,8 @@ pub fn run() {
             commands::track_lyrics_text,
             commands::track_lyrics_save,
             commands::track_lyrics_clear,
+            commands::lyrics_package_installed,
+            commands::lyrics_package_install,
             commands::toggle_playback,
             commands::stop_playback,
             commands::seek_playback,

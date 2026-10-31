@@ -20,6 +20,7 @@ use crate::analysis::background::{BackgroundAnalysis, CrashGuard};
 use crate::analysis::cache::AnalysisCache;
 use crate::analysis::evaluate;
 use crate::analysis::lyrics_job::ModelSlot;
+use crate::analysis::lyrics_package;
 use crate::analysis::lyrics_worker::{LyricsWorker, PACKAGE_DIR};
 use crate::analysis::map_file::{ImportedMapStatus, MapFile, MapStore};
 use crate::audio::abx::{AbxChoice, AbxRequest, AbxSource, AbxStatus, AbxTest};
@@ -326,6 +327,35 @@ pub async fn track_lyrics_save(
     .await
 }
 
+/// Söz paketi (sözleri sese oturtan model) kurulu mu?
+#[tauri::command]
+pub async fn lyrics_package_installed(big: State<'_, BigDataDir>) -> Result<bool, String> {
+    let dir = package_dir(&big)?;
+    blocking(move || Ok(lyrics_package::installed(&dir, lyrics_package::PRODUCT))).await
+}
+
+/// Kullanıcının indirip seçtiği dosyayı söz paketi olarak kurar: boyutu ve SHA-256'sı denetlenir,
+/// Lyraska'nın klasörüne kopyalanır (seçilen dosyaya dokunulmaz); zamanlanmayı bekleyen sözler
+/// yeniden denenir. Program internete bağlanmaz.
+#[tauri::command]
+pub async fn lyrics_package_install(
+    path: PathBuf,
+    big: State<'_, BigDataDir>,
+    lyrics: State<'_, LyricsState>,
+) -> Result<(), String> {
+    let dir = package_dir(&big)?;
+    let worker = lyrics.0.clone();
+    blocking(move || {
+        lyrics_package::install(&path, &dir, lyrics_package::PRODUCT)
+            .map_err(|e| reported(e.to_string()))?;
+        if let Some(worker) = worker {
+            worker.package_changed();
+        }
+        Ok(())
+    })
+    .await
+}
+
 /// Düzenlenmiş sözleri siler: şarkının kendi sözlerine (yan `.lrc`, gömülü) dönülür.
 #[tauri::command]
 pub async fn track_lyrics_clear(path: String, big: State<'_, BigDataDir>) -> Result<(), String> {
@@ -534,6 +564,14 @@ fn user_lyrics_store(
     big.0
         .as_ref()
         .map(|dir| crate::library::user_lyrics::UserLyricsStore::new(dir))
+        .map_err(|e| reported(format!("Uygulama klasörü bulunamadı: {e}")))
+}
+
+/// Söz paketinin klasörü (büyük veri klasöründe).
+fn package_dir(big: &BigDataDir) -> Result<PathBuf, String> {
+    big.0
+        .as_ref()
+        .map(|dir| dir.join(PACKAGE_DIR))
         .map_err(|e| reported(format!("Uygulama klasörü bulunamadı: {e}")))
 }
 

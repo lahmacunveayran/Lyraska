@@ -155,6 +155,20 @@ export function clearTrackLyrics(path: string): Promise<void> {
   return invoke<void>("track_lyrics_clear", { path });
 }
 
+/** Söz paketi (sözleri şarkının sesine oturtan model) kurulu mu? */
+export async function isLyricsPackageInstalled(): Promise<boolean> {
+  if (!isTauri()) return false;
+  return invoke<boolean>("lyrics_package_installed");
+}
+
+/**
+ * Kullanıcının indirip seçtiği dosyayı söz paketi olarak kurar (boyutu ve özeti denetlenir; seçilen
+ * dosyaya dokunulmaz). Dosya paket değilse hata metniyle reddedilir.
+ */
+export function installLyricsPackage(path: string): Promise<void> {
+  return invoke<void>("lyrics_package_install", { path });
+}
+
 /** Çalan şarkının yapısı; analiz bitmediyse `null`. */
 export async function getSongMap(): Promise<SongMap | null> {
   if (!isTauri()) return null;
