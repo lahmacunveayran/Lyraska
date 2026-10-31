@@ -49,11 +49,18 @@ impl Player {
     /// Spektrum ekolayzerden önce çıkarıldığı için ekolayzerin etkisi burada eklenir:
     /// görseller duyulanı gösterir.
     pub fn visual_now(&mut self) -> Option<VisualData> {
+        self.visual_ahead(crate::visual_bridge::DISPLAY_LEAD_SECONDS)
+    }
+
+    /// [`Self::visual_now`], arayüzün ölçtüğü ekran gecikmesiyle (saniye; karenin ekrana çıkmasına
+    /// kadar geçen süre, [`crate::visual_bridge::clamp_display_lead`] ile sınırlanır).
+    pub fn visual_ahead(&mut self, display_lead_secs: f64) -> Option<VisualData> {
         // Boşluksuz geçişle gelen şarkının ölçümü de vaktinde ses yoluna yazılsın.
         self.sync_levels();
         // Gecikme telafisi: ekranda görüneceği an ve ses aygıtının ek gecikmesi. Boşluksuz
         // geçişte şarkı da bu kaydırılmış ana göre seçilir (A3).
-        let offset = crate::visual_bridge::visual_offset_secs(self.audio_delay_ms);
+        let offset =
+            crate::visual_bridge::visual_offset_with_lead(self.audio_delay_ms, display_lead_secs);
         let (track, seconds) = self.session.as_ref()?.playing_at(offset);
         // Boşluksuz geçişle şarkı değiştiyse analizi de değiştir.
         self.adopt_analysis(&track.path);
@@ -98,6 +105,11 @@ impl Player {
     /// telafi edilerek). Duraklatılmışsa ya da şarkı bittiyse sessizlik; çalan oturum yoksa
     /// (açılıyor, sarılıyor, kör test, hata) `None`.
     pub fn visual_waveform(&self) -> Option<Vec<u8>> {
+        self.visual_waveform_ahead(crate::visual_bridge::DISPLAY_LEAD_SECONDS)
+    }
+
+    /// [`Self::visual_waveform`], arayüzün ölçtüğü ekran gecikmesiyle (bkz. [`Self::visual_ahead`]).
+    pub fn visual_waveform_ahead(&self, display_lead_secs: f64) -> Option<Vec<u8>> {
         let session = self.session.as_ref()?;
         match session.state() {
             PlaybackState::Playing => {}
@@ -107,7 +119,8 @@ impl Player {
         // Boşluksuz geçişle gelen şarkının ölçümü de kazanca yansısın.
         self.sync_levels();
         let heard = session.shared.output_heard.load(Ordering::Acquire);
-        let offset = crate::visual_bridge::visual_offset_secs(self.audio_delay_ms);
+        let offset =
+            crate::visual_bridge::visual_offset_with_lead(self.audio_delay_ms, display_lead_secs);
         session.shared.waveform_at(heard, offset)
     }
 
@@ -115,6 +128,11 @@ impl Player {
     /// seviye (0..1, bas solda; [`spectrum::bar_levels`]). Görsel karelerle aynı an (gecikme
     /// telafili). Duraklatılmışsa ya da şarkı bittiyse hepsi 0; çalan oturum yoksa `None`.
     pub fn visual_spectrum(&self) -> Option<Vec<f32>> {
+        self.visual_spectrum_ahead(crate::visual_bridge::DISPLAY_LEAD_SECONDS)
+    }
+
+    /// [`Self::visual_spectrum`], arayüzün ölçtüğü ekran gecikmesiyle (bkz. [`Self::visual_ahead`]).
+    pub fn visual_spectrum_ahead(&self, display_lead_secs: f64) -> Option<Vec<f32>> {
         let session = self.session.as_ref()?;
         match session.state() {
             PlaybackState::Playing => {}
@@ -123,7 +141,8 @@ impl Player {
         }
         self.sync_levels();
         let heard = session.shared.output_heard.load(Ordering::Acquire);
-        let offset = crate::visual_bridge::visual_offset_secs(self.audio_delay_ms);
+        let offset =
+            crate::visual_bridge::visual_offset_with_lead(self.audio_delay_ms, display_lead_secs);
         session.shared.spectrum_at(heard, offset)
     }
 

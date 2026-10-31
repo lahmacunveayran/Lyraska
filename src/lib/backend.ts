@@ -366,9 +366,17 @@ export function seekPlayback(seconds: number): Promise<PlaybackStatus> {
   return invoke<PlaybackStatus>("seek_playback", { seconds });
 }
 
-/** Şu an duyulan anın görsel verisi; analiz o ana yetişmediyse `null`. */
-export function getVisualFrame(): Promise<VisualFrame | null> {
-  return invoke<VisualFrame | null>("visual_frame");
+/** Ekran gecikmesinin varsayılanı (saniye; 60 Hz'de bir kare), çekirdeğinkiyle aynı. */
+export const DISPLAY_LEAD_SECS = 1 / 60;
+
+/**
+ * Şu an duyulan anın görsel verisi; analiz o ana yetişmediyse `null`. `displayLeadSecs`: ölçülen kare
+ * süresi (karenin ekrana çıkmasına kadar; veri o kadar ileriden okunur, çekirdek 0–0,25 sn'ye kırpar).
+ */
+export function getVisualFrame(
+  displayLeadSecs: number = DISPLAY_LEAD_SECS,
+): Promise<VisualFrame | null> {
+  return invoke<VisualFrame | null>("visual_frame", { displayLeadSecs });
 }
 
 /** Dalga biçimi yanıtının uzunluğu: karışım, sol, sağ (her biri 1024 örnek). */
@@ -377,12 +385,15 @@ export const WAVEFORM_BYTES = 3 * 1024;
 /**
  * Şu an duyulan anın ham dalga biçimi (MilkDrop sahnesi): 3 × 1024 bayt — karışım, sol, sağ;
  * 44,1 kHz; 0..255, 128 = sessizlik (WebAudio `getByteTimeDomainData` biçimi). Görsel karelerle
- * aynı an (gecikme telafili). Duraklatılmışsa ya da şarkı bittiyse hepsi 128; çalan şarkı yoksa
- * ya da tarayıcı önizlemesinde `null`. Çekirdek ham bayt döndürür (JSON değil).
+ * aynı an (gecikme telafili; `displayLeadSecs` `getVisualFrame`'deki gibi). Duraklatılmışsa ya da
+ * şarkı bittiyse hepsi 128; çalan şarkı yoksa ya da tarayıcı önizlemesinde `null`. Çekirdek ham bayt
+ * döndürür (JSON değil).
  */
-export async function getVisualWaveform(): Promise<Uint8Array | null> {
+export async function getVisualWaveform(
+  displayLeadSecs: number = DISPLAY_LEAD_SECS,
+): Promise<Uint8Array | null> {
   if (!isTauri()) return null;
-  const bytes = await invoke<ArrayBuffer | number[]>("visual_waveform");
+  const bytes = await invoke<ArrayBuffer | number[]>("visual_waveform", { displayLeadSecs });
   const array = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : Uint8Array.from(bytes);
   return array.length === WAVEFORM_BYTES ? array : null;
 }
@@ -390,13 +401,16 @@ export async function getVisualWaveform(): Promise<Uint8Array | null> {
 /**
  * Şu an duyulan anın ince spektrum çubukları ("Kendi resmin" sahnesi): `bars` seviye, 0..1, bas
  * solda (20 Hz – 2 kHz, doğrusal; genlikle doğru orantılı, src-tauri/src/audio/spectrum.rs). Görsel
- * karelerle aynı an. Duraklatılmışsa hepsi 0; çalan şarkı yoksa, yanıt beklenen uzunlukta
- * değilse ya da tarayıcı önizlemesinde `null`.
+ * karelerle aynı an (`displayLeadSecs` `getVisualFrame`'deki gibi). Duraklatılmışsa hepsi 0; çalan
+ * şarkı yoksa, yanıt beklenen uzunlukta değilse ya da tarayıcı önizlemesinde `null`.
  */
-export async function getVisualSpectrum(bars: number): Promise<number[] | null> {
+export async function getVisualSpectrum(
+  bars: number,
+  displayLeadSecs: number = DISPLAY_LEAD_SECS,
+): Promise<number[] | null> {
   if (!isTauri()) return null;
   // Sahte çekirdekte ya da eski sürümde dizi olmayan yanıt gelebilir: türüne güvenilmez.
-  const levels: unknown = await invoke<number[]>("visual_spectrum");
+  const levels: unknown = await invoke<number[]>("visual_spectrum", { displayLeadSecs });
   return Array.isArray(levels) &&
     levels.length === bars &&
     levels.every((v) => typeof v === "number" && Number.isFinite(v))

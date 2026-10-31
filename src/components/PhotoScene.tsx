@@ -40,7 +40,7 @@ import { fitCanvas, getWebGl2 } from "../lib/gl";
 import { measureFrames, measureStill } from "../lib/photoMeasure";
 import { usePrefersReducedMotion } from "../lib/usePrefersReducedMotion";
 import { useBackgroundSource } from "../hooks/useBackgroundSource";
-import { useVisualFeed } from "../hooks/useVisualFeed";
+import { displayLeadSecs, useVisualFeed } from "../hooks/useVisualFeed";
 
 export interface PhotoSceneProps {
   playing: boolean;
@@ -515,7 +515,7 @@ export function PhotoScene({
         feed.levels = null;
       } else if (!feed.inFlight) {
         feed.inFlight = true;
-        getVisualSpectrum(PHOTO_BARS)
+        getVisualSpectrum(PHOTO_BARS, displayLeadSecs())
           .then((levels) => {
             feed.levels = levels;
           })
