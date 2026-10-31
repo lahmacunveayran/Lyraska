@@ -1168,7 +1168,7 @@ mod tests {
             .collect();
         let worst = starts.iter().copied().fold(0.0, f64::max);
         println!(
-            "kare {}: en olası harf uyuşması %{:.2} (konuşma karelerinde %{:.2}, {} kare); log-olasılık en              büyük fark {max_diff:.3}; satır başı farkları {starts:.3?} sn (en çok {worst:.3}); hüküm              yeni {:?}, eski {:?}; süre yeni {new_secs:.1} sn, eski {old_secs:.1} sn",
+            "kare {}: en olası harf uyuşması %{:.2} (konuşma karelerinde %{:.2}, {} kare); log-olasılık en büyük fark {max_diff:.3}; satır başı farkları {starts:.3?} sn (en çok {worst:.3}); hüküm yeni {:?}, eski {:?}; süre yeni {new_secs:.1} sn, eski {old_secs:.1} sn",
             new.frames,
             agree * 100.0,
             agree_speech * 100.0,

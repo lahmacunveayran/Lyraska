@@ -629,6 +629,7 @@ parçacığı, 32 GB, RTX 4050, Windows 11 Pro). Burada sizden bir şey beklenme
   kodu bu işlemcide saniyede ~1,2 milyar işlem yapıyor; ondalıklı kodu ~99 milyar. Ayrıntı ve tablo:
   `docs/arastirma/soz-hizalama/README.md` ("Windows'ta hız").
 - Düzeltmeden sonra: aynı ses **91 sn** (4 iş parçacığı), açılışta en çok 2,8 GB bellek.
+- Doğruluk: eski yolla aynı konuşma kaydında harflerin %98,96'sı aynı, 6 satırın başlangıcı birebir aynı.
 
 ---
 

@@ -71,3 +71,11 @@ modelde 146 çarpımın 146'sı çevrilir. Eski yolla fark yalnızca girdinin ni
 İş parçacığı sayısı artık sabit değil: mantıksal çekirdeklerin yarısı, en çok 4 (`window_threads`). En yüksek
 bellek açılıştadır (ONNX tanımı ve tract'ın tensörleri bir an birlikte); ağırlıklar 366 MB yerine 1,2 GB.
 Ölçüm araçları (geçici, depoda değil): katman profili `run_plan_with_eval` ile, f32 kopyası Python `onnx` ile.
+
+Doğruluk (eski tamsayı yoluyla aynı seste; `gercek_modelde_iki_yol_ayni_sonucu_verir`, elle çalıştırılır; ölçüt
+ölçümden önce yazıldı: uyuşma ≥ %98, araştırmada int8'in kendi oynaklığı %99,4; satır başları ≤ 1 kare). Ses:
+Windows'un konuşma sentezleyicisiyle sözü bilinen 17 sn İngilizce konuşma, 6 satır (868 kare). Kare başına en olası
+simge uyuşması **%98,96** (eskinin blank dışı dediği 242 konuşma karesinde %98,35); log-olasılıkta en büyük fark
+11,1 (olasılığı çok düşük simgelerde); 6 satırın başlangıcı **iki yolda birebir aynı** (fark 0,000 sn), hüküm ikisinde
+de "iyi". Süre: eski 830 sn, yeni 20,5 sn. Açık: gerçek Türkçe şarkıyla karşılaştırma (sahibinin 5–10 şarkılık
+denemesi).
