@@ -7,7 +7,7 @@
 //! çalıştırır; şarkı açmak birkaç yüz milisaniye sürebildiği için pencere donmasın diye
 //! bu komutlar arka plandaki iş parçacıklarında çalışır.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use serde::Serialize;
@@ -19,6 +19,8 @@ use crate::analysis::annotation::{
 use crate::analysis::background::{BackgroundAnalysis, CrashGuard};
 use crate::analysis::cache::AnalysisCache;
 use crate::analysis::evaluate;
+use crate::analysis::lyrics_job::ModelSlot;
+use crate::analysis::lyrics_worker::{LyricsWorker, PACKAGE_DIR};
 use crate::analysis::map_file::{ImportedMapStatus, MapFile, MapStore};
 use crate::audio::abx::{AbxChoice, AbxRequest, AbxSource, AbxStatus, AbxTest};
 use crate::audio::crossfeed::{CrossfeedSettings, CrossfeedState};
@@ -130,6 +132,37 @@ pub fn start_analysis_cache(
     ))
 }
 
+/// Sözleri zamanlama iş parçacığını başlatır. Söz paketi büyük veri klasöründe ([`PACKAGE_DIR`]);
+/// yoksa istekler yalnızca kayıtlı sonuçlarla ve emisyon önbelleğiyle karşılanır.
+/// `on_done`: bir şarkının sözü zamanlandı.
+pub fn start_lyrics_worker(
+    player: &PlayerState,
+    cache: Arc<AnalysisCache>,
+    big: &Path,
+    on_done: impl Fn(&Path) + Send + 'static,
+) -> Option<Arc<LyricsWorker>> {
+    let foreground = player.lock().ok()?.foreground_analyses();
+    Some(Arc::new(LyricsWorker::start(
+        cache,
+        ModelSlot::product(big.join(PACKAGE_DIR)),
+        foreground,
+        CrashGuard::named(big.to_path_buf(), "soz"),
+        on_done,
+    )))
+}
+
+/// Tauri'nin yönettiği söz zamanlama (önbellek ya da veri klasörü yoksa yok).
+pub struct LyricsState(pub Option<Arc<LyricsWorker>>);
+
+impl LyricsState {
+    /// Program kapanırken süren zamanlamayı durdurur.
+    pub fn shutdown(&self) {
+        if let Some(worker) = &self.0 {
+            worker.stop();
+        }
+    }
+}
+
 /// Büyük, yeniden üretilebilir verinin klasörü (Windows'ta Local; bulunamadıysa neden).
 pub struct BigDataDir(pub Result<PathBuf, String>);
 
@@ -231,22 +264,27 @@ pub async fn track_cover(path: PathBuf) -> Result<Option<String>, String> {
 
 /// Şarkının sözleri: kullanıcının Lyraska'da düzenlediği, yoksa yanındaki `.lrc` dosyası ya da şarkıya
 /// gömülü sözler; yoksa `null`. Sözler yalnızca kullanıcının kendisinden gelir; program söz indirmez.
+/// Zamansız söz sese oturtulduysa otomatik zamanlısı; oturtulmadıysa arka planda istenir.
 #[tauri::command]
 pub async fn track_lyrics(
     path: PathBuf,
     big: State<'_, BigDataDir>,
+    lyrics: State<'_, LyricsState>,
 ) -> Result<Option<Lyrics>, String> {
     let store = user_lyrics_store(&big).ok();
+    let worker = lyrics.0.clone();
     blocking(move || {
         let duration = Decoder::open(&path)
             .ok()
             .and_then(|d| d.info().duration_secs);
         let user = store.and_then(|s| s.get(&path.to_string_lossy()));
-        Ok(crate::audio::lyrics::for_track_with(
-            &path,
-            duration,
-            user.as_deref(),
-        ))
+        let found = crate::audio::lyrics::for_track_with(&path, duration, user.as_deref());
+        Ok(match worker {
+            Some(worker) => worker.show(&path, found, || {
+                crate::audio::lyrics::text_for_track(&path, user.as_deref())
+            }),
+            None => found,
+        })
     })
     .await
 }
@@ -266,15 +304,26 @@ pub async fn track_lyrics_text(
 }
 
 /// Kullanıcının düzenlediği sözleri saklar (Lyraska'nın klasöründe; müzik dosyasına dokunulmaz).
-/// Boş metin kaydı siler.
+/// Boş metin kaydı siler. Zamansız söz arka planda sese oturtulur.
 #[tauri::command]
 pub async fn track_lyrics_save(
     path: String,
     text: String,
     big: State<'_, BigDataDir>,
+    lyrics: State<'_, LyricsState>,
 ) -> Result<(), String> {
     let store = user_lyrics_store(&big)?;
-    blocking(move || store.set(&path, &text).map_err(|e| e.to_string())).await
+    let worker = lyrics.0.clone();
+    blocking(move || {
+        store.set(&path, &text).map_err(|e| e.to_string())?;
+        if let Some(worker) = worker {
+            if crate::audio::lyrics::is_untimed(&text) {
+                worker.request(Path::new(&path), &text);
+            }
+        }
+        Ok(())
+    })
+    .await
 }
 
 /// Düzenlenmiş sözleri siler: şarkının kendi sözlerine (yan `.lrc`, gömülü) dönülür.

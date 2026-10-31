@@ -30,7 +30,9 @@ use sha2::{Digest, Sha256};
 use super::cache::{AnalysisCache, CacheError, FileStamp};
 use super::lyrics_align::{align, AlignError, Alignment, Verdict, LOW_CONFIDENCE};
 use super::lyrics_cache::{StoredEmissions, EMISSIONS_VERSION};
-use super::lyrics_model::{decode_mono, LyricsModel, ModelError, MODEL_SHA256, TOKENS_SHA256};
+use super::lyrics_model::{
+    decode_mono, LyricsModel, ModelError, MODEL_FILE, MODEL_SHA256, TOKENS_SHA256,
+};
 use super::lyrics_text::{prepare, AlignLine, MAX_LINES};
 use crate::audio::lyrics::{
     estimate_words, AutoVerdict, LyricLine, LyricWord, Lyrics, LyricsSource,
@@ -50,6 +52,8 @@ pub struct ModelSlot {
     tokens_sha256: String,
     model: Option<LyricsModel>,
     opened: usize,
+    /// Paket açılamadı: her açılış ~2,5 GB'lık dosyanın özetini hesaplar, boşuna yinelenmez.
+    unavailable: bool,
 }
 
 impl ModelSlot {
@@ -61,6 +65,7 @@ impl ModelSlot {
             tokens_sha256: tokens_sha256.to_owned(),
             model: None,
             opened: 0,
+            unavailable: false,
         }
     }
 
@@ -76,11 +81,12 @@ impl ModelSlot {
 
     fn get(&mut self) -> Result<&LyricsModel, ModelError> {
         if self.model.is_none() {
-            self.model = Some(LyricsModel::open(
-                &self.dir,
-                &self.model_sha256,
-                &self.tokens_sha256,
-            )?);
+            if self.unavailable {
+                return Err(ModelError::Unavailable);
+            }
+            let model = LyricsModel::open(&self.dir, &self.model_sha256, &self.tokens_sha256)
+                .inspect_err(|_| self.unavailable = true)?;
+            self.model = Some(model);
             self.opened += 1;
         }
         self.model
@@ -91,6 +97,27 @@ impl ModelSlot {
     /// Modeli bırakır (bellek); sonraki iş yeniden açar.
     pub fn release(&mut self) {
         self.model = None;
+    }
+
+    /// Paket yeniden eklendi: açılamayan model yeniden denenir.
+    pub fn forget_failure(&mut self) {
+        self.unavailable = false;
+    }
+
+    /// Model açılmasın (ör. programı kapattı); [`Self::forget_failure`]'a kadar.
+    pub fn disable(&mut self) {
+        self.model = None;
+        self.unavailable = true;
+    }
+
+    /// Model açılamıyor mu (paket yok, bozuk ya da kapatıldı)?
+    pub fn is_unavailable(&self) -> bool {
+        self.model.is_none() && self.unavailable
+    }
+
+    /// Paketin model dosyasının yolu (çökme izi için).
+    pub fn model_file(&self) -> PathBuf {
+        self.dir.join(MODEL_FILE)
     }
 
     pub fn is_loaded(&self) -> bool {
@@ -217,6 +244,10 @@ pub fn align_track(
     let stored = match cache.load_emissions(path, stamp, &sha, &letters)? {
         Some(stored) => stored,
         None => {
+            // Model açılamıyorsa şarkı boşuna çözülmez.
+            if slot.is_unavailable() {
+                return Err(ModelError::Unavailable.into());
+            }
             let previous = cache.emission_letters(path, stamp, &sha)?;
             // Önce çözülür: çözülemeyen şarkı için ~2,5 GB'lık model boşuna açılmaz.
             let audio = decode_mono(path, cancel)?;
@@ -347,7 +378,7 @@ pub fn with_auto(
     }
 }
 
-fn text_sha256(text: &str) -> String {
+pub(super) fn text_sha256(text: &str) -> String {
     Sha256::digest(text.as_bytes())
         .iter()
         .map(|b| format!("{b:02x}"))
@@ -535,6 +566,32 @@ mod tests {
         );
         assert_eq!(result.lines[0].text, "ab ab");
         assert!(result.valid());
+    }
+
+    #[test]
+    fn acilamayan_paket_yeniden_eklenene_kadar_denenmez() {
+        let cache = AnalysisCache::open_in_memory().unwrap();
+        let dir = temp_path("sonra-gelen-soz-paketi");
+        let real = slot();
+        let mut later = ModelSlot::new(dir.clone(), real.model_sha256(), &real.tokens_sha256);
+        let path = song("soz-is-paket-sonra", 8);
+        assert!(matches!(
+            run(&cache, &path, LYRICS, &mut later),
+            Err(JobError::Model(ModelError::Io(_)))
+        ));
+        // Paket gelse de aynı oturumda yeniden açılmaya çalışılmaz (özet hesabı pahalı).
+        std::fs::create_dir_all(&dir).unwrap();
+        for file in [MODEL_FILE, TOKENS_FILE] {
+            std::fs::copy(model_dir().join(file), dir.join(file)).unwrap();
+        }
+        assert!(matches!(
+            run(&cache, &path, LYRICS, &mut later),
+            Err(JobError::Model(ModelError::Unavailable))
+        ));
+        assert_eq!(later.times_opened(), 0);
+        later.forget_failure();
+        run(&cache, &path, LYRICS, &mut later).unwrap();
+        assert_eq!(later.times_opened(), 1);
     }
 
     #[test]

@@ -848,6 +848,19 @@ export async function onLibraryChanged(handler: () => void): Promise<() => void>
   return listen(LIBRARY_CHANGED_EVENT, () => handler());
 }
 
+/** Çekirdeğin bir şarkının sözünü zamanlayınca gönderdiği olay (`lib.rs`: LYRICS_ALIGNED_EVENT). */
+export const LYRICS_ALIGNED_EVENT = "sozler-zamanlandi";
+
+/**
+ * Bir şarkının zamansız sözü arka planda sese oturtulunca şarkının yoluyla haber verir. Dinlemeyi
+ * bırakmak için dönen fonksiyon çağrılır.
+ */
+export async function onLyricsAligned(handler: (path: string) => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen<string>(LYRICS_ALIGNED_EVENT, (event) => handler(event.payload));
+}
+
 /** Pencereye dosya sürükleme olaylarını dinleyen işlevler. */
 export interface DragDropHandlers {
   /** Dosyalar pencerenin üstüne geldi (`true`) ya da gitti/bırakıldı (`false`). */
