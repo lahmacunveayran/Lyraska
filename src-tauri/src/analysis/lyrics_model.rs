@@ -1774,6 +1774,48 @@ mod dequantize_counterexamples {
         }
     }
 
+    /// Aynı W_q iki çarpımda farklı z_w ve s_w ile: her biri kendi ölçeğiyle çözülmeli.
+    #[test]
+    fn ayni_agirlik_farkli_olcekle_paylasilinca_dogru() {
+        let mut rng = Rng(4242);
+        let k = 6;
+        let w0 = Weight::random(&mut rng, k, 4, false);
+        let mut w1 = w0.clone();
+        w1.z = w0.z + 7;
+        w1.s = w0.s * 3.0;
+        let mut c = Case::new();
+        let o = Opts::random(&mut rng);
+        add_branch(&mut c, "b0", &w0, o, None);
+        add_branch(&mut c, "b1", &w1, o, Some("b0_Wq"));
+        let original = c.model();
+        let mut conv = original.clone();
+        dequantize_matmuls(&mut conv);
+        let x = random_x(&mut rng, 2, k);
+        let old = run(&original, &x, 2, k).expect("eski");
+        let new = run(&conv, &x, 2, k).expect("yeni");
+        check_branch("b0", &x, &w0, &old[0], &new[0]);
+        check_branch("b1", &x, &w1, &old[1], &new[1]);
+    }
+
+    /// s_w skaler değil de [1, 1, 1] (tek öğeli): eski yolda çıktı yayılımla üç boyutlu olur.
+    #[test]
+    fn tek_ogeli_olcegin_sekli_korunur() {
+        let mut rng = Rng(99);
+        let k = 5;
+        let w = Weight::random(&mut rng, k, 3, true);
+        let mut c = Case::new();
+        let o = Opts::random(&mut rng);
+        add_branch(&mut c, "b0", &w, o, None);
+        c.replace_tensor("b0_sw", f32_tensor("", &[1, 1, 1], &[w.s], false));
+        let original = c.model();
+        let mut conv = original.clone();
+        dequantize_matmuls(&mut conv);
+        let x = random_x(&mut rng, 2, k);
+        let old = run(&original, &x, 2, k).expect("eski");
+        let new = run(&conv, &x, 2, k).expect("yeni");
+        assert_eq!(old[0].0, new[0].0, "çıktı şekli");
+    }
+
     /// onnxruntime'ın `quantize_dynamic` çıktısı (inceleme betiği `tests/data/soz-modeli/inceleme_ort_uret.py`; kanal başına/tensör
     /// başına, int8/uint8, üç boyutlu girdi, paylaşılan ağırlık, başka işlemde de kullanılan ağırlık).
     /// Elle: `LYRASKA_ORT_ORNEKLERI` = betiğin çıktı klasörü.
@@ -1870,6 +1912,106 @@ mod dequantize_counterexamples {
             println!(
                 "{file}: çevrilen {count}; eski−ORT en çok {worst_old_ort:.2e}, yeni−elle en çok {worst_new_manual:.2e} (göreli)"
             );
+        }
+    }
+
+    /// Diğer düğümlerde alan (domain) denetleniyor; Cast'te de denetlenmeli.
+    #[test]
+    fn baska_alandaki_cast_dokunulmaz() {
+        let mut rng = Rng(8);
+        let w = Weight::random(&mut rng, 4, 3, false);
+        let mut c = Case::new();
+        add_branch(&mut c, "b0", &w, Opts::random(&mut rng), None);
+        c.node_mut("b0_accf").domain = "com.example".into();
+        let original = c.model();
+        let mut conv = original.clone();
+        assert_eq!(dequantize_matmuls(&mut conv), 0);
+        assert!(conv == original);
+    }
+
+    /// Çıktısı olmayan Mul (bozuk dosya): kütüphane kodu paniklememeli.
+    #[test]
+    fn ciktisiz_mul_paniklemez() {
+        let mut rng = Rng(5);
+        let w = Weight::random(&mut rng, 4, 3, false);
+        let mut c = Case::new();
+        add_branch(&mut c, "b0", &w, Opts::random(&mut rng), None);
+        c.node_mut("b0_y").output.clear();
+        let mut model = c.model();
+        let result = std::panic::catch_unwind(move || dequantize_matmuls(&mut model));
+        assert!(result.is_ok(), "dequantize_matmuls panikledi");
+    }
+
+    /// IR 3 biçimi: ağırlık hem initializer hem grafik girdisi. tract onu sabit sayar; çevrilince
+    /// silinen initializer'ın girdisi boşta kalmamalı.
+    #[test]
+    fn girdi_listesindeki_agirlik_bozulmaz() {
+        let mut rng = Rng(11);
+        let k = 4;
+        let w = Weight::random(&mut rng, k, 3, false);
+        let mut c = Case::new();
+        let mut o = Opts::random(&mut rng);
+        o.const_w = false;
+        add_branch(&mut c, "b0", &w, o, None);
+        c.inputs.push(("b0_Wq".into(), DataType::Uint8));
+        let original = c.model();
+        let mut conv = original.clone();
+        dequantize_matmuls(&mut conv);
+        let x = random_x(&mut rng, 2, k);
+        let old = run(&original, &x, 2, k).expect("eski");
+        let new = run(&conv, &x, 2, k).expect("çevrilen model çalışmalı");
+        check_branch("b0", &x, &w, &old[0], &new[0]);
+    }
+
+    fn if_node(cond: &str, then_value: &str, else_value: &str, output: &str) -> pb::NodeProto {
+        let branch = |name: &str, value: &str| pb::AttributeProto {
+            name: name.into(),
+            r#type: AttributeType::Graph as i32,
+            g: Some(pb::GraphProto {
+                name: name.into(),
+                node: vec![node("Identity", &[value], &[&format!("{name}_out")])],
+                output: vec![value_info(&format!("{name}_out"), DataType::Float)],
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let mut n = node("If", &[cond], &[output]);
+        n.attribute = vec![
+            branch("then_branch", then_value),
+            branch("else_branch", else_value),
+        ];
+        n
+    }
+
+    /// Alt grafik (If) dış değeri kullanıyor: (a) Cast çıktısı, (b) yalnızca alt grafikte kullanılan
+    /// bir initializer. Çevrilen model kurulabilmeli ve aynı sonucu vermeli.
+    #[test]
+    fn alt_grafigin_kullandigi_degerler_silinmez() {
+        for variant in ["initializer", "cast"] {
+            let mut rng = Rng(21);
+            let k = 4;
+            let w = Weight::random(&mut rng, k, 3, false);
+            let mut c = Case::new();
+            add_branch(&mut c, "b0", &w, Opts::random(&mut rng), None);
+            let mut cond = int_tensor("cond", &[], &[1], false, true);
+            cond.data_type = DataType::Bool as i32;
+            c.inits.push(cond);
+            let value = if variant == "cast" {
+                "b0_accf"
+            } else {
+                c.inits.push(f32_tensor("only_sub", &[1], &[0.5], false));
+                "only_sub"
+            };
+            c.nodes.push(if_node("cond", value, value, "if_out"));
+            c.outputs.push(("if_out".into(), DataType::Float));
+            let original = c.model();
+            let mut conv = original.clone();
+            dequantize_matmuls(&mut conv);
+            let x = random_x(&mut rng, 2, k);
+            let old = run(&original, &x, 2, k).expect("eski");
+            let new = run(&conv, &x, 2, k)
+                .unwrap_or_else(|e| panic!("{variant}: çevrilen model kurulamadı: {e:?}"));
+            assert_eq!(old[1], new[1], "{variant}");
         }
     }
 }
