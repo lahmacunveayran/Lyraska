@@ -30,6 +30,7 @@ function line(start: number, end: number, text: string): LyricLine {
     text,
     translation: null,
     estimated: true,
+    uncertain: false,
     words: words.map((w, i) => ({
       start: start + i * step,
       end: start + (i + 1) * step,
@@ -42,6 +43,7 @@ const lyrics: Lyrics = {
   source: "file",
   synced: true,
   lines: [line(10, 12, "bir iki"), line(12, 14, "üç dört"), line(30, 32, "beş")],
+  auto: null,
 };
 
 describe("kinetik sözler", () => {
@@ -103,6 +105,7 @@ describe("kinetik sözler", () => {
       source: "embedded",
       synced: true,
       lines: Array.from({ length: 500 }, (_, i) => line(i * 2, i * 2 + 2, `satır ${i}`)),
+      auto: null,
     };
     expect(lyricFrame(many, 777.3).line?.text).toBe("satır 388");
     expect(lyricFrame(many, 0).line?.text).toBe("satır 0");

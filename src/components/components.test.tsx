@@ -3394,6 +3394,7 @@ describe("şarkı sözleri", () => {
         text: "Gece yolunda yalnız",
         translation: "Alone on the night road",
         estimated: false,
+        uncertain: false,
         words: [word(82, 83, "Gece "), word(83, 84, "yolunda "), word(84, 85, "yalnız")],
       },
       {
@@ -3402,9 +3403,11 @@ describe("şarkı sözleri", () => {
         text: "Işıklar akıyor",
         translation: null,
         estimated: true,
+        uncertain: false,
         words: [word(85, 86.5, "Işıklar "), word(86.5, 88, "akıyor")],
       },
     ],
+    auto: null,
   };
 
   it("yumuşak saydamlık geçişi yalnızca Epilepsi güvenli modunda (varsayılanda söz tam zamanında)", () => {

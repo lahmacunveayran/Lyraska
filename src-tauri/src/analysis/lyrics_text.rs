@@ -38,6 +38,9 @@ pub struct AlignLine {
     pub text: String,
     /// Söylenen kelimeler: küçük harf, yalnızca harf ve kelime içi kesme işareti, rakamlar yazıyla.
     pub words: Vec<String>,
+    /// Ekrandaki her kelimenin (`text`'in boşlukla ayrılan parçaları) kaç söylenen kelimeye açıldığı:
+    /// "Twenty-one" 2, "21:30" 3, "—" 0. Toplamı `words.len()`.
+    pub spans: Vec<usize>,
     /// Yapıştırılan metindeki satırın sırası (0'dan); kopyada kopyalanan satırın sırası.
     pub source: usize,
     /// Satır metinde yazılı değil, tekrar ya da nakarat olarak eklendi.
@@ -411,6 +414,7 @@ enum Kind {
     Lyric {
         text: String,
         words: Vec<String>,
+        spans: Vec<usize>,
         times: usize,
     },
 }
@@ -492,8 +496,12 @@ fn classify(line: &str, language: Language) -> Kind {
     let (body, times) = split_repeat(trimmed);
     let (body, _) = strip_brackets(body);
     let mut words = Vec::new();
+    let mut spans = Vec::new();
+    // Küçük harfe çevirmek boşluk eklemez ya da silmez: parçalar `body`'ninkilerle aynı sırada.
     for word in lowercase(body, language).split_whitespace() {
+        let before = words.len();
         spoken_words(word, language, &mut words);
+        spans.push(words.len() - before);
     }
     if words.is_empty() {
         return Kind::Skip;
@@ -501,6 +509,7 @@ fn classify(line: &str, language: Language) -> Kind {
     Kind::Lyric {
         text: body.trim().to_string(),
         words,
+        spans,
         times,
     }
 }
@@ -851,10 +860,16 @@ pub fn prepare_as(text: &str, language: Language) -> Vec<AlignLine> {
             }
             Kind::Repeat(n) => builder.repeat(*n),
             Kind::Skip => {}
-            Kind::Lyric { text, words, times } => {
+            Kind::Lyric {
+                text,
+                words,
+                spans,
+                times,
+            } => {
                 let line = AlignLine {
                     text: text.clone(),
                     words: words.clone(),
+                    spans: spans.clone(),
                     source: index,
                     copy: false,
                 };

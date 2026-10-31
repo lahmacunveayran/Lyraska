@@ -22,8 +22,10 @@ function parse(text: string, source: Lyrics["source"]): Lyrics {
         translation: null,
         words: [],
         estimated: true,
+        uncertain: false,
       },
     ],
+    auto: null,
   };
 }
 

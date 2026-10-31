@@ -43,6 +43,19 @@ pub enum LyricsSource {
     User,
 }
 
+/// Otomatik zamanlanan sözün (`analysis::lyrics_job`) şarkı için hükmü.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
+pub enum AutoVerdict {
+    /// Satırların hepsi güvenli.
+    Good,
+    /// Bazı satırlar tahmini.
+    PartlyEstimated,
+    /// Satırların çoğu oturmadı: sözler bu şarkıya ait olmayabilir.
+    Unaligned,
+}
+
 /// Düzenlemek için sözlerin ham metni (LRC ya da düz metin) ve nereden geldiği.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -61,6 +74,9 @@ pub struct Lyrics {
     /// Satırların zamanı var mı? Yoksa satırların zamanları 0'dır (ekranda kayan söz gösterilmez).
     pub synced: bool,
     pub lines: Vec<LyricLine>,
+    /// Zamanlar Lyraska'nın otomatik zamanlamasından mı (zamansız söz şarkının sesine oturtuldu);
+    /// öyleyse şarkının hükmü. Dosyadan gelen zamanlarda `None`.
+    pub auto: Option<AutoVerdict>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -76,6 +92,9 @@ pub struct LyricLine {
     pub words: Vec<LyricWord>,
     /// Kelime zamanları dosyadan değil tahminden mi?
     pub estimated: bool,
+    /// Satırın kendi zamanı tahmini mi (otomatik zamanlamada güveni düşük ya da satır şarkıda
+    /// bulunamadı; ekranda soluk, "tahmini").
+    pub uncertain: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -246,8 +265,10 @@ pub fn parse(text: &str, source: LyricsSource, duration_secs: Option<f64>) -> Ly
                     translation: None,
                     words: Vec::new(),
                     estimated: false,
+                    uncertain: false,
                 })
                 .collect(),
+            auto: None,
         };
     }
     timed.sort_by(|a, b| a.time.total_cmp(&b.time).then(a.order.cmp(&b.order)));
@@ -296,12 +317,14 @@ pub fn parse(text: &str, source: LyricsSource, duration_secs: Option<f64>) -> Ly
             translation: line.translation.clone(),
             words,
             estimated,
+            uncertain: false,
         });
     }
     Lyrics {
         source,
         synced: true,
         lines,
+        auto: None,
     }
 }
 
@@ -411,7 +434,7 @@ fn timed_words(words: &[(f64, String)], line_end: f64) -> Vec<LyricWord> {
 
 /// Kelime zamanı yoksa: kelimeler hece sayısıyla orantılı, hece başına en çok
 /// [`MAX_SYLLABLE_SECONDS`] süreyle dağıtılır.
-fn estimate_words(text: &str, start: f64, end: f64) -> Vec<LyricWord> {
+pub(crate) fn estimate_words(text: &str, start: f64, end: f64) -> Vec<LyricWord> {
     let words: Vec<&str> = text
         .split_inclusive(' ')
         .filter(|w| !w.trim().is_empty())

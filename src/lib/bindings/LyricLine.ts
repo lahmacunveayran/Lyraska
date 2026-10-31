@@ -13,4 +13,9 @@ translation: string | null, words: Array<LyricWord>,
 /**
  * Kelime zamanları dosyadan değil tahminden mi?
  */
-estimated: boolean, };
+estimated: boolean, 
+/**
+ * Satırın kendi zamanı tahmini mi (otomatik zamanlamada güveni düşük ya da satır şarkıda
+ * bulunamadı; ekranda soluk, "tahmini").
+ */
+uncertain: boolean, };

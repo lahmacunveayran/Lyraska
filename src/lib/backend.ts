@@ -7,6 +7,7 @@ import type { AbxSource } from "./bindings/AbxSource";
 import type { AbxStatus } from "./bindings/AbxStatus";
 import type { Annotation } from "./bindings/Annotation";
 import type { AppInfo } from "./bindings/AppInfo";
+import type { AutoVerdict } from "./bindings/AutoVerdict";
 import type { BeatEvaluation } from "./bindings/BeatEvaluation";
 import type { BeatFrame } from "./bindings/BeatFrame";
 import type { ButterchurnPreset } from "./bindings/ButterchurnPreset";
@@ -67,6 +68,7 @@ export type {
   AbxStatus,
   Annotation,
   AppInfo,
+  AutoVerdict,
   BeatEvaluation,
   BeatFrame,
   ButterchurnPreset,
