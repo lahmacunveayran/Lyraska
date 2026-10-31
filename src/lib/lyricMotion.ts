@@ -22,13 +22,21 @@ import { LYRIC_LEAD, LYRIC_TAIL } from "./lyrics";
  */
 export type LyricEffect = "constellation" | "lyre" | "plain";
 
-export const LYRIC_EFFECTS: readonly LyricEffect[] = ["constellation", "lyre", "plain"];
+export const LYRIC_EFFECTS: readonly { id: LyricEffect; name: string; hint: string }[] = [
+  {
+    id: "constellation",
+    name: "Takımyıldız",
+    hint: "Söylenen kelime yıldız olur, yıldızlar çizgiyle bağlanır; altta lir teli titrer.",
+  },
+  { id: "lyre", name: "Lir", hint: "Kelimeler satırın altındaki lir telini çeker; yıldız yok." },
+  { id: "plain", name: "Sade", hint: "Yalnızca kelimelerin içinden geçen ışık ve yumuşak geçiş." },
+];
 const EFFECT_KEY = "lyraska.lyricEffect";
 
 export function loadLyricEffect(): LyricEffect {
   try {
     const saved = window.localStorage.getItem(EFFECT_KEY);
-    return LYRIC_EFFECTS.find((e) => e === saved) ?? "constellation";
+    return LYRIC_EFFECTS.find((e) => e.id === saved)?.id ?? "constellation";
   } catch {
     return "constellation";
   }
@@ -158,7 +166,7 @@ export const STRING_MODES = 8;
 /** Telin temel frekansı (Hz): gerçek perde gözle görülmez; yavaşlatılmış. */
 export const STRING_F1 = 2.4;
 /** Frekansa bağlı kayıp σ_n = b1 + b3·n² (1/sn): yüksek kipler önce söner, kıvrım yumuşar. */
-export const STRING_B1 = 1.1;
+export const STRING_B1 = 0.7;
 export const STRING_B3 = 0.32;
 /** Çekişin yumuşak başlangıcı (saniye): telin ani sıçramaması için. */
 export const PLUCK_RAMP = 0.035;

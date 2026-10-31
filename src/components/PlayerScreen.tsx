@@ -633,6 +633,7 @@ export function PlayerScreen() {
               playback={playbackOptions}
               skyLook={skyLook}
               lyrics={lyrics}
+              lyricEffect={lyricEffect}
             />
           </ErrorBoundary>
         </div>

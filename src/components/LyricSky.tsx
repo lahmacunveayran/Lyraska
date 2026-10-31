@@ -148,7 +148,7 @@ export function LyricSky({
       plucks.push({
         at: (center - left) / length,
         time: w.start,
-        height: 0.11 * m.font * (0.7 + 0.3 * Math.min(1, duration / 0.6)),
+        height: 0.22 * m.font * (0.7 + 0.3 * Math.min(1, duration / 0.6)),
       });
       const state = words[i];
       if (state?.state === "sung") edge = Math.max(edge, ox + box.x + box.width);
@@ -164,20 +164,28 @@ export function LyricSky({
       if (k === 0) path.moveTo(px, py);
       else path.lineTo(px, py);
     });
-    g.lineWidth = 1.2;
+    g.lineWidth = 1.8;
     g.lineCap = "round";
-    g.strokeStyle = vega(0.2 * fade);
+    g.strokeStyle = vega(0.42 * fade);
     g.stroke(path);
-    // Söylenen kısmı yanan tel.
+    // Söylenen kısmı yanan tel: parlak, Vega'nın ışığıyla haleli.
     g.save();
     g.beginPath();
     g.rect(0, 0, edge, cssHeight);
     g.clip();
-    g.shadowColor = vega(0.7 * fade);
-    g.shadowBlur = 6;
-    g.strokeStyle = vega(0.6 * fade);
+    g.shadowColor = vega(0.9 * fade);
+    g.shadowBlur = 12;
+    g.lineWidth = 2.4;
+    g.strokeStyle = vega(0.95 * fade);
     g.stroke(path);
     g.restore();
+    // Telin iki ucu: lirin kollarındaki tutturma yerleri.
+    g.fillStyle = vega(0.75 * fade);
+    for (const x of [left, right]) {
+      g.beginPath();
+      g.arc(x, baseY, 2.6, 0, 2 * Math.PI);
+      g.fill();
+    }
 
     if (!stars) return;
     // ---- Takımyıldız ----

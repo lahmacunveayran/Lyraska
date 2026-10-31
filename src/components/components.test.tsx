@@ -3452,6 +3452,41 @@ describe("şarkı sözleri", () => {
     expect(again.container.querySelector(".lyrics")).toBeNull();
   });
 
+  it("sözlerin görünümü Ayarlar'dan seçilir ve hatırlanır; güvenli modda hep sade", async () => {
+    backend.desktop = true;
+    backend.status = { ...playing, state: "paused" };
+    backend.lyrics = synced;
+    const { container, unmount } = render(<App />);
+    await act(async () => fireEvent.keyDown(window, { code: "Space", key: " " }));
+    await waitFor(() => expect(container.querySelector(".lyrics__line")).not.toBeNull());
+    // Varsayılan: Takımyıldız (lir teli ve yıldızların tuvali, yazının gölge katmanı).
+    expect(container.querySelector(".lyrics")).toHaveClass("is-lit");
+    expect(container.querySelector(".lyrics__sky")).not.toBeNull();
+    expect(container.querySelector(".lyrics__shade")).not.toBeNull();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Ayarlar" })));
+    await act(async () => fireEvent.click(screen.getByRole("tab", { name: "Ayarlar" })));
+    expect(screen.getByRole("button", { name: "Takımyıldız" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Sade" })));
+    expect(container.querySelector(".lyrics__sky")).toBeNull();
+    expect(container.querySelector(".lyrics__shade")).not.toBeNull();
+    expect(window.localStorage.getItem("lyraska.lyricEffect")).toBe("plain");
+    unmount();
+    // Güvenli modda eskisi gibi: gölge katmanı, tuval yok.
+    window.localStorage.setItem("lyraska.lyricEffect", "constellation");
+    backend.safe = true;
+    const again = render(<App />);
+    await act(async () => fireEvent.keyDown(window, { code: "Space", key: " " }));
+    await waitFor(() => expect(again.container.querySelector(".lyrics__line")).not.toBeNull());
+    expect(again.container.querySelector(".lyrics")).toHaveClass("is-safe");
+    expect(again.container.querySelector(".lyrics__sky")).toBeNull();
+    expect(again.container.querySelector(".lyrics__shade")).toBeNull();
+    again.unmount();
+    backend.safe = false;
+  });
+
   /** "Kendi resmin" sahnesinde şarkıyı çalar; sözler (varsa) başlık bloğuna gelir. */
   async function playInPhoto() {
     backend.desktop = true;

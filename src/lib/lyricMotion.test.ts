@@ -94,7 +94,7 @@ describe("lir teli: çekilen telin titreşimi", () => {
       expect(maxAbs(ys)).toBeLessThan(pluck.height);
       previous = maxAbs(ys);
     }
-    expect(maxAbs(stringShape([pluck], 2.5, xs))).toBeLessThan(0.05 * pluck.height);
+    expect(maxAbs(stringShape([pluck], 3.5, xs))).toBeLessThan(0.05 * pluck.height);
   });
 
   it("yüksek kipler önce söner: bir süre sonra tel temel kipe (yarım sinüs) döner", () => {
