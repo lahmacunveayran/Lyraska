@@ -46,6 +46,7 @@ import { useLyrics } from "../hooks/useLyrics";
 import { LyricsOverlay } from "./LyricsOverlay";
 import { LyricsPanel } from "./LyricsPanel";
 import { hasTimedLyrics, lyricTime } from "../lib/lyrics";
+import type { LyricEffect } from "../lib/lyricMotion";
 import { PhotoLyrics } from "./PhotoLyrics";
 import type { Lyrics } from "../lib/backend";
 import { useIdle } from "../hooks/useIdle";
@@ -55,6 +56,7 @@ import { useLivePosition, type PlayerControls } from "../hooks/usePlayer";
 import { usePlaybackOptions } from "../hooks/usePlaybackOptions";
 import { useScene } from "../hooks/useScene";
 import { useScenePresets } from "../hooks/useScenePresets";
+import { useLyricEffect } from "../hooks/useLyricEffect";
 import { useBackgroundImage } from "../hooks/useBackgroundImage";
 import { usePhotoParticles } from "../hooks/usePhotoParticles";
 import { useMilkdrop } from "../hooks/useMilkdrop";
@@ -140,6 +142,7 @@ export function PlayerScreen() {
   );
   const marker = useMarker(statusPath, playing, player.positionNow, songMap, sync.delayMs);
   const lyrics = useLyrics(statusPath);
+  const lyricEffect = useLyricEffect();
   const shownLyrics = lyrics.visible ? lyrics.lyrics : null;
   // "Kendi resmin"de sözler genel katmanda değil, sahnenin başlık bloğunda (sanatçı adının altında).
   const photoLyrics = scene === "photo" && hasTimedLyrics(shownLyrics);
@@ -451,6 +454,7 @@ export function PlayerScreen() {
           lyrics={shownLyrics}
           lyricShiftSecs={lyrics.shiftMs / 1000}
           lyricNotice={lyrics.visible ? lyrics.shiftNotice : null}
+          lyricEffect={lyricEffect.effect}
           // Sahnenin başlık bloğu çizilemediyse (yer henüz yok, sahne hatası) söz gösterilmez.
           lyricsSlot={photoLyrics ? lyricsSlot : undefined}
           cinema={cinema}
@@ -629,6 +633,7 @@ export function PlayerScreen() {
               playback={playbackOptions}
               skyLook={skyLook}
               lyrics={lyrics}
+              lyricEffect={lyricEffect}
             />
           </ErrorBoundary>
         </div>
@@ -662,6 +667,8 @@ interface LiveChromeProps {
    * yer henüz hazır değil (söz gösterilmez, genel katman da çizilmez).
    */
   lyricsSlot?: HTMLElement | null;
+  /** Sözlerin görünümü (takımyıldız, lir, sade). */
+  lyricEffect: LyricEffect;
   /**
    * Sinema görünümü mü? "Kendi resmin"de sözler sinemada başlık bloğunda; denetimler görünürken üst
    * ortada aynı tek satır (başlık bloğunun yeri alttaki büyük başlıkla çakışır).
@@ -695,6 +702,7 @@ function LiveChrome({
   lyricShiftSecs,
   lyricNotice,
   lyricsSlot,
+  lyricEffect,
   cinema,
   audioDelaySecs,
   soundShaped,
@@ -717,6 +725,7 @@ function LiveChrome({
           positionSecs={lyricTime(position, audioDelaySecs, lyricShiftSecs)}
           safe={safe}
           notice={lyricNotice}
+          effect={lyricEffect}
         />
       ) : (
         <>

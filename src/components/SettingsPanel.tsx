@@ -7,9 +7,11 @@ import {
   MAX_LYRIC_SHIFT_MS,
   formatLyricShift,
 } from "../lib/lyrics";
+import { LYRIC_EFFECTS } from "../lib/lyricMotion";
 import { SKY_LOOKS } from "../lib/sky";
 import type { PlaybackOptionsControls } from "../hooks/usePlaybackOptions";
 import type { SkyLookControls } from "../hooks/useSkyLook";
+import type { LyricEffectControls } from "../hooks/useLyricEffect";
 import type { LyricsControls } from "../hooks/useLyrics";
 import type { VisualSafeControls } from "../hooks/useVisualSafe";
 
@@ -22,6 +24,8 @@ export interface SettingsPanelProps {
   skyLook: SkyLookControls;
   /** Şarkı sözleri (verilmezse bölüm gösterilmez). */
   lyrics?: LyricsControls;
+  /** Sözlerin görünümü (verilmezse seçim gösterilmez). */
+  lyricEffect?: LyricEffectControls;
 }
 
 const SHORTCUTS: [string, string][] = [
@@ -43,6 +47,7 @@ export function SettingsPanel({
   playback,
   skyLook,
   lyrics,
+  lyricEffect,
 }: SettingsPanelProps) {
   const [logError, setLogError] = useState<string | null>(null);
   const signalPath = signalPathText(status);
@@ -84,6 +89,32 @@ export function SettingsPanel({
             <span className="settings__switch" aria-hidden />
             Sahnede şarkı sözleri: {lyrics.visible ? "Açık" : "Kapalı"}
           </button>
+          {lyricEffect && (
+            <>
+              <div className="settings__looks" role="group" aria-label="Sözlerin görünümü">
+                {LYRIC_EFFECTS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`settings__look${lyricEffect.effect === option.id ? " is-on" : ""}`}
+                    aria-pressed={lyricEffect.effect === option.id}
+                    aria-label={option.name}
+                    aria-describedby={`lyric-effect-${option.id}`}
+                    onClick={() => lyricEffect.setEffect(option.id)}
+                  >
+                    <span className="settings__look-name">{option.name}</span>
+                    <span className="settings__look-hint" id={`lyric-effect-${option.id}`}>
+                      {option.hint}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <p className="settings__hint">
+                Epilepsi güvenli modunda sözler hep sade görünür; "animasyonları azalt" açıksa
+                hareket etmez.
+              </p>
+            </>
+          )}
           <p className="settings__hint">
             Sözler yalnızca sizin dosyalarınızdan okunur: şarkının yanındaki aynı adlı{" "}
             <code>.lrc</code> dosyası ya da şarkının içine gömülü sözler. Zamanlı sözler kelime

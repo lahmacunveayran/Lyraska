@@ -35,6 +35,8 @@
   --well: rgba(0, 0, 0, 0.28);
   --panel-edge: rgba(255, 255, 255, 0.1);
   --aurora: #46f0a6;
+  /* Vega'nın mavimsi beyazı (Lyra'nın en parlak yıldızı, A0): sözlerin ışığı, lir teli, yıldızlar. */
+  --vega: #cad7ff;
   --violet: #7c5cff;
   /* Sağdan açılan çekmecenin genişliği */
   --drawer-width: min(620px, 50vw);
@@ -777,7 +779,7 @@ kbd {
 
 .lyrics__line {
   margin: 0;
-  font-size: clamp(26px, 3.8vw, 58px);
+  font-size: clamp(26px, 3.8vw, 58px); /* yığının içinde 1em (.lyrics__stack) */
   font-weight: 700;
   line-height: 1.18;
   letter-spacing: -0.01em;
@@ -859,6 +861,164 @@ kbd {
   color: var(--ink-3);
 }
 
+/* ---------- Sözlerin ışığı (Epilepsi güvenli modu dışında; lib/lyricMotion) ---------- */
+
+/* Okunaklılık: satırın arkasında kenarı görünmeyen yumuşak karartma (sahne ne kadar hareketli olsa da). */
+.lyrics.is-lit::before {
+  content: "";
+  position: absolute;
+  inset: -45% -14% -30%;
+  z-index: -1;
+  background: radial-gradient(
+    closest-side,
+    rgba(3, 6, 16, 0.4),
+    rgba(3, 6, 16, 0.18) 62%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* Satır, gölgesi ve gökyüzü birlikte yayla oturur; yazı tipi boyu burada (em'ler buna göre). */
+.lyrics__stack {
+  position: relative;
+  isolation: isolate;
+  font-size: clamp(26px, 3.8vw, 58px);
+}
+
+.lyrics__stack .lyrics__line {
+  position: relative;
+  font-size: 1em;
+}
+
+.lyrics.is-lit .lyrics__line {
+  --lit: var(--ink);
+  --edge: var(--vega);
+  --dim: rgba(244, 247, 251, 0.34);
+  letter-spacing: -0.015em;
+  text-shadow: none;
+}
+
+.lyrics.is-lit .lyrics__line.is-uncertain {
+  --lit: var(--ink-2);
+  --edge: rgba(202, 215, 255, 0.7);
+}
+
+/*
+ * Işık cephesi: söylenen yer tam yanar, cephede Vega'nın rengi, önü sönük. Cephenin yeri kelimenin
+ * ilerlemesiyle doğrusal (--p; uzun hecede harf harf --q): x = p·(100% + 0,83em) − 0,28em; p = 0'da
+ * kelime tümüyle sönük, p = 1'de tümüyle yanık. Yalnızca söylenen kelime boyanır.
+ */
+.lyrics.is-lit .lyrics__word.is-current:not([data-held]),
+.lyrics.is-lit .lyrics__word.is-current .lyrics__glyph {
+  --x: calc(var(--p) * (100% + 0.83em) - 0.28em);
+  color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    var(--lit) calc(var(--x) - 0.55em),
+    var(--edge) calc(var(--x) - 0.12em),
+    var(--dim) calc(var(--x) + 0.28em)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.lyrics.is-lit .lyrics__word.is-current .lyrics__glyph {
+  --x: calc(var(--q) * (100% + 0.83em) - 0.28em);
+}
+
+/* Uzun hecenin harfleri: yerini sayfa düzeni değil dönüşüm değiştirir (her karede ucuz). */
+.lyrics__glyph {
+  display: inline-block;
+  white-space: pre;
+}
+
+/* Gölge ve hale katmanı: yazının tam altında, aynı dizilişte; yazısı görünmez, yalnızca gölgesi. */
+.lyrics__shade {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  font-size: 1em;
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -0.015em;
+  color: transparent;
+  text-shadow:
+    0 2px 18px rgba(0, 0, 0, 0.65),
+    0 0 2px rgba(0, 0, 0, 0.8);
+}
+
+.lyrics__halo {
+  display: inline-block;
+  white-space: pre;
+  opacity: 0.34;
+}
+
+.lyrics__halo.is-sung {
+  opacity: 1;
+}
+
+/* Söylenen kelimenin halesi: Vega'nın ışığı, kelimeyle birlikte yükselir. */
+.lyrics__halo.is-current {
+  --p: 0;
+  opacity: 1;
+  text-shadow:
+    0 2px 18px rgba(0, 0, 0, 0.65),
+    0 0 0.3em rgba(150, 185, 255, 0.55),
+    0 0 0.9em rgba(120, 160, 255, 0.3);
+  transform: translateY(calc((1 - min(1, var(--p) * 4)) * 0.18em))
+    scale(calc(1 + (1 - min(1, var(--p) * 4)) * 0.06));
+}
+
+/* Satırın gökyüzü (lir teli, yıldızlar): satırı üstten ve alttan taşar. */
+.lyrics__sky {
+  position: absolute;
+  z-index: -1; /* DOM'da satırdan sonra, görüntüde yazının arkasında */
+  top: -1.3em;
+  left: -4%;
+  width: 108%;
+  height: calc(100% + 2em);
+  pointer-events: none;
+}
+
+/* Lir teline yer: altındaki satırlar biraz aşağıda. */
+.lyrics.is-lit .lyrics__translation,
+.lyrics.is-lit .lyrics__next {
+  margin-top: 30px;
+}
+
+/* Hemen ardından gelen satıra yer veren önceki satır: yukarı kayıp söner. */
+.lyrics__ghost {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  margin: 0;
+  font-size: clamp(26px, 3.8vw, 58px);
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+
+/* Lyrid meteoru: satır değişirken Vega'nın yönünden (sağ üst) geçer; başı solda. */
+.lyrics__meteor {
+  position: absolute;
+  top: -38px;
+  right: -6%;
+  width: 260px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    rgba(244, 247, 255, 0.95),
+    rgba(202, 215, 255, 0.4) 30%,
+    transparent
+  );
+  transform-origin: 0 50%;
+  filter: drop-shadow(0 0 4px rgba(190, 210, 255, 0.8));
+  pointer-events: none;
+}
+
 /* Söz kaydırma kısayolunun kısa notu: sözlerin üstünde küçük. */
 .lyrics-notice {
   position: absolute;
@@ -881,7 +1041,8 @@ kbd {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lyrics__word.is-current {
+  .lyrics__word.is-current,
+  .lyrics__halo.is-current {
     transform: none;
   }
 
