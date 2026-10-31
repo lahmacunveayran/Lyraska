@@ -161,8 +161,13 @@ kuralları). Kod bağımlılıklarının lisanslarını CI denetler (`npm run ch
   denetler). Saf Rust ONNX çalıştırıcı; ek DLL ya da ağ bağımlılığı yok. Bildirimleri `UCUNCU-TARAF.txt`'de.
 - **Deneme modeli** (`src-tauri/tests/data/soz-modeli/`): projenin `uret.py` ile ürettiği 10 KB'lık özgün ONNX
   dosyası (bir yeniden şekillendirme ve bir çarpım); dışarıdan alınmadı, proje lisansıyla.
-- **Asıl model** (Omnilingual ASR CTC 300M v2 int8) programla gelmez; "Söz paketi" olarak ayrı dağıtılınca lisansı
-  ve değiştirilmiş eser notu (Apache-2.0 §4) burada ve `public/lisanslar/`'da yazılır.
+- **Asıl model** (Omnilingual ASR CTC 300M v2, Meta; sherpa-onnx int8 ONNX dönüşümü): kod ve ağırlık Apache-2.0
+  (birincil kaynak: omnilingual-asr README "code and models are released under the Apache 2.0" ve sherpa-onnx sürüm
+  dosyasındaki LICENSE). Model dosyası programla gelmez ve depoya girmez; kullanıcı "Söz paketi" olarak ayrı indirir,
+  Lyraska değiştirmeden kopyalar (`analysis/lyrics_package.rs`). Harf listesi (`tokens.txt`, 90 KB) değiştirilmeden
+  programın içinde (`src-tauri/soz-modeli/`). Atıf, değiştirilmiş eser notu (Apache-2.0 §4(b): sherpa-onnx'in ONNX'e
+  çevirip int8'e nicemlemesi) ve lisans metni: `public/lisanslar/Omnilingual-ASR-Apache-2.0.txt`. Eğitim verisinin
+  tam listesi doğrulanamadı (proje sahibinin kararı, RAPOR karar 3).
 
 ## Programa girmeyen araştırma dosyaları
 
@@ -207,7 +212,5 @@ kuralları). Kod bağımlılıklarının lisanslarını CI denetler (`npm run ch
   yerel ölçüm.
 - **Piper Türkçe `dfki` sesi** (vekil seti üretmek için): ses verisi CC BY-NC-SA (ticari olmayan); yalnızca yerel
   ölçüm.
-- **Önerilen model** (henüz programa girmedi): Omnilingual ASR CTC 300M v2, Meta; kod ve ağırlık Apache-2.0
-  (birincil kaynak: GitHub'daki LICENSE ve README). Eğitim verisinin tam listesi doğrulanamadı. sherpa-onnx int8
-  dönüşümü Apache-2.0 §4(b) anlamında değiştirilmiş eserdir; programa girdiğinde burada ve `public/lisanslar/`'da
-  belirtilir.
+- **Model**: Omnilingual ASR CTC 300M v2 artık "Söz paketi" olarak dağıtılıyor; bkz. yukarıda "Söz modeli
+  çalıştırıcısı ve deneme modeli".
