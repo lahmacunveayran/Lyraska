@@ -12,10 +12,12 @@
 //!   açılmaz; açıldıysa iş bitince bırakılabilir ([`ModelSlot::release`]).
 //! - **Harfler birikir:** emisyonlar yeniden hesaplanınca eski kaydın harfleri de saklanır; iki söz
 //!   sürümü arasında gidip gelmek modeli yeniden çalıştırmaz.
-//! - **Gösterim** ([`auto_lyrics`]): satırlar hazırlanan sözün satırlarıdır (nakarat ve "(x2)" açılmış);
-//!   kelime zamanları modelden. Ekrandaki kelimeler söylenen kelimelerle bire bir eşleşmezse ("21:30"
-//!   → "yirmi bir otuz") satırın kelimeleri satır içinde hece sayısıyla dağıtılır ("tahmini"). Güveni
-//!   düşük ya da şarkıda bulunamayan satır `uncertain` (ekranda "tahmini").
+//! - **Gösterim** ([`auto_lyrics`]): satırlar hazırlanan sözün satırlarıdır (nakarat ve "(x2)" açılmış,
+//!   boşluklar teke indirilmiş); kelime zamanları modelden. Ekrandaki her kelime kendi söylenen
+//!   kelimelerinin zamanını alır (`AlignLine::spans`): "Twenty-one" iki söylenen kelimenin başından
+//!   sonuna, "21:30" üçünün; hiç söylenmeyen "—" önceki kelimenin bittiği anda, sıfır uzunlukta. Güveni
+//!   düşük ya da şarkıda bulunamayan satır `uncertain` (ekranda "tahmini"); bulunamayan satırın
+//!   kelimeleri satır içinde hece sayısıyla dağıtılır.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -37,6 +39,9 @@ use crate::audio::lyrics::{
 /// Hizalama hesabının sürümü (metin hazırlığı, yerleşim, güven). Değişince artırılır: saklanan
 /// sonuçlar kullanılmaz, önbellekteki emisyonlardan yeniden hesaplanır (model çalışmaz).
 pub const ALIGN_VERSION: i64 = 1;
+
+// Kayıt sürümü `ALIGN_VERSION * 1000 + EMISSIONS_VERSION`: emisyon sürümü 1000'e varmamalı.
+const _: () = assert!(EMISSIONS_VERSION < 1000);
 
 /// Söz modeli: ilk gerektiğinde açılır, istenince bırakılır.
 pub struct ModelSlot {
@@ -71,12 +76,12 @@ impl ModelSlot {
 
     fn get(&mut self) -> Result<&LyricsModel, ModelError> {
         if self.model.is_none() {
-            self.opened += 1;
             self.model = Some(LyricsModel::open(
                 &self.dir,
                 &self.model_sha256,
                 &self.tokens_sha256,
             )?);
+            self.opened += 1;
         }
         self.model
             .as_ref()
@@ -101,8 +106,10 @@ impl ModelSlot {
 /// Bir satırın saklanan zamanı.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AutoLine {
-    /// Ekranda görünecek metin (hazırlanan sözün satırı).
+    /// Ekranda görünecek metin (hazırlanan sözün satırı; boşluklar teke indirilmiş).
     pub text: String,
+    /// Ekrandaki her kelimenin kaç söylenen kelimeye açıldığı (`AlignLine::spans`).
+    pub spans: Vec<usize>,
     pub start: f64,
     pub end: f64,
     /// Söylenen kelimelerin başı ve sonu (sn).
@@ -130,7 +137,8 @@ impl AutoAlignment {
                 .iter()
                 .zip(&alignment.lines)
                 .map(|(line, timing)| AutoLine {
-                    text: line.text.clone(),
+                    text: line.text.split_whitespace().collect::<Vec<_>>().join(" "),
+                    spans: line.spans.clone(),
                     start: timing.start,
                     end: timing.end,
                     words: timing.words.iter().map(|w| (w.start, w.end)).collect(),
@@ -141,16 +149,22 @@ impl AutoAlignment {
         }
     }
 
-    /// Okunan kaydın değerleri anlamlı mı (kayıt güvenilmez sayılır)?
+    /// Okunan kaydın değerleri anlamlı mı (kayıt güvenilmez sayılır)? Hizalayıcının çıktısı gibi:
+    /// zamanlar sonlu, satır başları azalmaz, kelimeler satırın içinde ve sırayla.
     fn valid(&self) -> bool {
         let span = |start: f64, end: f64| {
             start.is_finite() && end.is_finite() && 0.0 <= start && start <= end
         };
         self.lines.len() <= MAX_LINES
+            && self.lines.windows(2).all(|w| w[0].start <= w[1].start)
             && self.lines.iter().all(|line| {
                 span(line.start, line.end)
                     && (0.0..=1.0).contains(&line.confidence)
-                    && line.words.iter().all(|&(s, e)| span(s, e))
+                    && line
+                        .words
+                        .iter()
+                        .all(|&(s, e)| span(s, e) && line.start <= s && e <= line.end)
+                    && line.words.windows(2).all(|w| w[0].1 <= w[1].0)
             })
     }
 }
@@ -161,6 +175,8 @@ pub enum JobError {
     NoLyrics,
     #[error("şarkı dosyası bulunamadı")]
     FileGone,
+    #[error("şarkı dosyası iş sürerken değişti")]
+    FileChanged,
     #[error("emisyonlar saklanamadı")]
     Unstorable,
     #[error("{0}")]
@@ -202,9 +218,14 @@ pub fn align_track(
         Some(stored) => stored,
         None => {
             let previous = cache.emission_letters(path, stamp, &sha)?;
-            let model = slot.get()?;
+            // Önce çözülür: çözülemeyen şarkı için ~2,5 GB'lık model boşuna açılmaz.
             let audio = decode_mono(path, cancel)?;
+            let model = slot.get()?;
             let full = model.emissions(&audio, cancel)?;
+            // İş sürerken dosya değiştiyse sonuç eski damgayla saklanmaz.
+            if FileStamp::of(path) != Some(stamp) {
+                return Err(JobError::FileChanged);
+            }
             let stored = StoredEmissions::select(
                 &full,
                 model.vocabulary(),
@@ -231,29 +252,33 @@ pub fn auto_lyrics(result: &AutoAlignment, source: LyricsSource) -> Lyrics {
         .lines
         .iter()
         .map(|line| {
-            let tokens: Vec<&str> = line
-                .text
-                .split_inclusive(' ')
-                .filter(|w| !w.trim().is_empty())
-                .collect();
-            let (words, estimated) = if !line.skipped && tokens.len() == line.words.len() {
-                let words = tokens
-                    .iter()
-                    .zip(&line.words)
-                    .map(|(text, &(start, end))| LyricWord {
-                        start,
-                        end,
-                        text: (*text).to_owned(),
-                    })
-                    .collect();
-                (words, false)
-            } else {
-                (estimate_words(&line.text, line.start, line.end), true)
+            let tokens: Vec<&str> = line.text.split_whitespace().collect();
+            let text = tokens.join(" ");
+            let (words, estimated) = match spoken_spans(line, tokens.len()) {
+                Some(ranges) => {
+                    let last = tokens.len().saturating_sub(1);
+                    let words = tokens
+                        .iter()
+                        .zip(ranges)
+                        .enumerate()
+                        .map(|(i, (token, (start, end)))| LyricWord {
+                            start,
+                            end,
+                            text: if i < last {
+                                format!("{token} ")
+                            } else {
+                                (*token).to_owned()
+                            },
+                        })
+                        .collect();
+                    (words, false)
+                }
+                None => (estimate_words(&text, line.start, line.end), true),
             };
             LyricLine {
                 start: line.start,
                 end: line.end,
-                text: line.text.clone(),
+                text,
                 translation: None,
                 words,
                 estimated,
@@ -267,6 +292,35 @@ pub fn auto_lyrics(result: &AutoAlignment, source: LyricsSource) -> Lyrics {
         lines,
         auto: Some(result.verdict),
     }
+}
+
+/// Ekrandaki her kelimenin zamanı: kendi söylenen kelimelerinin ilkinin başından sonuncusunun sonuna;
+/// söylenmeyen kelime önceki kelimenin bittiği anda (satırın ilkiyse satırın başında) sıfır uzunlukta.
+/// Satır bulunamadıysa ya da sayılar tutmuyorsa `None`.
+fn spoken_spans(line: &AutoLine, tokens: usize) -> Option<Vec<(f64, f64)>> {
+    if line.skipped
+        || line.spans.len() != tokens
+        || line.spans.iter().sum::<usize>() != line.words.len()
+    {
+        return None;
+    }
+    let mut next = 0;
+    let mut at = line.start;
+    let ranges = line
+        .spans
+        .iter()
+        .map(|&count| {
+            if count == 0 {
+                return (at, at);
+            }
+            let start = line.words[next].0;
+            let end = line.words[next + count - 1].1;
+            next += count;
+            at = end;
+            (start, end)
+        })
+        .collect();
+    Some(ranges)
 }
 
 /// Zamansız sözün otomatik zamanlanmışı (varsa; şarkı ve metin değişmemişse); yoksa olduğu gibi.
@@ -573,9 +627,13 @@ mod tests {
         assert_eq!(slot.times_opened(), 2);
     }
 
+    /// Satırın `spans`'ı metnin gerçek hazırlığından ("21:30" üç söylenen kelime).
     fn line(text: &str, words: Vec<(f64, f64)>, confidence: f64, skipped: bool) -> AutoLine {
         AutoLine {
             text: text.to_owned(),
+            spans: prepare(text)
+                .first()
+                .map_or_else(Vec::new, |l| l.spans.clone()),
             start: words.first().map_or(5.0, |w| w.0),
             end: words.last().map_or(6.0, |w| w.1),
             words,
@@ -585,12 +643,12 @@ mod tests {
     }
 
     #[test]
-    fn gosterim_kelimeleri_eslesmezse_dagitir_guveni_dusukse_tahmini() {
+    fn gosterim_kelimeleri_kendi_zamanini_alir_tutmazsa_dagitir_guveni_dusukse_tahmini() {
         let result = AutoAlignment {
             verdict: AutoVerdict::PartlyEstimated,
             lines: vec![
                 line("Gece uzun,", vec![(1.0, 1.4), (1.5, 2.0)], 0.9, false),
-                // "21:30" üç kelime okunur: ekrandaki iki kelimeyle eşleşmez.
+                // "21:30" üç kelime okunur: üçünün başından sonuna.
                 line(
                     "21:30 geldi",
                     vec![(3.0, 3.2), (3.2, 3.4), (3.4, 3.6), (3.7, 4.0)],
@@ -604,6 +662,16 @@ mod tests {
                     false,
                 ),
                 line("bulunamadı", Vec::new(), 0.0, true),
+                // Sayılar tutmuyor (bozuk kayıt): satır içinde dağıtılır.
+                AutoLine {
+                    spans: vec![1, 1],
+                    ..line(
+                        "iki kelime",
+                        vec![(7.0, 7.5), (7.5, 8.0), (8.0, 8.5)],
+                        0.9,
+                        false,
+                    )
+                },
             ],
         };
         let lyrics = auto_lyrics(&result, LyricsSource::User);
@@ -619,11 +687,19 @@ mod tests {
             .collect();
         assert_eq!(words, [(1.0, 1.4, "Gece "), (1.5, 2.0, "uzun,")]);
         let second = &lyrics.lines[1];
-        assert!(second.estimated && !second.uncertain);
-        assert_eq!(second.words.len(), 2);
-        assert!(second.words.iter().all(|w| w.start >= 3.0 && w.end <= 4.0));
+        assert!(!second.estimated && !second.uncertain);
+        let words: Vec<(f64, f64, &str)> = second
+            .words
+            .iter()
+            .map(|w| (w.start, w.end, w.text.as_str()))
+            .collect();
+        assert_eq!(words, [(3.0, 3.6, "21:30 "), (3.7, 4.0, "geldi")]);
         assert!(lyrics.lines[2].uncertain && !lyrics.lines[2].estimated);
         assert!(lyrics.lines[3].uncertain && lyrics.lines[3].estimated);
+        let broken = &lyrics.lines[4];
+        assert!(broken.estimated && !broken.uncertain);
+        assert_eq!(broken.words.len(), 2);
+        assert!(broken.words.iter().all(|w| w.start >= 7.0 && w.end <= 8.5));
     }
 
     #[test]
@@ -972,7 +1048,9 @@ mod inceleme_karsi_ornekler {
             assert_eq!(r.lines.len(), case.prepared.len(), "{ctx}");
             let mut previous_start = 0.0f64;
             for (line, prep) in r.lines.iter().zip(&case.prepared) {
-                assert_eq!(line.text, prep.text, "{ctx}");
+                // Ekrandaki metin hazırlanan satırın boşlukları teke indirilmiş hali.
+                let spaced: Vec<&str> = prep.text.split_whitespace().collect();
+                assert_eq!(line.text, spaced.join(" "), "{ctx}");
                 assert!(!line.text.contains('\r') && !line.text.is_empty(), "{ctx}");
                 assert_eq!(line.words.len(), prep.words.len(), "{ctx}");
                 assert!(line.start.is_finite() && line.end.is_finite(), "{ctx}");
@@ -1044,7 +1122,8 @@ mod inceleme_karsi_ornekler {
                 } else {
                     matched += 1;
                     assert!(!line.skipped, "{ctx}");
-                    assert_eq!(out.words.len(), line.words.len(), "{ctx}");
+                    // Ekrandaki her kelimeye bir zaman (söylenen kelime sayısı farklı olabilir).
+                    assert_eq!(out.words.len(), tokens(&line.text).len(), "{ctx}");
                 }
             }
         }
@@ -1063,9 +1142,13 @@ mod inceleme_karsi_ornekler {
     }
 
     /// BULGU: ekrandaki kelime sayısı söylenen kelime sayısına tesadüfen eşitse ("Twenty-one" iki
-    /// kelime, "—" sıfır kelime) zamanlar bire bir dağıtılır ve kayar.
+    /// kelime, "—" sıfır kelime) zamanlar bire bir dağıtılır ve kayar. Düzeltmeden sonra (yazarın
+    /// uyarlaması): tahmini olmayan her satırda ekrandaki her kelime, bağımsız sayılan kendi söylenen
+    /// kelimelerinin ilkinin başından sonuncusunun sonuna; söylenmeyen kelime önceki kelimenin
+    /// bittiği anda, sıfır uzunlukta.
     #[test]
-    fn uretec_bire_bir_eslesmede_her_kelime_tek_soylenen_kelimedir() {
+    fn uretec_her_ekran_kelimesi_kendi_soylenen_kelimelerinin_zamanini_alir() {
+        let mut checked = 0;
         for case in cases(400, SEED) {
             let language = detect_language(&case.text);
             for (out, line) in case.shown.lines.iter().zip(&case.result.lines) {
@@ -1076,14 +1159,36 @@ mod inceleme_karsi_ornekler {
                     .iter()
                     .map(|t| spoken_count(t, language))
                     .collect();
-                assert!(
-                    counts.iter().all(|&c| c == 1),
-                    "satır {:?}: ekrandaki kelimelerin söylenen kelime sayıları {counts:?}, yine de \
-                     zamanlar bire bir dağıtıldı",
+                assert_eq!(
+                    counts.iter().sum::<usize>(),
+                    line.words.len(),
+                    "{:?}",
                     line.text
                 );
+                assert_eq!(out.words.len(), counts.len(), "{:?}", line.text);
+                let mut next = 0;
+                let mut at = line.start;
+                for (word, &count) in out.words.iter().zip(&counts) {
+                    let want = if count == 0 {
+                        (at, at)
+                    } else {
+                        let span = (line.words[next].0, line.words[next + count - 1].1);
+                        next += count;
+                        at = span.1;
+                        span
+                    };
+                    assert_eq!(
+                        (word.start, word.end),
+                        want,
+                        "satır {:?}, kelime {:?}: sayılar {counts:?}",
+                        line.text,
+                        word.text
+                    );
+                }
+                checked += 1;
             }
         }
+        assert!(checked > 100, "yalnızca {checked} satır denetlendi");
     }
 
     /// Aynı bulgu, somut girdiyle: "—" "pilots"un zamanını, "pilots" "one"ın zamanını alır.
@@ -1098,6 +1203,7 @@ mod inceleme_karsi_ornekler {
             verdict: AutoVerdict::Good,
             lines: vec![AutoLine {
                 text: prepared[0].text.clone(),
+                spans: prepared[0].spans.clone(),
                 start: 1.0,
                 end: 6.0,
                 words: vec![(1.0, 1.5), (1.5, 2.0), (2.0, 3.0), (4.0, 4.5), (4.5, 6.0)],
@@ -1216,6 +1322,7 @@ mod inceleme_karsi_ornekler {
         };
         let line = |start: f64, end: f64, words: Vec<(f64, f64)>| AutoLine {
             text: "ab".into(),
+            spans: vec![1],
             start,
             end,
             words,
