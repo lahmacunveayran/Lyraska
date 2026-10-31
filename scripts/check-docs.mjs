@@ -37,8 +37,8 @@ const LIVE_DOCS = [
   "docs/ACIK-KONULAR.md",
 ];
 /** Her oturumun başında okunan belgeler ve satır sınırları. */
-// İkinci beynin sınırı 640 satır (proje sahibinin kararı, 24 Ekim 2026).
-const SESSION_DOCS = { "docs/BILGI-BIRIKIMI.md": 640, "docs/ACIK-KONULAR.md": 60 };
+// İkinci beynin sınırı 2048 satır (proje sahibinin kararı, 31 Ekim 2026; önce 640).
+const SESSION_DOCS = { "docs/BILGI-BIRIKIMI.md": 2048, "docs/ACIK-KONULAR.md": 60 };
 
 function* walk(dir) {
   for (const entry of readdirSync(join(ROOT, dir))) {
