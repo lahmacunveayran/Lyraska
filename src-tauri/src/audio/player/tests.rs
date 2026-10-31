@@ -834,6 +834,14 @@ fn spektrum_calan_ana_karsilik_gelir_ve_sarmada_korunur() {
     assert!((delayed - 1.0).abs() < 1e-9, "{delayed}");
     assert_eq!(player.set_audio_delay_ms(10_000), 400, "sınır");
     player.set_audio_delay_ms(0);
+    // Arayüzün ölçtüğü kare süresi (144 Hz, 30 kare/sn) kadar ileriden; sınırın üstü kırpılır.
+    for lead in [1.0 / 144.0, 1.0 / 30.0] {
+        let ahead = player.visual_ahead(lead).unwrap().seconds;
+        assert!((ahead - (1.0 + lead)).abs() < 1e-9, "{lead}: {ahead}");
+    }
+    let capped = player.visual_ahead(9.0).unwrap().seconds;
+    let max = crate::visual_bridge::MAX_DISPLAY_LEAD_SECONDS;
+    assert!((capped - (1.0 + max)).abs() < 1e-9, "{capped}");
     // Aynı şarkıda sarma analizi yeniden başlatmaz.
     assert!(Arc::ptr_eq(
         &first,
@@ -1634,6 +1642,18 @@ fn dalga_dokunusu_yeterince_uzun() {
     // (halka tampon + aygıt arabelleği ~100 ms + ekran gecikmesi ileride) arası payla sığmalı.
     let span_secs =
         RING_SECONDS as f64 + 0.1 + f64::from(MAX_AUDIO_DELAY_MS) / 1000.0 + DISPLAY_LEAD_SECONDS;
+    let needed = span_secs * 44_100.0 + WINDOW as f64;
+    assert!(
+        TAP_FRAMES as f64 >= 1.25 * needed,
+        "{TAP_FRAMES} < {needed}"
+    );
+}
+
+#[test]
+fn dalga_dokunusu_en_uzun_ekran_gecikmesine_de_yeter() {
+    // Arayüz ağır sahnede kare süresini 250 ms'ye kadar gönderebilir: pencere yine halkada.
+    let lead = crate::visual_bridge::MAX_DISPLAY_LEAD_SECONDS;
+    let span_secs = RING_SECONDS as f64 + 0.1 + f64::from(MAX_AUDIO_DELAY_MS) / 1000.0 + lead;
     let needed = span_secs * 44_100.0 + WINDOW as f64;
     assert!(
         TAP_FRAMES as f64 >= 1.25 * needed,

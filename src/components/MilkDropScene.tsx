@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ButterchurnVisualizer } from "butterchurn";
 import type { MilkdropControls } from "../hooks/useMilkdrop";
-import { useVisualFeed } from "../hooks/useVisualFeed";
+import { displayLeadSecs, useVisualFeed } from "../hooks/useVisualFeed";
 import {
   getVisualWaveform,
   loadMilkdropPreset,
@@ -417,7 +417,7 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
       current.wave = null;
     } else if (!current.waveInFlight) {
       current.waveInFlight = true;
-      getVisualWaveform()
+      getVisualWaveform(displayLeadSecs())
         .then((bytes) => {
           current.wave = bytes;
         })

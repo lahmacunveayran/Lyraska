@@ -6,6 +6,8 @@ import {
   clampAudioDelay,
   estimateAudioDelay,
   extrapolateFrame,
+  frameAge,
+  MAX_FRAME_AGE,
 } from "./sync";
 
 const clicks = Array.from({ length: 24 }, (_, i) => 2 + i * 0.6);
@@ -128,5 +130,18 @@ describe("görsel verinin ileri alınması", () => {
     );
     expect(noMeter.beat!.barBeat).toBeNull();
     expect(noMeter.director!.rhythm.barPhase).toBe(0.9875);
+  });
+});
+
+describe("verinin ekrana çıkışına kadar ileri alınması", () => {
+  it("hesaplanma + istekteki ekran gecikmesi ile ekrana çıkış arası; eksi ve aşırı değer kırpılır", () => {
+    // 144 Hz: veri 1000 ms'de bir kare (6,94 ms) ileriden okundu; kare 1013,9'da ekranda.
+    const p = 1000 / 144;
+    expect(frameAge(1000 + 2 * p, 1000, p)).toBeCloseTo(p / 1000, 12);
+    // Veri ekrandaki andan ileride: beklenir (geri alınmaz).
+    expect(frameAge(1003, 1000, p)).toBe(0);
+    // Sekme arka plandan döndü.
+    expect(frameAge(9000, 1000, p)).toBe(MAX_FRAME_AGE);
+    expect(frameAge(Number.NaN, 1000, p)).toBe(0);
   });
 });

@@ -92,6 +92,20 @@ export function advanceBeat(
  * ölçüdeki yer, Yönetmen'in vuruş ve ölçü fazı) ilerletilir; seviyeler ve yumuşak
  * değerler (bantlar, enerji, nabız) bir kareden kısa bir süre için olduğu gibi kalır.
  */
+/** Verinin en çok bu kadar ileri alınır (saniye): uzun bir takılmadan (sekme arka plandaydı) sonra. */
+export const MAX_FRAME_AGE = 0.25;
+
+/**
+ * Görsel verinin ekrana çıkacağı ana kadar ileri alınacağı süre (saniye). Çekirdek veriyi, hesapladığı
+ * andan `leadMs` (istekte gönderilen kare süresi) sonrası için verir; kare `displayAt`'te ekranda
+ * görünür (`displayTime`, src/lib/clock.ts). Aradaki fark eksi olamaz (veri ileride kalırsa beklenir)
+ * ve [`MAX_FRAME_AGE`]'i aşmaz. Tüm anlar `performance.now()` ms.
+ */
+export function frameAge(displayAt: number, computedAt: number, leadMs: number): number {
+  const age = (displayAt - computedAt - leadMs) / 1000;
+  return Number.isFinite(age) ? Math.max(0, Math.min(MAX_FRAME_AGE, age)) : 0;
+}
+
 export function extrapolateFrame(frame: VisualFrame, ageSeconds: number): VisualFrame {
   if (!(ageSeconds > 0)) return frame;
   const beat = frame.beat;

@@ -2,6 +2,7 @@ import { render, renderHook, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import type { VisualFrame } from "../lib/backend";
+import { MAX_FRAME_AGE } from "../lib/sync";
 
 const backend = vi.hoisted(() => ({
   frame: null as VisualFrame | null,
@@ -63,9 +64,13 @@ describe("useVisualFeed", () => {
     await waitFor(() => expect(ticks[2]!.mock.calls.length).toBeGreaterThanOrEqual(12));
     const frames = Math.max(...ticks.map((t) => t.mock.calls.length));
     expect(backend.calls).toBeLessThanOrEqual(frames + 1);
-    // Hepsi aynı kareyi alır.
-    for (const tick of ticks) {
-      expect((tick.mock.calls.at(-1)?.[0] as VisualFrame | null)?.positionSecs).toBe(12);
+    // Hepsi aynı kareyi alır. Kare, ekrana çıkacağı ana kadar ileri alınmış olabilir (en çok
+    // `MAX_FRAME_AGE`; jsdom'un kare saatinde bir kareye kadar).
+    const shown = ticks.map((tick) => tick.mock.calls.at(-1)?.[0] as VisualFrame | null);
+    for (const frame of shown) {
+      expect(frame).toBe(shown[0]);
+      expect(frame?.positionSecs).toBeGreaterThanOrEqual(12);
+      expect(frame?.positionSecs).toBeLessThanOrEqual(12 + MAX_FRAME_AGE);
     }
     hooks.forEach((h) => h.unmount());
     // Dinleyici kalmayınca istek de kalmaz.

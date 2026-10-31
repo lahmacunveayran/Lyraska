@@ -83,8 +83,10 @@ düzensiz: ±1 kare). Ses gecikmesi 100 ms iken sonuçlar aynı: sözler de 100 
 `LYRIC_LEAD` (satır 0,25 sn önce belirmeye başlar) ve `LYRIC_TAIL` (0,4 sn'de söner) bilerek konmuş paylardır,
 hata değildir; denetim satırın bunlara göre doğru karede belirip söndüğünü ölçer.
 
-Görseller hâlâ sabit 1/60 sn ekran payı kullanır (`visual_bridge::DISPLAY_LEAD_SECONDS`): 144 Hz'de ~10 ms erken,
-ağır karede geç. Ölçülen kare süresi görsellere de taşınabilir (ayrı iş).
+Görseller de aynı kare saatini kullanır (31 Ekim 2026): her istekte ölçülen kare süresi gönderilir
+(`displayLeadSecs`; çekirdek 0–0,25 sn'ye kırpar, `visual_bridge::clamp_display_lead`) ve vuruşa bağlı değerler
+karenin ekrana çıkacağı ana kadar ileri alınır (`frameAge`). Önceki sabit 1/60 sn 144 Hz'de görselleri ~10 ms erken,
+ağır karede geç gösteriyordu.
 
 ## Bağımsız inceleme (30 Ekim 2026)
 

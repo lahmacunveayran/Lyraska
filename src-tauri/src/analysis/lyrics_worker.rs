@@ -289,8 +289,9 @@ fn run(
         };
         shared.loaded.store(slot.is_loaded(), Ordering::Release);
         let key = || (request.path.clone(), stamp, text_sha256(&request.text));
+        let succeeded = outcome.is_ok();
         match outcome {
-            Ok(()) => on_done(&request.path),
+            Ok(()) => {}
             // Kapanış, ya da dosya kayboldu ya da iş sürerken değişti (sonraki gösterimde yeniden
             // istenir).
             Err(
@@ -316,7 +317,11 @@ fn run(
                 }
             }
         }
+        // Önce sayılır, sonra bildirilir: bildirimi alan iş bitmiş sayılır.
         shared.finished.fetch_add(1, Ordering::AcqRel);
+        if succeeded {
+            on_done(&request.path);
+        }
     }
 }
 
@@ -511,6 +516,29 @@ mod tests {
         assert_eq!(f.worker.finished(), 1);
         std::thread::sleep(Duration::from_millis(100));
         assert_eq!(f.worker.finished(), 1);
+    }
+
+    #[test]
+    fn bildirim_geldiginde_is_bitmis_sayilir() {
+        // Bildirim, iş sayısı artmadan gelirse bildirimi alan "biten iş yok" görür (Windows CI'da
+        // `zamansiz_soz_gosterilince...` bir kez böyle düştü). Bildirim yavaş işlenirse yarış her
+        // seferinde görünür.
+        let (sender, done) = mpsc::channel();
+        let worker = LyricsWorker::start_with(
+            Arc::new(AnalysisCache::open_in_memory().unwrap()),
+            slot(),
+            Arc::new(AtomicUsize::new(0)),
+            CrashGuard::disabled(),
+            IDLE_RELEASE,
+            move |path| {
+                let _ = sender.send(path.to_path_buf());
+                std::thread::sleep(Duration::from_millis(300));
+            },
+        );
+        let path = song("soz-isci-bildirim", 4);
+        worker.show(&path, plain(LYRICS), raw(LYRICS)).unwrap();
+        assert_eq!(done.recv_timeout(Duration::from_secs(60)).unwrap(), path);
+        assert_eq!(worker.finished(), 1);
     }
 
     #[test]
