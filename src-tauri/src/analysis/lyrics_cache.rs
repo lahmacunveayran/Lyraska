@@ -10,9 +10,11 @@
 //! - **Yalnızca gereken sütunlar:** model her kare için 410 harfin (Latin, Yunan, Kiril) log-olasılığını
 //!   verir; hepsi 4 dk şarkıda ~7,5 MB tutar. Saklanan: blank, kelime ayırıcısı, Türkçe ve İngilizce
 //!   alfabe ([`BASE_LETTERS`]) ve o anki sözün harfleri (~40 sütun). Kayıpsızdır: log-olasılıklar bütün
-//!   simgelere göre normalleştirilmiş gelir, sütun seçmek değerleri değiştirmez. Söze sonradan
-//!   saklanmamış bir harf girerse kayıt kullanılmaz, model yeniden çalışır.
-//! - **Yarım duyarlık (f16):** değerler (−1000, 0] aralığına kırpılıp f16'ya yuvarlanır; göreli hata
+//!   simgelere göre normalleştirilmiş gelir, sütun seçmek değerleri değiştirmez. Kayıt modelin bütün
+//!   harf listesini de taşır: söze sonradan modelin tanıdığı ama saklanmamış bir harf girerse kayıt
+//!   kullanılmaz (model yeniden çalışır); modelin hiç tanımadığı harf (ör. Çince) kaydı bozmaz. Bunu
+//!   bilmek için model açılmaz.
+//! - **Yarım duyarlık (f16):** değerler [−1000, 0] aralığına kırpılıp f16'ya yuvarlanır; göreli hata
 //!   ≤ 2⁻¹¹ (−28 nat'ta 0,008 nat). Yuvarlama saklamadan önce yapılır ([`StoredEmissions::select`]):
 //!   hizalama yeni hesaplanmış emisyonla da önbellekten okunanla da aynı sayılarla çalışır. Ölçüm
 //!   (31 Ekim 2026, konuşma kaydı, temiz ve gürültülü): f32 ile 6 satırın başı, kelimeleri, güveni ve
@@ -20,9 +22,10 @@
 //! - **Sıkıştırma:** önce bütün f16'ların üst baytları, sonra alt baytları (komşu değerlerin üst
 //!   baytları benzer), deflate. Ölçüm: gerçek şarkıda dakikada 0,145 MB (4 dk ≈ 0,6 MB; karıştırmadan
 //!   0,181 MB).
-//! - Okunan kayıt güvenilmez sayılır: boyutlar, harf listesi ve değerler denetlenir; bozuksa yok sayılır.
+//! - Okunan kayıt güvenilmez sayılır: boyutlar, harf listeleri ve değerler denetlenir; bozuksa yok
+//!   sayılır. Harfler, sıkıştırılmış veri açılmadan önce denetlenir.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use half::f16;
@@ -32,8 +35,8 @@ use super::cache::{AnalysisCache, CacheError, FileStamp};
 use super::lyrics_align::{Emissions, Vocabulary};
 use super::lyrics_model::{FRAME_SAMPLES, MAX_SECS, SAMPLE_RATE};
 
-/// Emisyon hesabının sürümü (pencere, adım, çarpım yolu). Hesap değişince artırılır: eski kayıtlar
-/// kullanılmaz. 1: 30 / 20 sn pencere, tamsayı çarpımları ondalıklı.
+/// Emisyon hesabının sürümü (pencere, adım, çarpım yolu, simge listesi). Hesap değişince artırılır:
+/// eski kayıtlar kullanılmaz. 1: 30 / 20 sn pencere, tamsayı çarpımları ondalıklı.
 pub const EMISSIONS_VERSION: i64 = 1;
 
 /// Sözde geçmese de her zaman saklanan harfler: Türkçe ve İngilizce alfabe, düzeltme işaretli ünlüler,
@@ -47,7 +50,7 @@ const MIN_LOG_PROB: f32 = -1000.0;
 /// Sözlerin en uzun şarkısının (`MAX_SECS`) kare sayısı.
 const MAX_FRAMES: usize = MAX_SECS * SAMPLE_RATE as usize / FRAME_SAMPLES + 1;
 
-/// En çok sütun (modelin saklanan harfleri ~410).
+/// Saklanan sütun sayısının üst sınırı (dışlayıcı; modelin harfleri ~410).
 const MAX_COLUMNS: usize = 1024;
 
 /// Sütun adlarında kelime ayırıcısı.
@@ -60,16 +63,35 @@ const COMPRESSION_LEVEL: u8 = 6;
 pub struct StoredEmissions {
     pub emissions: Emissions,
     pub vocabulary: Vocabulary,
+    /// Modelin tanıdığı bütün harfler (saklanmayanlar da): söze yeni giren harfin modelde olup
+    /// olmadığı model açılmadan bilinir.
+    pub model_letters: HashSet<char>,
 }
 
 impl StoredEmissions {
     /// Modelin emisyonlarından saklanacak sütunlar: blank, ayırıcı, [`BASE_LETTERS`] ve `lyrics`'in
     /// harfleri (modelin tanıdıkları; gerisi yok sayılır). Değerler saklanacak duyarlığa yuvarlanır.
+    /// Girdi tutarsızsa (sütun matrisin dışında, iki simge aynı sütunda, harf olarak boşluk, boyutlar
+    /// saklanamayacak kadar büyük) `None`.
     pub fn select(
         full: &Emissions,
         vocabulary: &Vocabulary,
         lyrics: impl IntoIterator<Item = char>,
-    ) -> Self {
+    ) -> Option<Self> {
+        let used: Vec<usize> = std::iter::once(vocabulary.blank)
+            .chain(vocabulary.space)
+            .chain(vocabulary.letters.values().copied())
+            .collect();
+        let distinct: HashSet<usize> = used.iter().copied().collect();
+        if full.columns == 0
+            || full.log_probs.len() != full.frames * full.columns
+            || !storable(full.frames, full.frame_secs)
+            || distinct.len() != used.len()
+            || used.iter().any(|&k| k >= full.columns)
+            || vocabulary.letters.contains_key(&SPACE)
+        {
+            return None;
+        }
         let mut wanted: Vec<(usize, char)> = BASE_LETTERS
             .chars()
             .chain(lyrics)
@@ -89,11 +111,14 @@ impl StoredEmissions {
             source.push(column);
         }
         let columns = source.len();
+        if columns >= MAX_COLUMNS {
+            return None;
+        }
         let mut log_probs = Vec::with_capacity(full.frames * columns);
-        for row in full.log_probs.chunks_exact(full.columns).take(full.frames) {
+        for row in full.log_probs.chunks_exact(full.columns) {
             log_probs.extend(source.iter().map(|&k| quantize(row[k])));
         }
-        Self {
+        Some(Self {
             emissions: Emissions {
                 frames: full.frames,
                 columns,
@@ -105,14 +130,13 @@ impl StoredEmissions {
                 space,
                 letters,
             },
-        }
+            model_letters: vocabulary.letters.keys().copied().collect(),
+        })
     }
 
-    /// `letters`'in hepsi saklanmış mı?
-    pub fn covers(&self, letters: &[char]) -> bool {
-        letters
-            .iter()
-            .all(|c| self.vocabulary.letters.contains_key(c))
+    /// Sözün harfleri için bu kayıt yeter mi: modelin tanıdığı her harfi saklanmış mı?
+    pub fn covers(&self, lyrics: &[char]) -> bool {
+        covered(&self.vocabulary.letters, &self.model_letters, lyrics)
     }
 
     /// Sütun 1'den başlayarak sütunların adları (ayırıcı boşlukla).
@@ -126,27 +150,26 @@ impl StoredEmissions {
         names.into_iter().collect()
     }
 
+    /// Modelin harfleri, kayıtta (sıralı).
+    fn model_letter_names(&self) -> String {
+        let mut letters: Vec<char> = self.model_letters.iter().copied().collect();
+        letters.sort_unstable();
+        letters.into_iter().collect()
+    }
+
     /// Kayıttan geri kurar; boyutlar, adlar ya da değerler tutmazsa `None`.
-    fn decode(frames: i64, frame_secs: f64, names: &str, data: &[u8]) -> Option<Self> {
-        let frames = usize::try_from(frames)
-            .ok()
-            .filter(|&f| f > 0 && f <= MAX_FRAMES)?;
-        if !(frame_secs.is_finite() && frame_secs > 0.0 && frame_secs <= 1.0) {
+    fn decode(
+        frames: i64,
+        frame_secs: f64,
+        names: &str,
+        model_letters: &str,
+        data: &[u8],
+    ) -> Option<Self> {
+        let frames = usize::try_from(frames).ok()?;
+        if !storable(frames, frame_secs) {
             return None;
         }
-        let mut space = None;
-        let mut letters = HashMap::new();
-        for (i, c) in names.chars().enumerate() {
-            let column = i + 1;
-            let fresh = if c == SPACE {
-                space.replace(column).is_none()
-            } else {
-                letters.insert(c, column).is_none()
-            };
-            if !fresh || column >= MAX_COLUMNS {
-                return None;
-            }
-        }
+        let header = Header::parse(names, model_letters)?;
         let columns = names.chars().count() + 1;
         let cells = frames * columns;
         let bytes = miniz_oxide::inflate::decompress_to_vec_with_limit(data, cells * 2).ok()?;
@@ -174,9 +197,10 @@ impl StoredEmissions {
             },
             vocabulary: Vocabulary {
                 blank: 0,
-                space,
-                letters,
+                space: header.space,
+                letters: header.letters,
             },
+            model_letters: header.model_letters,
         })
     }
 
@@ -192,9 +216,72 @@ impl StoredEmissions {
         bytes.extend(bits.iter().map(|b| b.to_be_bytes()[1]));
         miniz_oxide::deflate::compress_to_vec(&bytes, COMPRESSION_LEVEL)
     }
+
+    /// `decode`'un geri kuracağı kayıt mı (alanlar elle tutarsız kurulmuş olabilir)?
+    fn consistent(&self) -> bool {
+        let e = &self.emissions;
+        storable(e.frames, e.frame_secs)
+            && e.log_probs.len() == e.frames * e.columns
+            && self.vocabulary.blank == 0
+            && Header::parse(&self.column_names(), &self.model_letter_names()).is_some_and(|h| {
+                h.space == self.vocabulary.space && h.letters == self.vocabulary.letters
+            })
+    }
 }
 
-/// Saklanan duyarlık: (−1000, 0] aralığı, f16. Yuvarlanmış değeri yeniden yuvarlamak onu değiştirmez.
+/// Kaydın harf listeleri: sütunlar ve modelin harfleri.
+struct Header {
+    space: Option<usize>,
+    letters: HashMap<char, usize>,
+    model_letters: HashSet<char>,
+}
+
+impl Header {
+    /// Sütun adları (her biri bir kez, ayırıcı en çok bir kez) ve modelin harfleri (saklanan her harfi
+    /// içerir, boşluk içermez); tutmazsa `None`.
+    fn parse(names: &str, model_letters: &str) -> Option<Self> {
+        let mut space = None;
+        let mut letters = HashMap::new();
+        for (i, c) in names.chars().enumerate() {
+            let column = i + 1;
+            let fresh = if c == SPACE {
+                space.replace(column).is_none()
+            } else {
+                letters.insert(c, column).is_none()
+            };
+            if !fresh || column >= MAX_COLUMNS {
+                return None;
+            }
+        }
+        let model_letters: HashSet<char> = model_letters.chars().collect();
+        if model_letters.contains(&SPACE) || letters.keys().any(|c| !model_letters.contains(c)) {
+            return None;
+        }
+        Some(Self {
+            space,
+            letters,
+            model_letters,
+        })
+    }
+}
+
+/// Sözün modelin tanıdığı her harfi saklanmış mı?
+fn covered(letters: &HashMap<char, usize>, model_letters: &HashSet<char>, lyrics: &[char]) -> bool {
+    lyrics
+        .iter()
+        .all(|c| letters.contains_key(c) || !model_letters.contains(c))
+}
+
+/// Kare sayısı ve süresi kayda uygun mu?
+fn storable(frames: usize, frame_secs: f64) -> bool {
+    frames > 0
+        && frames <= MAX_FRAMES
+        && frame_secs.is_finite()
+        && frame_secs > 0.0
+        && frame_secs <= 1.0
+}
+
+/// Saklanan duyarlık: [−1000, 0] aralığı, f16. Yuvarlanmış değeri yeniden yuvarlamak onu değiştirmez.
 fn quantize(v: f32) -> f32 {
     let v = if v.is_nan() {
         MIN_LOG_PROB
@@ -205,7 +292,8 @@ fn quantize(v: f32) -> f32 {
 }
 
 impl AnalysisCache {
-    /// Şarkının emisyonlarını saklar (aynı yolun eski kaydının yerini alır).
+    /// Şarkının emisyonlarını saklar (aynı yolun eski kaydının yerini alır). Geri okunamayacak kayıt
+    /// (alanları elle tutarsız kurulmuş) saklanmaz.
     pub fn store_emissions(
         &self,
         path: &Path,
@@ -213,12 +301,15 @@ impl AnalysisCache {
         model_sha256: &str,
         stored: &StoredEmissions,
     ) -> Result<(), CacheError> {
+        if !stored.consistent() {
+            return Ok(());
+        }
         let data = stored.encode();
         self.lock()?.execute(
             "INSERT OR REPLACE INTO lyrics_emissions
                  (path, file_size, modified, model_sha256, version, frames, frame_secs, columns,
-                  data)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                  model_letters, data)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 path.to_string_lossy(),
                 stamp.size as i64,
@@ -228,6 +319,7 @@ impl AnalysisCache {
                 stored.emissions.frames as i64,
                 stored.emissions.frame_secs,
                 stored.column_names(),
+                stored.model_letter_names(),
                 data,
             ],
         )?;
@@ -235,19 +327,19 @@ impl AnalysisCache {
     }
 
     /// Şarkının saklanan emisyonları: dosya değişmemişse, aynı modelle ve bu sürümün hesabıyla
-    /// üretilmişse ve `needed` harflerinin hepsi saklanmışsa. `needed`: sözün, modelin tanıdığı
-    /// harfleri (modelin hiç tanımadığı harf hiçbir kayıtta bulunmaz).
+    /// üretilmişse ve sözün (`lyrics`: sözün harfleri; tekrar ve modelde olmayan harf olabilir) modelin
+    /// tanıdığı her harfi saklanmışsa.
     pub fn load_emissions(
         &self,
         path: &Path,
         stamp: FileStamp,
         model_sha256: &str,
-        needed: &[char],
+        lyrics: &[char],
     ) -> Result<Option<StoredEmissions>, CacheError> {
         let conn = self.lock()?;
-        let row: Option<(i64, f64, String, Vec<u8>)> = conn
+        let row: Option<(i64, f64, String, String, Vec<u8>)> = conn
             .query_row(
-                "SELECT frames, frame_secs, columns, data FROM lyrics_emissions
+                "SELECT frames, frame_secs, columns, model_letters, data FROM lyrics_emissions
                  WHERE path = ?1 AND file_size = ?2 AND modified = ?3 AND model_sha256 = ?4
                    AND version = ?5",
                 params![
@@ -257,16 +349,27 @@ impl AnalysisCache {
                     model_sha256,
                     EMISSIONS_VERSION
                 ],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
             )
             .optional()?;
         drop(conn);
-        Ok(row
-            .and_then(|(frames, frame_secs, names, data)| {
-                StoredEmissions::decode(frames, frame_secs, &names, &data)
-            })
-            .filter(|stored| stored.covers(needed)))
+        Ok(
+            row.and_then(|(frames, frame_secs, names, model_letters, data)| {
+                // Harfler yetmiyorsa veri açılmaz.
+                let header = Header::parse(&names, &model_letters)?;
+                if !covered(&header.letters, &header.model_letters, lyrics) {
+                    return None;
+                }
+                StoredEmissions::decode(frames, frame_secs, &names, &model_letters, &data)
+            }),
+        )
     }
+}
+
+/// Testlerde: sütun adlarındaki harfler (modelin harf listesi yerine; ayırıcı hariç).
+#[cfg(test)]
+fn letters_of(names: &str) -> String {
+    names.chars().filter(|&c| c != SPACE).collect()
 }
 
 #[cfg(test)]
@@ -354,7 +457,7 @@ mod tests {
         let alphabet = big_alphabet();
         let vocab = vocabulary(&alphabet);
         let full = emissions_for("ab", &vocab, alphabet.chars().count() + 2);
-        let stored = StoredEmissions::select(&full, &vocab, "αñ".chars());
+        let stored = StoredEmissions::select(&full, &vocab, "αñ".chars()).unwrap();
         // blank + ayırıcı + temel alfabe + sözün iki harfi.
         assert_eq!(
             stored.emissions.columns,
@@ -384,9 +487,11 @@ mod tests {
     fn modelin_tanimadigi_harf_yok_sayilir() {
         let vocab = vocabulary("abc");
         let full = emissions_for("ab", &vocab, 5);
-        let stored = StoredEmissions::select(&full, &vocab, "a木".chars());
+        let stored = StoredEmissions::select(&full, &vocab, "a木".chars()).unwrap();
         assert_eq!(stored.emissions.columns, 5);
-        assert!(!stored.covers(&['木']));
+        // Modelin tanımadığı harf hizalamada zaten atlanır: kaydı kullanılmaz yapmaz.
+        assert!(stored.covers(&['木', 'a']));
+        assert!(stored.model_letters.contains(&'c') && !stored.model_letters.contains(&'木'));
     }
 
     #[test]
@@ -399,7 +504,7 @@ mod tests {
             &vocab,
             alphabet.chars().count() + 2,
         );
-        let stored = StoredEmissions::select(&full, &vocab, text.chars());
+        let stored = StoredEmissions::select(&full, &vocab, text.chars()).unwrap();
         let cache = AnalysisCache::open_in_memory().unwrap();
         let path = Path::new("/müzik/şarkı.flac");
         cache.store_emissions(path, stamp(), SHA, &stored).unwrap();
@@ -438,7 +543,7 @@ mod tests {
         let alphabet = big_alphabet();
         let vocab = vocabulary(&alphabet);
         let full = emissions_for("ab", &vocab, alphabet.chars().count() + 2);
-        let stored = StoredEmissions::select(&full, &vocab, "ab".chars());
+        let stored = StoredEmissions::select(&full, &vocab, "ab".chars()).unwrap();
         let cache = AnalysisCache::open_in_memory().unwrap();
         let path = Path::new("/a.mp3");
         cache.store_emissions(path, stamp(), SHA, &stored).unwrap();
@@ -457,7 +562,7 @@ mod tests {
     fn dosya_model_ya_da_surum_degisince_kayit_kullanilmaz() {
         let vocab = vocabulary(BASE_LETTERS);
         let full = emissions_for("ab", &vocab, BASE_LETTERS.chars().count() + 2);
-        let stored = StoredEmissions::select(&full, &vocab, std::iter::empty());
+        let stored = StoredEmissions::select(&full, &vocab, std::iter::empty()).unwrap();
         let cache = AnalysisCache::open_in_memory().unwrap();
         let path = Path::new("/a.mp3");
         cache.store_emissions(path, stamp(), SHA, &stored).unwrap();
@@ -492,7 +597,7 @@ mod tests {
         let path = Path::new("/a.mp3");
         for text in ["ab", "abc abc"] {
             let full = emissions_for(text, &vocab, columns);
-            let stored = StoredEmissions::select(&full, &vocab, std::iter::empty());
+            let stored = StoredEmissions::select(&full, &vocab, std::iter::empty()).unwrap();
             cache.store_emissions(path, stamp(), SHA, &stored).unwrap();
         }
         let loaded = cache
@@ -514,7 +619,7 @@ mod tests {
     fn sarki_kutuphaneden_cikinca_kaydi_silinir() {
         let vocab = vocabulary(BASE_LETTERS);
         let full = emissions_for("ab", &vocab, BASE_LETTERS.chars().count() + 2);
-        let stored = StoredEmissions::select(&full, &vocab, std::iter::empty());
+        let stored = StoredEmissions::select(&full, &vocab, std::iter::empty()).unwrap();
         let cache = AnalysisCache::open_in_memory().unwrap();
         let path = "/m/a.mp3";
         {
@@ -546,30 +651,54 @@ mod tests {
     fn bozuk_kayit_yok_sayilir() {
         let vocab = vocabulary(BASE_LETTERS);
         let full = emissions_for("ab", &vocab, BASE_LETTERS.chars().count() + 2);
-        let stored = StoredEmissions::select(&full, &vocab, std::iter::empty());
+        let stored = StoredEmissions::select(&full, &vocab, std::iter::empty()).unwrap();
         let names = stored.column_names();
         let data = stored.encode();
         let frames = stored.emissions.frames as i64;
-        assert!(StoredEmissions::decode(frames, 0.02, &names, &data).is_some());
+        assert!(
+            StoredEmissions::decode(frames, 0.02, &names, &letters_of(&names), &data).is_some()
+        );
         // Kare sayısı veriyle uyuşmuyor, sıfır ya da sınırın üstünde.
-        assert!(StoredEmissions::decode(frames + 1, 0.02, &names, &data).is_none());
-        assert!(StoredEmissions::decode(frames - 1, 0.02, &names, &data).is_none());
-        assert!(StoredEmissions::decode(0, 0.02, &names, &data).is_none());
-        assert!(StoredEmissions::decode(-1, 0.02, &names, &data).is_none());
-        assert!(StoredEmissions::decode(MAX_FRAMES as i64 + 1, 0.02, &names, &data).is_none());
+        assert!(
+            StoredEmissions::decode(frames + 1, 0.02, &names, &letters_of(&names), &data).is_none()
+        );
+        assert!(
+            StoredEmissions::decode(frames - 1, 0.02, &names, &letters_of(&names), &data).is_none()
+        );
+        assert!(StoredEmissions::decode(0, 0.02, &names, &letters_of(&names), &data).is_none());
+        assert!(StoredEmissions::decode(-1, 0.02, &names, &letters_of(&names), &data).is_none());
+        assert!(StoredEmissions::decode(
+            MAX_FRAMES as i64 + 1,
+            0.02,
+            &names,
+            &letters_of(&names),
+            &data
+        )
+        .is_none());
         // Kare süresi anlamsız.
         for secs in [0.0, -0.02, f64::NAN, f64::INFINITY, 2.0] {
-            assert!(StoredEmissions::decode(frames, secs, &names, &data).is_none());
+            assert!(
+                StoredEmissions::decode(frames, secs, &names, &letters_of(&names), &data).is_none()
+            );
         }
         // Aynı harf ya da ayırıcı iki kez.
         let twice_letter = format!("{names}a");
         let twice_space = format!("{names} ");
         for bad in [&twice_letter, &twice_space] {
-            assert!(StoredEmissions::decode(frames, 0.02, bad, &data).is_none());
+            assert!(StoredEmissions::decode(frames, 0.02, bad, &letters_of(bad), &data).is_none());
         }
         // Sıkıştırılmış veri bozuk ya da kesik.
-        assert!(StoredEmissions::decode(frames, 0.02, &names, &data[..data.len() / 2]).is_none());
-        assert!(StoredEmissions::decode(frames, 0.02, &names, b"bozuk").is_none());
+        assert!(StoredEmissions::decode(
+            frames,
+            0.02,
+            &names,
+            &letters_of(&names),
+            &data[..data.len() / 2]
+        )
+        .is_none());
+        assert!(
+            StoredEmissions::decode(frames, 0.02, &names, &letters_of(&names), b"bozuk").is_none()
+        );
         // Değerler aralık dışında (pozitif, NaN, sonsuz).
         for bits in [f16::from_f32(1.0), f16::NAN, f16::NEG_INFINITY] {
             let cells = stored.emissions.log_probs.len();
@@ -578,7 +707,9 @@ mod tests {
             raw[0] = h;
             raw[cells] = l;
             let bad = miniz_oxide::deflate::compress_to_vec(&raw, 6);
-            assert!(StoredEmissions::decode(frames, 0.02, &names, &bad).is_none());
+            assert!(
+                StoredEmissions::decode(frames, 0.02, &names, &letters_of(&names), &bad).is_none()
+            );
         }
     }
 
@@ -589,11 +720,12 @@ mod tests {
             ..vocabulary("ab")
         };
         let full = emissions_for("ab", &vocabulary("ab"), 4);
-        let stored = StoredEmissions::select(&full, &vocab, std::iter::empty());
+        let stored = StoredEmissions::select(&full, &vocab, std::iter::empty()).unwrap();
         let loaded = StoredEmissions::decode(
             stored.emissions.frames as i64,
             0.02,
             &stored.column_names(),
+            &letters_of(&stored.column_names()),
             &stored.encode(),
         )
         .unwrap();
@@ -626,10 +758,124 @@ mod tests {
         let vocab = vocabulary(&alphabet);
         let text = "gece uzun yol geniş şarkı çağırıyor beni ".repeat(30);
         let full = emissions_for(text.trim(), &vocab, alphabet.chars().count() + 2);
-        let stored = StoredEmissions::select(&full, &vocab, text.chars());
+        let stored = StoredEmissions::select(&full, &vocab, text.chars()).unwrap();
         let minutes = full.frames as f64 * full.frame_secs / 60.0;
         let mb = stored.encode().len() as f64 / 1e6;
         assert!(mb / minutes < 0.5, "{:.3} MB/dk", mb / minutes);
+    }
+
+    /// İnceleme bulgusu 2: hangi harfin modelde olduğu kayıttan bilinir, model açılmaz. "cafe" →
+    /// "café" düzeltmesinde 'é' modelde var ama saklanmamış: kayıt kullanılmaz. Çince harf modelde
+    /// yok: kayıt kullanılır.
+    #[test]
+    fn modelin_harfleri_kayittan_bilinir() {
+        let alphabet = big_alphabet();
+        let vocab = vocabulary(&alphabet);
+        let full = emissions_for("cafe", &vocab, alphabet.chars().count() + 2);
+        let stored = StoredEmissions::select(&full, &vocab, "cafe".chars()).unwrap();
+        let cache = AnalysisCache::open_in_memory().unwrap();
+        let path = Path::new("/a.mp3");
+        cache.store_emissions(path, stamp(), SHA, &stored).unwrap();
+        let load = |lyrics: &str| {
+            let letters: Vec<char> = lyrics.chars().collect();
+            cache.load_emissions(path, stamp(), SHA, &letters).unwrap()
+        };
+        assert!(load("cafe").is_some());
+        assert!(load("cafe 木 7!").is_some());
+        assert!(load("café").is_none());
+        let loaded = load("cafe").unwrap();
+        assert_eq!(loaded.model_letters, stored.model_letters);
+        assert_eq!(loaded.model_letters.len(), alphabet.chars().count());
+    }
+
+    /// İnceleme bulgusu 3: tutarsız sözlük ya da matris panik değil `None` (gerçek modelde oluşmaz).
+    #[test]
+    fn tutarsiz_girdi_reddedilir_panik_yok() {
+        let vocab = vocabulary("ab");
+        let full = emissions_for("ab", &vocab, 4);
+        assert!(StoredEmissions::select(&full, &vocab, "ab".chars()).is_some());
+        // İki harf aynı sütunda: CTC'de tekrar kuralı sütuna bakar, ayrı sütun sonucu değiştirirdi.
+        let shared = Vocabulary {
+            letters: [('a', 2), ('b', 2)].into_iter().collect(),
+            ..vocab.clone()
+        };
+        assert!(StoredEmissions::select(&full, &shared, "ab".chars()).is_none());
+        // Harf blank ya da ayırıcıyla aynı sütunda.
+        let on_blank = Vocabulary {
+            letters: [('a', 0), ('b', 3)].into_iter().collect(),
+            ..vocab.clone()
+        };
+        assert!(StoredEmissions::select(&full, &on_blank, "ab".chars()).is_none());
+        // Harf olarak boşluk (kayıtta ayırıcıyla karışırdı).
+        let space_letter = Vocabulary {
+            space: None,
+            letters: [('a', 1), (' ', 2)].into_iter().collect(),
+            ..vocab.clone()
+        };
+        assert!(StoredEmissions::select(&full, &space_letter, "a".chars()).is_none());
+        // Sütun matrisin dışında.
+        let outside = Vocabulary {
+            letters: [('a', 2), ('b', 4)].into_iter().collect(),
+            ..vocab.clone()
+        };
+        assert!(StoredEmissions::select(&full, &outside, "ab".chars()).is_none());
+        // Matrisin boyutları tutmuyor, sütunsuz ya da saklanamayacak kadar uzun.
+        let short = Emissions {
+            log_probs: full.log_probs[1..].to_vec(),
+            ..full.clone()
+        };
+        assert!(StoredEmissions::select(&short, &vocab, "ab".chars()).is_none());
+        let empty = Emissions {
+            columns: 0,
+            log_probs: Vec::new(),
+            ..full.clone()
+        };
+        assert!(StoredEmissions::select(&empty, &vocab, "ab".chars()).is_none());
+        let long = Emissions {
+            frames: MAX_FRAMES + 1,
+            log_probs: vec![-1.0; (MAX_FRAMES + 1) * 4],
+            ..full.clone()
+        };
+        assert!(StoredEmissions::select(&long, &vocab, "ab".chars()).is_none());
+        for secs in [0.0, f64::NAN, 2.0] {
+            let odd = Emissions {
+                frame_secs: secs,
+                ..full.clone()
+            };
+            assert!(StoredEmissions::select(&odd, &vocab, "ab".chars()).is_none());
+        }
+    }
+
+    /// İnceleme notu: elle tutarsız kurulmuş kayıt saklanmaz (okunamayacak kayıt yazılmaz).
+    #[test]
+    fn okunamayacak_kayit_saklanmaz() {
+        let vocab = vocabulary("ab");
+        let full = emissions_for("ab", &vocab, 4);
+        let good = StoredEmissions::select(&full, &vocab, "ab".chars()).unwrap();
+        let mut unknown_letter = good.clone();
+        unknown_letter.model_letters.clear();
+        let mut wrong_size = good.clone();
+        wrong_size.emissions.frames += 1;
+        let mut moved_blank = good.clone();
+        moved_blank.vocabulary.blank = 1;
+        let cache = AnalysisCache::open_in_memory().unwrap();
+        for (i, bad) in [unknown_letter, wrong_size, moved_blank].iter().enumerate() {
+            let path = format!("/{i}.mp3");
+            cache
+                .store_emissions(Path::new(&path), stamp(), SHA, bad)
+                .unwrap();
+            assert!(cache
+                .load_emissions(Path::new(&path), stamp(), SHA, &[])
+                .unwrap()
+                .is_none());
+        }
+        cache
+            .store_emissions(Path::new("/iyi.mp3"), stamp(), SHA, &good)
+            .unwrap();
+        assert!(cache
+            .load_emissions(Path::new("/iyi.mp3"), stamp(), SHA, &[])
+            .unwrap()
+            .is_some());
     }
 }
 
@@ -865,7 +1111,8 @@ mod inceleme_karsi_ornekler {
                 .filter(|v| !v.is_finite() || **v > 0.0 || **v < MIN_LOG_PROB)
                 .count();
 
-            let stored = StoredEmissions::select(&case.full, &case.vocab, case.lyrics.chars());
+            let stored =
+                StoredEmissions::select(&case.full, &case.vocab, case.lyrics.chars()).unwrap();
 
             // Saklanan harf kümesi = (temel alfabe ∪ söz) ∩ sözlük.
             let expected: HashSet<char> = base
@@ -877,7 +1124,9 @@ mod inceleme_karsi_ornekler {
             let got: HashSet<char> = stored.vocabulary.letters.keys().copied().collect();
             assert_eq!(got, expected, "{ctx}");
             for &c in &pool {
-                assert_eq!(stored.covers(&[c]), expected.contains(&c), "{ctx} {c:?}");
+                // Modelin tanımadığı harf kaydı kullanılmaz yapmaz (yazarın düzeltmesi, bulgu 2).
+                let expect = expected.contains(&c) || !case.vocab.letters.contains_key(&c);
+                assert_eq!(stored.covers(&[c]), expect, "{ctx} {c:?}");
             }
 
             // Her saklanan değer, modelin aynı sütununun yuvarlanmışı (bit bit).
@@ -913,6 +1162,7 @@ mod inceleme_karsi_ornekler {
                 stored.emissions.frames as i64,
                 stored.emissions.frame_secs,
                 &names,
+                &letters_of(&names),
                 &stored.encode(),
             )
             .unwrap_or_else(|| panic!("{ctx}: decode None"));
@@ -984,8 +1234,14 @@ mod inceleme_karsi_ornekler {
             assert!(used.insert(c) && c < e.columns);
         }
         assert_eq!(d.column_names(), names);
-        let again =
-            StoredEmissions::decode(e.frames as i64, e.frame_secs, names, &d.encode()).unwrap();
+        let again = StoredEmissions::decode(
+            e.frames as i64,
+            e.frame_secs,
+            names,
+            &letters_of(names),
+            &d.encode(),
+        )
+        .unwrap();
         assert_same(d, &again, "yeniden kodlama");
         let line: Vec<Vec<String>> = vec![d
             .vocabulary
@@ -1009,7 +1265,8 @@ mod inceleme_karsi_ornekler {
         let (mut tried, mut accepted) = (0usize, 0usize);
         for _ in 0..120 {
             let case = random_case(&mut rng, &pool);
-            let stored = StoredEmissions::select(&case.full, &case.vocab, case.lyrics.chars());
+            let stored =
+                StoredEmissions::select(&case.full, &case.vocab, case.lyrics.chars()).unwrap();
             let names = stored.column_names();
             let data = stored.encode();
             let frames = stored.emissions.frames as i64;
@@ -1067,7 +1324,7 @@ mod inceleme_karsi_ornekler {
                     _ => n = "x".repeat(rng.below(3000)),
                 }
                 tried += 1;
-                if let Some(dec) = StoredEmissions::decode(f, secs, &n, &d) {
+                if let Some(dec) = StoredEmissions::decode(f, secs, &n, &letters_of(&n), &d) {
                     accepted += 1;
                     check_decoded(&dec, &n);
                 }
@@ -1150,7 +1407,13 @@ mod inceleme_karsi_ornekler {
                 .iter()
                 .all(|&b| (MIN_LOG_PROB..=0.0).contains(&f16::from_bits(b).to_f32()));
             let expect = frames > 0 && secs <= 1.0 && unique && columns <= MAX_COLUMNS && values_ok;
-            let got = StoredEmissions::decode(frames as i64, secs, names, &my_encode(&values));
+            let got = StoredEmissions::decode(
+                frames as i64,
+                secs,
+                names,
+                &letters_of(names),
+                &my_encode(&values),
+            );
             assert_eq!(got.is_some(), expect, "{names:?} kare {frames}");
             if let Some(d) = got {
                 ok_count += 1;

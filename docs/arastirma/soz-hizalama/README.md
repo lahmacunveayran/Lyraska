@@ -85,8 +85,8 @@ denemesi).
 Denetim emisyonları "~60 sütun, şarkı başına ~0,7–1,4 MB" varsaymıştı; ölçüm başka çıktı: modelin saklanan harfleri
 (Latin, Yunan, Kiril küçük harf) **410 sütun**, f16 ile dakikada 2,46 MB (deflate 1,88; 4 dk şarkı ~7,5 MB). Çözüm
 (`analysis/lyrics_cache.rs`): blank, ayırıcı, Türkçe + İngilizce alfabe ve sözün harfleri saklanır (~38 sütun).
-Kayıpsızdır (log-olasılıklar bütün simgelere göre normalleşmiş gelir); söze saklanmamış harf girerse model yeniden
-çalışır. Ölçümler (31 Ekim; konuşma kaydı temiz ve gürültülü, 17 sn; gerçek şarkı 173 sn, sözsüz yalnızca boyut):
+Kayıpsızdır (log-olasılıklar bütün simgelere göre normalleşmiş gelir). Kayıt modelin bütün harf listesini de taşır:
+söze modelin tanıdığı ama saklanmamış harf girerse model yeniden çalışır, tanımadığı harf (ör. Çince) kaydı bozmaz. Ölçümler (31 Ekim; konuşma kaydı temiz ve gürültülü, 17 sn; gerçek şarkı 173 sn, sözsüz yalnızca boyut):
 
 | Biçim                                      | Dakikada |
 | ------------------------------------------ | -------- |

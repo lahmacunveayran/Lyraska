@@ -13,9 +13,10 @@
 //!   sürüm 1 yazıyordu ama bu adımın hepsini kurmuyordu (analiz tablosu 0.0.20'de, silme
 //!   tetikleyicisi 0.0.22'de geldi). Sürümü 1 olan dosyada adım yeniden uygulanır; eksik olan
 //!   kurulur.
-//! - Analiz önbelleği yeniden hesaplanabilir, kütüphane verisi değildir: bir adım önbellek
-//!   tablosunda takılırsa ya da tablo bu sürümün beklediği sütunlardan birinden yoksunsa önbellek
-//!   boşaltılıp yeniden kurulur (şarkılar arka planda yeniden analiz edilir). Klasörlere ve
+//! - Önbellek (analizler, söz modelinin emisyonları; `CACHE_OBJECTS`) yeniden hesaplanabilir,
+//!   kütüphane verisi değildir: bir adım önbellek tablosunda takılırsa ya da bir önbellek tablosu bu
+//!   sürümün beklediği sütunlardan ya da silme tetikleyicisinden yoksunsa önbellek boşaltılıp
+//!   yeniden kurulur (şarkılar arka planda yeniden analiz edilir). Klasörlere ve
 //!   şarkılara hiçbir koşulda dokunulmaz; göç tutmazsa dosya olduğu gibi kalır.
 //! - Analiz sonucunun hesabı değişirse şema değil o parçanın sürümü artırılır
 //!   (`analysis::cache::VERSIONS`).
@@ -153,19 +154,21 @@ CREATE TABLE IF NOT EXISTS playlist_entries (
 
 /// 9: söz modelinin emisyonları ([`crate::analysis::lyrics_cache`]): yalnızca sese bağlı, söz
 /// düzeltilince model yeniden çalışmasın. Anahtar yol + damga + modelin SHA-256'sı + hesap sürümü;
-/// `columns` sütun 1'den başlayarak sütunların harfleri (ayırıcı boşluk), `data` sıkıştırılmış f16.
+/// `columns` sütun 1'den başlayarak sütunların harfleri (ayırıcı boşluk), `model_letters` modelin
+/// bütün harfleri, `data` sıkıştırılmış f16.
 /// Şarkı kütüphaneden çıkınca kaydı da silinir.
 const V9: &str = "
 CREATE TABLE IF NOT EXISTS lyrics_emissions (
-    path         TEXT PRIMARY KEY,
-    file_size    INTEGER NOT NULL,
-    modified     INTEGER NOT NULL,
-    model_sha256 TEXT NOT NULL,
-    version      INTEGER NOT NULL,
-    frames       INTEGER NOT NULL,
-    frame_secs   REAL NOT NULL,
-    columns      TEXT NOT NULL,
-    data         BLOB NOT NULL
+    path          TEXT PRIMARY KEY,
+    file_size     INTEGER NOT NULL,
+    modified      INTEGER NOT NULL,
+    model_sha256  TEXT NOT NULL,
+    version       INTEGER NOT NULL,
+    frames        INTEGER NOT NULL,
+    frame_secs    REAL NOT NULL,
+    columns       TEXT NOT NULL,
+    model_letters TEXT NOT NULL,
+    data          BLOB NOT NULL
 );
 CREATE TRIGGER IF NOT EXISTS lyrics_emissions_follow_tracks AFTER DELETE ON tracks
 BEGIN DELETE FROM lyrics_emissions WHERE path = old.path; END;
@@ -297,29 +300,57 @@ fn columns(conn: &Connection, table: &str) -> rusqlite::Result<Vec<(String, Stri
     rows.collect()
 }
 
-/// Önbellek tablosunda `steps`'in kurduğu bütün sütunlar var mı?
-fn cache_complete(conn: &Connection, steps: &[&str]) -> rusqlite::Result<bool> {
-    let expected = columns(&shape_after(steps)?, "analyses")?;
-    let found = columns(conn, "analyses")?;
-    Ok(expected.iter().all(|column| found.contains(column)))
+/// Yeniden hesaplanabilir önbellek tabloları ve onları kütüphaneye bağlayan silme tetikleyicileri:
+/// analizler ve söz modelinin emisyonları. Kütüphane verisi değildir; şemaya uymazsa boşaltılıp
+/// yeniden kurulur.
+const CACHE_OBJECTS: &[(&str, &str)] = &[
+    ("analyses", "analyses_follow_tracks"),
+    ("lyrics_emissions", "lyrics_emissions_follow_tracks"),
+];
+
+/// Nesne (tablo ya da tetikleyici) var mı?
+fn exists(conn: &Connection, name: &str) -> rusqlite::Result<bool> {
+    conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE name = ?1)",
+        [name],
+        |r| r.get(0),
+    )
 }
 
-/// Analiz önbelleğini (tablo ve silme tetikleyicisi) boşaltıp `steps` adımlarının kurduğu
-/// biçimde yeniden kurar. Kütüphane tablolarına dokunmaz.
+/// Önbellek tablolarında `steps`'in kurduğu bütün sütunlar ve tetikleyiciler var mı?
+fn cache_complete(conn: &Connection, steps: &[&str]) -> rusqlite::Result<bool> {
+    let shape = shape_after(steps)?;
+    for &(table, trigger) in CACHE_OBJECTS {
+        let expected = columns(&shape, table)?;
+        let found = columns(conn, table)?;
+        if !expected.iter().all(|column| found.contains(column))
+            || (exists(&shape, trigger)? && !exists(conn, trigger)?)
+        {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+/// Önbelleği (tablolar ve silme tetikleyicileri) boşaltıp `steps` adımlarının kurduğu biçimde
+/// yeniden kurar. Kütüphane tablolarına dokunmaz.
 fn rebuild_cache(conn: &Connection, steps: &[&str]) -> rusqlite::Result<()> {
     let shape = shape_after(steps)?;
-    let mut stmt = shape.prepare(
-        "SELECT sql FROM sqlite_master
-         WHERE (tbl_name = 'analyses' OR name = 'analyses_follow_tracks') AND sql IS NOT NULL
-         ORDER BY type != 'table'",
-    )?;
-    let objects: Vec<String> = stmt
-        .query_map([], |r| r.get(0))?
-        .collect::<rusqlite::Result<_>>()?;
-    conn.execute_batch(
-        "DROP TRIGGER IF EXISTS analyses_follow_tracks; DROP TABLE IF EXISTS analyses;",
-    )?;
-    objects.iter().try_for_each(|sql| conn.execute_batch(sql))
+    for &(table, trigger) in CACHE_OBJECTS {
+        let mut stmt = shape.prepare(
+            "SELECT sql FROM sqlite_master
+             WHERE (tbl_name = ?1 OR name = ?2) AND sql IS NOT NULL
+             ORDER BY type != 'table'",
+        )?;
+        let objects: Vec<String> = stmt
+            .query_map([table, trigger], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        conn.execute_batch(&format!(
+            "DROP TRIGGER IF EXISTS {trigger}; DROP TABLE IF EXISTS {table};"
+        ))?;
+        objects.iter().try_for_each(|sql| conn.execute_batch(sql))?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
