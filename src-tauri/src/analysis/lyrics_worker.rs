@@ -493,3 +493,311 @@ mod tests {
         assert_eq!(f.done.recv_timeout(Duration::from_secs(60)).unwrap(), other);
     }
 }
+
+/// Bağımsız incelemenin karşı örnekleri. Başarısız olan testler bir kusuru gösterir.
+#[cfg(test)]
+mod inceleme_karsi_ornekler {
+    use super::*;
+    use crate::analysis::lyrics_model::{
+        file_sha256, FRAME_SAMPLES, MODEL_FILE, SAMPLE_RATE, TOKENS_FILE,
+    };
+    use crate::audio::lyrics::{parse, LyricsSource};
+    use crate::audio::test_util::{temp_path, write_wav};
+    use std::sync::mpsc;
+    use std::time::Instant;
+
+    const LYRICS: &str = "ab ab\nab ab";
+
+    fn model_dir() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/soz-modeli")
+    }
+
+    fn slot_in(dir: PathBuf) -> ModelSlot {
+        let real = model_dir();
+        let model = file_sha256(&real.join(MODEL_FILE)).unwrap();
+        let tokens = file_sha256(&real.join(TOKENS_FILE)).unwrap();
+        ModelSlot::new(dir, &model, &tokens)
+    }
+
+    /// Deneme modeli: artı blok 'a', eksi blok 'b' (37 kare).
+    fn song(name: &str, blocks: usize) -> PathBuf {
+        const BLOCK: usize = 37;
+        let path = temp_path(name).with_extension("wav");
+        write_wav(
+            &path,
+            SAMPLE_RATE,
+            1,
+            blocks * BLOCK * FRAME_SAMPLES,
+            |i, _| {
+                if (i / FRAME_SAMPLES / BLOCK).is_multiple_of(2) {
+                    0.5
+                } else {
+                    -0.5
+                }
+            },
+        );
+        path
+    }
+
+    struct Fixture {
+        worker: LyricsWorker,
+        done: mpsc::Receiver<PathBuf>,
+        foreground: Arc<AtomicUsize>,
+    }
+
+    fn start(slot: ModelSlot, guard: CrashGuard) -> Fixture {
+        let (sender, done) = mpsc::channel();
+        let foreground = Arc::new(AtomicUsize::new(0));
+        let worker = LyricsWorker::start_with(
+            Arc::new(AnalysisCache::open_in_memory().unwrap()),
+            slot,
+            Arc::clone(&foreground),
+            guard,
+            IDLE_RELEASE,
+            move |path| {
+                let _ = sender.send(path.to_path_buf());
+            },
+        );
+        Fixture {
+            worker,
+            done,
+            foreground,
+        }
+    }
+
+    fn wait_until(mut condition: impl FnMut() -> bool, seconds: u64) -> bool {
+        let deadline = Instant::now() + Duration::from_secs(seconds);
+        while Instant::now() < deadline {
+            if condition() {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        condition()
+    }
+
+    fn plain(text: &str) -> Option<Lyrics> {
+        Some(parse(text, LyricsSource::User, None))
+    }
+
+    fn raw(text: &str) -> impl FnOnce() -> Option<LyricsText> + '_ {
+        move || {
+            Some(LyricsText {
+                source: LyricsSource::User,
+                text: text.to_owned(),
+            })
+        }
+    }
+
+    /// Bulgu 1: söz paketi yokken (bugün programdaki durum) ilk başarısızlıktan sonra yuva
+    /// `Unavailable` döner; ama `align_track` modeli istemeden önce şarkıyı baştan sona çözer ve
+    /// `run` bu sonucu hatırlamaz. Zamansız söz her gösterildiğinde şarkı yeniden çözülür.
+    #[test]
+    fn paket_yokken_her_gosterim_sarkiyi_yeniden_cozmez() {
+        let f = start(
+            slot_in(temp_path("olmayan-soz-paketi")),
+            CrashGuard::disabled(),
+        );
+        let first = song("inceleme-paket-yok-ilk", 8);
+        f.worker.request(&first, LYRICS);
+        assert!(wait_until(|| f.worker.finished() == 1, 30));
+        let path = song("inceleme-paket-yok", 8);
+        f.worker.show(&path, plain(LYRICS), raw(LYRICS));
+        assert!(wait_until(|| f.worker.finished() == 2, 30));
+        // Kullanıcı aynı şarkıya iki kez daha döner (şarkı değişimi, söz kaydı...).
+        for _ in 0..2 {
+            f.worker.show(&path, plain(LYRICS), raw(LYRICS));
+            std::thread::sleep(Duration::from_millis(300));
+        }
+        assert_eq!(
+            f.worker.finished(),
+            2,
+            "paket yokken aynı şarkı ve metin için iş yeniden çalıştı (şarkı her seferinde çözüldü)"
+        );
+    }
+
+    /// Bulgu 2: `track_lyrics_save` isteği gönderir, hemen ardından arayüz sözleri yeniden okur ve
+    /// `show` aynı isteği yeniden kuyruğa koyar (ilk istek kuyruktan çıkmış, iş sürüyor). İş iki kez
+    /// çalışır ve `sozler-zamanlandi` iki kez gider (arayüz iki kez yeniden okur).
+    #[test]
+    fn is_surerken_gelen_ayni_istek_isi_ve_olayi_yinelemez() {
+        let f = start(slot_in(model_dir()), CrashGuard::disabled());
+        let path = song("inceleme-cift-istek", 8);
+        // İş kuyruktan çıksın ama başlamasın (oynatıcının analizi sürüyor).
+        f.foreground.store(1, Ordering::Release);
+        f.worker.request(&path, LYRICS); // track_lyrics_save
+        std::thread::sleep(Duration::from_millis(300));
+        let shown = f.worker.show(&path, plain(LYRICS), raw(LYRICS)); // arayüzün yeniden okuması
+        assert!(!shown.unwrap().synced);
+        f.foreground.store(0, Ordering::Release);
+        assert_eq!(f.done.recv_timeout(Duration::from_secs(60)).unwrap(), path);
+        assert!(
+            f.done.recv_timeout(Duration::from_secs(2)).is_err(),
+            "aynı şarkı ve metin için ikinci 'zamanlandı' olayı"
+        );
+        assert_eq!(f.worker.finished(), 1, "aynı iş iki kez çalıştı");
+    }
+
+    /// Bulgu 3: `stop` model açılırken beklemek zorunda: `LyricsModel::open` iptal bayrağına
+    /// bakmaz (dosyanın tamamını okur, özetini alır, tract ile iyileştirir). Gerçek pakette bu
+    /// saniyeler sürer; program kapanırken pencere o süre takılır. Burada 400 MB'lık (özeti tutmayan)
+    /// bir model dosyasıyla gösterilir.
+    #[test]
+    fn durdurma_model_acilirken_hemen_biter() {
+        let package = temp_path("buyuk-soz-paketi");
+        std::fs::create_dir_all(&package).unwrap();
+        std::fs::copy(model_dir().join(TOKENS_FILE), package.join(TOKENS_FILE)).unwrap();
+        let big = std::fs::File::create(package.join(MODEL_FILE)).unwrap();
+        big.set_len(400 << 20).unwrap();
+        drop(big);
+        let traces = temp_path("inceleme-buyuk-paket-izleri");
+        let f = start(
+            slot_in(package.clone()),
+            CrashGuard::named(traces.clone(), "soz"),
+        );
+        let path = song("inceleme-buyuk-paket", 8);
+        f.worker.request(&path, LYRICS);
+        // İş başladı (çökme izi yazıldı); kısa şarkı hemen çözülür, ardından model açılır.
+        assert!(wait_until(|| traces.join("soz-suruyor.txt").exists(), 10));
+        std::thread::sleep(Duration::from_millis(30));
+        let started = Instant::now();
+        f.worker.stop();
+        let elapsed = started.elapsed();
+        let _ = std::fs::remove_file(package.join(MODEL_FILE));
+        assert!(
+            elapsed < Duration::from_millis(100),
+            "durdurma model açılışını bekledi: {elapsed:?}"
+        );
+    }
+
+    /// Olay döngüsü yok mu: başarıyla biten her iş gösterimde zamanlı dönmeli. Dönmezse `on_done` →
+    /// arayüz yeniden okur → `show` yeniden ister → iş saklanan sonucu yeniden hesaplar → `on_done`...
+    /// sonsuza dek sürerdi. Rastgele sözlerle denenir.
+    #[test]
+    fn basariyla_zamanlanan_her_soz_gosterimde_zamanli_doner() {
+        let cache = AnalysisCache::open_in_memory().unwrap();
+        let mut slot = slot_in(model_dir());
+        let path = song("inceleme-dongu", 12);
+        let cancel = AtomicBool::new(false);
+        let pieces = [
+            "a",
+            "b",
+            "ab",
+            "ba",
+            "aab",
+            "abba",
+            "—",
+            "-",
+            "21",
+            "x",
+            "♪",
+            "[Nakarat]",
+            "(x2)",
+            "a-b",
+            "A",
+            "B'",
+            "…",
+            "",
+            " ",
+            "\t",
+            "r",
+        ];
+        let mut state: u64 = 0x2545_f491_4f6c_dd1d;
+        let mut next = |n: usize| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state % n as u64) as usize
+        };
+        let mut ok = 0;
+        for _ in 0..300 {
+            let lines = 1 + next(6);
+            let text: String = (0..lines)
+                .map(|_| {
+                    let words = next(5);
+                    (0..words)
+                        .map(|_| pieces[next(pieces.len())])
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            if align_track(&cache, &path, &text, &mut slot, &cancel).is_ok() {
+                ok += 1;
+                let shown = with_auto(
+                    &cache,
+                    &path,
+                    parse(&text, LyricsSource::User, None),
+                    &text,
+                    slot.model_sha256(),
+                );
+                assert!(
+                    shown.synced,
+                    "başarılı iş gösterimde bulunamadı (olay döngüsü): {text:?}"
+                );
+            }
+        }
+        assert!(ok > 50, "yeterince başarılı örnek yok: {ok}");
+    }
+
+    /// Kapanışta durdurulan iş çökme izi bırakmaz (bırakırsa sonraki açılış şarkıyı bir kez
+    /// "programı kapattı" sayar).
+    #[test]
+    fn durdurulan_is_cokme_izi_birakmaz() {
+        let traces = temp_path("inceleme-durdurma-izleri");
+        let f = start(
+            slot_in(model_dir()),
+            CrashGuard::named(traces.clone(), "soz"),
+        );
+        let path = song("inceleme-durdurma", 600);
+        f.worker.request(&path, LYRICS);
+        assert!(wait_until(|| traces.join("soz-suruyor.txt").exists(), 10));
+        f.worker.stop();
+        assert!(!traces.join("soz-suruyor.txt").exists());
+        assert!(CrashGuard::named(traces, "soz").recover().is_empty());
+    }
+
+    /// Bulgu 4: çökme koruması şarkı başına; ama işteki en olası çökme (modül belgesindeki "bellek
+    /// yetmedi": ~2,5 GB'lık modelin açılması) şarkıdan bağımsızdır. Önceki iki açılış söz
+    /// zamanlamasında (farklı şarkılarda) kapandıysa üçüncü şarkı yine denenir: her zamansız şarkı
+    /// programı iki kez kapatmadan atlanmaz.
+    #[test]
+    fn soz_zamanlamasi_iki_kez_kapattiysa_baska_sarkida_da_denenmez() {
+        let dir = temp_path("inceleme-cokme-dongusu");
+        for name in ["inceleme-cokme-x", "inceleme-cokme-y"] {
+            let crashed = song(name, 8);
+            let guard = CrashGuard::named(dir.clone(), "soz");
+            guard.recover();
+            guard.begin_slot(0, &crashed, FileStamp::of(&crashed).unwrap());
+        }
+        let f = start(slot_in(model_dir()), CrashGuard::named(dir, "soz"));
+        let path = song("inceleme-cokme-z", 8);
+        f.worker.request(&path, LYRICS);
+        std::thread::sleep(Duration::from_millis(500));
+        assert_eq!(
+            f.worker.finished(),
+            0,
+            "iki çökmeden sonra model yine açıldı (üçüncü çökme)"
+        );
+    }
+
+    /// `request` ile `stop` yarışında (oynatıcının analizini beklerken de) iş parçacığı takılmaz.
+    #[test]
+    fn istek_ve_durdurma_yarisinda_takilma_yok() {
+        for i in 0..20 {
+            let f = start(slot_in(model_dir()), CrashGuard::disabled());
+            let path = song(&format!("inceleme-yaris-{i}"), 4);
+            if i % 2 == 0 {
+                f.foreground.store(1, Ordering::Release);
+            }
+            let worker = &f.worker;
+            std::thread::scope(|s| {
+                s.spawn(|| worker.request(&path, LYRICS));
+                s.spawn(|| worker.request(&path, "ab"));
+                let started = Instant::now();
+                worker.stop();
+                assert!(started.elapsed() < Duration::from_secs(5));
+            });
+        }
+    }
+}
