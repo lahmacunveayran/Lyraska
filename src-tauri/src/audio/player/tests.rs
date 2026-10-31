@@ -1216,11 +1216,11 @@ fn esitleme_calan_sarkiyi_olcer_ve_kapatinca_kalkar() {
         "{loudness:?}"
     );
 
-    // Çalan şarkı −14 LUFS'e kısılır; ekolayzer için tepeye 14 dB boşluk kalır.
+    // Çalan şarkı −14 LUFS'e kısılır; ekolayzer için sınırlayıcının tavanına (−1 dBTP) 13 dB boşluk kalır.
     let gain = player.status().output.unwrap().normalization_db.unwrap();
     assert!((gain - (TARGET_LUFS - loudness.integrated_lufs)).abs() < 1e-9);
     assert!(
-        (player.headroom_db() - 14.0).abs() < 0.1,
+        (player.headroom_db() - 13.0).abs() < 0.1,
         "{}",
         player.headroom_db()
     );
@@ -1245,7 +1245,7 @@ fn esitleme_calan_sarkiyi_olcer_ve_kapatinca_kalkar() {
         &player.loudness
     ));
 
-    // Kapatınca kazanç kalkar; boşluk yalnızca şarkının kendi tepesinden gelir.
+    // Kapatınca kazanç kalkar; boşluk yalnızca şarkının kendi tepesinden gelir (−6,02 dBTP → 5,02 dB).
     player
         .set_playback_options(super::super::PlaybackOptions {
             normalize: false,
@@ -1254,7 +1254,7 @@ fn esitleme_calan_sarkiyi_olcer_ve_kapatinca_kalkar() {
         .unwrap();
     assert_eq!(player.status().output.unwrap().normalization_db, None);
     assert!(
-        (player.headroom_db() - 6.02).abs() < 0.1,
+        (player.headroom_db() - 5.02).abs() < 0.1,
         "{}",
         player.headroom_db()
     );

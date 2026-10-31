@@ -515,8 +515,8 @@ mod tests {
         let level = levels.level(0, true);
         assert_eq!(level.gain_db, -6.0);
         assert_eq!(
-            level.headroom_db, 6.0,
-            "kısılan şarkının tepesi −6 dBTP'ye iner"
+            level.headroom_db, 5.0,
+            "kısılan şarkının tepesi −6 dBTP'ye iner; sınırlayıcının tavanına (−1 dBTP) 5 dB kalır"
         );
         // Eşitleme kapalıyken kazanç yok; boşluk yalnızca tepeden.
         assert_eq!(
@@ -687,24 +687,25 @@ mod tests {
             .map(|&g| 6.0 + to_db(g))
             .fold(f64::MIN, f64::max);
         assert!(worst <= 0.05, "ekolayzerli tepe {worst:.2} dBFS");
-        // Sonunda: −6 dB eşitleme, boşluk yetiyor, koruma kalktı.
-        assert!((to_db(*gains.last().unwrap()) + 6.0).abs() < 0.01);
+        // Sonunda: −6 dB eşitleme; −1 dBTP tavanına 5 dB boşluk, +6 dB'nin 1 dB'sini koruma kısar.
+        assert!((to_db(*gains.last().unwrap()) + 7.0).abs() < 0.01);
     }
 
     #[test]
     fn ekolayzer_ancak_bosluk_yetmezse_kisilir() {
         let levels = TrackLevels::new();
-        levels.set_loudness(0, Some(loud())); // −6 dB eşitleme → 6 dB boşluk
+        // −6 dB eşitleme → tepe −6 dBTP, sınırlayıcının tavanına (−1 dBTP) 5 dB boşluk.
+        levels.set_loudness(0, Some(loud()));
         let mut leveler = Leveler::new(RATE, &levels, true);
-        // +6 dB bas: boşluk yetiyor, koruma kısması yok.
-        let g = to_db(run(&mut leveler, &levels, RATE as usize, 6.0));
+        // +5 dB bas: boşluk yetiyor, koruma kısması yok.
+        let g = to_db(run(&mut leveler, &levels, RATE as usize, 5.0));
         assert!((g + 6.0).abs() < 1e-6, "{g}");
-        // +10 dB: 4 dB yetmiyor, hızla (10 ms) kısılır.
+        // +10 dB: 5 dB yetmiyor, hızla (10 ms) kısılır.
         let g = to_db(run(&mut leveler, &levels, RATE as usize / 10, 10.0));
-        assert!((g + 10.0).abs() < 0.01, "{g}");
+        assert!((g + 11.0).abs() < 0.01, "{g}");
         // Yükseltme azalınca koruma yavaşça kalkar.
         let g = to_db(run(&mut leveler, &levels, RATE as usize / 100, 0.0));
-        assert!(g < -9.0, "hemen kalkmaz: {g}");
+        assert!(g < -10.0, "hemen kalkmaz: {g}");
         let g = to_db(run(&mut leveler, &levels, RATE as usize * 10, 0.0));
         assert!((g + 6.0).abs() < 1e-6, "{g}");
     }
@@ -712,19 +713,19 @@ mod tests {
     #[test]
     fn olculen_bas_tepeleri_korumayi_gereksiz_kismaktan_kurtarir() {
         let levels = TrackLevels::new();
-        levels.set_loudness(0, Some(loud())); // −6 dB eşitleme → 6 dB boşluk
+        levels.set_loudness(0, Some(loud())); // −6 dB eşitleme → −1 dBTP tavanına 5 dB boşluk
         let bass = BassBoost {
             shelf_db: 12.0,
             ..BassBoost::default()
         };
         let mut leveler = Leveler::new(RATE, &levels, true);
-        // Ölçüm yok: en kötü durum, rafın tamamı (12 − 6 = 6 dB kısılır).
+        // Ölçüm yok: en kötü durum, rafın tamamı (12 − 5 = 7 dB kısılır).
         leveler.begin_block(&levels, true, 0.0, bass);
         let mut gain = 0.0;
         for _ in 0..RATE {
             gain = leveler.next_gain(&levels, true);
         }
-        assert!((to_db(gain) + 12.0).abs() < 0.01, "{}", to_db(gain));
+        assert!((to_db(gain) + 13.0).abs() < 0.01, "{}", to_db(gain));
         // Ölçüldü: bu şarkıda +12 dB bas tepeyi yalnızca 2,5 dB yükseltiyor; boşluk yetiyor.
         levels.set_bass_peaks(
             0,
