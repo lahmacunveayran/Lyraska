@@ -13,6 +13,7 @@ import { lyricFit, lyricFrame, lyricPan, photoLyricWords } from "../lib/lyrics";
  * (`lyricFit`, `lyricPan`): sözün sonu hiçbir zaman kaybolmaz, söylenen kelime hep görünür.
  * `positionSecs` genel söz katmanıyla aynı zamandır (`lyricTime`). Varsayılan modda saydamlık ve
  * ışıltı söylendiği karede değişir (CSS geçişi sözü geride bırakırdı); güvenli modda yavaş geçiş.
+ * Otomatik zamanlamada emin olunamayan satır soluk görünür ve sonunda küçük "tahmini" yazar.
  */
 export function PhotoLyrics({
   lyrics,
@@ -67,7 +68,7 @@ export function PhotoLyrics({
       {/* Yeni satır yeni öğe: önceki uzun satırın kayması yeni satırda geri kaymaz. */}
       <span
         key={frame.line?.start ?? -1}
-        className="photo-lyrics__line"
+        className={`photo-lyrics__line${frame.line?.uncertain ? " is-uncertain" : ""}`}
         ref={innerRef}
         style={
           {
@@ -84,6 +85,7 @@ export function PhotoLyrics({
             {word.text}
           </span>
         ))}
+        {frame.line?.uncertain && <span className="photo-lyrics__tag">tahmini</span>}
       </span>
     </p>
   );

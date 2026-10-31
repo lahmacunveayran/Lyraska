@@ -7,6 +7,48 @@ export const LYRICS_SOURCE_TEXT: Record<LyricsSource, string> = {
   user: "Lyraska'da düzenlediğiniz",
 };
 
+/**
+ * Otomatik zamanlamanın (zamansız sözü şarkının sesine oturtma) çalan şarkı için durumu; söz yoksa ya
+ * da zamanlar dosyadan geliyorsa `null`.
+ * - `noPackage`: söz zamansız, söz paketi kurulu değil.
+ * - `pending`: söz zamansız, paket kurulu: arka planda oturtuluyor.
+ * - `good`, `partly`, `unaligned`: oturtuldu; hepsi güvenli / bazı satırlar tahmini / çoğu oturmadı.
+ */
+export type AutoTiming = "noPackage" | "pending" | "good" | "partly" | "unaligned";
+
+/** `packageInstalled`: söz paketi kurulu mu (henüz bilinmiyorsa `null`). */
+export function autoTiming(
+  lyrics: Lyrics | null,
+  packageInstalled: boolean | null,
+): AutoTiming | null {
+  if (!lyrics || lyrics.lines.length === 0) return null;
+  switch (lyrics.auto) {
+    case "good":
+      return "good";
+    case "partlyEstimated":
+      return "partly";
+    case "unaligned":
+      return "unaligned";
+    default:
+      break;
+  }
+  if (lyrics.synced || packageInstalled === null) return null;
+  return packageInstalled ? "pending" : "noPackage";
+}
+
+/** Sözler panelinde otomatik zamanlamanın durum yazısı. */
+export const AUTO_TIMING_TEXT: Record<AutoTiming, string> = {
+  noPackage:
+    "Bu sözlerin zamanı yok. Lyraska onları şarkının sesine kendiliğinden oturtabilir; bunun için bir kez " +
+    "söz paketini eklemeniz gerekir (366 MB, test sürümü sayfasından indirilir).",
+  pending: "Sözler şarkının sesine oturtuluyor (arka planda; birkaç dakika sürebilir).",
+  good: "Sözler şarkının sesine kendiliğinden oturtuldu.",
+  partly: "Sözler şarkının sesine oturtuldu; soluk satırlar tahmini (emin olunamadı).",
+  unaligned:
+    "Sözlerin çoğu bu şarkıya oturmadı: sözler başka bir şarkının ya da başka bir sürümün olabilir. " +
+    "Satırlar tahmini gösteriliyor.",
+};
+
 /** Satır başlamadan bu kadar önce belirmeye başlar (saniye). */
 export const LYRIC_LEAD = 0.25;
 /** Satır bittikten sonra bu sürede söner (saniye). */

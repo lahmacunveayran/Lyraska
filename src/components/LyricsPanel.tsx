@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import type { LyricsControls } from "../hooks/useLyrics";
-import { errorMessage, type LyricsText } from "../lib/backend";
-import { LYRICS_SOURCE_TEXT, lyricsTextStats } from "../lib/lyrics";
+import {
+  errorMessage,
+  installLyricsPackage,
+  isLyricsPackageInstalled,
+  pickLyricsPackageFile,
+  type LyricsText,
+} from "../lib/backend";
+import { AUTO_TIMING_TEXT, LYRICS_SOURCE_TEXT, autoTiming, lyricsTextStats } from "../lib/lyrics";
 
 export interface LyricsPanelProps {
   lyrics: LyricsControls;
@@ -18,14 +24,28 @@ type Loaded = { path: string; text: LyricsText | null };
  * Şarkı sözlerini yapıştırma ve düzenleme: kullanıcının bulduğu düz metin ya da şarkının kendi sözleri
  * (yan `.lrc`, gömülü) burada düzeltilir. Kaydedilen metin Lyraska'nın klasöründe saklanır, müzik
  * dosyasına dokunulmaz ve şarkının kendi sözlerinden önce gelir. Zamanlı satırlar (`[01:23.45]`)
- * sahnede akar; zamanı olmayanlar şarkı çalarken dokunarak zamanlanır (ayrı adım).
+ * sahnede akar; zamanı olmayanlar şarkının sesine kendiliğinden oturtulur (söz paketi gerekir: kullanıcı
+ * indirir ve burada ekler; program internete bağlanmaz). Otomatik zamanlamanın durumu burada yazar.
  */
 export function LyricsPanel({ lyrics, trackPath, trackTitle, visible }: LyricsPanelProps) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [draft, setDraft] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Söz paketi kurulu mu (panel açılınca okunur; bilinmiyorsa `null`).
+  const [packageInstalled, setPackageInstalled] = useState<boolean | null>(null);
   const { loadText } = lyrics;
+
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    isLyricsPackageInstalled()
+      .then((installed) => !cancelled && setPackageInstalled(installed))
+      .catch(() => !cancelled && setPackageInstalled(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
 
   // Şarkı değişince (panel açıkken) metin yeniden okunur; düzenleme taslağı o şarkınınkiyle başlar.
   useEffect(() => {
@@ -57,6 +77,24 @@ export function LyricsPanel({ lyrics, trackPath, trackTitle, visible }: LyricsPa
       await action();
       if (trackPath) setLoaded({ path: trackPath, text: next });
       setMessage(done);
+    } catch (e) {
+      setMessage(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const timing = trackPath ? autoTiming(lyrics.lyrics, packageInstalled) : null;
+  const addPackage = async () => {
+    const file = await pickLyricsPackageFile().catch(() => null);
+    if (!file) return;
+    setBusy(true);
+    setMessage("Söz paketi denetleniyor ve ekleniyor…");
+    try {
+      await installLyricsPackage(file);
+      setPackageInstalled(true);
+      lyrics.refresh?.();
+      setMessage("Söz paketi eklendi: zamansız sözler şarkının sesine oturtulacak.");
     } catch (e) {
       setMessage(errorMessage(e));
     } finally {
@@ -101,6 +139,22 @@ export function LyricsPanel({ lyrics, trackPath, trackTitle, visible }: LyricsPa
                 : " Bu şarkının sözü yok.")}
           </p>
         </div>
+
+        {timing && (
+          <div className={`lyricsedit__auto is-${timing}`}>
+            <p>{AUTO_TIMING_TEXT[timing]}</p>
+            {timing === "noPackage" && (
+              <button
+                type="button"
+                className="chip chip--button"
+                disabled={busy}
+                onClick={() => void addPackage()}
+              >
+                Söz paketini ekle…
+              </button>
+            )}
+          </div>
+        )}
 
         <label className="lyricsedit__label" htmlFor="lyrics-edit">
           Sözler
