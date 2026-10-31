@@ -1221,3 +1221,655 @@ mod tests {
         assert_eq!(tensor_f32(&negative), None);
     }
 }
+
+/// Bağımsız inceleme: `dequantize_matmuls` için kendi karşı örnek üreteci (deneme modelinin
+/// betiğinden bağımsız). Rastgele küçük nicemli grafikler kurulur; çevrilen, tract'ın tamsayı yolu ve
+/// tanımdan elle hesap karşılaştırılır; kalıba uymayanların dokunulmadan kaldığı sınanır.
+#[cfg(test)]
+mod dequantize_counterexamples {
+    use super::*;
+    use pb::attribute_proto::AttributeType;
+    use pb::tensor_proto::DataType;
+
+    struct Rng(u64);
+    impl Rng {
+        fn next(&mut self) -> u64 {
+            self.0 ^= self.0 << 13;
+            self.0 ^= self.0 >> 7;
+            self.0 ^= self.0 << 17;
+            self.0
+        }
+        fn below(&mut self, n: u64) -> u64 {
+            self.next() % n
+        }
+        fn coin(&mut self) -> bool {
+            self.next() & 1 == 1
+        }
+        fn unit(&mut self) -> f64 {
+            (self.next() >> 11) as f64 / (1u64 << 53) as f64
+        }
+    }
+
+    fn node(op: &str, inputs: &[&str], outputs: &[&str]) -> pb::NodeProto {
+        pb::NodeProto {
+            op_type: op.into(),
+            input: inputs.iter().map(|s| s.to_string()).collect(),
+            output: outputs.iter().map(|s| s.to_string()).collect(),
+            ..Default::default()
+        }
+    }
+
+    fn cast(input: &str, output: &str, to: DataType) -> pb::NodeProto {
+        let mut n = node("Cast", &[input], &[output]);
+        n.attribute.push(pb::AttributeProto {
+            name: "to".into(),
+            r#type: AttributeType::Int as i32,
+            i: to as i64,
+            ..Default::default()
+        });
+        n
+    }
+
+    fn constant(output: &str, t: pb::TensorProto) -> pb::NodeProto {
+        let mut n = node("Constant", &[], &[output]);
+        n.attribute.push(pb::AttributeProto {
+            name: "value".into(),
+            r#type: AttributeType::Tensor as i32,
+            t: Some(t),
+            ..Default::default()
+        });
+        n
+    }
+
+    fn int_tensor(
+        name: &str,
+        dims: &[i64],
+        vals: &[i32],
+        signed: bool,
+        raw: bool,
+    ) -> pb::TensorProto {
+        let ty = if signed {
+            DataType::Int8
+        } else {
+            DataType::Uint8
+        };
+        let mut t = pb::TensorProto {
+            name: name.into(),
+            dims: dims.to_vec(),
+            data_type: ty as i32,
+            ..Default::default()
+        };
+        if raw {
+            t.raw_data = vals.iter().map(|&v| v as u8).collect();
+        } else {
+            t.int32_data = vals.to_vec();
+        }
+        t
+    }
+
+    fn f32_tensor(name: &str, dims: &[i64], vals: &[f32], raw: bool) -> pb::TensorProto {
+        let mut t = pb::TensorProto {
+            name: name.into(),
+            dims: dims.to_vec(),
+            data_type: DataType::Float as i32,
+            ..Default::default()
+        };
+        if raw {
+            t.raw_data = vals.iter().flat_map(|v| v.to_le_bytes()).collect();
+        } else {
+            t.float_data = vals.to_vec();
+        }
+        t
+    }
+
+    fn value_info(name: &str, ty: DataType) -> pb::ValueInfoProto {
+        pb::ValueInfoProto {
+            name: name.into(),
+            r#type: Some(pb::TypeProto {
+                value: Some(pb::type_proto::Value::TensorType(pb::type_proto::Tensor {
+                    elem_type: ty as i32,
+                    shape: None,
+                })),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
+
+    #[derive(Clone)]
+    struct Case {
+        nodes: Vec<pb::NodeProto>,
+        inits: Vec<pb::TensorProto>,
+        inputs: Vec<(String, DataType)>,
+        outputs: Vec<(String, DataType)>,
+    }
+
+    impl Case {
+        fn new() -> Self {
+            Self {
+                nodes: vec![node("DynamicQuantizeLinear", &["x"], &["xq", "sx", "zx"])],
+                inits: vec![],
+                inputs: vec![("x".into(), DataType::Float)],
+                outputs: vec![],
+            }
+        }
+
+        fn model(&self) -> pb::ModelProto {
+            let vis = |v: &[(String, DataType)]| {
+                v.iter().map(|(n, t)| value_info(n, *t)).collect::<Vec<_>>()
+            };
+            pb::ModelProto {
+                ir_version: 8,
+                opset_import: vec![pb::OperatorSetIdProto {
+                    domain: String::new(),
+                    version: 13,
+                }],
+                graph: Some(pb::GraphProto {
+                    name: "karsi-ornek".into(),
+                    node: self.nodes.clone(),
+                    initializer: self.inits.clone(),
+                    input: vis(&self.inputs),
+                    output: vis(&self.outputs),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }
+        }
+
+        fn node_mut(&mut self, output: &str) -> &mut pb::NodeProto {
+            self.nodes
+                .iter_mut()
+                .find(|n| n.output.iter().any(|o| o == output))
+                .expect("düğüm")
+        }
+
+        /// Ağırlık ya da sabit (initializer ya da Constant düğümü): yerine yenisini koyar.
+        fn replace_tensor(&mut self, name: &str, mut t: pb::TensorProto) {
+            t.name = name.into();
+            if let Some(i) = self.inits.iter_mut().find(|i| i.name == name) {
+                *i = t;
+            } else {
+                *self.node_mut(name) = constant(name, t);
+            }
+        }
+
+        fn remove_tensor(&mut self, name: &str) {
+            self.inits.retain(|i| i.name != name);
+            self.nodes
+                .retain(|n| !(n.op_type == "Constant" && n.output.iter().any(|o| o == name)));
+        }
+    }
+
+    #[derive(Clone)]
+    struct Weight {
+        q: Vec<i32>,
+        z: i32,
+        s: f32,
+        signed: bool,
+        k: usize,
+        n: usize,
+    }
+
+    impl Weight {
+        fn random(rng: &mut Rng, k: usize, n: usize, signed: bool) -> Self {
+            let q = (0..k * n)
+                .map(|_| {
+                    if signed {
+                        rng.below(256) as i32 - 128
+                    } else {
+                        rng.below(256) as i32
+                    }
+                })
+                .collect();
+            let z = if signed {
+                if rng.coin() {
+                    0
+                } else {
+                    rng.below(21) as i32 - 10
+                }
+            } else {
+                rng.below(57) as i32 + 100
+            };
+            let s = (0.001 + 0.05 * rng.unit()) as f32;
+            Self {
+                q,
+                z,
+                s,
+                signed,
+                k,
+                n,
+            }
+        }
+
+        /// Tanım: W = (W_q − z_w)·s_w (f64).
+        fn real(&self) -> Vec<f64> {
+            self.q
+                .iter()
+                .map(|&q| f64::from(q - self.z) * f64::from(self.s))
+                .collect()
+        }
+    }
+
+    #[derive(Clone, Copy)]
+    struct Opts {
+        raw_w: bool,
+        raw_z: bool,
+        raw_s: bool,
+        const_w: bool,
+        const_zs: bool,
+        swap_mul: bool,
+        swap_scale: bool,
+    }
+
+    impl Opts {
+        fn random(rng: &mut Rng) -> Self {
+            Self {
+                raw_w: rng.coin(),
+                raw_z: rng.coin(),
+                raw_s: rng.coin(),
+                const_w: rng.coin(),
+                const_zs: rng.coin(),
+                swap_mul: rng.coin(),
+                swap_scale: rng.coin(),
+            }
+        }
+    }
+
+    /// Kalıba uyan bir dal: `p_y = Mul(Cast(MatMulInteger(xq, Wq, zx, zw)), Mul(sx, sw))`.
+    /// `shared_wq` verilirse ağırlık tensörü yeniden yazılmaz, o ad kullanılır.
+    fn add_branch(c: &mut Case, p: &str, w: &Weight, o: Opts, shared_wq: Option<&str>) {
+        let own_wq = format!("{p}_Wq");
+        let wq = shared_wq.unwrap_or(&own_wq).to_string();
+        let (zw, sw) = (format!("{p}_zw"), format!("{p}_sw"));
+        let (acc, accf, sxw, y) = (
+            format!("{p}_acc"),
+            format!("{p}_accf"),
+            format!("{p}_sxw"),
+            format!("{p}_y"),
+        );
+        if shared_wq.is_none() {
+            let t = int_tensor(&wq, &[w.k as i64, w.n as i64], &w.q, w.signed, o.raw_w);
+            if o.const_w {
+                c.nodes.push(constant(&wq, t));
+            } else {
+                c.inits.push(t);
+            }
+        }
+        let zt = int_tensor(&zw, &[], &[w.z], w.signed, o.raw_z);
+        let st = f32_tensor(&sw, &[], &[w.s], o.raw_s);
+        if o.const_zs {
+            c.nodes.push(constant(&zw, zt));
+            c.nodes.push(constant(&sw, st));
+        } else {
+            c.inits.push(zt);
+            c.inits.push(st);
+        }
+        c.nodes
+            .push(node("MatMulInteger", &["xq", &wq, "zx", &zw], &[&acc]));
+        c.nodes.push(cast(&acc, &accf, DataType::Float));
+        if o.swap_scale {
+            c.nodes.push(node("Mul", &[&sw, "sx"], &[&sxw]));
+        } else {
+            c.nodes.push(node("Mul", &["sx", &sw], &[&sxw]));
+        }
+        if o.swap_mul {
+            c.nodes.push(node("Mul", &[&sxw, &accf], &[&y]));
+        } else {
+            c.nodes.push(node("Mul", &[&accf, &sxw], &[&y]));
+        }
+        c.outputs.push((y, DataType::Float));
+    }
+
+    type Output = (Vec<usize>, Vec<f32>);
+
+    fn run(model: &pb::ModelProto, x: &[f32], rows: usize, k: usize) -> TractResult<Vec<Output>> {
+        let plan = tract_onnx::onnx()
+            .with_ignore_output_shapes(true)
+            .with_ignore_value_info(true)
+            .model_for_proto_model(model)?
+            .with_input_fact(0, f32::fact([rows, k]).into())?
+            .into_optimized()?
+            .into_runnable()?;
+        let input: Tensor = tract_ndarray::Array2::from_shape_vec((rows, k), x.to_vec())?.into();
+        let out = plan.run(tvec!(input.into()))?;
+        out.iter()
+            .map(|t| {
+                let f = t.cast_to::<f32>()?;
+                Ok((
+                    t.shape().to_vec(),
+                    f.to_plain_array_view::<f32>()?.iter().copied().collect(),
+                ))
+            })
+            .collect()
+    }
+
+    fn random_x(rng: &mut Rng, rows: usize, k: usize) -> Vec<f32> {
+        let scale = 0.1 + 4.0 * rng.unit();
+        let positive = rng.below(4) == 0;
+        let mut x: Vec<f32> = (0..rows * k)
+            .map(|_| {
+                let v = (rng.unit() * 2.0 - 1.0) * scale;
+                (if positive { v.abs() } else { v }) as f32
+            })
+            .collect();
+        if rng.coin() {
+            let i = rng.below(x.len() as u64) as usize;
+            x[i] *= 5.0;
+        }
+        x
+    }
+
+    /// Çevrilen = x·W (elle, f64; f32 yuvarlaması payıyla); eski yolla fark ≤ (s_x/2)·Σ_k |W_kj|.
+    fn check_branch(label: &str, x: &[f32], w: &Weight, old: &Output, new: &Output) {
+        assert_eq!(old.0, new.0, "{label}: çıktı şekli");
+        let (k, n) = (w.k, w.n);
+        let rows = x.len() / k;
+        let real = w.real();
+        let x64: Vec<f64> = x.iter().map(|&v| f64::from(v)).collect();
+        let lo = x64.iter().fold(0f64, |a, &b| a.min(b));
+        let hi = x64.iter().fold(0f64, |a, &b| a.max(b));
+        let s_x = (hi - lo) / 255.0;
+        for r in 0..rows {
+            for j in 0..n {
+                let (mut exact, mut abs, mut col) = (0.0, 0.0, 0.0);
+                for i in 0..k {
+                    let p = x64[r * k + i] * real[i * n + j];
+                    exact += p;
+                    abs += p.abs();
+                    col += real[i * n + j].abs();
+                }
+                let round = abs * (k as f64 + 2.0) * 2f64.powi(-23) + 1e-6;
+                let got = f64::from(new.1[r * n + j]);
+                assert!(
+                    (got - exact).abs() <= round,
+                    "{label} [{r},{j}]: çevrilen {got} ≠ elle {exact} (pay {round})"
+                );
+                let was = f64::from(old.1[r * n + j]);
+                let bound = s_x / 2.0 * col * 1.001 + 2.0 * round;
+                assert!(
+                    (was - got).abs() <= bound,
+                    "{label} [{r},{j}]: eski {was}, yeni {got}, sınır {bound}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn rastgele_kaliba_uyan_carpimlar_dogru_cevrilir() {
+        let mut rng = Rng(0x9e37_79b9_7f4a_7c15);
+        for case_no in 0..200 {
+            let k = 1 + rng.below(24) as usize;
+            let rows = 1 + rng.below(5) as usize;
+            let mut c = Case::new();
+            let branches = 1 + rng.below(3) as usize;
+            let mut weights = vec![];
+            for b in 0..branches {
+                let n = 1 + rng.below(10) as usize;
+                let signed = rng.coin();
+                let w = Weight::random(&mut rng, k, n, signed);
+                let o = Opts::random(&mut rng);
+                add_branch(&mut c, &format!("b{b}"), &w, o, None);
+                weights.push(w);
+            }
+            // s_x ve x_q başka yerde de kullanılabilir.
+            if rng.coin() {
+                c.nodes.push(node("Identity", &["sx"], &["sx_out"]));
+                c.outputs.push(("sx_out".into(), DataType::Float));
+            }
+            if rng.coin() {
+                c.nodes.push(cast("xq", "xq_f", DataType::Float));
+                c.outputs.push(("xq_f".into(), DataType::Float));
+            }
+            let original = c.model();
+            let mut conv = original.clone();
+            assert_eq!(dequantize_matmuls(&mut conv), branches, "örnek {case_no}");
+            let graph = conv.graph.as_ref().expect("grafik");
+            assert!(graph.node.iter().all(|n| n.op_type != "MatMulInteger"));
+            let x = random_x(&mut rng, rows, k);
+            let old = run(&original, &x, rows, k).expect("eski yol çalışır");
+            let new = run(&conv, &x, rows, k).expect("çevrilen çalışır");
+            assert_eq!(old.len(), new.len());
+            for (b, w) in weights.iter().enumerate() {
+                check_branch(&format!("örnek {case_no} dal {b}"), &x, w, &old[b], &new[b]);
+            }
+            for e in branches..old.len() {
+                assert_eq!(old[e], new[e], "örnek {case_no}: ek çıktı {e} aynı kalmalı");
+            }
+        }
+    }
+
+    #[test]
+    fn ayni_agirlik_ayni_olcekle_paylasilinca_dogru() {
+        let mut rng = Rng(77);
+        let k = 7;
+        let w = Weight::random(&mut rng, k, 5, false);
+        let mut c = Case::new();
+        let o = Opts::random(&mut rng);
+        add_branch(&mut c, "b0", &w, o, None);
+        add_branch(&mut c, "b1", &w, o, Some("b0_Wq"));
+        let original = c.model();
+        let mut conv = original.clone();
+        assert_eq!(dequantize_matmuls(&mut conv), 2);
+        let x = random_x(&mut rng, 3, k);
+        let old = run(&original, &x, 3, k).expect("eski");
+        let new = run(&conv, &x, 3, k).expect("yeni");
+        check_branch("b0", &x, &w, &old[0], &new[0]);
+        check_branch("b1", &x, &w, &old[1], &new[1]);
+    }
+
+    /// Kalıbı bozan değişiklikler: hiçbiri çevrilmemeli ve model olduğu gibi kalmalı.
+    #[test]
+    fn kaliba_uymayanlar_dokunulmadan_kalir() {
+        type Mutation = fn(&mut Case, &Weight);
+        let mutations: Vec<(&str, Mutation)> = vec![
+            ("kanal başına ölçek", |c, w| {
+                let v: Vec<f32> = (0..w.n).map(|j| w.s * (1.0 + j as f32)).collect();
+                c.replace_tensor("b0_sw", f32_tensor("", &[w.n as i64], &v, false));
+            }),
+            ("kanal başına sıfır noktası", |c, w| {
+                let v: Vec<i32> = (0..w.n as i32).map(|j| w.z + j).collect();
+                c.replace_tensor("b0_zw", int_tensor("", &[w.n as i64], &v, w.signed, true));
+            }),
+            ("Cast çıktısının başka tüketicisi", |c, _| {
+                c.nodes.push(node("Identity", &["b0_accf"], &["extra"]));
+                c.outputs.push(("extra".into(), DataType::Float));
+            }),
+            ("tamsayı toplam grafik çıktısı", |c, _| {
+                c.outputs.push(("b0_acc".into(), DataType::Int32));
+            }),
+            ("Cast çıktısı grafik çıktısı", |c, _| {
+                c.outputs.push(("b0_accf".into(), DataType::Float));
+            }),
+            ("Cast double'a", |c, _| {
+                c.node_mut("b0_accf").attribute[0].i = DataType::Double as i64;
+            }),
+            ("Mul'un diğer girdisi yalnızca s_w", |c, _| {
+                for i in &mut c.node_mut("b0_y").input {
+                    if i == "b0_sxw" {
+                        *i = "b0_sw".into();
+                    }
+                }
+            }),
+            ("ölçek başka girdinin s_x'i", |c, _| {
+                c.inits.push(f32_tensor("two", &[], &[2.0], false));
+                c.nodes.insert(1, node("Mul", &["x", "two"], &["x2"]));
+                c.nodes.insert(
+                    2,
+                    node("DynamicQuantizeLinear", &["x2"], &["xq2", "sx2", "zx2"]),
+                );
+                for i in &mut c.node_mut("b0_sxw").input {
+                    if i == "sx" {
+                        *i = "sx2".into();
+                    }
+                }
+            }),
+            ("z_x sabit", |c, _| {
+                c.inits.push(int_tensor("zx_c", &[], &[128], false, true));
+                c.node_mut("b0_acc").input[2] = "zx_c".into();
+            }),
+            ("z_x başka nicemleyiciden", |c, _| {
+                c.nodes.insert(
+                    1,
+                    node("DynamicQuantizeLinear", &["x"], &["xq2", "sx2", "zx2"]),
+                );
+                c.node_mut("b0_acc").input[2] = "zx2".into();
+            }),
+            ("MatMulInteger başka alanda", |c, _| {
+                c.node_mut("b0_acc").domain = "com.example".into();
+            }),
+            ("DynamicQuantizeLinear başka alanda", |c, _| {
+                c.node_mut("xq").domain = "com.example".into();
+            }),
+            ("ölçek çarpımı başka alanda", |c, _| {
+                c.node_mut("b0_sxw").domain = "com.example".into();
+            }),
+            ("ağırlık grafik girdisi", |c, _| {
+                c.remove_tensor("b0_Wq");
+                c.inputs.push(("b0_Wq".into(), DataType::Uint8));
+            }),
+            ("ölçek çarpımı Add", |c, _| {
+                c.node_mut("b0_sxw").op_type = "Add".into();
+            }),
+            ("son düğüm Add", |c, _| {
+                c.node_mut("b0_y").op_type = "Add".into();
+            }),
+            ("z_w verilmemiş", |c, _| {
+                c.node_mut("b0_acc").input[3] = String::new();
+            }),
+            ("ağırlık üç boyutlu", |c, w| {
+                let t = int_tensor("", &[1, w.k as i64, w.n as i64], &w.q, w.signed, true);
+                c.replace_tensor("b0_Wq", t);
+            }),
+            ("Mul(accf, accf)", |c, _| {
+                c.node_mut("b0_y").input = vec!["b0_accf".into(), "b0_accf".into()];
+            }),
+            ("ölçek Mul(sx, sx)", |c, _| {
+                c.node_mut("b0_sxw").input = vec!["sx".into(), "sx".into()];
+            }),
+            ("sonsuz ölçek", |c, _| {
+                c.replace_tensor("b0_sw", f32_tensor("", &[], &[f32::INFINITY], false));
+            }),
+            ("eksik ağırlık baytı", |c, w| {
+                let mut t = int_tensor("", &[w.k as i64, w.n as i64], &w.q, w.signed, true);
+                t.raw_data.pop();
+                c.replace_tensor("b0_Wq", t);
+            }),
+        ];
+        let mut rng = Rng(0xdead_beef_1234_5678);
+        for round in 0..20 {
+            for (name, mutate) in &mutations {
+                let k = 1 + rng.below(12) as usize;
+                let n = 2 + rng.below(8) as usize;
+                let signed = rng.coin();
+                let w = Weight::random(&mut rng, k, n, signed);
+                let mut c = Case::new();
+                let o = Opts::random(&mut rng);
+                add_branch(&mut c, "b0", &w, o, None);
+                mutate(&mut c, &w);
+                let original = c.model();
+                let mut conv = original.clone();
+                assert_eq!(dequantize_matmuls(&mut conv), 0, "{name} (tur {round})");
+                assert!(conv == original, "{name} (tur {round}): model değişti");
+            }
+        }
+    }
+
+    /// onnxruntime'ın `quantize_dynamic` çıktısı (inceleme betiği `tests/data/soz-modeli/inceleme_ort_uret.py`; kanal başına/tensör
+    /// başına, int8/uint8, üç boyutlu girdi, paylaşılan ağırlık, başka işlemde de kullanılan ağırlık).
+    /// Elle: `LYRASKA_ORT_ORNEKLERI` = betiğin çıktı klasörü.
+    #[test]
+    #[ignore = "elle: LYRASKA_ORT_ORNEKLERI"]
+    fn onnxruntime_uretimi_modeller() {
+        let dir = std::path::PathBuf::from(std::env::var("LYRASKA_ORT_ORNEKLERI").expect("klasör"));
+        let text = std::fs::read_to_string(dir.join("cases.json")).expect("cases.json");
+        let cases: serde_json::Value = serde_json::from_str(&text).expect("json");
+        let floats = |v: &serde_json::Value| -> Vec<f64> {
+            v.as_array()
+                .expect("dizi")
+                .iter()
+                .map(|f| f.as_f64().expect("sayı"))
+                .collect()
+        };
+        for case in cases.as_array().expect("dizi") {
+            let file = case["file"].as_str().expect("ad");
+            let bytes = std::fs::read(dir.join(file)).expect("model");
+            let original = tract_onnx::onnx()
+                .proto_model_for_read(&mut bytes.as_slice())
+                .expect("okunur");
+            let mut conv = original.clone();
+            let count = dequantize_matmuls(&mut conv);
+            if let Some(e) = case["expect"].as_u64() {
+                assert_eq!(count as u64, e, "{file}");
+            }
+            let shape: Vec<usize> = case["x_shape"]
+                .as_array()
+                .expect("şekil")
+                .iter()
+                .map(|d| d.as_u64().expect("boyut") as usize)
+                .collect();
+            let x: Vec<f32> = floats(&case["x"]).iter().map(|&v| v as f32).collect();
+            let runp = |m: &pb::ModelProto| -> Vec<Output> {
+                let plan = tract_onnx::onnx()
+                    .with_ignore_output_shapes(true)
+                    .with_ignore_value_info(true)
+                    .model_for_proto_model(m)
+                    .and_then(|m| m.with_input_fact(0, f32::fact(shape.clone()).into()))
+                    .and_then(|m| m.into_optimized())
+                    .and_then(|m| m.into_runnable())
+                    .expect("kurulur");
+                let input = Tensor::from_shape(&shape, &x).expect("girdi");
+                plan.run(tvec!(input.into()))
+                    .expect("çalışır")
+                    .iter()
+                    .map(|t| {
+                        let f = t.cast_to::<f32>().expect("f32");
+                        (
+                            t.shape().to_vec(),
+                            f.to_plain_array_view::<f32>()
+                                .expect("dilim")
+                                .iter()
+                                .copied()
+                                .collect(),
+                        )
+                    })
+                    .collect()
+            };
+            let old = runp(&original);
+            let new = runp(&conv);
+            let mut worst_old_ort = 0f64;
+            let mut worst_new_manual = 0f64;
+            for (o, ((a, b), want)) in old
+                .iter()
+                .zip(&new)
+                .zip(case["outputs"].as_array().expect("çıktılar"))
+                .enumerate()
+            {
+                assert_eq!(a.0, b.0, "{file} çıktı {o}: şekil");
+                let ort = floats(&want["ort"]);
+                let manual = floats(&want["manual"]);
+                let abs = floats(&want["abs"]);
+                for i in 0..ort.len() {
+                    let scale = abs[i].max(1e-3);
+                    // tract'ın tamsayı yolu onnxruntime'ınkiyle aynı hesap (yuvarlama payı).
+                    let d_old = (f64::from(a.1[i]) - ort[i]).abs() / scale;
+                    worst_old_ort = worst_old_ort.max(d_old);
+                    if count == 0 {
+                        assert_eq!(a.1[i].to_bits(), b.1[i].to_bits(), "{file}: dokunulmayan");
+                    } else {
+                        let d = (f64::from(b.1[i]) - manual[i]).abs() / scale;
+                        worst_new_manual = worst_new_manual.max(d);
+                        assert!(
+                            d < 1e-5,
+                            "{file} çıktı {o}[{i}]: yeni {} elle {}",
+                            b.1[i],
+                            manual[i]
+                        );
+                    }
+                }
+            }
+            println!(
+                "{file}: çevrilen {count}; eski−ORT en çok {worst_old_ort:.2e}, yeni−elle en çok {worst_new_manual:.2e} (göreli)"
+            );
+        }
+    }
+}
