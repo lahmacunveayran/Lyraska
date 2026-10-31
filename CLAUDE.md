@@ -163,7 +163,7 @@ lyraska/
 │   │   │   ├── spectrogram.rs #  şarkı açılınca arka planda spektrum (60 kare/sn, 32 bant), seviyeler, LUFS, bas tepeleri
 │   │   │   ├── levels.rs     #   sol/sağ RMS ve tepe; şarkıya göre 0 VU referansı
 │   │   │   ├── lyrics_align.rs # sözleri sese oturtma: CTC Viterbi (satır atlamalı), ileri-geri satır güveni, şarkı hükmü; girdi modelin emisyonları
-│   │   │   ├── lyrics_model.rs # söz modelinin emisyonları: "Söz paketi" (SHA-256 denetimli), tract (saf Rust ONNX), 30/20 sn pencere, iki iş parçacığı, 16 kHz mono çözme
+│   │   │   ├── lyrics_model.rs # söz modelinin emisyonları: "Söz paketi" (SHA-256 denetimli), tract (saf Rust ONNX), tamsayı çarpımları açılışta ondalıklı, 30/20 sn pencere, çekirdeklerin yarısı (≤ 4) iş parçacığı, 16 kHz mono çözme
 │   │   │   ├── lyrics_text.rs #  sese hizalanacak sözün hazırlığı: başlıklar, "[Nakarat]", "(x2)", rakamlar yazıyla, Türkçe küçük harf
 │   │   │   ├── annotation.rs #   kullanıcının işaretlediği beat/drop anları (JSON, ses içermez)
 │   │   │   ├── map_file.rs   #   açık şarkı haritası biçimi (dışa/içe aktarma, doğrulama, kayma, içe aktarılanların deposu)
@@ -185,7 +185,7 @@ lyraska/
 │   │                         # oturtmayı uçtan uca deneme ve model hız ölçümü
 │   ├── tests/                # Gerçek kodek testleri (formats.rs) ve sentetik test verisi (data/; data/milkdrop/
 │   │                         # projenin özgün, bilerek parlayan deneme preseti; data/soz-modeli/ söz modeli
-│   │                         # çalıştırıcısının küçük, özgün deneme modeli)
+│   │                         # çalıştırıcısının küçük, özgün deneme modelleri)
 │   ├── hlsl/                 # MilkDrop gölgelendirici çeviricisi: shim.cpp köprüsü, build.sh (wasi-sdk 30.0;
 │   │                         # CI baytı baytına aynı derlendiğini denetler), hlslparser.wasm, lisanslar/
 │   ├── vendor/hlslparser/    # projectM'in hlslparser'ı (MIT, 349b7cc2db31; LYRASKA işaretli iki küçük yama)

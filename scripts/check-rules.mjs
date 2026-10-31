@@ -11,9 +11,11 @@
 // Kullanım: npm run check:rules
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 
 const ROOT = resolve(import.meta.dirname, "..");
+// Depo içi yol her zaman "/" ile (Windows'ta da kurallar aynı adlarla eşleşsin).
+const rel = (file) => relative(ROOT, file).split(sep).join("/");
 const UNSAFE_ALLOWED = new Set(["src-tauri/src/audio/output/wasapi.rs"]);
 
 function* walk(dir) {
@@ -30,7 +32,7 @@ const lineOf = (text, index) => text.slice(0, index).split("\n").length;
 
 for (const file of walk(join(ROOT, "src-tauri"))) {
   if (!file.endsWith(".rs")) continue;
-  const name = relative(ROOT, file);
+  const name = rel(file);
   const text = readFileSync(file, "utf8");
   for (const m of text.matchAll(/\b(?:allow|expect|warn)\s*\([^)\]]*\bunsafe_code\b/g)) {
     if (!UNSAFE_ALLOWED.has(name)) {
@@ -49,7 +51,7 @@ for (const file of walk(join(ROOT, "src-tauri"))) {
 for (const dir of ["src", "scripts"]) {
   for (const file of walk(join(ROOT, dir))) {
     if (!/\.(ts|tsx|mjs)$/.test(file)) continue;
-    const name = relative(ROOT, file);
+    const name = rel(file);
     if (name === "scripts/check-rules.mjs") continue; // kendi kalıpları
     const text = readFileSync(file, "utf8");
     const isTest = /\.test\.(ts|tsx|mjs)$/.test(file);
@@ -81,7 +83,7 @@ for (const file of [...walk(join(ROOT, "src")), join(ROOT, "index.html")]) {
     // Yorumlar atlanır; `https://` içindeki `//` yorum değildir (önünde `:` olan `//` kalır).
     const code = line.replace(/(^|[^:("'=])\/\/.*$/, "$1").replace(/^\s*\*.*$/, "");
     if (REMOTE.test(code)) {
-      problems.push(`${relative(ROOT, file)}:${i + 1}: uzak adres (program internete bağlanmaz)`);
+      problems.push(`${rel(file)}:${i + 1}: uzak adres (program internete bağlanmaz)`);
     }
   });
 }
@@ -93,7 +95,7 @@ for (const file of walk(join(ROOT, "src-tauri/src"))) {
     /\b(std::net|TcpStream|TcpListener|UdpSocket|reqwest|ureq|hyper::)/g,
   )) {
     problems.push(
-      `${relative(ROOT, file)}:${lineOf(text, m.index)}: ağ kodu (${m[1]}); program internete bağlanmaz`,
+      `${rel(file)}:${lineOf(text, m.index)}: ağ kodu (${m[1]}); program internete bağlanmaz`,
     );
   }
 }

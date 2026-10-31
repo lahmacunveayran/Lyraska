@@ -33,6 +33,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let t0 = Instant::now();
     let model = LyricsModel::open(Path::new(&args[1]), MODEL_SHA256, TOKENS_SHA256)?;
     let load = t0.elapsed().as_secs_f64();
+    println!(
+        "ondalıklı çarpıma çevrilen tamsayı çarpımı: {}",
+        model.dequantized_matmuls()
+    );
 
     if args[2] == "--sessiz" {
         let secs: f64 = args.get(3).map_or(Ok(60.0), |s| s.parse())?;

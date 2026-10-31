@@ -71,6 +71,16 @@ kısaltılır.
 - **Buluttan Remote Control Windows'ta çalışmıyor** (30 Ekim 2026): sahibinin bilgisayarı ve klasörü listede görünür
   ama "kullanılamaz"; yalnızca Mac ve Linux. Sahibinin bilgisayarında çalışmak için Claude masaüstü uygulamasında
   Code sekmesinden yerel oturum açılır; bağlam depodaki belgelerle (bu dosya, ACIK-KONULAR, devir notu) taşınır.
+- **Sahibinin bilgisayarı (31 Ekim 2026'dan beri):** Windows 11, Ryzen 7 7435HS (AVX2, VNNI yok), RTX 4050; depo
+  `D:\Lyraska`. Kurulu: Git, GitHub CLI (`gh`), Rust (rustup), Node 22.22.0, VS 2022 Build Tools (C++), **CMake**
+  (`opusic-sys` ister; GitHub sunucularında hazır), Python 3.12 (`onnx`, `onnxruntime` kullanıcıya kurulu), ffmpeg.
+  Yalnızca İngilizce Windows sesleri var (Zira, David): sözü bilinen konuşma `System.Speech` ile üretilebilir.
+  Tuzaklar: Git CRLF'ye çeviriyordu (`.gitattributes` LF eklendi; yeni kopyada `core.autocrlf=false`); denetim
+  betiklerinde yol `/` ile karşılaştırılır (`path.relative` Windows'ta `\` verir); Node'un zamanlayıcısı Windows'ta
+  ~15,6 ms adımlı (`setTimeout(2)` ≈ 16 ms): ms'lik zamanlamaya dayanan testler burada düşebilir. Uzun derleme
+  denemelerinde LTO'suz ayrı hedef klasörü (`CARGO_TARGET_DIR=D:/LyraskaVeri/target-profil`,
+  `CARGO_PROFILE_RELEASE_LTO=false`, `CODEGEN_UNITS=16`): ilk sürüm derlemesi 16 dk, böyle 1,5 dk. Model ve deneme
+  verisi `D:\LyraskaVeri` (depo dışı). Kurulumlarda sahibine yalnızca Windows izin penceresi düşer.
 - **Disk dolunca önce eski `lyraska` derleme çıktıları silinir** (`target/debug/deps/lyraska*`, `liblyraska*`;
   her biri ~0,5–1,5 GB, her derlemede yenisi birikir). `CARGO_INCREMENTAL=0` ile derlemek birikmeyi azaltır.
 
@@ -177,6 +187,11 @@ kısaltılır.
 - **tract'ın AVX çekirdekleri `vzeroupper` yapmadan döner** (30 Ekim 2026, bağımsız inceleme): modeli çalıştıran iş
   parçacığındaki sonraki SSE kayan nokta işi Intel'de ~19 kat yavaşlar (söz yerleşimi 0,8 → 15 sn). Model her zaman
   kısa ömürlü ayrı iş parçacığında çalıştırılır (`lyrics_model.rs`); test `model_cagiran_is_parcacigini_yavaslatmaz`.
+- **Hız bulutta değil, kullanıcının işlemcisinde ölçülür** (31 Ekim 2026): söz modeli bulutta gerçek zamanın 0,47
+  katıydı, sahibinin Ryzen'inde 15,5 katı. Neden: tract'ın int8 çarpımı bulutta VNNI çekirdeğini, ev işlemcisinde
+  (VNNI'siz) AVX2 çekirdeğini kullanıyor (1,2 G işlem/sn; f32 ~99 G). Bulmanın yolu katman katman süre
+  (`run_plan_with_eval`) ve işlem sayısı / süre hesabı oldu. Çözüm açılışta `W = (W_q − z)·s` ile f32
+  (`dequantize_matmuls`; 29–40 kat hızlı, bellek 2,6 GB). Yeni model ya da çalıştırıcıda önce VNNI'siz işlemcide ölç.
 - **Modelin kare geometrisi sorulmadan varsayılmaz:** wav2vec2 tipi modelde kare 400 örnek alıcı alan, 320 adım;
   karenin merkezi 320·j + 200 (araştırma (j + 0,5)·320,64 sayıyordu, ikinci yarı 20 ms geç). Deneme modeli gerçek
   geometride olmalı (Reshape tabanlı deneme modeli hatayı göremedi).

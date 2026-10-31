@@ -15,7 +15,9 @@
 // Kullanım: npm run check:docs
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { resolve } from "node:path";
+// Depo içi yollar "/" ile (Windows'ta da ağaçtaki adlarla eşleşsin).
+import { basename, dirname, join } from "node:path/posix";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const read = (path) => readFileSync(join(ROOT, path), "utf8");
@@ -151,7 +153,7 @@ const linkScan = [
 for (const file of linkScan) {
   const text = read(file);
   const m = OLD_OWNER.exec(text);
-  if (m && relative(ROOT, join(ROOT, file)) !== "scripts/check-docs.mjs") {
+  if (m && file !== "scripts/check-docs.mjs") {
     problems.push(`${file}: eski hesap adına link (${m[0]}…); depo artık lahmacunveayran/Lyraska`);
   }
 }

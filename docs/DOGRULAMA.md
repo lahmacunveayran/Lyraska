@@ -606,6 +606,34 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 
 ---
 
+## G. Geliştirme bilgisayarında Claude'un ölçtükleri
+
+31 Ekim 2026'dan beri Claude proje sahibinin bilgisayarında da çalışıyor (AMD Ryzen 7 7435HS, 8 çekirdek / 16 iş
+parçacığı, 32 GB, RTX 4050, Windows 11 Pro). Burada sizden bir şey beklenmez; bu bilgisayarda ölçülenler yazılır.
+
+**G1. Geliştirme ortamı (31 Ekim)**
+
+- Kuruldu: Node.js 22.22.0, Visual Studio 2022 Build Tools (C++), CMake 4.4 (Opus çözücüsünün derlemesi ister),
+  Rust 1.97.0. Depoda `core.autocrlf=false` ve `.gitattributes` (LF): Windows'taki Git dosyaları CRLF'ye
+  çeviriyordu, biçim denetimi 358 dosyada düşüyordu.
+- `cargo test`: 718 test geçti (4'ü gerekçeli atlanan). `npm run check`: biçim, lint, tür, `check:*` temiz;
+  `check:rules` ve `check:docs` Windows yollarında (`\`) yanlış alarm veriyordu, `check:notices` Git Bash'in tar'ıyla
+  çalışmıyordu; düzeltildi.
+- 776 arayüz testinden biri Windows'ta her seferinde düşüyor: `usePlayer.test.ts` "çekirdek ölçüm anını
+  bildirince…" (fark 3,9 ms, sınır 3 ms). Neden: Windows'ta Node'un zamanlayıcısı 2 ms istenen beklemeyi ~15,6 ms'de
+  yapıyor (ölçüldü); test "kısa sorgu 2 ms" varsayıyor. Programın hatası değil; Linux CI'da geçiyor. Mevcut teste
+  dokunulmadı (karar sahibinin).
+
+**G2. Söz modelinin hızı (31 Ekim)**
+
+- İlk ölçüm: 4 dakikalık ses **3709 sn** (bulutta 113 sn). Neden: model kütüphanesinin (tract) AVX2 tamsayı çarpım
+  kodu bu işlemcide saniyede ~1,2 milyar işlem yapıyor; ondalıklı kodu ~99 milyar. Ayrıntı ve tablo:
+  `docs/arastirma/soz-hizalama/README.md` ("Windows'ta hız").
+- Düzeltmeden sonra: aynı ses **91 sn** (4 iş parçacığı), açılışta en çok 2,8 GB bellek.
+- Doğruluk: eski yolla aynı konuşma kaydında harflerin %98,96'sı aynı, 6 satırın başlangıcı birebir aynı.
+
+---
+
 ## Bildirdikleriniz
 
 Sonuçları bana yazdıkça buraya işlenir.
