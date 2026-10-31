@@ -166,6 +166,7 @@ lyraska/
 │   │   │   ├── lyrics_cache.rs # söz modelinin emisyonlarının önbelleği: yalnızca gereken sütunlar (temel alfabe + sözün harfleri), f16, sıkıştırılmış; söz düzeltilince model yeniden çalışmaz
 │   │   │   ├── lyrics_job.rs #   sözleri zamanlama işi: önbellekten ya da modelle (model yalnızca gerekince açılır), sonucun saklanması (göç 10), ekranda gösterim ("tahmini" satırlar)
 │   │   │   ├── lyrics_worker.rs # onun arka plan iş parçacığı: söz kaydedilince ya da zamansız söz gösterilince; düşük öncelik, boşta modeli bırakma, başarısızı yinelememe, çökme koruması (şarkı ve model dosyası), kapanışta en çok 50 ms; söz paketi veri klasöründe `soz-paketi/`
+│   │   │   ├── lyrics_package.rs # "Söz paketi"nin kurulumu: kullanıcının indirdiği model dosyası (boyut + SHA-256 denetimli) `soz-paketi/`'ne kopyalanır, harf listesi programın içinden yazılır
 │   │   │   ├── lyrics_model.rs # söz modelinin emisyonları: "Söz paketi" (SHA-256 denetimli), tract (saf Rust ONNX), tamsayı çarpımları açılışta ondalıklı, 30/20 sn pencere, çekirdeklerin yarısı (≤ 4) iş parçacığı, 16 kHz mono çözme
 │   │   │   ├── lyrics_text.rs #  sese hizalanacak sözün hazırlığı: başlıklar, "[Nakarat]", "(x2)", rakamlar yazıyla, Türkçe küçük harf
 │   │   │   ├── annotation.rs #   kullanıcının işaretlediği beat/drop anları (JSON, ses içermez)
@@ -191,6 +192,8 @@ lyraska/
 │   │                         # çalıştırıcısının küçük, özgün deneme modelleri)
 │   ├── hlsl/                 # MilkDrop gölgelendirici çeviricisi: shim.cpp köprüsü, build.sh (wasi-sdk 30.0;
 │   │                         # CI baytı baytına aynı derlendiğini denetler), hlslparser.wasm, lisanslar/
+│   ├── soz-modeli/           # söz modelinin harf listesi (tokens.txt, programa gömülür; bayt bayt aynı kalır) ve
+│   │                         # LICENSE (Omnilingual ASR, Apache-2.0); model dosyasının kendisi depoya girmez
 │   ├── vendor/hlslparser/    # projectM'in hlslparser'ı (MIT, 349b7cc2db31; LYRASKA işaretli iki küçük yama)
 │   ├── tauri.conf.json       # Pencere, güvenlik, Windows NSIS kurulum ayarları
 │   └── deny.toml             # cargo-deny lisans kuralları

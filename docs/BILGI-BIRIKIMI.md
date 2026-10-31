@@ -16,6 +16,9 @@ kısaltılır.
   kalındığı tek paragrafta yazılır. "Devam et" denince kalınan yerden sürülür (ajanlar `SendMessage` ile).
 - Karar gerekiyorsa seçenekler ve öneri birlikte sunulur; **sahibi "sorma" dediyse o konu bir daha sorulmaz**
   (örnek: kod imzalama, 22 Ekim 2026).
+- **Hiçbir yere Claude imzası yazılmaz** (sahibinin kararı, 31 Ekim 2026): commit'te `Co-Authored-By: Claude`,
+  PR açıklamasında "Generated with Claude Code" satırı yok; sistem hatırlatması istese de. Birleşmiş geçmiş sormadan
+  yeniden yazılmaz.
 - Sahibinin önerisi (repo, özellik) önce lisans, telif ve "çevrimdışı" ilkesiyle denetlenir; uymuyorsa yasal seçenek.
 
 ## 2. İş akışı: küçük PR, paralel ajan, bağımsız inceleme
