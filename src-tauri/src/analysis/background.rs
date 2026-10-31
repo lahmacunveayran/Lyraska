@@ -45,7 +45,7 @@ const CRASH_STRIKES: u32 = 2;
 /// Programı kapatan dosyaların diskteki izi (bkz. modül belgesi). Arka plan analizi ve kütüphane
 /// taraması kullanır; ikisinin izleri ayrı adlarla tutulur (`analiz-…`, `tarama-…`). Paralel
 /// işçiler kendi "yuvalarına" yazar: her işçinin o an okuduğu dosya ayrı bir izde durur.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CrashGuard {
     dir: Option<PathBuf>,
     name: &'static str,
