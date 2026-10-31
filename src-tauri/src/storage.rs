@@ -151,8 +151,28 @@ CREATE TABLE IF NOT EXISTS playlist_entries (
 );
 ";
 
+/// 9: söz modelinin emisyonları ([`crate::analysis::lyrics_cache`]): yalnızca sese bağlı, söz
+/// düzeltilince model yeniden çalışmasın. Anahtar yol + damga + modelin SHA-256'sı + hesap sürümü;
+/// `columns` sütun 1'den başlayarak sütunların harfleri (ayırıcı boşluk), `data` sıkıştırılmış f16.
+/// Şarkı kütüphaneden çıkınca kaydı da silinir.
+const V9: &str = "
+CREATE TABLE IF NOT EXISTS lyrics_emissions (
+    path         TEXT PRIMARY KEY,
+    file_size    INTEGER NOT NULL,
+    modified     INTEGER NOT NULL,
+    model_sha256 TEXT NOT NULL,
+    version      INTEGER NOT NULL,
+    frames       INTEGER NOT NULL,
+    frame_secs   REAL NOT NULL,
+    columns      TEXT NOT NULL,
+    data         BLOB NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS lyrics_emissions_follow_tracks AFTER DELETE ON tracks
+BEGIN DELETE FROM lyrics_emissions WHERE path = old.path; END;
+";
+
 /// Sıralı göç adımları (bkz. modül belgesi). Yalnızca sona eklenir.
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9];
 
 /// Bu sürümün bildiği en yeni şema.
 pub const SCHEMA_VERSION: i64 = MIGRATIONS.len() as i64;
@@ -327,11 +347,13 @@ mod tests {
         migrate(&mut conn).unwrap();
         assert_eq!(version(&conn), SCHEMA_VERSION);
         // V8: çalma listeleri; `sqlite_sequence` listelerin AUTOINCREMENT sayacı (SQLite'ın kendi tablosu).
+        // V9: söz modelinin emisyonları.
         assert_eq!(
             tables(&conn),
             [
                 "analyses",
                 "folders",
+                "lyrics_emissions",
                 "playlist_entries",
                 "playlists",
                 "sqlite_sequence",
