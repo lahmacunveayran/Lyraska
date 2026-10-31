@@ -9,8 +9,9 @@
 //!
 //! - **Ekran:** arayüz, verinin hesaplanmasından çizilmesine kadar geçen süreyi her
 //!   karede ölçer ve vuruşa bağlı değerleri (vuruş, ölçü) o kadar ileri alır. Çizilen
-//!   kare ekranda ~1 kare (60 Hz'de ~17 ms) sonra görünür; görseller bu kadar
-//!   ileriden okunur ([`DISPLAY_LEAD_SECONDS`]).
+//!   kare ekranda ~1 kare sonra görünür; görseller bu kadar ileriden okunur. Kare
+//!   süresini arayüz ölçüp her istekte gönderir (60 Hz'de ~17 ms, 144 Hz'de ~7 ms, ağır
+//!   sahnede daha uzun; [`clamp_display_lead`]).
 //! - **Ses aygıtı:** bazı aygıtlar (özellikle Bluetooth kulaklıklar) sesi Windows'un
 //!   bildirdiğinden 100–300 ms geç çalar; yazılım bunu bilemez. Kullanıcı ayarlar
 //!   ya da [`calibration`] tıklama kaydıyla ölçer; görseller o kadar geriden okunur.
@@ -21,9 +22,13 @@ use serde::Serialize;
 
 use crate::audio::player::VisualData;
 
-/// Çizilen karenin ekranda görünmesine kadar geçen süre (saniye; 60 Hz'de bir kare).
-/// Verinin hesaplanmasıyla çizilmesi arasındaki süreyi arayüz kendisi ölçüp telafi eder.
+/// Çizilen karenin ekranda görünmesine kadar geçen sürenin varsayılanı (saniye; 60 Hz'de bir
+/// kare): arayüzün gönderdiği değer sayı değilse. Arayüz ölçtüğü kare süresini gönderir;
+/// verinin hesaplanmasıyla çizilmesi arasındaki süreyi de kendisi ölçüp telafi eder.
 pub const DISPLAY_LEAD_SECONDS: f64 = 1.0 / 60.0;
+/// Ekran gecikmesinin üst sınırı (saniye): arayüzün kare süresi tahmininin sınırı (4 kare/sn,
+/// src/lib/clock.ts `MAX_FRAME_MS`). Dalga halkası bu kadar ileriyi de tutar.
+pub const MAX_DISPLAY_LEAD_SECONDS: f64 = 0.25;
 /// Ses gecikmesi ayarının sınırları (milisaniye). Eksi değer: ses beklenenden önce duyuluyor.
 pub const MIN_AUDIO_DELAY_MS: i32 = -100;
 pub const MAX_AUDIO_DELAY_MS: i32 = 400;
@@ -33,10 +38,25 @@ pub fn clamp_audio_delay_ms(ms: i32) -> i32 {
     ms.clamp(MIN_AUDIO_DELAY_MS, MAX_AUDIO_DELAY_MS)
 }
 
-/// Görsellerin duyulan ana göre kaydırması (saniye): + ekran gecikmesi − ses aygıtının ek
-/// gecikmesi. Oynatıcı şarkıyı ve konumu bu kaydırılmış ana göre seçer.
+/// Arayüzün gönderdiği ekran gecikmesini sınırlar içine alır: [0, [`MAX_DISPLAY_LEAD_SECONDS`]];
+/// sayı değilse varsayılan ([`DISPLAY_LEAD_SECONDS`]).
+pub fn clamp_display_lead(secs: f64) -> f64 {
+    if secs.is_finite() {
+        secs.clamp(0.0, MAX_DISPLAY_LEAD_SECONDS)
+    } else {
+        DISPLAY_LEAD_SECONDS
+    }
+}
+
+/// Görsellerin duyulan ana göre kaydırması (saniye): + ekran gecikmesi (arayüzün ölçtüğü, sınırlı)
+/// − ses aygıtının ek gecikmesi. Oynatıcı şarkıyı ve konumu bu kaydırılmış ana göre seçer.
+pub fn visual_offset_with_lead(audio_delay_ms: i32, display_lead_secs: f64) -> f64 {
+    clamp_display_lead(display_lead_secs) - f64::from(clamp_audio_delay_ms(audio_delay_ms)) / 1000.0
+}
+
+/// [`visual_offset_with_lead`], varsayılan ekran gecikmesiyle (60 Hz).
 pub fn visual_offset_secs(audio_delay_ms: i32) -> f64 {
-    DISPLAY_LEAD_SECONDS - f64::from(clamp_audio_delay_ms(audio_delay_ms)) / 1000.0
+    visual_offset_with_lead(audio_delay_ms, DISPLAY_LEAD_SECONDS)
 }
 
 /// Görsellerin okunacağı şarkı anı: duyulan an + [`visual_offset_secs`]. Şarkının başından
@@ -149,6 +169,29 @@ mod tests {
         assert!((visual_time(10.0, 5_000) - visual_time(10.0, MAX_AUDIO_DELAY_MS)).abs() < 1e-12);
         assert_eq!(visual_time(0.1, 400), 0.0);
         assert_eq!(clamp_audio_delay_ms(-1_000), MIN_AUDIO_DELAY_MS);
+    }
+
+    #[test]
+    fn olculen_kare_suresi_kadar_ileriden_okunur() {
+        // 144 Hz: bir kare ~6,9 ms; ağır sahnede 30 kare/sn: ~33 ms.
+        for lead in [
+            1.0 / 144.0,
+            1.0 / 60.0,
+            1.0 / 30.0,
+            MAX_DISPLAY_LEAD_SECONDS,
+        ] {
+            assert!((visual_offset_with_lead(0, lead) - lead).abs() < 1e-12);
+            assert!((visual_offset_with_lead(200, lead) - (lead - 0.2)).abs() < 1e-12);
+        }
+        // Sınırlar: eksi ve aşırı değer kırpılır; sayı olmayan varsayılana döner.
+        assert_eq!(clamp_display_lead(-0.01), 0.0);
+        assert_eq!(clamp_display_lead(3.0), MAX_DISPLAY_LEAD_SECONDS);
+        assert_eq!(clamp_display_lead(f64::NAN), DISPLAY_LEAD_SECONDS);
+        assert_eq!(clamp_display_lead(f64::INFINITY), DISPLAY_LEAD_SECONDS);
+        assert_eq!(
+            visual_offset_secs(0),
+            visual_offset_with_lead(0, DISPLAY_LEAD_SECONDS)
+        );
     }
 
     #[test]

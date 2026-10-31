@@ -226,6 +226,13 @@ resimler etkilenmez. Kırmızı resimde sınır gerçekten ~1,4× (tam çubuk) �
 temkinli: tarayıcıda ölçülen fark payın (16) altında kaldığı için çubuklar fiziksel olarak
 gerekenden kısadır (kaydın sesiyle yaklaşık %40'ı yetecekken %28'i).
 
+**Güvenli modda kırmızı resim** (31 Ekim 2026 ölçümü, 640×360, tarayıcı gibi model): güvenli modun kırmızı payı
+(`I + D = 8`) kırmızı resimde sessizlik boyunda dolar; çubuklar hiç uzamaz (2 px, hedef 82 px). Payı tam kullanan
+"kusursuz" sınır bile en çok 3–12 px verirdi (dolu desen / rastgele desen; düz (40, 0, 0), (110, 10, 20), degrade,
+tüylü). Beyaz ışık (yalnızca güvenli modda, yalnızca kırmızı resimde) bugünkü sınırla 4–19 px, kusursuz sınırla
+12–55 px; camgöbeği ve turuncu daha az. Pay güvenli modun sözü olduğu için değişmez; kırmızı resimde çubukların
+durması bu sözün sonucu. Sahibi kararı Claude'a bıraktı; Claude olduğu gibi bırakmayı seçti (BILGI §7).
+
 ### Hareketli arka plan (GIF, APNG, hareketli WebP)
 
 Kareler WebView'da çözülür (`ImageDecoder`, Chromium ≥ 94), WebGL tuvalinde **parlaklık freninden**

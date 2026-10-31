@@ -144,11 +144,27 @@ for (const file of readdirSync(join(ROOT, "src-tauri/capabilities"))) {
   }
 }
 
+// Test sürümü sayfasındaki söz paketi programın beklediği dosya olmalı: iş akışının yazdığı SHA-256
+// (sürüm notları) ve koruduğu ad, çekirdeğin denetlediği özetle aynı.
+const workflow = readFileSync(join(ROOT, ".github/workflows/test-surumu.yml"), "utf8");
+const modelSha = /pub const MODEL_SHA256: &str = "([0-9a-f]{64})"/.exec(
+  readFileSync(join(ROOT, "src-tauri/src/analysis/lyrics_model.rs"), "utf8"),
+)?.[1];
+const packageSha = /^\s*PACKAGE_SHA256: ([0-9a-f]{64})$/m.exec(workflow)?.[1];
+if (!modelSha || packageSha !== modelSha) {
+  problems.push(
+    `test-surumu.yml PACKAGE_SHA256 (${packageSha ?? "yok"}) lyrics_model.rs MODEL_SHA256 ile aynı değil (${modelSha ?? "yok"})`,
+  );
+}
+if (!/\[ "\$name" != "\$PACKAGE_NAME" \]/.test(workflow)) {
+  problems.push("test-surumu.yml: eski dosyalar silinirken söz paketi ($PACKAGE_NAME) korunmuyor");
+}
+
 if (problems.length > 0) {
   console.error(`Kural ihlali:\n  ${problems.join("\n  ")}`);
   process.exit(1);
 }
 console.log(
   "Kural denetimi tamam: unsafe yalnızca WASAPI'de, atlanan test yok, test adları doğru, " +
-    "uzak adres yok, CSP sıkı.",
+    "uzak adres yok, CSP sıkı, söz paketi test sürümünde korunuyor.",
 );

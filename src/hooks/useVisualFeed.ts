@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getVisualFrame, type VisualFrame } from "../lib/backend";
-import { extrapolateFrame } from "../lib/sync";
+import { displayTime, FrameClock } from "../lib/clock";
+import { extrapolateFrame, frameAge } from "../lib/sync";
 
 /**
  * Her ekran karesinde `onTick(frame, dt)` çağırır. Çalarken `frame`, Rust'tan
@@ -11,8 +12,10 @@ import { extrapolateFrame } from "../lib/sync";
  * döngüyü paylaşır: ekran karesi başına en fazla bir `visual_frame` isteği gider, aynı anda
  * tek istek uçuştadır (IPC kuyruğu birikmez) ve istek hızı saniyede 60'ı aşmaz (144 Hz
  * ekranda da). Veri ekran karelerine tam denk gelmez; bu yüzden her karede verinin
- * hesaplandığı andan bu yana geçen süre ölçülür ve vuruşa bağlı değerler o kadar ileri
- * alınır (`extrapolateFrame`): hareketler takılmadan, tam vuruşunda akar.
+ * hesaplandığı andan karenin ekrana çıkacağı ana kadar geçen süre ölçülür ve vuruşa bağlı
+ * değerler o kadar ileri alınır (`extrapolateFrame`): hareketler takılmadan, tam vuruşunda akar.
+ * Çekirdek veriyi ölçülen kare süresi kadar ileriden okur (sözlerle aynı kare saati: 144 Hz'de
+ * ~7 ms, ağır sahnede daha uzun; `displayLeadSecs`).
  *
  * Kimse çalmıyorken (boşta, duraklatılmış) sahneler saniyede 60 yerine en fazla 15 kez
  * çizilir: tam ekran gölgelendiriciler boşta ekran kartını ve pili tüketmesin; durgun gök
@@ -70,6 +73,19 @@ let inFlight = false;
 let latest: VisualFrame | null = null;
 /** En son verinin hesaplandığı an (istek ile yanıtın ortası, ms). */
 let latestAt = 0;
+/** En son verinin isteğinde gönderilen ekran gecikmesi (ms): veri o kadar ileriden okundu. */
+let latestLeadMs = 0;
+/** Ekran karelerinin süresi (src/lib/clock.ts; sözlerin kullandığı ölçüm). */
+const frames = new FrameClock();
+let frameMs = 1000 / 60;
+
+/**
+ * Görsel verinin okunacağı ekran gecikmesi (saniye): ölçülen kare süresi. Ham dalga ve ince spektrum
+ * istekleri de bununla gönderilir (görsel karelerle aynı an).
+ */
+export function displayLeadSecs(): number {
+  return frameMs / 1000;
+}
 let lastSentAt = -Infinity;
 /** Son çizimin anı ve o çizimden beri biriken süre (boşta seyrek çizim için). */
 let lastTickAt = -Infinity;
@@ -101,6 +117,7 @@ function loop(now: number) {
   // Saat farkı ya da sekme uykusu sonrası eksi süre gelmez.
   pendingDt += Math.max(0, now - last) / 1000;
   last = now;
+  frameMs = frames.tick(now);
 
   let playing = false;
   for (const s of subscribers) playing ||= s.playing && !s.failed;
@@ -112,12 +129,14 @@ function loop(now: number) {
     inFlight = true;
     lastSentAt = now;
     const sentAt = performance.now();
-    getVisualFrame()
+    const leadMs = frameMs;
+    getVisualFrame(leadMs / 1000)
       .then((frame) => {
         // `null`: o an için veri yok (ör. şarkı değişti, analiz henüz yetişmedi).
         // Sahne dinlenmeye geçer; önceki karede donup kalmaz.
         latest = frame;
         latestAt = (sentAt + performance.now()) / 2;
+        latestLeadMs = leadMs;
       })
       .catch(() => {
         /* Geçici hata: bir sonraki karede yeniden denenir. */
@@ -126,8 +145,9 @@ function loop(now: number) {
         inFlight = false;
       });
   }
-  // Uzun bir takılmadan sonra (sekme arka plandaydı) en fazla 250 ms ileri alınır.
-  const age = Math.max(0, Math.min(0.25, (now - latestAt) / 1000));
+  // Karenin ekrana çıkacağı ana göre (ağır karede geri çağrı geç koşar); uzun bir takılmadan sonra
+  // (sekme arka plandaydı) en fazla 250 ms ileri alınır.
+  const age = frameAge(displayTime(now, performance.now(), frameMs), latestAt, latestLeadMs);
   const frame = latest ? extrapolateFrame(latest, age) : null;
   const dt = pendingDt;
   pendingDt = 0;
