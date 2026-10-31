@@ -2,25 +2,32 @@
 //!
 //! İstek iki yerden gelir: kullanıcı zamansız söz kaydedince ve zamansız söz gösterilirken henüz
 //! zamanlanmamışsa ([`LyricsWorker::show`]). Kuyrukta şarkı başına bir istek durur (son metin);
-//! en son istenen önce yapılır (kullanıcının baktığı şarkı). İş bitince `on_done` çağrılır: arayüz
-//! sözleri yeniden ister ve otomatik zamanlıyı alır.
+//! en son istenen önce yapılır (kullanıcının baktığı şarkı). Süren işin aynısı yeniden istenirse
+//! yok sayılır (kayıttan hemen sonra arayüz sözleri yeniden okur). İş bitince `on_done` çağrılır:
+//! arayüz sözleri yeniden ister ve otomatik zamanlıyı alır.
 //!
 //! - **Düşük öncelik:** oynatıcının analizi sürerken iş başlamaz; model kendi iş parçacıklarıyla
 //!   çalışır (çekirdeklerin yarısı, en çok 4; `lyrics_model`).
 //! - **Model yalnızca gerekince:** kuyruk [`IDLE_RELEASE`] boyunca boş kalınca model bırakılır
-//!   (~2,5 GB bellek). Açılamayan paket bu oturumda yeniden denenmez ([`ModelSlot`]).
+//!   (~2,5 GB bellek). Açılamayan paket yeniden eklenene kadar denenmez ([`ModelSlot`],
+//!   [`LyricsWorker::package_changed`]); o sürede emisyonu önbellekte olmayan şarkı çözülmez bile.
 //! - **Başarısızlık hatırlanır:** aynı dosya ve aynı metin için başarısız iş (çözülemeyen şarkı,
-//!   kelimesiz söz…) bu oturumda yinelenmez; söz her gösterildiğinde model yeniden çalışmasın.
-//! - **Çökme döngüsü koruması** ([`CrashGuard`], `soz-…` izleri): programı iki kez kapatan şarkı
-//!   (ör. bellek yetmedi) atlanır; dosya değişince yeniden denenir.
-//! - **Kapanış:** [`LyricsWorker::stop`] süren işi iptal eder (model pencereleri arasında).
+//!   kelimesiz söz…) bu oturumda yinelenmez; söz her gösterildiğinde model yeniden çalışmasın. Paket
+//!   yüzünden olamayanlar paket eklenince yeniden denenir.
+//! - **Çökme döngüsü koruması** ([`CrashGuard`], `soz-…` izleri): her işte iki iz yazılır, şarkının
+//!   (yuva 0) ve paketin model dosyasının (yuva 1, dosya varsa). Programı iki kez kapatan şarkı atlanır
+//!   (dosya değişince yeniden denenir); model dosyası iki kez kapattıysa (ör. bellek yetmedi; hangi
+//!   şarkıda olduğu fark etmez) model, paket yeniden eklenene kadar açılmaz.
+//! - **Kapanış:** [`LyricsWorker::stop`] süren işi iptal eder (model pencereleri arasında) ve en çok
+//!   [`SHUTDOWN_WAIT`] bekler: model açılırken (birkaç saniye, iptal edilemez) program bekletilmez;
+//!   o zaman süren işin izleri silinir (kapanış çökme sayılmaz) ve iş parçacığı bırakılır.
 
 use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use super::background::CrashGuard;
 use super::cache::{AnalysisCache, FileStamp};
@@ -31,10 +38,15 @@ use crate::diagnostics;
 
 /// Kuyruk bu kadar boş kalınca model bırakılır.
 pub const IDLE_RELEASE: Duration = Duration::from_secs(60);
+/// Kapanışta süren işin bitmesi en çok bu kadar beklenir.
+pub const SHUTDOWN_WAIT: Duration = Duration::from_millis(50);
 /// Oynatıcının analizi sürerken bu aralıkla yeniden bakılır.
 const FOREGROUND_POLL: Duration = Duration::from_millis(100);
 /// "Söz paketi"nin büyük veri klasöründeki yeri.
 pub const PACKAGE_DIR: &str = "soz-paketi";
+/// Çökme izlerinin yuvaları: şarkı ve model dosyası.
+const SONG_TRACE: usize = 0;
+const MODEL_TRACE: usize = 1;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Request {
@@ -42,14 +54,18 @@ struct Request {
     text: String,
 }
 
-/// Bekleyen istekler: şarkı başına bir tane, en son istenen önde.
+/// Bekleyen istekler (şarkı başına bir tane, en son istenen önde) ve süren iş.
 #[derive(Debug, Default)]
 struct Queue {
     pending: VecDeque<Request>,
+    running: Option<Request>,
 }
 
 impl Queue {
     fn push(&mut self, request: Request) {
+        if self.running.as_ref() == Some(&request) {
+            return;
+        }
         self.pending.retain(|r| r.path != request.path);
         self.pending.push_front(request);
     }
@@ -59,16 +75,31 @@ impl Queue {
     }
 }
 
-/// Bir işin bu oturumda yinelenmeyecek anahtarı: dosya, damgası ve metnin özeti.
+/// Bir işin yinelenmeyecek anahtarı: dosya, damgası ve metnin özeti.
 type Key = (PathBuf, FileStamp, String);
+
+#[derive(Debug, Default)]
+struct Failures {
+    /// Bu oturumda başarısız işler.
+    failed: HashSet<Key>,
+    /// Paket olmadığı için olamayanlar (paket eklenince silinir).
+    no_package: HashSet<Key>,
+}
+
+impl Failures {
+    fn contains(&self, key: &Key) -> bool {
+        self.failed.contains(key) || self.no_package.contains(key)
+    }
+}
 
 struct Shared {
     stop: AtomicBool,
     queue: Mutex<Queue>,
     signal: Condvar,
-    /// Başarısız işler (bkz. modül belgesi).
-    failed: Mutex<HashSet<Key>>,
-    /// Programı kapatan şarkılar (yol + damga; önceki açılışlardan).
+    failures: Mutex<Failures>,
+    /// Paket yeniden eklendi: yuva açılamayan modeli yeniden dener.
+    package_changed: AtomicBool,
+    /// Programı kapatan şarkılar ve model dosyaları (yol + damga; önceki açılışlardan).
     crashed: HashSet<(PathBuf, FileStamp)>,
     /// Biten iş sayısı (başarılı ya da değil; testler ve günlük için).
     finished: AtomicUsize,
@@ -81,6 +112,7 @@ pub struct LyricsWorker {
     shared: Arc<Shared>,
     cache: Arc<AnalysisCache>,
     model_sha256: String,
+    guard: CrashGuard,
     thread: Mutex<Option<JoinHandle<()>>>,
 }
 
@@ -108,7 +140,8 @@ impl LyricsWorker {
             stop: AtomicBool::new(false),
             queue: Mutex::new(Queue::default()),
             signal: Condvar::new(),
-            failed: Mutex::new(HashSet::new()),
+            failures: Mutex::new(Failures::default()),
+            package_changed: AtomicBool::new(false),
             crashed: guard.recover(),
             finished: AtomicUsize::new(0),
             loaded: AtomicBool::new(false),
@@ -116,6 +149,7 @@ impl LyricsWorker {
         let model_sha256 = slot.model_sha256().to_owned();
         let worker = Arc::clone(&shared);
         let job_cache = Arc::clone(&cache);
+        let job_guard = guard.clone();
         let thread = std::thread::Builder::new()
             .name("lyraska-soz-zamanlama".to_owned())
             .spawn(move || {
@@ -125,7 +159,7 @@ impl LyricsWorker {
                     &mut slot,
                     &foreground,
                     &worker,
-                    &guard,
+                    &job_guard,
                     idle_release,
                     &on_done,
                 );
@@ -136,19 +170,20 @@ impl LyricsWorker {
             shared,
             cache,
             model_sha256,
+            guard,
             thread: Mutex::new(thread),
         }
     }
 
-    /// Şarkının `text` sözünü zamanlama isteği. Bu oturumda aynı dosya ve metinle başarısız olduysa
-    /// ya da şarkı programı kapattıysa yok sayılır.
+    /// Şarkının `text` sözünü zamanlama isteği. Aynı dosya ve metinle başarısız olduysa, şarkı programı
+    /// kapattıysa ya da aynı iş zaten sürüyorsa yok sayılır.
     pub fn request(&self, path: &Path, text: &str) {
         if let Some(stamp) = FileStamp::of(path) {
             if self.shared.crashed.contains(&(path.to_path_buf(), stamp)) {
                 return;
             }
             let key = (path.to_path_buf(), stamp, text_sha256(text));
-            if self.shared.failed.lock().is_ok_and(|f| f.contains(&key)) {
+            if self.shared.failures.lock().is_ok_and(|f| f.contains(&key)) {
                 return;
             }
         }
@@ -159,6 +194,15 @@ impl LyricsWorker {
             });
             self.shared.signal.notify_all();
         }
+    }
+
+    /// Söz paketi eklendi ya da yenilendi: açılamayan model ve paket yüzünden olamayan işler yeniden
+    /// denenir (istek gelince).
+    pub fn package_changed(&self) {
+        if let Ok(mut failures) = self.shared.failures.lock() {
+            failures.no_package.clear();
+        }
+        self.shared.package_changed.store(true, Ordering::Release);
     }
 
     /// Ekranda gösterilecek sözler: zamansızsa otomatik zamanlısı (varsa); yoksa zamanlama istenir
@@ -194,15 +238,27 @@ impl LyricsWorker {
         self.shared.loaded.load(Ordering::Acquire)
     }
 
-    /// Durdurur, süren işi iptal eder ve iş parçacığının bitmesini bekler.
+    /// Durdurur ve süren işi iptal eder; iş parçacığının bitmesini en çok [`SHUTDOWN_WAIT`] bekler.
     pub fn stop(&self) {
         self.shared.stop.store(true, Ordering::Release);
         if let Ok(_queue) = self.shared.queue.lock() {
             self.shared.signal.notify_all();
         }
         let thread = self.thread.lock().ok().and_then(|mut t| t.take());
-        if let Some(thread) = thread {
+        let Some(thread) = thread else {
+            return;
+        };
+        let deadline = Instant::now() + SHUTDOWN_WAIT;
+        while !thread.is_finished() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        if thread.is_finished() {
             let _ = thread.join();
+        } else {
+            // İş iptal bayrağına henüz bakamıyor (model açılıyor): bırakılır. Program kapanıyor;
+            // izler kalırsa sonraki açılış bunu çökme sayardı.
+            self.guard.end_slot(SONG_TRACE);
+            self.guard.end_slot(MODEL_TRACE);
         }
     }
 }
@@ -223,33 +279,40 @@ fn run(
     on_done: &dyn Fn(&Path),
 ) {
     while let Some(request) = next(shared, slot, idle_release) {
-        while foreground.load(Ordering::Acquire) > 0 && !shared.stop.load(Ordering::Acquire) {
-            std::thread::sleep(FOREGROUND_POLL);
+        let outcome = job(cache, slot, foreground, shared, guard, &request);
+        if let Ok(mut queue) = shared.queue.lock() {
+            queue.running = None;
         }
-        if shared.stop.load(Ordering::Acquire) {
+        let Some((stamp, outcome)) = outcome else {
+            // Program kapanıyor.
             return;
-        }
-        let Some(stamp) = FileStamp::of(&request.path) else {
-            shared.finished.fetch_add(1, Ordering::AcqRel);
-            continue;
         };
-        guard.begin_slot(0, &request.path, stamp);
-        let outcome = align_track(cache, &request.path, &request.text, slot, &shared.stop);
-        guard.end_slot(0);
         shared.loaded.store(slot.is_loaded(), Ordering::Release);
+        let key = || (request.path.clone(), stamp, text_sha256(&request.text));
         match outcome {
-            Ok(_) => on_done(&request.path),
-            // Kapanış, ya da dosya iş sürerken değişti (sonraki gösterimde yeniden istenir).
-            Err(JobError::Model(ModelError::Cancelled) | JobError::FileChanged) => {}
-            // Paket yok: gösterimde yeniden istenir, yuva açmayı boşuna denemez.
-            Err(JobError::Model(ModelError::Unavailable)) => {}
+            Ok(()) => on_done(&request.path),
+            // Kapanış, ya da dosya kayboldu ya da iş sürerken değişti (sonraki gösterimde yeniden
+            // istenir).
+            Err(
+                JobError::Model(ModelError::Cancelled) | JobError::FileGone | JobError::FileChanged,
+            ) => {}
+            // Paket yok ya da açılamadı (ilk deneme açılış hatasını, sonrakiler `Unavailable` döndürür):
+            // paket eklenince yeniden denenir.
+            Err(JobError::Model(e)) if slot.is_unavailable() => {
+                if !matches!(e, ModelError::Unavailable) {
+                    diagnostics::error(&format!("Söz paketi açılamadı: {e}"));
+                }
+                if let Ok(mut failures) = shared.failures.lock() {
+                    failures.no_package.insert(key());
+                }
+            }
             Err(e) => {
                 diagnostics::error(&format!(
                     "Sözler zamanlanamadı ({}): {e}",
                     request.path.display()
                 ));
-                if let Ok(mut failed) = shared.failed.lock() {
-                    failed.insert((request.path, stamp, text_sha256(&request.text)));
+                if let Ok(mut failures) = shared.failures.lock() {
+                    failures.failed.insert(key());
                 }
             }
         }
@@ -257,8 +320,59 @@ fn run(
     }
 }
 
-/// Sıradaki istek; yoksa bekler. Model açıkken kuyruk `idle_release` boyunca boş kalırsa modeli
-/// bırakır. Program kapanıyorsa `None`.
+/// Bir istek: oynatıcının analizini bekler, izleri yazar, işi yapar. Program kapanıyorsa `None`;
+/// dosya yoksa sonuç `FileGone`.
+fn job(
+    cache: &AnalysisCache,
+    slot: &mut ModelSlot,
+    foreground: &AtomicUsize,
+    shared: &Shared,
+    guard: &CrashGuard,
+    request: &Request,
+) -> Option<(FileStamp, Result<(), JobError>)> {
+    let stopping = || shared.stop.load(Ordering::Acquire);
+    while foreground.load(Ordering::Acquire) > 0 && !stopping() {
+        std::thread::sleep(FOREGROUND_POLL);
+    }
+    if stopping() {
+        return None;
+    }
+    if shared.package_changed.swap(false, Ordering::AcqRel) {
+        slot.forget_failure();
+    }
+    let model = slot.model_file();
+    let model_stamp = FileStamp::of(&model);
+    if let Some(stamp) = model_stamp {
+        if shared.crashed.contains(&(model.clone(), stamp)) {
+            slot.disable();
+        }
+    }
+    let Some(stamp) = FileStamp::of(&request.path) else {
+        return Some((
+            FileStamp {
+                size: 0,
+                modified: 0,
+            },
+            Err(JobError::FileGone),
+        ));
+    };
+    guard.begin_slot(SONG_TRACE, &request.path, stamp);
+    if let Some(model_stamp) = model_stamp {
+        guard.begin_slot(MODEL_TRACE, &model, model_stamp);
+    }
+    // Durdurma izler yazılırken geldiyse (izleri silmiş olabilir) iş başlamaz.
+    let outcome = if stopping() {
+        None
+    } else {
+        Some(align_track(cache, &request.path, &request.text, slot, &shared.stop).map(|_| ()))
+    };
+    guard.end_slot(SONG_TRACE);
+    guard.end_slot(MODEL_TRACE);
+    outcome.map(|outcome| (stamp, outcome))
+}
+
+/// Sıradaki istek (süren iş olarak işaretlenir); yoksa bekler. Model açıkken kuyruk `idle_release`
+/// boyunca boş kalırsa modeli bırakır. Program kapanıyorsa `None`.
 fn next(shared: &Shared, slot: &mut ModelSlot, idle_release: Duration) -> Option<Request> {
     let mut queue = shared.queue.lock().ok()?;
     loop {
@@ -266,6 +380,7 @@ fn next(shared: &Shared, slot: &mut ModelSlot, idle_release: Duration) -> Option
             return None;
         }
         if let Some(request) = queue.pop() {
+            queue.running = Some(request.clone());
             return Some(request);
         }
         if slot.is_loaded() {
@@ -470,6 +585,47 @@ mod tests {
         let started = Instant::now();
         f.worker.stop();
         assert!(started.elapsed() < Duration::from_secs(2));
+    }
+
+    #[test]
+    fn paket_eklenince_bekleyen_sozler_yeniden_denenir() {
+        let package = temp_path("soz-isci-sonra-paket");
+        let real = slot();
+        let (sender, done) = mpsc::channel();
+        let worker = LyricsWorker::start_with(
+            Arc::new(AnalysisCache::open_in_memory().unwrap()),
+            ModelSlot::new(
+                package.clone(),
+                real.model_sha256(),
+                &file_sha256(
+                    &PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                        .join("tests/data/soz-modeli")
+                        .join(TOKENS_FILE),
+                )
+                .unwrap(),
+            ),
+            Arc::new(AtomicUsize::new(0)),
+            CrashGuard::disabled(),
+            IDLE_RELEASE,
+            move |path| {
+                let _ = sender.send(path.to_path_buf());
+            },
+        );
+        let path = song("soz-isci-sonra-paket-sarki", 8);
+        worker.request(&path, LYRICS);
+        assert!(wait_until(|| worker.finished() == 1, 30));
+        // Paket gelmeden aynı istek yinelenmez.
+        let toy = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/soz-modeli");
+        std::fs::create_dir_all(&package).unwrap();
+        for file in [MODEL_FILE, TOKENS_FILE] {
+            std::fs::copy(toy.join(file), package.join(file)).unwrap();
+        }
+        worker.request(&path, LYRICS);
+        std::thread::sleep(Duration::from_millis(100));
+        assert_eq!(worker.finished(), 1);
+        worker.package_changed();
+        worker.request(&path, LYRICS);
+        assert_eq!(done.recv_timeout(Duration::from_secs(60)).unwrap(), path);
     }
 
     #[test]
@@ -761,22 +917,27 @@ mod inceleme_karsi_ornekler {
     /// yetmedi": ~2,5 GB'lık modelin açılması) şarkıdan bağımsızdır. Önceki iki açılış söz
     /// zamanlamasında (farklı şarkılarda) kapandıysa üçüncü şarkı yine denenir: her zamansız şarkı
     /// programı iki kez kapatmadan atlanmaz.
+    ///
+    /// Yazarın uyarlaması (düzeltmeden sonra): iş artık şarkının izinin yanında paketin model
+    /// dosyasının izini de yazar (yuva 1); çökme burada işin bıraktığı iki izle taklit edilir. Üçüncü
+    /// şarkının işi model açılmadan biter (paket yeniden eklenene kadar).
     #[test]
     fn soz_zamanlamasi_iki_kez_kapattiysa_baska_sarkida_da_denenmez() {
         let dir = temp_path("inceleme-cokme-dongusu");
+        let model = model_dir().join(MODEL_FILE);
         for name in ["inceleme-cokme-x", "inceleme-cokme-y"] {
             let crashed = song(name, 8);
             let guard = CrashGuard::named(dir.clone(), "soz");
             guard.recover();
             guard.begin_slot(0, &crashed, FileStamp::of(&crashed).unwrap());
+            guard.begin_slot(1, &model, FileStamp::of(&model).unwrap());
         }
         let f = start(slot_in(model_dir()), CrashGuard::named(dir, "soz"));
         let path = song("inceleme-cokme-z", 8);
         f.worker.request(&path, LYRICS);
-        std::thread::sleep(Duration::from_millis(500));
-        assert_eq!(
-            f.worker.finished(),
-            0,
+        assert!(wait_until(|| f.worker.finished() == 1, 30));
+        assert!(
+            f.done.try_recv().is_err() && !f.worker.model_loaded(),
             "iki çökmeden sonra model yine açıldı (üçüncü çökme)"
         );
     }

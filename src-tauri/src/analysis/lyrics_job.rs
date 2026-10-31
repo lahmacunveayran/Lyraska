@@ -30,7 +30,9 @@ use sha2::{Digest, Sha256};
 use super::cache::{AnalysisCache, CacheError, FileStamp};
 use super::lyrics_align::{align, AlignError, Alignment, Verdict, LOW_CONFIDENCE};
 use super::lyrics_cache::{StoredEmissions, EMISSIONS_VERSION};
-use super::lyrics_model::{decode_mono, LyricsModel, ModelError, MODEL_SHA256, TOKENS_SHA256};
+use super::lyrics_model::{
+    decode_mono, LyricsModel, ModelError, MODEL_FILE, MODEL_SHA256, TOKENS_SHA256,
+};
 use super::lyrics_text::{prepare, AlignLine, MAX_LINES};
 use crate::audio::lyrics::{
     estimate_words, AutoVerdict, LyricLine, LyricWord, Lyrics, LyricsSource,
@@ -100,6 +102,22 @@ impl ModelSlot {
     /// Paket yeniden eklendi: açılamayan model yeniden denenir.
     pub fn forget_failure(&mut self) {
         self.unavailable = false;
+    }
+
+    /// Model açılmasın (ör. programı kapattı); [`Self::forget_failure`]'a kadar.
+    pub fn disable(&mut self) {
+        self.model = None;
+        self.unavailable = true;
+    }
+
+    /// Model açılamıyor mu (paket yok, bozuk ya da kapatıldı)?
+    pub fn is_unavailable(&self) -> bool {
+        self.model.is_none() && self.unavailable
+    }
+
+    /// Paketin model dosyasının yolu (çökme izi için).
+    pub fn model_file(&self) -> PathBuf {
+        self.dir.join(MODEL_FILE)
     }
 
     pub fn is_loaded(&self) -> bool {
@@ -226,6 +244,10 @@ pub fn align_track(
     let stored = match cache.load_emissions(path, stamp, &sha, &letters)? {
         Some(stored) => stored,
         None => {
+            // Model açılamıyorsa şarkı boşuna çözülmez.
+            if slot.is_unavailable() {
+                return Err(ModelError::Unavailable.into());
+            }
             let previous = cache.emission_letters(path, stamp, &sha)?;
             // Önce çözülür: çözülemeyen şarkı için ~2,5 GB'lık model boşuna açılmaz.
             let audio = decode_mono(path, cancel)?;
