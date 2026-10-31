@@ -50,6 +50,9 @@ pub enum PackageError {
     Io(#[from] std::io::Error),
 }
 
+/// Kurulumları sıraya koyan kilit (bkz. [`install`]).
+static INSTALLING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// Paket kurulu mu? Yalnızca dosyaların varlığına ve boyutuna bakar (özet model açılırken denetlenir).
 pub fn installed(dir: &Path, package: Package<'_>) -> bool {
     let size = |name: &str| std::fs::metadata(dir.join(name)).ok().map(|m| m.len());
@@ -60,6 +63,10 @@ pub fn installed(dir: &Path, package: Package<'_>) -> bool {
 /// `source` dosyasını `dir` klasörüne söz paketi olarak kurar (bkz. modül belgesi). Kurulu paketin
 /// yerine geçer; dosya paket değilse kurulu olana dokunulmaz.
 pub fn install(source: &Path, dir: &Path, package: Package<'_>) -> Result<(), PackageError> {
+    // Aynı anda iki kurulum (ör. iki pencereden) aynı geçici dosyaya yazmasın: kurulumlar sırayla.
+    let _turn = INSTALLING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let meta = std::fs::metadata(source)?;
     if !meta.is_file() || meta.len() != package.bytes {
         return Err(PackageError::NotPackage);
@@ -255,6 +262,23 @@ mod tests {
         assert!(install(&dir, &dir, toy.package()).is_err());
         assert!(install(&dir.join("yok.onnx"), &dir, toy.package()).is_err());
         assert_eq!(files(&dir), [MODEL_FILE, TOKENS_FILE]);
+    }
+
+    #[test]
+    fn ayni_anda_iki_kurulum_birbirini_bozmaz() {
+        let toy = Toy::new();
+        let dir = temp_path("soz-paketi-ayni-anda");
+        std::thread::scope(|scope| {
+            let runs: Vec<_> = (0..4)
+                .map(|_| scope.spawn(|| install(&toy.file, &dir, toy.package())))
+                .collect();
+            for run in runs {
+                assert!(run.join().unwrap().is_ok());
+            }
+        });
+        assert!(installed(&dir, toy.package()));
+        assert_eq!(files(&dir), [MODEL_FILE, TOKENS_FILE]);
+        assert_eq!(file_sha256(&dir.join(MODEL_FILE)).unwrap(), toy.sha256);
     }
 
     #[test]

@@ -51,7 +51,12 @@ export function LyricsOverlay({
                   </span>
                 ))
               : frame.line.text}
-            {frame.line.uncertain && <span className="lyrics__tag">tahmini</span>}
+          </p>
+        )}
+        {/* Satırın dışında: satırın metni sözün metnine eşit kalır (zamanlama denetimi). */}
+        {frame.line?.uncertain && (
+          <p className="lyrics__note" style={{ opacity: frame.opacity }}>
+            <span className="lyrics__tag">tahmini</span>
           </p>
         )}
         {frame.line?.translation && (

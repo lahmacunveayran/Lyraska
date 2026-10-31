@@ -85,8 +85,8 @@ export function PhotoLyrics({
             {word.text}
           </span>
         ))}
-        {frame.line?.uncertain && <span className="photo-lyrics__tag">tahmini</span>}
       </span>
+      {frame.line?.uncertain && <span className="photo-lyrics__tag">tahmini</span>}
     </p>
   );
 }

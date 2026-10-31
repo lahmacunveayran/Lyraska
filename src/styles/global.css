@@ -816,12 +816,17 @@ kbd {
 }
 
 .lyrics__line.is-uncertain .lyrics__word.is-sung {
-  opacity: 0.62;
+  opacity: 0.8; /* söylenen kelimeyle aynı: kelime bitince parlaklık basamak yapmaz */
 }
 
 .lyrics__line.is-uncertain .lyrics__word.is-current {
   opacity: 0.8;
   color: var(--ink-2);
+}
+
+.lyrics__note {
+  margin: 6px 0 0;
+  line-height: 1;
 }
 
 .lyrics__tag,
