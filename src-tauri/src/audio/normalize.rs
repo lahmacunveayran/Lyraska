@@ -16,6 +16,7 @@
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, AtomicUsize, Ordering};
 
 use super::bass::{BassBoost, BassPeaks, PEAK_STEPS_DB};
+use super::limiter::CEILING_DBTP;
 use super::loudness::{Loudness, TARGET_LUFS};
 use super::Sample;
 
@@ -110,7 +111,8 @@ pub struct TrackLevels {
 pub struct TrackLevel {
     /// Eşitleme kazancı (dB).
     pub gain_db: f64,
-    /// Eşitlemeden sonra tepeye kalan boşluk (dB, ≥ 0): ekolayzer bu kadar yükseltebilir.
+    /// Eşitlemeden sonra gerçek tepeyle taşma sınırlayıcısının tavanı (−1 dBTP) arasındaki boşluk
+    /// (dB, ≥ 0): ekolayzer bu kadar yükseltebilir, sınırlayıcı çalışmaz.
     pub headroom_db: f64,
     /// Ölçülmüş bas tepeleri: bas düğmesi tepeyi gerçekte ne kadar yükseltiyor.
     pub bass_peaks: Option<BassPeaks>,
@@ -239,7 +241,7 @@ impl TrackLevels {
                 };
                 TrackLevel {
                     gain_db,
-                    headroom_db: (-(loudness.true_peak_dbtp + gain_db)).max(0.0),
+                    headroom_db: (CEILING_DBTP - (loudness.true_peak_dbtp + gain_db)).max(0.0),
                     bass_peaks,
                 }
             }

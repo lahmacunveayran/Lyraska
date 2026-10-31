@@ -942,4 +942,75 @@ mod tests {
         assert_eq!(to_device(-3.0), -1.0);
         assert_eq!(to_device(0.25), 0.25);
     }
+
+    /// Koruma ekolayzer yükseltmesini sınırlayıcının tavanına (−1 dBTP) göre karşılar: koruma
+    /// yetiyorsa sınırlayıcı hiç kısmaz (bas vuruşlarında "pompalama" olmaz). Denetim 3, D1-01:
+    /// boşluk 0 dBTP'ye göre hesaplanıyordu, +6 dB'de koruma 5 dB kısıyor, sınırlayıcı her tepede
+    /// 1 dB daha kısıyordu.
+    #[test]
+    fn koruma_yetince_sinirlayici_kismaz() {
+        use crate::audio::loudness::Loudness;
+        use crate::audio::peq::{DesignMethod, FilterKind, ParametricBand, ParametricSettings};
+
+        let levels = Arc::new(TrackLevels::new());
+        levels.set_loudness(
+            0,
+            Some(Loudness {
+                integrated_lufs: -14.0,
+                true_peak_dbtp: -1.0,
+            }),
+        );
+        let settings = ParametricSettings {
+            enabled: true,
+            bands: vec![ParametricBand {
+                kind: FilterKind::Peaking,
+                freq_hz: 1000.0,
+                gain_db: 6.0,
+                q: 1.0,
+                enabled: true,
+            }],
+            design: DesignMethod::Rbj,
+        };
+        let parametric = Arc::new(PeqControl::default());
+        parametric.set_filters(
+            &settings.filters(),
+            0.0,
+            settings.boost_db(),
+            settings.design,
+            true,
+        );
+        let controls = RenderControls {
+            parametric,
+            loudness: Arc::new(LoudnessControl::new(true)),
+            levels,
+            ..RenderControls::default()
+        };
+        let rate = 48_000u32;
+        let mut renderer = Renderer::new(1, rate, controls);
+        // −1 dBFS'lik 1 kHz: tepesi şarkının ölçülen gerçek tepesi kadar.
+        let amp = 10f64.powf(-1.0 / 20.0);
+        let samples: Vec<Sample> = (0..rate)
+            .map(|i| amp * crate::audio::test_util::sine(1000.0, rate, i as usize))
+            .collect();
+        let mut source = filled(&samples);
+        let mut out = vec![0.0; rate as usize];
+        let mut lowest: Sample = 1.0;
+        for chunk in out.chunks_mut(480) {
+            renderer.render(&mut source, chunk, false);
+            lowest = lowest.min(renderer.limiter.gain());
+        }
+        let peak = out[rate as usize / 2..]
+            .iter()
+            .fold(0.0f64, |m, s| m.max(s.abs()));
+        assert!(
+            lowest > 0.999,
+            "koruma varken sınırlayıcı {:.2} dB kıstı",
+            20.0 * lowest.log10()
+        );
+        assert!(
+            20.0 * peak.log10() <= super::super::limiter::CEILING_DBTP + 0.05,
+            "çıkış tepesi {:.2} dBFS",
+            20.0 * peak.log10()
+        );
+    }
 }
