@@ -173,6 +173,10 @@ kısaltılır.
   döngüyle (`for i in $(seq 1 100)`) 1/30–1/44 yeniden üretildi; kök neden Linux inotify'da yeni alt klasöre hemen
   yazılan dosyanın kaçmasıydı (`FreshDirs`). Bir kez yeniden çalıştır; yine düşerse yerelde döngüyle üret, kök nedeni
   bul.
+- **Zaman sınırı 60 Hz'e sabitlenmesin** (31 Ekim 2026): söz saati denetimi "yarım kare = 8 ms" diyordu; CI makinesi
+  yavaşken (kareler 18–20 ms, sıkı yolun hemen altı) titreme 8,4–9,7 ms ölçüldü, ortalama ~0, kod değişmemişti (#168
+  yalnızca Rust). Sınır artık ölçülen karenin yarısı (`scripts/lib/lyricClock.mjs`, 60 Hz'te yine 8 ms; sahibinin
+  onayıyla). Kare süresine bağlı bir sınır ölçülen kare süresinden hesaplanır; bir karelik gecikme yine yakalanır.
 - **Önizleme tuzakları:** başsız Chromium'un hızlandırılmış 2D tuvali bazı karelerde eski kareyi gösterir
   (`--disable-accelerated-2d-canvas`); "Kendi resmin" önizlemesinde sahte çekirdek `getVisualSpectrum` vermezse çubuklar
   32 banttan basamaklı çizilir — çubuklar gerçek sesten `spectrum.rs` modeliyle (Python eşi) üretilir, video sesli olur.
