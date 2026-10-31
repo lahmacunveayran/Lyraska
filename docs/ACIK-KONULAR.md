@@ -9,8 +9,8 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 
 1. Sözleri sese otomatik hizalama (dokunarak zamanlamanın yerine; sahibi elle yapamıyor): iki irdeleme bitti
    (`docs/arastirma/soz-hizalama/`), sahibi kararları verdi (BILGI §7); sıra RAPOR §8 + DENETIM önerileri, küçük
-   PR'lar: hazırlık, hizalayıcı (birleşti) → model çalıştırıcı (`lyrics_model.rs`, PR'da) → emisyon önbelleği + arka
-   plan işi → Söz paketi → arayüz → Windows hız ölçümü. Küçük iş: ölçülen kare süresi ve ortak saat görsellere de.
+   PR'lar: hazırlık, hizalayıcı, model çalıştırıcı (birleşti) → Windows hız ölçümü ve f32 çarpım (PR'da) → emisyon
+   önbelleği + arka plan işi → Söz paketi → arayüz. Küçük iş: ölçülen kare süresi ve ortak saat görsellere de.
 2. "Kendi resmin": çubuk ölçeği, yumuşak tavan, saf renk 0.0.98'de (`docs/arastirma/kendi-resmin/` "Tepki
    teşhisi"). Ayrı iş: güvenli modda kırmızı resimde çubuklar neredeyse kıpırdamıyor (`limitExtents`).
 3. Ses motoru denetimi: 64-bit, EQ, AutoEq, EBU R128, bit-perfect, ABX + DENETIM-3 (dallar `ccr-a69bd749-djgi3v`,
@@ -25,6 +25,9 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
    kick kanıtını örtüyor, `tempo.rs`) ve hip-hop drop'u; maksumda yanlış aksak (`meter.rs`).
 
 ## Proje sahibinden beklenenler
+
+- `usePlayer.test.ts` "çekirdek ölçüm anını bildirince…" Windows'ta hep düşüyor (zamanlayıcı ~15,6 ms adımlı;
+  DOGRULAMA G1). Mevcut test: düzeltilsin mi (zamanı testin kendisi yönetsin, sınır aynı), sahibinin kararı.
 
 - DOGRULAMA A7–A11 sonuçları (0.0.64) ve A12 (0.0.65: `.opus`/`.webm`); A13–A14 klasör izleme (0.0.72); A15 drop
   kendi şarkılarında (0.0.73).

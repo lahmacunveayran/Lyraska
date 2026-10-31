@@ -7,9 +7,13 @@
 //! kez okunur, aynı baytlar hem özetlenir hem açılır.
 //!
 //! - **Çalıştırıcı:** `tract` (saf Rust, ek DLL yok). Model dosyası değiştirilmez; giriş şekli kodda
-//!   sabitlenir. Pencereler `THREADS` kısa ömürlü iş parçacığında çalışır: tract'ın AVX çekirdekleri
-//!   dönüşte `vzeroupper` yapmadığı için aynı iş parçacığındaki sonraki kayan nokta işi Intel
-//!   işlemcide ~19 kat yavaşlıyordu (bağımsız inceleme; yerleşim 0,8 → 15 sn).
+//!   sabitlenir. Pencereler `window_threads()` kısa ömürlü iş parçacığında çalışır: tract'ın AVX
+//!   çekirdekleri dönüşte `vzeroupper` yapmadığı için aynı iş parçacığındaki sonraki kayan nokta işi
+//!   Intel işlemcide ~19 kat yavaşlıyordu (bağımsız inceleme; yerleşim 0,8 → 15 sn).
+//! - **Tamsayı çarpımları ondalıklı çalışır** (`dequantize_matmuls`, açılışta, yalnızca bellekte): tract'ın
+//!   AVX2 int8 çekirdeği VNNI'siz işlemcide (çoğu ev bilgisayarı) saniyede ~1,2 milyar işlem yaptı
+//!   (Ryzen 7 7435HS, Windows; 240 sn ses 3709 sn); f32 çekirdeği ~99 milyar (aynı ses 91 sn, 4 iş
+//!   parçacığı). Bedeli bellek: ağırlıklar 366 MB yerine 1,2 GB, açılışta en çok ~2,6 GB.
 //! - **Pencere:** `WINDOW_SECS` sn pencere, `HOP_SECS` sn adım (araştırmanın uçtan uca ölçtüğü ayar;
 //!   10 sn pencere geliştirme setinde satırların %94,2 → %92,3'ü ve güven ölçüsünü bozdu). Her pencere
 //!   kendi ortalaması ve sapmasıyla ölçeklenir, karelerin pencere kenarından uzak olanı alınır.
@@ -44,8 +48,12 @@ const WINDOW_SAMPLES: usize = WINDOW_SECS * SAMPLE_RATE as usize;
 const HOP_SAMPLES: usize = HOP_SECS * SAMPLE_RATE as usize;
 /// Bir penceredeki kare sayısı (480 000 örnek → 1499).
 const WINDOW_FRAMES: usize = (WINDOW_SAMPLES - RECEPTIVE_SAMPLES) / FRAME_SAMPLES + 1;
-/// Aynı anda çalışan pencere.
-pub const THREADS: usize = 2;
+/// Aynı anda çalışan pencere: mantıksal çekirdeklerin yarısı (müzik ve görseller için yarısı boş kalır),
+/// en az 1, en çok 4. Ölçüm (240 sn ses, 8 çekirdek / 16 iş parçacığı): 1 → 278 sn, 2 → 161, 3 → 119,
+/// 4 → 91, 6 → 73 sn; 4'ün üstünde kazanç azalır, bellek artar (2,8 → 3,6 GB).
+pub fn window_threads() -> usize {
+    std::thread::available_parallelism().map_or(1, |n| (n.get() / 2).clamp(1, 4))
+}
 /// En uzun ses (sn): daha uzunu çözülmeden reddedilir (1 saatlik kayıtta saatlerce boşa hesap olmasın).
 pub const MAX_SECS: usize = 20 * 60;
 /// En kısa ses (örnek, 0,1 sn).
@@ -464,6 +472,16 @@ pub struct LyricsModel {
 impl LyricsModel {
     /// Söz paketinin klasöründen açar; iki dosyanın özeti verilenlerle aynı olmalı.
     pub fn open(dir: &Path, model_sha256: &str, tokens_sha256: &str) -> Result<Self, ModelError> {
+        Self::open_with(dir, model_sha256, tokens_sha256, true)
+    }
+
+    /// `dequantize` yalnızca testte kapatılır (eski tamsayı yoluyla karşılaştırma).
+    fn open_with(
+        dir: &Path,
+        model_sha256: &str,
+        tokens_sha256: &str,
+        dequantize: bool,
+    ) -> Result<Self, ModelError> {
         let tokens = read_limited(
             &dir.join(TOKENS_FILE),
             MAX_TOKENS_BYTES,
@@ -487,7 +505,11 @@ impl LyricsModel {
             .with_ignore_value_info(true);
         let mut proto = onnx.proto_model_for_read(&mut model.as_slice())?;
         drop(model);
-        let dequantized = dequantize_matmuls(&mut proto);
+        let dequantized = if dequantize {
+            dequantize_matmuls(&mut proto)
+        } else {
+            0
+        };
         let plan = onnx
             .model_for_proto_model(&proto)?
             .with_input_fact(0, f32::fact([1, WINDOW_SAMPLES]).into())?
@@ -582,7 +604,8 @@ impl LyricsModel {
         {
             starts.push(audio.len() - WINDOW_SAMPLES);
         }
-        for (group, batch) in starts.chunks(THREADS).enumerate() {
+        let threads = window_threads();
+        for (group, batch) in starts.chunks(threads).enumerate() {
             if cancel.load(Ordering::Relaxed) {
                 return Err(ModelError::Cancelled);
             }
@@ -606,7 +629,7 @@ impl LyricsModel {
             });
             for (i, (result, &start)) in results.into_iter().zip(batch).enumerate() {
                 let window = result?;
-                let k = group * THREADS + i;
+                let k = group * threads + i;
                 let end = (start + WINDOW_SAMPLES).min(audio.len());
                 // Kenar payı ilk ve son pencerede yok.
                 let low = if k == 0 { 0 } else { margin };
@@ -1077,6 +1100,86 @@ mod tests {
         let graph = proto.graph.as_mut().expect("grafik");
         graph.initializer.retain(|t| t.name != "W2_scale");
         assert_eq!(dequantize_matmuls(&mut proto), 1);
+    }
+
+    /// Gerçek "Söz paketi"nde iki yolun aynı sonucu verdiği (eski tamsayı yolu bir pencerede dakikalar
+    /// sürer; elle çalıştırılır). `LYRASKA_SOZ_PAKETI` paket klasörü, `LYRASKA_SOZ_SESI` ses,
+    /// `LYRASKA_SOZ_METNI` sözü (satır satır). Ölçülen: kare başına en olası harfin uyuşması, satır
+    /// başlangıçlarının farkı.
+    #[test]
+    #[ignore = "gerçek söz paketi ve ses gerekir; elle: LYRASKA_SOZ_PAKETI, LYRASKA_SOZ_SESI, LYRASKA_SOZ_METNI"]
+    fn gercek_modelde_iki_yol_ayni_sonucu_verir() {
+        let env = |k: &str| std::env::var(k).unwrap_or_else(|_| panic!("{k} gerekli"));
+        let dir = PathBuf::from(env("LYRASKA_SOZ_PAKETI"));
+        let cancel = AtomicBool::new(false);
+        let audio = decode_mono(Path::new(&env("LYRASKA_SOZ_SESI")), &cancel).expect("ses");
+        let text = std::fs::read_to_string(env("LYRASKA_SOZ_METNI")).expect("söz");
+        let words: Vec<Vec<String>> = super::super::lyrics_text::prepare(&text)
+            .into_iter()
+            .map(|l| l.words)
+            .collect();
+        let run = |dequantize: bool| {
+            let model = LyricsModel::open_with(&dir, MODEL_SHA256, TOKENS_SHA256, dequantize)
+                .expect("paket açılır");
+            let t = std::time::Instant::now();
+            let em = model.emissions(&audio, &cancel).expect("emisyon");
+            let secs = t.elapsed().as_secs_f64();
+            let aligned = super::super::lyrics_align::align(&em, model.vocabulary(), &words)
+                .expect("yerleşim");
+            (model.dequantized_matmuls(), em, aligned, secs)
+        };
+        let (n_new, new, new_al, new_secs) = run(true);
+        let (n_old, old, old_al, old_secs) = run(false);
+        assert_eq!((n_new, n_old), (146, 0));
+        assert_eq!((new.frames, new.columns), (old.frames, old.columns));
+        let c = new.columns;
+        let argmax = |row: &[f32]| {
+            row.iter()
+                .enumerate()
+                .max_by(|a, b| a.1.total_cmp(b.1))
+                .map(|(i, _)| i)
+        };
+        let mut same = 0usize;
+        let mut same_speech = (0usize, 0usize);
+        let mut max_diff = 0f32;
+        for f in 0..new.frames {
+            let (a, b) = (
+                &new.log_probs[f * c..(f + 1) * c],
+                &old.log_probs[f * c..(f + 1) * c],
+            );
+            let (ma, mb) = (argmax(a), argmax(b));
+            same += usize::from(ma == mb);
+            // Konuşma kareleri: eski yolun en olası simgesi blank değil.
+            if mb != Some(0) {
+                same_speech.0 += usize::from(ma == mb);
+                same_speech.1 += 1;
+            }
+            for (x, y) in a.iter().zip(b) {
+                max_diff = max_diff.max((x - y).abs());
+            }
+        }
+        let agree = same as f64 / new.frames as f64;
+        let agree_speech = same_speech.0 as f64 / same_speech.1.max(1) as f64;
+        let starts: Vec<f64> = new_al
+            .lines
+            .iter()
+            .zip(&old_al.lines)
+            .map(|(a, b)| (a.start - b.start).abs())
+            .collect();
+        let worst = starts.iter().copied().fold(0.0, f64::max);
+        println!(
+            "kare {}: en olası harf uyuşması %{:.2} (konuşma karelerinde %{:.2}, {} kare); log-olasılık en              büyük fark {max_diff:.3}; satır başı farkları {starts:.3?} sn (en çok {worst:.3}); hüküm              yeni {:?}, eski {:?}; süre yeni {new_secs:.1} sn, eski {old_secs:.1} sn",
+            new.frames,
+            agree * 100.0,
+            agree_speech * 100.0,
+            same_speech.1,
+            new_al.verdict,
+            old_al.verdict,
+        );
+        // Ölçüt: araştırmada tract (int8) ile onnxruntime (int8) arası uyuşma %99,4 (int8'in kendi
+        // oynaklığı); satır başları bir kare (20 ms) içinde.
+        assert!(agree >= 0.98, "uyuşma %{:.2}", agree * 100.0);
+        assert!(worst <= 0.02 + 1e-9, "satır başı farkı {worst:.3} sn");
     }
 
     #[test]
