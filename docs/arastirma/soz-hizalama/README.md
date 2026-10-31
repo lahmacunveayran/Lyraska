@@ -59,14 +59,14 @@ kalıbı (`DynamicQuantizeLinear → MatMulInteger → Cast → Mul`) `y = x · 
 modelde 146 çarpımın 146'sı çevrilir. Eski yolla fark yalnızca girdinin nicemlenmemesi:
 `|Δy_j| ≤ (s_x/2)·Σ_k |W_kj|` (test). Ölçümler (240 sn sessiz ses, `examples/soz_hizalama.rs --sessiz 240`):
 
-| Yol               | İş parçacığı | Süre    | Gerçek zamanın | En yüksek bellek |
-| ----------------- | ------------ | ------- | -------------- | ---------------- |
-| Tamsayı (eski)    | 2            | 3709 sn | 15,45 kat      | —                |
-| Ondalıklı (yeni)  | 1            | 278 sn  | 1,16 kat       | 2,6 GB           |
-| Ondalıklı         | 2            | 161 sn  | 0,67 kat       | 2,6 GB           |
-| Ondalıklı         | 3            | 119 sn  | 0,50 kat       | 2,6 GB           |
-| Ondalıklı         | 4            | 91 sn   | 0,38 kat       | 2,8 GB           |
-| Ondalıklı         | 6            | 73 sn   | 0,30 kat       | 3,6 GB           |
+| Yol              | İş parçacığı | Süre    | Gerçek zamanın | En yüksek bellek |
+| ---------------- | ------------ | ------- | -------------- | ---------------- |
+| Tamsayı (eski)   | 2            | 3709 sn | 15,45 kat      | —                |
+| Ondalıklı (yeni) | 1            | 278 sn  | 1,16 kat       | 2,6 GB           |
+| Ondalıklı        | 2            | 161 sn  | 0,67 kat       | 2,6 GB           |
+| Ondalıklı        | 3            | 119 sn  | 0,50 kat       | 2,6 GB           |
+| Ondalıklı        | 4            | 91 sn   | 0,38 kat       | 2,8 GB           |
+| Ondalıklı        | 6            | 73 sn   | 0,30 kat       | 3,6 GB           |
 
 İş parçacığı sayısı artık sabit değil: mantıksal çekirdeklerin yarısı, en çok 4 (`window_threads`). En yüksek
 bellek açılıştadır (ONNX tanımı ve tract'ın tensörleri bir an birlikte); ağırlıklar 366 MB yerine 1,2 GB.

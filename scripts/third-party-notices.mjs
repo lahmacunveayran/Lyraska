@@ -123,6 +123,13 @@ function rustLicenseTexts(name, version) {
   return texts;
 }
 
+// Windows'ta Git Bash'in GNU tar'ı "C:\…" yolundaki iki noktayı uzak sunucu sanır; Windows'un kendi tar'ı
+// (bsdtar) sürücü adlı yolu okur.
+const TAR =
+  process.platform === "win32"
+    ? join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe")
+    : "tar";
+
 function packagedLicenseTexts(name, version) {
   const cargoHome = process.env.CARGO_HOME ?? join(homedir(), ".cargo");
   const cacheRoot = join(cargoHome, "registry", "cache");
@@ -134,8 +141,8 @@ function packagedLicenseTexts(name, version) {
     throw new Error(
       `${file} bulunamadı; önce 'cd src-tauri && cargo fetch --locked --target ${TARGET}'`,
     );
-  const listing = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" })
-    .split("\n")
+  const listing = execFileSync(TAR, ["-tzf", archive], { encoding: "utf8" })
+    .split(/\r?\n/)
     .filter((entry) => {
       const parts = entry.split("/");
       return parts.length === 2 && LICENSE_FILE.test(parts[1]);
@@ -143,7 +150,7 @@ function packagedLicenseTexts(name, version) {
   if (listing.length === 0) return new Map();
   const dir = mkdtempSync(join(tmpdir(), "lyraska-lisans-"));
   try {
-    execFileSync("tar", ["-xzf", archive, "-C", dir, ...listing]);
+    execFileSync(TAR, ["-xzf", archive, "-C", dir, ...listing]);
     return new Map(
       listing.map((entry) => [entry.split("/")[1], readFileSync(join(dir, entry), "utf8")]),
     );

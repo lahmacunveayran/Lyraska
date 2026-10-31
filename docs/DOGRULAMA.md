@@ -617,7 +617,8 @@ parçacığı, 32 GB, RTX 4050, Windows 11 Pro). Burada sizden bir şey beklenme
   Rust 1.97.0. Depoda `core.autocrlf=false` ve `.gitattributes` (LF): Windows'taki Git dosyaları CRLF'ye
   çeviriyordu, biçim denetimi 358 dosyada düşüyordu.
 - `cargo test`: 718 test geçti (4'ü gerekçeli atlanan). `npm run check`: biçim, lint, tür, `check:*` temiz;
-  `check:rules` ve `check:docs` Windows yollarında (`\`) yanlış alarm veriyordu, düzeltildi.
+  `check:rules` ve `check:docs` Windows yollarında (`\`) yanlış alarm veriyordu, `check:notices` Git Bash'in tar'ıyla
+  çalışmıyordu; düzeltildi.
 - 776 arayüz testinden biri Windows'ta her seferinde düşüyor: `usePlayer.test.ts` "çekirdek ölçüm anını
   bildirince…" (fark 3,9 ms, sınır 3 ms). Neden: Windows'ta Node'un zamanlayıcısı 2 ms istenen beklemeyi ~15,6 ms'de
   yapıyor (ölçüldü); test "kısa sorgu 2 ms" varsayıyor. Programın hatası değil; Linux CI'da geçiyor. Mevcut teste

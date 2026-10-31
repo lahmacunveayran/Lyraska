@@ -42,6 +42,8 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
   Vulnerabilities (Linux'a özgü GTK bağımlılığı), Fuzzing, CII-Best-Practices sonra.
 - `check:scenes`'teki "Resim seç…" tıklama denetimi #140'ta bir kez 5 sn'de tıklayamadı (yeniden çalıştırmada geçti);
   ayrıntılı neden artık günlüğe yazılıyor: yinelenirse günlükteki nedene göre düzeltilir.
+- `components.test.tsx` "çizim yükü" testi bütün testler birlikte koşarken bir kez düştü (31 Ekim, Windows; tek
+  başına 5/5 geçti). Yinelenirse önce yakalayan deneme, sonra sahibine.
 - `PlaylistPage` çift tıklama testi (`playlists.test.tsx`) yüklü makinede bir kez düştü: `playRef` `useEffect`'te
   güncelleniyor; `useLayoutEffect` önerildi (önce yakalayan test).
 - Kütüphane taslakları: Gökyüzü onaylandı ("fena olmuş"); kapak ve sanatçı levhalarının renk düzeyi soruldu, cevap

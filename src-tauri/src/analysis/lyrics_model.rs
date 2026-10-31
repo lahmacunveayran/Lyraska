@@ -204,7 +204,7 @@ fn tensor_f32(t: &pb::TensorProto) -> Option<Vec<f32>> {
             .iter()
             .map(|&v| i8::try_from(v).ok().map(f32::from))
             .collect::<Option<_>>()?,
-        DataType::Float if raw && t.raw_data.len() % 4 != 0 => return None,
+        DataType::Float if raw && !t.raw_data.len().is_multiple_of(4) => return None,
         DataType::Float if raw => t
             .raw_data
             .chunks_exact(4)
@@ -226,13 +226,22 @@ fn tensor_f32(t: &pb::TensorProto) -> Option<Vec<f32>> {
 /// Mul(·, s_x·s_w)`. Bu, `y = (x_q − z_x)·s_x · (W_q − z_w)·s_w` demektir; yerine `y = x · W` konur,
 /// `W = (W_q − z_w)·s_w` (ağırlığın tam değeri; nicemlemenin tanımı). Fark yalnızca girdinin
 /// nicemlenmemesidir: `|x − (x_q − z_x)·s_x| ≤ s_x/2` olduğundan her çıktıda `|Δy_j| ≤ (s_x/2)·Σ_k |W_kj|`
-/// (testi `eski_yolla_fark_nicemleme_sinirinda`). Ölçek ve sıfır noktası tensör başına (skaler) olmalı;
-/// kalıba tam uymayan çarpım olduğu gibi kalır. Kullanılmayan düğüm ve ağırlıklar atılır. Çevrilen çarpım
-/// sayısı döner.
+/// (testi `eski_yolla_fark_nicemleme_sinirinda`). Ölçek ve sıfır noktası tensör başına (0 boyutlu skaler)
+/// olmalı; kalıba tam uymayan çarpım olduğu gibi kalır. Kullanılmayan düğüm ve ağırlıklar atılır (grafik
+/// girdileri ve çıktıları korunur); alt grafikli (If, Loop) modele dokunulmaz. Çevrilen çarpım sayısı döner.
 fn dequantize_matmuls(model: &mut pb::ModelProto) -> usize {
     let Some(graph) = model.graph.as_mut() else {
         return 0;
     };
+    // Alt grafik üst düzeydeki değerleri okuyabilir; tüketicileri burada sayılmaz (bağımsız inceleme).
+    if graph
+        .node
+        .iter()
+        .flat_map(|n| &n.attribute)
+        .any(|a| a.g.is_some() || !a.graphs.is_empty())
+    {
+        return 0;
+    }
     struct Rewrite {
         matmul: usize,
         input: String,
@@ -240,7 +249,13 @@ fn dequantize_matmuls(model: &mut pb::ModelProto) -> usize {
         output: String,
         drop: [usize; 2],
     }
-    let mut weights: HashMap<String, (String, Vec<i64>, Vec<f32>)> = HashMap::new();
+    // Anahtar ağırlık, sıfır noktası ve ölçek: aynı W_q başka ölçekle de kullanılabilir (bağımsız inceleme).
+    struct Weight {
+        name: String,
+        dims: Vec<i64>,
+        values: Vec<f32>,
+    }
+    let mut weights: HashMap<(String, u32, u32), Weight> = HashMap::new();
     let mut rewrites = Vec::new();
     {
         let mut consts: HashMap<&str, &pb::TensorProto> = graph
@@ -271,8 +286,9 @@ fn dequantize_matmuls(model: &mut pb::ModelProto) -> usize {
             Some(&[i]) if !outputs.contains(name) => Some(i),
             _ => None,
         };
-        let scalar = |name: &str| match consts.get(name).and_then(|t| tensor_f32(t)) {
-            Some(v) if v.len() == 1 => v.first().copied(),
+        // Yalnızca 0 boyutlu tensör: [1, 1, 1] gibi tek öğeli ölçek çıktının şeklini değiştirirdi.
+        let scalar = |name: &str| match consts.get(name) {
+            Some(t) if t.dims.is_empty() => tensor_f32(t).and_then(|v| v.first().copied()),
             _ => None,
         };
         let standard = |n: &pb::NodeProto| n.domain.is_empty() || n.domain == "ai.onnx";
@@ -305,7 +321,7 @@ fn dequantize_matmuls(model: &mut pb::ModelProto) -> usize {
                 .attribute
                 .iter()
                 .any(|a| a.name == "to" && a.i == pb::tensor_proto::DataType::Float as i64);
-            if graph.node[cast].op_type != "Cast" || !to_float {
+            if graph.node[cast].op_type != "Cast" || !standard(&graph.node[cast]) || !to_float {
                 continue;
             }
             let Some(mul) = graph.node[cast]
@@ -319,7 +335,11 @@ fn dequantize_matmuls(model: &mut pb::ModelProto) -> usize {
             if mul_node.op_type != "Mul" || !standard(mul_node) || mul_node.input.len() != 2 {
                 continue;
             }
-            let cast_out = &graph.node[cast].output[0];
+            let (Some(cast_out), Some(output)) =
+                (graph.node[cast].output.first(), mul_node.output.first())
+            else {
+                continue;
+            };
             let Some(scales) = mul_node.input.iter().find(|n| *n != cast_out) else {
                 continue;
             };
@@ -339,7 +359,8 @@ fn dequantize_matmuls(model: &mut pb::ModelProto) -> usize {
             let (Some(s_w), Some(z)) = (scalar(w_scale), scalar(z_w)) else {
                 continue;
             };
-            if !weights.contains_key(w_q.as_str()) {
+            let key = (w_q.clone(), z.to_bits(), s_w.to_bits());
+            if !weights.contains_key(&key) {
                 let Some(t) = consts.get(w_q.as_str()) else {
                     continue;
                 };
@@ -350,14 +371,22 @@ fn dequantize_matmuls(model: &mut pb::ModelProto) -> usize {
                 if w.iter().any(|v| !v.is_finite()) {
                     continue;
                 }
-                let name = format!("{w_q}::lyraska_f32");
-                weights.insert(w_q.clone(), (name, t.dims.clone(), w));
+                let name = format!("{w_q}::lyraska_f32_{}", weights.len());
+                let dims = t.dims.clone();
+                weights.insert(
+                    key.clone(),
+                    Weight {
+                        name,
+                        dims,
+                        values: w,
+                    },
+                );
             }
             rewrites.push(Rewrite {
                 matmul: i,
                 input: quant.input[0].clone(),
-                weight: weights[w_q.as_str()].0.clone(),
-                output: mul_node.output[0].clone(),
+                weight: weights[&key].name.clone(),
+                output: output.clone(),
                 drop: [cast, mul],
             });
         }
@@ -375,17 +404,15 @@ fn dequantize_matmuls(model: &mut pb::ModelProto) -> usize {
     }
     let mut keep = dropped.iter().map(|&d| !d);
     graph.node.retain(|_| keep.next().unwrap_or(true));
-    graph.initializer.extend(
-        weights
-            .into_values()
-            .map(|(name, dims, w)| pb::TensorProto {
-                name,
-                dims,
-                data_type: pb::tensor_proto::DataType::Float as i32,
-                float_data: w,
-                ..Default::default()
-            }),
-    );
+    graph
+        .initializer
+        .extend(weights.into_values().map(|w| pb::TensorProto {
+            name: w.name,
+            dims: w.dims,
+            data_type: pb::tensor_proto::DataType::Float as i32,
+            float_data: w.values,
+            ..Default::default()
+        }));
     // Artık kullanılmayan düğümler (DynamicQuantizeLinear, ölçek çarpımı) ve ağırlıklar (W_q).
     if !rewrites.is_empty() {
         loop {
@@ -394,6 +421,8 @@ fn dequantize_matmuls(model: &mut pb::ModelProto) -> usize {
                 .iter()
                 .flat_map(|n| n.input.iter().cloned())
                 .chain(graph.output.iter().map(|o| o.name.clone()))
+                // Eski biçimde (IR 3) ağırlıklar grafik girdisi olarak da listelenir.
+                .chain(graph.input.iter().map(|i| i.name.clone()))
                 .collect();
             let before = graph.node.len();
             graph
@@ -510,8 +539,11 @@ impl LyricsModel {
         } else {
             0
         };
-        let plan = onnx
-            .model_for_proto_model(&proto)?
+        let inference = onnx.model_for_proto_model(&proto)?;
+        // tract ağırlıkları kopyaladı: tanım iyileştirmeden önce bırakılır (ölçüm: en yüksek bellek 2,58 →
+        // 2,51 GB).
+        drop(proto);
+        let plan = inference
             .with_input_fact(0, f32::fact([1, WINDOW_SAMPLES]).into())?
             .into_optimized()?
             .into_runnable()?;
