@@ -184,7 +184,7 @@ impl AnalysisCache {
         })
     }
 
-    fn lock(&self) -> Result<std::sync::MutexGuard<'_, Connection>, CacheError> {
+    pub(super) fn lock(&self) -> Result<std::sync::MutexGuard<'_, Connection>, CacheError> {
         self.conn.lock().map_err(|_| CacheError::Lock)
     }
 

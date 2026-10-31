@@ -163,6 +163,7 @@ lyraska/
 │   │   │   ├── spectrogram.rs #  şarkı açılınca arka planda spektrum (60 kare/sn, 32 bant), seviyeler, LUFS, bas tepeleri
 │   │   │   ├── levels.rs     #   sol/sağ RMS ve tepe; şarkıya göre 0 VU referansı
 │   │   │   ├── lyrics_align.rs # sözleri sese oturtma: CTC Viterbi (satır atlamalı), ileri-geri satır güveni, şarkı hükmü; girdi modelin emisyonları
+│   │   │   ├── lyrics_cache.rs # söz modelinin emisyonlarının önbelleği: yalnızca gereken sütunlar (temel alfabe + sözün harfleri), f16, sıkıştırılmış; söz düzeltilince model yeniden çalışmaz
 │   │   │   ├── lyrics_model.rs # söz modelinin emisyonları: "Söz paketi" (SHA-256 denetimli), tract (saf Rust ONNX), tamsayı çarpımları açılışta ondalıklı, 30/20 sn pencere, çekirdeklerin yarısı (≤ 4) iş parçacığı, 16 kHz mono çözme
 │   │   │   ├── lyrics_text.rs #  sese hizalanacak sözün hazırlığı: başlıklar, "[Nakarat]", "(x2)", rakamlar yazıyla, Türkçe küçük harf
 │   │   │   ├── annotation.rs #   kullanıcının işaretlediği beat/drop anları (JSON, ses içermez)
