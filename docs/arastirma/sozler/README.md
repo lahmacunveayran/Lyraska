@@ -23,7 +23,7 @@ kullanılmaz. Karenin olması gereken söz zamanı = o anda duyulan an − ses a
 Altı satır, 24 kelime; kelime süreleri düzensiz (0,17–0,31 sn: kelime başları kare ızgarasının farklı yerlerine
 düşer). Değişkeler: ses gecikmesi ayarı 0 ve 100 ms (Bluetooth kulaklık gibi); kare bütçesine sığan ağır sahne
 (her karede sözlerden önce 10 ms iş) + asimetrik IPC (gidiş 6, dönüş 1 ms, konum gidişin sonunda okunur);
-"Kendi resmin" sözleri. Tolerans yarım kare (8 ms). Tarayıcı 50 kare/sn'nin altındaysa (ekran kartsız CI) kareler
+"Kendi resmin" sözleri. Tolerans yarım kare (8 ms; kareler 17 ms'den uzunsa ölçülen karenin yarısı, 31 Ekim). Tarayıcı 50 kare/sn'nin altındaysa (ekran kartsız CI) kareler
 düzensizdir; tek olaylar değil ortancalar denetlenir.
 
 **Uzun kare (30 Ekim, CI'da bulundu):** bir sonraki kare gecikince bu karenin ekrana ne zaman çıktığı bilinemez

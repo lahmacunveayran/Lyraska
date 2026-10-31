@@ -50,6 +50,12 @@ import { crc32, deflateSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 import { build, preview } from "vite";
+import {
+  LYRIC_FRAME_LIMIT_MS,
+  LYRIC_TOLERANCE_MS,
+  lyricClockVerdict,
+  lyricTolerance,
+} from "./lib/lyricClock.mjs";
 import { parseShard, pickShard } from "./lib/shard.mjs";
 
 const PORT = 4179;
@@ -1453,13 +1459,8 @@ const LYRIC_CHECK_START = 62;
  * "ortada okundu" varsayımının bozulduğu, gerçekçi en kötü kısa sorgu).
  */
 const LYRIC_IPC = { simetrik: [3, 3], asimetrik: [6, 1] };
-/**
- * Sözün ekrandaki anının sapabileceği en büyük süre (ms; yarım kare): oynatma saatinin tahmini
- * (bildirimler arası yerel saat, IPC) birkaç ms oynar. Bir kare (16,7 ms) gecikme bunu aşar.
- */
-const LYRIC_TOLERANCE_MS = 8;
-/** Tek bir düzensiz karede kabul edilen en büyük sapma (ms; bir kare ve biraz pay). */
-const LYRIC_FRAME_LIMIT_MS = 20;
+// Sözün ekrandaki anının sapabileceği en büyük süre (yarım kare; yavaş makinede ölçülen karenin
+// yarısı) ve tek bir düzensiz karedeki sınır: scripts/lib/lyricClock.mjs.
 /** Kareler bundan uzunsa (ms; tarayıcı 50 kare/sn'nin altında) tek tek olaylar değil ortancalar denetlenir. */
 const LYRIC_STRICT_FRAME_MS = 20;
 
@@ -1775,24 +1776,25 @@ async function checkLyricsTiming(
     // Tek tük düzensiz kare (önceden bilinemeyen vsync kaçması, çöp toplama) bir olayı bir iki kare
     // kaydırabilir: söz saatinin %95'i yarım karenin, %99'u bir karenin içinde olmalı; olaylardan en
     // çok biri yarım kareyi (yine bir kareyi aşmadan) geçebilir. Sistematik bir kare gecikme hepsini aşar.
-    const sortedClock = [...clock].map(Math.abs).sort((a, b) => a - b);
-    const p95 = sortedClock[Math.floor(clock.length * 0.95)] ?? 0;
-    const p99 = sortedClock[Math.floor(clock.length * 0.99)] ?? 0;
+    // Yarım kare 60 Hz'te 8 ms, yavaş makinede (kareler 17–20 ms) ölçülen karenin yarısı.
+    const halfFrame = lyricTolerance(frameMs);
+    const { p95, p99, ok: clockOk } = lyricClockVerdict(clock, frameMs);
     if (!view.clock) {
       // Söylenen kelimenin ilerlemesi yok: saat genel katmanda ölçülür (aynı zaman yolu).
     } else if (clock.length < 10) {
       problems.push(`${label}: söz saati ölçülemedi (${clock.length} kare)`);
-    } else if (p95 > LYRIC_TOLERANCE_MS || p99 > LYRIC_FRAME_LIMIT_MS) {
+    } else if (!clockOk) {
       problems.push(
-        `${label}: söz saati sapıyor (%95'i ${p95.toFixed(1)} ms, %99'u ${p99.toFixed(1)} ms)`,
+        `${label}: söz saati sapıyor (%95'i ${p95.toFixed(1)} ms, %99'u ${p99.toFixed(1)} ms; ` +
+          `sınır ${halfFrame.toFixed(1)} / ${LYRIC_FRAME_LIMIT_MS} ms)`,
       );
     }
-    const late = events.filter((e) => e.error !== null && Math.abs(e.error) > LYRIC_TOLERANCE_MS);
+    const late = events.filter((e) => e.error !== null && Math.abs(e.error) > halfFrame);
     for (const e of events) {
       if (e.error === null) problems.push(`${label}: ${e.name} hiç görülmedi`);
       else if (
         Math.abs(e.error) > LYRIC_FRAME_LIMIT_MS ||
-        (late.length > 1 && Math.abs(e.error) > LYRIC_TOLERANCE_MS)
+        (late.length > 1 && Math.abs(e.error) > halfFrame)
       ) {
         problems.push(
           `${label}: ${e.name} ${e.error > 0 ? "geç" : "erken"} (${e.error.toFixed(1)} ms)`,
