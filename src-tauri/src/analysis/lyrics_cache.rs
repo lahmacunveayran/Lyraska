@@ -632,3 +632,587 @@ mod tests {
         assert!(mb / minutes < 0.5, "{:.3} MB/dk", mb / minutes);
     }
 }
+
+/// Bağımsız inceleme (31 Ekim 2026): yazarın testlerinden ayrı, kendi rastgele üreticisiyle karşı örnek
+/// araması. Rastgele sözlükler (boyut, blank/ayırıcı yeri, ayırıcısız, karışık sütun sırası, çok baytlı
+/// harfler), uç değerli emisyonlar, rastgele sözler; `decode`'a bozulmuş kayıtlar.
+#[cfg(test)]
+mod inceleme_karsi_ornekler {
+    use super::*;
+    use crate::analysis::lyrics_align::{align, AlignError};
+    use std::collections::HashSet;
+
+    /// splitmix64: tohumlu, tekrarlanabilir.
+    struct Rng(u64);
+
+    impl Rng {
+        fn next(&mut self) -> u64 {
+            self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+            let mut z = self.0;
+            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+            z ^ (z >> 31)
+        }
+        fn below(&mut self, n: usize) -> usize {
+            (self.next() % n.max(1) as u64) as usize
+        }
+        fn unit(&mut self) -> f64 {
+            (self.next() >> 11) as f64 / (1u64 << 53) as f64
+        }
+        fn chance(&mut self, p: f64) -> bool {
+            self.unit() < p
+        }
+        fn shuffle<T>(&mut self, v: &mut [T]) {
+            for i in (1..v.len()).rev() {
+                let j = self.below(i + 1);
+                v.swap(i, j);
+            }
+        }
+    }
+
+    /// Sözlük harfleri havuzu: temel alfabe, Latin ekleri, Yunan, Kiril; genel `Vocabulary` için
+    /// modelde olmayan büyük harfler, birleşen nokta, Çince, 4 baytlık simge de.
+    fn letter_pool() -> Vec<char> {
+        let mut seen = HashSet::new();
+        BASE_LETTERS
+            .chars()
+            .chain("äéëèàáíóúñßøåæœĸǆǅʼ".chars())
+            .chain('α'..='ω')
+            .chain('а'..='я')
+            .chain("İIÇŞĞÖÜ木水火月日🎵\u{0307}".chars())
+            .filter(|c| seen.insert(*c))
+            .collect()
+    }
+
+    /// Sözde geçebilecek ama sözlükte olmayabilecek karakterler.
+    const STRAY: &str = "7-?!ZÉ’\u{0}\t";
+
+    const EXTREMES: [f32; 26] = [
+        f32::NAN,
+        f32::INFINITY,
+        f32::NEG_INFINITY,
+        f32::MIN,
+        f32::MAX,
+        -1e30,
+        -1000.0,
+        -1000.1,
+        -999.75,
+        -999.9,
+        -65504.0,
+        -65520.0,
+        1e-7,
+        1e-30,
+        -1e-30,
+        -1e-45,
+        f32::MIN_POSITIVE,
+        -f32::MIN_POSITIVE,
+        -0.0,
+        0.0,
+        5.0,
+        -5.96e-8,
+        -2.98e-8,
+        -3e-8,
+        -6.1e-5,
+        -28.0,
+    ];
+
+    struct Case {
+        full: Emissions,
+        vocab: Vocabulary,
+        lyrics: String,
+        lines: Vec<Vec<String>>,
+    }
+
+    fn random_case(rng: &mut Rng, pool: &[char]) -> Case {
+        let mut letters_pool = pool.to_vec();
+        rng.shuffle(&mut letters_pool);
+        let n = if rng.chance(0.3) {
+            rng.below(10)
+        } else {
+            rng.below(pool.len() + 1)
+        };
+        let chosen = &letters_pool[..n];
+        let has_space = rng.chance(0.8);
+        let extra = rng.below(4);
+        let columns = 1 + usize::from(has_space) + n + extra;
+        let mut perm: Vec<usize> = (0..columns).collect();
+        rng.shuffle(&mut perm);
+        let blank = perm[0];
+        let space = has_space.then(|| perm[1]);
+        let first_letter = 1 + usize::from(has_space);
+        let letters: HashMap<char, usize> = chosen
+            .iter()
+            .copied()
+            .zip(perm[first_letter..].iter().copied())
+            .collect();
+        let vocab = Vocabulary {
+            blank,
+            space,
+            letters,
+        };
+
+        let frames = 1 + rng.below(160);
+        let extreme_rate = if rng.chance(0.5) { 0.0 } else { 0.03 };
+        let mut log_probs = Vec::with_capacity(frames * columns);
+        for _ in 0..frames {
+            let scale = if rng.chance(0.1) { 200.0 } else { 6.0 };
+            let row: Vec<f64> = (0..columns).map(|_| rng.unit() * scale).collect();
+            let max = row.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+            let log_z = max + row.iter().map(|v| (v - max).exp()).sum::<f64>().ln();
+            for v in row {
+                let value = if rng.chance(extreme_rate) {
+                    EXTREMES[rng.below(EXTREMES.len())]
+                } else {
+                    (v - log_z) as f32
+                };
+                log_probs.push(value);
+            }
+        }
+        let full = Emissions {
+            frames,
+            columns,
+            log_probs,
+            frame_secs: [0.02, 0.01, 1.0, 1e-9][rng.below(4)],
+        };
+
+        let stray: Vec<char> = STRAY.chars().collect();
+        let mut lines = Vec::new();
+        for _ in 0..1 + rng.below(4) {
+            let mut words = Vec::new();
+            for _ in 0..1 + rng.below(5) {
+                let mut word = String::new();
+                for _ in 0..1 + rng.below(6) {
+                    let c = if !chosen.is_empty() && rng.chance(0.75) {
+                        chosen[rng.below(chosen.len())]
+                    } else if rng.chance(0.5) {
+                        stray[rng.below(stray.len())]
+                    } else {
+                        pool[rng.below(pool.len())]
+                    };
+                    word.push(c);
+                }
+                words.push(word);
+            }
+            lines.push(words);
+        }
+        let lyrics = lines
+            .iter()
+            .map(|l| l.join(" "))
+            .collect::<Vec<_>>()
+            .join("\n");
+        Case {
+            full,
+            vocab,
+            lyrics,
+            lines,
+        }
+    }
+
+    fn bits(v: &[f32]) -> Vec<u32> {
+        v.iter().map(|x| x.to_bits()).collect()
+    }
+
+    fn assert_same(a: &StoredEmissions, b: &StoredEmissions, ctx: &str) {
+        assert_eq!(a.emissions.frames, b.emissions.frames, "{ctx}");
+        assert_eq!(a.emissions.columns, b.emissions.columns, "{ctx}");
+        assert_eq!(
+            a.emissions.frame_secs.to_bits(),
+            b.emissions.frame_secs.to_bits(),
+            "{ctx}"
+        );
+        assert_eq!(
+            bits(&a.emissions.log_probs),
+            bits(&b.emissions.log_probs),
+            "{ctx}"
+        );
+        assert_eq!(a.vocabulary.blank, b.vocabulary.blank, "{ctx}");
+        assert_eq!(a.vocabulary.space, b.vocabulary.space, "{ctx}");
+        assert_eq!(a.vocabulary.letters, b.vocabulary.letters, "{ctx}");
+    }
+
+    /// Bağımsız kodlayıcı: f16 bitleri, önce üst baytlar sonra alt baytlar, deflate.
+    fn my_encode(values: &[u16]) -> Vec<u8> {
+        let mut raw: Vec<u8> = values.iter().map(|b| (b >> 8) as u8).collect();
+        raw.extend(values.iter().map(|b| (b & 0xFF) as u8));
+        miniz_oxide::deflate::compress_to_vec(&raw, 1)
+    }
+
+    fn stamp() -> FileStamp {
+        FileStamp {
+            size: 4096,
+            modified: 1_760_000_000,
+        }
+    }
+
+    #[test]
+    fn rastgele_sozluk_ve_emisyonlarda_gidis_donus_ve_hizalama_ayni() {
+        let pool = letter_pool();
+        let base: HashSet<char> = BASE_LETTERS.chars().collect();
+        let cache = AnalysisCache::open_in_memory().unwrap();
+        let mut rng = Rng(0x1EE7_5EED);
+        let (mut cases, mut aligned, mut align_err, mut missing_checked) = (0, 0, 0, 0);
+        let mut no_space = 0;
+        let mut extreme_cells = 0;
+        for case_no in 0..400 {
+            let case = random_case(&mut rng, &pool);
+            let ctx = format!("durum {case_no}: söz {:?}", case.lyrics);
+            cases += 1;
+            no_space += usize::from(case.vocab.space.is_none());
+            extreme_cells += case
+                .full
+                .log_probs
+                .iter()
+                .filter(|v| !v.is_finite() || **v > 0.0 || **v < MIN_LOG_PROB)
+                .count();
+
+            let stored = StoredEmissions::select(&case.full, &case.vocab, case.lyrics.chars());
+
+            // Saklanan harf kümesi = (temel alfabe ∪ söz) ∩ sözlük.
+            let expected: HashSet<char> = base
+                .iter()
+                .copied()
+                .chain(case.lyrics.chars())
+                .filter(|c| case.vocab.letters.contains_key(c))
+                .collect();
+            let got: HashSet<char> = stored.vocabulary.letters.keys().copied().collect();
+            assert_eq!(got, expected, "{ctx}");
+            for &c in &pool {
+                assert_eq!(stored.covers(&[c]), expected.contains(&c), "{ctx} {c:?}");
+            }
+
+            // Her saklanan değer, modelin aynı sütununun yuvarlanmışı (bit bit).
+            let sc = stored.emissions.columns;
+            assert_eq!(
+                sc,
+                1 + usize::from(case.vocab.space.is_some()) + expected.len()
+            );
+            assert_eq!(
+                case.vocab.space.is_some(),
+                stored.vocabulary.space.is_some()
+            );
+            let mut pairs = vec![(case.vocab.blank, stored.vocabulary.blank)];
+            if let (Some(a), Some(b)) = (case.vocab.space, stored.vocabulary.space) {
+                pairs.push((a, b));
+            }
+            for c in &expected {
+                pairs.push((case.vocab.letters[c], stored.vocabulary.letters[c]));
+            }
+            for t in 0..case.full.frames {
+                for &(from, to) in &pairs {
+                    let a = case.full.log_probs[t * case.full.columns + from];
+                    let b = stored.emissions.log_probs[t * sc + to];
+                    assert_eq!(b.to_bits(), quantize(a).to_bits(), "{ctx} {a}");
+                    assert!((MIN_LOG_PROB..=0.0).contains(&b), "{ctx} {b}");
+                }
+            }
+
+            // Kayıt biçimi gidiş-dönüş.
+            let names = stored.column_names();
+            assert_eq!(names.chars().count() + 1, sc, "{ctx}");
+            let decoded = StoredEmissions::decode(
+                stored.emissions.frames as i64,
+                stored.emissions.frame_secs,
+                &names,
+                &stored.encode(),
+            )
+            .unwrap_or_else(|| panic!("{ctx}: decode None"));
+            assert_same(&stored, &decoded, &ctx);
+
+            // Önbellek: gerekenler saklananların alt kümesiyse bulunur, değilse bulunmaz.
+            let path = format!("/k/{case_no}/şarkı.flac");
+            cache
+                .store_emissions(Path::new(&path), stamp(), "sha", &stored)
+                .unwrap();
+            let mut needed: Vec<char> = expected
+                .iter()
+                .copied()
+                .filter(|_| rng.chance(0.5))
+                .collect();
+            needed.extend(needed.clone());
+            let loaded = cache
+                .load_emissions(Path::new(&path), stamp(), "sha", &needed)
+                .unwrap()
+                .unwrap_or_else(|| panic!("{ctx}: önbellekte yok"));
+            assert_same(&stored, &loaded, &ctx);
+            if let Some(&absent) = case.vocab.letters.keys().find(|c| !expected.contains(c)) {
+                missing_checked += 1;
+                let mut more = needed.clone();
+                more.push(absent);
+                assert!(cache
+                    .load_emissions(Path::new(&path), stamp(), "sha", &more)
+                    .unwrap()
+                    .is_none());
+            }
+
+            // Hizalama: yuvarlanmış tam matris + tam sözlük = saklanan = okunan (bit bit aynı sonuç).
+            let quantized_full = Emissions {
+                log_probs: case.full.log_probs.iter().map(|&v| quantize(v)).collect(),
+                ..case.full.clone()
+            };
+            let reference = align(&quantized_full, &case.vocab, &case.lines);
+            let fresh = align(&stored.emissions, &stored.vocabulary, &case.lines);
+            let again = align(&loaded.emissions, &loaded.vocabulary, &case.lines);
+            assert_eq!(format!("{fresh:?}"), format!("{reference:?}"), "{ctx}");
+            assert_eq!(format!("{again:?}"), format!("{fresh:?}"), "{ctx}");
+            if fresh.is_ok() {
+                aligned += 1;
+            } else {
+                align_err += 1;
+            }
+        }
+        eprintln!(
+            "inceleme: {cases} durum, {no_space} ayırıcısız, {extreme_cells} uç değerli hücre, \
+             {aligned} hizalandı, {align_err} hizalama hatası (iki yolda aynı), \
+             {missing_checked} eksik harf denetimi"
+        );
+        assert!(aligned > 100 && missing_checked > 100);
+    }
+
+    /// `decode` kabul ettiği her kaydı tutarlı kurmalı: boyutlar, aralık, sütunlar.
+    fn check_decoded(d: &StoredEmissions, names: &str) {
+        let e = &d.emissions;
+        assert_eq!(e.log_probs.len(), e.frames * e.columns);
+        assert_eq!(e.columns, names.chars().count() + 1);
+        assert!(e.columns <= MAX_COLUMNS && e.frames <= MAX_FRAMES && e.frames > 0);
+        assert!(e.log_probs.iter().all(|v| (MIN_LOG_PROB..=0.0).contains(v)));
+        let mut used = HashSet::new();
+        assert!(used.insert(d.vocabulary.blank));
+        if let Some(s) = d.vocabulary.space {
+            assert!(used.insert(s) && s < e.columns);
+        }
+        for &c in d.vocabulary.letters.values() {
+            assert!(used.insert(c) && c < e.columns);
+        }
+        assert_eq!(d.column_names(), names);
+        let again =
+            StoredEmissions::decode(e.frames as i64, e.frame_secs, names, &d.encode()).unwrap();
+        assert_same(d, &again, "yeniden kodlama");
+        let line: Vec<Vec<String>> = vec![d
+            .vocabulary
+            .letters
+            .keys()
+            .take(3)
+            .map(|c| c.to_string())
+            .collect()];
+        if !line[0].is_empty() {
+            assert_ne!(
+                align(e, &d.vocabulary, &line).err(),
+                Some(AlignError::BadEmissions)
+            );
+        }
+    }
+
+    #[test]
+    fn decode_bozulmus_kayitlarda_coker_ya_da_tutarsiz_kurmaz() {
+        let pool = letter_pool();
+        let mut rng = Rng(0xDEC0_DE00);
+        let (mut tried, mut accepted) = (0usize, 0usize);
+        for _ in 0..120 {
+            let case = random_case(&mut rng, &pool);
+            let stored = StoredEmissions::select(&case.full, &case.vocab, case.lyrics.chars());
+            let names = stored.column_names();
+            let data = stored.encode();
+            let frames = stored.emissions.frames as i64;
+            for _ in 0..40 {
+                let mut f = frames;
+                let mut secs = stored.emissions.frame_secs;
+                let mut n = names.clone();
+                let mut d = data.clone();
+                match rng.below(9) {
+                    0 => {
+                        let i = rng.below(d.len());
+                        d[i] ^= 1 << rng.below(8);
+                    }
+                    1 => d.truncate(rng.below(d.len())),
+                    2 => d.extend((0..1 + rng.below(16)).map(|_| rng.next() as u8)),
+                    3 => d = (0..rng.below(300)).map(|_| rng.next() as u8).collect(),
+                    4 => {
+                        f = [
+                            i64::MIN,
+                            -1,
+                            0,
+                            frames - 1,
+                            frames + 1,
+                            MAX_FRAMES as i64,
+                            MAX_FRAMES as i64 + 1,
+                            i64::MAX,
+                        ][rng.below(8)]
+                    }
+                    5 => {
+                        secs =
+                            [0.0, -0.0, f64::NAN, f64::INFINITY, 1.0 + 1e-12, 5e-324][rng.below(6)]
+                    }
+                    6 => {
+                        let mut chars: Vec<char> = n.chars().collect();
+                        match rng.below(3) {
+                            0 if !chars.is_empty() => {
+                                chars.remove(rng.below(chars.len()));
+                            }
+                            1 => chars.insert(
+                                rng.below(chars.len() + 1),
+                                ['\u{0}', ' ', '\n', '\u{FFFF}', '🎵', 'a'][rng.below(6)],
+                            ),
+                            _ if !chars.is_empty() => {
+                                let i = rng.below(chars.len());
+                                chars[i] = pool[rng.below(pool.len())];
+                            }
+                            _ => {}
+                        }
+                        n = chars.into_iter().collect();
+                    }
+                    7 => {
+                        n = ["", " ", "  ", "\u{0}", "\u{7}\u{1b}", "a a", "ab"][rng.below(7)]
+                            .to_string()
+                    }
+                    _ => n = "x".repeat(rng.below(3000)),
+                }
+                tried += 1;
+                if let Some(dec) = StoredEmissions::decode(f, secs, &n, &d) {
+                    accepted += 1;
+                    check_decoded(&dec, &n);
+                }
+            }
+        }
+        eprintln!("inceleme: decode {tried} bozulmuş kayıt, {accepted} kabul (hepsi tutarlı)");
+    }
+
+    /// Kendi kodlayıcımızla kurulan kayıtlar: `decode` tam olarak geçerli olanları kabul etmeli.
+    #[test]
+    fn decode_gecerli_kaydi_kabul_eder_gecersizi_reddeder() {
+        let mut rng = Rng(0x00DD_BA11);
+        let interesting: [u16; 14] = [
+            0x0000, // +0
+            0x8000, // −0
+            0x8001, // en küçük alt normal
+            0x83FF, // en büyük alt normal
+            0xBC00, // −1
+            0xE3D0, // −1000
+            0xE3D1, // −1000,5 (aralık dışı)
+            0xFBFF, // −65504
+            0xFC00, // −∞
+            0x7C00, // +∞
+            0x7E00, // NaN
+            0xFE00, // −NaN
+            0x3C00, // +1
+            0x0001, // +alt normal
+        ];
+        let long_ok: String = std::iter::once(' ')
+            .chain(
+                (0x4E00u32..)
+                    .filter_map(char::from_u32)
+                    .take(MAX_COLUMNS - 2),
+            )
+            .collect();
+        let long_bad: String = (0x4E00u32..)
+            .filter_map(char::from_u32)
+            .take(MAX_COLUMNS)
+            .collect();
+        let name_choices: Vec<String> = vec![
+            String::new(),
+            " ".into(),
+            "  ".into(),
+            "\u{0}".into(),
+            " ab".into(),
+            "a b".into(),
+            "aa".into(),
+            "İıiI".into(),
+            "日本🎵".into(),
+            "\u{0307}i".into(),
+            long_ok,
+            long_bad,
+        ];
+        let (mut ok_count, mut bad_count) = (0, 0);
+        for _ in 0..600 {
+            let names = &name_choices[rng.below(name_choices.len())];
+            let columns = names.chars().count() + 1;
+            let frames = if rng.chance(0.05) {
+                0
+            } else {
+                1 + rng.below(4)
+            };
+            let secs = if rng.chance(0.1) { 1.5 } else { 0.02 };
+            let cells = frames * columns;
+            let values: Vec<u16> = (0..cells)
+                .map(|_| {
+                    if rng.chance(0.002) {
+                        interesting[rng.below(interesting.len())]
+                    } else {
+                        // −1000 … 0 arası rastgele f16.
+                        f16::from_f32(-(rng.unit() as f32) * 1000.0).to_bits()
+                    }
+                })
+                .collect();
+            let unique = {
+                let mut seen = HashSet::new();
+                names.chars().all(|c| seen.insert(c))
+            };
+            let values_ok = values
+                .iter()
+                .all(|&b| (MIN_LOG_PROB..=0.0).contains(&f16::from_bits(b).to_f32()));
+            let expect = frames > 0 && secs <= 1.0 && unique && columns <= MAX_COLUMNS && values_ok;
+            let got = StoredEmissions::decode(frames as i64, secs, names, &my_encode(&values));
+            assert_eq!(got.is_some(), expect, "{names:?} kare {frames}");
+            if let Some(d) = got {
+                ok_count += 1;
+                let want: Vec<u32> = values
+                    .iter()
+                    .map(|&b| f16::from_bits(b).to_f32().to_bits())
+                    .collect();
+                assert_eq!(bits(&d.emissions.log_probs), want);
+                check_decoded(&d, names);
+            } else {
+                bad_count += 1;
+            }
+        }
+        eprintln!("inceleme: kendi kodlayıcı {ok_count} kabul, {bad_count} red (beklenenle aynı)");
+    }
+
+    #[test]
+    fn yuvarlama_her_f32_desende_kararli_ve_aralikta() {
+        let mut rng = Rng(42);
+        let mut n = 0;
+        for _ in 0..200_000 {
+            let v = f32::from_bits(rng.next() as u32);
+            let q = quantize(v);
+            assert!((MIN_LOG_PROB..=0.0).contains(&q), "{v} {q}");
+            assert_eq!(quantize(q).to_bits(), q.to_bits(), "{v}");
+            // f16'ya kayıpsız gider.
+            assert_eq!(f16::from_f32(q).to_f32().to_bits(), q.to_bits());
+            n += 1;
+        }
+        for v in EXTREMES {
+            let q = quantize(v);
+            assert_eq!(quantize(q).to_bits(), q.to_bits(), "{v}");
+        }
+        eprintln!("inceleme: yuvarlama {n} rastgele bit deseni");
+    }
+
+    /// Bulgu (düşük): `lyrics_emissions` bir önbellek tablosu, ama `storage::cache_complete` /
+    /// `rebuild_cache` yalnızca `analyses`'i tanıyor. Sürümü 9 olan dosyada tablo ya da tetikleyici
+    /// eksikse (elle bozulmuş, aynı dalın eski bir geliştirme derlemesi) kendiliğinden kurulmaz:
+    /// her `store_emissions` / `load_emissions` hata döner. `storage.rs` belgesinin önbellek için
+    /// verdiği söz ("önbellek tablosu eksik ... yeniden kurulur") bu tabloya uymuyor; ileride V10 bu
+    /// tabloyu `ALTER` ederse eksik tablo kütüphanenin açılmasını engeller ("no such table" sınıfı).
+    #[test]
+    fn emisyon_tablosu_kayipsa_onbellek_yeniden_kurulur() {
+        let mut conn = rusqlite::Connection::open_in_memory().unwrap();
+        crate::storage::migrate(&mut conn).unwrap();
+        conn.execute_batch(
+            "DROP TRIGGER lyrics_emissions_follow_tracks; DROP TABLE lyrics_emissions;",
+        )
+        .unwrap();
+        crate::storage::migrate(&mut conn).unwrap();
+        let objects: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master
+                 WHERE name IN ('lyrics_emissions', 'lyrics_emissions_follow_tracks')",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            objects, 2,
+            "emisyon tablosu ve tetikleyicisi yeniden kurulmadı"
+        );
+    }
+}
