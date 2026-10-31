@@ -306,5 +306,9 @@ kısaltılır.
 - **Işık Ustası kaldırıldı (30 Ekim 2026, sahibinin kararı: "beğenmedim, sıkıcı"):** programdan tamamen silindi
   (sahne, yoğunluk ayarı, kendi testleri); kodu yedek dalda `claude/eloquent-shannon-0eigyf-yedek-isik-ustasi`.
   Kayıtlı seçim "lightshow" ise program gece göğüyle açılır. Sahneler v2 yeni bir fikirle sahibine sorularak başlar.
+- **"Kendi resmin" güvenli modda kırmızı resimde çubuklar durur, bilerek** (31 Ekim 2026; sahibi kararı Claude'a
+  bıraktı): kırmızı pay (8) sessizlik boyunda doluyor, kusursuz sınır bile 3–12 px verirdi; beyaz ışık ve sınırı
+  inceltmek görünüşü değiştirip büyük iş isterdi. Güvenli mod ışığa duyarlı kullanıcı için; normal modda çubuklar her
+  resimde tam. Ölçüm: `docs/arastirma/kendi-resmin/README.md` "Güvenli modda kırmızı resim".
 - Görsel tasarımda sahibi zor beğenir: seçenekleri gerçek boyutta, yan yana görsel olarak sun; bağımsız sanat
   yönetmeni denetimi işe yarıyor (puan 6 → hedef 8+).
