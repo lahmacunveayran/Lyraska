@@ -1276,6 +1276,64 @@ mod tests {
         );
     }
 
+    /// Nyquist'e yakın süzgecin uydurulmuş hâli duyulur bandın üstünde (20 kHz – 0,49·fs) analog
+    /// eğride olmayan bir tepe yapmaz: taşma koruması ve kulaklığın ön kazancı tepeyi bu aralıkta
+    /// da tarar, sahte tepe sesi boşuna kısardı (inceleme: `LS 23 528 Hz −24 dB Q30 @48k`
+    /// 23,5 kHz'te +21,7 dB). Programın bütün aralığında (Q ≤ 30, ±30 dB) tepe, analog eğrinin
+    /// tepesinden (ve 0 dB'den) en fazla 1 dB yüksek.
+    #[test]
+    fn nyquist_yakinindaki_suzgec_sahte_tepe_yapmaz() {
+        let mut worst = (f64::NEG_INFINITY, None);
+        for rate in [32_000.0, 44_100.0, 48_000.0] {
+            let top = 0.499 * rate;
+            let freqs: Vec<f64> = std::iter::once(0.0)
+                .chain((0..=3000).map(|i| (top / 1.0f64).powf(f64::from(i) / 3000.0)))
+                .collect();
+            for kind in KINDS {
+                for i in 0..=12 {
+                    let low = rate * MAX_FREQ_RATIO;
+                    let freq_hz = low + (24_000.0f64.max(low) - low) * f64::from(i) / 12.0;
+                    for q in [0.3, 0.707, 2.0, 4.0, 8.0, 15.0, 30.0] {
+                        let gains: &[f64] = if kind.has_gain() {
+                            &[-30.0, -24.0, -12.0, -6.0, 6.0, 12.0, 24.0, 30.0]
+                        } else {
+                            &[0.0]
+                        };
+                        for &gain_db in gains {
+                            let spec = Spec {
+                                kind,
+                                freq_hz,
+                                gain_db,
+                                q,
+                            };
+                            let analog = freqs
+                                .iter()
+                                .map(|&hz| spec.analog_db(hz))
+                                .fold(0.0, f64::max);
+                            for method in [Method::Rbj, Method::Matched] {
+                                let filter = Biquad::design(&spec, rate, method);
+                                let peak = freqs
+                                    .iter()
+                                    .map(|&hz| filter.response_db(2.0 * PI * hz / rate))
+                                    .fold(f64::NEG_INFINITY, f64::max);
+                                if peak - analog > worst.0 {
+                                    worst =
+                                        (peak - analog, Some((spec, rate, method, peak, analog)));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assert!(
+            worst.0 <= 1.0,
+            "tepe analogdan {:.2} dB yüksek: {:?}",
+            worst.0,
+            worst.1
+        );
+    }
+
     #[test]
     fn karmasik_yanit_genlikle_tutarli() {
         let filter = Biquad::peaking(2000.0, -5.0, 1.4, RATE);
