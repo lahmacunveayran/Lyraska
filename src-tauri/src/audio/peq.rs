@@ -66,10 +66,14 @@ const ANALYSIS_RATE: f64 = 96_000.0;
 /// Profil okunurken ön kazanç sınırı bu hızların en kötüsüne göre konur (en yaygın iki hız;
 /// başka bir hızda çalınırken ses yolu kendi hızıyla yeniden sınırlar).
 const REFERENCE_RATES: [f64; 2] = [44_100.0, 48_000.0];
-/// Tepe 20 Hz'ten Nyquist'in hemen altına (0,49 · fs) kadar oktavda bu kadar noktayla
-/// taranır: dar (Q = 3) bir tepe bile 0,05 dB içinde bulunur.
+/// Tepe 0 Hz'te ve 1 Hz'ten Nyquist'in hemen altına (0,49 · fs) kadar oktavda bu kadar noktayla
+/// taranır; ızgaranın her yerel tepesi komşu noktalarının arasında ince aramayla kesinleştirilir.
+/// 20 Hz altındaki raflar ve iki nokta arasına düşen dar (Q = 30, oktavın ~1/20'si) tepeler de
+/// bulunur: dar tepenin eteği ızgarada yine yerel tepe verir (Denetim 3, DSP-01).
 const PEAK_SCAN_PER_OCTAVE: f64 = 48.0;
-const PEAK_SCAN_LOW_HZ: f64 = 20.0;
+const PEAK_SCAN_LOW_HZ: f64 = 1.0;
+/// İnce aramanın adımları (altın oran: aralık her adımda 0,618 katına iner).
+const PEAK_REFINE_STEPS: usize = 32;
 
 /// Filtre türü.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -424,23 +428,57 @@ fn response_peak_db(filters: &[PeqFilter], method: DesignMethod, sample_rate: f6
     coefs_peak_db(&coefs[..filters.len().min(MAX_FILTERS)], sample_rate)
 }
 
-/// Katsayıları hazır filtrelerin toplam yanıtının en yüksek değeri (dB); 20 Hz'ten
-/// 0,49 · fs'e kadar taranır (Nyquist'e yakın raflar en yüksek değerine orada ulaşır).
+/// Katsayıları hazır filtrelerin toplam yanıtının en yüksek değeri (dB); 0 Hz'ten 0,49 · fs'e
+/// kadar (Nyquist'e yakın raflar en yüksek değerine orada ulaşır, bkz. [`PEAK_SCAN_LOW_HZ`]).
 /// Bellek ayırmaz: ses iş parçacığında da çağrılır.
 fn coefs_peak_db(coefs: &[Biquad], sample_rate: f64) -> f64 {
-    let top_hz = sample_rate * 0.49;
-    let octaves = (top_hz / PEAK_SCAN_LOW_HZ).max(1.0).log2();
-    let points = (octaves * PEAK_SCAN_PER_OCTAVE).ceil() as usize;
-    (0..=points)
-        .map(|i| PEAK_SCAN_LOW_HZ * 2f64.powf(octaves * i as f64 / points as f64))
-        .map(|hz| {
-            let phi = super::biquad::phi(2.0 * PI * hz / sample_rate);
-            coefs.iter().map(|c| c.power_gain(phi)).product::<f64>()
-        })
-        .fold(0.0, f64::max)
-        .max(1e-300)
-        .log10()
-        * 10.0
+    // Güç kazancı, frekansın 2 tabanında logaritmasına göre.
+    let power = |octave: f64| {
+        let phi = super::biquad::phi(2.0 * PI * octave.exp2() / sample_rate);
+        coefs.iter().map(|c| c.power_gain(phi)).product::<f64>()
+    };
+    let low = PEAK_SCAN_LOW_HZ.log2();
+    let high = (sample_rate * 0.49).max(PEAK_SCAN_LOW_HZ).log2();
+    let points = ((high - low) * PEAK_SCAN_PER_OCTAVE).ceil().max(1.0) as usize;
+    let at = |i: usize| low + (high - low) * i as f64 / points as f64;
+    // 0 Hz: alçak raf en yüksek değerine orada ulaşır.
+    let dc = super::biquad::phi(0.0);
+    let mut best = coefs.iter().map(|c| c.power_gain(dc)).product::<f64>();
+    // Izgara: her yerel tepe komşu noktalarının arasında kesinleştirilir (düz bölgede arama yok).
+    let (mut before, mut here) = (power(at(0)), power(at(1)));
+    best = best.max(before).max(here);
+    for i in 1..points {
+        let after = power(at(i + 1));
+        best = best.max(after);
+        if here > before && here >= after {
+            best = best.max(refine_peak(&power, at(i - 1), at(i + 1)));
+        }
+        (before, here) = (here, after);
+    }
+    best.max(1e-300).log10() * 10.0
+}
+
+/// `[from, to]` aralığında `power`'ın en yükseği (altın oran araması; aralıkta tek tepe varsayılır).
+fn refine_peak(power: &impl Fn(f64) -> f64, from: f64, to: f64) -> f64 {
+    let ratio = (5f64.sqrt() - 1.0) / 2.0;
+    let (mut a, mut b) = (from, to);
+    let (mut c, mut d) = (b - ratio * (b - a), a + ratio * (b - a));
+    let (mut at_c, mut at_d) = (power(c), power(d));
+    let mut best = at_c.max(at_d);
+    for _ in 0..PEAK_REFINE_STEPS {
+        if at_c > at_d {
+            (b, d, at_d) = (d, c, at_c);
+            c = b - ratio * (b - a);
+            at_c = power(c);
+            best = best.max(at_c);
+        } else {
+            (a, c, at_c) = (c, d, at_d);
+            d = a + ratio * (b - a);
+            at_d = power(d);
+            best = best.max(at_d);
+        }
+    }
+    best
 }
 
 /// Profildeki bir filtrenin katsayıları.
@@ -1436,6 +1474,82 @@ Filter 5: ON HSC Fc 10000 Hz Gain 2.0 dB Q 0.70
             "köşede yarı kazanç"
         );
         assert!((gain_at(&low, 5000.0) + 8.0).abs() < 0.05);
+    }
+
+    /// Filtrelerin `rate`'teki gerçek tepesi (dB): 0 Hz ve 0,1 Hz'ten 0,49 · fs'e 200 000 noktayla.
+    fn dense_peak_db(filters: &[PeqFilter], method: DesignMethod, rate: f64) -> f64 {
+        let coefs: Vec<Biquad> = filters.iter().map(|f| design(f, rate, method)).collect();
+        let top = rate * 0.49;
+        let n = 200_000;
+        std::iter::once(0.0)
+            .chain((0..=n).map(|i| 0.1 * (top / 0.1).powf(f64::from(i) / f64::from(n))))
+            .map(|hz| {
+                let phi = biquad::phi(2.0 * PI * hz / rate);
+                coefs.iter().map(|c| c.power_gain(phi)).product::<f64>()
+            })
+            .fold(0.0, f64::max)
+            .log10()
+            * 10.0
+    }
+
+    #[test]
+    fn tepe_taramasi_20_hz_altini_ve_dar_tepeleri_gorur() {
+        // Denetim 3, DSP-01: tarama 20 Hz'te başlıyordu ve tarama noktaları arasındaki dar tepeleri
+        // kaçırıyordu. Korumaya (ve kulaklığın ön kazancına) bildirilen tepe gerçeğinden az olmamalı.
+        let filter = |kind, freq_hz, gain_db, q| PeqFilter {
+            kind,
+            freq_hz,
+            gain_db,
+            q,
+        };
+        let mut cases = vec![
+            vec![filter(FilterKind::LowShelf, 15.0, 12.0, 2.0)],
+            vec![filter(FilterKind::Peaking, 14.0, 12.0, 2.0)],
+            vec![filter(FilterKind::Peaking, 10.0, 24.0, 4.0)],
+            vec![filter(FilterKind::LowShelf, 30.0, 6.0, DEFAULT_Q)],
+            vec![filter(FilterKind::Peaking, 12.0, 10.0, 1.4)],
+            vec![filter(FilterKind::LowShelf, 10.0, 12.0, 30.0)],
+            vec![filter(FilterKind::HighShelf, 15_000.0, 12.0, 30.0)],
+        ];
+        // Dar tepeler tarama ızgarasına göre farklı yerlerde (oktavın 1/192'si adımla).
+        for j in 0..8 {
+            let hz = 1000.0 * 2f64.powf(f64::from(j) / 192.0);
+            cases.push(vec![filter(FilterKind::Peaking, hz, 12.0, 30.0)]);
+            cases.push(vec![filter(FilterKind::Peaking, hz, 12.0, 10.0)]);
+            // Geniş bir tepenin yanında dar tepe: ızgaranın en yükseği geniş tepede kalır.
+            cases.push(vec![
+                filter(FilterKind::Peaking, 200.0, 11.0, 0.5),
+                filter(FilterKind::Peaking, hz * 8.0, 12.0, 30.0),
+            ]);
+        }
+        for filters in &cases {
+            for method in [DesignMethod::Rbj, DesignMethod::Matched] {
+                let truth = REFERENCE_RATES
+                    .iter()
+                    .map(|&rate| dense_peak_db(filters, method, rate))
+                    .fold(f64::NEG_INFINITY, f64::max);
+                let reported = reference_peak_db(filters, method);
+                assert!(
+                    reported >= truth - 0.01,
+                    "{filters:?} {method:?}: bildirilen {reported:.3}, gerçek {truth:.3} dB"
+                );
+                assert!(
+                    reported <= truth + 1e-3,
+                    "tepe abartılmaz: {reported} > {truth}"
+                );
+                // Ses yolu çalan hızda tarar.
+                for rate in [44_100.0, 96_000.0, 192_000.0] {
+                    let coefs: Vec<Biquad> =
+                        filters.iter().map(|f| design(f, rate, method)).collect();
+                    let scanned = coefs_peak_db(&coefs, rate);
+                    let truth = dense_peak_db(filters, method, rate);
+                    assert!(
+                        scanned >= truth - 0.01,
+                        "{filters:?} {method:?} {rate} Hz: {scanned:.3} < {truth:.3} dB"
+                    );
+                }
+            }
+        }
     }
 
     /// Verilen hızda profilin tepesi (ön kazanç dahil, dB).

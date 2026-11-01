@@ -82,7 +82,8 @@ const MIN_SHAPE_GAIN_DB: f64 = 0.5;
 /// Bu kadar küçük kazançlar "düz" sayılır.
 const FLAT_DB: f64 = 1e-3;
 /// Ön kazanç eğrinin tepesine göre konur: tepe 10 Hz'ten 0,49 · fs'e kadar oktavda bu kadar
-/// noktayla taranır (parametrik EQ'daki gibi; ızgaranın kaçırdığı en çok `PEAK_SCAN_TOLERANCE_DB`).
+/// noktayla taranır (ızgaranın kaçırdığı en çok `PEAK_SCAN_TOLERANCE_DB`; bantlar geniş, ince arama
+/// gerekmez).
 /// 10 Hz'in altında müzikte kayda değer enerji yoktur; kalanı taşma koruması yakalar.
 const PEAK_SCAN_PER_OCTAVE: f64 = 48.0;
 const PEAK_SCAN_LOW_HZ: f64 = 10.0;
