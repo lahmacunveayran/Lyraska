@@ -107,8 +107,8 @@ Takipçinin bulduğu ızgara (T) analiz karelerindeki bant seviyelerinden sınan
    2T'nin araları boş (≤ 0,11), trap ve dubstep'te dolu (≥ 0,25). Davulsuz on altılık piyano araları doldurur ama
    gürültü yoktur.
 3. **Eşit nabız** (1 Kasım 2026, gerçek kütüphaneden; aşağıda): 2T ≤ 200 ise, vuruş araları vuruşlar kadar güçlüyse
-   (başlangıç gücü, ≥ 0,85: her bulunan vuruşta kick) ve 2T'nin araları da doluysa (≥ 0,35: offbeat bas, hi-hat)
-   sonuç 2T'dir.
+   (başlangıç gücü, ≥ 0,85), aradaki vuruş basta da güçlüyse (bas bantlarında artış, ≥ 0,75: kick) ve 2T'nin
+   araları da doluysa (≥ 0,35: offbeat bas, hi-hat) sonuç 2T'dir.
 4. **Boş vuruş araları:** T/2 ≥ 60 ise, vuruş araları neredeyse boşsa (< 0,12) ve T/2'nin bir yarısında aralar
    vurgusuzsa (≤ 0,5; snare ve kick vuruşta) sonuç T/2'dir.
 
@@ -165,6 +165,13 @@ Kütüphanenin tamamı yeni kuralla yeniden ölçüldü. 30 dosyanın temposu de
   olasılıkla Alexandra Stan "1.000.000" remiksi). Şimdi 4/3'ü bulunuyor. Bu ayrı bir hata sınıfıdır, açık iş.
 - **3 dosyanın doğrusu bilinmiyor** (etiketsiz "Throw It Back" 80 → 161, adsız bir parça 88 → 176, Dj T.c.
   "I Believe In Love" nightcore 97 → 194).
+- **Bağımsız inceleme bir gerileme buldu:** kendi üreteciyle reggaeton (dembow: her vuruşta kick, snare 0,75 /
+  1,5 / 2,75 / 3,5'ta) 94–100 BPM'de iki katına çıkıyordu. Aradaki snare başlangıç gücünde vuruş kadar güçlüydü. Bas
+  şartı eklendi: dembow'da aradaki bas oranı ≤ 0,21, düzelen şarkılarda ≥ 0,87 (eşik 0,75). Test
+  `reggaeton_iki_katina_cikmaz` (şart kapatılınca düşüyor). İncelemenin denediği öteki türler (house 120–128, disco
+  ve dans-pop 90–100, nu-disco, Motown, balad, reggae) değişmedi. Polka/country "boom-chick" (basta vuruş, her
+  arada snare) 84–100'de iki katına çıkıyor, ama bu kural 1'den geliyor ve değişiklikten önce de vardı. Kütüphane
+  bas şartıyla yeniden ölçüldü: değişen dosyalar ve tempoları birebir aynı (30 dosya).
 - Düzelmeyen 2× kalanlar: drum and bass'ta (Feint, Maduk) vuruş arası oranı 0,71–0,73, Skillet 0,62, Narvent 0,52.
   Eşik onlar için indirilirse doğru sınıfın en yükseği (0,81) aşılır.
 

@@ -19,7 +19,11 @@
 //!    katı seçilir: trap ve dubstep 140'tır.
 //!    Sınır, dinleyicilerin yeğlediği tempo bölgesinden (~120 BPM çevresi, bir oktav; Moelants,
 //!    McKinney) gelir; yalnızca kanıt (araların doluluğu) varken uygulanır.
-//! 3. **Boş vuruş araları:** vuruşların arası neredeyse hiç dolmuyorsa (baladda sekizlik piyano
+//! 3. **Eşit nabız:** vuruş araları başlangıç gücünde ve bas bantlarında vuruşlar kadar güçlüyse
+//!    (her vuruşta kick: hardstyle, hands up, frenchcore yarı tempoda bulunmuş) ve iki katı
+//!    tempoda da aralar doluysa (offbeat bas, hi-hat) iki katı seçilir. Sahibinin kütüphanesinden
+//!    ölçüldü (`docs/arastirma/tempo/`); reggaeton'un ara vuruşu snare'dir, basta zayıftır.
+//! 4. **Boş vuruş araları:** vuruşların arası neredeyse hiç dolmuyorsa (baladda sekizlik piyano
 //!    vuruş sanılmış) ve yarısı tempoda vuruş aralarında vurgu yoksa yarısı seçilir.
 //!
 //! Ayarlar sentetik geliştirme setinde yapıldı, ayrı tohumlu doğrulama setinde ölçüldü
@@ -56,9 +60,12 @@ const SPARSE_OFFBEAT_ACCENT_MAX: f64 = 0.5;
 const HALF_TIME_BPM: f64 = 80.0;
 /// Yarım tempo hissinde iki katı tempoda vuruş aralarının en az doluluğu (başlangıç gücü).
 const HALF_TIME_FILL_MIN: f64 = 0.2;
-/// Eşit nabız: vuruş araları (başlangıç gücü) vuruşların en az bu oranındaysa, yani her vuruşta
-/// kick varken bulunan ızgara gerçek temponun yarısıdır şüphesi (hardstyle, hands up, DnB).
+/// Eşit nabız: vuruş araları (başlangıç gücü) vuruşların en az bu oranındaysa bulunan ızgara
+/// gerçek temponun yarısı olabilir (hardstyle, hands up, frenchcore: her vuruşta kick).
 const EVEN_PULSE_MIN: f64 = 0.85;
+/// Eşit nabızda vuruş aralarındaki bas (kick) artışı da vuruşlardakinin en az bu oranında olmalı:
+/// reggaeton'un ara vuruşu snare'dir, basta zayıftır.
+const EVEN_LOW_MIN: f64 = 0.75;
 /// Eşit nabızda iki katı tempoya çıkmak için iki katın da vuruş araları en az bu kadar dolu
 /// olmalı (offbeat bas, hi-hat). Sekizlikleri dolu yavaş şarkıda onaltılıklar boştur (≤ 0,25).
 const EVEN_DOUBLED_FILL_MIN: f64 = 0.35;
@@ -109,7 +116,8 @@ pub fn resolve_octave(
             && snare_coverage >= SNARE_EVERY_GAP_MIN
             && offbeat_noise(&noise, &grid.beats, &frame) >= HAT_NOISE_MIN);
     let doubled_bpm = 2.0 * grid.bpm;
-    let even_pulse = ratio(&strength, &grid.beats) >= EVEN_PULSE_MIN;
+    let even_pulse = ratio(&strength, &grid.beats) >= EVEN_PULSE_MIN
+        && ratio(&band_rise(bands, bands_per_frame, LOW_BANDS), &grid.beats) >= EVEN_LOW_MIN;
     if doubled_bpm <= MAX_BPM && (drums_between || even_pulse || grid.bpm < HALF_TIME_BPM) {
         let doubled = with_midpoints(&grid.beats);
         // İki katı tempoda yeniden izlenen ızgara: vuruşlar başlangıçlara oturur (ara ortaları
@@ -213,32 +221,34 @@ fn with_midpoints(beats: &[f64]) -> Vec<f64> {
 /// Kare başına vurgu: bas ve orta bantlarda seviye artışı (her biri kendi standart sapmasına
 /// bölünür; kick de snare de sayılsın).
 fn accent_envelope(bands: &[u8], bands_per_frame: usize) -> Vec<f64> {
-    let frames: Vec<&[u8]> = bands.chunks_exact(bands_per_frame).collect();
-    let rise = |range: std::ops::Range<usize>| -> Vec<f64> {
-        let width = range.len() as f64;
-        let mut out: Vec<f64> = frames
-            .iter()
-            .enumerate()
-            .map(|(i, frame)| {
-                let previous = frames[i.saturating_sub(1)];
-                range
-                    .clone()
-                    .map(|b| (f64::from(frame[b]) - f64::from(previous[b])).max(0.0))
-                    .sum::<f64>()
-                    / width
-            })
-            .collect();
-        let deviation = standard_deviation(&out);
-        if deviation > 1e-9 {
-            out.iter_mut().for_each(|v| *v /= deviation);
-        }
-        out
-    };
-    rise(LOW_BANDS)
+    band_rise(bands, bands_per_frame, LOW_BANDS)
         .iter()
-        .zip(rise(MID_BANDS))
+        .zip(band_rise(bands, bands_per_frame, MID_BANDS))
         .map(|(low, mid)| low + mid)
         .collect()
+}
+
+/// Kare başına verilen bantlarda ortalama seviye artışı, kendi standart sapmasına bölünmüş.
+fn band_rise(bands: &[u8], bands_per_frame: usize, range: std::ops::Range<usize>) -> Vec<f64> {
+    let frames: Vec<&[u8]> = bands.chunks_exact(bands_per_frame).collect();
+    let width = range.len() as f64;
+    let mut out: Vec<f64> = frames
+        .iter()
+        .enumerate()
+        .map(|(i, frame)| {
+            let previous = frames[i.saturating_sub(1)];
+            range
+                .clone()
+                .map(|b| (f64::from(frame[b]) - f64::from(previous[b])).max(0.0))
+                .sum::<f64>()
+                / width
+        })
+        .collect();
+    let deviation = standard_deviation(&out);
+    if deviation > 1e-9 {
+        out.iter_mut().for_each(|v| *v /= deviation);
+    }
+    out
 }
 
 /// Kare başına snare/clap gücü: 500 Hz–5 kHz bantlarında **doğrusal** güç artışı. Seviyeler
@@ -667,11 +677,13 @@ mod tests {
     }
 
     /// Başlangıç gücü: `bpm`'lik ızgaranın vuruşlarında 1, ara ortalarında `eighth`, dörtte
-    /// birlerinde `sixteenth` (40 sn, 60 kare/sn); bantlar düz (vurgu, snare ve hi-hat yok).
+    /// birlerinde `sixteenth` (40 sn, 60 kare/sn). Bas bantları vuruşlarda ve ara ortalarında aynı
+    /// güçle yükselir (kick); öteki bantlar düz (snare ve hi-hat yok).
     fn pulse(bpm: f64, eighth: f32, sixteenth: f32) -> (BeatGrid, Vec<f32>, Vec<u8>) {
         let fps = 60.0;
         let frames = (40.0 * fps) as usize;
         let mut onset = vec![0.02f32; frames];
+        let mut bands = vec![100u8; frames * 32];
         let step = 60.0 / bpm / 4.0;
         let mut k = 0usize;
         loop {
@@ -685,6 +697,10 @@ mod tests {
                 2 => eighth,
                 _ => sixteenth,
             };
+            if k.is_multiple_of(2) {
+                let kick = (100.0 + 100.0 * onset[i]) as u8;
+                bands[i * 32..i * 32 + LOW_BANDS.end].fill(kick);
+            }
             k += 1;
         }
         let beats: Vec<f64> = (0..)
@@ -696,7 +712,7 @@ mod tests {
             beats,
             variable_tempo: false,
         };
-        (grid, onset, vec![100u8; frames * 32])
+        (grid, onset, bands)
     }
 
     #[test]
@@ -729,6 +745,23 @@ mod tests {
         let (grid, onset, bands) = pulse(90.0, 0.6, 0.5);
         let out = resolve_octave(grid, &onset, &bands, 32, 60.0, 0.0);
         assert!((out.bpm / 90.0 - 1.0).abs() < 0.02, "{}", out.bpm);
+    }
+
+    #[test]
+    fn reggaeton_iki_katina_cikmaz() {
+        // Dembow: her vuruşta kick, snare 0,75 / 1,5 / 2,75 / 3,5'ta, sekizlik hi-hat. Aradaki
+        // snare başlangıç gücünde vuruş kadar güçlü, iki katın aralarını da dolduruyor; ama basta
+        // zayıf. Bağımsız inceleme bulmuştu: bas şartı olmadan 94–100 iki katına çıkıyordu.
+        for (bpm, seed) in [(94.0, 41), (98.0, 42), (100.0, 43)] {
+            let mut drums = Drums::new(40.0, seed);
+            let mut hits: Vec<(f64, Hit, f64)> =
+                (0..4).map(|q| (f64::from(q), Hit::Kick, 1.0)).collect();
+            hits.extend([0.75, 1.5, 2.75, 3.5].map(|x| (x, Hit::Snare, 1.2)));
+            hits.extend((0..8).map(|e| (f64::from(e) / 2.0, Hit::Hat, 1.5)));
+            drums.pattern(bpm, &hits);
+            let grid = resolved(&drums.out);
+            assert!((grid.bpm / bpm - 1.0).abs() < 0.02, "{bpm}: {}", grid.bpm);
+        }
     }
 
     #[test]
