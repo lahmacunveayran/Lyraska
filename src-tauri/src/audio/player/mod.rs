@@ -106,6 +106,10 @@ pub struct PlaybackStatus {
     /// (eski çekirdek göndermez).
     #[cfg_attr(test, ts(optional, type = "number"))]
     pub gapless_count: u64,
+    /// Oturum numarası: her açma, sarma ve aygıt değişiminde artar. Arayüz kendi açtığı şarkının
+    /// yerini alan eski oturumun geçişlerini buradan ayırır. Arayüzde seçimlik.
+    #[cfg_attr(test, ts(optional, type = "number"))]
+    pub session_seq: u64,
 }
 
 /// Sesin şarkıdan hoparlöre giden yolu (profesyonel çalarlardaki "sinyal yolu").
@@ -316,6 +320,7 @@ impl Player {
                     bpm,
                     output: Some(output),
                     gapless_count: self.gapless_base + index as u64,
+                    session_seq: self.transition_seq,
                 }
             }
             // Geçiş sürüyor (yeni şarkı açılıyor ya da sarılıyor): hedef durum gösterilir.
@@ -330,6 +335,7 @@ impl Player {
                 bpm: None,
                 output: None,
                 gapless_count: self.gapless_base,
+                session_seq: self.transition_seq,
             },
         }
     }

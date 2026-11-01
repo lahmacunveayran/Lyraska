@@ -63,6 +63,9 @@ pub struct SharedState {
     pub(super) segments: Mutex<Vec<Segment>>,
     /// Boşluksuz geçiş için sıradaki şarkı; çözme iş parçacığı şarkı bitince alır.
     pub(super) next_path: Mutex<Option<PathBuf>>,
+    /// Çözme iş parçacığı sıradakini aldı, henüz akışa eklemedi (açılıyor ya da önceki şarkının
+    /// kuyruğunu bekliyor).
+    pub(super) next_attaching: AtomicBool,
     /// Çalma sırasında veri yetişmediği tur sayısı (hedef: her zaman 0).
     pub underruns: AtomicU64,
     /// Varsayılan ses aygıtı değişti ya da koptu (kulaklık takıldı/çıkarıldı): oynatıcı oturumu

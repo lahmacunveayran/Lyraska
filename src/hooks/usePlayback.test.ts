@@ -20,6 +20,8 @@ const backend = vi.hoisted(() => ({
   keepPlayingOnError: false,
   /** Çekirdeğin boşluksuz geçiş sayacı. */
   gapless: 0,
+  /** Oturum numarası: her açılışta artar (açılamayan dosya yoklamada kalırsa artmaz). */
+  session: 0,
 }));
 
 const track = (path: string): TrackInfo => ({
@@ -46,6 +48,7 @@ const status = (): PlaybackStatus => ({
   bpm: null,
   output: null,
   gaplessCount: backend.gapless,
+  sessionSeq: backend.session,
 });
 
 vi.mock("../lib/backend", async (importOriginal) => {
@@ -59,6 +62,8 @@ vi.mock("../lib/backend", async (importOriginal) => {
           path,
           finish: () => {
             const wasEnded = backend.ended;
+            const probed = backend.keepPlayingOnError && backend.current !== null;
+            if (!(backend.broken.includes(path) && probed)) backend.session += 1;
             backend.ended = false;
             if (backend.broken.includes(path)) {
               // Çekirdek: açılamayan şarkıda oturum kapanır, çalan şarkı kalmaz (çalan şarkı
@@ -98,6 +103,7 @@ beforeEach(() => {
   backend.ended = false;
   backend.keepPlayingOnError = false;
   backend.gapless = 0;
+  backend.session = 0;
 });
 
 describe("çalma sırası", () => {
@@ -167,6 +173,64 @@ describe("çalma sırası", () => {
       // Çekirdek sıradakini aldı: aynı yol olsa da yeniden bildirilir.
       expect(backend.next.slice(sent)).toContain(upcoming);
     }
+  });
+
+  // A4'ün bağımsız incelemesi: açılamayan şarkıda bekleyen sıra da aynı şarkının geçişiyle ilerler.
+  it("açılamayan şarkıdan sonra aynı şarkı art arda: sıra ilerler, şarkı sonsuza dek dönmez", async () => {
+    backend.broken = ["BAD"];
+    backend.keepPlayingOnError = true;
+    const { result } = renderHook(() => usePlayback(["flac"]));
+    act(() => result.current.playList(["X", "BAD", "X", "Y"], "X"));
+    await finishOpen("X");
+    act(() => result.current.next());
+    await finishOpen("BAD");
+    expect(result.current.queueLabel).toBe("2 / 4");
+    expect(result.current.upcoming).toBe("X");
+    backend.gapless = 1;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    expect(result.current.queueLabel).toBe("3 / 4");
+    expect(result.current.upcoming).toBe("Y");
+    expect(backend.next.at(-1)).toBe("Y");
+  });
+
+  it("aynı şarkı art arda: 'Sonraki' sürerken çekirdeğin geçişi bir kopya daha atlatmaz", async () => {
+    const { result } = renderHook(() => usePlayback(["flac"]));
+    act(() => result.current.playList(["X", "X", "X", "Y"], "X"));
+    await finishOpen("X");
+    act(() => result.current.next());
+    // Açılış sürerken eski oturum ikinci kopyaya kendisi geçer; kullanıcının açtığı onun yerini alır.
+    backend.gapless = 1;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    await finishOpen("X");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    expect(result.current.queueLabel).toBe("2 / 4");
+    expect(result.current.upcoming).toBe("X");
+    // Sonraki geçiş yine sayılır.
+    backend.gapless = 2;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    expect(result.current.queueLabel).toBe("3 / 4");
+    expect(result.current.upcoming).toBe("Y");
+  });
+
+  it("aynı şarkı art arda: boşluksuz geçiş olmadan biterse ikinci kopya atlanmaz", async () => {
+    const { result } = renderHook(() => usePlayback(["flac"]));
+    act(() => result.current.playList(["X", "X", "Y"], "X"));
+    await finishOpen("X");
+    backend.ended = true;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+    await finishOpen("X");
+    expect(result.current.queueLabel).toBe("2 / 3");
+    expect(result.current.upcoming).toBe("Y");
   });
 
   it("şarkı açılırken seçilen ikinci şarkı kaybolmaz: son seçim çalar (#52)", async () => {

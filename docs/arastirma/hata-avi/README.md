@@ -69,6 +69,21 @@ Düzeltmeler:
 `ayni_sarki_siradayken_sarma_tekrari_silmez`, `gecis_surerken_bildirilen_siradaki_yeni_oturuma_ulasir` (Rust)
 ve `usePlayback.test.ts`'te "aynı şarkı art arda".
 
+### Bağımsız inceleme (A4)
+
+Sayaç geri gitmiyor, çift saymıyor; sarma ve geçiş kuralı eski davranışı bozmuyor. Dört bulgu işlendi, her biri önce
+testle yakalandı:
+
+- **Orta, gerileme:** açılamayan şarkıda bekleyen sıra ([X, bozuk, X, Y]) aynı şarkının geçişinde ilerlemiyor, X
+  sonsuza dek dönüyordu. Artık sayaç artışı yol değişimiyle aynı kuralla işleniyor (bekleyiş de bitiyor).
+- **Düşük-orta:** "Sonraki"ye tam geçiş anında basılınca çekirdeğin geçişi kullanıcının seçiminin üstüne sayılıyor,
+  bir kopya atlanıyordu. Durum özetine oturum numarası (`sessionSeq`) eklendi: sıradan açılan şarkı beklenirken eski
+  oturumun geçişleri sayılmıyor.
+- **Orta, eski:** geçiş olmadan biten şarkıda (`onEnded`) yol eşleşmesi ikinci kopyayı çalınmış sanıyordu. Artık sıra
+  yalnızca görülmemiş bir geçiş varsa ilerliyor.
+- **Düşük:** çözme iş parçacığı sıradakini alıp akışa eklemeden önceki kısa arada sarılırsa sıradaki silinebiliyordu.
+  Bu ara artık bayrakla (`next_attaching`) "çalmadı" sayılıyor.
+
 ## A1'in düzeltmesi (#174)
 
 - Ön kazanç artık en yüksek sürgü değil, eğrinin taranan gerçek tepesi. Tarama 10 Hz'ten 0,49 · fs'e kadar, oktavda

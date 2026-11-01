@@ -30,4 +30,9 @@ output: SignalPath | null,
  * Aynı şarkı art arda çalınınca yol değişmez: arayüz geçişi buradan anlar. Arayüzde seçimlik
  * (eski çekirdek göndermez).
  */
-gaplessCount?: number, };
+gaplessCount?: number, 
+/**
+ * Oturum numarası: her açma, sarma ve aygıt değişiminde artar. Arayüz kendi açtığı şarkının
+ * yerini alan eski oturumun geçişlerini buradan ayırır. Arayüzde seçimlik.
+ */
+sessionSeq?: number, };

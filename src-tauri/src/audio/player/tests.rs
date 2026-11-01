@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 use rtrb::RingBuffer;
 
 use super::decode_thread::decode_loop;
+use super::next_track::{attach_next, open_next};
 use super::session::{derive_state, unix_micros, Segment, RING_SECONDS};
 use super::transition::MAX_DEVICE_RECOVERIES;
 use super::*;
@@ -404,9 +405,11 @@ fn ayni_sarki_art_arda_bosluksuz_ve_sayilarak_calar() {
     assert!(wait_until(|| player.state() == PlaybackState::Ended));
     assert_eq!(player.status().gapless_count, 2);
     assert_eq!(player.status().underruns, 0);
-    // Yeni şarkı açılınca sayaç geri gitmez.
+    // Yeni şarkı açılınca sayaç geri gitmez; oturum numarası artar.
+    let seq = player.status().session_seq;
     player.load(&x, false).unwrap();
     assert_eq!(player.status().gapless_count, 2);
+    assert_eq!(player.status().session_seq, seq + 1);
     output::simulated::set_device_rate(None);
     std::fs::remove_file(x).ok();
 }
@@ -427,6 +430,28 @@ fn ayni_sarki_siradayken_sarma_tekrari_silmez() {
     );
     output::simulated::set_device_rate(None);
     std::fs::remove_file(x).ok();
+}
+
+#[test]
+fn siradaki_alinip_akisa_eklenmeden_calindi_sayilmaz() {
+    // Çözme iş parçacığı sıradakini alıp açarken (eklemeden önce) sarılırsa sıradaki silinmemeli.
+    let next = ramp_song("alinan-siradaki.wav");
+    let shared = SharedState::new(false, test_segment(), RenderControls::default());
+    let spec = OutputSpec {
+        sample_rate: 8_000,
+        channels: 2,
+        mode: OutputMode::Shared,
+    };
+    shared.set_next(Some(next.clone()));
+    let decoder = open_next(&shared, spec).unwrap();
+    assert!(!shared.next_consumed(), "alındı ama henüz akışta değil");
+    attach_next(&shared, spec, decoder.info().clone(), 0);
+    assert!(shared.next_consumed(), "akışa eklendi ve duyuluyor");
+    // Açılamayan sıradaki alındı ve hiç eklenmeyecek: eskidir.
+    shared.set_next(Some(temp_path("olmayan-siradaki.wav")));
+    assert!(open_next(&shared, spec).is_none());
+    assert!(shared.next_consumed());
+    std::fs::remove_file(next).ok();
 }
 
 #[test]
