@@ -57,8 +57,9 @@ export interface MilkdropControls {
   /** Sahne: müzikte uygun an geldi. */
   advance: () => void;
   /**
-   * Sahne: istenen görsel açıldı / açılamadı ya da çizerken hata verdi. `skipPath` verilirse o
-   * görsel kalıcı atlananlara da girer (ör. ekran kartını dondurdu); istek eskimiş olsa bile.
+   * Sahne: istenen görsel açıldı / açılamadı ya da çizerken hata verdi. Hata veren görsel, istek
+   * eskimiş olsa bile (yenisi açılırken) bu oturumda bir daha seçilmez. `skipPath` verilirse o
+   * görsel kalıcı atlananlara da girer (ör. ekran kartını dondurdu).
    */
   loaded: (serial: number, name: string, simplified: boolean, shaderNote?: string | null) => void;
   failed: (serial: number, message: string, skipPath?: string) => void;
@@ -67,6 +68,8 @@ export interface MilkdropControls {
 const AUTO_KEY = "lyraska.milkdrop.auto";
 /** Art arda bu kadar görsel açılamazsa kendiliğinden denemeyi bırakır. */
 const MAX_FAILURES = 5;
+/** Yolu hatırlanan son istek sayısı (sahne en çok bir önceki isteği çiziyor olabilir). */
+const MAX_TRACKED = 16;
 const ALL_SKIPPED =
   "Bu klasördeki görsellerin hepsi atlandı (açılamadı ya da önceki açılışlarda program onları " +
   "çalarken kapandı). Atlananları yeniden deneyebilir ya da başka bir klasör seçebilirsiniz.";
@@ -123,6 +126,10 @@ export function useMilkdrop(active: boolean): MilkdropControls {
   const bad = useRef(new Set<string>());
   const skippedRef = useRef(skipped);
   const requested = useRef<MilkdropEntry | null>(null);
+  /** Son isteklerin yolları (sıra numarasıyla): eskimiş istekteki hata da görseli suçlar. */
+  const requestedPaths = useRef(new Map<number, string>());
+  /** Önceki açılışın çökme işareti okundu mu (oturumda bir kez; sonrası bu oturumun işaretidir). */
+  const crashChecked = useRef(false);
 
   /** Seçilmeyecek görsellerin listedeki sıraları. */
   const avoid = useCallback(() => {
@@ -142,6 +149,11 @@ export function useMilkdrop(active: boolean): MilkdropControls {
       history.current = step.history;
       serial.current += 1;
       requested.current = entry;
+      requestedPaths.current.set(serial.current, entry.path);
+      const oldest = requestedPaths.current.keys().next().value;
+      if (requestedPaths.current.size > MAX_TRACKED && oldest !== undefined) {
+        requestedPaths.current.delete(oldest);
+      }
       setRequest({ serial: serial.current, entry, blendSeconds: blendSeconds(manual) });
       return true;
     },
@@ -160,8 +172,11 @@ export function useMilkdrop(active: boolean): MilkdropControls {
       setShaderNote(null);
       setRequest(null);
       requested.current = null;
-      // Önceki açılışta bir görsel çalarken program kapandıysa o görsel atlananlara girer.
-      const pending = readPending();
+      // Önceki açılışta bir görsel çalarken program kapandıysa o görsel atlananlara girer. Bu
+      // yalnızca oturumun ilk listesinde okunur: sonra işaret bu oturumda çalan görselindir
+      // (klasör değiştirmek onu suçlamaz).
+      const pending = crashChecked.current ? null : readPending();
+      crashChecked.current = true;
       let message = next.error;
       if (pending !== null) {
         addSkipped(pending);
@@ -234,6 +249,9 @@ export function useMilkdrop(active: boolean): MilkdropControls {
         setSkipped(skippedRef.current);
       }
       if (done !== serial.current) {
+        // Yenisi açılırken hâlâ çalan görsel hata verdi: o da bu oturumda bir daha denenmez.
+        const path = requestedPaths.current.get(done);
+        if (path !== undefined) bad.current.add(path);
         if (skipPath !== undefined) setNotice(`Görsel atlandı: ${message}`);
         return;
       }
