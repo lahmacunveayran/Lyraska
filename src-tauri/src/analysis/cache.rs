@@ -65,7 +65,8 @@ pub const VERSIONS: PartVersions = PartVersions {
     // döndüğü kareye oturur.
     // 6: ritmi zayıf ya da basit oranlı (2/3, 3/2) parça sabit tempoyu "değişken" yapmaz.
     // 7: tempo oktavı (drum and bass 87 → 174, yarım tempolu trap 70 → 140, balad 132 → 66).
-    rhythm: 7,
+    // 8: eşit nabız (her vuruşta kick, iki katının araları dolu): hardstyle 80 → 160.
+    rhythm: 8,
     loudness: 1,
     bass: 1,
     key: 1,

@@ -9,10 +9,10 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 
 1. Sözleri sese otomatik hizalama (dokunarak zamanlamanın yerine; sahibi elle yapamıyor): iki irdeleme bitti
    (`docs/arastirma/soz-hizalama/`), sahibi kararları verdi (BILGI §7); sıra RAPOR §8 + DENETIM önerileri, küçük
-   PR'lar: hazırlıktan arayüze ve Lyra görünümüne (#165) kadar birleşti → paketin test sürümü sayfasında korunması
-   (PR'da), birleşince paket yüklenir → sahibinin 5–10 Türkçe şarkı denemesi.
+   PR'lar: hazırlıktan arayüze, Lyra görünümüne (#165) ve paketin test sürümü sayfasında korunmasına (#167) kadar
+   birleşti → paket yüklenir (önce SHA denetimi) → sahibinin 5–10 Türkçe şarkı denemesi.
 2. Ses motoru denetimi (64-bit, EQ, AutoEq, R128, bit-perfect, ABX): Denetim 3 §5.1 (`ccr-a69bd749-djgi3v`,
-   `ccr-a46535b3-m3v2i5`) + #56; RTS-03 (#168) ve D1-01 düzeltildi (PR'da), sırada DSP-01, eğri aygıt hızında, RTS-01.
+   `ccr-a46535b3-m3v2i5`) + #56; RTS-03 (#168) ve D1-01 (#170) düzeltildi, sırada DSP-01, eğri aygıt hızında, RTS-01.
 3. Görev kitabı (`docs/gorev/`) ile ROADMAP/ACIK-KONULAR çelişkileri (ROADMAP 30 Ekim'de güncellendi: kaldırılan
    sahneler, söz işleri, çıkış Faz 7'den sonra). Tek doğruluk kaynağı ROADMAP + ACIK-KONULAR.
 4. Kaynak ayrıştırma: Spleeter ve Demucs karşılaştırması (kalite, hız, ağırlık lisansı birincil kaynaktan).
@@ -48,10 +48,12 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 - WebM'de şarkı adı okunmuyor (Matroska Segment Title; symphonia okumuyor) ve sondaki Opus dolgusu (≤ 20 ms)
   atılmıyor (DiscardPadding). İkisi de küçük; istenirse kendi küçük EBML okuyucusuyla.
 
-- Drop ve tempo (sahibi, 23 Ekim): 0.0.73–0.0.74'te sentetik ölçümle iyileşti (`docs/arastirma/drop/`); sahibinin
-  şarkılarıyla doğrulanacak (A15). Tempo oktavı (dnb 87, trap/dubstep 70, balad 2×) sentetik ölçümle düzeltildi
-  (`docs/arastirma/tempo/`); sahibinin şarkılarıyla doğrulanacak. "Dubstep 128" sentetikte üretilemedi. Açık (öncelikli):
-  maksumda, Türk pop'unda, swing'li hip-hop'ta ve breakbeat'te yanlış aksak (2+3, 3+2) bulunuyor, tempo yarıya düşüyor
-  (`meter.rs`).
+- Köy işi (sahibinin 656 şarkısı, 1 Kasım; araç `claude/koy-isi-yedek`, PR'ı açılacak): hızlı türlerde yarım tempo
+  düzeltildi (eşit nabız, PR'da; `docs/arastirma/tempo/`). Açık: **3:2 tempo** (KUTE 130 → 87; 9 dosya), DnB/Skillet
+  2× (vuruş arası oranı 0,5–0,73), ölçü güveni şarkıların yarısında < 0,5, söz "oturmadı" hükmü fazla temkinli
+  (43'ün 9'u aslında iyi). Ayrıntı ve sayılar devir notu 2026-11-01.
+- Drop (sahibi, 23 Ekim): sentetik ölçümle iyileşti (`docs/arastirma/drop/`), sahibinin şarkılarıyla doğrulanacak
+  (A15). "Dubstep 128" üretilemedi. Açık (öncelikli): maksumda, Türk pop'unda, swing'li hip-hop'ta ve breakbeat'te
+  yanlış aksak (2+3, 3+2) bulunuyor, tempo yarıya düşüyor (`meter.rs`).
 - Görev kitabı: durum dosyaları `BULGULAR.json`/`KAPILAR.md` der (depoda `FINDINGS.json`/`GATES.md`); test linki
   eski hesap adını taşıyor (doğrusu `CLAUDE.md`'deki).
