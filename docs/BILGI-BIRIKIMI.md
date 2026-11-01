@@ -41,8 +41,9 @@ kısaltılır.
 - Kullanım limiti dolunca ajanlar yarıda kalır; limit yenilenince `SendMessage` ile kaldıkları yerden sürdürülür.
 - **Dışarıdan gelen hata raporu önce kendi kodumuzda doğrulanır** (1 Kasım, hata avı): raporun testleri kodun bir
   kopyasıyla çalışır, bizimkiyle değil. Gerçek kodu çağıran geçici bir testle ölçmek hızlı ve kesin (10 iddia tek
-  derlemede). 28 maddeden ikisi yanlıştı (eel-wasm'ın kendi ön işlemesine bakılmamıştı; MP3 kapağı yalnızca kod
-  okunarak iddia edilmişti, gerçek dosyayla denenince okunuyordu), biri etkisizdi, birinin
+  derlemede). 28 maddeden dördü yanlıştı (eel-wasm'ın kendi ön işlemesine bakılmamıştı; MP3 kapağı yalnızca kod
+  okunarak iddia edilmişti, gerçek dosyayla denenince okunuyordu; iki MilkDrop anahtar adı gerçek dosyalarda ve
+  başvuru çeviricisinde, milkdrop-preset-utils, bizim yazdığımız gibiydi), birinin
   "yüksek" önemi abartılıydı (taşma koruması zaten yakalıyordu). Takip tablosu `docs/arastirma/hata-avi/`.
 
 ## 3. Ana dal başka oturumlarla ilerleyebilir

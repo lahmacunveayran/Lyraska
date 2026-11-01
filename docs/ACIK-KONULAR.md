@@ -31,7 +31,7 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 
 ## Ele alınmayı bekleyen geri bildirim ve bulgular
 
-- Hata avı (1 Kasım, sahibinin raporu): 22 gerçek bulgu küçük PR'larla düzeltiliyor; tablo ve hangi PR'da
+- Hata avı (1 Kasım, sahibinin raporu): 21 gerçek bulgu küçük PR'larla düzeltiliyor; tablo ve hangi PR'da
   düzeldiği `docs/arastirma/hata-avi/README.md` (biten satırın PR'ı yazılır; hepsi bitince bu madde silinir).
 - Şarkı kapağı (0.0.82) küçükleri: kütüphaneden çıkan şarkının kapağı `kapaklar/`'da kalır (temizlik yok); arama
   süzgeci açıkken "sıradaki" kapağı albümsüz anahtarla okunur, şarkı başlayınca bir kez daha okunur.

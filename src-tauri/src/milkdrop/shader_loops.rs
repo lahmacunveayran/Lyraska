@@ -367,6 +367,11 @@ fn constant(tokens: &[&str], constants: &HashMap<&str, f64>) -> Option<f64> {
             if matching(tokens, 1) == Some(tokens.len() - 1) =>
         {
             let v = constant(&tokens[2..tokens.len() - 1], constants)?;
+            // Eksi sayının uint'e çevrimi GLSL'de tanımsız; ekran kartı genelde çok büyük bir
+            // sayı verir (uint(-5) = 4294967291). Sabit sayılmaz.
+            if *cast == "uint" && v < 0.0 {
+                return None;
+            }
             Some(if *cast == "float" { v } else { v.trunc() })
         }
         _ => None,
@@ -743,6 +748,22 @@ mod tests {
         assert_eq!(trips("int i = 0; j < 8; i++"), None);
         assert_eq!(trips("int i = 0; i < 8; i *= 2"), None);
         assert_eq!(trips("i = 0; i < 8; i++"), None);
+    }
+
+    #[test]
+    fn eksi_sayinin_uint_cevrimi_sabit_sayilmaz() {
+        let trips = |code: &str| {
+            let text = tokenize(code);
+            header(&text, &HashMap::new()).ok().and_then(|h| h.trips())
+        };
+        // Ekran kartında uint(-5) = 4294967291: döngü bitmez gibi uzar.
+        assert_eq!(
+            trips("float t = float(0); (t < float(uint(-5))); (t += float(1))"),
+            None
+        );
+        assert_eq!(trips("int i = int(uint(-1)); (i < 8); (i++)"), None);
+        assert_eq!(trips("int i = 0; (i < int(uint(8))); (i++)"), Some(8));
+        assert_eq!(trips("int i = 0; (i < int(uint(0.5))); (i++)"), Some(0));
     }
 
     #[test]
