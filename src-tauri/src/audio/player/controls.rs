@@ -72,6 +72,10 @@ impl Player {
     }
 
     /// Yeni oturum başka bir hızda açıldıysa yükseltme ve telafi o hızda yeniden bildirilir.
+    /// Bilinen sınır: oturum takılana kadar çalan ilk bloklar eski hızın yükseltmesini görür;
+    /// Nyquist'e yakın bantta eski hızda daha büyükse ses en çok ~2 sn biraz kısık kalır (koruma
+    /// hemen iner, yavaş kalkar). Daha küçükse sınırlayıcı karşılar. Yalnızca aygıtın hızı
+    /// değişince olur; düzeltmesi ses iş parçacığında ayrı hesap ister, değmez.
     pub(super) fn refresh_parametric_rate(&mut self) {
         if self.parametric_rate() != self.parametric_applied_rate {
             self.set_parametric(self.parametric.clone());
