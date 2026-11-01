@@ -301,7 +301,9 @@ impl HeadphoneProfile {
                 continue;
             }
             let Some((_, body)) = trimmed.split_once(':') else {
-                return Err(bad(line, trimmed));
+                // "Filter" ile başlayan ama komut olmayan satır (REW'in ilk satırı "Filter Settings
+                // file"): yok sayılır.
+                continue;
             };
             let words: Vec<&str> = body.split_whitespace().collect();
             let Some((&state, rest)) = words.split_first() else {
@@ -316,6 +318,10 @@ impl HeadphoneProfile {
             let Some((&kind_word, params)) = rest.split_first() else {
                 return Err(bad(line, trimmed));
             };
+            if kind_word.eq_ignore_ascii_case("none") {
+                // REW kullanılmayan filtre yuvalarını "None" türüyle yazar.
+                continue;
+            }
             filters.push(parse_filter(kind_word, params).map_err(|e| match e {
                 FilterError::Unsupported => ProfileError::UnsupportedFilter {
                     line,
@@ -1300,6 +1306,53 @@ Filter 5: ON HSC Fc 10000 Hz Gain 2.0 dB Q 0.70
         assert!((bw.q - std::f64::consts::SQRT_2).abs() < 1e-9, "{}", bw.q);
         let expected = 1.0 / (2.0 * (std::f64::consts::LN_2 / 2.0 * 0.5).sinh());
         assert!((peq.q - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn rew_disa_aktarimi_okunur() {
+        // Hata avı raporu (A3): REW'in "Filter Settings file" dışa aktarımının ilk satırı "Filter"
+        // ile başlar ama komut değildir; dosya hiç okunamıyordu. Kullanılmayan filtre yuvaları da
+        // "None" türüyle yazılır.
+        let profile = HeadphoneProfile::parse(
+            "Filter Settings file
+             
+             Room EQ V5.20
+             Dated: 1 Kas 2026 14:03:11
+             
+             Notes:
+             
+             Equaliser: Generic
+             Averages 1
+             Filter  1: ON  PK       Fc   63.5 Hz  Gain  -5.20 dB  Q  4.000
+             Filter  2: ON  PK       Fc   120 Hz   Gain  -3.00 dB  Q  2.000
+             Filter  3: ON  None
+             Filter  4: OFF None
+",
+            "rew",
+        )
+        .unwrap();
+        assert_eq!(profile.filters.len(), 2);
+        assert_eq!(profile.filters[0].kind, FilterKind::Peaking);
+        assert!((profile.filters[0].freq_hz - 63.5).abs() < 1e-9);
+        assert!((profile.filters[1].gain_db + 3.0).abs() < 1e-9);
+        // Komut olmayan satır ve boş yuva dışında bozuk satır yine reddedilir.
+        assert!(matches!(
+            HeadphoneProfile::parse(
+                "Filter 1: ON PK Fc abc Hz Gain 1 dB Q 1
+",
+                "x"
+            ),
+            Err(ProfileError::BadLine { line: 1, .. })
+        ));
+        // Yalnızca boş yuvalar: filtre yok.
+        assert!(matches!(
+            HeadphoneProfile::parse(
+                "Filter 1: ON None
+",
+                "x"
+            ),
+            Err(ProfileError::Empty)
+        ));
     }
 
     #[test]
