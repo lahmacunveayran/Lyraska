@@ -1,0 +1,101 @@
+# Köy işi raporu
+
+- Şarkı: 656 (ölçülen 656, hatalı 0)
+- Ses 37.3 saat; analiz 11.5 dk (195× gerçek zaman)
+- Tempo dağılımı (10'luk): 30: 1, 60: 5, 70: 5, 80: 59, 90: 58, 100: 54, 110: 46, 120: 156, 130: 117, 140: 70, 150: 55, 160: 6, 170: 14, 180: 4, 190: 4
+- Tempo yok: 2; değişken tempo: 81; ölçü güveni < 0,5: 339; ton güvensiz (< 0,3) ya da yok: 74; drop yok: 28; kesik analiz: 0
+- Ses yolu (eşitleme + 80 Hz'te +6 dB): en yüksek çıkış -1.00 dBFS; tavanı aşan örneği olan şarkı 0; NaN'lı 0; eksik kareli 0; hız en yavaş 96×, ortanca 217×
+- Sözler: 169 şarkı; zamanlı sözle karşılaştırılan 3669 satır, ±0,5 sn içinde 1843, ±1 sn içinde 2147
+
+## Hatalar
+
+## Aynı şarkının iki biçimi
+
+- 107 - Vindu - Blood Oath [japanese lofi⧸chillhop]: aac bpm 80.0, ton 9B, drop 2 | opus bpm 80.0, ton 9B, drop 2
+- 134 - Mahmut Orhan - Feel feat. Sena Sener (Official Video) [Ultra Records]: aac bpm 120.6, ton 1A, drop 4 | opus bpm 121.0, ton 1A, drop 4
+- 188 - TGC - Dreamers (Embody Remix) [Official Video]: aac bpm 116.1, ton 11A, drop 2 | opus bpm 116.1, ton 11A, drop 2
+- 192 - RIELL x Jim Yosef - Animal [Lyric Video]: aac bpm 80.0, ton 10A, drop 2 | opus bpm 80.0, ton 10A, drop 2
+- 232 - EDWARD MAYA & VIKA JIGULINA - Stereo Love (Molella remix) [Official video HD]: aac bpm 127.0, ton 12B, drop 3 | opus bpm 127.0, ton 12B, drop 3
+- 239 - Evanescense - Bring Me To Life ; [Traducida al Español]: aac bpm 95.1, ton 9A, drop 2 | opus bpm 94.8, ton 9A, drop 2
+- 243 - Flo Rida - Low (feat. T-Pain) [Official Video]: aac bpm 128.0, ton 5B, drop 5 | opus bpm 128.0, ton 6B, drop 5
+- 245 - Ace of Base - Happy Nation [12＂ Version] (Music Video): aac bpm 96.0, ton 4B, drop 6 | opus bpm 96.0, ton 4B, drop 6
+- 25 - Gareth Emery feat. Christina Novelli - Concrete Angel [Official Music Video]: aac bpm 130.0, ton 9B, drop 3 | opus bpm 130.0, ton 9B, drop 3
+- 256 - Blasterjaxx X Paolo Pellegrino X Mildenhaus - Elegibo (Uma Historia De Ifa) [Visualizer]: aac bpm 130.6, ton 9A, drop 2 | opus bpm 130.1, ton 9A, drop 2
+- 262 - Toxic Twins & Stainless - Bateau Blanc [Frenchcore]: aac bpm 100.0, ton 10A, drop 4 | opus bpm 100.0, ton 10A, drop 3
+- 268 - People You Know x Starboy (IanAsher Full TikTok Remix) [prod. purple drip boy]: aac bpm 138.9, ton 10A, drop 2 | opus bpm 140.2, ton 10A, drop 2
+- 27 - Gareth Emery feat. Christina Novelli - Concrete Angel [Official Music Video]: aac bpm 130.0, ton 9B, drop 3 | opus bpm 130.0, ton 9B, drop 3
+- 275 - 🌸 ミカヅキBIGWAVE - Emotional Prism [Future-Funk]: aac bpm 116.1, ton 1A, drop 5 | opus bpm 116.1, ton 1A, drop 4
+- 282 - GIGACHAD Theme Song but its by HANS ZIMMER [Can you Feel My Heart] ｜ EPIC ORCHESTRAL VERSION: aac bpm 99.9, ton 3A, drop 0 | opus bpm 99.9, ton 3A, drop 0
+- 297 - [DnB] - Feint - We Won't Be Alone (feat. Laura Brehm) [Monstercat Release]: aac bpm 87.8, ton 10A, drop 2 | opus bpm 87.8, ton 10A, drop 3
+- 342 - Bad (feat. Vassy) [Radio Edit]: aac bpm 128.1, ton 7B, drop 2 | opus bpm 128.0, ton 7B, drop 2
+- 354 - ♫Nightcore-Courtesy Call[LYRICS]♫: aac bpm 109.8, ton 9A, drop 3 | opus bpm 109.8, ton 9A, drop 2
+- 365 - фрози (frozy) - kompa pasión [Ultra Records]: aac bpm 97.5, ton 10A, drop 2 | opus bpm 97.5, ton 10A, drop 2
+- 387 - David Guetta & Kim Petras - When We Were Young (The Logical Song) [Official Video]: aac bpm 139.1, ton 6B, drop 4 | opus bpm 140.2, ton 5B, drop 3
+- 391 - Tristam - I Remember [Monstercat Release]: aac bpm 109.6, ton 11A, drop 3 | opus bpm 109.6, ton 11A, drop 3
+- 40 - ATB - Dedicated [HD]: aac bpm 135.0, ton 6A, drop 2 | opus bpm 134.6, ton 6A, drop 3
+- 403 - Prezioso x Blasterjaxx x Shibui - SHADY (Side Of The Moon) [Official Audio]: aac bpm 137.8, ton 5A, drop 3 | opus bpm 137.8, ton 5A, drop 3
+- 405 - Kate Linn - Your Love (by Monoir) [Official Video]: aac bpm 113.6, ton 10A, drop 4 | opus bpm 113.5, ton 10A, drop 4
+- 41 - DJ Sakin & Friends - Protect Your Mind (Braveheart) [Official Music Video]: aac bpm 68.0, ton 8A, drop 1 | opus bpm 136.0, ton 8A, drop 3
+- 419 - LA DISTANCIA PARA UN DUELO - BLEACH meets flamenco gipsy guitarist OST 3 GUITAR COVER: aac bpm 124.7, ton 8A, drop 3 | opus bpm 124.6, ton 8A, drop 2
+- 423 - Phil Collins - Another Day In Paradise [Audio HQ] HD: aac bpm 101.9, ton 5B, drop 2 | opus bpm 101.9, ton 5B, drop 4
+- 424 - Hardwell & Maddix feat. Luciana - ACID (Official Visualizer): aac bpm 134.7, ton 8A, drop 4 | opus bpm 134.7, ton 8A, drop 4
+- 427 - ovg! & draco lyra - HEY LISTEN! [Official Lyric Video]: aac bpm 144.9, ton 6A, drop 1 | opus bpm 144.8, ton 6A, drop 1
+- 440 - ADGY - Run Into The Night (Promo Video): aac bpm 156.6, ton 12B, drop 1 | opus bpm 156.4, ton 12B, drop 1
+- 443 - BARACUDA - ASS UP (Official Video) ＊produced by Axel Konrad＊: aac bpm 129.8, ton 10A, drop 2 | opus bpm 129.8, ton 10A, drop 2
+- 444 - Günther & the Sunshine Girls - Teeny Weeny String Bikini: aac bpm 132.0, ton 8A, drop 5 | opus bpm 132.0, ton 8A, drop 5
+- 445 - Supadupafly (On Air Mix): aac bpm 137.9, ton 1A, drop 4 | opus bpm 137.9, ton 1A, drop 5
+- 446 - Da Tweekaz & Groove Coverage - Million Tears (Official Hardstyle Video): aac bpm 155.0, ton 5A, drop 4 | opus bpm 154.6, ton 5A, drop 4
+- 447 - Primeshock - Take The Lead (DEL) (Official Hardstyle Videoclip): aac bpm 155.0, ton 11A, drop 4 | opus bpm 155.0, ton 11A, drop 4
+- 448 - Primeshock & NLCK - Speedrun (Official Hardstyle Videoclip): aac bpm 155.8, ton 2B, drop 5 | opus bpm 155.8, ton 2B, drop 5
+- 449 - Ziggy X - Bassdusche (Video Mix): aac bpm 140.0, ton 7B, drop 4 | opus bpm 140.0, ton 7B, drop 4
+- 450 - DJ Toxic - It's Killing Me: aac bpm 143.6, ton 1A, drop 3 | opus bpm 143.6, ton 1A, drop 3
+- 451 - Maddix & The Rocketman ft. 2 Brothers On The 4th Floor - Never Alone: aac bpm 150.0, ton 3A, drop 3 | opus bpm 150.4, ton 3A, drop 2
+- 452 - Free Your Mind (Radio Edit): aac bpm 142.0, ton 1A, drop 4 | opus bpm 142.0, ton 1A, drop 4
+- 453 - Joey Delvaro - Call Me Maybe (Official Lyric Video): aac bpm 126.3, ton 12B, drop 3 | opus bpm 125.5, ton 12B, drop 2
+- 454 - Don Diablo & Felix Jaehn - Monster ｜ Official Lyric Video: aac bpm 144.6, ton 6A, drop 2 | opus bpm 145.1, ton 6A, drop 2
+- 455 - HUGEL, Topic, Arash feat Daecolm - I Adore You (ARTBAT Remix) (Official Visualiser): aac bpm 124.0, ton 10A, drop 4 | opus bpm 124.0, ton 10A, drop 4
+- 456 - Weekend!: aac bpm 151.0, ton 5B, drop 2 | opus bpm 150.2, ton 5B, drop 2
+- 457 - Jonas Blue - By Your Side ft. RAYE (Official Video): aac bpm 123.0, ton 2B, drop 3 | opus bpm 123.0, ton 2B, drop 3
+- 458 - I Am My Valentine Anastasia Nataliya Official Music Video: aac bpm 121.0, ton 10A, drop 2 | opus bpm 121.0, ton 10A, drop 2
+- 459 - Armin van Buuren & W&W - Late Checkout [Lyric Video]: aac bpm 145.1, ton 5A, drop 4 | opus bpm 145.2, ton 5A, drop 4
+- 460 - Robin Schulz x CYRIL - World Gone Wild (feat. Sam Martin) (Official Music Video): aac bpm 128.2, ton 8A, drop 3 | opus bpm 128.2, ton 8A, drop 3
+- 462 - DANCE: aac bpm 130.0, ton 3A, drop 4 | opus bpm 130.0, ton 3A, drop 4
+- 463 - Mundo - Conquer: aac bpm 130.2, ton 2A, drop 3 | opus bpm 130.1, ton 2A, drop 3
+- 465 - KAAZE feat. Nino Lucarelli - I Should Have Walked Away: aac bpm 129.9, ton 12B, drop 3 | opus bpm 129.9, ton 12B, drop 3
+- 466 - Odium - As I Was A Child (Official Music Video): aac bpm 87.5, ton 7B, drop 1 | opus bpm 87.5, ton 7B, drop 1
+- 467 - Neptunica x Shockz x Rebecca Helena - Marble (Official Video 4K): aac bpm 135.2, ton 5A, drop 2 | opus bpm 135.6, ton 5A, drop 2
+- 468 - Toneshifterz & TwinTigerz - Body Move (Official Audio): aac bpm 155.0, ton 1A, drop 5 | opus bpm 155.0, ton 1A, drop 5
+- 469 - Maduk ft Veela - Ghost Assassin: aac bpm 87.9, ton 10A, drop 3 | opus bpm 87.9, ton 10A, drop 3
+- 470 - TWERL x Ekko & Sidetrack - Under Bright Lights (ft. Indy Skies): aac bpm 173.0, ton 7A, drop 3 | opus bpm 173.9, ton 7A, drop 3
+- 471 - Voster & Gallardo & Giin - The Way I Want You: aac bpm 142.8, ton 9A, drop 2 | opus bpm 142.9, ton 9A, drop 2
+- 473 - W&W x Darren Styles feat. Giin - Long Way Down (Official Video): aac bpm 80.1, ton 12B, drop 2 | opus bpm 80.2, ton 12B, drop 2
+- 474 - Coone - 4 BY 4 BEATS (I Don't Care) (Official Hardstyle Video): aac bpm 80.5, ton 8A, drop 2 | opus bpm 80.5, ton 8A, drop 2
+- 475 - Gareth Emery - Laserface 01 (Aperture): aac bpm 135.7, ton 8A, drop 2 | opus bpm 136.8, ton 8A, drop 2
+- 477 - Coone ft. Nasty - DUM (Official Hardstyle Video): aac bpm 155.4, ton 1A, drop 6 | opus bpm 155.4, ton 1A, drop 6
+- 480 - Gilead – Hungarian (Thousand Times 2015): aac bpm 105.0, ton 8A, drop 2 | opus bpm 105.0, ton 8A, drop 2
+- 481 - GAMPER & DADONI - Bittersweet Symphony (feat. Emily Roberts): aac bpm 124.0, ton 11B, drop 4 | opus bpm 123.9, ton 11B, drop 4
+- 483 - DE DIEPTE: aac bpm 104.7, ton 5A, drop 2 | opus bpm 104.8, ton 5A, drop 2
+- 484 - coming home: aac bpm 180.0, ton 10A, drop 2 | opus bpm 180.0, ton 10A, drop 2
+- 486 - Demons: aac bpm 173.3, ton 12B, drop 2 | opus bpm 174.0, ton 12B, drop 2
+- 487 - SCHEINE ZÄHLEN: aac bpm 90.0, ton 7A, drop 3 | opus bpm 90.3, ton 7A, drop 3
+- 488 - LOWX, HØLD - STAY WITH ME: aac bpm 198.4, ton 6A, drop 2 | opus bpm 198.7, ton 6A, drop 2
+- 491 - GYMBRO - Holy: aac bpm 134.5, ton 11A, drop 3 | opus bpm 134.0, ton 12B, drop 3
+- 492 - Jordiz - Weekend!: aac bpm 150.0, ton 5B, drop 2 | opus bpm 150.0, ton 5B, drop 2
+- 494 - Armin van Buuren feat. Sharon den Adel - In And Out Of Love (Official Music Video): aac bpm 87.3, ton 5A, drop 2 | opus bpm 87.2, ton 5A, drop 2
+- 496 - Dimitri Vegas & Like Mike vs David Guetta ft. Kiiara - Complicated (Official Music Video): aac bpm 90.5, ton 5A, drop 3 | opus bpm 90.5, ton 5A, drop 3
+- 497 - As I Was A Child: aac bpm 87.5, ton 7B, drop 1 | opus bpm 87.5, ton 7B, drop 1
+- 498 - Tiësto, Dimitri Vegas & Like Mike, Gabry Ponte - Mockingbird (Official Lyric Video): aac bpm 155.0, ton 11A, drop 2 | opus bpm 155.0, ton 11A, drop 2
+- 499 - Gymbro, Jost - Mood (feat. Philip Strand) [Official Lyric Video]: aac bpm 143.2, ton 8A, drop 2 | opus bpm 143.1, ton 8A, drop 2
+- 500 - INNA - Amazing (Official Video): aac bpm 129.6, ton 2A, drop 4 | opus bpm 130.0, ton 2A, drop 4
+- 502 - VINAI Feat. Anjulie - Into The Fire (Official Music Video): aac bpm 105.0, ton 9A, drop 2 | opus bpm 105.0, ton 9A, drop 2
+- 503 - VINAI, Moonshine, Madism - Running To You (Lyric Video) ft. Caden: aac bpm 124.6, ton 10A, drop 4 | opus bpm 124.1, ton 10A, drop 4
+- 504 - Solar State & The Beach - High Again (Lyrics): aac bpm 123.5, ton 12B, drop 3 | opus bpm 124.5, ton 12B, drop 3
+- 506 - T Swoop - Mon Ami (Audio): aac bpm 126.0, ton 1B, drop 4 | opus bpm 126.0, ton 1B, drop 4
+- 508 - 【original anime MV】A Horny Money World ~伝説の夜~【hololive⧸宝鐘マリン】: aac bpm 95.7, ton 1A, drop 4 | opus bpm 97.0, ton 1A, drop 4
+- 51 - Ayla - Ayla (Pt. 2) [HD]: aac bpm 137.6, ton 5A, drop 4 | opus bpm 138.0, ton 5A, drop 3
+- 52 - Robert Miles - Children [Dream Version]: aac bpm 137.0, ton 4A, drop 1 | opus bpm 137.2, ton 4A, drop 3
+- 530 - A Touch Of Class - I'm In Heaven (When You Kiss Me) (Radio Edit 5 Inch - Version ⧸ Official Video): aac bpm 133.9, ton 5B, drop 3 | opus bpm 133.9, ton 5B, drop 3
+- 542 - Sebastian Ingrosso, Alesso - Calling (Lose My Mind) ft. Ryan Tedder: aac bpm 124.6, ton 12B, drop 3 | opus bpm 124.9, ton 12B, drop 3
+- 76 - Revolution We Call It (feat. Trixi Delga) [Radio Mix]: aac bpm 139.5, ton 9B, drop 4 | opus bpm 139.5, ton 9B, drop 4
+
+86 çift.

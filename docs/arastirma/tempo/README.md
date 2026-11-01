@@ -141,7 +141,8 @@ yeniden hesaplar; şarkılar çözülmez.
 Proje sahibinin kütüphanesinin gözetimsiz ölçümü ("köy işi": 656 dosya, 37 saat, çoğu EDM; araç
 `src-tauri/examples/koy_isi.rs`) sentetik setlerin göstermediği bir hatayı buldu. Hardstyle,
 hands up, frenchcore ve nightcore şarkıları 160–200 yerine 80–100 bulunuyordu. Doğrular SongBPM ve benzeri
-kaynaklardan toplandı (yayımlanan tempo; 47 şarkı).
+kaynaklardan toplandı (yayımlanan tempo; 47 şarkı). Ham veriler, doğru listesi ve iç değerler
+[`../koy-isi/`](../koy-isi/README.md)'de.
 
 Ayırt edici ölçüm, 60–110 BPM bulunan 130 gerçek şarkıda (iç değerler geçici bir testle yazdırıldı):
 
