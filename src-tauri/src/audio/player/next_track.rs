@@ -2,7 +2,8 @@
 //! parçacığının şarkı bitince onu açması ve aynı oturuma yeni bir şarkı ([`Segment`]) olarak
 //! eklemesi. Ses akışı kesilmez; eşitleme kazancı tam şarkı sınırında değişir.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use super::session::{Segment, SharedState};
@@ -16,13 +17,15 @@ impl Player {
     /// Çalan şarkı bitince ses akışı kesilmeden bu şarkıyla devam eder; analizi de
     /// şimdiden başlar.
     pub fn set_next(&mut self, path: Option<PathBuf>) {
+        // Oturuma her zaman yazılır: boşluksuz geçişte çözme iş parçacığı sıradakini aldı
+        // (`take_next`); aynı şarkı yeniden bildirilince yine sıraya girmeli (hata avı A4).
+        if let Some(session) = &self.session {
+            session.shared.set_next(path.clone());
+        }
         if self.next_path == path {
             return;
         }
         self.next_path = path.clone();
-        if let Some(session) = &self.session {
-            session.shared.set_next(path.clone());
-        }
         self.next_analysis = match &path {
             Some(p) if self.next_analysis.as_ref().is_some_and(|a| &a.path == p) => {
                 self.next_analysis.take()
@@ -48,6 +51,18 @@ impl SharedState {
         self.next_path.lock().ok().and_then(|mut n| n.take())
     }
 
+    /// Sıradaki şarkı çözme iş parçacığınca alındı ve o an duyuluyor (ya da açılamadı): oynatıcının
+    /// bildirdiği sıradaki artık eskidir. Alınıp henüz akışa eklenmediyse ya da duyulmadıysa `false`.
+    pub(super) fn next_consumed(&self) -> bool {
+        let taken = self.next_path.lock().is_ok_and(|next| next.is_none())
+            && !self.next_attaching.load(Ordering::Acquire);
+        let segments = self.segments.lock().map_or(0, |segments| segments.len());
+        taken
+            && self
+                .now_playing_index()
+                .is_some_and(|index| index + 1 >= segments)
+    }
+
     pub(super) fn push_segment(&self, segment: Segment) {
         if let Ok(mut segments) = self.segments.lock() {
             segments.push(segment);
@@ -59,7 +74,18 @@ impl SharedState {
 /// normal biçimde biter).
 pub(super) fn open_next(shared: &SharedState, spec: OutputSpec) -> Option<Decoder> {
     let path = shared.take_next()?;
-    let decoder = Decoder::open(&path).ok()?;
+    // Alındı ama akışta değil: bu arada sarılırsa sıradaki "çalındı" sayılmasın (`next_consumed`).
+    shared.next_attaching.store(true, Ordering::Release);
+    let decoder = open_checked(&path, spec);
+    if decoder.is_none() {
+        shared.next_attaching.store(false, Ordering::Release);
+    }
+    decoder
+}
+
+/// Sıradakini açar; akışa uymuyorsa `None`.
+fn open_checked(path: &Path, spec: OutputSpec) -> Option<Decoder> {
+    let decoder = Decoder::open(path).ok()?;
     let info = decoder.info();
     if Converter::output_channels(info.channels) != spec.channels {
         return None;
@@ -95,6 +121,7 @@ pub(super) fn attach_next(
         first_output_frame,
         start_frame: 0,
     });
+    shared.next_attaching.store(false, Ordering::Release);
     // Eşitleme kazancı tam bu karede yeni şarkınınkine geçer (ölçümünü oynatıcı yazar).
     shared.controls.levels.begin_track(first_output_frame);
 }

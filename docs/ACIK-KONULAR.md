@@ -10,7 +10,7 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 1. Sözleri sese otomatik hizalama (dokunarak zamanlamanın yerine; sahibi elle yapamıyor): iki irdeleme bitti
    (`docs/arastirma/soz-hizalama/`), sahibi kararları verdi (BILGI §7); sıra RAPOR §8 + DENETIM önerileri, küçük
    PR'lar: hazırlıktan arayüze, Lyra görünümüne (#165) ve paketin test sürümü sayfasında korunmasına (#167) kadar
-   birleşti → paket yüklenir (önce SHA denetimi) → sahibinin 5–10 Türkçe şarkı denemesi.
+   birleşti; paket test sürümü sayfasında (1 Kasım, SHA denetlendi) → sahibinin 5–10 Türkçe şarkı denemesi.
 2. Ses motoru denetimi (64-bit, EQ, AutoEq, R128, bit-perfect, ABX): Denetim 3 §5.1 (`ccr-a69bd749-djgi3v`,
    `ccr-a46535b3-m3v2i5`) + #56; RTS-03 (#168) ve D1-01 (#170) düzeltildi, sırada DSP-01, eğri aygıt hızında, RTS-01.
 3. Görev kitabı (`docs/gorev/`) ile ROADMAP/ACIK-KONULAR çelişkileri (ROADMAP 30 Ekim'de güncellendi: kaldırılan
@@ -31,8 +31,6 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 
 ## Ele alınmayı bekleyen geri bildirim ve bulgular
 
-- Hata avı (1 Kasım, sahibinin raporu): 23 gerçek bulgu düzeltildi (tablo `docs/arastirma/hata-avi/README.md`).
-  Kalan A4: aynı şarkı listede art arda 3+ kez geçince boşluksuz geçiş kayboluyor (arayüzdeki sırayla incelenecek).
 - Şarkı kapağı (0.0.82) küçükleri: kütüphaneden çıkan şarkının kapağı `kapaklar/`'da kalır (temizlik yok); arama
   süzgeci açıkken "sıradaki" kapağı albümsüz anahtarla okunur, şarkı başlayınca bir kez daha okunur.
 - Güvenlik uyarıları (Scorecard): SAST (CodeQL eklendi) ve Branch-Protection (sahibinin kuralı) bir sonraki

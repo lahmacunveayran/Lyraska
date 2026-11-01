@@ -101,6 +101,15 @@ pub struct PlaybackStatus {
     pub bpm: Option<f64>,
     /// Sesin aygıta giden yolu; şarkı açık değilse `None`.
     pub output: Option<SignalPath>,
+    /// Çekirdeğin şimdiye dek kendiliğinden (boşluksuz) geçtiği şarkı sayısı; yalnızca artar.
+    /// Aynı şarkı art arda çalınınca yol değişmez: arayüz geçişi buradan anlar. Arayüzde seçimlik
+    /// (eski çekirdek göndermez).
+    #[cfg_attr(test, ts(optional, type = "number"))]
+    pub gapless_count: u64,
+    /// Oturum numarası: her açma, sarma ve aygıt değişiminde artar. Arayüz kendi açtığı şarkının
+    /// yerini alan eski oturumun geçişlerini buradan ayırır. Arayüzde seçimlik.
+    #[cfg_attr(test, ts(optional, type = "number"))]
+    pub session_seq: u64,
 }
 
 /// Sesin şarkıdan hoparlöre giden yolu (profesyonel çalarlardaki "sinyal yolu").
@@ -135,6 +144,8 @@ pub struct Player {
     /// Boşluksuz geçiş için sıradaki şarkı ve önceden başlatılan analizi.
     next_path: Option<PathBuf>,
     next_analysis: Option<Analysis>,
+    /// Kapanan oturumlarda duyulan boşluksuz geçişler ([`PlaybackStatus::gapless_count`]).
+    gapless_base: u64,
     /// Son açma girişimi başarısız olduysa nedeni.
     last_error: Option<String>,
     /// Ekolayzer ayarları; bütün oturumların ses çıkışı buradan okur.
@@ -211,7 +222,17 @@ impl Player {
                 wait_for_fade_out(&session.shared, FADE_OUT_TIMEOUT);
             }
         }
-        self.session = None;
+        self.retire_session();
+    }
+
+    /// Oturumu kapatır; duyulan boşluksuz geçişleri sayaca ekler (sayaç yalnızca artar).
+    fn retire_session(&mut self) -> Option<Session> {
+        let old = self.session.take();
+        if let Some(session) = &old {
+            let heard = session.shared.now_playing_index().unwrap_or(0);
+            self.gapless_base += heard as u64;
+        }
+        old
     }
 
     /// Program kapanırken: ses yumuşakça kısılır, oturum ve kör test kapanır, ses aygıtı bırakılır
@@ -278,7 +299,7 @@ impl Player {
         let level = self.current_level();
         match &self.session {
             Some(session) => {
-                let (track, position_secs, heard_at_us) = session.now_playing_timed();
+                let (track, position_secs, heard_at_us, index) = session.now_playing_timed();
                 let bpm = self
                     .analysis_for(&track.path)
                     .and_then(|a| a.spectrogram.beat_grid())
@@ -298,6 +319,8 @@ impl Player {
                     error: session.shared.error(),
                     bpm,
                     output: Some(output),
+                    gapless_count: self.gapless_base + index as u64,
+                    session_seq: self.transition_seq,
                 }
             }
             // Geçiş sürüyor (yeni şarkı açılıyor ya da sarılıyor): hedef durum gösterilir.
@@ -311,6 +334,8 @@ impl Player {
                 error: self.last_error.clone(),
                 bpm: None,
                 output: None,
+                gapless_count: self.gapless_base,
+                session_seq: self.transition_seq,
             },
         }
     }

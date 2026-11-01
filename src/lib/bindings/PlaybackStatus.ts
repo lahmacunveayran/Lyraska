@@ -24,4 +24,15 @@ bpm: number | null,
 /**
  * Sesin aygıta giden yolu; şarkı açık değilse `None`.
  */
-output: SignalPath | null, };
+output: SignalPath | null, 
+/**
+ * Çekirdeğin şimdiye dek kendiliğinden (boşluksuz) geçtiği şarkı sayısı; yalnızca artar.
+ * Aynı şarkı art arda çalınınca yol değişmez: arayüz geçişi buradan anlar. Arayüzde seçimlik
+ * (eski çekirdek göndermez).
+ */
+gaplessCount?: number, 
+/**
+ * Oturum numarası: her açma, sarma ve aygıt değişiminde artar. Arayüz kendi açtığı şarkının
+ * yerini alan eski oturumun geçişlerini buradan ayırır. Arayüzde seçimlik.
+ */
+sessionSeq?: number, };

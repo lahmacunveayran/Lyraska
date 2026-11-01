@@ -14,8 +14,7 @@ Doğrulama iki yolla yapıldı:
 
 Raporda 28 madde var (rapor A5 ile A6'yı aynı dosyada iki hata saydığı için 29 diyor). Sonuç:
 
-- 23 madde gerçek.
-- 1 madde gerçek ama nadir (A4).
+- 24 madde gerçek (biri nadir: A4); hepsi düzeldi.
 - 4 madde yanlış (B2, B3, B4, A2).
 
 | No  | Bulgu                                                                    | Hüküm                                                                                                                                                                                                                                          | Yol                                                                                                                | PR                         |
@@ -23,7 +22,7 @@ Raporda 28 madde var (rapor A5 ile A6'yı aynı dosyada iki hata saydığı içi
 | A1  | EQ ön kazancı eğrinin tepesini eksik bildiriyor                          | Gerçek: zikzakta 12 yerine 14,44 dB, hepsi +12'de 12,78 dB. Kırpılma yok (taşma koruması yakalıyor), ama koruma gereğinden çok çalışıyor                                                                                                       | ölçüm                                                                                                              | #174                       |
 | A2  | ID3v2 + ID3v1'li MP3'te kapak kayboluyor                                 | **Yanlış.** Rapor kod okunarak iddia etmişti. Başta ID3v2 kapağı, sonda ID3v1 etiketi olan dosyayla denendi: kapak bulunuyor. Davranışı koruyan test eklendi                                                                                   | ölçüm                                                                                                              | #175                       |
 | A3  | REW'in "Filter Settings file" başlığı içe aktarmayı bozuyor              | Gerçek: `BadLine { line: 1 }`. Boş yuvalar (`Filter 3: ON None`) da bozuyordu, ikisi birlikte düzeldi                                                                                                                                          | ölçüm                                                                                                              | #175                       |
-| A4  | Tekrarda boşluksuz geçiş kayboluyor                                      | Nadir: programda "tek şarkıyı tekrarla" yok. Yalnızca aynı şarkı listede art arda 3+ kez geçerse olur                                                                                                                                          | okuma                                                                                                              |                            |
+| A4  | Tekrarda boşluksuz geçiş kayboluyor                                      | Gerçek, nadir: programda "tek şarkıyı tekrarla" yok; aynı şarkı listede art arda geçince olur. Düzeldi (ayrıntı aşağıda)                                                                                                                       | okuma                                                                                                              |                            |
 | A5  | Boş `.lrc` gömülü sözleri gizliyor                                       | Gerçek: boş ya da yalnızca bilgi etiketli `.lrc` zamansız gömülü sözü gizliyordu. Artık sözü olmayan yan dosya seçilmiyor                                                                                                                      | okuma                                                                                                              | `claude/soz-okuma`         |
 | A6  | İlk kelime damgasından önceki kelime düşüyor                             | Gerçek: `[(1.5, "ğüzel")]`. Artık ilk zamandan önceki kelime satırın zamanıyla başlıyor                                                                                                                                                        | ölçüm                                                                                                              | `claude/soz-okuma`         |
 | A7  | İleri kaydırılan haritanın enerjisi doğrulamadan geçmiyor                | Gerçek: sınır `ceil(d) + 2`. Artık kaydırılan enerji doğrulamanın sınırına kırpılıyor (`+ 1`'e değil; mevcut test `kaydirma_atilan_vuruslari_ve_olcu_basini_dogru_tasir` aynen geçiyor)                                                        | okuma                                                                                                              | `claude/kucukler-rust`     |
@@ -51,6 +50,39 @@ Raporda 28 madde var (rapor A5 ile A6'yı aynı dosyada iki hata saydığı içi
 
 Raporun "denetlenmeyen şüpheler" listesinden `structure.rs`'teki `step_by(0)` riskine bakıldı. Ölçü sayısı 3 ya da 4
 seçildiği için (aksakta grup sayısı) 0 olamıyor.
+
+## A4'ün düzeltmesi
+
+Aynı şarkı listede art arda geçince çekirdek boşluksuz geçse de yol değişmiyordu. Arayüz geçişi görmüyor, sıra
+ilerlemiyordu. Çekirdek sıradakini de yeniden almıyordu: aynı yol yeniden bildirilince erken dönüyordu.
+Düzeltmeler:
+
+- Durum özetinde yeni `gaplessCount`: çekirdeğin kendiliğinden geçtiği şarkı sayısı, yalnızca artar (yeni şarkı
+  açılınca, sarınca da). Arayüz yolu aynı kalsa da sayaç artınca sırayı ilerletir ve sıradakini yeniden bildirir.
+- `set_next` aynı yol gelse de oturuma yazar (çözme iş parçacığı sıradakini alınca boşalır).
+- Çalan şarkı yeniden açılınca (sarma, aygıt değişimi) sıradaki aynı şarkı silinmez; yalnızca o şarkı çoktan
+  çalmaya başladıysa silinir (`next_consumed`).
+- Geçiş kilit dışında hazırlanırken arayüz sırayı değiştirirse yeni oturum güncel sırayı alır. Kalan sınır: sarılan yer
+  şarkının son 2 saniyesindeyse (ses halkası) çözme iş parçacığı eski sıradakini geçiş bitmeden alabilir.
+
+Önce yakalayan testler: `ayni_sarki_art_arda_bosluksuz_ve_sayilarak_calar`,
+`ayni_sarki_siradayken_sarma_tekrari_silmez`, `gecis_surerken_bildirilen_siradaki_yeni_oturuma_ulasir` (Rust)
+ve `usePlayback.test.ts`'te "aynı şarkı art arda".
+
+### Bağımsız inceleme (A4)
+
+Sayaç geri gitmiyor, çift saymıyor; sarma ve geçiş kuralı eski davranışı bozmuyor. Dört bulgu işlendi, her biri önce
+testle yakalandı:
+
+- **Orta, gerileme:** açılamayan şarkıda bekleyen sıra ([X, bozuk, X, Y]) aynı şarkının geçişinde ilerlemiyor, X
+  sonsuza dek dönüyordu. Artık sayaç artışı yol değişimiyle aynı kuralla işleniyor (bekleyiş de bitiyor).
+- **Düşük-orta:** "Sonraki"ye tam geçiş anında basılınca çekirdeğin geçişi kullanıcının seçiminin üstüne sayılıyor,
+  bir kopya atlanıyordu. Durum özetine oturum numarası (`sessionSeq`) eklendi: sıradan açılan şarkı beklenirken eski
+  oturumun geçişleri sayılmıyor.
+- **Orta, eski:** geçiş olmadan biten şarkıda (`onEnded`) yol eşleşmesi ikinci kopyayı çalınmış sanıyordu. Artık sıra
+  yalnızca görülmemiş bir geçiş varsa ilerliyor.
+- **Düşük:** çözme iş parçacığı sıradakini alıp akışa eklemeden önceki kısa arada sarılırsa sıradaki silinebiliyordu.
+  Bu ara artık bayrakla (`next_attaching`) "çalmadı" sayılıyor.
 
 ## A1'in düzeltmesi (#174)
 
