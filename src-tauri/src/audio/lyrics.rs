@@ -129,10 +129,16 @@ pub fn for_track_with(
         .ok()
         .flatten()
         .map(|text| parse(&text, LyricsSource::Embedded, duration_secs));
+    choose(sidecar, embedded)
+}
+
+/// Yan dosya zamanlı değilse: zamanlı gömülü söz, yoksa yan dosya, yoksa gömülü.
+fn choose(sidecar: Option<Lyrics>, embedded: Option<Lyrics>) -> Option<Lyrics> {
     match (sidecar, embedded) {
         (_, Some(embedded)) if embedded.synced => Some(embedded),
-        (Some(sidecar), _) => Some(sidecar).filter(|l| !l.lines.is_empty()),
-        (None, embedded) => embedded.filter(|l| !l.lines.is_empty()),
+        // Boş ya da yalnızca bilgi etiketli yan dosya gömülü sözü gizlemez.
+        (Some(sidecar), _) if !sidecar.lines.is_empty() => Some(sidecar),
+        (_, embedded) => embedded.filter(|l| !l.lines.is_empty()),
     }
 }
 
@@ -246,12 +252,17 @@ pub fn parse(text: &str, source: LyricsSource, duration_secs: Option<f64>) -> Ly
             }
             continue;
         }
-        let (words, text) = word_stamps(rest);
+        let (lead, words, text) = word_stamps(rest);
         for time in stamps {
+            // İlk kelime zamanından önceki metin satırın zamanıyla başlar.
+            let mut words = words.clone();
+            if !words.is_empty() && !lead.trim().is_empty() {
+                words.insert(0, (time, lead.clone()));
+            }
             timed.push(TimedLine {
                 time,
                 text: text.clone(),
-                words: words.clone(),
+                words,
                 order,
                 translation: None,
             });
@@ -278,18 +289,19 @@ pub fn parse(text: &str, source: LyricsSource, duration_secs: Option<f64>) -> Ly
     }
     timed.sort_by(|a, b| a.time.total_cmp(&b.time).then(a.order.cmp(&b.order)));
     // Aynı zamandaki satırlar: ilki asıl, ikincisi çeviri; boş satır sözsüz kısım.
+    // Aynı zaman dosyadaki zamanla karşılaştırılır: kaydırma 0'a sıkıştırdığı satırlar çeviri değil.
     let mut grouped: Vec<TimedLine> = Vec::new();
+    let mut last_written = f64::NAN;
     for mut line in timed {
+        let written = line.time;
+        let same_time = (last_written - written).abs() < 1e-6;
+        last_written = written;
         line.time = (line.time - offset).max(0.0);
         for word in &mut line.words {
             word.0 = (word.0 - offset).max(0.0);
         }
         match grouped.last_mut() {
-            Some(last)
-                if (last.time - line.time).abs() < 1e-6
-                    && !line.text.is_empty()
-                    && !last.text.is_empty() =>
-            {
+            Some(last) if same_time && !line.text.is_empty() && !last.text.is_empty() => {
                 if last.translation.is_none() {
                     last.translation = Some(line.text);
                 }
@@ -388,11 +400,13 @@ fn is_id_tag(line: &str) -> bool {
         })
 }
 
-/// Satır içi `<mm:ss.xx>` kelime zamanları: (zaman, kelime) çiftleri ve zamansız metin.
-fn word_stamps(text: &str) -> (Vec<(f64, String)>, String) {
+/// Satır içi `<mm:ss.xx>` kelime zamanları: ilk zamandan önceki metin, (zaman, kelime) çiftleri ve
+/// zamansız metin.
+fn word_stamps(text: &str) -> (String, Vec<(f64, String)>, String) {
     if !text.contains('<') {
-        return (Vec::new(), text.trim().to_owned());
+        return (String::new(), Vec::new(), text.trim().to_owned());
     }
+    let mut lead = String::new();
     let mut words: Vec<(f64, String)> = Vec::new();
     let mut plain = String::new();
     let mut rest = text;
@@ -418,10 +432,12 @@ fn word_stamps(text: &str) -> (Vec<(f64, String)>, String) {
             }
         } else if let Some(last) = words.last_mut() {
             last.1.push_str(chunk);
+        } else {
+            lead.push_str(chunk);
         }
         rest = &rest[next..];
     }
-    (words, plain.trim().to_owned())
+    (lead.trim_start().to_owned(), words, plain.trim().to_owned())
 }
 
 /// Dosyadaki kelime zamanlarından kelimeler (bitiş: sonraki kelime ya da satırın sonu).
@@ -555,6 +571,43 @@ mod tests {
     }
 
     #[test]
+    fn offsetle_sifira_sikisan_satirlar_ceviri_sayilmaz() {
+        // +5 sn: A ve B 0'a sıkışır ama dosyada ayrı zamanlarda, ikisi de satırdır.
+        let lyrics = lrc("[offset:5000]
+[00:01.00]A
+[00:03.00]B
+[00:08.00]C");
+        let texts: Vec<&str> = lyrics.lines.iter().map(|l| l.text.as_str()).collect();
+        assert_eq!(texts, ["A", "B", "C"]);
+        assert!(lyrics.lines.iter().all(|l| l.translation.is_none()));
+        assert_eq!(lyrics.lines[2].start, 3.0);
+        // Dosyada aynı zamandaki ikinci satır yine çeviridir.
+        let lyrics = lrc("[offset:5000]
+[00:01.00]A
+[00:01.00]Çeviri
+[00:08.00]C");
+        assert_eq!(lyrics.lines.len(), 2);
+        assert_eq!(lyrics.lines[0].translation.as_deref(), Some("Çeviri"));
+    }
+
+    #[test]
+    fn ilk_kelime_zamanindan_onceki_kelime_satirin_zamaniyla_kalir() {
+        let lyrics = lrc("[00:01.00]ünlü <00:01.50>ğüzel
+[00:04.00]Sonra");
+        let words: Vec<(f64, &str)> = lyrics.lines[0]
+            .words
+            .iter()
+            .map(|w| (w.start, w.text.as_str()))
+            .collect();
+        assert_eq!(words, [(1.0, "ünlü "), (1.5, "ğüzel")]);
+        assert_eq!(lyrics.lines[0].words[0].end, 1.5);
+        assert!(!lyrics.lines[0].estimated);
+        // Bir satırda iki zaman: her tekrarda ilk kelime o tekrarın zamanını alır.
+        let lyrics = lrc("[00:01.00][00:20.00]ünlü <00:01.50>ğüzel");
+        assert_eq!(lyrics.lines[1].words[0].start, 20.0);
+    }
+
+    #[test]
     fn kelime_zamanlari_dosyadan() {
         let lyrics = lrc("[00:10.00]<00:10.00>Bir <00:10.50>iki <00:11.20>üç\n[00:13.00]Sonra");
         // Çok baytlı harfle başlayan kelime parçası (dilim karakterin ortasından kesilmez).
@@ -646,6 +699,38 @@ mod tests {
         .unwrap();
         assert_eq!(for_track(&song, None), None);
         std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn bos_yan_dosya_gomulu_zamansiz_sozu_gizlemez() {
+        let embedded = Some(parse(
+            "Gece
+Yıldız",
+            LyricsSource::Embedded,
+            None,
+        ));
+        for side in [
+            "",
+            "[ar:Sanatçı]
+[ti:Gece]
+",
+        ] {
+            let sidecar = Some(parse(side, LyricsSource::File, None));
+            let chosen = choose(sidecar, embedded.clone()).unwrap();
+            assert_eq!(chosen.source, LyricsSource::Embedded, "{side:?}");
+            assert_eq!(chosen.lines.len(), 2);
+        }
+        // Yan dosyada zamansız söz varsa o seçilir; ikisi de boşsa söz yok.
+        let sidecar = Some(parse("Yan", LyricsSource::File, None));
+        assert_eq!(
+            choose(sidecar, embedded.clone()).unwrap().source,
+            LyricsSource::File
+        );
+        let empty = Some(parse("", LyricsSource::Embedded, None));
+        assert_eq!(
+            choose(Some(parse("", LyricsSource::File, None)), empty),
+            None
+        );
     }
 
     /// Gömülü sözler: FLAC (Vorbis `LYRICS`) ve MP3 (ID3 USLT); test sesleri ffmpeg ile üretildi
