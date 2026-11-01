@@ -86,6 +86,10 @@ kısaltılır.
   verisi `D:\LyraskaVeri` (depo dışı). Kurulumlarda sahibine yalnızca Windows izin penceresi düşer.
 - **Disk dolunca önce eski `lyraska` derleme çıktıları silinir** (`target/debug/deps/lyraska*`, `liblyraska*`;
   her biri ~0,5–1,5 GB, her derlemede yenisi birikir). `CARGO_INCREMENTAL=0` ile derlemek birikmeyi azaltır.
+- **Sahibinin bilgisayarında en çok 4 çekirdek** (1 Kasım 2026): `cargo … -j 4`, `RUST_TEST_THREADS=4`; makineyi
+  kendisi de kullanıyor. Gözetimsiz ölçüm için sahibinin yt-dlp'si (`Masaüstü\DLP\yt-dlp.exe`) yalnızca altyazı
+  indirir: `--js-runtimes node` şart; otomatik çeviri altyazısı (`tr`) 429 verdirir, yalnızca `en-orig,tr-orig` ve
+  uzun bekleme. Listenin sırası yerel dosya numaralarından kayar: eşleştirme numarasız başlıkla yapılır.
 
 ## 5. Teknik dersler
 
@@ -132,6 +136,11 @@ kısaltılır.
   ve bırakıldı. Üreticiye orta bantta tonal ritim eklenir. Bant seviyeleri desibeldir: artışları sessizlikten çıkan
   kısık sesi de sayar; "hangi davul yüksek" sorusu doğrusal güçle sorulur. 60 kare/sn'de kare sınırına düşen vuruş
   (144 BPM sekizliği = 12,5 kare) iki kareye bölünür; tepe yerine üç karelik toplam alınır.
+- **Gerçek kütüphane sentetiğin göremediğini gösterir** (1 Kasım 2026, köy işi): sentetik tempo setleri iyiyken
+  sahibinin şarkılarında hardstyle/frenchcore yarım tempodaydı. Aynı kaydın iki biçimi (m4a + mka) doğrusu
+  bilinmeden tutarlılığı ölçer. Doğru tempo yayımlanan kaynaklardan toplanır; eşik doğru sınıfın en yükseğinden pay
+  bırakılarak seçilir; değişiklikten sonra kütüphane yeniden ölçülür ve değişenlerin **hepsi** sınıflanır (düzelen,
+  bozulan, yanlıştan yanlışa, bilinmeyen). İç değerler geçici bir testle yazdırılır, commit edilmez.
 - **Commit'ten önce `cargo clippy --all-targets`:** yalnızca kütüphaneyi derlemek örneklerdeki (`examples/`)
   uyarıyı göstermez; CI hepsini derler.
 - **Drop ölçü başına yapıştırılmaz:** vuruş ızgarası kayabilir (yarım tempo, sessizlik); an basın döndüğü karedir.

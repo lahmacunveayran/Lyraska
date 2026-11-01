@@ -106,7 +106,10 @@ Takipçinin bulduğu ızgara (T) analiz karelerindeki bant seviyelerinden sınan
    ≥ 0,2), üstelik orada hi-hat varsa (geniş bantlı tiz gürültü, ≥ ~0,5 dB) sonuç 2T'dir. Geliştirme setinde baladda
    2T'nin araları boş (≤ 0,11), trap ve dubstep'te dolu (≥ 0,25). Davulsuz on altılık piyano araları doldurur ama
    gürültü yoktur.
-3. **Boş vuruş araları:** T/2 ≥ 60 ise, vuruş araları neredeyse boşsa (< 0,12) ve T/2'nin bir yarısında aralar
+3. **Eşit nabız** (1 Kasım 2026, gerçek kütüphaneden; aşağıda): 2T ≤ 200 ise, vuruş araları vuruşlar kadar güçlüyse
+   (başlangıç gücü, ≥ 0,85: her bulunan vuruşta kick) ve 2T'nin araları da doluysa (≥ 0,35: offbeat bas, hi-hat)
+   sonuç 2T'dir.
+4. **Boş vuruş araları:** T/2 ≥ 60 ise, vuruş araları neredeyse boşsa (< 0,12) ve T/2'nin bir yarısında aralar
    vurgusuzsa (≤ 0,5; snare ve kick vuruşta) sonuç T/2'dir.
 
 İki katına çıkılınca vuruşlar 2T'de yeniden izlenir (dinamik programlama), yani başlangıçlara oturur. Yeniden
@@ -115,8 +118,8 @@ geçmiyorsa kullanılır. Yoksa vuruş ortaları eklenir. Yarıya inilince
 vuruşların araları vurgusuz olan yarısı alınır. Değişken tempolu ızgaraya dokunulmaz. Sonuç 60–200 BPM içinde kalır.
 Aksak ölçü düzeltilmiş tempoya göre aranır.
 
-Ritim parçasının önbellek sürümü 7'ye çıktı. Kütüphane yalnızca ritmi saklanan karelerden yeniden hesaplar; şarkılar
-çözülmez.
+Ritim parçasının önbellek sürümü 7'ye, eşit nabızla 8'e çıktı. Kütüphane yalnızca ritmi saklanan karelerden
+yeniden hesaplar; şarkılar çözülmez.
 
 ### Denenip bırakılan
 
@@ -132,6 +135,38 @@ Ritim parçasının önbellek sürümü 7'ye çıktı. Kütüphane yalnızca rit
   yarılar bu hatayı gidermek için kullanıldı.
 - **Tepe değeri:** 60 kare/sn'de 144 BPM'in sekizliği 12,5 karedir. Hi-hat iki kareye bölünür, tepe yarıya iner.
   Üç karelik toplam bu etkiyi giderir.
+
+## Gerçek kütüphane: eşit nabız (1 Kasım 2026)
+
+Proje sahibinin kütüphanesinin gözetimsiz ölçümü ("köy işi": 656 dosya, 37 saat, çoğu EDM; araç
+`claude/koy-isi-yedek` dalında `examples/koy_isi.rs`) sentetik setlerin göstermediği bir hatayı buldu. Hardstyle,
+hands up, frenchcore ve nightcore şarkıları 160–200 yerine 80–100 bulunuyordu. Doğrular SongBPM ve benzeri
+kaynaklardan toplandı (yayımlanan tempo; 47 şarkı).
+
+Ayırt edici ölçüm, 60–110 BPM bulunan 130 gerçek şarkıda (iç değerler geçici bir testle yazdırıldı):
+
+| Sınıf                                                                | Vuruş arası / vuruş (T) | 2T'nin araları |
+| -------------------------------------------------------------------- | ----------------------- | -------------- |
+| Yarım tempo bulunmuş (hardstyle, frenchcore, nightcore)              | 0,85–1,0                | 0,37–0,7       |
+| Doğru (pop, hip-hop, rock; en yüksek DV&LM, "Amélie")                | ≤ 0,81                  | —              |
+| Doğru, sekizlikleri dolu yavaş (yavaşlatılmış "Grave", Emef "Şeşen") | 0,90–0,96               | 0,18–0,24      |
+
+Fiziksel anlamı: her vuruşta kick olan dans müziğinde yarı tempo ızgarasının araları da kick'tir, yani vuruş kadar
+güçlüdür; gerçek tempoda da aralar offbeat bas ve hi-hat'le doludur. Sekizlikleri dolu yavaş şarkıda ise
+onaltılıklar boştur.
+
+Kütüphanenin tamamı yeni kuralla yeniden ölçüldü. 30 dosyanın temposu değişti:
+
+- **17 dosya düzeldi:** TNT "2003", Coone "4 BY 4 BEATS", W&W "Long Way Down", RAYZEN, U96 "Club Bizarre", Odium
+  (dört dosya), S3RL "MTC", Bateau Blanc, Kyunkyun, "Kiss Me Again" (nightcore). Hepsi 2×, doğrusu biliniyor.
+- **Doğru bilinen hiçbir şarkı değişmedi.**
+- **10 dosya yanlıştan yanlışa geçti (3:2 sınıfı):** gerçek tempo bulunanın 3/2'si (KUTE 130 → 87, Rammor, Armin
+  van Buuren, "L no Theme", "C'est beau la bourgeoisie", "SCHEINE ZÄHLEN", "A Horny Money World", büyük
+  olasılıkla Alexandra Stan "1.000.000" remiksi). Şimdi 4/3'ü bulunuyor. Bu ayrı bir hata sınıfıdır, açık iş.
+- **3 dosyanın doğrusu bilinmiyor** (etiketsiz "Throw It Back" 80 → 161, adsız bir parça 88 → 176, Dj T.c.
+  "I Believe In Love" nightcore 97 → 194).
+- Düzelmeyen 2× kalanlar: drum and bass'ta (Feint, Maduk) vuruş arası oranı 0,71–0,73, Skillet 0,62, Narvent 0,52.
+  Eşik onlar için indirilirse doğru sınıfın en yükseği (0,81) aşılır.
 
 ## Kalanlar ve dürüstlük notu
 
