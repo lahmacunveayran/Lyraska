@@ -16,13 +16,15 @@ impl Player {
     /// Çalan şarkı bitince ses akışı kesilmeden bu şarkıyla devam eder; analizi de
     /// şimdiden başlar.
     pub fn set_next(&mut self, path: Option<PathBuf>) {
+        // Oturuma her zaman yazılır: boşluksuz geçişte çözme iş parçacığı sıradakini aldı
+        // (`take_next`); aynı şarkı yeniden bildirilince yine sıraya girmeli (hata avı A4).
+        if let Some(session) = &self.session {
+            session.shared.set_next(path.clone());
+        }
         if self.next_path == path {
             return;
         }
         self.next_path = path.clone();
-        if let Some(session) = &self.session {
-            session.shared.set_next(path.clone());
-        }
         self.next_analysis = match &path {
             Some(p) if self.next_analysis.as_ref().is_some_and(|a| &a.path == p) => {
                 self.next_analysis.take()
@@ -46,6 +48,17 @@ impl SharedState {
 
     pub(super) fn take_next(&self) -> Option<PathBuf> {
         self.next_path.lock().ok().and_then(|mut n| n.take())
+    }
+
+    /// Sıradaki şarkı çözme iş parçacığınca alındı ve o an duyuluyor (ya da açılamadı): oynatıcının
+    /// bildirdiği sıradaki artık eskidir. Alınıp henüz duyulmadıysa `false`.
+    pub(super) fn next_consumed(&self) -> bool {
+        let taken = self.next_path.lock().is_ok_and(|next| next.is_none());
+        let segments = self.segments.lock().map_or(0, |segments| segments.len());
+        taken
+            && self
+                .now_playing_index()
+                .is_some_and(|index| index + 1 >= segments)
     }
 
     pub(super) fn push_segment(&self, segment: Segment) {

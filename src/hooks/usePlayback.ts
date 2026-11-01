@@ -132,21 +132,31 @@ export function usePlayback(
   // Boşluksuz geçişte çekirdek sıradakine kendisi geçer: sıra buna göre ilerler. Yalnızca
   // çalan şarkı değiştiği anda ve o ana kadar sıranın şarkısı çalıyorduysa: kullanıcı başka
   // bir şarkı seçince o açılana kadar eski şarkı çalıyor görünür; sıra o arada kaymamalı
-  // (yoksa "Önceki"de sıra yeniden çalan şarkıya ilerler, #51).
-  const [seenPath, setSeenPath] = useState<string | null>(null);
+  // (yoksa "Önceki"de sıra yeniden çalan şarkıya ilerler, #51). Aynı şarkı art arda çalınınca yol
+  // değişmez: geçiş çekirdeğin boşluksuz geçiş sayacından anlaşılır (hata avı A4).
+  const gaplessCount = status.gaplessCount ?? 0;
+  const [seen, setSeen] = useState<{ path: string | null; gapless: number }>({
+    path: null,
+    gapless: 0,
+  });
   let activeQueue = queue;
   let stalledNow = stalled;
-  if (statusPath !== seenPath) {
+  if (statusPath !== seen.path) {
     const stalledHere = stalled !== null && stalled === currentPath(queue);
-    if (seenPath !== null && (seenPath === currentPath(queue) || stalledHere)) {
+    if (seen.path !== null && (seen.path === currentPath(queue) || stalledHere)) {
       activeQueue = followQueue(queue, statusPath);
     }
-    setSeenPath(statusPath);
+    setSeen({ path: statusPath, gapless: gaplessCount });
     // Başka bir şarkı çalmaya başladı: açılamayan şarkıda bekleyiş biter.
     if (stalled !== null) {
       stalledNow = null;
       setStalled(null);
     }
+  } else if (gaplessCount !== seen.gapless) {
+    if (gaplessCount > seen.gapless && statusPath === currentPath(queue)) {
+      activeQueue = followQueue(queue, statusPath);
+    }
+    setSeen({ path: statusPath, gapless: gaplessCount });
   }
   // İlerleyen sıra saklanır: yoksa ikinci geçişte sıra eski yerinden bakar, çalan
   // şarkıyı tanımaz ve çalma o şarkının sonunda durur. (Çizim sırasında güncellenir;
@@ -154,14 +164,15 @@ export function usePlayback(
   if (activeQueue !== queue) setQueue(activeQueue);
 
   // Sıradaki şarkı çekirdeğe önceden bildirilir: şarkı bitince ses kesilmeden ona geçer.
-  // Sıra açılamayan şarkıda bekliyorsa çalan şarkıdan sonra onun ardındaki gelir.
+  // Sıra açılamayan şarkıda bekliyorsa çalan şarkıdan sonra onun ardındaki gelir. Boşluksuz
+  // geçişte çekirdek sıradakini aldı: aynı yol olsa da (aynı şarkı art arda) yeniden bildirilir.
   const stalledActive = stalledNow !== null && stalledNow === currentPath(activeQueue);
   const upcoming = upcomingPath(activeQueue, stalledActive ? stalledNow : statusPath);
   useEffect(() => {
     setNextTrack(upcoming).catch(() => {
       /* Bildirilemezse şarkı sonunda normal geçiş yapılır. */
     });
-  }, [upcoming]);
+  }, [upcoming, gaplessCount]);
   useEffect(() => {
     openPathRef.current = player.openPath;
   }, [openPathRef, player.openPath]);

@@ -18,6 +18,8 @@ const backend = vi.hoisted(() => ({
    * çalan şarkı yokken (ya da eski çekirdekte) oturum kapanır.
    */
   keepPlayingOnError: false,
+  /** Çekirdeğin boşluksuz geçiş sayacı. */
+  gapless: 0,
 }));
 
 const track = (path: string): TrackInfo => ({
@@ -43,6 +45,7 @@ const status = (): PlaybackStatus => ({
   error: null,
   bpm: null,
   output: null,
+  gaplessCount: backend.gapless,
 });
 
 vi.mock("../lib/backend", async (importOriginal) => {
@@ -94,6 +97,7 @@ beforeEach(() => {
   backend.broken = [];
   backend.ended = false;
   backend.keepPlayingOnError = false;
+  backend.gapless = 0;
 });
 
 describe("çalma sırası", () => {
@@ -139,6 +143,29 @@ describe("çalma sırası", () => {
       });
       expect(result.current.queueLabel).toBe(label);
       expect(result.current.upcoming).toBe(upcoming);
+    }
+  });
+
+  // Hata avı (1 Kasım 2026) A4: yol değişmez; geçiş çekirdeğin sayacından anlaşılır.
+  it("aynı şarkı art arda: sıra boşluksuz geçişte ilerler, sıradaki yeniden bildirilir", async () => {
+    const { result } = renderHook(() => usePlayback(["flac"]));
+    act(() => result.current.playList(["X", "X", "X"], "X"));
+    await finishOpen("X");
+    expect(result.current.queueLabel).toBe("1 / 3");
+    expect(backend.next.at(-1)).toBe("X");
+    for (const [count, label, upcoming] of [
+      [1, "2 / 3", "X"],
+      [2, "3 / 3", null],
+    ] as const) {
+      const sent = backend.next.length;
+      backend.gapless = count;
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      });
+      expect(result.current.queueLabel).toBe(label);
+      expect(result.current.upcoming).toBe(upcoming);
+      // Çekirdek sıradakini aldı: aynı yol olsa da yeniden bildirilir.
+      expect(backend.next.slice(sent)).toContain(upcoming);
     }
   });
 

@@ -48,6 +48,8 @@ enum AnalysisPlan {
 /// Hazırlanmış geçiş: [`Player::install`] ile oynatıcıya takılır.
 pub struct Prepared {
     seq: u64,
+    /// Oturumun aldığı sıradaki şarkı (geçiş başladığı andaki).
+    next: Option<PathBuf>,
     analysis: Option<Analysis>,
     outcome: Result<Session, AudioError>,
 }
@@ -91,13 +93,20 @@ impl Player {
         self.abx = None;
         self.abx_resume = None;
         self.last_error = None;
-        // Sıradaki şarkı açılan şarkının kendisiyse (boşluksuz geçiş sonrası) artık sırada değil.
+        // Sıradaki şarkı açılan şarkının kendisiyse (boşluksuz geçiş sonrası ya da ona geçildi) artık
+        // sırada değil. Yalnızca çalan şarkı yeniden açılıyorsa (sarma, aygıt değişimi) ve sıradaki
+        // henüz çalmadıysa sırada kalır: aynı şarkı art arda çalarken tekrar silinmez (hata avı A4).
         if self.next_path.as_deref() == Some(path) {
-            self.next_path = None;
+            let replay = self.session.as_ref().is_some_and(|session| {
+                session.now_playing().0.path == path && !session.shared.next_consumed()
+            });
+            if !replay {
+                self.next_path = None;
+            }
         }
         self.transition_seq += 1;
         let seq = self.transition_seq;
-        let old = self.session.take();
+        let old = self.retire_session();
         let mut pending = PendingTransition {
             seq,
             path: path.to_path_buf(),
@@ -217,6 +226,7 @@ impl Player {
         };
         Prepared {
             seq,
+            next,
             analysis,
             outcome,
         }
@@ -227,6 +237,7 @@ impl Player {
     pub fn install(&mut self, prepared: Prepared) -> Result<TrackInfo, AudioError> {
         let Prepared {
             seq,
+            next,
             analysis,
             outcome,
         } = prepared;
@@ -247,6 +258,10 @@ impl Player {
         }
         match outcome {
             Ok(session) => {
+                // Geçiş sürerken arayüz sırayı değiştirdiyse yeni oturum güncel sırayı alır.
+                if self.next_path != next {
+                    session.shared.set_next(self.next_path.clone());
+                }
                 let info = session.info.clone();
                 self.session = Some(session);
                 Ok(info)

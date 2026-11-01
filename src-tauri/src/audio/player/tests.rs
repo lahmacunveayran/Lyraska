@@ -381,6 +381,77 @@ fn oynatici_siradakine_kesintisiz_gecer() {
     std::fs::remove_file(b).ok();
 }
 
+// Hata avı (1 Kasım 2026) A4: aynı şarkı art arda üç kez. Yol değişmediği için arayüz geçişi
+// sayaçtan anlar; ikinci kez bildirilen aynı şarkı yine boşluksuz çalar.
+#[test]
+fn ayni_sarki_art_arda_bosluksuz_ve_sayilarak_calar() {
+    output::simulated::set_device_rate(Some(48_000));
+    let x = temp_path("ayni-art-arda.wav");
+    write_wav(&x, 8_000, 1, 32_000, |frame, _| frame as f64 / 32_000.0);
+    let mut player = Player::new();
+    player.load(&x, true).unwrap();
+    assert_eq!(player.status().gapless_count, 0);
+    player.set_next(Some(x.clone()));
+    assert!(wait_until(|| player.status().gapless_count == 1));
+    // Arayüz sıradakini (yine aynı şarkı) yeniden bildirir.
+    player.set_next(Some(x.clone()));
+    assert!(
+        wait_until(|| player.status().gapless_count == 2),
+        "üçüncü kez de boşluksuz geçilir"
+    );
+    assert_ne!(player.state(), PlaybackState::Ended);
+    player.set_next(None);
+    assert!(wait_until(|| player.state() == PlaybackState::Ended));
+    assert_eq!(player.status().gapless_count, 2);
+    assert_eq!(player.status().underruns, 0);
+    // Yeni şarkı açılınca sayaç geri gitmez.
+    player.load(&x, false).unwrap();
+    assert_eq!(player.status().gapless_count, 2);
+    output::simulated::set_device_rate(None);
+    std::fs::remove_file(x).ok();
+}
+
+#[test]
+fn ayni_sarki_siradayken_sarma_tekrari_silmez() {
+    // Sarma çalan şarkıyı yeniden açar; sıradaki aynı şarkı "çoktan çalındı" sayılmamalı.
+    output::simulated::set_device_rate(Some(48_000));
+    let x = temp_path("ayni-sarma.wav");
+    write_wav(&x, 8_000, 1, 16_000, |frame, _| frame as f64 / 16_000.0);
+    let mut player = Player::new();
+    player.load(&x, true).unwrap();
+    player.set_next(Some(x.clone()));
+    player.seek(0.5).unwrap();
+    assert!(
+        wait_until(|| player.status().gapless_count == 1),
+        "sarmadan sonra da aynı şarkıya boşluksuz geçilir"
+    );
+    output::simulated::set_device_rate(None);
+    std::fs::remove_file(x).ok();
+}
+
+#[test]
+fn gecis_surerken_bildirilen_siradaki_yeni_oturuma_ulasir() {
+    // 5 sn: sarılan yerden sonu ses halkasından (2 sn) uzak, sıradaki şarkı henüz alınmamış olur.
+    let a = temp_path("gecis-sirasi-a.wav");
+    write_wav(&a, 8_000, 1, 40_000, |frame, _| frame as f64 / 40_000.0);
+    let b = ramp_song("gecis-sirasi-b.wav");
+    let mut player = Player::new();
+    player.load(&a, true).unwrap();
+    player.set_next(Some(b.clone()));
+    // Sarma kilit dışında hazırlanırken arayüz sırayı kaldırır.
+    let transition = player.begin_transition(&a, true, Some(0.5));
+    player.set_next(None);
+    player.install(Player::prepare(transition)).unwrap();
+    let session = player.session.as_ref().unwrap();
+    assert_eq!(
+        *session.shared.next_path.lock().unwrap(),
+        None,
+        "kaldırılan sıradaki şarkı çalmamalı"
+    );
+    std::fs::remove_file(a).ok();
+    std::fs::remove_file(b).ok();
+}
+
 #[test]
 fn kanal_sayisi_uymayan_siradaki_sarkiya_gecilmez() {
     let a = ramp_song("kanal-a.wav");

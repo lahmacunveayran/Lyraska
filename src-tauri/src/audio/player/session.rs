@@ -134,10 +134,17 @@ impl SharedState {
     }
 
     /// Şu an duyulan şarkı, konumu ve konumun ölçüldüğü an (Unix mikrosaniye; bilinmiyorsa `None`).
+    #[cfg(test)]
     pub(super) fn now_playing_timed(&self) -> Option<(TrackInfo, f64, Option<u64>)> {
+        self.now_playing_indexed()
+            .map(|(info, seconds, at, _)| (info, seconds, at))
+    }
+
+    /// Şu an duyulan şarkı, konumu, ölçüldüğü an ve şarkının oturumdaki sırası (boşluksuz geçişte artar).
+    pub(super) fn now_playing_indexed(&self) -> Option<(TrackInfo, f64, Option<u64>, usize)> {
         let (heard, at) = self.heard_with_time();
-        let (info, seconds) = self.playing_at_frame(heard, 0.0)?;
-        Some((info, seconds, at))
+        let (info, seconds, index) = self.playing_at_frame(heard, 0.0)?;
+        Some((info, seconds, at, index))
     }
 
     /// Duyulan andan `offset_secs` ötedeki (eksi: önceki) şarkı ve konumu. Görseller ekran
@@ -146,27 +153,28 @@ impl SharedState {
     /// 200 ms'inde eski şarkının sonu gösterilsin, yeni şarkı 0. karede donmasın.
     pub(super) fn playing_at(&self, offset_secs: f64) -> Option<(TrackInfo, f64)> {
         self.playing_at_frame(self.output_heard.load(Ordering::Acquire), offset_secs)
+            .map(|(info, seconds, _)| (info, seconds))
     }
 
-    /// `heard` çıkış karesinden `offset_secs` ötedeki şarkı ve konumu.
-    fn playing_at_frame(&self, heard: u64, offset_secs: f64) -> Option<(TrackInfo, f64)> {
+    /// `heard` çıkış karesinden `offset_secs` ötedeki şarkı, konumu ve oturumdaki sırası.
+    fn playing_at_frame(&self, heard: u64, offset_secs: f64) -> Option<(TrackInfo, f64, usize)> {
         let segments = self.segments.lock().ok()?;
         let first = segments.first()?;
         // Aygıt hızı oturum boyunca sabittir: şarkı hızı / oran.
         let device_rate = f64::from(first.info.sample_rate.max(1)) / first.rate_ratio.max(1e-9);
         let target = (heard as f64 + offset_secs * device_rate).max(0.0);
-        let segment = segments
+        let index = segments
             .iter()
-            .rev()
-            .find(|s| s.first_output_frame as f64 <= target)
-            .unwrap_or(first);
+            .rposition(|s| s.first_output_frame as f64 <= target)
+            .unwrap_or(0);
+        let segment = segments.get(index).unwrap_or(first);
         let frames = segment.start_frame as f64
             + (target - segment.first_output_frame as f64).max(0.0) * segment.rate_ratio;
         let mut seconds = frames / f64::from(segment.info.sample_rate.max(1));
         if let Some(duration) = segment.info.duration_secs {
             seconds = seconds.min(duration);
         }
-        Some((segment.info.clone(), seconds))
+        Some((segment.info.clone(), seconds, index))
     }
 
     /// Şu an duyulan şarkının oturumdaki sırası.
@@ -336,10 +344,11 @@ impl Session {
     }
 
     /// Şu an duyulan şarkı, konumu ve konumun ölçüldüğü an (Unix mikrosaniye).
-    pub(super) fn now_playing_timed(&self) -> (TrackInfo, f64, Option<u64>) {
+    /// Son değer: şarkının oturumdaki sırası.
+    pub(super) fn now_playing_timed(&self) -> (TrackInfo, f64, Option<u64>, usize) {
         self.shared
-            .now_playing_timed()
-            .unwrap_or_else(|| (self.info.clone(), 0.0, None))
+            .now_playing_indexed()
+            .unwrap_or_else(|| (self.info.clone(), 0.0, None, 0))
     }
 
     /// Duyulan andan `offset_secs` ötedeki şarkı ve konumu (görseller için).

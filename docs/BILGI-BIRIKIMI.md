@@ -104,6 +104,9 @@ kısaltılır.
 - **Oynatıcı düzeltmesi arayüzün yolunda sınanır:** arayüz şarkıyı `Player::load` ile değil `open_track`'in üç
   adımıyla (`begin_transition` → `prepare` → `install`) açar. Yalnızca `load`'a konan bir koruma programda
   çalışmaz (#105'te öyle oldu); test komut gövdesini (`commands::open_on`) çağırır.
+- **Geçişi yoldan değil sayaçtan anla:** aynı şarkı art arda çalınınca yol değişmez (hata avı A4); arayüz boşluksuz
+  geçişi `gaplessCount`'tan anlar. Geçiş kilit dışında hazırlanırken gelen ayar `install`'da yeni oturuma yazılmalı;
+  yoksa `begin_transition` anındaki kopya kalır.
 - **Arayüz işi sahte çekirdekle tarayıcıda görülür:** testler geçse de şarkıya özel kapakta iki hata yalnızca
   önizlemede çıktı (hücrenin `overflow: hidden`'ı menüyü kırptı; `AlbumArt` isteği yeniden kurarken yeni alanı
   düşürdü). Satır içindeki açılır menü `createPortal` ile `body`'ye konur. Önizleme betiği `check-scenes.mjs`'in sahte
