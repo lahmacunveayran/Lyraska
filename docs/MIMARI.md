@@ -147,7 +147,9 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
 - Tempo oktavı (`analysis/tempo.rs`): öz-ilinti tempoyu yarısı ya da iki katıyla karıştırabilir (drum and bass 87,
   yarım tempolu trap 70, yavaş balad 132). Takipçinin ızgarası bant seviyelerinden sınanır: kick ya da snare vuruş
   aralarına düşüyorsa iki katı, tempo 80'in altındayken iki katında da vuruş araları doluysa (hi-hat) iki katı, aralar
-  boşsa yarısı seçilir. Aksak ölçü düzeltilmiş tempoya göre aranır. Ölçüm: `docs/arastirma/tempo/`.
+  boşsa yarısı seçilir. Gerçek kütüphaneden iki kural daha: 80–100 bulunmuşsa ve gerçek vuruşlar aralığın üçte
+  birlerine düşüyorsa 1,5 katı (üç vuruşta iki); aralar vuruşlar kadar güçlü, basta da (her vuruşta kick) ve iki katın
+  araları doluysa iki katı (eşit nabız). Aksak ölçü düzeltilmiş tempoya göre aranır. Ölçüm: `docs/arastirma/tempo/`.
 - Ölçü (`analysis/meter.rs`, `structure.rs`): vuruş takipçisi eşit aralıklı vuruş arar; aksak ölçüde (9/8 = 2+2+2+3)
   iki sekizlikte bir vuruş bulur ve üçlü grupları atlar. Bu yüzden ölçü sekizlik ızgarasında da çözümlenir; aksak
   bulunursa şarkının vuruşları grup başları olur (`BeatGrid`), şarkı haritasında `grouping` ve ölçü başları

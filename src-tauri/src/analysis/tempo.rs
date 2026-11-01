@@ -1,11 +1,11 @@
-//! Tempo oktavı: takipçinin bulduğu tempo ([`super::beats::track`]) doğrunun yarısı ya da iki
-//! katı olabilir. Öz-ilinti yalnızca "hangi aralıkta tekrar var" der; drum and bass'ta snare'ler
+//! Tempo oktavı: takipçinin bulduğu tempo ([`super::beats::track`]) doğrunun yarısı, iki katı ya
+//! da 2/3'ü olabilir. Öz-ilinti yalnızca "hangi aralıkta tekrar var" der; drum and bass'ta snare'ler
 //! iki vuruşta bir geldiği için yarı tempo (87), yarım tempolu trap'te kick ve clap ölçüde bir
 //! geldiği için yarı tempo (70), yavaş baladda sekizlik piyano yüzünden iki kat (132) bulunur.
 //!
 //! DJ yazılımlarının ve müzisyenlerin kabulü: dubstep/trap 140, drum and bass 170–176, hip-hop
 //! 85–95, house 120–128, balad 60–72 (bkz. `docs/arastirma/tempo/README.md`). Bu modül bulunan
-//! temponun yarısını ve iki katını, vuruş ızgarasının kendi kanıtıyla sınar:
+//! temponun yarısını, iki katını ve 1,5 katını vuruş ızgarasının kendi kanıtıyla sınar:
 //!
 //! 1. **Vuruş arasında davul:** kick ve snare doğru tempoda vuruşa düşer (kick 1 ve 3'te, snare
 //!    2 ve 4'te). Vuruş aralarındaki kick ya da snare vuruşlardakinden güçlüyse (drum and bass
@@ -19,11 +19,15 @@
 //!    katı seçilir: trap ve dubstep 140'tır.
 //!    Sınır, dinleyicilerin yeğlediği tempo bölgesinden (~120 BPM çevresi, bir oktav; Moelants,
 //!    McKinney) gelir; yalnızca kanıt (araların doluluğu) varken uygulanır.
-//! 3. **Eşit nabız:** vuruş araları başlangıç gücünde ve bas bantlarında vuruşlar kadar güçlüyse
+//! 3. **Üç vuruşta iki:** bulunan tempo 80–100 ise ve vuruş aralığının üçte birlerindeki güç
+//!    yarısındakinden belirgin biçimde fazlaysa (gerçek vuruşlar oraya düşüyor; takipçi üç
+//!    sekizlikte bir yinelenen kalıba kilitlenmiş) ve 1,5 katı tempoda izlenen ızgara vuruşlara
+//!    oturuyorsa 1,5 katı seçilir (KUTE 87 → 130). 6/8'de 1,5 katın ızgarası vurguya oturmaz.
+//! 4. **Eşit nabız:** vuruş araları başlangıç gücünde ve bas bantlarında vuruşlar kadar güçlüyse
 //!    (her vuruşta kick: hardstyle, hands up, frenchcore yarı tempoda bulunmuş) ve iki katı
 //!    tempoda da aralar doluysa (offbeat bas, hi-hat) iki katı seçilir. Sahibinin kütüphanesinden
 //!    ölçüldü (`docs/arastirma/tempo/`); reggaeton'un ara vuruşu snare'dir, basta zayıftır.
-//! 4. **Boş vuruş araları:** vuruşların arası neredeyse hiç dolmuyorsa (baladda sekizlik piyano
+//! 5. **Boş vuruş araları:** vuruşların arası neredeyse hiç dolmuyorsa (baladda sekizlik piyano
 //!    vuruş sanılmış) ve yarısı tempoda vuruş aralarında vurgu yoksa yarısı seçilir.
 //!
 //! Ayarlar sentetik geliştirme setinde yapıldı, ayrı tohumlu doğrulama setinde ölçüldü
@@ -60,6 +64,19 @@ const SPARSE_OFFBEAT_ACCENT_MAX: f64 = 0.5;
 const HALF_TIME_BPM: f64 = 80.0;
 /// Yarım tempo hissinde iki katı tempoda vuruş aralarının en az doluluğu (başlangıç gücü).
 const HALF_TIME_FILL_MIN: f64 = 0.2;
+/// Üç vuruşta iki: takipçi bu aralıkta bulduysa gerçek tempo 1,5 katı olabilir (120–150'lik şarkıda
+/// üç sekizlikte bir yinelenen kalıba, ör. 3+3+2'ye kilitlenmiş). Dışında doğrusu bilinen hata yok.
+const THREE_HALVES_BPM: std::ops::RangeInclusive<f64> = 80.0..=100.0;
+/// Üç vuruşta ikide gerçek vuruşlar bulunan aralığın üçte birlerine düşer: üçte birlerdeki
+/// başlangıç gücü yarısındakinin en az bu katı olmalı (sahibinin kütüphanesinde 80–100'de doğru
+/// tempolu şarkılar ≤ 1,21). 6/8, shuffle ve swing'de de yüksektir (yarı boşsa sonsuz): onları
+/// [`THREE_HALVES_SALIENCE_MIN`] ayırır.
+const THIRDS_MIN: f64 = 1.35;
+/// Üçte bir ve yarı pencerelerinin yarı genişliği (vuruş aralığına oranla).
+const THIRDS_WINDOW: f64 = 0.06;
+/// 1,5 katı tempoda izlenen ızgaranın vuruşları bulunanınkiler kadar güçlü olmalı (oran): 6/8'de
+/// ızgara üç sekizlikte birdir, 1,5 katı ise vurguya yalnızca üçte bir denk gelir.
+const THREE_HALVES_SALIENCE_MIN: f64 = 0.75;
 /// Eşit nabız: vuruş araları (başlangıç gücü) vuruşların en az bu oranındaysa bulunan ızgara
 /// gerçek temponun yarısı olabilir (hardstyle, hands up, frenchcore: her vuruşta kick).
 const EVEN_PULSE_MIN: f64 = 0.85;
@@ -77,7 +94,7 @@ const MIN_BEATS: usize = 8;
 const MIN_BPM: f64 = 60.0;
 const MAX_BPM: f64 = 200.0;
 
-/// Takipçinin ızgarasını gerekirse iki katı ya da yarısı tempoya çevirir. `onset`: kare başına
+/// Takipçinin ızgarasını gerekirse iki katı, 1,5 katı ya da yarısı tempoya çevirir. `onset`: kare başına
 /// başlangıç gücü; `bands`: kare başına `bands_per_frame` bant seviyesi (0..255); `latency`:
 /// başlangıç gücünün gecikmesi (vuruş anlarından düşülmüş olan).
 pub fn resolve_octave(
@@ -115,6 +132,13 @@ pub fn resolve_octave(
         || (strong(&snare, &grid.beats) > OFFBEAT_ACCENT_MAX
             && snare_coverage >= SNARE_EVERY_GAP_MIN
             && offbeat_noise(&noise, &grid.beats, &frame) >= HAT_NOISE_MIN);
+    // 3. Üç vuruşta iki: gerçek vuruşlar bulunan aralığın üçte birlerine düşüyor (yarısına değil)
+    //    ve 1,5 katı tempoda izlenen ızgara da vuruşlara oturuyor.
+    if !drums_between && THREE_HALVES_BPM.contains(&grid.bpm) {
+        if let Some(found) = three_halves(onset, fps, latency, &grid, &strength, &frame) {
+            return found;
+        }
+    }
     let doubled_bpm = 2.0 * grid.bpm;
     let even_pulse = ratio(&strength, &grid.beats) >= EVEN_PULSE_MIN
         && ratio(&band_rise(bands, bands_per_frame, LOW_BANDS), &grid.beats) >= EVEN_LOW_MIN;
@@ -129,7 +153,7 @@ pub fn resolve_octave(
         let half_time = grid.bpm < HALF_TIME_BPM
             && ratio(&strength, fine) >= HALF_TIME_FILL_MIN
             && offbeat_noise(&noise, fine, &frame) >= HAT_NOISE_MIN;
-        // 3. Eşit nabız: bulunan ızgaranın araları vuruşlar kadar güçlü (her vuruşta kick) ve iki
+        // 4. Eşit nabız: bulunan ızgaranın araları vuruşlar kadar güçlü (her vuruşta kick) ve iki
         //    katının araları da dolu. Köy işinde 160–200'lük şarkıların yarısı böyle bulunuyordu.
         let even = even_pulse && ratio(&strength, fine) >= EVEN_DOUBLED_FILL_MIN;
         if drums_between || half_time || even {
@@ -146,7 +170,7 @@ pub fn resolve_octave(
             }
         }
     }
-    // 4. Vuruş araları boş: tempo iki kat bulunmuş olabilir. Yarısının hangi vuruşları? Araları
+    // 5. Vuruş araları boş: tempo iki kat bulunmuş olabilir. Yarısının hangi vuruşları? Araları
     //    vurgusuz olanı (snare ve kick vuruşa düşer); öyle bir yarı yoksa dokunulmaz.
     if grid.bpm / 2.0 >= MIN_BPM && ratio(&strength, &grid.beats) < SPARSE_FILL_MAX {
         let best = [0, 1]
@@ -167,6 +191,58 @@ pub fn resolve_octave(
         }
     }
     grid
+}
+
+/// Üç vuruşta iki ([`THIRDS_MIN`], [`THREE_HALVES_SALIENCE_MIN`]) tutuyorsa 1,5 katı tempoda
+/// yeniden izlenen ızgara.
+fn three_halves(
+    onset: &[f32],
+    fps: f64,
+    latency: f64,
+    grid: &BeatGrid,
+    strength: &[f64],
+    frame: &dyn Fn(f64) -> f64,
+) -> Option<BeatGrid> {
+    let at = |beats: &[f64], position: f64| mean(&position_peaks(strength, beats, frame, position));
+    let thirds = 0.5 * (at(&grid.beats, 1.0 / 3.0) + at(&grid.beats, 2.0 / 3.0));
+    if quotient(at(&grid.beats, 0.5), thirds) < THIRDS_MIN {
+        return None;
+    }
+    let wanted = 1.5 * grid.bpm;
+    let (beats, _) = track_period(onset, fps, latency, 60.0 / wanted)?;
+    let bpm = rounded_bpm(&beats);
+    let enough = beats.len() as f64 >= RETRACK_MIN_COVERAGE * 1.5 * grid.beats.len() as f64;
+    let on_beat = |beats: &[f64]| mean(&peaks(strength, beats, frame).0);
+    let salient = quotient(on_beat(&grid.beats), on_beat(&beats)) >= THREE_HALVES_SALIENCE_MIN;
+    (enough && salient && (bpm / wanted - 1.0).abs() <= 0.03 && bpm <= MAX_BPM).then_some(
+        BeatGrid {
+            bpm,
+            beats,
+            variable_tempo: false,
+        },
+    )
+}
+
+/// Her vuruş aralığında `position` (0 = vuruş, 0,5 = ara ortası) çevresindeki en güçlü değer
+/// ([`THIRDS_WINDOW`] genişliğinde).
+fn position_peaks(
+    envelope: &[f64],
+    beats: &[f64],
+    frame: &dyn Fn(f64) -> f64,
+    position: f64,
+) -> Vec<f64> {
+    beats
+        .windows(2)
+        .map(|pair| {
+            let (a, b) = (frame(pair[0]), frame(pair[1]));
+            let (center, half) = (a + position * (b - a), THIRDS_WINDOW * (b - a));
+            let start = (center - half).round().max(0.0) as usize;
+            let end = ((center + half).round().max(0.0) as usize + 1).min(envelope.len());
+            envelope
+                .get(start..end)
+                .map_or(0.0, |s| s.iter().copied().fold(0.0, f64::max))
+        })
+        .collect()
 }
 
 /// Verilen aralıkla (saniye) yeniden izler: vuruşlar başlangıçlara oturur.
@@ -745,6 +821,76 @@ mod tests {
         let (grid, onset, bands) = pulse(90.0, 0.6, 0.5);
         let out = resolve_octave(grid, &onset, &bands, 32, 60.0, 0.0);
         assert!((out.bpm / 90.0 - 1.0).abs() < 0.02, "{}", out.bpm);
+    }
+
+    /// Başlangıç gücü: 0,5 sn'den başlayıp her `step` saniyede bir `pattern`'ın sıradaki gücü
+    /// (40 sn, 60 kare/sn); ızgara `found` BPM'de, bantlar düz.
+    fn subdivided(found: f64, step: f64, pattern: &[f32]) -> (BeatGrid, Vec<f32>, Vec<u8>) {
+        let fps = 60.0;
+        let frames = (40.0 * fps) as usize;
+        let mut onset = vec![0.02f32; frames];
+        for (k, strength) in pattern.iter().cycle().enumerate() {
+            let i = ((0.5 + k as f64 * step) * fps).round() as usize;
+            if i >= frames - 30 {
+                break;
+            }
+            onset[i] = *strength;
+        }
+        let beats: Vec<f64> = (0..)
+            .map(|n| 0.5 + f64::from(n) * 60.0 / found)
+            .take_while(|&t| t < 39.0)
+            .collect();
+        let grid = BeatGrid {
+            bpm: found,
+            beats,
+            variable_tempo: false,
+        };
+        (grid, onset, vec![100u8; frames * 32])
+    }
+
+    #[test]
+    fn uc_vurusta_iki_bulunan_tempo_bir_bucuk_katina_cikar() {
+        // 130'luk şarkı (vuruşta kick, sekizlikte hi-hat) 2/3'ünde bulunmuş (86,7): gerçek
+        // vuruşlar bulunan aralığın üçte birlerine düşüyor. Köy işi: KUTE "KRUSH GIRL" 130 → 87,
+        // Rammor 122 → 81, "L no Theme" 135 → 89 (docs/arastirma/koy-isi).
+        for truth in [122.0, 130.0, 145.0] {
+            let (grid, onset, bands) = subdivided(truth / 1.5, 30.0 / truth, &[1.0, 0.4]);
+            let out = resolve_octave(grid, &onset, &bands, 32, 60.0, 0.0);
+            assert!((out.bpm / truth - 1.0).abs() < 0.02, "{truth}: {}", out.bpm);
+        }
+    }
+
+    #[test]
+    fn uc_vurusta_iki_esigi() {
+        // Onaltılıklarla: ara ortasında (onaltılık) da güç var, oran sonlu. Üçte birler (vuruş ve
+        // sekizlik) / yarı (onaltılık) = (1 + 0,4) / 2 / onaltılık.
+        let truth = 130.0;
+        let run = |sixteenth: f32| {
+            let pattern = [1.0, sixteenth, 0.4, sixteenth];
+            let (grid, onset, bands) = subdivided(truth / 1.5, 15.0 / truth, &pattern);
+            resolve_octave(grid, &onset, &bands, 32, 60.0, 0.0).bpm
+        };
+        // Oran 1,75: 1,5 katına çıkar.
+        let out = run(0.4);
+        assert!((out / truth - 1.0).abs() < 0.02, "{out}");
+        // Oran ~1,2 (sahibinin kütüphanesinde doğru tempolu en yüksek 1,21): dokunulmaz.
+        let out = run(0.58);
+        assert!((out / (truth / 1.5) - 1.0).abs() < 0.02, "{out}");
+    }
+
+    #[test]
+    fn altilik_olcu_bir_bucuk_katina_cikmaz() {
+        // 6/8: noktalı dörtlük vuruş (90), sekizlikler üçte birlerde ama vurgu yalnızca vuruşta.
+        // 1,5 katı tempo (135) iki sekizlikte birdir, vurguya üçte bir denk gelir.
+        for bpm in [82.0, 90.0, 98.0] {
+            let (grid, onset, bands) = subdivided(bpm, 20.0 / bpm, &[1.0, 0.5, 0.5]);
+            let out = resolve_octave(grid, &onset, &bands, 32, 60.0, 0.0);
+            assert!((out.bpm / bpm - 1.0).abs() < 0.02, "{bpm}: {}", out.bpm);
+        }
+        // Aralık dışı: 105'te bulunan üçlü kalıba dokunulmaz (doğrusu bilinen hata yok).
+        let (grid, onset, bands) = subdivided(105.0, 30.0 / 157.5, &[1.0, 0.4]);
+        let out = resolve_octave(grid, &onset, &bands, 32, 60.0, 0.0);
+        assert!((out.bpm / 105.0 - 1.0).abs() < 0.02, "{}", out.bpm);
     }
 
     #[test]
