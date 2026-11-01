@@ -106,10 +106,13 @@ Takipçinin bulduğu ızgara (T) analiz karelerindeki bant seviyelerinden sınan
    ≥ 0,2), üstelik orada hi-hat varsa (geniş bantlı tiz gürültü, ≥ ~0,5 dB) sonuç 2T'dir. Geliştirme setinde baladda
    2T'nin araları boş (≤ 0,11), trap ve dubstep'te dolu (≥ 0,25). Davulsuz on altılık piyano araları doldurur ama
    gürültü yoktur.
-3. **Eşit nabız** (1 Kasım 2026, gerçek kütüphaneden; aşağıda): 2T ≤ 200 ise, vuruş araları vuruşlar kadar güçlüyse
+3. **Üç vuruşta iki** (1 Kasım 2026, gerçek kütüphaneden; aşağıda): T 80–100 ise, vuruş aralığının üçte birlerindeki
+   başlangıç gücü yarısındakinin ≥ 1,35 katıysa ve 1,5T'de izlenen ızgaranın vuruşları bulunanınkilerin ≥ 0,75'i kadar
+   güçlüyse sonuç 1,5T'dir.
+4. **Eşit nabız** (1 Kasım 2026, gerçek kütüphaneden; aşağıda): 2T ≤ 200 ise, vuruş araları vuruşlar kadar güçlüyse
    (başlangıç gücü, ≥ 0,85), aradaki vuruş basta da güçlüyse (bas bantlarında artış, ≥ 0,75: kick) ve 2T'nin
    araları da doluysa (≥ 0,35: offbeat bas, hi-hat) sonuç 2T'dir.
-4. **Boş vuruş araları:** T/2 ≥ 60 ise, vuruş araları neredeyse boşsa (< 0,12) ve T/2'nin bir yarısında aralar
+5. **Boş vuruş araları:** T/2 ≥ 60 ise, vuruş araları neredeyse boşsa (< 0,12) ve T/2'nin bir yarısında aralar
    vurgusuzsa (≤ 0,5; snare ve kick vuruşta) sonuç T/2'dir.
 
 İki katına çıkılınca vuruşlar 2T'de yeniden izlenir (dinamik programlama), yani başlangıçlara oturur. Yeniden
@@ -118,7 +121,7 @@ geçmiyorsa kullanılır. Yoksa vuruş ortaları eklenir. Yarıya inilince
 vuruşların araları vurgusuz olan yarısı alınır. Değişken tempolu ızgaraya dokunulmaz. Sonuç 60–200 BPM içinde kalır.
 Aksak ölçü düzeltilmiş tempoya göre aranır.
 
-Ritim parçasının önbellek sürümü 7'ye, eşit nabızla 8'e çıktı. Kütüphane yalnızca ritmi saklanan karelerden
+Ritim parçasının önbellek sürümü 7'ye, eşit nabızla 8'e, üç vuruşta ikiyle 9'a çıktı. Kütüphane yalnızca ritmi saklanan karelerden
 yeniden hesaplar; şarkılar çözülmez.
 
 ### Denenip bırakılan
@@ -175,6 +178,31 @@ Kütüphanenin tamamı yeni kuralla yeniden ölçüldü. 30 dosyanın temposu de
   bas şartıyla yeniden ölçüldü: değişen dosyalar ve tempoları birebir aynı (30 dosya).
 - Düzelmeyen 2× kalanlar: drum and bass'ta (Feint, Maduk) vuruş arası oranı 0,71–0,73, Skillet 0,62, Narvent 0,52.
   Eşik onlar için indirilirse doğru sınıfın en yükseği (0,81) aşılır.
+
+## Gerçek kütüphane: üç vuruşta iki (1 Kasım 2026)
+
+Doğru listesi ikinci bir hata sınıfı gösterdi: takipçi gerçek temponun 2/3'ünü buluyor (KUTE 130 → 87, Rammor 122 → 81,
+"L no Theme" 135 → 89, Houshou Marine 145 → 96). Takipçi üç sekizlikte bir yinelenen bir kalıba (3+3+2 gibi)
+kilitleniyor; gerçek vuruşlar bulunan aralığın üçte birlerine düşüyor, yarısına değil. Eşit nabız bunları iki katına
+(4/3) çıkarıyordu.
+
+Ölçüm (`docs/arastirma/koy-isi/tempo-uc-iki.txt`, bütün kütüphane):
+
+- **Üçte birler / yarı oranı:** 3:2 şarkılarında 1,46–4,85. T 80–100 olan doğru şarkıların hepsinde ≤ 1,21 ("Remember
+  the Name" 1,21; ötekiler ≤ 0,67). 2× sınıfında ≤ 0,81.
+- **80–100 aralığı:** aralığın dışında oranı yüksek olan doğrusu bilinmeyen şarkılar var (ör. 114, 130 ve 105 bulunan
+  üç şarkı). Doğrusu bilinen iki şarkıyı da (Stereo Love 127, Summer Jam 130; 63–65 bulunuyor) zaten yarım tempo
+  kuralı düzeltiyor. 3:2 hatası yalnızca 80–100'de görüldü: 120–150'lik şarkının 2/3'ü.
+- **1,5 kat ızgaranın vuruş gücü:** 3:2 şarkılarında bulunanınkinin 0,78–0,91'i. 6/8'de 1,5 katın ızgarası vurguya
+  yalnızca üçte bir denk gelir (sentetik test).
+
+Yeniden ölçümde tam 4 dosya değişti, dördü de yayımlanan tempoya oturdu: KUTE 129,7 (130), Rammor 122,2 (122), "L
+no Theme" 134,3 (135), Houshou Marine 143,8 (145). Başka hiçbir dosya değişmedi. Houshou Marine'in ikinci dosyası
+"değişken tempo" sayıldığı için kurala girmiyor (97). Armin van Buuren (oran 0,86) ve Discobitch (0,69) düzelmedi:
+oranları doğru şarkılarınkiyle çakışıyor.
+
+Testler: `uc_vurusta_iki_bulunan_tempo_bir_bucuk_katina_cikar` (kural kapatılınca düşüyor),
+`altilik_olcu_bir_bucuk_katina_cikmaz` (1,5 kat ızgaranın vuruş gücü şartı kapatılınca düşüyor).
 
 ## Kalanlar ve dürüstlük notu
 

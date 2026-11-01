@@ -27,6 +27,7 @@ altyazıları); YouTube listesinin adresi ve video kimlikleri. Dosya adları sah
 | [`rapor-ilk.md`](rapor-ilk.md)                           | Aracın ilk ölçümde yazdığı özet rapor (iki biçim karşılaştırması dahil).                          |
 | [`tempo-dogrular.csv`](tempo-dogrular.csv)               | Yayımlanan tempolar (SongBPM vb.), programın ilk ve yeni değeriyle.                               |
 | [`tempo-ic-degerler.json`](tempo-ic-degerler.json)       | 60–110 BPM bulunan 130 şarkıda oktav kararının iç değerleri ve sınıf etiketi.                     |
+| [`tempo-uc-iki.txt`](tempo-uc-iki.txt)                   | 3:2 ölçümü, bütün kütüphane (654 dosya; 2'sinde tempo yok): satır biçimi aşağıda.                 |
 | [`soz-satirlari.csv`](soz-satirlari.csv)                 | 167 şarkının satır satır söz zamanları (metin yok): program ↔ altyazı.                            |
 | [`betikler/`](betikler/)                                 | Başlatıcı, çözümleme ve karşılaştırma betikleri, geçici ölçüm testi, incelemenin karşı örnekleri. |
 
@@ -43,6 +44,11 @@ vuruş/ara payı; `son`/`soff` başlangıç gücünde aynısı; `strmed` başlan
 yarı oranı; `sn` snare güçlü yarı oranı; `cov` snare'in her araya düşme payı; `noise` aralarda hi-hat gürültüsü;
 `noise2` iki katta aynısı; `lab` sınıf (`2x` yarım bulunmuş, `ok` doğru, `3:2` gerçek tempo 1,5 katı, `?`
 bilinmiyor).
+
+**`tempo-uc-iki.txt`** (`UC|takipçi BPM|1,5 kat izleme BPM|eşit nabızlı sonuç|…|dosya`; ritim sürümü 8 ile):
+`salT`/`sal15` bulunan ve 1,5 kat ızgaranın vuruşlarındaki başlangıç gücü (ortalamaya oranla); `lsalT`/`lsal15`
+aynısı bas bantlarında; `half` ara ortasındaki, `third` üçte birlerdeki güç (ortalamaya oranla); `fill15`/`lfill15` 1,5
+kat ızgaranın vuruş arası oranı; `n` vuruş sayıları. Kural `third/half ≥ 1,35` ve `sal15/salT ≥ 0,75` kullanır.
 
 **`soz-satirlari.csv`:** `isaret` = programın satır işareti (`guvenli`, `tahmini`, `yok`); `altyazi_sn` boşsa satır
 altyazıda bulunamadı; `fark_sn` artıysa program geç. Altyazı zamanları YouTube'un otomatik ya da elle yazılmış
@@ -72,7 +78,8 @@ geçti. 3 dosyanın doğrusu bilinmiyor. Bas şartından sonraki ölçüm birebi
 Doğru listesinden çıkan, henüz çözülmemiş sınıflar:
 
 - **3:2:** Rammor 122 → 81, KUTE 130 → 87, Armin van Buuren 135 → 87, "L no Theme" 135 → 89, Discobitch 129 → 83,
-  Houshou Marine 145 → 96. Takipçi gerçek temponun 2/3'ünü buluyor (üç vuruşta iki).
+  Houshou Marine 145 → 96. Takipçi gerçek temponun 2/3'ünü buluyor (üç vuruşta iki). Dördü "üç vuruşta iki"
+  kuralıyla düzeldi (ritim sürümü 9; `../tempo/README.md`); Armin ve Discobitch kaldı.
 - **2× kalanlar:** Feint ve Maduk (drum and bass, 175–176 → 88), Skillet (160 → 80, rock), Narvent (172 → 86),
   overrated (185 → 93; vuruş arası oranı 0,848, eşiğin hemen altı).
 - **Başka:** "SCHEINE ZÄHLEN" yayımlanan 80, program 90 (şimdi 180).
@@ -125,6 +132,7 @@ testi. İkisi de ideal başlangıç gücüyle çalışıyor; gerçek sesli oluml
 - [`karsilastir.py`](betikler/karsilastir.py): iki ölçümün tempolarını karşılaştırır, değişenleri sınıflar.
 - [`tempo_ic_degerler.rs`](betikler/tempo_ic_degerler.rs): `tempo-ic-degerler.json`'u üreten geçici test
   (`tempo.rs`'in `mod tests`'ine eklenip `LYRASKA_TEMPO_LISTE` ile çalıştırıldı; commit edilmez).
+- [`tempo_uc_iki.rs`](betikler/tempo_uc_iki.rs): `tempo-uc-iki.txt`'yi üreten geçici test.
 - [`inceleme_karsi_ornekler.rs`](betikler/inceleme_karsi_ornekler.rs): incelemenin karşı örnekleri.
 - [`koy-isi.ps1`](betikler/koy-isi.ps1): başlatıcı (liste adresi `LISTE_ADRESI` ile değiştirildi).
 

@@ -66,7 +66,8 @@ pub const VERSIONS: PartVersions = PartVersions {
     // 6: ritmi zayıf ya da basit oranlı (2/3, 3/2) parça sabit tempoyu "değişken" yapmaz.
     // 7: tempo oktavı (drum and bass 87 → 174, yarım tempolu trap 70 → 140, balad 132 → 66).
     // 8: eşit nabız (her vuruşta kick, iki katının araları dolu): hardstyle 80 → 160.
-    rhythm: 8,
+    // 9: üç vuruşta iki (80–100 bulunmuş, gerçek vuruşlar üçte birlerde): KUTE 87 → 130.
+    rhythm: 9,
     loudness: 1,
     bass: 1,
     key: 1,

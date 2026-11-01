@@ -24,6 +24,7 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 
 ## Proje sahibinden beklenenler
 
+- Hata avı raporları (1 Kasım; `bug-report.md`, `bug-report-2-matematik.md`): dosyalar; gelince önce doğrulanır.
 - `usePlayer.test.ts` "çekirdek ölçüm anını bildirince…" Windows'ta hep düşüyor (zamanlayıcı ~15,6 ms adımlı;
   DOGRULAMA G1). Mevcut test: düzeltilsin mi (zamanı testin kendisi yönetsin, sınır aynı), sahibinin kararı.
 - DOGRULAMA A7–A11 sonuçları (0.0.64) ve A12 (0.0.65: `.opus`/`.webm`); A13–A14 klasör izleme (0.0.72); A15 drop
@@ -33,7 +34,6 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 
 - Şarkı kapağı (0.0.82) küçükleri: kütüphaneden çıkan şarkının kapağı `kapaklar/`'da kalır (temizlik yok); arama
   süzgeci açıkken "sıradaki" kapağı albümsüz anahtarla okunur, şarkı başlayınca bir kez daha okunur.
-
 - Güvenlik uyarıları (Scorecard): SAST (CodeQL eklendi) ve Branch-Protection (sahibinin kuralı) bir sonraki
   taramada kapanmalı; Code-Review ve Binary-Artifacts sahibi "Won't fix" ile kapattı; Maintained zamanla kapanır;
   Vulnerabilities (Linux'a özgü GTK bağımlılığı), Fuzzing, CII-Best-Practices sonra.
@@ -47,9 +47,8 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
   yok. Araştırma `docs/arastirma/kutuphane-arastirma.md`.
 - WebM'de şarkı adı okunmuyor (Matroska Segment Title; symphonia okumuyor) ve sondaki Opus dolgusu (≤ 20 ms)
   atılmıyor (DiscardPadding). İkisi de küçük; istenirse kendi küçük EBML okuyucusuyla.
-
 - Köy işi (sahibinin 656 şarkısı, 1 Kasım; araç `examples/koy_isi.rs`): hızlı türlerde yarım tempo
-  düzeltildi (eşit nabız, PR'da; `docs/arastirma/tempo/`). Açık: **3:2 tempo** (KUTE 130 → 87; 9 dosya), DnB/Skillet
+  düzeltildi (eşit nabız, PR'da; `docs/arastirma/tempo/`). 3:2'nin dördü düzeldi (üç vuruşta iki, PR'da); açık: Armin, Discobitch, DnB/Skillet
   2× (vuruş arası oranı 0,5–0,73), ölçü güveni şarkıların yarısında < 0,5, söz "oturmadı" hükmü fazla temkinli
   (43'ün 9'u aslında iyi). Veriler ve sayılar `docs/arastirma/koy-isi/`.
 - Drop (sahibi, 23 Ekim): sentetik ölçümle iyileşti (`docs/arastirma/drop/`), sahibinin şarkılarıyla doğrulanacak
