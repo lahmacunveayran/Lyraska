@@ -509,6 +509,9 @@ impl MapFile {
                 .skip((-whole) as usize)
                 .collect()
         };
+        // Doğrulamanın sınırı: süre + 2 saniye (ileri kaymada sondaki fazla saniyeler atılır).
+        out.energy
+            .truncate(duration_secs.ceil().max(0.0) as usize + 2);
         out.track.duration_secs = duration_secs;
         out
     }
@@ -988,6 +991,18 @@ mod tests {
         assert_eq!(rhythm.drop_confidence, vec![0.8]);
         assert_eq!(rhythm.downbeat_phase, 1);
         assert_eq!(map.musical_key().unwrap().camelot, 8);
+    }
+
+    // Hata avı (1 Kasım 2026) A7: ileri kayma enerjiyi doğrulamanın sınırından uzun yapmaz.
+    #[test]
+    fn ileri_kaydirilan_harita_dogrulamadan_gecer() {
+        let mut map = small();
+        map.energy = vec![0.5; 21];
+        assert!(map.validate().is_ok());
+        let later = map.shifted(2.0, 20.0);
+        assert!(later.energy.len() <= 22, "{}", later.energy.len());
+        assert_eq!(later.energy[..2], [0.5, 0.5]);
+        assert!(later.validate().is_ok(), "{:?}", later.validate());
     }
 
     /// Belgedeki biçim (`docs/SARKI-HARITASI.md`) ile alan adları aynı kalmalı: değişiklik sürümü

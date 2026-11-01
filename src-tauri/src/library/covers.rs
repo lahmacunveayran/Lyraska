@@ -144,6 +144,15 @@ impl CoverStore {
         self.clear_stem(&playlist_stem(id))
     }
 
+    /// İçe aktarılan listenin kapağı: dosyada kapak varsa o konur, yoksa aynı numaradan kalmış
+    /// eski kapak silinir (veritabanı yeniden kurulunca numaralar baştan başlar).
+    pub fn playlist_import(&self, id: i64, cover: Option<&Path>) -> Result<(), CoverError> {
+        match cover {
+            Some(source) => self.playlist_set(id, source),
+            None => self.playlist_clear(id),
+        }
+    }
+
     /// Şarkıya seçilmiş kapak; yoksa `None` (şarkının kendi kapağı ya da albümünki gösterilir).
     pub fn track_get(&self, path: &str) -> Option<Cover> {
         self.get_stem(&track_stem(path))
@@ -685,6 +694,23 @@ mod tests {
         store.playlist_clear(7).unwrap();
         assert!(store.playlist_get(7).is_none());
         store.playlist_clear(7).unwrap(); // yoksa da hata değil
+        std::fs::remove_file(source).ok();
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    // Hata avı (1 Kasım 2026) A11: kapaksız içe aktarılan liste eski kapağı göstermez.
+    #[test]
+    fn kapaksiz_ice_aktarilan_liste_eski_kapagi_gostermez() {
+        let dir = temp_path("liste-kapak-ice-aktarma");
+        let store = CoverStore::new(&dir);
+        let source = dir.with_extension("png");
+        std::fs::write(&source, PNG).unwrap();
+        // Önceki veritabanından aynı numarayla kalmış kapak.
+        store.playlist_set(3, &source).unwrap();
+        store.playlist_import(3, None).unwrap();
+        assert!(store.playlist_get(3).is_none());
+        store.playlist_import(3, Some(&source)).unwrap();
+        assert_eq!(store.playlist_get(3).unwrap().media_type, "image/png");
         std::fs::remove_file(source).ok();
         std::fs::remove_dir_all(dir).ok();
     }
