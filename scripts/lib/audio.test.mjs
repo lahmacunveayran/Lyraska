@@ -32,6 +32,9 @@ describe("ses dosyası imzası", () => {
       [bytes("MThd"), "MIDI"],
       [bytes([0xff, 0xf1, 0x50, 0x40]), "AAC (ADTS)"],
       [bytes(new Array(512).fill(0), [0xff, 0xfb, 0x90, 0x64]), "MPEG ses, başında 512 bayt dolgu"],
+      // Hata avı (1 Kasım 2026) B13: kısa dolgu da.
+      [bytes(new Array(8).fill(0), "ID3", [3, 0, 0]), "MP3 (ID3), başında 8 bayt dolgu"],
+      [bytes([0], "fLaC", [0, 0, 0, 34]), "FLAC, başında 1 bayt dolgu"],
       [zip("notlar.txt", "merhaba"), null],
       [zip("sarki.MP3", "ses"), "zip içinde sarki.MP3"],
     ];

@@ -197,7 +197,17 @@ export const FLASH_CHECK_CASES: FlashCheckCase[] = [
   },
 ];
 
-const DT = 1 / 60;
+const FPS = 60;
+const DT = 1 / FPS;
+
+/**
+ * `frame`. karede desenin evresi (0 ya da 1); saniyede `perSecond` kez değişir. Tamsayıyla
+ * hesaplanır: `frame * DT * perSecond` kayan noktada bazı karelerde bir alta yuvarlanıp evreyi
+ * atlatıyordu (hata avı A12).
+ */
+export function patternPhase(frame: number, perSecond: number): number {
+  return Math.floor((frame * perSecond) / FPS) % 2;
+}
 /** Pencereler bu adımla, hücrelere (10 piksel) hizasız ölçülür. */
 const WINDOW_STEP = 4;
 
@@ -394,7 +404,7 @@ function drawFine(
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, width, height);
   gl.useProgram(program);
-  gl.uniform1i(gl.getUniformLocation(program, "uPhase"), Math.floor(i * DT * c.hz) % 2);
+  gl.uniform1i(gl.getUniformLocation(program, "uPhase"), patternPhase(i, c.hz));
   gl.uniform1i(gl.getUniformLocation(program, "uChecker"), c.pattern === "checker" ? 1 : 0);
   gl.bindVertexArray(vao);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -409,7 +419,7 @@ function drawPattern(
   width: number,
   height: number,
 ) {
-  const on = Math.floor(i * DT * c.hz * 2) % 2 === 0 ? 1 : 0;
+  const on = patternPhase(i, 2 * c.hz) === 0 ? 1 : 0;
   gl.disable(gl.SCISSOR_TEST);
   gl.viewport(0, 0, width, height);
   if (c.pattern === "full") {

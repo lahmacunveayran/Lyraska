@@ -71,7 +71,7 @@ export function sniffAudio(bytes) {
   // Başına sıfır dolgu eklenmiş ses (ör. 512 bayt boşluk + MP3) de yakalansın: baştaki sıfırlar atlanır.
   let zeros = 0;
   while (zeros < bytes.length && zeros < 4096 && bytes[zeros] === 0) zeros += 1;
-  if (zeros >= 16 && zeros < bytes.length) {
+  if (zeros >= 1 && zeros < bytes.length) {
     const inner = sniffAudio(bytes.subarray(zeros));
     if (inner) return `${inner}, başında ${zeros} bayt dolgu`;
   }

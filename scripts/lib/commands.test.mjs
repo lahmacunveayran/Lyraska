@@ -98,6 +98,17 @@ describe("sözleşme", () => {
     );
   });
 
+  // Hata avı (1 Kasım 2026) B12.
+  it("zorunlu parametreye isteğe bağlı değer gönderilmesi (seçimlik değilse undefined gidebilir)", () => {
+    const ts = `export function seek(seconds?: number) { return invoke<Status>("seek", { seconds }); }`;
+    const problems = problemsFor(RUST, ts, "generate_handler![commands::seek]").filter((p) =>
+      p.includes("seek"),
+    );
+    expect(problems).toContain(
+      'x.ts:1: "seek" / "seconds": Rust f64 bekliyor, arayüz number | undefined gönderiyor',
+    );
+  });
+
   it("dönüş türü uyuşmazlığı", () => {
     const ts = `export function seek(seconds: number) { return invoke<string>("seek", { seconds }); }`;
     expect(problemsFor(RUST, ts, "generate_handler![commands::seek]").join("\n")).toContain(
