@@ -1184,16 +1184,52 @@ fn gorseller_ekolayzer_yukseltmesini_duyuldugu_gibi_gosterir() {
     let change = change_db(&mut player);
     assert!(change.abs() < 1.0, "1 kHz değişimi {change:.1} dB");
 
-    // Eşitleme kapalıyken boşluk yalnızca şarkının tepesinden (6 dB): yükseltmenin
-    // kalan 6 dB'si için ses kısılır, görsel de öyle.
+    // Eşitleme kapalıyken boşluk yalnızca şarkının tepesinden (−6 dBTP) taşma korumasının
+    // tavanına (−1 dBTP) kadar: yükseltmenin (eğrinin gerçek tepesi, 12 dB sürgüde ~12,7 dB)
+    // boşluğu aşan kısmı için ses kısılır, görsel de öyle.
     player
         .set_playback_options(super::super::PlaybackOptions {
             normalize: false,
             ..Default::default()
         })
         .unwrap();
+    let boost = -crate::audio::eq::Design::new(&gains, 44_100.0).preamp_db;
+    let headroom = crate::audio::limiter::CEILING_DBTP - 20.0 * 0.5f64.log10();
+    let expected = -(boost - headroom);
     let change = change_db(&mut player);
-    assert!((change + 6.0).abs() < 1.0, "1 kHz değişimi {change:.1} dB");
+    assert!(
+        (change - expected).abs() < 1.0,
+        "1 kHz değişimi {change:.1} dB, beklenen {expected:.1} dB"
+    );
+    std::fs::remove_file(path).ok();
+}
+
+#[test]
+fn arayuzdeki_ekolayzer_korumasi_aygitin_hizinda() {
+    use crate::audio::eq::{EqState, BANDS as EQ_BANDS};
+    // Bağımsız inceleme: eğrinin tepesi hıza bağlı; arayüzdeki koruma ses yolundaki gibi
+    // aygıtın hızında hesaplanır (bu ayarda 48 ile 192 kHz arası 3,5 dB).
+    output::simulated::set_device_rate(Some(192_000));
+    let path = temp_path("eq-aygit-hizi.wav");
+    write_wav(&path, 44_100, 1, 44_100, |frame, _| {
+        0.5 * crate::audio::test_util::sine(1000.0, 44_100, frame)
+    });
+    let mut player = Player::new();
+    player.load(&path, false).unwrap();
+    let gains: [f64; EQ_BANDS] = [
+        -12.0, 12.0, -12.0, 12.0, -12.0, -12.0, -12.0, 12.0, -12.0, 12.0,
+    ];
+    let settings = player.set_equalizer(EqSettings {
+        enabled: true,
+        gains_db: gains,
+        ..EqSettings::default()
+    });
+    let level = player.current_level();
+    let headroom = level.map_or(0.0, |l| l.headroom_db);
+    let peaks = level.and_then(|l| l.bass_peaks);
+    let expected = EqState::at_rate(settings, headroom, peaks.as_ref(), Some(192_000.0));
+    assert_eq!(player.equalizer_state().preamp_db, expected.preamp_db);
+    output::simulated::set_device_rate(None);
     std::fs::remove_file(path).ok();
 }
 

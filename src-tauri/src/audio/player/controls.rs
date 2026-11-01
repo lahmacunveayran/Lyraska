@@ -101,10 +101,13 @@ impl Player {
     /// (boşluk ve ölçülmüş bas tepeleri).
     pub fn equalizer_state(&self) -> EqState {
         let level = self.current_level();
-        EqState::new(
+        // Taşma koruması ses yolundaki gibi aygıtın hızında: eğrinin tepesi hıza bağlıdır.
+        let rate = self.session.as_ref().map(|s| f64::from(s.path.sample_rate));
+        EqState::at_rate(
             self.eq.settings(),
             level.map_or(0.0, |l| l.headroom_db),
             level.and_then(|l| l.bass_peaks).as_ref(),
+            rate,
         )
     }
 
