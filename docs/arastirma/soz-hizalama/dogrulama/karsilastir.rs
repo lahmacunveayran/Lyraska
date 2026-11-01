@@ -9,8 +9,16 @@ use std::collections::{BTreeMap, HashMap};
 fn auroc(bad_score: &[f64], bad: &[bool]) -> f64 {
     let mut idx: Vec<usize> = (0..bad_score.len()).collect();
     idx.sort_by(|&a, &b| bad_score[a].total_cmp(&bad_score[b]));
+    // Eşit skorlular ortalama sırayı alır: sonuç sıraya bağlı olmaz (hata avı, 1 Kasım 2026: A13).
     let mut rank = vec![0.0; idx.len()];
-    for (r, &i) in idx.iter().enumerate() { rank[i] = r as f64 + 1.0; }
+    let mut start = 0;
+    while start < idx.len() {
+        let mut end = start + 1;
+        while end < idx.len() && bad_score[idx[end]] == bad_score[idx[start]] { end += 1; }
+        let mean = (start + end + 1) as f64 / 2.0;
+        for &i in &idx[start..end] { rank[i] = mean; }
+        start = end;
+    }
     let p = bad.iter().filter(|&&b| b).count() as f64;
     let n = bad.len() as f64 - p;
     if p == 0.0 || n == 0.0 { return f64::NAN; }

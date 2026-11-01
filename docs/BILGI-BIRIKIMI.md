@@ -45,6 +45,8 @@ kısaltılır.
   okunarak iddia edilmişti, gerçek dosyayla denenince okunuyordu; iki MilkDrop anahtar adı gerçek dosyalarda ve
   başvuru çeviricisinde, milkdrop-preset-utils, bizim yazdığımız gibiydi), birinin
   "yüksek" önemi abartılıydı (taşma koruması zaten yakalıyordu). Takip tablosu `docs/arastirma/hata-avi/`.
+  Raporun "belgeyle çelişiyor" dediği yerde önce hangisinin doğru olduğuna bakılır: B10'da kod ve testi doğruydu,
+  belge eskiydi.
 
 ## 3. Ana dal başka oturumlarla ilerleyebilir
 

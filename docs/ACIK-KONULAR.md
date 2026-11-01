@@ -31,8 +31,8 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 
 ## Ele alınmayı bekleyen geri bildirim ve bulgular
 
-- Hata avı (1 Kasım, sahibinin raporu): 21 gerçek bulgu küçük PR'larla düzeltiliyor; tablo ve hangi PR'da
-  düzeldiği `docs/arastirma/hata-avi/README.md` (biten satırın PR'ı yazılır; hepsi bitince bu madde silinir).
+- Hata avı (1 Kasım, sahibinin raporu): 23 gerçek bulgu düzeltildi (tablo `docs/arastirma/hata-avi/README.md`).
+  Kalan A4: aynı şarkı listede art arda 3+ kez geçince boşluksuz geçiş kayboluyor (arayüzdeki sırayla incelenecek).
 - Şarkı kapağı (0.0.82) küçükleri: kütüphaneden çıkan şarkının kapağı `kapaklar/`'da kalır (temizlik yok); arama
   süzgeci açıkken "sıradaki" kapağı albümsüz anahtarla okunur, şarkı başlayınca bir kez daha okunur.
 - Güvenlik uyarıları (Scorecard): SAST (CodeQL eklendi) ve Branch-Protection (sahibinin kuralı) bir sonraki

@@ -187,10 +187,12 @@ export function normalizeTs(type) {
 /** Rust parametresi ile arayüzün gönderdiği değerin türü uyumlu mu? */
 export function argumentMatches(rustType, tsType, renames = new Map()) {
   const expected = normalizeTs(rustToTs(rustType, renames));
-  const actual = normalizeTs(tsType.replace(/\s*\|\s*undefined\b/g, ""));
+  const optional = /^Option\s*</.test(rustType.trim());
+  // `undefined` yalnızca seçimlik (Option) parametreye gidebilir; zorunluya giderse çağrı düşer.
+  const actual = normalizeTs(optional ? tsType.replace(/\s*\|\s*undefined\b/g, "") : tsType);
   if (expected === actual) return true;
   // Option<T> parametresi: arayüz T de gönderebilir (null hiç gelmez).
-  if (/^Option\s*</.test(rustType.trim())) {
+  if (optional) {
     return (
       normalizeTs(rustToTs(rustType.trim().replace(/^Option\s*<([\s\S]*)>$/, "$1"), renames)) ===
       actual

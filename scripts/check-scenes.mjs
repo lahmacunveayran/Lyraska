@@ -404,6 +404,17 @@ async function startPlaying(page, ms, stepMs = STEP_MS) {
  * Arayüz çöktüyse (ör. sahte çekirdeğin verisinde yeni bir alan eksik) sahne hiç çizilmez:
  * zaman aşımını beklemeden nedeni bildirilir.
  */
+/**
+ * Sayfa hataları ve konsol hataları (CSP ihlali konsol hatasıdır, `pageerror` olmaz) `push`'a gider.
+ * Her denetim ikisini de dinler (hata avı, 1 Kasım 2026: B14, B15).
+ */
+function watchErrors(page, push) {
+  page.on("console", (m) => {
+    if (m.type() === "error") push(`konsol: ${m.text()}`);
+  });
+  page.on("pageerror", (e) => push(`sayfa hatası: ${e}`));
+}
+
 async function renderProblem(page, locator, errors) {
   if ((await locator.count()) > 0) return null;
   return `sahne çizilmedi${errors.length > 0 ? ` (${errors.join("; ")})` : ""}`;
@@ -498,10 +509,10 @@ const FLASH_DELTA = 0.1;
 async function checkFlashBound(browser, scene, variant, theme) {
   const name = theme === null ? variant.label : `${variant.label} (tema ${theme})`;
   const shots = [];
+  const errors = [];
   for (const level of [0, 1]) {
     const page = await openPage(browser);
-    const errors = [];
-    page.on("pageerror", (e) => errors.push(`sayfa hatası: ${e}`));
+    watchErrors(page, (e) => errors.push(e));
     await page.addInitScript(
       initScript(scene.id, {
         look: variant.look,
@@ -557,10 +568,11 @@ async function checkFlashBound(browser, scene, variant, theme) {
   );
   // Sahnenin kendi payı varsa (ör. "Kendi resmin": güvenli modda 0,04) o da aşılmamalı.
   const limit = budget ?? FLASH_DELTA;
-  const problems =
-    worst < limit
-      ? []
-      : [`${name}: parlaklık farkı ${worst.toFixed(3)} ≥ ${limit} (parlama riski)`];
+  // Sahne çizilse de sayfa ya da konsol hatası denetimi kırmızıya çevirir.
+  const problems = errors.map((e) => `${name}: ${e}`);
+  if (!(worst < limit)) {
+    problems.push(`${name}: parlaklık farkı ${worst.toFixed(3)} ≥ ${limit} (parlama riski)`);
+  }
   if (redWorst !== null && !(redWorst < redBudget)) {
     problems.push(
       `${name}: kırmızı fark ${redWorst.toFixed(2)} ≥ ${redBudget} (kırmızı parlama riski)`,
@@ -1418,7 +1430,7 @@ const PHOTO_GLOW_TOLERANCE = 1.5;
 async function photoGlowExtent(browser, scale) {
   const page = await openPage(browser, { viewport: PHOTO_GLOW_VIEWPORT, scale });
   const errors = [];
-  page.on("pageerror", (e) => errors.push(`sayfa hatası: ${e}`));
+  watchErrors(page, (e) => errors.push(e));
   await page.addInitScript(initScript("photo", { level: 1 }));
   await startPlaying(page, 2500);
   await page.waitForFunction(
@@ -1556,7 +1568,7 @@ async function checkLyricsTiming(
     });
   });
   const problems = [];
-  page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
+  watchErrors(page, (e) => problems.push(`${label}: ${e}`));
   const lyrics = lyricCheckLyrics();
   // Çekirdeğin konumu: 60. saniyeden gerçek zamanla ilerler (sayfanın kendi saatiyle).
   await page.addInitScript(
@@ -1815,7 +1827,7 @@ async function checkPhotoChooseButton(browser) {
   const label = "Kendi resmin · Resim seç… düğmesi";
   const page = await openPage(browser);
   const problems = [];
-  page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
+  watchErrors(page, (e) => problems.push(`${label}: ${e}`));
   await page.addInitScript(initScript("photo", {}));
   await startPlaying(page, 1500);
   // Kütüphane boşken çekmece açık başlar: kullanıcı gibi kapatılır (sahne görünür).
@@ -1972,7 +1984,7 @@ async function checkLyricsOverlap(browser) {
   for (const { width, height, long } of cases) {
     const label = `Kendi resmin · söz üst üste · ${width}×${height}${long ? " uzun satır" : ""}`;
     const page = await openPage(browser, { viewport: { width, height }, scale: 1 });
-    page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
+    watchErrors(page, (e) => problems.push(`${label}: ${e}`));
     await page.addInitScript(initScript("photo", { lyrics: fakeLyrics(long) }));
     await startPlaying(page, 1500);
     if (await page.locator("#drawer.is-open").count()) {
@@ -2022,7 +2034,7 @@ async function checkPhotoLyrics(browser) {
   for (const { safe, long } of cases) {
     const label = `Kendi resmin · şarkı sözleri${long ? " (uzun satır)" : ""}${safe ? " (güvenli mod)" : ""}`;
     const page = await openPage(browser, { viewport: PHOTO_GLOW_VIEWPORT, scale: 1 });
-    page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
+    watchErrors(page, (e) => problems.push(`${label}: ${e}`));
     await page.addInitScript(initScript("photo", { safe, lyrics: fakeLyrics(long) }));
     await startPlaying(page, 1500);
     if (await page.locator("#drawer.is-open").count()) {
