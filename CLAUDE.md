@@ -186,7 +186,8 @@ lyraska/
 │   │                         # ses aygıtı), calibration.rs: senkron ölçümü için tıklama kaydı
 │   ├── examples/             # ses_denemesi.rs: gerçek ses aygıtıyla uçtan uca deneme; drop_olcum.rs: drop ölçümü;
 │   │                         # tempo_olcum.rs: türlere göre tempo (oktav) ölçümü; soz_hizalama.rs: sözleri sese
-│   │                         # oturtmayı uçtan uca deneme ve model hız ölçümü
+│   │                         # oturtmayı uçtan uca deneme ve model hız ölçümü; koy_isi.rs: kütüphanenin
+│   │                         # gözetimsiz ölçümü (analiz, ses yolu, sözler; şarkı başına ayrı süreç, kaldığı yerden)
 │   ├── tests/                # Gerçek kodek testleri (formats.rs) ve sentetik test verisi (data/; data/milkdrop/
 │   │                         # projenin özgün, bilerek parlayan deneme preseti; data/soz-modeli/ söz modeli
 │   │                         # çalıştırıcısının küçük, özgün deneme modelleri)

@@ -48,7 +48,7 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 - WebM'de şarkı adı okunmuyor (Matroska Segment Title; symphonia okumuyor) ve sondaki Opus dolgusu (≤ 20 ms)
   atılmıyor (DiscardPadding). İkisi de küçük; istenirse kendi küçük EBML okuyucusuyla.
 
-- Köy işi (sahibinin 656 şarkısı, 1 Kasım; araç `claude/koy-isi-yedek`, PR'ı açılacak): hızlı türlerde yarım tempo
+- Köy işi (sahibinin 656 şarkısı, 1 Kasım; araç `examples/koy_isi.rs`): hızlı türlerde yarım tempo
   düzeltildi (eşit nabız, PR'da; `docs/arastirma/tempo/`). Açık: **3:2 tempo** (KUTE 130 → 87; 9 dosya), DnB/Skillet
   2× (vuruş arası oranı 0,5–0,73), ölçü güveni şarkıların yarısında < 0,5, söz "oturmadı" hükmü fazla temkinli
   (43'ün 9'u aslında iyi). Ayrıntı ve sayılar devir notu 2026-11-01.

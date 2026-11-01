@@ -139,7 +139,7 @@ yeniden hesaplar; şarkılar çözülmez.
 ## Gerçek kütüphane: eşit nabız (1 Kasım 2026)
 
 Proje sahibinin kütüphanesinin gözetimsiz ölçümü ("köy işi": 656 dosya, 37 saat, çoğu EDM; araç
-`claude/koy-isi-yedek` dalında `examples/koy_isi.rs`) sentetik setlerin göstermediği bir hatayı buldu. Hardstyle,
+`src-tauri/examples/koy_isi.rs`) sentetik setlerin göstermediği bir hatayı buldu. Hardstyle,
 hands up, frenchcore ve nightcore şarkıları 160–200 yerine 80–100 bulunuyordu. Doğrular SongBPM ve benzeri
 kaynaklardan toplandı (yayımlanan tempo; 47 şarkı).
 
