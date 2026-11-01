@@ -1,11 +1,11 @@
-//! Tempo oktavı: takipçinin bulduğu tempo ([`super::beats::track`]) doğrunun yarısı ya da iki
-//! katı olabilir. Öz-ilinti yalnızca "hangi aralıkta tekrar var" der; drum and bass'ta snare'ler
+//! Tempo oktavı: takipçinin bulduğu tempo ([`super::beats::track`]) doğrunun yarısı, iki katı ya
+//! da 2/3'ü olabilir. Öz-ilinti yalnızca "hangi aralıkta tekrar var" der; drum and bass'ta snare'ler
 //! iki vuruşta bir geldiği için yarı tempo (87), yarım tempolu trap'te kick ve clap ölçüde bir
 //! geldiği için yarı tempo (70), yavaş baladda sekizlik piyano yüzünden iki kat (132) bulunur.
 //!
 //! DJ yazılımlarının ve müzisyenlerin kabulü: dubstep/trap 140, drum and bass 170–176, hip-hop
 //! 85–95, house 120–128, balad 60–72 (bkz. `docs/arastirma/tempo/README.md`). Bu modül bulunan
-//! temponun yarısını ve iki katını, vuruş ızgarasının kendi kanıtıyla sınar:
+//! temponun yarısını, iki katını ve 1,5 katını vuruş ızgarasının kendi kanıtıyla sınar:
 //!
 //! 1. **Vuruş arasında davul:** kick ve snare doğru tempoda vuruşa düşer (kick 1 ve 3'te, snare
 //!    2 ve 4'te). Vuruş aralarındaki kick ya da snare vuruşlardakinden güçlüyse (drum and bass
@@ -68,7 +68,9 @@ const HALF_TIME_FILL_MIN: f64 = 0.2;
 /// üç sekizlikte bir yinelenen kalıba, ör. 3+3+2'ye kilitlenmiş). Dışında doğrusu bilinen hata yok.
 const THREE_HALVES_BPM: std::ops::RangeInclusive<f64> = 80.0..=100.0;
 /// Üç vuruşta ikide gerçek vuruşlar bulunan aralığın üçte birlerine düşer: üçte birlerdeki
-/// başlangıç gücü yarısındakinin en az bu katı olmalı (doğru tempolu şarkılarda ≤ 1,21).
+/// başlangıç gücü yarısındakinin en az bu katı olmalı (sahibinin kütüphanesinde 80–100'de doğru
+/// tempolu şarkılar ≤ 1,21). 6/8, shuffle ve swing'de de yüksektir (yarı boşsa sonsuz): onları
+/// [`THREE_HALVES_SALIENCE_MIN`] ayırır.
 const THIRDS_MIN: f64 = 1.35;
 /// Üçte bir ve yarı pencerelerinin yarı genişliği (vuruş aralığına oranla).
 const THIRDS_WINDOW: f64 = 0.06;
@@ -92,7 +94,7 @@ const MIN_BEATS: usize = 8;
 const MIN_BPM: f64 = 60.0;
 const MAX_BPM: f64 = 200.0;
 
-/// Takipçinin ızgarasını gerekirse iki katı ya da yarısı tempoya çevirir. `onset`: kare başına
+/// Takipçinin ızgarasını gerekirse iki katı, 1,5 katı ya da yarısı tempoya çevirir. `onset`: kare başına
 /// başlangıç gücü; `bands`: kare başına `bands_per_frame` bant seviyesi (0..255); `latency`:
 /// başlangıç gücünün gecikmesi (vuruş anlarından düşülmüş olan).
 pub fn resolve_octave(
@@ -856,6 +858,24 @@ mod tests {
             let out = resolve_octave(grid, &onset, &bands, 32, 60.0, 0.0);
             assert!((out.bpm / truth - 1.0).abs() < 0.02, "{truth}: {}", out.bpm);
         }
+    }
+
+    #[test]
+    fn uc_vurusta_iki_esigi() {
+        // Onaltılıklarla: ara ortasında (onaltılık) da güç var, oran sonlu. Üçte birler (vuruş ve
+        // sekizlik) / yarı (onaltılık) = (1 + 0,4) / 2 / onaltılık.
+        let truth = 130.0;
+        let run = |sixteenth: f32| {
+            let pattern = [1.0, sixteenth, 0.4, sixteenth];
+            let (grid, onset, bands) = subdivided(truth / 1.5, 15.0 / truth, &pattern);
+            resolve_octave(grid, &onset, &bands, 32, 60.0, 0.0).bpm
+        };
+        // Oran 1,75: 1,5 katına çıkar.
+        let out = run(0.4);
+        assert!((out / truth - 1.0).abs() < 0.02, "{out}");
+        // Oran ~1,2 (sahibinin kütüphanesinde doğru tempolu en yüksek 1,21): dokunulmaz.
+        let out = run(0.58);
+        assert!((out / (truth / 1.5) - 1.0).abs() < 0.02, "{out}");
     }
 
     #[test]

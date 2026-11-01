@@ -48,7 +48,7 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 - WebM'de şarkı adı okunmuyor (Matroska Segment Title; symphonia okumuyor) ve sondaki Opus dolgusu (≤ 20 ms)
   atılmıyor (DiscardPadding). İkisi de küçük; istenirse kendi küçük EBML okuyucusuyla.
 - Köy işi (sahibinin 656 şarkısı, 1 Kasım; araç `examples/koy_isi.rs`): hızlı türlerde yarım tempo
-  düzeltildi (eşit nabız, PR'da; `docs/arastirma/tempo/`). 3:2'nin dördü düzeldi (üç vuruşta iki, PR'da); açık: Armin, Discobitch, DnB/Skillet
+  düzeltildi (eşit nabız, #171; `docs/arastirma/tempo/`). 3:2'nin dördü düzeldi (üç vuruşta iki, PR'da); açık: Armin, Discobitch, DnB/Skillet
   2× (vuruş arası oranı 0,5–0,73), ölçü güveni şarkıların yarısında < 0,5, söz "oturmadı" hükmü fazla temkinli
   (43'ün 9'u aslında iyi). Veriler ve sayılar `docs/arastirma/koy-isi/`.
 - Drop (sahibi, 23 Ekim): sentetik ölçümle iyileşti (`docs/arastirma/drop/`), sahibinin şarkılarıyla doğrulanacak

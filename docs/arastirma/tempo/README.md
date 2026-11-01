@@ -202,7 +202,12 @@ no Theme" 134,3 (135), Houshou Marine 143,8 (145). Başka hiçbir dosya değişm
 oranları doğru şarkılarınkiyle çakışıyor.
 
 Testler: `uc_vurusta_iki_bulunan_tempo_bir_bucuk_katina_cikar` (kural kapatılınca düşüyor),
-`altilik_olcu_bir_bucuk_katina_cikmaz` (1,5 kat ızgaranın vuruş gücü şartı kapatılınca düşüyor).
+`altilik_olcu_bir_bucuk_katina_cikmaz` (1,5 kat ızgaranın vuruş gücü şartı kapatılınca düşüyor). `uc_vurusta_iki_esigi` eşiği sonlu oranla
+sınar (1,75 çıkar, ~1,2 kalır). Bağımsız inceleme kendi üreteciyle 114 örnek denedi (6/8 ve 12/8, shuffle, swing'li
+hip-hop, vals, reggaeton, 3+3+2): hiçbiri değişmedi. 6/8'de üçte bir oranı yüksek, hatta sonsuz olabilir; onları
+1,5 kat ızgaranın vuruş gücü ayırıyor (en çok 0,61, eşik 0,75). Açık öneri: 3+3+2 kick'li sentetik kalıpta "vuruş
+arasında davul" kuralı önce davranıp iki katına çıkarıyor (kuralın `!drums_between` şartı); kaldırılması kütüphane
+yeniden ölçülmeden yapılmadı.
 
 ## Kalanlar ve dürüstlük notu
 
