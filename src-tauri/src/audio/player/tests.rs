@@ -1301,6 +1301,47 @@ fn gorseller_ekolayzer_yukseltmesini_duyuldugu_gibi_gosterir() {
 }
 
 #[test]
+fn parametrik_ekolayzer_aygitin_hizinda_hesaplanir() {
+    use crate::audio::peq::{DesignMethod, FilterKind, ParametricBand, ParametricSettings};
+    // Denetim 3, D1-06 / DSP-02: 23 kHz'lik bant 44,1 kHz'te seste yok (Nyquist'in üstü), ama
+    // korumaya 48 kHz'e göre 23,5 dB bildiriliyor, ses boşuna kısılıyordu.
+    let path = temp_path("parametrik-aygit-hizi.wav");
+    write_wav(&path, 44_100, 1, 44_100, |frame, _| {
+        0.5 * crate::audio::test_util::sine(1000.0, 44_100, frame)
+    });
+    let settings = ParametricSettings {
+        enabled: true,
+        bands: vec![ParametricBand {
+            kind: FilterKind::Peaking,
+            freq_hz: 23_000.0,
+            gain_db: 24.0,
+            q: 1.0,
+            enabled: true,
+        }],
+        design: DesignMethod::Matched,
+    };
+    let mut player = Player::new();
+    output::simulated::set_device_rate(Some(44_100));
+    player.load(&path, false).unwrap();
+    player.set_parametric(settings.clone());
+    assert_eq!(player.parametric_state().boost_db, 0.0);
+    assert_eq!(
+        player.parametric_control.boost_db(),
+        0.0,
+        "ses yolu da kısmaz"
+    );
+    // Aygıt 48 kHz'e geçince (yeni oturum) yükseltme o hızda yeniden bildirilir.
+    output::simulated::set_device_rate(Some(48_000));
+    player.load(&path, false).unwrap();
+    let boost = settings.boost_db_at(48_000.0);
+    assert!(boost > 10.0, "{boost}");
+    assert_eq!(player.parametric_control.boost_db(), boost);
+    assert_eq!(player.parametric_state().boost_db, boost);
+    output::simulated::set_device_rate(None);
+    std::fs::remove_file(path).ok();
+}
+
+#[test]
 fn arayuzdeki_ekolayzer_korumasi_aygitin_hizinda() {
     use crate::audio::eq::{EqState, BANDS as EQ_BANDS};
     // Bağımsız inceleme: eğrinin tepesi hıza bağlı; arayüzdeki koruma ses yolundaki gibi

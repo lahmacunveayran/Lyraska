@@ -7,7 +7,7 @@ use super::Player;
 use crate::audio::crossfeed::CrossfeedSettings;
 use crate::audio::eq::{EqSettings, EqState};
 use crate::audio::normalize::TrackLevels;
-use crate::audio::peq::{HeadphoneSettings, ParametricSettings};
+use crate::audio::peq::{self, HeadphoneSettings, ParametricSettings, ParametricState};
 use crate::audio::render::RenderControls;
 
 impl Player {
@@ -35,20 +35,47 @@ impl Player {
         self.parametric_compare && self.parametric.is_active()
     }
 
+    /// Arayüzün gösterdiği parametrik ekolayzer durumu, çalan aygıtın hızında.
+    pub fn parametric_state(&self) -> ParametricState {
+        ParametricState::at_rate(
+            self.parametric(),
+            self.parametric_comparing(),
+            self.parametric_rate(),
+        )
+    }
+
+    /// Parametrik ekolayzerin eğrisi, korumaya bildirilen yükseltmesi ve karşılaştırma telafisi
+    /// bu hızda hesaplanır: ses yolu süzgeçleri aygıtın hızında tasarlar (Denetim 3, DSP-02).
+    /// Ses aygıtı açık değilse 48 kHz.
+    pub fn parametric_rate(&self) -> f64 {
+        self.session
+            .as_ref()
+            .map_or(peq::DISPLAY_RATE, |s| f64::from(s.path.sample_rate))
+    }
+
     /// Elle parametrik ekolayzeri değiştirir; çalan ses ~30 ms içinde yumuşakça geçer. En büyük
     /// yükseltme taşma korumasına bildirilir (şarkının boşluğu yetmiyorsa ses o kadar kısılır).
     pub fn set_parametric(&mut self, settings: ParametricSettings) -> ParametricSettings {
         let settings = settings.sanitized();
+        let rate = self.parametric_rate();
         self.parametric_control.set_filters(
             &settings.filters(),
             0.0,
-            settings.boost_db(),
+            settings.boost_db_at(rate),
             settings.design,
             settings.enabled,
         );
         self.parametric = settings.clone();
+        self.parametric_applied_rate = rate;
         self.apply_parametric_compare();
         settings
+    }
+
+    /// Yeni oturum başka bir hızda açıldıysa yükseltme ve telafi o hızda yeniden bildirilir.
+    pub(super) fn refresh_parametric_rate(&mut self) {
+        if self.parametric_rate() != self.parametric_applied_rate {
+            self.set_parametric(self.parametric.clone());
+        }
     }
 
     /// Karşılaştırmayı (A/B) açar ya da kapatır: açıkken parametrik ekolayzer atlanır, ses
@@ -59,8 +86,10 @@ impl Player {
     }
 
     fn apply_parametric_compare(&self) {
-        self.parametric_control
-            .set_compare(self.parametric_comparing(), self.parametric.loudness_db());
+        self.parametric_control.set_compare(
+            self.parametric_comparing(),
+            self.parametric.loudness_db_at(self.parametric_applied_rate),
+        );
     }
 
     /// Crossfeed ayarı.
