@@ -868,11 +868,16 @@ pub async fn playlist_import(
     let imported = library
         .run(move |service| service.import_playlist(&parsed).map_err(reported))
         .await?;
-    if let Some(cover) = imported.cover.clone() {
-        let store = cover_store(&big)?;
+    if let Ok(store) = cover_store(&big) {
         let id = imported.playlist.id;
-        // Kapak konamazsa liste yine kurulmuş olur; neden günlüğe yazılır.
-        let _ = blocking(move || store.playlist_set(id, &cover).map_err(reported)).await;
+        let cover = imported.cover.clone();
+        // Kapak konamazsa (ya da kalıntı silinemezse) liste yine kurulmuş olur; neden günlüğe yazılır.
+        let _ = blocking(move || {
+            store
+                .playlist_import(id, cover.as_deref())
+                .map_err(reported)
+        })
+        .await;
     }
     Ok(imported)
 }
