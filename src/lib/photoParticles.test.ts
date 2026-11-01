@@ -5,6 +5,7 @@ import {
   DENSITY_MAX,
   DENSITY_MIN,
   clampDensity,
+  formatDensity,
   loadParticleDensity,
   saveParticleDensity,
   PARTICLE_MOTION,
@@ -314,6 +315,14 @@ describe("parçacık havuzu", () => {
 });
 
 describe("parçacık yoğunluğu", () => {
+  // Hata avı (1 Kasım 2026) B11: hız aralığına (0,5–2) kırpılmaz.
+  it("yoğunluk kendi aralığında yazılır", () => {
+    expect(formatDensity(DENSITY_MIN)).toBe("0,25×");
+    expect(formatDensity(1)).toBe("1×");
+    expect(formatDensity(1.75)).toBe("1,75×");
+    expect(formatDensity(9)).toBe("2×");
+  });
+
   it("aralığa ve adıma oturur; sayı değilse varsayılan", () => {
     expect(clampDensity(1.1)).toBe(1);
     expect(clampDensity(1.4)).toBe(1.5);

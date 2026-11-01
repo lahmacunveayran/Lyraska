@@ -13,7 +13,13 @@ import {
   paletteName,
   sameLook,
 } from "../lib/sceneLook";
-import { DENSITY_MAX, DENSITY_MIN, DENSITY_STEP, PARTICLE_STYLES } from "../lib/photoParticles";
+import {
+  DENSITY_MAX,
+  DENSITY_MIN,
+  DENSITY_STEP,
+  PARTICLE_STYLES,
+  formatDensity,
+} from "../lib/photoParticles";
 import { MAX_PRESET_NAME, MAX_USER_PRESETS, presetSceneName } from "../lib/scenePreset";
 import { SHADER_SCENES, isShaderScene } from "../lib/shaderScene";
 
@@ -390,10 +396,10 @@ function PhotoSection({
                 step={DENSITY_STEP}
                 value={particles.density}
                 aria-label="Parçacık yoğunluğu"
-                aria-valuetext={formatSpeed(particles.density)}
+                aria-valuetext={formatDensity(particles.density)}
                 onChange={(event) => particles.setDensity(Number(event.target.value))}
               />
-              <output aria-hidden>{formatSpeed(particles.density)}</output>
+              <output aria-hidden>{formatDensity(particles.density)}</output>
             </label>
           )}
           <p className="scene-gallery__milk-line">
