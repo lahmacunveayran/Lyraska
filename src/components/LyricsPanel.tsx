@@ -107,12 +107,16 @@ export function LyricsPanel({ lyrics, trackPath, trackTitle, visible }: LyricsPa
     }
   };
 
-  const save = () =>
-    run(
+  const save = async () => {
+    const empty = !draft.trim();
+    await run(
       () => lyrics.saveText(draft),
-      draft.trim() ? "Kaydedildi: sözler Lyraska'da saklandı." : "Boş metin: düzenleme kaldırıldı.",
-      draft.trim() ? { source: "user", text: draft } : null,
+      empty ? "Boş metin: düzenleme kaldırıldı." : "Kaydedildi: sözler Lyraska'da saklandı.",
+      empty ? null : { source: "user", text: draft },
     );
+    // Boş metin düzenlemeyi kaldırır: şarkının kendi sözleri yeniden okunur (`revert` gibi).
+    if (empty) setLoaded(null);
+  };
   const revert = async () => {
     if (
       !window.confirm("Düzenlediğiniz sözler silinsin ve şarkının kendi sözlerine dönülsün mü?")

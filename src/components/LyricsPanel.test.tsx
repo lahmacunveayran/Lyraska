@@ -54,6 +54,25 @@ describe("Sözler paneli", () => {
     confirm.mockRestore();
   });
 
+  it("boş metin kaydedilince şarkının kendi sözleri yeniden okunur", async () => {
+    // Çekirdekteki gibi: boş kayıt düzenlemeyi kaldırır, şarkının gömülü sözleri görünür.
+    const own: LyricsText = { source: "embedded", text: "Gömülü söz" };
+    const lyrics = controls({ source: "user", text: "Benim sözüm" });
+    let stored: LyricsText | null = { source: "user", text: "Benim sözüm" };
+    lyrics.loadText.mockImplementation(async () => stored);
+    lyrics.saveText.mockImplementation(async (text: string) => {
+      stored = text.trim() ? { source: "user", text } : own;
+    });
+    render(<LyricsPanel lyrics={lyrics} trackPath="C:/c.flac" trackTitle="C" visible />);
+    await waitFor(() => expect(box().value).toBe("Benim sözüm"));
+    fireEvent.change(box(), { target: { value: "  " } });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Kaydet" })));
+    expect(lyrics.saveText).toHaveBeenCalledWith("  ");
+    await waitFor(() => expect(box().value).toBe("Gömülü söz"));
+    expect(screen.getByText(/Şu an gösterilen/)).toBeInTheDocument();
+    expect(screen.queryByText(/Bu şarkının sözü yok/)).toBeNull();
+  });
+
   it("Vazgeç taslağı asıl metne döndürür; sözsüz şarkıda boş başlar", async () => {
     const lyrics = controls(null);
     render(<LyricsPanel lyrics={lyrics} trackPath="C:/b.flac" trackTitle="B" visible />);
