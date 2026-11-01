@@ -250,7 +250,8 @@ export function previewEqState(settings: EqSettings): EqState {
     maxBassDb: BASS_MAX_DB,
     bandsHz: EQ_BANDS_HZ,
     maxGainDb: EQ_MAX_DB,
-    // Rust'taki gibi: bantların en büyük yükseltmesi + bas motorunun yükseltmesi.
+    // Yalnızca tarayıcı önizlemesi: bantların en büyük yükseltmesi + bas motorunun yükseltmesi.
+    // (Rust eğrinin gerçek tepesini aygıtın hızında tarar; o değer bandın kazancını aşabilir.)
     preampDb: -(Math.max(0, ...effective) + bassBoost) + 0,
     curveHz,
     curveDb,

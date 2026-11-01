@@ -59,7 +59,8 @@ seçildiği için (aksakta grup sayısı) 0 olamıyor.
 - Ön kazanç artık en yüksek sürgü değil, eğrinin taranan gerçek tepesi. Tarama 10 Hz'ten 0,49 · fs'e kadar, oktavda
   48 noktayla (parametrik EQ'daki gibi). Noktalar `Layout`'ta bir kez hesaplanıyor. Tasarım ses iş parçacığında, ayar
   değişirken her 2 ms'de bir yapılıyor; tarama bellek ayırmıyor.
-- 10 Hz'in altı taranmıyor: müzikte orada kayda değer enerji yok, kalanı taşma koruması yakalıyor.
+- 10 Hz'in altı taranmıyor: müzikte orada kayda değer enerji yok, kalanı taşma koruması yakalıyor. Orada eğri
+  bildirilen yükseltmeyi en çok 0,63 dB aşabiliyor (768 kHz'te 0,80 dB; alt kuyruk rafı bandın 1,8 katı).
 - Tepki hesabı φ biçimine geçti (`biquad::phi`). Eski cos(w) biçimi yüksek hızda alçak frekansta birbirine çok yakın
   sayıları çıkarıyor, 192 kHz'te 10 Hz'te ~%0,5 gürültü veriyordu. Yeni test bu gürültüyü "tepe kaçırma" olarak
   yakaladı.
@@ -71,3 +72,28 @@ seçildiği için (aksakta grup sayısı) 0 olamıyor.
   - `player/tests.rs` `gorseller_ekolayzer_yukseltmesini_duyuldugu_gibi_gosterir`: "~6 dB kısma (±1)" bekliyordu.
     Gerçek kısma, eski kodda bile 7 dB'di: 12 dB yükseltme eksi 5 dB boşluk, çünkü taşma korumasının tavanı −1 dBTP.
     Şimdi 12,71 eksi 5 = 7,7 dB. Beklenen değer bu hesaptan çıkıyor; sınır aynı (±1).
+
+### Bağımsız inceleme (A1)
+
+Sesi bozan ya da ses iş parçacığı kuralını çiğneyen bir şey bulunmadı. İnceleme şunları doğruladı:
+
+- φ formülü cebirle ve sayıyla doğru. 192 kHz'te 10 Hz'te göreli hata: φ biçiminde 7e-10, cos biçiminde 3,6e-3.
+- Tarama 14 hızda (8–768 kHz) tepeyi en çok 0,018 dB kaçırıyor. 352,8 kHz ve üstünde nokta sayısı sınıra takılıyor
+  (oktavda ~45 nokta), ama aralık yine tamamen taranıyor.
+- `peak_db` 48 kHz'te ~37 µs sürüyor, yani 2 ms'nin ~%2'si; bu maliyet yalnızca ayar değişirken. `Layout` 15,9 KB,
+  referansla geçiyor. `ses_yolu_bellek_ayirmaz` bu yolu kapsıyor.
+- Düzeltme geri alınınca yeni test ve güncellenen 5 test düşüyor.
+
+Bulgular işlendi:
+
+- **Orta:** Arayüzdeki koruma 48 kHz'e göre hesaplanıyordu. 192 kHz'lik aygıtta duyulandan 3,5 dB farklı
+  gösterilebiliyordu. Artık çalan aygıtın hızıyla hesaplanıyor (`EqState::at_rate`). Önce yakalayan test yazıldı:
+  `arayuzdeki_ekolayzer_korumasi_aygitin_hizinda`.
+- **Düşük:** Güncellenen testlerde üst sınır yoktu. Eklendi:
+  - Her testte tepe, sürgünün en çok 1 dB üstünde olabilir.
+  - Yeni testte eğri, en yüksek sürgünün en çok 4,5 dB üstüne çıkabilir. Ölçülen en kötü durum 3,95 dB: ters zikzak,
+    48 kHz, 16 kHz bandının çevresi. İnceleyicinin önerdiği +3'lük sınır bu ölçüm yüzünden dar kaldı.
+- **Düşük:** Yeni test, tarama aralığını kodun kendi sabitlerinden alıyordu. Artık kendi sınırlarını kullanıyor
+  (10 Hz – Nyquist).
+- **Düşük:** 10 Hz altındaki aşma yukarıda sayıyla yazıldı.
+- Tarayıcı önizlemesinin (`src/lib/eq.ts`) "Rust'taki gibi" yorumu düzeltildi.

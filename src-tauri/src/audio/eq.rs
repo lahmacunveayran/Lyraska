@@ -257,7 +257,21 @@ impl EqState {
     /// `headroom_db`: çalan şarkının tepesine kalan boşluk (bilinmiyorsa 0); `bass_peaks`:
     /// çalan şarkının ölçülmüş bas tepeleri (bilinmiyorsa en kötü durum).
     pub fn new(settings: EqSettings, headroom_db: f64, bass_peaks: Option<&BassPeaks>) -> Self {
-        let design = Design::new(&settings.effective_gains(), DISPLAY_RATE);
+        Self::at_rate(settings, headroom_db, bass_peaks, None)
+    }
+
+    /// `sample_rate`: ses yolunun (aygıtın) hızı; bilinmiyorsa (çalan şarkı yok) temsilî hız.
+    /// Eğri her zaman temsilî hızda çizilir; taşma koruması ise ses yolundaki gibi aygıtın
+    /// hızında hesaplanır: eğrinin tepesi hıza bağlıdır (16 kHz bandının çevresinde 3,5 dB'e
+    /// kadar).
+    pub fn at_rate(
+        settings: EqSettings,
+        headroom_db: f64,
+        bass_peaks: Option<&BassPeaks>,
+        sample_rate: Option<f64>,
+    ) -> Self {
+        let gains = settings.effective_gains();
+        let design = Design::new(&gains, DISPLAY_RATE);
         let curve_hz: Vec<f64> = (0..CURVE_POINTS)
             .map(|i| 20.0 * 1000f64.powf(i as f64 / (CURVE_POINTS - 1) as f64))
             .collect();
@@ -269,7 +283,11 @@ impl EqState {
                     + bass::response_db(bass_db, small_speaker, hz, DISPLAY_RATE)
             })
             .collect();
-        let boost_db = -design.preamp_db + settings.bass_boost().rise_db(bass_peaks);
+        let eq_boost_db = match sample_rate {
+            Some(rate) if rate != DISPLAY_RATE => -Design::new(&gains, rate).preamp_db,
+            _ => -design.preamp_db,
+        };
+        let boost_db = eq_boost_db + settings.bass_boost().rise_db(bass_peaks);
         Self {
             enabled: settings.enabled,
             gains_db: settings.gains_db,
@@ -902,12 +920,13 @@ mod tests {
         max_error_tuned(gains, rate, TUNING)
     }
 
-    /// Eğrinin gerçek tepesi (dB, ≥ 0): tasarımın ızgarasından bağımsız, çok sık tarama.
+    /// Eğrinin gerçek tepesi (dB, ≥ 0): tasarımın ızgarasından ve sabitlerinden bağımsız, çok
+    /// sık tarama (10 Hz – Nyquist).
     fn true_peak_db(gains: &[f64; BANDS], rate: f64) -> f64 {
         let design = Design::new(gains, rate);
-        let mut hz = PEAK_SCAN_LOW_HZ;
+        let mut hz = 10.0;
         let mut peak: f64 = 0.0;
-        while hz < PEAK_SCAN_TOP_RATIO * rate {
+        while hz < 0.5 * rate {
             peak = peak.max(design.response_db(hz, rate));
             hz *= 1.001;
         }
@@ -1029,7 +1048,7 @@ mod tests {
         }
         // Ön kazanç eğrinin gerçek tepesi kadar (bantların örtüştüğü yerde 6 dB'nin biraz üstü).
         let peak = true_peak_db(&[6.0; BANDS], 44100.0);
-        assert!(peak >= 6.0, "{peak}");
+        assert!((6.0..=7.0).contains(&peak), "{peak}");
         assert!(
             (design.preamp_db + peak).abs() <= PEAK_SCAN_TOLERANCE_DB,
             "{} / {peak}",
@@ -1043,12 +1062,23 @@ mod tests {
         // kuyruk rafı eğriyi onun üstüne çıkarıyordu (zikzakta 12 yerine 14,4 dB, bütün bantlar
         // +12'de 12,8 dB). Bildirilen yükseltme, eğrinin taranan aralıktaki her noktasını karşılar.
         let mut worst: f64 = 0.0;
+        let mut over: f64 = 0.0;
         for rate in RATES {
             for gains in test_settings() {
                 let design = Design::new(&gains, rate);
                 let boost = -design.preamp_db;
-                let mut hz = PEAK_SCAN_LOW_HZ;
-                while hz < PEAK_SCAN_TOP_RATIO * rate {
+                // Üst sınır: tasarım eğriyi en yüksek sürgünün (kısmalı ayarlarda 0 dB'nin) çok
+                // üstüne taşırmaz. Ölçülen en çok 3,95 dB: ters zikzak, 48 kHz, 16 kHz bandının
+                // çevresi (Nyquist'e yakın daraltılmış bant).
+                let highest = gains.iter().fold(0.0f64, |m, &g| m.max(g));
+                over = over.max(boost - highest);
+                assert!(
+                    boost <= highest + 4.5,
+                    "{rate} Hz, {gains:?}: {boost:.2} dB"
+                );
+                // Tarama aralığı tasarımın sabitlerinden bağımsız: 10 Hz – Nyquist.
+                let mut hz = 10.0;
+                while hz < 0.5 * rate {
                     let excess = design.response_db(hz, rate) - boost;
                     worst = worst.max(excess);
                     assert!(
@@ -1060,7 +1090,40 @@ mod tests {
                 }
             }
         }
-        println!("ön kazancın tepeyi en çok kaçırdığı: {worst:.4} dB");
+        println!("ön kazancın tepeyi en çok kaçırdığı: {worst:.4} dB, sürgüyü en çok aştığı {over:.2} dB");
+    }
+
+    #[test]
+    fn arayuzdeki_koruma_aygitin_hizinda_hesaplanir() {
+        // Bağımsız inceleme: eğrinin tepesi hıza bağlı. Arayüzdeki koruma 48 kHz'e göre
+        // hesaplanırsa 192 kHz'lik aygıtta duyulandan 3,5 dB farklı gösterilirdi.
+        let gains = [
+            -12.0, 12.0, -12.0, 12.0, -12.0, -12.0, -12.0, 12.0, -12.0, 12.0,
+        ];
+        let settings = EqSettings {
+            enabled: true,
+            gains_db: gains,
+            ..EqSettings::default()
+        };
+        let display = EqState::new(settings, 0.0, None);
+        let device = EqState::at_rate(settings, 0.0, None, Some(192_000.0));
+        assert!(
+            (display.preamp_db - device.preamp_db).abs() > 1.0,
+            "bu ayarda hızlar ayrışmalı: {} / {}",
+            display.preamp_db,
+            device.preamp_db
+        );
+        assert_eq!(device.preamp_db, Design::new(&gains, 192_000.0).preamp_db);
+        assert_eq!(
+            display.preamp_db,
+            Design::new(&gains, DISPLAY_RATE).preamp_db
+        );
+        // Eğri her zaman temsilî hızda.
+        assert_eq!(display.curve_db, device.curve_db);
+        assert_eq!(
+            EqState::at_rate(settings, 0.0, None, None).preamp_db,
+            display.preamp_db
+        );
     }
 
     #[test]
@@ -1127,7 +1190,7 @@ mod tests {
         // İşlemci yalnızca süzgeçleri uygular: 1 kHz'te +9, 62,5 Hz'te −6, 8 kHz'te 0 dB.
         // Taşmayı önleyen kısmaya ses yolu (Leveler) karar verir; işlemci yükseltmeyi bildirir.
         let peak = true_peak_db(&gains, f64::from(rate));
-        assert!(peak >= 9.0, "{peak}");
+        assert!((9.0..=10.0).contains(&peak), "{peak}");
         assert!(
             (processor.boost_db() - peak).abs() <= PEAK_SCAN_TOLERANCE_DB,
             "{} / {peak}",
@@ -1171,7 +1234,7 @@ mod tests {
         let last = *levels.last().unwrap();
         assert!((20.0 * last.log10() - 12.0).abs() < 0.7, "son: {last}");
         let target_peak = true_peak_db(&gains, f64::from(rate));
-        assert!(target_peak >= 12.0, "{target_peak}");
+        assert!((12.0..=13.0).contains(&target_peak), "{target_peak}");
         assert!(
             (processor.boost_db() - target_peak).abs() <= PEAK_SCAN_TOLERANCE_DB,
             "{} / {target_peak}",
@@ -1239,7 +1302,7 @@ mod tests {
         // Boşluk 6 dB: bantların tepesi (en yüksek sürgü 4 dB) + 6 dB bas = toplam yükseltmenin
         // boşluğu aşan kısmı kadar kısılır.
         let peak = true_peak_db(&gains, DISPLAY_RATE);
-        assert!(peak >= 4.0, "{peak}");
+        assert!((4.0..=5.0).contains(&peak), "{peak}");
         let (bass, headroom) = (6.0, 6.0);
         let expected = -(peak + bass - headroom);
         assert!(
@@ -1305,7 +1368,7 @@ mod tests {
         let state = EqState::new(settings, 0.0, None);
         // Yükseltme eğrinin gerçek tepesi: 6 dB sürgüde alt kuyruk rafıyla 6 dB'nin biraz üstü.
         let peak = true_peak_db(&gains, DISPLAY_RATE);
-        assert!(peak >= 6.0, "{peak}");
+        assert!((6.0..=7.0).contains(&peak), "{peak}");
         let close = |a: f64, b: f64| (a - b).abs() <= PEAK_SCAN_TOLERANCE_DB;
         assert!(
             close(state.preamp_db, -peak),
