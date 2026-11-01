@@ -1184,16 +1184,23 @@ fn gorseller_ekolayzer_yukseltmesini_duyuldugu_gibi_gosterir() {
     let change = change_db(&mut player);
     assert!(change.abs() < 1.0, "1 kHz değişimi {change:.1} dB");
 
-    // Eşitleme kapalıyken boşluk yalnızca şarkının tepesinden (6 dB): yükseltmenin
-    // kalan 6 dB'si için ses kısılır, görsel de öyle.
+    // Eşitleme kapalıyken boşluk yalnızca şarkının tepesinden (−6 dBTP) taşma korumasının
+    // tavanına (−1 dBTP) kadar: yükseltmenin (eğrinin gerçek tepesi, 12 dB sürgüde ~12,7 dB)
+    // boşluğu aşan kısmı için ses kısılır, görsel de öyle.
     player
         .set_playback_options(super::super::PlaybackOptions {
             normalize: false,
             ..Default::default()
         })
         .unwrap();
+    let boost = -crate::audio::eq::Design::new(&gains, 44_100.0).preamp_db;
+    let headroom = crate::audio::limiter::CEILING_DBTP - 20.0 * 0.5f64.log10();
+    let expected = -(boost - headroom);
     let change = change_db(&mut player);
-    assert!((change + 6.0).abs() < 1.0, "1 kHz değişimi {change:.1} dB");
+    assert!(
+        (change - expected).abs() < 1.0,
+        "1 kHz değişimi {change:.1} dB, beklenen {expected:.1} dB"
+    );
     std::fs::remove_file(path).ok();
 }
 

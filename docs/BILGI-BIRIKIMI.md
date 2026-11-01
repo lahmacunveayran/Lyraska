@@ -39,6 +39,10 @@ kısaltılır.
   seferinde gerçek hata buldu (sınırsız döngüler, frenden kaçan desen, parlama kanıtındaki açık, yanlış satırı
   silen hızlı düzenleme). Bulgular önce testle yakalanıp düzeltilir.
 - Kullanım limiti dolunca ajanlar yarıda kalır; limit yenilenince `SendMessage` ile kaldıkları yerden sürdürülür.
+- **Dışarıdan gelen hata raporu önce kendi kodumuzda doğrulanır** (1 Kasım, hata avı): raporun testleri kodun bir
+  kopyasıyla çalışır, bizimkiyle değil. Gerçek kodu çağıran geçici bir testle ölçmek hızlı ve kesin (10 iddia tek
+  derlemede). 28 maddeden biri yanlıştı (eel-wasm'ın kendi ön işlemesine bakılmamıştı), biri etkisizdi, birinin
+  "yüksek" önemi abartılıydı (taşma koruması zaten yakalıyordu). Takip tablosu `docs/arastirma/hata-avi/`.
 
 ## 3. Ana dal başka oturumlarla ilerleyebilir
 
@@ -226,6 +230,9 @@ kısaltılır.
   karelerinin %12'si uzun.
 - `photoScene.test.ts`'in iki testi 2–5 sn sürüyor (5 sn sınırına yakın); yüklü CI'da bir kez süreyi aştı, yeniden
   çalıştırmada geçti (30 Ekim). Yinelenirse önce sahibine sorulur (mevcut test).
+- **Biquad tepkisi alçak frekansta φ biçimiyle hesaplanır** (`biquad::phi`): cos(w) biçimi yüksek örnekleme hızında
+  kutuplar 1'e yaklaşınca birbirine çok yakın sayıları çıkarır (192 kHz'te 10 Hz'te ~%0,5, ~0,02 dB gürültü). EQ'nun
+  tepe taraması bu gürültüyü "tepe kaçırma" sanıyordu (1 Kasım).
 - **CodeQL "eksik çok karakterli temizleme":** tekrar eden `replace` döngüsünü de kabul etmez; metni kesmek (`slice`)
   kabul edilir.
 - **Bu oturumun GitHub yetkisi:** yalnızca oturum dalına ve `claude/clever-euler-pmhee7-yedek-*` adlı yedek dallara

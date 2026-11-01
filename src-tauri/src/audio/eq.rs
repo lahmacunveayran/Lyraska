@@ -47,6 +47,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use super::bass::{self, BassBoost, BassPeaks};
+use super::biquad;
 use super::Sample;
 
 /// Bant sayısı.
@@ -80,6 +81,16 @@ const MAX_CENTER_RATIO: f64 = 0.4;
 const MIN_SHAPE_GAIN_DB: f64 = 0.5;
 /// Bu kadar küçük kazançlar "düz" sayılır.
 const FLAT_DB: f64 = 1e-3;
+/// Ön kazanç eğrinin tepesine göre konur: tepe 10 Hz'ten 0,49 · fs'e kadar oktavda bu kadar
+/// noktayla taranır (parametrik EQ'daki gibi; ızgaranın kaçırdığı en çok `PEAK_SCAN_TOLERANCE_DB`).
+/// 10 Hz'in altında müzikte kayda değer enerji yoktur; kalanı taşma koruması yakalar.
+const PEAK_SCAN_PER_OCTAVE: f64 = 48.0;
+const PEAK_SCAN_LOW_HZ: f64 = 10.0;
+const PEAK_SCAN_TOP_RATIO: f64 = 0.49;
+/// En yüksek hızda (192 kHz) bile yetecek nokta sayısı: log2(0,49 · 192000 / 10) · 48 < 640.
+const PEAK_SCAN_MAX: usize = 640;
+#[cfg(test)]
+const PEAK_SCAN_TOLERANCE_DB: f64 = 0.02;
 /// Ayar değişikliklerinin yumuşatılması: her 2 ms'de bir yeniden tasarlanır,
 /// hedefe ~40 ms'lik zaman sabitiyle yaklaşılır.
 const UPDATE_SECONDS: f64 = 0.002;
@@ -448,6 +459,16 @@ impl Biquad {
         let den = 1.0 + a1 * a1 + a2 * a2 + 2.0 * (a1 + a1 * a2) * cos_w + 2.0 * a2 * cos_2w;
         10.0 * (num.max(1e-300) / den.max(1e-300)).log10()
     }
+
+    /// Güç kazancı |H|² (doğrusal), φ-tabanında (`biquad::phi`). cos(w) biçiminden farklı
+    /// olarak alçak frekansta da kesin: yüksek hızda kutuplar 1'e yaklaşınca cos(w) biçimi
+    /// birbirine çok yakın sayıları çıkarır (192 kHz'te 10 Hz'te ~%0,5 gürültü).
+    fn power_gain(&self, (p0, p1, p2): (f64, f64, f64)) -> f64 {
+        let Self { b0, b1, b2, a1, a2 } = *self;
+        let num = (b0 + b1 + b2).powi(2) * p0 + (b0 - b1 + b2).powi(2) * p1 - 4.0 * b0 * b2 * p2;
+        let den = (1.0 + a1 + a2).powi(2) * p0 + (1.0 - a1 + a2).powi(2) * p1 - 4.0 * a2 * p2;
+        num.max(1e-300) / den.max(1e-300)
+    }
 }
 
 fn db_to_linear(db: f64) -> f64 {
@@ -470,6 +491,9 @@ struct Layout {
     points: usize,
     cos_w: [f64; MAX_POINTS],
     cos_2w: [f64; MAX_POINTS],
+    /// Tepe tarama noktaları: φ(w) (`biquad::phi`; ses iş parçacığında yeniden hesaplanmasın).
+    scan_points: usize,
+    scan_phi: [(f64, f64, f64); PEAK_SCAN_MAX],
     tuning: Tuning,
 }
 
@@ -494,6 +518,8 @@ impl Layout {
             points: (2 * bands).saturating_sub(1),
             cos_w: [0.0; MAX_POINTS],
             cos_2w: [0.0; MAX_POINTS],
+            scan_points: 0,
+            scan_phi: [(0.0, 0.0, 0.0); PEAK_SCAN_MAX],
             tuning,
         };
         for m in 0..bands {
@@ -506,6 +532,15 @@ impl Layout {
             let w = 2.0 * PI * design_point_hz(k) / sample_rate;
             layout.cos_w[k] = w.cos();
             layout.cos_2w[k] = (2.0 * w).cos();
+        }
+        let octaves = (PEAK_SCAN_TOP_RATIO * sample_rate / PEAK_SCAN_LOW_HZ)
+            .max(1.0)
+            .log2();
+        let steps = ((octaves * PEAK_SCAN_PER_OCTAVE).ceil() as usize).clamp(1, PEAK_SCAN_MAX - 1);
+        layout.scan_points = steps + 1;
+        for (i, point) in layout.scan_phi.iter_mut().take(steps + 1).enumerate() {
+            let hz = PEAK_SCAN_LOW_HZ * 2f64.powf(octaves * i as f64 / steps as f64);
+            *point = biquad::phi(2.0 * PI * hz / sample_rate);
         }
         layout
     }
@@ -567,7 +602,7 @@ pub struct Design {
     /// `0..BANDS` tepe süzgeçleri, `BANDS` alt kuyruk, `BANDS + 1` üst kuyruk;
     /// kullanılmayanlar birim süzgeç.
     filters: [Biquad; FILTERS],
-    /// Boşluk hiç yokken taşmayı önleyecek kazanç (dB, ≤ 0): en yüksek sürgü kadar.
+    /// Boşluk hiç yokken taşmayı önleyecek kazanç (dB, ≤ 0): eğrinin taranan tepesi kadar.
     pub preamp_db: f64,
 }
 
@@ -611,7 +646,26 @@ impl Design {
         if n == BANDS {
             design.filters[BANDS + 1] = layout.tail(BANDS - 1, gains[BANDS - 1]);
         }
+        // Bantlar örtüşür ve alt kuyruk rafı bandın kazancını aşar: eğri en yüksek sürgünün
+        // üstüne çıkabilir (zikzakta +2,4 dB). Ön kazanç taranan gerçek tepeye göre konur.
+        design.preamp_db = -design.peak_db(layout).max(0.0);
         design
+    }
+
+    /// Eğrinin taranan aralıktaki en yüksek değeri (dB). Bellek ayırmaz: ses iş parçacığında
+    /// ayar değişirken her yeniden tasarımda çağrılır.
+    fn peak_db(&self, layout: &Layout) -> f64 {
+        let peak = layout.scan_phi[..layout.scan_points]
+            .iter()
+            .map(|&phi| {
+                self.filters
+                    .iter()
+                    .filter(|f| **f != Biquad::IDENTITY)
+                    .map(|f| f.power_gain(phi))
+                    .product::<f64>()
+            })
+            .fold(0.0, f64::max);
+        10.0 * peak.max(1e-300).log10()
     }
 
     /// Düz mü (ses işlenmeden geçirilebilir mi)?
@@ -621,13 +675,10 @@ impl Design {
 
     /// Verilen frekanstaki toplam kazanç (dB), ön kazanç hariç.
     pub fn response_db(&self, hz: f64, sample_rate: f64) -> f64 {
-        let w = 2.0 * PI * hz / sample_rate;
-        let (cos_w, cos_2w) = (w.cos(), (2.0 * w).cos());
+        let phi = biquad::phi(2.0 * PI * hz / sample_rate);
         // Kullanılmayan bantlar ve etkisiz kuyruklar birim süzgeçtir (0 dB).
-        self.filters
-            .iter()
-            .map(|f| f.response_db(cos_w, cos_2w))
-            .sum()
+        let power: f64 = self.filters.iter().map(|f| f.power_gain(phi)).product();
+        10.0 * power.log10()
     }
 }
 
@@ -851,6 +902,18 @@ mod tests {
         max_error_tuned(gains, rate, TUNING)
     }
 
+    /// Eğrinin gerçek tepesi (dB, ≥ 0): tasarımın ızgarasından bağımsız, çok sık tarama.
+    fn true_peak_db(gains: &[f64; BANDS], rate: f64) -> f64 {
+        let design = Design::new(gains, rate);
+        let mut hz = PEAK_SCAN_LOW_HZ;
+        let mut peak: f64 = 0.0;
+        while hz < PEAK_SCAN_TOP_RATIO * rate {
+            peak = peak.max(design.response_db(hz, rate));
+            hz *= 1.001;
+        }
+        peak
+    }
+
     /// Zor uç durumlar ve rastgele ayarlar.
     fn test_settings() -> Vec<[f64; BANDS]> {
         let mut settings = vec![
@@ -964,7 +1027,40 @@ mod tests {
             let db = design.response_db(hz, 44100.0);
             assert!((db - 6.0).abs() < 0.5, "{hz} Hz: {db:.2} dB");
         }
-        assert_eq!(design.preamp_db, -6.0);
+        // Ön kazanç eğrinin gerçek tepesi kadar (bantların örtüştüğü yerde 6 dB'nin biraz üstü).
+        let peak = true_peak_db(&[6.0; BANDS], 44100.0);
+        assert!(peak >= 6.0, "{peak}");
+        assert!(
+            (design.preamp_db + peak).abs() <= PEAK_SCAN_TOLERANCE_DB,
+            "{} / {peak}",
+            design.preamp_db
+        );
+    }
+
+    #[test]
+    fn on_kazanc_egrinin_gercek_tepesini_karsilar() {
+        // Hata avı raporu (A1): ön kazanç en yüksek sürgü kadardı; bantların örtüşmesi ve alt
+        // kuyruk rafı eğriyi onun üstüne çıkarıyordu (zikzakta 12 yerine 14,4 dB, bütün bantlar
+        // +12'de 12,8 dB). Bildirilen yükseltme, eğrinin taranan aralıktaki her noktasını karşılar.
+        let mut worst: f64 = 0.0;
+        for rate in RATES {
+            for gains in test_settings() {
+                let design = Design::new(&gains, rate);
+                let boost = -design.preamp_db;
+                let mut hz = PEAK_SCAN_LOW_HZ;
+                while hz < PEAK_SCAN_TOP_RATIO * rate {
+                    let excess = design.response_db(hz, rate) - boost;
+                    worst = worst.max(excess);
+                    assert!(
+                        excess <= PEAK_SCAN_TOLERANCE_DB,
+                        "{rate} Hz, {gains:?}: {hz:.1} Hz'te eğri {:.2} dB, bildirilen {boost:.2} dB",
+                        design.response_db(hz, rate)
+                    );
+                    hz *= 1.001;
+                }
+            }
+        }
+        println!("ön kazancın tepeyi en çok kaçırdığı: {worst:.4} dB");
     }
 
     #[test]
@@ -1030,7 +1126,13 @@ mod tests {
         processor.begin_block();
         // İşlemci yalnızca süzgeçleri uygular: 1 kHz'te +9, 62,5 Hz'te −6, 8 kHz'te 0 dB.
         // Taşmayı önleyen kısmaya ses yolu (Leveler) karar verir; işlemci yükseltmeyi bildirir.
-        assert_eq!(processor.boost_db(), 9.0);
+        let peak = true_peak_db(&gains, f64::from(rate));
+        assert!(peak >= 9.0, "{peak}");
+        assert!(
+            (processor.boost_db() - peak).abs() <= PEAK_SCAN_TOLERANCE_DB,
+            "{} / {peak}",
+            processor.boost_db()
+        );
         let at_1k = measured_gain_db(&mut processor, 1000.0, rate);
         let at_62 = measured_gain_db(&mut processor, 62.5, rate);
         let at_8k = measured_gain_db(&mut processor, 8000.0, rate);
@@ -1068,7 +1170,13 @@ mod tests {
         assert!(levels[0] < 2.0, "ilk 10 ms: {}", levels[0]);
         let last = *levels.last().unwrap();
         assert!((20.0 * last.log10() - 12.0).abs() < 0.7, "son: {last}");
-        assert_eq!(processor.boost_db(), 12.0);
+        let target_peak = true_peak_db(&gains, f64::from(rate));
+        assert!(target_peak >= 12.0, "{target_peak}");
+        assert!(
+            (processor.boost_db() - target_peak).abs() <= PEAK_SCAN_TOLERANCE_DB,
+            "{} / {target_peak}",
+            processor.boost_db()
+        );
         // Ani sıçrama yok: 12 dB'lik değişim 10 ms'lik pencerelerde en fazla ~3 dB'lik
         // adımlarla (her 2 ms'de küçük adımlarla) çıkar.
         for pair in levels.windows(2) {
@@ -1128,8 +1236,17 @@ mod tests {
         assert!(at(62.0) > 8.0, "62 Hz: {:.1}", at(62.0));
         assert!(at(31.0) > 5.0, "31 Hz: {:.1}", at(31.0));
         assert!(at(1000.0).abs() < 0.5, "1 kHz: {:.1}", at(1000.0));
-        // Boşluk 6 dB: 4 dB bant + 6 dB bas = 10 dB yükseltmenin 4'ü için kısılır.
-        assert!((state.preamp_db + 4.0).abs() < 1e-9, "{}", state.preamp_db);
+        // Boşluk 6 dB: bantların tepesi (en yüksek sürgü 4 dB) + 6 dB bas = toplam yükseltmenin
+        // boşluğu aşan kısmı kadar kısılır.
+        let peak = true_peak_db(&gains, DISPLAY_RATE);
+        assert!(peak >= 4.0, "{peak}");
+        let (bass, headroom) = (6.0, 6.0);
+        let expected = -(peak + bass - headroom);
+        assert!(
+            (state.preamp_db - expected).abs() <= PEAK_SCAN_TOLERANCE_DB,
+            "{} / {expected}",
+            state.preamp_db
+        );
         assert_eq!(state.bass_db, 6.0);
         assert_eq!(state.max_bass_db, crate::audio::bass::MAX_BASS_DB);
     }
@@ -1186,14 +1303,19 @@ mod tests {
             ..EqSettings::default()
         };
         let state = EqState::new(settings, 0.0, None);
-        assert_eq!(
-            state.preamp_db, -6.0,
-            "boşluk yokken yükseltme kadar kısılır"
+        // Yükseltme eğrinin gerçek tepesi: 6 dB sürgüde alt kuyruk rafıyla 6 dB'nin biraz üstü.
+        let peak = true_peak_db(&gains, DISPLAY_RATE);
+        assert!(peak >= 6.0, "{peak}");
+        let close = |a: f64, b: f64| (a - b).abs() <= PEAK_SCAN_TOLERANCE_DB;
+        assert!(
+            close(state.preamp_db, -peak),
+            "boşluk yokken yükseltme kadar kısılır: {} / {peak}",
+            state.preamp_db
         );
-        assert_eq!(
-            EqState::new(settings, 4.0, None).preamp_db,
-            -2.0,
-            "boşluk yetmeyen kadar"
+        let partial = EqState::new(settings, 4.0, None).preamp_db;
+        assert!(
+            close(partial, -(peak - 4.0)),
+            "boşluk yetmeyen kadar: {partial} / {peak}"
         );
         assert_eq!(
             EqState::new(settings, 9.0, None).preamp_db,
