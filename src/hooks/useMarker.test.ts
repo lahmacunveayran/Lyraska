@@ -89,4 +89,28 @@ describe("doğruluk ölçümü ve işaretler (DENETIM-FAZ0 ISK-03)", () => {
     expect(result.current.error).toMatch(/işaretler değişti/);
     expect(result.current.marks.beats).toEqual([11]);
   });
+
+  // Hata avı (1 Kasım 2026) A10.
+  it("ölçüm sürerken şarkı değişirse eski şarkının sonucu gösterilmez", async () => {
+    let finish: (value: unknown) => void = () => {};
+    mocks.evaluate.mockImplementation(() => new Promise((resolve) => (finish = resolve)));
+    const { result, rerender } = renderHook(
+      ({ path }: { path: string }) => useMarker(path, true, () => 10, null, 0),
+      { initialProps: { path: TRACK } },
+    );
+    await waitFor(() => expect(result.current.marks.beats).toEqual([]));
+    let running: Promise<void> = Promise.resolve();
+    act(() => {
+      running = result.current.evaluate();
+    });
+    await waitFor(() => expect(mocks.evaluate).toHaveBeenCalled());
+    rerender({ path: "C:/Müzik/sabah.flac" });
+    await act(async () => {
+      finish({ evaluation: EVALUATION });
+      await running;
+    });
+    expect(result.current.evaluation).toBeNull();
+    expect(result.current.error).toBeNull();
+    expect(result.current.evaluating).toBe(false);
+  });
 });

@@ -10,8 +10,8 @@ import { SCENE_CLOCK_PERIOD, foldTime } from "./sceneClock";
  * dalga akar. Doku katmanı: vuruş yoğunluğu perdelerin akışını, tizlerin canlılığı yıldızların
  * kırpışmasını hızlandırır.
  *
- * Parlaklık hızı: varsayılan modda perde enerjileri ve açılım yalnızca yumuşatılır, hız
- * sınırı yoktur (proje sahibinin kararı, 24 Ekim 2026). Epilepsi güvenli modunda ekranın
+ * Parlaklık hızı: varsayılan modda hız sınırı yoktur (proje sahibinin kararı, 24 Ekim 2026):
+ * perde enerjileri yalnızca yumuşatılır, açılım drop anında tek karede gelir. Epilepsi güvenli modunda ekranın
  * parlaklığını değiştiren her değer saniyede en fazla `ENERGY_SLEW_PER_SECOND`'ın yarısı kadar
  * değişir. Müziğin vuruşları parlaklıktan çok ışıkların akış hızına ve şekline yansır.
  */

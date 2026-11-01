@@ -55,6 +55,11 @@ export function clampDensity(value: number): number {
 }
 
 /** Son seçilen yoğunluk. Kayıt yoksa ya da okunamazsa 1. */
+/** "0,25×" biçiminde yoğunluk (kendi aralığında; hız aralığına kırpılmaz). */
+export function formatDensity(density: number): string {
+  return `${clampDensity(density).toLocaleString("tr-TR", { maximumFractionDigits: 2 })}×`;
+}
+
 export function loadParticleDensity(): number {
   try {
     const saved = window.localStorage.getItem(DENSITY_KEY);

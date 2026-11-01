@@ -91,6 +91,11 @@ export function useMarker(
   /** İlk kaydedilmemiş değişikliğin zamanı (ms). */
   const dirtySince = useRef<number | null>(null);
   const pending = useRef<PendingMarks | null>(null);
+  /** Şu anki şarkı: ölçüm sürerken şarkı değiştiyse sonucu eski şarkınındır. */
+  const currentPath = useRef(trackPath);
+  useEffect(() => {
+    currentPath.current = trackPath;
+  }, [trackPath]);
 
   // Şarkı değişince o şarkının kayıtlı işaretleri yüklenir (öncekinin kaydedilmemiş
   // işaretleri aşağıda, şarkı değişimi etkisinde yazılır).
@@ -265,6 +270,8 @@ export function useMarker(
       }
       const startedAt = changeCount.current;
       const result = await evaluateAnnotation(trackPath);
+      // Bu arada başka şarkıya geçildiyse sonuç gösterilmez (yeni şarkının ekranı temiz kalır).
+      if (currentPath.current !== trackPath) return;
       if (changeCount.current !== startedAt) {
         setError("Ölçüm sürerken işaretler değişti; sonuç gösterilmedi. Yeniden ölçün.");
         return;
@@ -272,7 +279,7 @@ export function useMarker(
       setEvaluation(result.evaluation);
       setError(null);
     } catch (e) {
-      setError(errorMessage(e));
+      if (currentPath.current === trackPath) setError(errorMessage(e));
     } finally {
       setEvaluating(false);
     }
