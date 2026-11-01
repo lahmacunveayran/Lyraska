@@ -201,7 +201,7 @@ impl Player {
                         for (value, db) in combined.iter_mut().zip(curve) {
                             *value += db;
                         }
-                        (combined, eq_db + self.parametric.boost_db())
+                        (combined, eq_db + self.parametric.boost_db_at(rate_hz))
                     } else {
                         (response, eq_db)
                     };

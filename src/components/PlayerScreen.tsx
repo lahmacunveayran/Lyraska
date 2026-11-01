@@ -106,7 +106,6 @@ export function PlayerScreen() {
   const library = useLibrary();
   const equalizer = useEqualizer();
   const headphone = useHeadphone();
-  const parametric = useParametric();
   const crossfeed = useCrossfeed();
   const visualSafe = useVisualSafe();
   const playbackOptions = usePlaybackOptions();
@@ -120,6 +119,8 @@ export function PlayerScreen() {
   const playback = usePlayback(info.supportedExtensions);
   const { player, playList, upcoming } = playback;
   const { status } = player;
+  // Parametrik eğri çalan aygıtın hızında hesaplanır; hız değişince yeniden sorulur.
+  const parametric = useParametric(status.output?.sampleRate);
   // Ekolayzer, kulaklık düzeltmesi ya da crossfeed sesi değiştiriyorsa ekolayzer ışığı yanar.
   // Bit-perfect çalarken hiçbiri sese uygulanmaz.
   const bitPerfect = status.output?.bitPerfect ?? false;

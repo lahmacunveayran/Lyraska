@@ -264,6 +264,7 @@ impl Player {
                 }
                 let info = session.info.clone();
                 self.session = Some(session);
+                self.refresh_parametric_rate();
                 Ok(info)
             }
             Err(error) => {

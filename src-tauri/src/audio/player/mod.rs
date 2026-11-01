@@ -156,6 +156,8 @@ pub struct Player {
     parametric_control: Arc<PeqControl>,
     parametric: ParametricSettings,
     parametric_compare: bool,
+    /// Parametrik ekolayzerin yükseltmesinin ve telafisinin hesaplandığı hız (aygıtın hızı).
+    parametric_applied_rate: f64,
     /// Crossfeed: ses çıkışının okuduğu kanal ve son ayar.
     crossfeed_control: Arc<CrossfeedControl>,
     crossfeed: CrossfeedSettings,

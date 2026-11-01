@@ -1200,11 +1200,7 @@ fn apply_headphone(
 /// Elle parametrik ekolayzer: ayar, eğriler, taşma koruması.
 #[tauri::command]
 pub async fn parametric_get(player: State<'_, PlayerState>) -> Result<ParametricState, String> {
-    let player = player.lock()?;
-    Ok(ParametricState::new(
-        player.parametric(),
-        player.parametric_comparing(),
-    ))
+    Ok(player.lock()?.parametric_state())
 }
 
 /// Parametrik ekolayzeri uygular ve kaydeder.
@@ -1225,10 +1221,7 @@ pub async fn parametric_compare(
 ) -> Result<ParametricState, String> {
     let mut player = player.lock()?;
     player.set_parametric_compare(compare);
-    Ok(ParametricState::new(
-        player.parametric(),
-        player.parametric_comparing(),
-    ))
+    Ok(player.parametric_state())
 }
 
 /// Equalizer APO biçimindeki dosyayı (AutoEq, REW, Equalizer APO) parametrik ekolayzere yükler.
@@ -1311,15 +1304,19 @@ fn apply_parametric(
 ) -> Result<ParametricState, String> {
     // Oynatıcı kilidi yalnızca ayarı uygularken tutulur; dosyaya yazma (diske işleme) kilit
     // dışında: bant sürüklenirken görsel veri ve durum sorguları beklemez (DENETIM-FAZ0 ISK-01).
-    let (applied, comparing) = {
+    let (applied, comparing, rate) = {
         let mut player = player.lock()?;
         let applied = player.set_parametric(settings);
-        (applied, player.parametric_comparing())
+        (
+            applied,
+            player.parametric_comparing(),
+            player.parametric_rate(),
+        )
     };
     store
         .update(|s| s.parametric = applied.clone())
         .map_err(|e| reported(format!("Parametrik ekolayzer kaydedilemedi: {e}")))?;
-    Ok(ParametricState::new(applied, comparing))
+    Ok(ParametricState::at_rate(applied, comparing, rate))
 }
 
 /// Crossfeed: ayar, hazır ayarlar ve çizim için eğriler.
