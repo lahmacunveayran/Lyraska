@@ -39,8 +39,9 @@ use crate::audio::lyrics::{
 };
 
 /// Hizalama hesabının sürümü (metin hazırlığı, yerleşim, güven). Değişince artırılır: saklanan
-/// sonuçlar kullanılmaz, önbellekteki emisyonlardan yeniden hesaplanır (model çalışmaz).
-pub const ALIGN_VERSION: i64 = 1;
+/// sonuçlar kullanılmaz, önbellekteki emisyonlardan yeniden hesaplanır (model çalışmaz). 2: hata
+/// avı (1 Kasım 2026) metin hazırlığı düzeltmeleri.
+pub const ALIGN_VERSION: i64 = 2;
 
 // Kayıt sürümü `ALIGN_VERSION * 1000 + EMISSIONS_VERSION`: emisyon sürümü 1000'e varmamalı.
 const _: () = assert!(EMISSIONS_VERSION < 1000);

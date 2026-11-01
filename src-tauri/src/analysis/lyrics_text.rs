@@ -314,9 +314,16 @@ fn split_repeat(line: &str) -> (&str, usize) {
     (trimmed, 1)
 }
 
-/// Roma rakamı mı (I–XX, küçük harfle).
+/// Roma rakamı mı (I–XX, küçük harfle; Türkçe küçük harfte "I" → "ı").
 fn is_roman(word: &str) -> bool {
-    !word.is_empty() && word.len() <= 5 && word.chars().all(|c| matches!(c, 'i' | 'v' | 'x'))
+    !word.is_empty()
+        && word.chars().count() <= 5
+        && word.chars().all(|c| matches!(c, 'i' | 'ı' | 'v' | 'x'))
+}
+
+/// Başlıktaki numara, saklama adı için: "2.", "ıı" → "2", "ii".
+fn number_name(raw: &str) -> String {
+    raw.trim_end_matches(['.', ':', ')']).replace('ı', "i")
 }
 
 /// Numara: "1", "2.", "1:" ya da Roma rakamı.
@@ -370,7 +377,7 @@ fn parse_header_words(words: &[&str], loose: bool) -> Option<Header> {
                 continue;
             }
             if i == 0 && is_number_word(raw) {
-                number = Some(raw.trim_end_matches(['.', ':', ')']).to_string());
+                number = Some(number_name(raw));
                 continue;
             }
             return None;
@@ -382,7 +389,7 @@ fn parse_header_words(words: &[&str], loose: bool) -> Option<Header> {
         } else if let Some(n) = repeat_count(raw, false) {
             times = n;
         } else if is_number_word(raw) && number.is_none() {
-            number = Some(raw.trim_end_matches(['.', ':', ')']).to_string());
+            number = Some(number_name(raw));
         } else if !loose {
             return None;
         } else {
@@ -409,8 +416,10 @@ enum Kind {
     Blank,
     Header(Header),
     Repeat(usize),
-    /// Söylenmeyen satır: künye ya da söylenen sözcüğü olmayan satır ("...").
+    /// Söylenmeyen satır: söylenen sözcüğü olmayan satır ("...").
     Skip,
+    /// Künye satırı ("Söz-Müzik: …"): söylenmez, başlığın yer tutucu olup olmadığına da etki etmez.
+    Credit,
     Lyric {
         text: String,
         words: Vec<String>,
@@ -420,9 +429,16 @@ enum Kind {
 }
 
 /// Satırın başlık olup olmadığı; iki küçük harf kuralı da denenir ("[Intro]" Türkçe kuralla
-/// "ıntro" olurdu).
+/// "ıntro" olurdu). Köşeli ayraçlı satır adı tanınmasa da başlıktır; o zaman İngilizce kuralla
+/// tanınan ad yeğlenir ("[REFRAIN]" Türkçe kuralla "refraın").
 fn header_of(line: &str, language: Language) -> Option<Header> {
-    header_with(line, language).or_else(|| header_with(line, Language::English))
+    let first = header_with(line, language);
+    if language != Language::English && first.as_ref().is_none_or(|h| h.name.is_none()) {
+        if let Some(named) = header_with(line, Language::English).filter(|h| h.name.is_some()) {
+            return Some(named);
+        }
+    }
+    first.or_else(|| header_with(line, Language::English))
 }
 
 fn header_with(line: &str, language: Language) -> Option<Header> {
@@ -491,7 +507,7 @@ fn classify(line: &str, language: Language) -> Kind {
         return Kind::Repeat(n);
     }
     if is_credit(trimmed, language) {
-        return Kind::Skip;
+        return Kind::Credit;
     }
     let (body, times) = split_repeat(trimmed);
     let (body, _) = strip_brackets(body);
@@ -783,9 +799,12 @@ fn read_number(token: &str, language: Language, out: &mut Vec<String>) {
             out[last] = english_ordinal(&out[last]);
             return;
         }
-        // Ek son sözcüğe yapışır ("yedi'de", "doksanlar").
+        // Ek son sözcüğe yapışır ("yedi'de", "doksanlar"). İçinde yine sayı varsa ("4x4") o da
+        // okunur.
         let suffix = rest.trim_end_matches(['.', ',', '!', '?', ';', ':']);
-        if !suffix.is_empty() {
+        if suffix.chars().any(|c| c.is_ascii_digit()) {
+            read_number(suffix, language, out);
+        } else if !suffix.is_empty() {
             out[last].push_str(suffix);
         }
     }
@@ -841,7 +860,9 @@ pub fn prepare_as(text: &str, language: Language) -> Vec<AlignLine> {
             Kind::Blank => builder.end_paragraph(),
             Kind::Header(header) => {
                 builder.end_paragraph();
-                let next = kinds[index + 1..].first();
+                let next = kinds[index + 1..]
+                    .iter()
+                    .find(|k| !matches!(k, Kind::Credit));
                 let placeholder = header.recall
                     || matches!(
                         next,
@@ -859,7 +880,7 @@ pub fn prepare_as(text: &str, language: Language) -> Vec<AlignLine> {
                 }
             }
             Kind::Repeat(n) => builder.repeat(*n),
-            Kind::Skip => {}
+            Kind::Skip | Kind::Credit => {}
             Kind::Lyric {
                 text,
                 words,
@@ -1366,5 +1387,73 @@ mod tests {
         let text = format!("[Chorus x9]\n{para}\n") + &"[Chorus x9]\n\n".repeat(200);
         let lines = prepare(&text);
         assert_eq!(lines.len(), MAX_LINES);
+    }
+
+    // Hata avı (1 Kasım 2026) B6: Türkçe küçük harf "I"yı "ı" yapıyor; İngilizce başlık ve Roma
+    // rakamı tanınmalı.
+    #[test]
+    fn turkce_sozde_ingilizce_baslik_ve_roma_rakami() {
+        let t = "[REFRAIN]
+Seni seviyorum
+
+[Kıta]
+Yol
+
+[REFRAIN]";
+        assert_eq!(
+            texts(&prepare_as(t, Language::Turkish)),
+            ["Seni seviyorum", "Yol", "Seni seviyorum"]
+        );
+        let t = "[Nakarat I]
+bir ışık
+
+[Nakarat II]
+iki ışık
+
+[Kıta]
+yo
+
+[Nakarat II]";
+        assert_eq!(
+            texts(&prepare_as(t, Language::Turkish)),
+            ["bir ışık", "iki ışık", "yo", "iki ışık"]
+        );
+    }
+
+    // B7: nakarat başlığının ardındaki künye satırı başlığı yer tutucu yapmaz.
+    #[test]
+    fn baslik_ardindaki_kunye_nakarati_bosaltmaz() {
+        let t = "[Nakarat]
+Söz-Müzik: Ali Veli
+la ışık
+
+[Kıta]
+yo
+
+[Nakarat]";
+        assert_eq!(texts(&prepare(t)), ["la ışık", "yo", "la ışık"]);
+        // Künyeden sonra boş satır gelirse başlık yine yer tutucudur.
+        let t = "[Nakarat]
+la ışık
+
+[Kıta]
+yo
+
+[Nakarat]
+Söz: Ali
+
+son ışık";
+        assert_eq!(texts(&prepare(t)), ["la ışık", "yo", "la ışık", "son ışık"]);
+    }
+
+    // A8: ekin içindeki ikinci sayı da okunur.
+    #[test]
+    fn ekteki_ikinci_sayi_okunur() {
+        assert_eq!(prepare("4x4 ışık")[0].words, ["dört", "x", "dört", "ışık"]);
+        assert_eq!(
+            prepare("4x4'te ışık")[0].words,
+            ["dört", "x", "dört'te", "ışık"]
+        );
+        assert_eq!(prepare("90'lar ışık")[0].words, ["doksan'lar", "ışık"]);
     }
 }
