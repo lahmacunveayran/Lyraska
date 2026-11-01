@@ -57,6 +57,9 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
     duyulur bantta analog eğriye göre ölçülür, en yakını seçilir; RBJ de aday olduğu için hiçbir ayarda RBJ'den uzak
     değildir. 44,1 kHz'te ortalama sapma: tepe 0,70 → 0,16 dB, raflar ~0,6 → ~0,2 dB, alçak geçiren
     3,97 → 0,16 dB, bant geçiren 4,06 → 0,33 dB (`biquad::tests::dogruluk_tablosu`).
+  - Nyquist'e yakın ya da üstündeki süzgeç (f ≥ 0,49·fs): iki yöntemde de duyulur banttaki analog eğrisine
+    uydurulur (silinmez, sınıra çekilmez; Denetim 3, DSP-03). Kutup seçenekleri için pay en küçük karelerle bulunur,
+    en yakın aday seçilir; Q ≤ 2, ±12 dB'de sapma < 1 dB (`biquad::tests::nyquist_yakinindaki_…`).
 - **Elle parametrik ekolayzer** (`audio/peq.rs`, arayüz `ParametricEq.tsx`): en çok 20 bant, sekiz tür, varsayılan
   eşlenmiş tasarım (çizilen eğri duyulan eğridir). Kulaklık düzeltmesiyle aynı kilitsiz kanal (`PeqControl`) ve
   30 ms çapraz geçiş. En büyük yükseltme taşma korumasına bildirilir (grafik ekolayzerinkiyle toplanır).
