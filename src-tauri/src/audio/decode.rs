@@ -1193,6 +1193,27 @@ mod tests {
     }
 
     #[test]
+    fn eski_tip_etiketi_de_olan_mp3_kapagi_okunur() {
+        // Hata avı raporu (A2, yalnızca kod okunarak): baştaki ID3v2'de kapak, sondaki ID3v1'de
+        // (resimsiz) ad olan MP3'te kapağın bulunmadığı iddia edildi. Denendi: kapak
+        // bulunuyor. Test bu davranışı korur.
+        let tagged = mp3_with_pictures(&[(3, "image/png", PNG)]);
+        let path = append_id3v1(
+            std::fs::read(&tagged).unwrap(),
+            b"Gece",
+            b"Lyraska",
+            b"Deneme",
+        );
+        std::fs::remove_file(tagged).ok();
+        let cover = read_cover(&path).unwrap().unwrap();
+        assert_eq!(
+            (cover.media_type, cover.data.as_slice()),
+            ("image/png", PNG)
+        );
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
     fn uzantisi_opus_yapilmis_webm_webm_gibi_cozulur() {
         // yt-dlp'nin .webm dosyası elle .opus diye yeniden adlandırılınca içi hâlâ Matroska'dır;
         // uzantıya bakılsaydı ön boşluk iki kez atılır, sarma yanlış yere düşerdi.
