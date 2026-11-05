@@ -503,7 +503,7 @@ impl SavedAnalysis {
 pub fn measure_loudness(mut decoder: Decoder, target: &Spectrogram) {
     let info = decoder.info().clone();
     let channels = info.channels.max(1);
-    let mut meter = LoudnessMeter::new(info.sample_rate, channels);
+    let mut meter = LoudnessMeter::with_layout(info.sample_rate, channels, info.channel_layout);
     // Bütünleşik ölçüm bütün şarkıyı ister (4 dk'lık MP3 1–3 sn); ilk saniyelerden bir
     // tahmin yayımlanır ki ilk ses −10 LUFS varsayımıyla değil, şarkının kendi girişiyle
     // başlasın. Kesin ölçüm gelince kazanç yumuşakça düzelir.
@@ -593,7 +593,7 @@ pub fn analyze_source(decoder: &mut dyn ChunkSource, target: &Spectrogram, pace:
     let mut meter_batch: Vec<u8> = Vec::with_capacity(VALUES_PER_FRAME * 64);
     let mut onset_batch: Vec<f32> = Vec::with_capacity(64);
     // Ses yüksekliği şarkının kendi hızında, bütün kanallarıyla ölçülür (EBU R128).
-    let mut loudness = LoudnessMeter::new(info.sample_rate, channels);
+    let mut loudness = LoudnessMeter::with_layout(info.sample_rate, channels, info.channel_layout);
     // Bas düğmesinin şarkının tepesini ne kadar yükselttiği (taşma koruması buna göre).
     let mut bass_peaks = BassPeakMeter::new(info.sample_rate, channels);
     // Ton: uzun pencereli kroma, aynı geçişte.
@@ -748,7 +748,7 @@ pub fn refresh_paced(
         sample_rate = Some(info.sample_rate);
         let mut loudness_meter = stale
             .loudness
-            .then(|| LoudnessMeter::new(info.sample_rate, channels));
+            .then(|| LoudnessMeter::with_layout(info.sample_rate, channels, info.channel_layout));
         let mut bass_meter = stale
             .bass
             .then(|| BassPeakMeter::new(info.sample_rate, channels));
@@ -947,7 +947,7 @@ pub fn band_edges(bands: usize, sample_rate: f64) -> Vec<f64> {
 mod tests {
     use super::*;
     use crate::analysis::cache::StaleParts;
-    use crate::audio::test_util::{sine, temp_path, write_wav};
+    use crate::audio::test_util::{sine, temp_path, write_wav, write_wav_layout};
     use std::path::Path;
 
     #[test]
@@ -1575,5 +1575,97 @@ mod tests {
             "önbelleğe analiz yazılır"
         );
         std::fs::remove_file(path).ok();
+    }
+
+    /// Çok kanallı dosyanın ses yüksekliği dosyanın kanal düzeniyle ölçülür: analizin üç yolu
+    /// da (hızlı ölçüm, tam analiz, eskiyen parçanın yenilenmesi) aynı ağırlıkları kullanır.
+    #[test]
+    fn ebu_3341_durum_6_bes_kanalli_dosya() {
+        // EBU Tech 3341 durum 6: 5.0, 1 kHz, 20 sn; L ve R −28, C −24, Ls ve Rs −30 dBFS →
+        // −23,0 LUFS (±0,1). Maske 0x607: L, R, C, yan sol, yan sağ.
+        let rate = 48_000;
+        let path = temp_path("ebu-durum-6.wav");
+        let levels = [-28.0, -28.0, -24.0, -30.0, -30.0];
+        write_wav_layout(&path, rate, 0x607, 20 * rate as usize, |f, ch| {
+            10f64.powf(levels[ch] / 20.0) * sine(1000.0, rate, f)
+        });
+        let check = |what: &str, l: Option<Loudness>| {
+            let l = l.unwrap_or_else(|| panic!("{what}: ölçülmedi"));
+            assert!((l.integrated_lufs + 23.0).abs() < 0.1, "{what}: {l:?}");
+        };
+        let quick = Spectrogram::new();
+        measure_loudness(Decoder::open(&path).unwrap(), &quick);
+        check("hızlı ölçüm", quick.measured_loudness().flatten());
+        let full = analyze_file(&path);
+        check("tam analiz", full.loudness());
+        let target = Spectrogram::new();
+        let stale = StaleParts {
+            loudness: true,
+            ..StaleParts::default()
+        };
+        let mut open = || Decoder::open(&path).ok();
+        assert!(refresh_paced(
+            aged(&full.saved().unwrap(), stale),
+            &mut open,
+            &target,
+            &mut || {}
+        ));
+        check("yenileme", target.loudness());
+        std::fs::remove_file(path).ok();
+    }
+
+    /// BS.1770-5 kanal ağırlıkları kanalın yerine göre (Ek 1 Tablo 3, Ek 3 Tablo 4): yatayda
+    /// 60°–120° arası (yan; 5.x'te çevre) 1,41, LFE 0, geri kalanı 1,0. Aynı sinyal yalnızca
+    /// seçilen kanallarda çalınır, ön çifte (L + R) göre farkı ölçülür.
+    #[test]
+    fn cok_kanalli_dosyada_agirlik_kanalin_yerine_gore() {
+        let rate = 48_000;
+        let measure = |mask: u32, active: &[usize]| {
+            let path = temp_path("kanal-duzeni.wav");
+            write_wav_layout(&path, rate, mask, 3 * rate as usize, |f, ch| {
+                if active.contains(&ch) {
+                    0.1 * sine(1000.0, rate, f)
+                } else {
+                    0.0
+                }
+            });
+            let quick = Spectrogram::new();
+            measure_loudness(Decoder::open(&path).unwrap(), &quick);
+            std::fs::remove_file(path).ok();
+            quick.measured_loudness().flatten()
+        };
+        // Çevre çifti: +1,49 dB (10·log10 1,41); ağırlığı 1 olan tek kanal: −3,01 dB.
+        let surround = 10.0 * 1.41f64.log10();
+        let single = -10.0 * 2f64.log10();
+        // (düzen, maske, sinyalli kanallar, ön çifte göre beklenen fark; None: ölçülmez)
+        let cases: [(&str, u32, &[usize], Option<f64>); 7] = [
+            // 5.0: L R C, yan sol, yan sağ
+            ("5.0 yan", 0x607, &[3, 4], Some(surround)),
+            // 5.0: L R C, arka sol, arka sağ (5.x'te tek çevre çifti, ±110°)
+            ("5.0 arka", 0x037, &[3, 4], Some(surround)),
+            // 5.1: L R C LFE, arka sol, arka sağ
+            ("5.1 çevre", 0x03F, &[4, 5], Some(surround)),
+            ("5.1 LFE", 0x03F, &[3], None),
+            // 7.1: L R C LFE, arka sol, arka sağ (±135°), yan sol, yan sağ (±90°)
+            ("7.1 arka", 0x63F, &[4, 5], Some(0.0)),
+            ("7.1 yan", 0x63F, &[6, 7], Some(surround)),
+            // 6.1: L R C LFE, arka orta (180°), yan sol, yan sağ
+            ("6.1 arka orta", 0x70F, &[4], Some(single)),
+        ];
+        // Bütün düzenler ölçülür, hatalılar birlikte bildirilir.
+        let mut wrong = Vec::new();
+        for (name, mask, active, expected) in cases {
+            let front = measure(mask, &[0, 1]).expect("ön çift ölçülür");
+            let diff = measure(mask, active).map(|l| l.integrated_lufs - front.integrated_lufs);
+            let ok = match (diff, expected) {
+                (Some(d), Some(e)) => (d - e).abs() < 0.05,
+                (None, None) => true,
+                _ => false,
+            };
+            if !ok {
+                wrong.push(format!("{name}: {diff:?} dB, beklenen {expected:?}"));
+            }
+        }
+        assert!(wrong.is_empty(), "{wrong:#?}");
     }
 }

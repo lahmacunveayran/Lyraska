@@ -89,6 +89,8 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
 - **Ses yüksekliği eşitlemesi** (`audio/loudness.rs`, `audio/normalize.rs`):
   - Her şarkının EBU R128 yüksekliği (LUFS) ve gerçek tepesi (dBTP) analizde ölçülür, önbellekte saklanır.
     Önbellekte yoksa şarkı açılınca ayrı bir hızlı ölçüm yapılır.
+  - Kanal ağırlıkları kanalın yerine göre (BS.1770-5): yan kanallar ve 5.x'in çevre çifti 1,41, LFE 0, gerisi 1,0.
+    Düzen dosyadan okunur (`TrackInfo::channel_layout`); bilinmiyorsa kanal sayısının FLAC düzeni varsayılır.
   - Şarkı −14 LUFS'e getirilir; yükseltme gerçek tepeyi −1 dBTP'nin üstüne çıkarmaz.
   - Ekolayzer artık sesi kendisi kısmaz; yalnızca en büyük yükseltmesini bildirir. Eşitlemenin tepeye açtığı
     boşluk yetiyorsa hiç kısılmaz, yetmezse yalnızca eksik kadar kısılır (hızlı iner, yavaş kalkar).
@@ -488,7 +490,7 @@ Her kural ya bir testle ya da CI'daki bir adımla denetlenir. Elle hatırlanmas�
 | Kural                                                                                                | Denetleyen                                                                                                       |
 | ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | Ses çıkışında bellek ayırma yok                                                                      | `audio::render` testi `ses_yolu_bellek_ayirmaz`                                                                  |
-| Ses yüksekliği ölçümü EBU R128'e uyar                                                                | `audio::loudness` testleri (EBU Tech 3341 durumları 1–5)                                                         |
+| Ses yüksekliği ölçümü EBU R128'e uyar                                                                | `audio::loudness` testleri (EBU Tech 3341 durumları 1–6, 15–23); kanal düzeni `analysis::spectrogram` testleri   |
 | Eşitleme ve ekolayzer kapalıyken ses bit bit aynı                                                    | `audio::render` ve `audio::normalize` testleri                                                                   |
 | Bit-perfect'te dosyadaki tamsayılar aygıta aynen gider                                               | `audio::player` testi `bit_perfect_zinciri_…`, `output` testleri                                                 |
 | Ses yolu ≤ −140 dB bozulma + gürültü ekler                                                           | `audio::render` testi `ses_yolu_bozulma_ve_gurultu_eklemez`                                                      |

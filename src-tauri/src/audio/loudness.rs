@@ -219,20 +219,88 @@ pub struct LoudnessMeter {
     total_frames: usize,
 }
 
-impl LoudnessMeter {
-    pub fn new(sample_rate: u32, channels: usize) -> Self {
-        let rate = f64::from(sample_rate.max(1));
-        let channels = channels.max(1);
-        // BS.1770 kanal ağırlıkları: ön kanallar 1, arka (çevre) kanallar 1,41; LFE (4.) yok.
-        // Tek kanallı şarkı iki hoparlörden aynı çalınır: iki kanal sayılır.
-        let weights = (0..channels)
-            .map(|c| match (channels, c) {
-                (1, _) => 2.0,
-                (_, 3) if channels >= 6 => 0.0,
-                (_, 4 | 5) if channels >= 6 => 1.41,
+/// Çevre kanallarının ağırlığı (BS.1770-5: +1,5 dB).
+const SURROUND_WEIGHT: f64 = 1.41;
+
+/// Düzeni bilinmeyen `channels` kanallı sesin varsayılan düzeni (symphonia `Position` bitleri):
+/// FLAC'ın ve Vorbis'in kanal sayısına göre düzeni (6 kanalda WAV'ınki de aynı).
+fn default_layout(channels: usize) -> Option<u64> {
+    use symphonia::core::audio::Position as P;
+    let front = P::FRONT_LEFT | P::FRONT_RIGHT;
+    let rear = P::REAR_LEFT | P::REAR_RIGHT;
+    let side = P::SIDE_LEFT | P::SIDE_RIGHT;
+    let layout = match channels {
+        1 => P::FRONT_CENTER,
+        2 => front,
+        3 => front | P::FRONT_CENTER,
+        4 => front | rear,
+        5 => front | P::FRONT_CENTER | rear,
+        6 => front | P::FRONT_CENTER | P::LFE1 | rear,
+        7 => front | P::FRONT_CENTER | P::LFE1 | P::REAR_CENTER | side,
+        8 => front | P::FRONT_CENTER | P::LFE1 | rear | side,
+        _ => return None,
+    };
+    Some(layout.bits())
+}
+
+/// BS.1770-5 kanal ağırlıkları, kanalın yerine göre. `layout`: symphonia `Position` bitleri
+/// (kanallar bit sırasıyla); bilinmiyorsa ya da kanal sayısını tutmuyorsa [`default_layout`].
+///
+/// Ek 1 Tablo 3: L, R, C 1,0; çevre (Ls, Rs) 1,41. Ek 3 Tablo 4: yatayda 60°–120° arası (yan)
+/// 1,41, geri kalanı (önler, arka 135°–180°, üstler) 1,0; LFE ölçüme girmez. 5.x'in arka çifti
+/// (yan kanal yoksa) çevre kanalıdır (±110°); 7.1'de arka çift ±135°'dedir, çevre yandır.
+pub fn channel_weights(channels: usize, layout: Option<u64>) -> Vec<f64> {
+    use symphonia::core::audio::Position as P;
+    // Tek kanallı şarkı iki hoparlörden aynı çalınır: iki kanal sayılır. İki kanal her zaman
+    // sol ve sağ çalınır.
+    match channels {
+        0 | 1 => return vec![2.0],
+        2 => return vec![1.0, 1.0],
+        _ => {}
+    }
+    let Some(mask) = layout
+        .filter(|m| m.count_ones() as usize == channels)
+        .or_else(|| default_layout(channels))
+    else {
+        // 8'den çok kanal, düzen bilinmiyor: 5.1'in sırası varsayılır.
+        return (0..channels)
+            .map(|c| match c {
+                3 => 0.0,
+                4 | 5 => SURROUND_WEIGHT,
                 _ => 1.0,
             })
             .collect();
+    };
+    let lfe = (P::LFE1 | P::LFE2).bits();
+    let side = (P::SIDE_LEFT | P::SIDE_RIGHT).bits();
+    let rear = (P::REAR_LEFT | P::REAR_RIGHT).bits();
+    let rear_is_surround = mask & side == 0;
+    (0..u64::BITS)
+        .map(|b| 1u64 << b)
+        .filter(|bit| mask & bit != 0)
+        .map(|bit| {
+            if bit & lfe != 0 {
+                0.0
+            } else if bit & side != 0 || (bit & rear != 0 && rear_is_surround) {
+                SURROUND_WEIGHT
+            } else {
+                1.0
+            }
+        })
+        .collect()
+}
+
+impl LoudnessMeter {
+    /// Düzeni bilinmeyen ses: kanal sayısının varsayılan düzeni ([`channel_weights`]).
+    pub fn new(sample_rate: u32, channels: usize) -> Self {
+        Self::with_layout(sample_rate, channels, None)
+    }
+
+    /// `layout`: kanalların yeri ([`crate::audio::decode::TrackInfo::channel_layout`]).
+    pub fn with_layout(sample_rate: u32, channels: usize, layout: Option<u64>) -> Self {
+        let rate = f64::from(sample_rate.max(1));
+        let channels = channels.max(1);
+        let weights = channel_weights(channels, layout);
         Self {
             filters: vec![k_weighting(rate); channels],
             weights,
@@ -390,6 +458,150 @@ mod tests {
             &[(20.0, -26.0), (20.1, -20.0), (20.0, -26.0)],
         );
         assert!((c5.integrated_lufs + 23.0).abs() < 0.1, "{c5:?}");
+    }
+
+    #[test]
+    fn ebu_3341_durum_6_bes_kanal() {
+        // 5.0 kanal 1 kHz sinüs, 20 sn; kanal başına tepe: L ve R −28, C −24, Ls ve Rs −30
+        // dBFS → −23,0 LUFS (±0,1). Sıra FLAC/Vorbis'in 5 kanal düzeni: L, R, C, Ls, Rs.
+        let levels = [-28.0, -28.0, -24.0, -30.0, -30.0];
+        let mut meter = LoudnessMeter::new(RATE, 5);
+        let mut frame = [0.0; 5];
+        for n in 0..20 * RATE as usize {
+            let x = (2.0 * PI * 1000.0 * n as f64 / f64::from(RATE)).sin();
+            for (sample, db) in frame.iter_mut().zip(levels) {
+                *sample = 10f64.powf(db / 20.0) * x;
+            }
+            meter.add(&frame);
+        }
+        let l = meter.finish().expect("ses var");
+        assert!((l.integrated_lufs + 23.0).abs() < 0.1, "{l:?}");
+    }
+
+    /// EBU Tech 3341'in gerçek tepe toleransı: beklenenin +0,2 / −0,4 dB'i içinde.
+    fn assert_true_peak(case: u32, rate: u32, l: Loudness, expected: f64) {
+        assert!(
+            l.true_peak_dbtp <= expected + 0.2 && l.true_peak_dbtp >= expected - 0.4,
+            "durum {case}, {rate} Hz: {:.3} dBTP (beklenen {expected})",
+            l.true_peak_dbtp
+        );
+    }
+
+    /// Kenarları 10 ms'lik yükselen kosinüsle yumuşatılmış pencere (EBU: "10 ms fade-in ve
+    /// fade-out").
+    fn taper(n: usize, len: usize, fade: usize) -> f64 {
+        let edge = n.min(len - 1 - n);
+        if edge >= fade {
+            1.0
+        } else {
+            0.5 - 0.5 * (PI * edge as f64 / fade as f64).cos()
+        }
+    }
+
+    /// Stereo ölçüm (iki kanal aynı).
+    fn measure_stereo(rate: u32, samples: &[f64]) -> Loudness {
+        let mut meter = LoudnessMeter::new(rate, 2);
+        for &x in samples {
+            meter.add(&[x, x]);
+        }
+        meter.finish().expect("ses var")
+    }
+
+    #[test]
+    fn ebu_3341_durum_15_19_gercek_tepe_sinusleri() {
+        // (durum, frekansın fs'e bölümü, genlik, faz derecesi, beklenen dBTP). Faz sinüsün
+        // fazıdır: fs/6'da 60° ile örnekler tepenin 1,25 dB altında kalır (kosinüs olsaydı
+        // örneklerden biri tam tepeye düşer, durum anlamsızlaşırdı).
+        let cases = [
+            (15, 4.0, 0.50, 0.0, -6.0),
+            (16, 4.0, 0.50, 45.0, -6.0),
+            (17, 6.0, 0.50, 60.0, -6.0),
+            (18, 8.0, 0.50, 67.5, -6.0),
+            (19, 4.0, 1.41, 45.0, 3.0),
+        ];
+        for rate in [44_100, 48_000] {
+            let len = rate as usize; // 1 sn: süre önemsiz (EBU)
+            let fade = rate as usize / 100;
+            for (case, divisor, amplitude, phase, expected) in cases {
+                let samples: Vec<f64> = (0..len)
+                    .map(|n| {
+                        let angle = 2.0 * PI * n as f64 / divisor + phase * PI / 180.0;
+                        amplitude * angle.sin() * taper(n, len, fade)
+                    })
+                    .collect();
+                assert_true_peak(case, rate, measure_stereo(rate, &samples), expected);
+            }
+        }
+    }
+
+    /// EBU Tech 3341 durum 20–23'ün sinyali: 4·fs'de üretilen fs/6, 0,50 genlikli sinüs; içinde
+    /// fazı iki yanda da kesintisiz süren tek bir fs/4, 1,00 genlikli dönem. Alçak geçiren
+    /// (örtüşme önleyici) süzgeçten geçirilip `offset` (4·fs örneği) kaydırılarak fs'e seyreltilir.
+    fn ebu_peak_restoration(rate: u32, offset: usize) -> Vec<f64> {
+        let fast = 4 * rate as usize;
+        let len = fast / 2; // 0,5 sn (süre önemsiz)
+                            // Tek dönem fs/6'nın sıfırdan yükselen geçişinde başlar (4·fs'de fs/6 dönemi 24
+                            // örnek): faz da değer de kesintisiz kalır; dönem 16 örnek, tepesi tam 1,00.
+        let burst = len / 2 - (len / 2) % 24;
+        let fade = fast / 100;
+        let mut phase = 0.0;
+        let signal: Vec<f64> = (0..len)
+            .map(|n| {
+                let (cycles_per_sample, amplitude) = if (burst..burst + 16).contains(&n) {
+                    (1.0 / 16.0, 1.0)
+                } else {
+                    (1.0 / 24.0, 0.5)
+                };
+                let x = amplitude * (2.0 * PI * phase).sin() * taper(n, len, fade);
+                phase = (phase + cycles_per_sample).fract();
+                x
+            })
+            .collect();
+        // Örtüşme önleyici süzgeç: Blackman pencereli sinc, 511 katsayı, kesim 0,45·fs (fs/6
+        // tonu geçirme bandında kalır, fs/2 üstü ≥ 70 dB bastırılır). Gecikme (510/2) düşülür:
+        // `offset` 0'da seyreltilmiş örnekler 4·fs ızgarasının 0, 4, 8... örnekleridir.
+        const TAPS: usize = 511;
+        let cutoff = 0.45 * f64::from(rate) / fast as f64;
+        let center = (TAPS - 1) as f64 / 2.0;
+        let mut kernel: Vec<f64> = (0..TAPS)
+            .map(|i| {
+                let m = i as f64 - center;
+                let sinc = if m == 0.0 {
+                    2.0 * cutoff
+                } else {
+                    (2.0 * PI * cutoff * m).sin() / (PI * m)
+                };
+                let w = 0.42 - 0.5 * (2.0 * PI * i as f64 / (TAPS - 1) as f64).cos()
+                    + 0.08 * (4.0 * PI * i as f64 / (TAPS - 1) as f64).cos();
+                sinc * w
+            })
+            .collect();
+        let sum: f64 = kernel.iter().sum();
+        kernel.iter_mut().for_each(|c| *c /= sum);
+        let half = TAPS / 2;
+        (offset..len)
+            .step_by(4)
+            .map(|n| {
+                kernel
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, &c)| (n + half).checked_sub(i).map(|j| (j, c)))
+                    .filter(|&(j, _)| j < len)
+                    .map(|(j, c)| c * signal[j])
+                    .sum()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn ebu_3341_durum_20_23_tepe_yeniden_kurulumu() {
+        for rate in [44_100, 48_000] {
+            for offset in 0..4 {
+                let samples = ebu_peak_restoration(rate, offset);
+                let case = 20 + offset as u32;
+                assert_true_peak(case, rate, measure_stereo(rate, &samples), 0.0);
+            }
+        }
     }
 
     #[test]

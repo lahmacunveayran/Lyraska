@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use serde::Serialize;
+use symphonia::core::audio::Channels;
 use symphonia::core::codecs::audio::well_known::CODEC_ID_OPUS;
 use symphonia::core::codecs::audio::{AudioCodecParameters, AudioDecoder, AudioDecoderOptions};
 use symphonia::core::codecs::registry::CodecRegistry;
@@ -73,6 +74,11 @@ pub struct TrackInfo {
     pub codec: String,
     pub sample_rate: u32,
     pub channels: usize,
+    /// Kanalların yeri: symphonia'nın `Position` bitleri (ilk 18'i Microsoft'un WAV kanal
+    /// maskesiyle aynı); çözülen kanallar bit sırasıyladır. Dosya bildirmiyorsa `None`. Yalnızca
+    /// çekirdekte kullanılır (ses yüksekliğinin kanal ağırlıkları), arayüze gitmez.
+    #[serde(skip)]
+    pub channel_layout: Option<u64>,
     /// Süre (saniye); dosya bildirmiyorsa `None`.
     pub duration_secs: Option<f64>,
 }
@@ -158,6 +164,10 @@ impl Decoder {
                 "örnekleme hızı geçersiz ({sample_rate} Hz)"
             )));
         }
+        let channel_layout = match params.channels.as_ref() {
+            Some(Channels::Positioned(positions)) => Some(positions.bits()),
+            _ => None,
+        };
         let channels = params
             .channels
             .as_ref()
@@ -219,6 +229,7 @@ impl Decoder {
             codec: decoder.codec_info().short_name.to_owned(),
             sample_rate,
             channels,
+            channel_layout,
             duration_secs: playable_frames.map(|n| n as f64 / f64::from(sample_rate)),
         };
 

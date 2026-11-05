@@ -68,6 +68,53 @@ pub fn write_wav_bits(
         .unwrap();
 }
 
+/// Kanal düzeni bildiren (WAVE_FORMAT_EXTENSIBLE) 24 bit PCM WAV yazar. `mask` Microsoft'un
+/// kanal maskesidir (ör. 0x607 = L, R, C, yan sol, yan sağ); kanallar maskenin bit sırasıyla.
+pub fn write_wav_layout(
+    path: &Path,
+    rate: u32,
+    mask: u32,
+    frames: usize,
+    sample: impl Fn(usize, usize) -> f64,
+) {
+    const BYTES: usize = 3;
+    let channels = mask.count_ones() as u16;
+    let data_len = frames * usize::from(channels) * BYTES;
+    let block = channels * BYTES as u16;
+    let mut bytes = Vec::with_capacity(68 + data_len);
+    bytes.extend_from_slice(b"RIFF");
+    bytes.extend_from_slice(&((60 + data_len) as u32).to_le_bytes());
+    bytes.extend_from_slice(b"WAVEfmt ");
+    bytes.extend_from_slice(&40u32.to_le_bytes());
+    bytes.extend_from_slice(&0xFFFEu16.to_le_bytes()); // WAVE_FORMAT_EXTENSIBLE
+    bytes.extend_from_slice(&channels.to_le_bytes());
+    bytes.extend_from_slice(&rate.to_le_bytes());
+    bytes.extend_from_slice(&(rate * u32::from(block)).to_le_bytes());
+    bytes.extend_from_slice(&block.to_le_bytes());
+    bytes.extend_from_slice(&24u16.to_le_bytes());
+    bytes.extend_from_slice(&22u16.to_le_bytes()); // ek alanın boyu
+    bytes.extend_from_slice(&24u16.to_le_bytes()); // geçerli bit
+    bytes.extend_from_slice(&mask.to_le_bytes());
+    // KSDATAFORMAT_SUBTYPE_PCM
+    bytes.extend_from_slice(&[
+        0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b,
+        0x71,
+    ]);
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&(data_len as u32).to_le_bytes());
+    let full_scale = f64::from((1i32 << 23) - 1);
+    for frame in 0..frames {
+        for channel in 0..usize::from(channels) {
+            let value = (sample(frame, channel).clamp(-1.0, 1.0) * full_scale).round() as i32;
+            bytes.extend_from_slice(&value.to_le_bytes()[..BYTES]);
+        }
+    }
+    std::fs::File::create(path)
+        .unwrap()
+        .write_all(&bytes)
+        .unwrap();
+}
+
 /// Bilinen frekanstaki sinüse en küçük kareler uydurma: genlik ve kalanın (gürültü +
 /// bozulma, THD+N) sinüse göre seviyesi (dB).
 pub fn fit(signal: &[f64], freq: f64, rate: u32) -> (f64, f64) {
@@ -118,6 +165,7 @@ pub fn track_info(path: &str) -> crate::audio::decode::TrackInfo {
         codec: "flac".to_owned(),
         sample_rate: 44_100,
         channels: 2,
+        channel_layout: None,
         duration_secs: Some(200.0),
     }
 }
