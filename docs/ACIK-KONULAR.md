@@ -26,6 +26,7 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 
 - `usePlayer.test.ts` "çekirdek ölçüm anını bildirince…" Windows'ta hep düşüyor (zamanlayıcı ~15,6 ms adımlı;
   DOGRULAMA G1). Mevcut test: düzeltilsin mi (zamanı testin kendisi yönetsin, sınır aynı), sahibinin kararı.
+- Bit-perfect yeniden denensin (DOGRULAMA B6, B11; sesi kısık): zamanlama artık ölçülüyor (5 Kasım, vızıltı).
 - DOGRULAMA A7–A11 sonuçları (0.0.64) ve A12 (0.0.65: `.opus`/`.webm`); A13–A14 klasör izleme (0.0.72); A15 drop
   kendi şarkılarında (0.0.73).
 
@@ -40,6 +41,7 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
   ayrıntılı neden artık günlüğe yazılıyor: yinelenirse günlükteki nedene göre düzeltilir.
 - `components.test.tsx` "çizim yükü" testi bütün testler birlikte koşarken bir kez düştü (31 Ekim, Windows; tek
   başına 5/5 geçti). Yinelenirse önce yakalayan deneme, sonra sahibine.
+- Rust `arayuzdeki_ekolayzer_korumasi_aygitin_hizinda` bir kez düştü (5 Kasım; tek başına 5/5); yinelenirse yakala.
 - `PlaylistPage` çift tıklama testi (`playlists.test.tsx`) yüklü makinede bir kez düştü: `playRef` `useEffect`'te
   güncelleniyor; `useLayoutEffect` önerildi (önce yakalayan test).
 - Kütüphane taslakları: Gökyüzü onaylandı ("fena olmuş"); kapak ve sanatçı levhalarının renk düzeyi soruldu, cevap

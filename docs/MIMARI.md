@@ -125,7 +125,13 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
     (32 → 24 → 16 bit, `output::IntFormat`). Yeniden örnekleme yoktur.
   - Ses çıkışı kulaklık düzeltmesini, ekolayzeri ve eşitlemeyi atlar (`RenderControls.bit_perfect`). Çözücü
     tamsayıları 2'nin kuvvetine böldüğü için çıkışta aynı kuvvetle çarpılan örnekler bit bit aynıdır.
-  - Özel mod yoklamalıdır (olay güdümlü özel mod bazı USB aygıtlarda takılır); arabellek ~100 ms.
+  - Özel modun iki zamanlaması var, ikisi de bazı sürücülerde bozuk: yoklamalı (arabellek ~100 ms) USB ses
+    sürücüsünde iyi, Realtek'te aygıt arabelleği hiç tüketmiyor ve ilk arabelleği döngüyle çalıyor (vızıltı; 5 Kasım
+    2026, ölçülen oran 0); olaylı (arabellek bir periyot, ~10 ms, her yazım tam arabellek) Realtek'te iyi, USB
+    sürücüsünde takılabiliyor (wasapi-rs belgesi). Açılışta önce yoklamalı 400 ms sessizlikle ölçülür (ilk 150 ms sayılmaz: geç
+    başlayan aygıt; kalan pencerede tüketilen ≥ sürenin yarısı), olmazsa olaylı denenir (ilk olay 500 ms); o da olmazsa
+    şarkı paylaşımlı yoldan çalar. Karar aygıt ve hız başına hatırlanır; başarısızlık ancak iki kez üst üste olursa
+    kalıcıdır. Şarkı sonunda bir arabellek sessizlik yazılır; "bitti" yalnızca o kalınca denir.
   - Aygıt biçimi desteklemiyorsa ya da başka program aygıtı tutuyorsa ses paylaşımlı yoldan çalar; neden sinyal
     yolunda (`SignalPath.notice`) yazar.
   - Boşluksuz geçişte hızı farklı şarkı dönüştürülmez: oturum biter, sıradaki şarkı kendi hızında açılır.

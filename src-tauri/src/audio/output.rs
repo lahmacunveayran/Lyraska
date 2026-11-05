@@ -130,6 +130,20 @@ pub fn exclusive_format(sample_rate: u32, channels: usize) -> Result<IntFormat, 
     }
 }
 
+/// Varsayılan aygıtta bu hızda özel modun ölçülen zamanlaması ("yoklamalı", "olaylı", "kullanılamıyor");
+/// özel mod henüz açılmadıysa `None`. Denemeler ve tanı için.
+pub fn exclusive_timing(sample_rate: u32) -> Option<&'static str> {
+    #[cfg(all(windows, not(test)))]
+    {
+        wasapi::exclusive_timing(sample_rate)
+    }
+    #[cfg(any(not(windows), test))]
+    {
+        let _ = sample_rate;
+        None
+    }
+}
+
 /// Duraklatma geçişinin hoparlöre ulaşıp ulaşmadığını izler.
 ///
 /// Aygıt arabelleği sesi ~100 ms önden tutar: geçiş yazıldığı anda değil, ancak

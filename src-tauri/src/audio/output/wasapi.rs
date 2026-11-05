@@ -3,10 +3,13 @@
 //! - **Paylaşımlı mod** (olay güdümlü): ses motoru her periyotta (genellikle 10 ms) bir
 //!   olay gönderir; arabellekteki boş yer halka tampondan doldurulur. Arabellek 100 ms'dir:
 //!   işletim sistemi iş parçacığımızı kısa süre geciktirse bile ses kesilmez.
-//! - **Özel mod** (bit-perfect, yoklamalı): aygıt yalnızca Lyraska'ya ayrılır; şarkının
-//!   hızında ve aygıtın kabul ettiği tamsayı biçiminde açılır. Olay güdümlü özel mod bazı
-//!   USB aygıtlarda takılmaya yol açtığı için yoklama kullanılır: arabellek ~100 ms, aygıtın
-//!   periyodunun yarısında bir doldurulur.
+//! - **Özel mod** (bit-perfect): aygıt yalnızca Lyraska'ya ayrılır; şarkının hızında ve aygıtın
+//!   kabul ettiği tamsayı biçiminde açılır. İki zamanlama vardır, ikisi de bazı sürücülerde bozuk:
+//!   yoklamalı (arabellek ~100 ms) standart USB ses sürücüsünde iyidir ama Realtek'te aygıt
+//!   arabelleği boşaltmaz, ilk arabelleği döngüyle çalar (vızıltı); olaylı (arabellek bir periyot)
+//!   Realtek'te iyidir ama USB sürücüsünde takılabilir (wasapi-rs belgesi). Önce yoklamalı denenir:
+//!   açılışta sessizlikle aygıtın gerçekten tükettiği ölçülür, tüketmiyorsa olaylıya geçilir. Karar
+//!   aygıt başına hatırlanır (sarmada yeniden ölçülmez).
 //! - **Aygıt değişimi**: ayrı bir izleme iş parçacığı yarım saniyede bir varsayılan aygıtın
 //!   kimliğine bakar; değişmişse (kulaklık takıldı) ya da akış koparsa (kulaklık çıkarıldı)
 //!   `SharedState::device_changed` kaldırılır ve oynatıcı şarkıyı yeni varsayılan aygıtta
@@ -17,9 +20,9 @@
 
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::{self, SyncSender};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use rtrb::Consumer;
 use wasapi::{
@@ -32,10 +35,22 @@ use crate::audio::player::SharedState;
 use crate::audio::render::Renderer;
 use crate::audio::{AudioError, Sample};
 
-/// Aygıt arabelleğinin süresi (100 ns birimi): 100 ms.
+/// Paylaşımlı modda aygıt arabelleğinin süresi (100 ns birimi): 100 ms.
 const BUFFER_DURATION_HNS: i64 = 1_000_000;
 /// Bu süre içinde olay gelmezse aygıt kopmuş sayılır.
 const EVENT_TIMEOUT_MS: u32 = 2_000;
+/// Özel modda açılıştaki ilk olayın en geç geleceği süre; gelmezse aygıt paylaşımlı yoldan çalar.
+const EXCLUSIVE_FIRST_EVENT_MS: u32 = 500;
+/// Yoklamalı özel modu açılışta sessizlikle ölçme süresi.
+const POLLING_PROBE: Duration = Duration::from_millis(400);
+/// Ölçümün ilk kısmı sayılmaz: aygıt saatini geç yakalasa (USB DAC hız değişiminde, uyanan codec)
+/// da yanlış karar çıkmasın.
+const POLLING_SETTLE: Duration = Duration::from_millis(150);
+/// Yoklamalı özel modda aygıt ölçüm penceresinin en az bu kadarını tüketmeli (Realtek: 0).
+const POLLING_MIN_RATIO: f64 = 0.5;
+/// Yoklamalı akış bırakıldıktan sonra olaylı açılış "aygıt kullanımda" derse deneme sayısı ve arası.
+const REOPEN_TRIES: usize = 3;
+const REOPEN_WAIT: Duration = Duration::from_millis(50);
 /// Şarkı sonunda aygıttaki son örneklerin çalınmasını beklerken yoklama aralığı.
 const DRAIN_POLL: Duration = Duration::from_millis(5);
 /// Intel HDA uyumlu aygıtlar özel modda arabelleğin 128 baytın katı olmasını ister.
@@ -64,11 +79,12 @@ fn hresult(error: &WasapiError) -> Option<u32> {
 }
 
 /// Özel modun açılamama nedeni, kullanıcının anlayacağı biçimde.
+/// Aygıt başka bir akışa ayrılmışken özel modun nedeni.
+const IN_USE: &str = "aygıtı başka bir program özel modda kullanıyor";
+
 fn exclusive_reason(error: &WasapiError) -> String {
     match hresult(error) {
-        Some(AUDCLNT_E_DEVICE_IN_USE) => {
-            "aygıtı başka bir program özel modda kullanıyor".to_owned()
-        }
+        Some(AUDCLNT_E_DEVICE_IN_USE) => IN_USE.to_owned(),
         Some(AUDCLNT_E_EXCLUSIVE_MODE_NOT_ALLOWED) => "Windows bu aygıtta özel moda izin vermiyor \
              (Ses ayarları > aygıt > Gelişmiş: \"Uygulamaların bu cihazın özel denetimini \
              almasına izin ver\")"
@@ -138,7 +154,7 @@ pub fn exclusive_format(sample_rate: u32, channels: usize) -> Result<IntFormat, 
 }
 
 /// Ses iş parçacığını Windows'un çoklu ortam sınıf zamanlayıcısına (MMCSS) "Pro Audio" görevi
-/// olarak kaydeder: iş parçacığı normal önceliğin üstüne çıkar, ağır yükte bile 100 ms'lik
+/// olarak kaydeder: iş parçacığı normal önceliğin üstüne çıkar, ağır yükte bile
 /// aygıt arabelleği boşalmadan sıraya girer. Dönen tutamaç iş parçacığı bitince geri verilir.
 /// Başarısızlık (eski Windows, kısıtlı hesap) hata değildir: normal öncelikle sürülür.
 ///
@@ -246,16 +262,76 @@ pub fn spawn(
     }
 }
 
+/// Akışın zamanlaması.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Timing {
+    /// Paylaşımlı mod: ses motorunun olayı, boş yer kadar yazılır.
+    Shared,
+    /// Yoklamalı özel mod: arabellek ~100 ms, periyodun yarısında bir boş yer doldurulur.
+    Polling,
+    /// Olaylı özel mod: arabellek bir periyot; her olayda tam bir arabellek yazılır (azı aygıt
+    /// hatası 0x88890016). Dolu kısım (padding) hep bir arabellek görünür, bitişi ölçemez.
+    Events,
+}
+
+/// Bir aygıt ve hız için özel modun ölçülmüş sonucu (program açık kaldıkça).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Verdict {
+    Polling,
+    Events,
+    /// İki zamanlama da bir kez çalışmadı: bir sonraki açılışta yeniden ölçülür (geçici aksaklık
+    /// kalıcı karara dönmesin).
+    FailedOnce,
+    /// İki zamanlama da iki kez üst üste çalışmadı: özel mod hemen reddedilir, şarkı paylaşımlı
+    /// yoldan çalar (her sarmada boşuna beklenmez).
+    Unusable,
+}
+
+/// Ölçülmüş kararlar; anahtar aygıt kimliği ve hız. Yalnızca akış açılırken (ses döngüsünden önce)
+/// okunur ve yazılır.
+static VERDICTS: Mutex<Vec<(String, Verdict)>> = Mutex::new(Vec::new());
+
+fn verdict_key(id: &str, sample_rate: u32) -> String {
+    format!("{id}|{sample_rate}")
+}
+
+fn verdict(key: &str) -> Option<Verdict> {
+    let verdicts = VERDICTS.lock().ok()?;
+    verdicts.iter().find(|(k, _)| k == key).map(|&(_, v)| v)
+}
+
+fn remember(key: &str, value: Verdict) {
+    if let Ok(mut verdicts) = VERDICTS.lock() {
+        verdicts.retain(|(k, _)| k != key);
+        verdicts.push((key.to_owned(), value));
+    }
+}
+
+/// Varsayılan aygıtta bu hızda özel modun hangi zamanlamayla çaldığı (ölçüldüyse): "yoklamalı",
+/// "olaylı" ya da "kullanılamıyor". Denemeler ve tanı için.
+pub fn exclusive_timing(sample_rate: u32) -> Option<&'static str> {
+    let _ = initialize_mta();
+    let id = default_device().ok()?.get_id().ok()?;
+    Some(match verdict(&verdict_key(&id, sample_rate))? {
+        Verdict::Polling => "yoklamalı",
+        Verdict::Events => "olaylı",
+        Verdict::FailedOnce | Verdict::Unusable => "kullanılamıyor",
+    })
+}
+
 /// Açılmış akış: istemci, biçim ve nasıl beklendiği.
 struct Stream {
     client: AudioClient,
-    /// Paylaşımlı modda ses motorunun olayı; özel modda yoklanır (`None`).
+    timing: Timing,
+    /// Aygıt bir arabellek daha isteyince gelen olay (yoklamalı özel modda `None`).
     event: Option<Handle>,
-    /// Özel modda yoklama aralığı.
+    /// Yoklamalı özel modda yoklama aralığı.
     poll: Duration,
     /// Aygıta yazılan örnek: `None` 32-bit kayan nokta, `Some` tamsayı.
     int: Option<IntFormat>,
     block_align: usize,
+    /// Açılıştaki ölçümde sessizlikle başlatıldı mı.
+    started: bool,
 }
 
 /// Paylaşımlı mod: şarkının (aygıta çevrilmiş) biçiminde 32-bit kayan nokta akış.
@@ -285,15 +361,90 @@ fn open_shared(device: &Device, spec: OutputSpec) -> Result<Stream, AudioError> 
     Ok(Stream {
         block_align: format.get_blockalign() as usize,
         client,
+        timing: Timing::Shared,
         event: Some(event),
         poll: DRAIN_POLL,
         int: None,
+        started: false,
     })
 }
 
 /// Özel mod (bit-perfect): şarkının hızında, aygıtın tamsayı biçiminde. Açılamazsa
 /// [`AudioError::Exclusive`] döner; oynatıcı paylaşımlı moda geçer.
+///
+/// Yoklamalı özel mod önce sessizlikle ölçülür ([`polling_consumes`]): Realtek sürücüsü bu modda
+/// arabelleği hiç boşaltmıyordu (dolu kısım hep tam, saniyede 44 100 yerine ~7 500 kare), ilk
+/// arabelleği döngüyle çalıyordu: şarkı yerine "uyarı sesi gibi" vızıltı (5 Kasım 2026). O zaman
+/// olaylı özel mod denenir; ilk olayı da gelmezse özel mod bu aygıtta kullanılamaz.
 fn open_exclusive(device: &Device, spec: OutputSpec, int: IntFormat) -> Result<Stream, AudioError> {
+    let key = device
+        .get_id()
+        .ok()
+        .map(|id| verdict_key(&id, spec.sample_rate));
+    let note = |value: Verdict| {
+        if let Some(key) = &key {
+            remember(key, value);
+        }
+    };
+    let probe = |e: WasapiError| AudioError::Exclusive(exclusive_reason(&e));
+    let known = key.as_deref().and_then(verdict);
+    match known {
+        Some(Verdict::Polling) => return open_exclusive_with(device, spec, int, Timing::Polling),
+        Some(Verdict::Unusable) => return Err(AudioError::Exclusive(NO_EVENTS.to_owned())),
+        Some(Verdict::Events) => {}
+        None | Some(Verdict::FailedOnce) => {
+            let mut stream = open_exclusive_with(device, spec, int, Timing::Polling)?;
+            if polling_consumes(&mut stream, spec.sample_rate).map_err(probe)? {
+                note(Verdict::Polling);
+                return Ok(stream);
+            }
+            // Aygıt bırakılır (istemci düşer), aynı aygıt olaylı açılır.
+            let _ = stream.client.stop_stream();
+        }
+    }
+    let mut stream = open_events_after_release(device, spec, int)?;
+    if first_event_arrives(&mut stream).map_err(probe)? {
+        note(Verdict::Events);
+        Ok(stream)
+    } else {
+        let _ = stream.client.stop_stream();
+        note(if known == Some(Verdict::FailedOnce) {
+            Verdict::Unusable
+        } else {
+            Verdict::FailedOnce
+        });
+        Err(AudioError::Exclusive(NO_EVENTS.to_owned()))
+    }
+}
+
+/// Olaylı özel mod. Az önce bırakılan yoklamalı akışı sürücü geç bırakırsa "aygıt kullanımda"
+/// dönebilir: kısa aralarla birkaç kez denenir.
+fn open_events_after_release(
+    device: &Device,
+    spec: OutputSpec,
+    int: IntFormat,
+) -> Result<Stream, AudioError> {
+    let mut tries = 1;
+    loop {
+        match open_exclusive_with(device, spec, int, Timing::Events) {
+            Err(AudioError::Exclusive(reason)) if tries < REOPEN_TRIES && reason == IN_USE => {
+                tries += 1;
+                std::thread::sleep(REOPEN_WAIT);
+            }
+            other => return other,
+        }
+    }
+}
+
+/// İki zamanlama da çalışmayınca sinyal yolunda gösterilen neden.
+const NO_EVENTS: &str = "aygıt özel modda ses istemedi (sürücü yanıt vermiyor)";
+
+fn open_exclusive_with(
+    device: &Device,
+    spec: OutputSpec,
+    int: IntFormat,
+    timing: Timing,
+) -> Result<Stream, AudioError> {
     let exclusive = |e: WasapiError| AudioError::Exclusive(exclusive_reason(&e));
     let mut client = device.get_iaudioclient().map_err(exclusive)?;
     // Aygıt biçimi kanal maskesi ya da yapı türüyle kabul etmiş olabilir: kabul edileni kullan.
@@ -305,23 +456,94 @@ fn open_exclusive(device: &Device, spec: OutputSpec, int: IntFormat) -> Result<S
         .calculate_aligned_period_near(default_period, Some(EXCLUSIVE_ALIGN_BYTES), &format)
         .map_err(exclusive)?
         .max(1);
-    // Arabellek periyodun tam katı ve en az ~100 ms (hizası da periyodunki gibi kalır).
-    let periods = (BUFFER_DURATION_HNS + period - 1) / period;
-    let mode = StreamMode::PollingExclusive {
-        period_hns: period,
-        buffer_duration_hns: period * periods.max(2),
+    let events = timing == Timing::Events;
+    let mode = if events {
+        StreamMode::EventsExclusive { period_hns: period }
+    } else {
+        // Arabellek periyodun tam katı ve en az ~100 ms (hizası da periyodunki gibi kalır).
+        let periods = (BUFFER_DURATION_HNS + period - 1) / period;
+        StreamMode::PollingExclusive {
+            period_hns: period,
+            buffer_duration_hns: period * periods.max(2),
+        }
     };
     client
         .initialize_client(&format, &Direction::Render, &mode)
         .map_err(exclusive)?;
+    let event = if events {
+        Some(client.set_get_eventhandle().map_err(exclusive)?)
+    } else {
+        None
+    };
     Ok(Stream {
         block_align: format.get_blockalign() as usize,
         client,
-        event: None,
+        timing,
+        event,
         // 100 ns birimindeki periyodun yarısı.
         poll: Duration::from_nanos((period as u64 * 100 / 2).max(1_000_000)),
         int: Some(int),
+        started: false,
     })
+}
+
+/// Yoklamalı özel modda aygıt sesi gerçekten tüketiyor mu: arabellek sessizlikle doldurulup akış
+/// başlatılır, [`POLLING_PROBE`] boyunca boşalan yer sessizlikle doldurulur. Tüketilen kare
+/// (yazılan + arabellekte azalan) ilk [`POLLING_SETTLE`] sayılmadan, kalan pencerede ölçülür; hızın
+/// en az [`POLLING_MIN_RATIO`] kadarı olmalı. Akış başlamış kalır; ses döngüsü arabelleği şarkıyla
+/// doldurmayı sürdürür.
+fn polling_consumes(stream: &mut Stream, sample_rate: u32) -> Result<bool, WasapiError> {
+    let client = &stream.client;
+    let render = client.get_audiorenderclient()?;
+    let buffer = client.get_buffer_size()? as usize;
+    let zeros = vec![0u8; buffer * stream.block_align];
+    render.write_to_device(buffer, &zeros, None)?;
+    client.start_stream()?;
+    stream.started = true;
+    let begin = Instant::now();
+    let mut written = 0usize;
+    // Pencerenin başı: (an, o ana kadar tüketilen).
+    let mut window: Option<(Instant, usize)> = None;
+    loop {
+        std::thread::sleep(stream.poll);
+        let space = (client.get_available_space_in_frames()? as usize).min(buffer);
+        if space > 0 {
+            render.write_to_device(space, &zeros[..space * stream.block_align], None)?;
+            written += space;
+        }
+        let now = Instant::now();
+        let elapsed = now.duration_since(begin);
+        if elapsed < POLLING_SETTLE {
+            continue;
+        }
+        let padding = client.get_current_padding()? as usize;
+        let consumed = (written + buffer).saturating_sub(padding);
+        match window {
+            None => window = Some((now, consumed)),
+            Some((from, at_from)) if elapsed >= POLLING_PROBE => {
+                let frames = consumed.saturating_sub(at_from) as f64;
+                let expected = now.duration_since(from).as_secs_f64() * f64::from(sample_rate);
+                return Ok(frames >= POLLING_MIN_RATIO * expected);
+            }
+            Some(_) => {}
+        }
+    }
+}
+
+/// Olaylı özel mod bazı sürücülerde hiç olay vermez (ses donar): bir arabellek sessizlikle
+/// başlatılıp ilk olay [`EXCLUSIVE_FIRST_EVENT_MS`] beklenir.
+fn first_event_arrives(stream: &mut Stream) -> Result<bool, WasapiError> {
+    let client = &stream.client;
+    let render = client.get_audiorenderclient()?;
+    let buffer = client.get_buffer_size()? as usize;
+    let zeros = vec![0u8; buffer * stream.block_align];
+    render.write_to_device(buffer, &zeros, None)?;
+    client.start_stream()?;
+    stream.started = true;
+    Ok(stream
+        .event
+        .as_ref()
+        .is_some_and(|event| event.wait_for_event(EXCLUSIVE_FIRST_EVENT_MS).is_ok()))
 }
 
 fn run(
@@ -359,14 +581,15 @@ fn run(
     let mut bytes = vec![0u8; buffer_frames * stream.block_align];
     let mut renderer = Renderer::new(spec.channels, spec.sample_rate, shared.controls.clone());
     let mut consumed: u64 = 0;
-    let mut started = false;
+    // Özel mod açılıştaki ölçümde sessizlikle başlamış olabilir.
+    let mut started = stream.started;
     // Şarkı bitince taşma korumasının gecikme hattında kalan son kareler de yazılır.
     let mut tail_left = renderer.latency_frames();
-    // Özel modda şarkının ardına yazılan sessizlik (kare). Yoklamalı özel modda arabelleğin
-    // boşalması bir kesinti sayılır ve bazı sürücüler döngüsel arabellekteki eski veriyi yeniden
-    // çalar (şarkı sonunda tık). Son kareden sonra bir arabellek dolusu sessizlik yazılır; "bitti"
-    // ancak aygıtta yalnızca o sessizlik kalınca denir (#79).
-    let exclusive = stream.int.is_some();
+    // Özel modda şarkının ardına yazılan sessizlik (kare). Özel modda arabelleğin boşalması bir
+    // kesinti sayılır ve bazı sürücüler döngüsel arabellekteki eski veriyi yeniden çalar (şarkı
+    // sonunda tık). Son kareden sonra bir arabellek dolusu sessizlik yazılır; "bitti" ancak aygıtta
+    // yalnızca o sessizlik kalınca (olaylıda: aygıt onu da isteyince) denir (#79).
+    let timing = stream.timing;
     let mut silence_written: u64 = 0;
     // Duraklatma geçişi hoparlöre ulaştı mı (oturum ancak o zaman kapatılır)?
     let mut fade = FadeWatch::default();
@@ -392,9 +615,12 @@ fn run(
                 .map_err(fail("Ses aygıtı okunamadı"))? as usize;
             let mut frames = space.min(buffer_frames);
             if source_done {
-                // Sona sessizlik ekleme: yalnızca gecikme hattındaki son kareler.
-                frames = frames.min(tail_left);
-                tail_left -= frames;
+                // Sona sessizlik ekleme: yalnızca gecikme hattındaki son kareler. Olaylı özel modda
+                // her seferinde tam bir arabellek yazılır (azı aygıt hatası); kalanı sessizlik.
+                if timing != Timing::Events {
+                    frames = frames.min(tail_left);
+                }
+                tail_left = tail_left.saturating_sub(frames);
             }
             if frames > 0 {
                 let out = &mut samples[..frames * spec.channels];
@@ -425,7 +651,8 @@ fn run(
             }
         }
 
-        // Arabellek ilk kez dolduktan sonra başlat: çalma sessizlikle başlamasın.
+        // Arabellek ilk kez dolduktan sonra başlat: çalma sessizlikle başlamasın (özel mod
+        // açılıştaki ölçümde başlamış olabilir).
         if !started {
             client
                 .start_stream()
@@ -448,29 +675,53 @@ fn run(
         shared.record_heard(consumed.saturating_sub(latency), true);
 
         if draining {
-            if exclusive && silence_written == 0 {
-                let space = client
-                    .get_available_space_in_frames()
-                    .map_err(fail("Ses aygıtı okunamadı"))? as usize;
-                let frames = space.min(buffer_frames);
-                if frames > 0 {
-                    let len = frames * stream.block_align;
-                    bytes[..len].fill(0);
-                    render_client
-                        .write_to_device(frames, &bytes[..len], None)
-                        .map_err(fail("Ses aygıtına yazılamadı"))?;
-                    silence_written = frames as u64;
+            let done = match timing {
+                Timing::Shared => padding == 0,
+                Timing::Polling => {
+                    if silence_written == 0 {
+                        let space = client
+                            .get_available_space_in_frames()
+                            .map_err(fail("Ses aygıtı okunamadı"))?
+                            as usize;
+                        let frames = space.min(buffer_frames);
+                        if frames > 0 {
+                            let len = frames * stream.block_align;
+                            bytes[..len].fill(0);
+                            render_client
+                                .write_to_device(frames, &bytes[..len], None)
+                                .map_err(fail("Ses aygıtına yazılamadı"))?;
+                            silence_written = frames as u64;
+                        }
+                    }
+                    padding <= silence_written
                 }
-            }
-            if padding <= silence_written {
+                // Aygıt bir arabellek daha istedi (önceki olay): ilk kez sessizlik yazılır, ikinci
+                // kez isteyince son ses çalınmıştır.
+                Timing::Events => {
+                    if silence_written == 0 {
+                        let len = buffer_frames * stream.block_align;
+                        bytes[..len].fill(0);
+                        render_client
+                            .write_to_device(buffer_frames, &bytes[..len], None)
+                            .map_err(fail("Ses aygıtına yazılamadı"))?;
+                        silence_written = buffer_frames as u64;
+                        false
+                    } else {
+                        true
+                    }
+                }
+            };
+            if done {
                 // Şarkının bütün kareleri çalındı (aygıtta yalnızca sessizlik kaldı): konum tam
                 // şarkı sonu.
                 shared.record_heard(consumed, true);
                 shared.ended.store(true, Ordering::Release);
                 break Ok(());
             }
-            std::thread::sleep(DRAIN_POLL);
-            continue;
+            if timing != Timing::Events {
+                std::thread::sleep(DRAIN_POLL);
+                continue;
+            }
         }
 
         match &stream.event {
@@ -481,7 +732,7 @@ fn run(
                     ));
                 }
             }
-            // Özel mod (yoklama): arabellek ~100 ms; yarım periyotta bir doldurulur.
+            // Yoklamalı özel mod: arabellek ~100 ms; yarım periyotta bir doldurulur.
             None => std::thread::sleep(stream.poll),
         }
     };
