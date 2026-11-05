@@ -246,9 +246,10 @@ fn default_layout(channels: usize) -> Option<u64> {
 /// BS.1770-5 kanal ağırlıkları, kanalın yerine göre. `layout`: symphonia `Position` bitleri
 /// (kanallar bit sırasıyla); bilinmiyorsa ya da kanal sayısını tutmuyorsa [`default_layout`].
 ///
-/// Ek 1 Tablo 3: L, R, C 1,0; çevre (Ls, Rs) 1,41. Ek 3 Tablo 4: yatayda 60°–120° arası (yan)
-/// 1,41, geri kalanı (önler, arka 135°–180°, üstler) 1,0; LFE ölçüme girmez. 5.x'in arka çifti
-/// (yan kanal yoksa) çevre kanalıdır (±110°); 7.1'de arka çift ±135°'dedir, çevre yandır.
+/// Ek 1 Tablo 3: L, R, C 1,0; çevre (Ls, Rs) 1,41. Ek 3 Tablo 4 ve 5: yatayda 60°–120° arası
+/// (yan ±90°, geniş ön ±60°) 1,41, geri kalanı (önler, arka 135°–180°, üstler) 1,0; LFE ölçüme
+/// girmez. 5.x'in arka çifti (yan kanal yoksa) çevre kanalıdır (±110°); 7.1'de arka çift
+/// ±135°'dedir, çevre yandır.
 pub fn channel_weights(channels: usize, layout: Option<u64>) -> Vec<f64> {
     use symphonia::core::audio::Position as P;
     // Tek kanallı şarkı iki hoparlörden aynı çalınır: iki kanal sayılır. İki kanal her zaman
@@ -273,6 +274,7 @@ pub fn channel_weights(channels: usize, layout: Option<u64>) -> Vec<f64> {
     };
     let lfe = (P::LFE1 | P::LFE2).bits();
     let side = (P::SIDE_LEFT | P::SIDE_RIGHT).bits();
+    let wide = (P::FRONT_LEFT_WIDE | P::FRONT_RIGHT_WIDE).bits();
     let rear = (P::REAR_LEFT | P::REAR_RIGHT).bits();
     let rear_is_surround = mask & side == 0;
     (0..u64::BITS)
@@ -281,7 +283,7 @@ pub fn channel_weights(channels: usize, layout: Option<u64>) -> Vec<f64> {
         .map(|bit| {
             if bit & lfe != 0 {
                 0.0
-            } else if bit & side != 0 || (bit & rear != 0 && rear_is_surround) {
+            } else if bit & (side | wide) != 0 || (bit & rear != 0 && rear_is_surround) {
                 SURROUND_WEIGHT
             } else {
                 1.0
@@ -535,13 +537,15 @@ mod tests {
     }
 
     /// EBU Tech 3341 durum 20–23'ün sinyali: 4·fs'de üretilen fs/6, 0,50 genlikli sinüs; içinde
-    /// fazı iki yanda da kesintisiz süren tek bir fs/4, 1,00 genlikli dönem. Alçak geçiren
-    /// (örtüşme önleyici) süzgeçten geçirilip `offset` (4·fs örneği) kaydırılarak fs'e seyreltilir.
-    fn ebu_peak_restoration(rate: u32, offset: usize) -> Vec<f64> {
+    /// fazı iki yanda da kesintisiz süren tek bir fs/4, 1,00 genlikli dönem; alçak geçiren
+    /// (örtüşme önleyici) süzgeçten geçmiş hâli, 4·fs'de. Durumlar bunu 0–3 örnek kaydırarak fs'e
+    /// seyreltir.
+    fn ebu_peak_restoration(rate: u32) -> Vec<f64> {
         let fast = 4 * rate as usize;
-        let len = fast / 2; // 0,5 sn (süre önemsiz)
-                            // Tek dönem fs/6'nın sıfırdan yükselen geçişinde başlar (4·fs'de fs/6 dönemi 24
-                            // örnek): faz da değer de kesintisiz kalır; dönem 16 örnek, tepesi tam 1,00.
+        // 0,5 sn (süre önemsiz).
+        let len = fast / 2;
+        // Tek dönem fs/6'nın sıfırdan yükselen geçişinde başlar (4·fs'de fs/6 dönemi 24 örnek):
+        // faz da değer de kesintisiz kalır; dönem 16 örnek, tepesi tam 1,00.
         let burst = len / 2 - (len / 2) % 24;
         let fade = fast / 100;
         let mut phase = 0.0;
@@ -559,7 +563,7 @@ mod tests {
             .collect();
         // Örtüşme önleyici süzgeç: Blackman pencereli sinc, 511 katsayı, kesim 0,45·fs (fs/6
         // tonu geçirme bandında kalır, fs/2 üstü ≥ 70 dB bastırılır). Gecikme (510/2) düşülür:
-        // `offset` 0'da seyreltilmiş örnekler 4·fs ızgarasının 0, 4, 8... örnekleridir.
+        // süzülmüş sinyal üretilenle aynı ızgaradadır.
         const TAPS: usize = 511;
         let cutoff = 0.45 * f64::from(rate) / fast as f64;
         let center = (TAPS - 1) as f64 / 2.0;
@@ -579,8 +583,7 @@ mod tests {
         let sum: f64 = kernel.iter().sum();
         kernel.iter_mut().for_each(|c| *c /= sum);
         let half = TAPS / 2;
-        (offset..len)
-            .step_by(4)
+        (0..len)
             .map(|n| {
                 kernel
                     .iter()
@@ -596,12 +599,41 @@ mod tests {
     #[test]
     fn ebu_3341_durum_20_23_tepe_yeniden_kurulumu() {
         for rate in [44_100, 48_000] {
+            let filtered = ebu_peak_restoration(rate);
+            // Belge süzgeci tanımlamaz; süzgeç tepeyi biraz alçaltır (~0,15 dB). Ölçer belgenin
+            // sınırlarına ek olarak üretecin kendi tepesini (4·fs'de süzülmüş sinyalinkini) de
+            // 0,25 dB içinde bulmalı: test süzgeci değil ölçeri sınasın.
+            let reference = 20.0 * filtered.iter().fold(0.0f64, |m, x| m.max(x.abs())).log10();
             for offset in 0..4 {
-                let samples = ebu_peak_restoration(rate, offset);
+                let samples: Vec<f64> = filtered.iter().skip(offset).step_by(4).copied().collect();
                 let case = 20 + offset as u32;
-                assert_true_peak(case, rate, measure_stereo(rate, &samples), 0.0);
+                let l = measure_stereo(rate, &samples);
+                assert_true_peak(case, rate, l, 0.0);
+                assert!(
+                    (l.true_peak_dbtp - reference).abs() <= 0.25,
+                    "durum {case}, {rate} Hz: ölçer {:.3}, üretecin tepesi {reference:.3} dBTP",
+                    l.true_peak_dbtp
+                );
             }
         }
+    }
+
+    #[test]
+    fn genis_on_kanallar_cevre_agirliginda() {
+        use symphonia::core::audio::Position as P;
+        // BS.1770-5 Tablo 4 ve 5: M±060 (geniş ön, Dolby'nin Lw/Rw'si) 60°–120° aralığındadır: 1,41.
+        let layout = P::FRONT_LEFT
+            | P::FRONT_RIGHT
+            | P::FRONT_CENTER
+            | P::LFE1
+            | P::SIDE_LEFT
+            | P::SIDE_RIGHT
+            | P::FRONT_LEFT_WIDE
+            | P::FRONT_RIGHT_WIDE;
+        assert_eq!(
+            channel_weights(8, Some(layout.bits())),
+            [1.0, 1.0, 1.0, 0.0, 1.41, 1.41, 1.41, 1.41]
+        );
     }
 
     #[test]
@@ -621,9 +653,11 @@ mod tests {
 
     #[test]
     fn dort_yuz_ms_den_kisa_ses_tek_blok_olculur() {
-        // 400 ms'lik ilk blok dördüncü 100 ms'lik alt blokla oluşur; 0,3 sn'lik seste hiç blok
-        // yoktur, sesin bütünü tek blok sayılır. EBU Tech 3341 durum 1'in kısa hâli: stereo
-        // 1 kHz, −23 dBFS → −23,0 LUFS (±0,1). Ölçülmezse kısa ses eşitlenmez.
+        // Ne EBU Tech 3341 ne BS.1770 400 ms'den kısa ses için bir değer tanımlar (ölçüm 400 ms'lik
+        // bloklarla yapılır). Sesin bütününü tek blok saymak projenin kararıdır: kısa ses de
+        // eşitlensin. İlk blok dördüncü 100 ms'lik alt blokla oluşur; 0,3 sn'lik seste hiç blok
+        // yoktur. Sinyal durum 1'inki (stereo 1 kHz, −23 dBFS), süresi kısa; beklenen −23,0 LUFS
+        // (±0,1), çünkü sabit sinüste tek bloğun ortalaması 400 ms'lik bloklarınkiyle aynıdır.
         let short = measure(RATE, 2, 1000.0, &[(0.3, -23.0)]);
         assert!((short.integrated_lufs + 23.0).abs() < 0.1, "{short:?}");
     }

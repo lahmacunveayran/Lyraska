@@ -91,6 +91,7 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
     Önbellekte yoksa şarkı açılınca ayrı bir hızlı ölçüm yapılır.
   - Kanal ağırlıkları kanalın yerine göre (BS.1770-5): yan kanallar ve 5.x'in çevre çifti 1,41, LFE 0, gerisi 1,0.
     Düzen dosyadan okunur (`TrackInfo::channel_layout`); bilinmiyorsa kanal sayısının FLAC düzeni varsayılır.
+    Symphonia'nın maskesiz dosyada (WAV, CAF, MP4 LPCM) kanal sayısından uydurduğu düzen bilinmiyor sayılır.
   - Şarkı −14 LUFS'e getirilir; yükseltme gerçek tepeyi −1 dBTP'nin üstüne çıkarmaz.
   - Ekolayzer artık sesi kendisi kısmaz; yalnızca en büyük yükseltmesini bildirir. Eşitlemenin tepeye açtığı
     boşluk yetiyorsa hiç kısılmaz, yetmezse yalnızca eksik kadar kısılır (hızlı iner, yavaş kalkar).

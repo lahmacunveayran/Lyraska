@@ -947,7 +947,9 @@ pub fn band_edges(bands: usize, sample_rate: f64) -> Vec<f64> {
 mod tests {
     use super::*;
     use crate::analysis::cache::StaleParts;
-    use crate::audio::test_util::{sine, temp_path, write_wav, write_wav_layout};
+    use crate::audio::test_util::{
+        sine, temp_path, write_wav, write_wav_bits, write_wav_extensible, write_wav_layout,
+    };
     use std::path::Path;
 
     #[test]
@@ -1667,5 +1669,88 @@ mod tests {
             }
         }
         assert!(wrong.is_empty(), "{wrong:#?}");
+    }
+
+    /// Dosyanın hızlı ölçümdeki ses yüksekliği; dosya sonra silinir.
+    fn quick_loudness(path: &Path) -> Option<Loudness> {
+        let quick = Spectrogram::new();
+        measure_loudness(Decoder::open(path).unwrap(), &quick);
+        std::fs::remove_file(path).ok();
+        quick.measured_loudness().flatten()
+    }
+
+    /// Yalnızca `active` kanallarında 1 kHz, 0,1 genlikli sinüs.
+    fn tone_in(rate: u32, active: &[usize]) -> impl Fn(usize, usize) -> f64 + '_ {
+        move |f, ch| {
+            if active.contains(&ch) {
+                0.1 * sine(1000.0, rate, f)
+            } else {
+                0.0
+            }
+        }
+    }
+
+    /// Kanal maskesi olmayan dosyada symphonia düzeni kanal sayısından uydurur (`from_count`: 4
+    /// kanal L R C LFE, 5 kanal L R C LFE arka sol). Bu düzen gerçek sayılmaz; kanal sayısının
+    /// varsayılan düzeni kullanılır (4: dörtlü, 5: 5.0).
+    #[test]
+    fn maskesiz_cok_kanalli_dosya_varsayilan_duzenle_olculur() {
+        let rate = 48_000;
+        let mut wrong = Vec::new();
+        // EBU Tech 3341 durum 6: düz PCM başlıklı (WAVEFORMATEX) ve maskesi 0 olan uzantılı başlıklı
+        // 5 kanallı dosya → −23,0 LUFS (±0,1).
+        let levels = [-28.0, -28.0, -24.0, -30.0, -30.0];
+        let case_6 = |f: usize, ch: usize| 10f64.powf(levels[ch] / 20.0) * sine(1000.0, rate, f);
+        let plain = temp_path("ebu-durum-6-duz.wav");
+        write_wav_bits(&plain, rate, 5, 24, 20 * rate as usize, case_6);
+        let unmasked = temp_path("ebu-durum-6-maske-0.wav");
+        write_wav_extensible(&unmasked, rate, 5, 0, 20 * rate as usize, case_6);
+        for (name, path) in [("düz PCM", plain), ("maske 0", unmasked)] {
+            let l = quick_loudness(&path).expect("ölçülür");
+            if (l.integrated_lufs + 23.0).abs() >= 0.1 {
+                wrong.push(format!("durum 6, {name}: {:.3} LUFS", l.integrated_lufs));
+            }
+        }
+        // Düz PCM 4 kanal: dörtlü (L, R, arka sol, arka sağ); arka çift çevredir (+1,49 dB).
+        let quad = |active: &[usize]| {
+            let path = temp_path("dortlu-duz.wav");
+            write_wav_bits(&path, rate, 4, 24, 3 * rate as usize, tone_in(rate, active));
+            quick_loudness(&path)
+        };
+        let front = quad(&[0, 1]).expect("ön çift ölçülür");
+        let rear = quad(&[2, 3]).map(|l| l.integrated_lufs - front.integrated_lufs);
+        let surround = 10.0 * 1.41f64.log10();
+        if !rear.is_some_and(|d| (d - surround).abs() < 0.05) {
+            wrong.push(format!(
+                "düz 4 kanal, arka çift: {rear:?} dB, beklenen {surround:.3}"
+            ));
+        }
+        assert!(wrong.is_empty(), "{wrong:#?}");
+    }
+
+    /// Maskesi yazılı dörtlü (0x33: L, R, arka sol, arka sağ) ve 2.1 (0x0B: L, R, LFE) dosya.
+    #[test]
+    fn dortlu_ve_2_1_dosyada_agirlik() {
+        let rate = 48_000;
+        let measure = |mask: u32, active: &[usize]| {
+            let path = temp_path("dortlu-2-1.wav");
+            write_wav_layout(&path, rate, mask, 3 * rate as usize, tone_in(rate, active));
+            quick_loudness(&path)
+        };
+        let surround = 10.0 * 1.41f64.log10();
+        let quad_front = measure(0x33, &[0, 1]).expect("ön çift ölçülür");
+        let quad_rear =
+            measure(0x33, &[2, 3]).map(|l| l.integrated_lufs - quad_front.integrated_lufs);
+        assert!(
+            quad_rear.is_some_and(|d| (d - surround).abs() < 0.05),
+            "dörtlü arka çift: {quad_rear:?} dB, beklenen {surround:.3}"
+        );
+        let stereo = measure(0x03, &[0, 1]).expect("stereo ölçülür");
+        let front = measure(0x0B, &[0, 1]).expect("2.1 ön çift ölçülür");
+        assert!(
+            (front.integrated_lufs - stereo.integrated_lufs).abs() < 0.01,
+            "2.1'in ön çifti stereo gibi: {front:?} / {stereo:?}"
+        );
+        assert_eq!(measure(0x0B, &[2]), None, "2.1'in LFE'si ölçüme girmez");
     }
 }

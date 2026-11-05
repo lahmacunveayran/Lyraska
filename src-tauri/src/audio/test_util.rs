@@ -40,32 +40,7 @@ pub fn write_wav_bits(
     frames: usize,
     sample: impl Fn(usize, usize) -> f64,
 ) {
-    let bytes_per_sample = usize::from(bits / 8);
-    let data_len = frames * usize::from(channels) * bytes_per_sample;
-    let mut bytes = Vec::with_capacity(44 + data_len);
-    bytes.extend_from_slice(b"RIFF");
-    bytes.extend_from_slice(&((36 + data_len) as u32).to_le_bytes());
-    bytes.extend_from_slice(b"WAVEfmt ");
-    bytes.extend_from_slice(&16u32.to_le_bytes());
-    bytes.extend_from_slice(&1u16.to_le_bytes()); // PCM
-    bytes.extend_from_slice(&channels.to_le_bytes());
-    bytes.extend_from_slice(&rate.to_le_bytes());
-    bytes.extend_from_slice(&(rate * u32::from(channels) * bytes_per_sample as u32).to_le_bytes());
-    bytes.extend_from_slice(&(channels * bytes_per_sample as u16).to_le_bytes());
-    bytes.extend_from_slice(&bits.to_le_bytes());
-    bytes.extend_from_slice(b"data");
-    bytes.extend_from_slice(&(data_len as u32).to_le_bytes());
-    let full_scale = ((1i64 << (bits - 1)) - 1) as f64;
-    for frame in 0..frames {
-        for channel in 0..usize::from(channels) {
-            let value = (sample(frame, channel).clamp(-1.0, 1.0) * full_scale).round() as i32;
-            bytes.extend_from_slice(&value.to_le_bytes()[..bytes_per_sample]);
-        }
-    }
-    std::fs::File::create(path)
-        .unwrap()
-        .write_all(&bytes)
-        .unwrap();
+    write_wav_full(path, rate, channels, bits, None, frames, sample);
 }
 
 /// Kanal düzeni bildiren (WAVE_FORMAT_EXTENSIBLE) 24 bit PCM WAV yazar. `mask` Microsoft'un
@@ -77,36 +52,74 @@ pub fn write_wav_layout(
     frames: usize,
     sample: impl Fn(usize, usize) -> f64,
 ) {
-    const BYTES: usize = 3;
-    let channels = mask.count_ones() as u16;
-    let data_len = frames * usize::from(channels) * BYTES;
-    let block = channels * BYTES as u16;
-    let mut bytes = Vec::with_capacity(68 + data_len);
+    write_wav_full(
+        path,
+        rate,
+        mask.count_ones() as u16,
+        24,
+        Some(mask),
+        frames,
+        sample,
+    );
+}
+
+/// [`write_wav_layout`] gibi, ama kanal sayısı maskeden bağımsız: maskesi 0 ("düzen
+/// belirtilmemiş") olan uzantılı başlık için.
+pub fn write_wav_extensible(
+    path: &Path,
+    rate: u32,
+    channels: u16,
+    mask: u32,
+    frames: usize,
+    sample: impl Fn(usize, usize) -> f64,
+) {
+    write_wav_full(path, rate, channels, 24, Some(mask), frames, sample);
+}
+
+/// PCM WAV yazar; `mask` verilirse başlık WAVE_FORMAT_EXTENSIBLE'dır (o maskeyle).
+fn write_wav_full(
+    path: &Path,
+    rate: u32,
+    channels: u16,
+    bits: u16,
+    mask: Option<u32>,
+    frames: usize,
+    sample: impl Fn(usize, usize) -> f64,
+) {
+    let bytes_per_sample = usize::from(bits / 8);
+    let data_len = frames * usize::from(channels) * bytes_per_sample;
+    let block = channels * bytes_per_sample as u16;
+    let fmt_len: u32 = if mask.is_some() { 40 } else { 16 };
+    let mut bytes = Vec::with_capacity(28 + fmt_len as usize + data_len);
     bytes.extend_from_slice(b"RIFF");
-    bytes.extend_from_slice(&((60 + data_len) as u32).to_le_bytes());
+    bytes.extend_from_slice(&((20 + fmt_len as usize + data_len) as u32).to_le_bytes());
     bytes.extend_from_slice(b"WAVEfmt ");
-    bytes.extend_from_slice(&40u32.to_le_bytes());
-    bytes.extend_from_slice(&0xFFFEu16.to_le_bytes()); // WAVE_FORMAT_EXTENSIBLE
+    bytes.extend_from_slice(&fmt_len.to_le_bytes());
+    // PCM ya da WAVE_FORMAT_EXTENSIBLE
+    let format: u16 = if mask.is_some() { 0xFFFE } else { 1 };
+    bytes.extend_from_slice(&format.to_le_bytes());
     bytes.extend_from_slice(&channels.to_le_bytes());
     bytes.extend_from_slice(&rate.to_le_bytes());
     bytes.extend_from_slice(&(rate * u32::from(block)).to_le_bytes());
     bytes.extend_from_slice(&block.to_le_bytes());
-    bytes.extend_from_slice(&24u16.to_le_bytes());
-    bytes.extend_from_slice(&22u16.to_le_bytes()); // ek alanın boyu
-    bytes.extend_from_slice(&24u16.to_le_bytes()); // geçerli bit
-    bytes.extend_from_slice(&mask.to_le_bytes());
-    // KSDATAFORMAT_SUBTYPE_PCM
-    bytes.extend_from_slice(&[
-        0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b,
-        0x71,
-    ]);
+    bytes.extend_from_slice(&bits.to_le_bytes());
+    if let Some(mask) = mask {
+        bytes.extend_from_slice(&22u16.to_le_bytes()); // ek alanın boyu
+        bytes.extend_from_slice(&bits.to_le_bytes()); // geçerli bit
+        bytes.extend_from_slice(&mask.to_le_bytes());
+        // KSDATAFORMAT_SUBTYPE_PCM
+        bytes.extend_from_slice(&[
+            0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38,
+            0x9b, 0x71,
+        ]);
+    }
     bytes.extend_from_slice(b"data");
     bytes.extend_from_slice(&(data_len as u32).to_le_bytes());
-    let full_scale = f64::from((1i32 << 23) - 1);
+    let full_scale = ((1i64 << (bits - 1)) - 1) as f64;
     for frame in 0..frames {
         for channel in 0..usize::from(channels) {
             let value = (sample(frame, channel).clamp(-1.0, 1.0) * full_scale).round() as i32;
-            bytes.extend_from_slice(&value.to_le_bytes()[..BYTES]);
+            bytes.extend_from_slice(&value.to_le_bytes()[..bytes_per_sample]);
         }
     }
     std::fs::File::create(path)

@@ -83,6 +83,19 @@ pub struct TrackInfo {
     pub duration_secs: Option<f64>,
 }
 
+/// Dosyanın bildirdiği kanal düzeni (symphonia `Position` bitleri). Kanal sayısından uydurulmuş
+/// görünen düzen bilinmiyor sayılır (`None`): symphonia kanal maskesi olmayan WAV'da (düz PCM,
+/// kayan nokta, maskesi 0 olan uzantılı başlık), CAF'ta ve MP4 LPCM'de düzeni kanal sayısından
+/// uydurur (`Position::from_count`, ilk n konum): 4 kanal L R C LFE, 5 kanal L R C LFE arka sol
+/// olur ve LFE sanılan kanal ses yüksekliğinden düşerdi. 1–3 ve 6 kanalda bu düzen varsayılanla
+/// (FLAC düzeni) aynıdır, olduğu gibi kalır. Bedeli: bu maskeyle gerçekten yazılmış az rastlanan
+/// dosyalar (ör. 0x0F 3.1, 0xFF eski 7.1 geniş) varsayılan düzenle ölçülür.
+fn file_channel_layout(bits: u64) -> Option<u64> {
+    let n = bits.count_ones();
+    let from_count = n < u64::BITS && bits == (1u64 << n) - 1;
+    (!(from_count && n >= 4 && n != 6)).then_some(bits)
+}
+
 /// Bir ses dosyasını parça parça 64-bit örneklere çözer.
 pub struct Decoder {
     format: Box<dyn FormatReader>,
@@ -165,7 +178,7 @@ impl Decoder {
             )));
         }
         let channel_layout = match params.channels.as_ref() {
-            Some(Channels::Positioned(positions)) => Some(positions.bits()),
+            Some(Channels::Positioned(positions)) => file_channel_layout(positions.bits()),
             _ => None,
         };
         let channels = params
