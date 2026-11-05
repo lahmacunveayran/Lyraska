@@ -1546,6 +1546,23 @@ mod tests {
     }
 
     #[test]
+    fn harita_en_az_iki_olcu_ister() {
+        // Sınır değer: şarkı haritası en az 8 vuruşla (iki 4/4 ölçü) çıkarılır; 7 vuruşta yok.
+        // Kısa (4–5 sn) ve yavaş kayıtlarda haritanın var/yok durumu bu sınıra bağlıdır.
+        // Ses düz (bütün bantlar 100, −20 dBFS), 120 BPM, 270 kare (4,5 sn).
+        let frames = 270;
+        let bands = vec![100u8; frames * 32];
+        let loudness = vec![-20.0f32; frames];
+        let grid = |count: usize| BeatGrid {
+            bpm: 120.0,
+            beats: (0..count).map(|i| 0.5 * i as f64).collect(),
+            variable_tempo: false,
+        };
+        assert!(map_song(&bands, 32, &loudness, &grid(8), 60.0, None).is_some());
+        assert!(map_song(&bands, 32, &loudness, &grid(7), 60.0, None).is_none());
+    }
+
+    #[test]
     fn tekduze_muzikte_bolum_siniri_yok() {
         // Foote yeniliği iki yanı birbirinden farklı olan ölçüde yükselir. Her ölçünün özelliği
         // aynıysa benzerlik her yerde aynı, yenilik her yerde sıfırdır: sınır yoktur (tekdüze
