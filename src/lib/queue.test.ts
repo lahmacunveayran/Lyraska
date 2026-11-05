@@ -172,3 +172,9 @@ describe("aynı şarkı sırada iki kez", () => {
     expect(shuffledQueue.positions?.[0]).toBe(2);
   });
 });
+
+describe("listede olmayan şarkı", () => {
+  it("listede yoksa sıra yalnızca o şarkıdan oluşur", () => {
+    expect(queueFrom(["a.flac", "b.flac"], "c.flac")).toEqual({ paths: ["c.flac"], index: 0 });
+  });
+});
