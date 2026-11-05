@@ -1025,6 +1025,50 @@ mod tests {
         );
     }
 
+    /// Tepe ve raf süzgeçlerinin Q'su. Köşe ve merkez noktaları (raf G/2, tepe G) Q'dan
+    /// bağımsızdır; Q'yu yalnızca eğrinin eteği gösterir. Beklenen değerler RBJ Audio EQ
+    /// Cookbook'un formüllerinden (α = sin ω0/(2Q), Equalizer APO'nun da kullandığı biçim),
+    /// ürün kodundan bağımsız bir Python betiğiyle hesaplandı; denetimin NumPy ile bulduğu
+    /// değerlerle (LS 50/200 Hz, PK 500 Hz/2 kHz) aynı. Analog prototip için de aynı noktalar.
+    /// Pay 0,001 dB: değerler dört ondalıkla yazıldı (yuvarlama ≤ 5·10⁻⁵ dB); Q %40 kayınca
+    /// bu noktalar 0,36–1,2 dB oynar.
+    #[test]
+    fn tepe_ve_raf_suzgecinin_q_su_cookbook_ile_ayni() {
+        let check = |what: &str, got: f64, want: f64| {
+            assert!(
+                (got - want).abs() < 1e-3,
+                "{what}: {got:.4} != {want:.4} dB"
+            );
+        };
+        let shelf = Biquad::low_shelf(100.0, 9.0, 0.707, RATE);
+        check("LS 50 Hz", db_at(&shelf, 50.0), 8.3901);
+        check("LS 200 Hz", db_at(&shelf, 200.0), 0.6098);
+        let peak = Biquad::peaking(1000.0, 6.0, 1.0, RATE);
+        check("PK 500 Hz", db_at(&peak, 500.0), 1.8794);
+        check("PK 2 kHz", db_at(&peak, 2000.0), 1.8660);
+        let high = Biquad::high_shelf(8000.0, -6.0, 0.707, RATE);
+        check("HS 4 kHz", db_at(&high, 4000.0), -0.2850);
+        check("HS 16 kHz", db_at(&high, 16_000.0), -5.9209);
+
+        // Analog prototip (eşlenmiş tasarımın ve ekrandaki eğrinin hedefi). Tepe, logaritmik
+        // eksende merkezine göre simetriktir: 500 Hz ve 2 kHz aynı.
+        let spec = |kind, freq_hz, gain_db, q| Spec {
+            kind,
+            freq_hz,
+            gain_db,
+            q,
+        };
+        let shelf = spec(Kind::LowShelf, 100.0, 9.0, 0.707);
+        check("analog LS 50 Hz", shelf.analog_db(50.0), 8.3901);
+        check("analog LS 200 Hz", shelf.analog_db(200.0), 0.6099);
+        let peak = spec(Kind::Peaking, 1000.0, 6.0, 1.0);
+        check("analog PK 500 Hz", peak.analog_db(500.0), 1.8838);
+        check("analog PK 2 kHz", peak.analog_db(2000.0), 1.8838);
+        let high = spec(Kind::HighShelf, 8000.0, -6.0, 0.707);
+        check("analog HS 4 kHz", high.analog_db(4000.0), -0.3768);
+        check("analog HS 16 kHz", high.analog_db(16_000.0), -5.6232);
+    }
+
     const KINDS: [Kind; 8] = [
         Kind::Peaking,
         Kind::LowShelf,
