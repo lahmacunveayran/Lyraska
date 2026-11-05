@@ -73,8 +73,8 @@ Sıra önem sırasıdır. Her biri ayrı küçük PR.
 4. **Zayıf doğrulamalar** (B9, B10): `shader.rs:1367` beklenen değeri kodun çıktısı; F-ölçüsü 70 ms sınırında `<`
    ile `<=` ayrımı sınanmıyor; eşleştirme açgözlü, `mir_eval` en iyi eşleştirmeyi yapar (aynı girdide aynı sonuç
    verdiği sınanmalı).
-5. **Ton ilişkisi adlandırması** (B7): MIREX'in "beşli" ilişkisi yönlü; bizimki yönsüz olabilir, başvuru koduyla
-   karşılaştırılmalı.
+5. **Ton ilişkisi adlandırması** (B7): yapıldı (6 Kasım). mir_eval 0.8.2 yalnızca yukarı beşliyi sayar, bizimki
+   bilerek iki yönlü (Camelot); belgesi ve 576 çiftlik testi (`betikler/mir_eval/ton_iliskisi.py`: geri kalanı aynı).
 6. **Kararsız testler:** `check:scenes` "Söz zamanlaması (Kendi resmin)" yavaş makinede 137,9 ms geç (#190'da bir
    kez); `shader.rs:1278` duvar saatine bağlı; `PlaylistPage` çift tıklaması (`playRef` `useEffect`'te, önerilen
    `useLayoutEffect`; önce yakalayan test).
