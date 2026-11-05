@@ -73,6 +73,18 @@ describe("oynatıcının durum sorgusu", () => {
   });
 });
 
+/**
+ * Sahte saati 1 ms adımlarla, `done` doğru olana dek (en çok `limitMs`) ilerletir. Gerçek saatle
+ * beklemek yerine: zamanlayıcılar istenen sürede koşar, sonuç makinenin yüküne bağlı kalmaz.
+ */
+async function advanceUntil(done: () => boolean, limitMs: number) {
+  await act(async () => {
+    for (let waited = 0; !done() && waited < limitMs; waited++) {
+      await vi.advanceTimersByTimeAsync(1);
+    }
+  });
+}
+
 describe("oynatma saati (söz zamanlaması)", () => {
   // Önceki test çekirdeği meşgul bırakır (yanıtsız sorgular).
   beforeEach(() => {
@@ -120,6 +132,8 @@ describe("oynatma saati (söz zamanlaması)", () => {
   it("düzenli sorgunun konumu isteğin gidişiyle yanıtın gelişinin ortasına bağlanır", async () => {
     // Sorgu ~10 ms sürer, çekirdek konumu yolun ortasında okur. Saat yanıtın geldiği ana bağlansaydı
     // konum ~5 ms geride kalırdı (IPC'nin dönüş yolu) ve sözler o kadar geç görünürdü.
+    // Sahte saat: gerçek saatte meşgul makinede 10 ms'lik yanıt 16 ms'yi aşıyordu (ölçülen hata 8 ms).
+    vi.useFakeTimers();
     const { result } = renderHook(() => usePlayer(["flac"]));
     await act(async () => {
       await result.current.openPath("C:/Müzik/gece.flac");
@@ -138,7 +152,8 @@ describe("oynatma saati (söz zamanlaması)", () => {
       );
     };
     // Bir sonraki düzenli sorgu (250 ms'de bir).
-    await act(() => vi.waitFor(() => expect(answered).toBe(1), { timeout: 2000, interval: 5 }));
+    await advanceUntil(() => answered === 1, 2000);
+    expect(answered).toBe(1);
     const at = performance.now();
     expect(Math.abs(result.current.positionNow(at) - truth(at))).toBeLessThan(0.0005);
   });
@@ -147,6 +162,9 @@ describe("oynatma saati (söz zamanlaması)", () => {
     // Çekirdeğin duvar saati arayüzün saatinden 37 ms ileri kaymış (NTP düzeltmesi). Önce kısa sorgular
     // (fark onlardan tahmin edilir), sonra ağır sahne: yanıt 60 ms geç işleniyor (gidiş-dönüş uzun:
     // orta nokta kullanılamaz, yanıtın anı konumu 60 ms geride bırakırdı).
+    // Sahte saat: Windows'ta gerçek setTimeout(2) ~15 ms sürüyor; kısa sorgular kısa kalmayınca fark
+    // ancak ±5 ms bilinir (ölçülen hata 3,9 ms). Kısa sorgunun gerçekten 2 ms sürmesini test yönetir.
+    vi.useFakeTimers();
     const { result } = renderHook(() => usePlayer(["flac"]));
     await act(async () => {
       await result.current.openPath("C:/Müzik/gece.flac");
@@ -170,7 +188,8 @@ describe("oynatma saati (söz zamanlaması)", () => {
         }, delay),
       );
     };
-    await act(() => vi.waitFor(() => expect(answered).toBe(4), { timeout: 3000, interval: 5 }));
+    await advanceUntil(() => answered === 4, 3000);
+    expect(answered).toBe(4);
     const at = performance.now();
     expect(Math.abs(result.current.positionNow(at) - truth(at))).toBeLessThan(0.003);
   });

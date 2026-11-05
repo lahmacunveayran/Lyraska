@@ -145,3 +145,12 @@ describe("parametrik ekolayzer yardımcıları", () => {
     expect(nodeDb(band({ kind: "notch", q: 30 }))).toBe(-18);
   });
 });
+
+describe("analog prototip: çentik", () => {
+  it("çentik eğrisi RBJ prototipine uyar (Q etkisi)", () => {
+    // |H(jw)|² = (1-w²)² / ((1-w²)² + (w/Q)²); w = 2000/1000 = 2, Q = 2:
+    // 9 / (9 + 1) → 10·log10(0,9) = -0,4576 dB.
+    const notch = band({ kind: "notch", freqHz: 1000, q: 2 });
+    expect(analogDb(notch, 2000)).toBeCloseTo(-0.4576, 3);
+  });
+});

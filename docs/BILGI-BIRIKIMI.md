@@ -69,9 +69,10 @@ kısaltılır.
 - **Disk küçük** (~250 GB görünür ama izin verilen alan dolar). Dolunca denetimler sessizce yarıda kalır.
   Kurtarma: `src-tauri/target/debug/incremental` ve `examples` silinir; geçici klasördeki indirmeler ve bitmiş ajan
   çalışma kopyaları (`git worktree remove --force`) temizlenir. Uzun işten önce `df -h /` bakılır.
-- **Çalışma kopyaları depo içinde** (`.claude/worktrees/`): Prettier, ESLint ve Vitest onları da görür. Ana kopyada
-  `npx eslint . --ignore-pattern ".claude/**"`, `npx vitest run --exclude ".claude/**"` kullanılır ya da çalışma
-  kopyaları silinir. `.git/info/exclude`'a `.claude/worktrees/` yazılır (depoya girmez).
+- **Çalışma kopyaları depo içinde** (`.claude/worktrees/`): Prettier ve ESLint onları da görür. Ana kopyada
+  `npx eslint . --ignore-pattern ".claude/**"` kullanılır ya da çalışma kopyaları silinir. Vitest onları
+  `vite.config.ts`'te dışlar (5 Kasım 2026: dışlanmadan önce 97 yerine 776 dosya koşuyordu, başka dalların sonucu
+  karışıyordu). `.git/info/exclude`'a `.claude/worktrees/` yazılır (depoya girmez).
 - **Sahne denetimi üç paralel parçada** (`SCENE_SHARD`, 29 Ekim 2026): bütün CI ~16 dk (en uzunu kurulum dosyası);
   yeni denetim eklerken `check-scenes.mjs`'teki görev listesine `add(...)` ile eklenir.
 - **CI'da test derlemesi ayrı adımda** (`cargo test --no-run`, 30 dk; 30 Ekim 2026): tract gelince Windows'ta
@@ -102,6 +103,16 @@ kısaltılır.
   kendisi de kullanıyor. Gözetimsiz ölçüm için sahibinin yt-dlp'si (`Masaüstü\DLP\yt-dlp.exe`) yalnızca altyazı
   indirir: `--js-runtimes node` şart; otomatik çeviri altyazısı (`tr`) 429 verdirir, yalnızca `en-orig,tr-orig` ve
   uzun bekleme. Listenin sırası yerel dosya numaralarından kayar: eşleştirme numarasız başlıkla yapılır.
+- **Ortak hedef klasöründe en çok 2 Rust ajanı** (5 Kasım 2026): `CARGO_TARGET_DIR` paylaşılınca cargo kilidi
+  derlemeleri sıraya sokar; 4 çekirdekte 5 Rust ajanı saatlerce birbirini bekledi ("testler uzun sürdü"). İki
+  çalışma kopyası aynı test ikilisini aynı anda yazarsa bağlayıcı `LNK1104` verir: yeniden çalıştırmak yeter.
+- **Windows'ta Python `subprocess.run(shell=True, timeout=…)` torunu öldürmez:** süre dolunca kabuk kapanır, sonsuz
+  döngüye giren `vitest`/`cargo test` yaşamaya devam eder. `Popen` + süre dolunca `taskkill /T /F /PID`.
+- **Stryker arayüzde kullanılamıyor** (5 Kasım 2026): 8.x projenin Vitest 5'iyle açılmıyor (`project.server`), 9.x
+  geçersiz sonuç verdi (%5; elle yakalanan bozmayı "kaçtı" saydı). Arayüz bozmaları elle uygulanır
+  (`docs/arastirma/test-kalitesi/betikler/denetim-1/ts_mut.py`).
+- **Bulut oturumları** (`env_01UDiXdcZ3koAMDVBD8fbjUn`, "Default"): `main`'den ya da push edilmiş daldan başlar,
+  her biri soğuk derlemeyle; Linux'tur (WASAPI sınanmaz, Windows'u CI sınar); buraya rapor dönmez.
 
 ## 5. Teknik dersler
 
@@ -264,6 +275,17 @@ kısaltılır.
 - **Paylaşılan `target` klasöründe** başka çalışma kopyası aynı adlı test dosyasını çalıştırırken bağlama LNK1104
   verir (ad kaynak yolundan bağımsız). Süreç bitince yeniden çalıştırılır; çıktının kendi kodundan geldiği yazdırılan
   satırlardan denetlenir.
+
+- **Test kalitesi mutasyonla ölçülür, kapsamayla değil** (5–6 Kasım 2026; `docs/arastirma/test-kalitesi/`): kod
+  bilerek bozulur, testlerin düşüp düşmediğine bakılır (`cargo mutants --shard k/n` örneklem, `--lib` yeniden
+  sınama). Kaçan her bozma sınıflanır: gerçek açık, eşdeğer (kanıtla), anlamsız. Yeni test önce bozmayla düşer.
+  Beklenen değer standarttan, bağımsız hesaptan (NumPy), metamorfik ilişkiden ya da el hesabından gelir; kodun
+  kendi çıktısı asla. Kaçanlar en çok "bağlantı" kodundaydı (A/B karşılaştırma, geçiş kazancı), hesapta değil.
+- **symphonia kanal düzenini kanal sayısından uydurur** (6 Kasım 2026): maskesiz WAV, `fix_wave_channel_mask` ve
+  MP4 LPCM'de `Position::from_count` (4 kanal → FL FR FC LFE, 5 → FL FR FC LFE RL). Kanal yerine dayanan hesap
+  (BS.1770 ağırlıkları) bu uydurma düzeni "bilinmiyor" saymalı; yoksa 5.0'da LFE'yi ölçmez, arka kanalı yanlış tartar.
+  BS.1770-5: L, R, C 1,0; 60°–120° yükseklik < 30° 1,41; LFE dışarıda. ffmpeg bütün BACK/SIDE'ı 1,41 sayar (7.1'de
+  farklı), libebur128 standarda uyar.
 
 ## 6. Lisans dersleri
 

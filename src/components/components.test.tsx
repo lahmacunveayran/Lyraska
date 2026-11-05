@@ -480,21 +480,26 @@ beforeEach(() => {
 });
 
 describe("çizim yükü", () => {
+  afterEach(() => vi.useRealTimers());
+
   it("çalarken her karede yalnızca konumu gösterenler yeniden çizilir, paneller değil", async () => {
+    // Sahte saat (kareler ve düzenli sorgular dahil): gerçek 0,6 sn'de meşgul makinede 20'den az kare
+    // sayılıyordu; kare sayısı artık testin ilerlettiği süreye bağlı (60 Hz'de 0,6 sn ≈ 36 kare).
+    vi.useFakeTimers();
     backend.desktop = true;
     backend.status = playing;
     render(<App />);
     await act(async () => fireEvent.keyDown(window, { code: "Space", key: " " }));
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Kütüphane" })));
     const renders = backend.libraryPanelRenders;
-    // Gerçek zamanda 0,6 sn: ekran kareleri sayılır.
+    // 0,6 sn: ekran kareleri sayılır.
     let frames = 0;
     const count = () => {
       frames++;
       if (frames < 1000) raf = window.requestAnimationFrame(count);
     };
     let raf = window.requestAnimationFrame(count);
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    await act(() => vi.advanceTimersByTimeAsync(600));
     window.cancelAnimationFrame(raf);
     expect(frames).toBeGreaterThan(20);
     // Kütüphane paneli yalnızca ses motorunun bildirimlerinde (saniyede 4) çizilir. Eskiden
