@@ -880,8 +880,9 @@ pub(crate) mod tests {
             let mut truth = Vec::new();
             let mut center = 10.0 + shift;
             while center < frames as f64 - 5.0 {
-                for i in (center as usize - 4)..=(center as usize + 4) {
-                    onset[i] += (-0.5 * (i as f64 - center).powi(2)).exp() as f32;
+                let first = center as usize - 4;
+                for (i, value) in onset.iter_mut().enumerate().skip(first).take(9) {
+                    *value += (-0.5 * (i as f64 - center).powi(2)).exp() as f32;
                 }
                 truth.push(center / FPS);
                 center += period;
@@ -890,12 +891,7 @@ pub(crate) mod tests {
             let errors: Vec<f64> = grid
                 .beats
                 .iter()
-                .map(|b| {
-                    truth
-                        .iter()
-                        .map(|t| (b - t).abs())
-                        .fold(f64::MAX, f64::min)
-                })
+                .map(|b| truth.iter().map(|t| (b - t).abs()).fold(f64::MAX, f64::min))
                 .collect();
             assert!(errors.len() > 20, "{bpm} BPM: {} vuruş", errors.len());
             let mean_ms = 1000.0 * errors.iter().sum::<f64>() / errors.len() as f64;
