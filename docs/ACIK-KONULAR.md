@@ -26,7 +26,7 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 
 - `usePlayer.test.ts` "çekirdek ölçüm anını bildirince…" Windows'ta hep düşüyor (zamanlayıcı ~15,6 ms adımlı;
   DOGRULAMA G1). Mevcut test: düzeltilsin mi (zamanı testin kendisi yönetsin, sınır aynı), sahibinin kararı.
-- Bit-perfect yeniden denensin (DOGRULAMA B6, B11; sesi kısık): olaylı özel moda geçildi (5 Kasım, vızıltı).
+- Bit-perfect yeniden denensin (DOGRULAMA B6, B11; sesi kısık): zamanlama artık ölçülüyor (5 Kasım, vızıltı).
 - DOGRULAMA A7–A11 sonuçları (0.0.64) ve A12 (0.0.65: `.opus`/`.webm`); A13–A14 klasör izleme (0.0.72); A15 drop
   kendi şarkılarında (0.0.73).
 

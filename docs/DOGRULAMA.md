@@ -222,8 +222,8 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 - Neye bakılır: "Sesin yolu" satırında "bit-perfect (özel mod, … bit)" yazar; diğer programların sesi duyulmaz. Açılamazsa
   nedeni yazar ve ses normal yoldan çalar. Denedikten sonra kapatın.
 - Sonuç (5 Kasım 2026, sahibi): şarkı yerine "uyarı sesi gibi" vızıltı. Neden: yoklamalı özel mod Realtek'te
-  arabelleği boşaltmıyordu; olaylı özel moda geçildi (Realtek'te 44,1/48/96 kHz 24 bit hız 1,00). Yeniden denenecek:
-  şarkı normal çalar; duraklat, sar ve şarkı sonu (B11) da denenir.
+  arabelleği boşaltmıyordu; artık açılışta ölçülüp olaylı moda geçiliyor (Realtek'te 44,1/48/96 kHz 24 bit hız
+  1,00). Yeniden denenecek: şarkı normal çalar; duraklat, sar ve şarkı sonu (B11) da denenir.
 
 **B7. Uzun çalma, takılma yok**
 

@@ -209,9 +209,10 @@ fn run_bit_perfect(path: &Path) -> Result<(), Outcome> {
     let status = player.status();
     let speed = (status.position_secs - p0) / (start.elapsed().as_secs_f64() - t0);
     println!(
-        "Bit-perfect: {} bit, {} Hz; konum {:.3} sn, hız {speed:.3}",
+        "Bit-perfect: {} bit, {} Hz, {}; konum {:.3} sn, hız {speed:.3}",
         output.bit_depth.unwrap_or_default(),
         output.sample_rate,
+        lyraska_lib::audio::output::exclusive_timing().unwrap_or("zamanlama bilinmiyor"),
         status.position_secs
     );
     check(
@@ -237,15 +238,31 @@ fn run_bit_perfect(path: &Path) -> Result<(), Outcome> {
         (seeked - 0.3).abs() < 0.005,
         format!("özel modda sarma konumu {seeked:.3}"),
     )?;
+    // Sarma yeni oturum açar: o da özel modda olmalı (şarkı sonu yolu özel modda sınansın).
+    let still_exclusive = player.status().output.is_some_and(|o| o.bit_perfect);
+    check(
+        still_exclusive,
+        "sarmadan sonra özel mod kapandı".to_owned(),
+    )?;
     player.play().map_err(|e| Outcome::Failed(e.to_string()))?;
+    let resumed = Instant::now();
     let deadline = Instant::now() + Duration::from_secs(10);
     while player.state() == PlaybackState::Playing && Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(20));
     }
+    let took = resumed.elapsed().as_secs_f64();
     let status = player.status();
     check(
         status.state == PlaybackState::Ended,
         format!("özel modda şarkı bitmedi: {:?}", status.error),
+    )?;
+    // Kalan 1,2 sn gerçekten çalınmalı: "bitti" erken denirse ya da aygıt arabelleği döngüyle
+    // çalarsa süre tutmaz. Üst pay: aygıt arabelleği ve oturumun açılışı.
+    let remaining = SECONDS - 0.3;
+    println!("Bit-perfect: sarmadan sona {took:.3} sn (kalan {remaining:.3} sn)");
+    check(
+        took > remaining - 0.05 && took < remaining + 0.4,
+        format!("özel modda kalan {remaining:.3} sn, {took:.3} sn'de bitti"),
     )?;
     check(
         status.underruns == 0,
