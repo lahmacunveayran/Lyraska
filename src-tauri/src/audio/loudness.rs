@@ -620,6 +620,15 @@ mod tests {
     }
 
     #[test]
+    fn dort_yuz_ms_den_kisa_ses_tek_blok_olculur() {
+        // 400 ms'lik ilk blok dördüncü 100 ms'lik alt blokla oluşur; 0,3 sn'lik seste hiç blok
+        // yoktur, sesin bütünü tek blok sayılır. EBU Tech 3341 durum 1'in kısa hâli: stereo
+        // 1 kHz, −23 dBFS → −23,0 LUFS (±0,1). Ölçülmezse kısa ses eşitlenmez.
+        let short = measure(RATE, 2, 1000.0, &[(0.3, -23.0)]);
+        assert!((short.integrated_lufs + 23.0).abs() < 0.1, "{short:?}");
+    }
+
+    #[test]
     fn sessizlik_olculmez() {
         let mut meter = LoudnessMeter::new(RATE, 2);
         for _ in 0..RATE {
