@@ -945,13 +945,19 @@ mod tests {
 
     #[test]
     fn tasarimlar_beklenen_egriyi_verir() {
+        // Raf payları: RBJ rafı ön bükmeli çift doğrusal dönüşümle analog rafın aynısıdır,
+        // sapmalar analog formülden (Ω = tan(ω/2)/tan(ω0/2)) bulunur ve ölçülenle aynıdır.
+        // Ölçülen sapmalar sırasıyla 0,0172; 1,8e-11 (köşede kazanç her Q için tam A, sapma
+        // yalnızca f64 yuvarlaması); 7,2e-5; 0,0038; 2,7e-6 dB. Paylar bunun 2,9; 545; 14; 5,3
+        // ve 37 katı. Eski paylar (0,3; 0,2; 0,05; 0,5; 0,05) RBJ'nin `2·√A·α` terimini `2·A·α`
+        // yazan bozmayı ve alçak rafın köşesini %2 kaydıran bozmayı kaçırırdı.
         let shelf = Biquad::low_shelf(100.0, 9.0, 0.707, RATE);
-        assert!((db_at(&shelf, 20.0) - 9.0).abs() < 0.3);
-        assert!((db_at(&shelf, 100.0) - 4.5).abs() < 0.2, "köşede yarısı");
-        assert!(db_at(&shelf, 2000.0).abs() < 0.05);
+        assert!((db_at(&shelf, 20.0) - 9.0).abs() < 0.05);
+        assert!((db_at(&shelf, 100.0) - 4.5).abs() < 1e-8, "köşede yarısı");
+        assert!(db_at(&shelf, 2000.0).abs() < 1e-3);
         let high = Biquad::high_shelf(8000.0, -6.0, 0.707, RATE);
-        assert!((db_at(&high, 20_000.0) + 6.0).abs() < 0.5);
-        assert!(db_at(&high, 200.0).abs() < 0.05);
+        assert!((db_at(&high, 20_000.0) + 6.0).abs() < 0.02);
+        assert!(db_at(&high, 200.0).abs() < 1e-4);
         let peak = Biquad::peaking(1000.0, 6.0, 1.0, RATE);
         assert!((db_at(&peak, 1000.0) - 6.0).abs() < 1e-9);
         let low = Biquad::lowpass(120.0, std::f64::consts::FRAC_1_SQRT_2, RATE);
