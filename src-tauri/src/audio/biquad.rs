@@ -7,7 +7,8 @@
 //!
 //! - **RBJ** ("Audio EQ Cookbook"): analog prototipin çift doğrusal dönüşümü. Equalizer APO
 //!   ve AutoEq bunu kullanır; kulaklık profilleri onlarla bire bir aynı çalsın diye onların
-//!   varsayılanıdır. Çift doğrusal dönüşüm frekans eksenini Nyquist'e doğru sıkıştırır
+//!   varsayılanıdır (0,49·fs altında; üstünde iki yöntem de [`Biquad::design`]'da analog eğriye
+//!   uydurulur, bu yüzden RBJ'de eğri 0,49·fs'i geçerken sıçrar: sıkışmış eğriden analog eğriye). Çift doğrusal dönüşüm frekans eksenini Nyquist'e doğru sıkıştırır
 //!   ("cramping"): 44,1 kHz'te 8 kHz'in üstündeki süzgeçler analog tasarımından birkaç dB,
 //!   alçak geçirenler Nyquist yakınında onlarca dB sapar.
 //! - **Eşlenmiş** ([`Biquad::matched`]): kutuplar analog kutupların tam karşılığıdır
@@ -86,7 +87,8 @@ impl Kind {
 /// Tasarım yöntemi.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Method {
-    /// Çift doğrusal dönüşüm (Equalizer APO ve AutoEq ile aynı).
+    /// Çift doğrusal dönüşüm (Equalizer APO ve AutoEq ile aynı; 0,49·fs ve üstündeki süzgeçler
+    /// hariç, bkz. [`Biquad::design`]).
     #[default]
     Rbj,
     /// Analog eğriye eşlenmiş (bkz. modül belgesi).
@@ -334,7 +336,8 @@ impl Biquad {
     }
 
     /// Analog eğriye eşlenmiş tasarım (modül belgesi). Nyquist'e çok yakın ya da etkisiz
-    /// süzgeçlerde RBJ ile aynıdır.
+    /// süzgeçlerde RBJ ile aynıdır; Nyquist'e yakın süzgeçleri programda [`Biquad::design`]
+    /// buraya getirmez, analog eğriye uydurur.
     pub fn matched(spec: &Spec, sample_rate: f64) -> Self {
         let rbj = Self::rbj(spec, sample_rate);
         if spec.is_flat() || spec.freq_hz >= sample_rate * MAX_FREQ_RATIO {
@@ -454,22 +457,32 @@ impl Biquad {
     /// (Denetim 3, DSP-03): birkaç kutup seçeneği (kutupsuz, analog kutbun sınıra çekilmişi,
     /// sınırda) için pay, ızgarada analog eğriye en küçük kareler yöntemiyle (göreli hata)
     /// uydurulur; DC ve Nyquist değerleri serbest ya da analog eğriye sabit. Adaylardan analog
-    /// eğriye en yakını seçilir. Eski davranış (etkisiz ya da sınıra çekilmiş RBJ) da adaydır:
-    /// sonuç hiçbir ayarda ondan uzak olamaz. Bellek ayırmaz.
+    /// eğriye en yakını seçilir. Yanıtı 0,499·fs'e kadar bir yerde analog eğrinin tepesini (ve
+    /// 0 dB'yi) [`CEILING_MARGIN_DB`]'den fazla aşan aday seçilmez: duyulur bandın üstündeki sahte
+    /// bir tepe taşma korumasına ve kulaklığın ön kazancına yükseltme diye girer, sesi boşuna
+    /// kısardı ([`Ceiling`]). Eski davranış (etkisiz ya da sınıra
+    /// çekilmiş RBJ) ve etkisiz süzgeç de adaydır: ızgarada sonuç hiçbir ayarda onlardan uzak
+    /// olamaz. Bellek ayırmaz; ~0,1–0,2 ms (yalnızca ayar değişince).
     fn beyond_nyquist(spec: &Spec, sample_rate: f64) -> Self {
         let rbj = Self::rbj(spec, sample_rate);
         let Some(mut grid) = Grid::new(spec, sample_rate) else {
             return rbj;
         };
         grid.add_top(spec, sample_rate);
+        let ceiling = Ceiling::new(spec, sample_rate, &grid);
         let target = |w: f64| spec.analog(w * sample_rate / (2.0 * PI)).norm_sqr();
-        let mut best = (grid.error(&rbj), rbj);
+        // Etkisiz süzgeç tavanı hiç aşmaz: her zaman geçerli bir aday.
+        let mut best = (grid.error(&Self::IDENTITY), Self::IDENTITY);
         let mut consider = |candidate: Self| {
+            if ceiling.excess(&grid, &candidate) > 0.0 {
+                return;
+            }
             let error = grid.error(&candidate);
             if error.is_finite() && error < best.0 {
                 best = (error, candidate);
             }
         };
+        consider(rbj);
         let (w_n, zeta) = spec.pole();
         let top = 2.0 * PI * MAX_FREQ_RATIO;
         let pole = (2.0 * PI * spec.freq_hz * w_n / sample_rate).min(top);
@@ -736,8 +749,9 @@ impl Grid {
 
     /// Merkezi bandın dışında (Nyquist'in ötesinde) kalan süzgecin duyulur banttaki eğrisi en çok
     /// üst oktavda değişir: orada sık noktalar (dar tepenin eteği noktalar arasında kaçmasın).
+    /// Düşük hızlarda (fs < 40,8 kHz) 0,49·fs ile Nyquist arası da duyulur: üst oktav oraya uzar.
     fn add_top(&mut self, spec: &Spec, sample_rate: f64) {
-        let high = (sample_rate * MAX_FREQ_RATIO).min(20_000.0);
+        let high = (sample_rate * CEILING_TOP_RATIO).min(20_000.0);
         for i in 0..GRID_TOP {
             let octaves = (i as f64 + 1.0) / GRID_TOP as f64 - 1.0;
             self.push(spec, sample_rate, high * 2f64.powf(octaves));
@@ -850,6 +864,61 @@ impl Grid {
                     - self.reference_db[i];
                 error.abs() * self.weight[i]
             })
+            .fold(0.0, f64::max)
+    }
+}
+
+/// Uydurulan süzgecin yanıtı denetim noktalarında analog eğrinin tepesini en fazla bu kadar
+/// aşabilir (dB). Noktaların arasında (Q 30'luk dar tepede) biraz daha: toplam < 1 dB.
+const CEILING_MARGIN_DB: f64 = 0.5;
+/// Tavanın denetlendiği üst sınır (Nyquist'in hemen altı).
+const CEILING_TOP_RATIO: f64 = 0.499;
+const CEILING_POINTS: usize = 48;
+
+/// Nyquist'in ötesindeki süzgecin yanıtına üstten sınır: 0 Hz'ten 0,499·fs'e kadar analog
+/// eğrinin tepesi (en az 0 dB) + [`CEILING_MARGIN_DB`]. Izgaranın noktalarında ve duyulur bandın
+/// üstünde (20 kHz – 0,499·fs; taşma korumasının tepe taraması burayı da görür) sık noktalarda
+/// denetlenir. Analog eğrinin kendisi bu aralıkta sınırın altındadır.
+struct Ceiling {
+    limit_db: f64,
+    len: usize,
+    phi: [(f64, f64, f64); CEILING_POINTS],
+}
+
+impl Ceiling {
+    fn new(spec: &Spec, sample_rate: f64, grid: &Grid) -> Self {
+        let low = 20_000.0f64.min(sample_rate * CEILING_TOP_RATIO);
+        let high = sample_rate * CEILING_TOP_RATIO;
+        let mut ceiling = Self {
+            limit_db: 0.0,
+            len: 0,
+            phi: [(0.0, 0.0, 0.0); CEILING_POINTS],
+        };
+        let mut peak_db = spec.analog_db(0.0).max(0.0);
+        for &db in &grid.reference_db[..grid.len] {
+            peak_db = peak_db.max(db);
+        }
+        if high > low {
+            for (i, phi_i) in ceiling.phi.iter_mut().enumerate() {
+                let hz = low * (high / low).powf(i as f64 / (CEILING_POINTS - 1) as f64);
+                peak_db = peak_db.max(spec.analog_db(hz));
+                *phi_i = phi(2.0 * PI * hz / sample_rate);
+            }
+            ceiling.len = CEILING_POINTS;
+        }
+        ceiling.limit_db = peak_db + CEILING_MARGIN_DB;
+        ceiling
+    }
+
+    /// Adayın tavanı en çok ne kadar aştığı (dB, ≥ 0): bandın üstündeki noktalarda ve `grid`'in
+    /// bütün noktalarında (duyulur bantta da sahte tepe olmasın).
+    fn excess(&self, grid: &Grid, candidate: &Biquad) -> f64 {
+        let band = (0..grid.len).map(|i| (grid.p0[i], grid.p1[i], grid.p2[i]));
+        self.phi[..self.len]
+            .iter()
+            .copied()
+            .chain(band)
+            .map(|p| candidate.response_db_phi(p.0, p.1, p.2) - self.limit_db)
             .fold(0.0, f64::max)
     }
 }
@@ -1229,9 +1298,22 @@ mod tests {
         }
         // Geniş tarama: her tür, sınırdan programın üst sınırına (24 kHz) kadar, Q 0,3–8, ±18 dB.
         // Sonuç kararlı, en küçük fazlı ve duyulur bantta analog eğriye silmekten (ya da sınıra
-        // çekmekten) her zaman yakın; Q ≤ 2 ve ±12 dB'lik ayarlarda en fazla 1 dB sapar.
+        // çekmekten) her zaman yakın; 44,1/48 kHz'te Q ≤ 2 ve ±12 dB'lik ayarlarda en fazla 1 dB
+        // sapar. 16/32 kHz'te (ör. Bluetooth kulaklık) 0,49·fs ile Nyquist arası da duyulur ve
+        // ölçülür (inceleme: `PK 16 928 Hz +24 Q8 @32k` 0,49·fs üstünde uydurulmuyordu).
+        for (spec, rate) in [
+            (spec(Kind::Peaking, 16_928.0, 24.0, 8.0), 32_000.0),
+            (spec(Kind::Peaking, 8648.0, 24.0, 30.0), 16_000.0),
+        ] {
+            let error = dense_error(&spec, &Biquad::design(&spec, rate, Method::Matched), rate);
+            let before = dense_error(&spec, &Biquad::IDENTITY, rate);
+            assert!(
+                error <= before,
+                "{spec:?} @ {rate}: {error:.2} dB, eskisi {before:.2} dB"
+            );
+        }
         let mut worst = (0.0, spec(Kind::Peaking, 0.0, 0.0, 1.0), 0.0);
-        for rate in [44_100.0, 48_000.0] {
+        for rate in [16_000.0, 32_000.0, 44_100.0, 48_000.0] {
             for kind in KINDS {
                 for i in 0..=8 {
                     let low = rate * MAX_FREQ_RATIO;
@@ -1258,7 +1340,8 @@ mod tests {
                                     error <= before + 1e-6,
                                     "{spec:?} @ {rate}: {error:.2} dB, eskisi {before:.2} dB"
                                 );
-                                if q <= 2.0 && gain_db.abs() <= 12.0 && error > worst.0 {
+                                let typical = q <= 2.0 && gain_db.abs() <= 12.0 && rate > 40_000.0;
+                                if typical && error > worst.0 {
                                     worst = (error, spec, rate);
                                 }
                             }

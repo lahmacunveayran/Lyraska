@@ -2037,7 +2037,8 @@ Filter 4: ON PK Fc 19000 Hz Gain 8 dB Q 3.0
     #[test]
     fn karsilastirma_telafisi_aygitin_hizinda() {
         // DSP-02: 48 kHz'te etkisiz kalan 24 kHz'lik raf için karşılaştırma tarafı 5,85 dB yüksek
-        // çalıyordu. A/B'nin iki tarafı 1 kHz'te eşit yükseklikte olmalı.
+        // çalıyordu. A/B'nin iki tarafı 1 kHz'te eşit yükseklikte olmalı. (DSP-03'ten beri raf
+        // 48 kHz'te de çalar; yükseltmesi oynatıcıdaki gibi korumaya bildirilir.)
         let settings = ParametricSettings {
             enabled: true,
             bands: vec![band(FilterKind::LowShelf, 24_000.0, 6.0, 0.707)],
@@ -2045,7 +2046,8 @@ Filter 4: ON PK Fc 19000 Hz Gain 8 dB Q 3.0
         };
         let rate = 48_000;
         let control = Arc::new(PeqControl::default());
-        control.set_filters(&settings.filters(), 0.0, 0.0, settings.design, true);
+        let boost = settings.boost_db_at(f64::from(rate));
+        control.set_filters(&settings.filters(), 0.0, boost, settings.design, true);
         let mut processor = PeqProcessor::new(Arc::clone(&control), 2, rate);
         let with_eq = measure(&mut processor, 1000.0, rate);
         control.set_compare(true, settings.loudness_db_at(f64::from(rate)));
