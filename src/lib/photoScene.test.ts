@@ -564,27 +564,33 @@ describe("kendi resmin sahnesi: kırmızı parlama (WCAG 2.3.1)", () => {
     },
   );
 
-  it("sınır çubukları gereksiz kısaltmaz: kırmızı olmayan resimde dokunmaz, kırmızıda bas iner", () => {
-    W = 640;
-    H = 360;
-    // Mavi ve gri resimlerde kırmızı sınır hiç devreye girmez (yalnız parlaklık sınırı).
-    for (const at of [IMAGES[5]![1], IMAGES[4]![1]]) {
-      const img = makeImage(at);
-      const sample = img.rgba.filter((_, i) => Math.floor(i / 4) % 7 === 0);
-      const colors = barColors(dominantColor(sample));
-      const map = measureLine(imageBackground(img.rgba, W, H), W, H, colors);
-      const g = barGeometry(W, H);
-      for (const levels of levelPatterns()) {
-        const t = targetExtents(levels, g, false);
-        expect(limitExtents(map, t, flashBudgets(false, redSplit(map)))).toEqual(
-          limitExtents(map, t, FLASH_BUDGET),
-        );
+  it(
+    "sınır çubukları gereksiz kısaltmaz: kırmızı olmayan resimde dokunmaz, kırmızıda bas iner",
+    // Açık zaman aşımı: boşta 3,7 sn, yüklü makinede 5,8 sn ölçüldü (varsayılan 5 sn yetmiyordu);
+    // komşu ağır testler gibi 60 sn, yani on katı pay.
+    { timeout: 60_000 },
+    () => {
+      W = 640;
+      H = 360;
+      // Mavi ve gri resimlerde kırmızı sınır hiç devreye girmez (yalnız parlaklık sınırı).
+      for (const at of [IMAGES[5]![1], IMAGES[4]![1]]) {
+        const img = makeImage(at);
+        const sample = img.rgba.filter((_, i) => Math.floor(i / 4) % 7 === 0);
+        const colors = barColors(dominantColor(sample));
+        const map = measureLine(imageBackground(img.rgba, W, H), W, H, colors);
+        const g = barGeometry(W, H);
+        for (const levels of levelPatterns()) {
+          const t = targetExtents(levels, g, false);
+          expect(limitExtents(map, t, flashBudgets(false, redSplit(map)))).toEqual(
+            limitExtents(map, t, FLASH_BUDGET),
+          );
+        }
       }
-    }
-    // Beyaz tüylü kırmızı resimde (proje sahibinin resmi gibi) 10 bas çubuğu ekranın en az %8'i.
-    const feathers = redWorst(RED_IMAGES[4]![1]);
-    expect(feathers.drawn[5]![0]).toBeGreaterThan(0.08 * H);
-  });
+      // Beyaz tüylü kırmızı resimde (proje sahibinin resmi gibi) 10 bas çubuğu ekranın en az %8'i.
+      const feathers = redWorst(RED_IMAGES[4]![1]);
+      expect(feathers.drawn[5]![0]).toBeGreaterThan(0.08 * H);
+    },
+  );
 });
 
 describe("kendi resmin sahnesi: yazılar", () => {
