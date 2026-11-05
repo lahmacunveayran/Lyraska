@@ -76,7 +76,7 @@ Sıra önem sırasıdır. Her biri ayrı küçük PR.
 5. **Ton ilişkisi adlandırması** (B7): MIREX'in "beşli" ilişkisi yönlü; bizimki yönsüz olabilir, başvuru koduyla
    karşılaştırılmalı.
 6. **Kararsız testler:** `check:scenes` "Söz zamanlaması (Kendi resmin)" yavaş makinede 137,9 ms geç (#190'da bir
-   kez); `shader.rs:1278` duvar saatine bağlı; `PlaylistPage` çift tıklaması (`playRef` `useEffect`'te, önerilen
+   kez); `shader.rs:1278` duvar saatine bağlıydı (6 Kasım: yakıt sayacıyla, saatsiz); `PlaylistPage` çift tıklaması (`playRef` `useEffect`'te, önerilen
    `useLayoutEffect`; önce yakalayan test).
 7. **Bit-perfect ilk 10 ms** (B8): özel modda başlangıç geçişi bit bit aynı değil. Sahibinin kararı (5 Kasım):
    "kalsın, belgeye yaz"; Ayarlar'daki bit-perfect yazısına da eklenecek.
