@@ -83,17 +83,97 @@ pub struct TrackInfo {
     pub duration_secs: Option<f64>,
 }
 
-/// Dosyanın bildirdiği kanal düzeni (symphonia `Position` bitleri). Kanal sayısından uydurulmuş
-/// görünen düzen bilinmiyor sayılır (`None`): symphonia kanal maskesi olmayan WAV'da (düz PCM,
-/// kayan nokta, maskesi 0 olan uzantılı başlık), CAF'ta ve MP4 LPCM'de düzeni kanal sayısından
-/// uydurur (`Position::from_count`, ilk n konum): 4 kanal L R C LFE, 5 kanal L R C LFE arka sol
-/// olur ve LFE sanılan kanal ses yüksekliğinden düşerdi. 1–3 ve 6 kanalda bu düzen varsayılanla
-/// (FLAC düzeni) aynıdır, olduğu gibi kalır. Bedeli: bu maskeyle gerçekten yazılmış az rastlanan
-/// dosyalar (ör. 0x0F 3.1, 0xFF eski 7.1 geniş) varsayılan düzenle ölçülür.
-fn file_channel_layout(bits: u64) -> Option<u64> {
-    let n = bits.count_ones();
-    let from_count = n < u64::BITS && bits == (1u64 << n) - 1;
-    (!(from_count && n >= 4 && n != 6)).then_some(bits)
+/// Dosyanın bildirdiği kanal düzeni (symphonia `Position` bitleri); bildirmiyorsa `None`.
+///
+/// symphonia düzeni bildirmeyen dosyada düzeni kanal sayısından uydurur (`Position::from_count`, ilk
+/// n konum; 4 kanal L R C LFE, 5 kanal L R C LFE arka sol): kanal maskesi olmayan ya da maskesi 0
+/// olan WAV'da (düz PCM, kayan nokta), `chan` öbeği olmayan CAF'ta ve MP4'teki PCM'de. Uydurma
+/// düzen gerçek sayılsaydı LFE sanılan kanal ses yüksekliğinden düşerdi. Biti bite aynı düzen
+/// gerçekten de yazılabildiği için (CAF'ta 3.1 `DVD_10` = 0x0F, 7.1 `MPEG_7_1_A` = 0xFF; WAV'da 0x0F
+/// maskesi) karar bitlere değil kaba bakılarak verilir: WAV'da maske, CAF'ta `chan` öbeği aranır
+/// ([`header_declares_layout`]). Kodeğin kendi düzeni (FLAC, Vorbis, ALAC) bildirilmiş sayılır.
+fn file_channel_layout(bits: u64, declared: impl FnOnce() -> bool) -> Option<u64> {
+    // Tek ve iki kanalda ağırlıklar düzenden bağımsızdır; dosyaya ayrıca bakılmaz.
+    (bits.count_ones() <= 2 || declared()).then_some(bits)
+}
+
+/// Kabın kanal düzenini dosyada bildirip bildirmediği (bkz. [`file_channel_layout`]). `format` ve
+/// `codec` symphonia'nın kısa adlarıdır ("wave", "caf", "isomp4"; "pcm_s16le" …).
+fn header_declares_layout(path: &Path, format: &str, codec: &str, channels: usize) -> bool {
+    match format {
+        "wave" => wave_channel_mask(path)
+            .is_some_and(|mask| mask != 0 && mask.count_ones() as usize == channels),
+        "caf" => caf_has_chunk(path, *b"chan").unwrap_or(false),
+        "isomp4" => !codec.starts_with("pcm_"),
+        _ => true,
+    }
+}
+
+/// Başlıkta en çok bu kadar öbeğe bakılır (bozuk dosyada sınırsız döngü olmasın).
+const MAX_HEADER_CHUNKS: usize = 256;
+
+/// WAV'ın `fmt ` öbeğindeki kanal maskesi; WAVE_FORMAT_EXTENSIBLE değilse 0. Okunamazsa `None`.
+fn wave_channel_mask(path: &Path) -> Option<u32> {
+    use std::io::{Read, Seek, SeekFrom};
+    let mut file = File::open(path).ok()?;
+    let mut head = [0u8; 12];
+    file.read_exact(&mut head).ok()?;
+    if &head[0..4] != b"RIFF" || &head[8..12] != b"WAVE" {
+        return None;
+    }
+    for _ in 0..MAX_HEADER_CHUNKS {
+        let mut chunk = [0u8; 8];
+        file.read_exact(&mut chunk).ok()?;
+        let size = u32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]);
+        if &chunk[0..4] == b"fmt " {
+            // WAVE_FORMAT_EXTENSIBLE: biçim etiketi 0xFFFE, maske 20. baytta (fmt 40 bayt).
+            if size < 24 {
+                return Some(0);
+            }
+            let mut fmt = [0u8; 24];
+            file.read_exact(&mut fmt).ok()?;
+            let tag = u16::from_le_bytes([fmt[0], fmt[1]]);
+            return Some(if tag == 0xFFFE {
+                u32::from_le_bytes([fmt[20], fmt[21], fmt[22], fmt[23]])
+            } else {
+                0
+            });
+        }
+        // Öbekler çift uzunluğa doldurulur.
+        file.seek(SeekFrom::Current(i64::from(size) + i64::from(size & 1)))
+            .ok()?;
+    }
+    None
+}
+
+/// CAF'ta `id` öbeği var mı? Okunamazsa `None`.
+fn caf_has_chunk(path: &Path, id: [u8; 4]) -> Option<bool> {
+    use std::io::{Read, Seek, SeekFrom};
+    let mut file = File::open(path).ok()?;
+    let mut head = [0u8; 8];
+    file.read_exact(&mut head).ok()?;
+    if &head[0..4] != b"caff" {
+        return None;
+    }
+    for _ in 0..MAX_HEADER_CHUNKS {
+        let mut chunk = [0u8; 12];
+        if file.read_exact(&mut chunk).is_err() {
+            // Dosyanın sonu: öbek yok.
+            return Some(false);
+        }
+        if chunk[0..4] == id {
+            return Some(true);
+        }
+        let size = i64::from_be_bytes([
+            chunk[4], chunk[5], chunk[6], chunk[7], chunk[8], chunk[9], chunk[10], chunk[11],
+        ]);
+        // −1: ses verisi dosyanın sonuna kadar sürer (son öbek).
+        if size < 0 {
+            return Some(false);
+        }
+        file.seek(SeekFrom::Current(size)).ok()?;
+    }
+    None
 }
 
 /// Bir ses dosyasını parça parça 64-bit örneklere çözer.
@@ -178,7 +258,14 @@ impl Decoder {
             )));
         }
         let channel_layout = match params.channels.as_ref() {
-            Some(Channels::Positioned(positions)) => file_channel_layout(positions.bits()),
+            Some(Channels::Positioned(positions)) => file_channel_layout(positions.bits(), || {
+                header_declares_layout(
+                    path,
+                    format.format_info().short_name,
+                    decoder.codec_info().short_name,
+                    positions.bits().count_ones() as usize,
+                )
+            }),
             _ => None,
         };
         let channels = params

@@ -198,7 +198,8 @@ BEGIN DELETE FROM lyrics_alignments WHERE path = old.path; END;
 /// kaydı geçerlidir. Bu yüzden parçanın sürümü (`analysis::cache::VERSIONS.loudness`) artırılmadı
 /// (bütün kütüphane yeniden çözülürdü); yalnızca kütüphanede ikiden çok kanallı görünen şarkıların
 /// ses yüksekliği sürümü 0 yapılır, arka plan analizi yalnızca onları yeniden çözer (kareler, ritim,
-/// bas, ton yeniden hesaplanmaz). Bilinen sınır: kütüphanede olmayan çok kanallı bir dosyanın eski
+/// bas, ton yeniden hesaplanmaz). Çok kanallıların bir kısmında da sonuç aynıdır (5.1 0x3F ve 0x60F,
+/// L R C); kanal düzeni önbellekte tutulmadığı için ayırt edilemez, hepsi bir kez yeniden ölçülür. Bilinen sınır: kütüphanede olmayan çok kanallı bir dosyanın eski
 /// kaydı (kanal sayısı önbellekte tutulmaz) eski ağırlıkla kalır, dosya değişince yenilenir.
 const V11: &str = "
 UPDATE analyses SET loudness_version = 0
@@ -607,6 +608,7 @@ mod tests {
             .unwrap();
         }
         migrate(&mut conn).unwrap();
+        assert_eq!(version(&conn), 11);
         let mut stmt = conn
             .prepare(
                 "SELECT path, spectrum_version, rhythm_version, loudness_version, bass_version,

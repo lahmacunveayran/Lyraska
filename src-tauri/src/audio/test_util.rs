@@ -76,6 +76,49 @@ pub fn write_wav_extensible(
     write_wav_full(path, rate, channels, 24, Some(mask), frames, sample);
 }
 
+/// 16 bit büyük sonlu PCM CAF (Core Audio Format) yazar. `layout_tag` verilirse `chan` öbeği o
+/// düzen etiketiyle (Apple `AudioChannelLayoutTag`) yazılır; yoksa dosya düzen bildirmez.
+pub fn write_caf(
+    path: &Path,
+    rate: u32,
+    channels: u32,
+    layout_tag: Option<u32>,
+    frames: usize,
+    sample: impl Fn(usize, usize) -> f64,
+) {
+    let data_len = frames * channels as usize * 2;
+    let mut bytes = Vec::with_capacity(96 + data_len);
+    bytes.extend_from_slice(b"caff");
+    bytes.extend_from_slice(&1u16.to_be_bytes()); // sürüm
+    bytes.extend_from_slice(&0u16.to_be_bytes()); // bayraklar
+    bytes.extend_from_slice(b"desc");
+    bytes.extend_from_slice(&32i64.to_be_bytes());
+    bytes.extend_from_slice(&f64::from(rate).to_be_bytes());
+    bytes.extend_from_slice(b"lpcm");
+    bytes.extend_from_slice(&0u32.to_be_bytes()); // tamsayı, büyük sonlu
+    bytes.extend_from_slice(&(2 * channels).to_be_bytes()); // paket başına bayt
+    bytes.extend_from_slice(&1u32.to_be_bytes()); // paket başına kare
+    bytes.extend_from_slice(&channels.to_be_bytes());
+    bytes.extend_from_slice(&16u32.to_be_bytes()); // kanal başına bit
+    if let Some(tag) = layout_tag {
+        bytes.extend_from_slice(b"chan");
+        bytes.extend_from_slice(&12i64.to_be_bytes());
+        bytes.extend_from_slice(&tag.to_be_bytes());
+        bytes.extend_from_slice(&0u32.to_be_bytes()); // kanal haritası
+        bytes.extend_from_slice(&0u32.to_be_bytes()); // kanal tanımı sayısı
+    }
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&((4 + data_len) as i64).to_be_bytes());
+    bytes.extend_from_slice(&0u32.to_be_bytes()); // düzenleme sayısı
+    for frame in 0..frames {
+        for ch in 0..channels as usize {
+            let value = (sample(frame, ch).clamp(-1.0, 1.0) * 32_767.0).round() as i16;
+            bytes.extend_from_slice(&value.to_be_bytes());
+        }
+    }
+    std::fs::write(path, bytes).unwrap();
+}
+
 /// PCM WAV yazar; `mask` verilirse başlık WAVE_FORMAT_EXTENSIBLE'dır (o maskeyle).
 fn write_wav_full(
     path: &Path,

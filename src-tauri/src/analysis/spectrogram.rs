@@ -948,7 +948,8 @@ mod tests {
     use super::*;
     use crate::analysis::cache::StaleParts;
     use crate::audio::test_util::{
-        sine, temp_path, write_wav, write_wav_bits, write_wav_extensible, write_wav_layout,
+        sine, temp_path, write_caf, write_wav, write_wav_bits, write_wav_extensible,
+        write_wav_layout,
     };
     use std::path::Path;
 
@@ -1725,6 +1726,85 @@ mod tests {
                 "düz 4 kanal, arka çift: {rear:?} dB, beklenen {surround:.3}"
             ));
         }
+        assert!(wrong.is_empty(), "{wrong:#?}");
+    }
+
+    /// Kanal sayısından uydurulmuş düzenle biti bite aynı düzen dosyada gerçekten yazılı olabilir:
+    /// CAF'ın 3.1 (`DVD_10`, L R C LFE) ve 7.1 (`MPEG_7_1_A`, L R C LFE Ls Rs Lc Rc) etiketleri,
+    /// WAV'ın 0x0F (3.1) maskesi. Bunlar dosyanın düzeniyle ölçülür (BS.1770-5: LFE ölçüme girmez,
+    /// çevre 1,41, ön orta-yan Lc/Rc 1,0); düzen bildirmeyen CAF ise kanal sayısının varsayılanıyla
+    /// (4: dörtlü, arka çift çevre).
+    #[test]
+    fn dosyada_yazili_duzen_uydurma_sayilmaz() {
+        let rate = 48_000;
+        // Apple CoreAudioTypes.h: etiket = (kimlik << 16) | kanal sayısı.
+        const DVD_10: u32 = (136 << 16) | 4;
+        const MPEG_7_1_A: u32 = (126 << 16) | 8;
+        let surround = 10.0 * 1.41f64.log10();
+        let single = -10.0 * 2f64.log10();
+        let caf = |channels: u32, tag: Option<u32>, active: &[usize]| {
+            let path = temp_path("kanal-duzeni.caf");
+            write_caf(
+                &path,
+                rate,
+                channels,
+                tag,
+                3 * rate as usize,
+                tone_in(rate, active),
+            );
+            quick_loudness(&path)
+        };
+        let wav_3_1 = |active: &[usize]| {
+            let path = temp_path("kanal-duzeni-3-1.wav");
+            write_wav_layout(&path, rate, 0x0F, 3 * rate as usize, tone_in(rate, active));
+            quick_loudness(&path)
+        };
+        let mut wrong = Vec::new();
+        let mut check =
+            |name: &str, front: Option<Loudness>, got: Option<Loudness>, want: Option<f64>| {
+                let diff = got
+                    .zip(front)
+                    .map(|(g, f)| g.integrated_lufs - f.integrated_lufs);
+                let ok = match (diff, want) {
+                    (Some(d), Some(e)) => (d - e).abs() < 0.05,
+                    (None, None) => got.is_none(),
+                    _ => false,
+                };
+                if !ok || front.is_none() {
+                    wrong.push(format!("{name}: {diff:?} dB, beklenen {want:?}"));
+                }
+            };
+        let front = caf(4, Some(DVD_10), &[0, 1]);
+        check("CAF 3.1 LFE", front, caf(4, Some(DVD_10), &[3]), None);
+        check(
+            "CAF 3.1 orta",
+            front,
+            caf(4, Some(DVD_10), &[2]),
+            Some(single),
+        );
+        let front = caf(8, Some(MPEG_7_1_A), &[0, 1]);
+        check(
+            "CAF 7.1 Ls Rs",
+            front,
+            caf(8, Some(MPEG_7_1_A), &[4, 5]),
+            Some(surround),
+        );
+        check(
+            "CAF 7.1 Lc Rc",
+            front,
+            caf(8, Some(MPEG_7_1_A), &[6, 7]),
+            Some(0.0),
+        );
+        let front = caf(4, None, &[0, 1]);
+        check(
+            "CAF düzensiz 4",
+            front,
+            caf(4, None, &[2, 3]),
+            Some(surround),
+        );
+        let front = wav_3_1(&[0, 1]);
+        check("WAV 3.1 LFE", front, wav_3_1(&[3]), None);
+        check("WAV 3.1 orta", front, wav_3_1(&[2]), Some(single));
         assert!(wrong.is_empty(), "{wrong:#?}");
     }
 

@@ -90,8 +90,10 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
   - Her şarkının EBU R128 yüksekliği (LUFS) ve gerçek tepesi (dBTP) analizde ölçülür, önbellekte saklanır.
     Önbellekte yoksa şarkı açılınca ayrı bir hızlı ölçüm yapılır.
   - Kanal ağırlıkları kanalın yerine göre (BS.1770-5): yan kanallar ve 5.x'in çevre çifti 1,41, LFE 0, gerisi 1,0.
-    Düzen dosyadan okunur (`TrackInfo::channel_layout`); bilinmiyorsa kanal sayısının FLAC düzeni varsayılır.
-    Symphonia'nın maskesiz dosyada (WAV, CAF, MP4 LPCM) kanal sayısından uydurduğu düzen bilinmiyor sayılır.
+    Düzen symphonia'nın bildirdiğidir (`TrackInfo::channel_layout`): WAV'ın kanal maskesi, CAF'ın `chan` öbeği,
+    kodeğin kendi düzeni (FLAC, Vorbis, ALAC). Maskesiz WAV'da, `chan` öbeği olmayan CAF'ta ve MP4'teki PCM'de symphonia
+    düzeni kanal sayısından uydurur; bu başlığa bakılarak anlaşılır ve kanal sayısının FLAC düzeni varsayılır.
+    FLAC'ın `WAVEFORMATEXTENSIBLE_CHANNEL_MASK` etiketini symphonia okumaz (ör. 2.1 FLAC L R C sayılır).
   - Şarkı −14 LUFS'e getirilir; yükseltme gerçek tepeyi −1 dBTP'nin üstüne çıkarmaz.
   - Ekolayzer artık sesi kendisi kısmaz; yalnızca en büyük yükseltmesini bildirir. Eşitlemenin tepeye açtığı
     boşluk yetiyorsa hiç kısılmaz, yetmezse yalnızca eksik kadar kısılır (hızlı iner, yavaş kalkar).
