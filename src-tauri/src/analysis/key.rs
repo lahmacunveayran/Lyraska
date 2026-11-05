@@ -115,7 +115,11 @@ pub struct MarkedKey {
     pub minor: bool,
 }
 
-/// Bulunan ton ile işaretlenen ton arasındaki ilişki (MIREX ton değerlendirmesindeki sınıflar).
+/// Bulunan ton ile işaretlenen ton arasındaki ilişki. Sınıflar MIREX ton değerlendirmesininkilerdir
+/// (mir_eval `key.weighted_score`: aynı, beşli, paralel ton, aynı tonik, başka), bir farkla: MIREX
+/// yalnızca **yukarı** beşliyi (bulunan, işaretlenenin 7 yarım ton üstü) beşli sayar; burada beşli
+/// iki yönlüdür (Camelot çarkında iki yan, DJ için uyumlu geçiş). Bu yüzden isabet oranı MIREX puanı
+/// değildir.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(test, derive(ts_rs::TS), ts(export))]
@@ -648,6 +652,46 @@ mod tests {
         };
         assert_eq!(key_relation(&detected(8, true), csm), KeyRelation::Fifth);
         assert!(KeyRelation::Relative.is_hit() && !KeyRelation::Parallel.is_hit());
+    }
+
+    #[test]
+    fn ton_iliskisi_mirex_tablosuyla_ayni_besli_iki_yonlu() {
+        // Beklenen sınıf MIREX tablosundan (mir_eval 0.8.2 `key.weighted_score`'un kuralları),
+        // yarım ton farkıyla: d = (bulunan − işaretlenen) mod 12. Aynı ton ve kip: aynı. Aynı kip ve
+        // d = 7: beşli (MIREX'te yalnızca bu); d = 5: aşağı beşli, burada bilerek o da beşli
+        // (Camelot komşuluğu). İşaretlenen majör, bulunan minör, d = 9 ya da işaretlenen minör,
+        // bulunan majör, d = 3: paralel ton (aynı donanım). Aynı tonik, öteki kip: aynı tonik.
+        // Gerisi başka. 24 × 24 çiftin hepsi.
+        let mut counts = [0usize; 5];
+        for (marked_tonic, marked_minor) in (0..12u8).flat_map(|t| [(t, false), (t, true)]) {
+            let marked = MarkedKey {
+                tonic: marked_tonic,
+                minor: marked_minor,
+            };
+            for (tonic, minor) in (0..12u8).flat_map(|t| [(t, false), (t, true)]) {
+                let d = (tonic + 12 - marked_tonic) % 12;
+                let expected = if d == 0 && minor == marked_minor {
+                    KeyRelation::Same
+                } else if minor == marked_minor && (d == 7 || d == 5) {
+                    KeyRelation::Fifth
+                } else if (!marked_minor && minor && d == 9) || (marked_minor && !minor && d == 3) {
+                    KeyRelation::Relative
+                } else if d == 0 {
+                    KeyRelation::Parallel
+                } else {
+                    KeyRelation::Other
+                };
+                let detected = MusicalKey::new(usize::from(tonic), minor, 0.9);
+                assert_eq!(
+                    key_relation(&detected, marked),
+                    expected,
+                    "işaretlenen {marked:?}, bulunan {tonic} {minor}"
+                );
+                counts[expected as usize] += 1;
+            }
+        }
+        // Her işaretlenen için 1 aynı, 2 beşli, 1 paralel ton, 1 aynı tonik, 19 başka.
+        assert_eq!(counts, [24, 48, 24, 24, 456]);
     }
 
     #[test]
