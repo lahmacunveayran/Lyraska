@@ -41,8 +41,10 @@ const same = (a: ParametricSettings, b: ParametricSettings) =>
  * Elle parametrik ekolayzer. Bant sürüklenirken her değişiklik beklemeden ekrana yansır
  * (analog önizleme); çekirdeğe aynı anda tek istek gider, araya gelen değişikliklerden yalnızca
  * en sonuncusu gönderilir. Çekirdeğin cevabı gelince eğri sayısal tasarımın gerçek eğrisidir.
+ * Sayısal eğri aygıtın hızına bağlıdır: `outputRate` (çalan aygıtın hızı) değişince eğri ve
+ * koruma çekirdekten yeniden alınır.
  */
-export function useParametric(): ParametricControls {
+export function useParametric(outputRate?: number): ParametricControls {
   const [settings, setSettings] = useState<ParametricSettings>(DEFAULT_PARAMETRIC);
   const [core, setCore] = useState<ParametricState | null>(null);
   const [comparing, setComparing] = useState(false);
@@ -53,6 +55,8 @@ export function useParametric(): ParametricControls {
   const pending = useRef<ParametricSettings | null>(null);
   /** Kullanıcı açılıştaki yükleme bitmeden dokunduysa yüklenen ayar onu ezmesin. */
   const touched = useRef(false);
+  /** Eğrisi en son sorulan aygıt hızı (aygıt yokken soru tekrarlanmaz). */
+  const askedRate = useRef<number | undefined>(undefined);
 
   /** Çekirdeğin cevabı; `canonical` ise ekrandaki ayar da onun (sınırlara çekilmiş) ayarı olur. */
   const adopt = useCallback((state: ParametricState, canonical: boolean) => {
@@ -79,6 +83,22 @@ export function useParametric(): ParametricControls {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (outputRate === undefined || outputRate === askedRate.current) return;
+    askedRate.current = outputRate;
+    let cancelled = false;
+    getParametric()
+      .then((loaded) => {
+        // Bu sırada giden bir değişiklik varsa onun cevabı zaten yeni hızda gelir.
+        if (cancelled || !loaded || inFlight.current || pending.current) return;
+        adopt(loaded, false);
+      })
+      .catch((e) => !cancelled && setError(errorMessage(e)));
+    return () => {
+      cancelled = true;
+    };
+  }, [outputRate, adopt]);
 
   const send = useCallback(
     async (next: ParametricSettings) => {

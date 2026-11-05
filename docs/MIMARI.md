@@ -61,8 +61,10 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
     uydurulur (silinmez, sınıra çekilmez; Denetim 3, DSP-03). Kutup seçenekleri için pay en küçük karelerle bulunur,
     en yakın aday seçilir; Q ≤ 2, ±12 dB'de sapma < 1 dB (`biquad::tests::nyquist_yakinindaki_…`).
 - **Elle parametrik ekolayzer** (`audio/peq.rs`, arayüz `ParametricEq.tsx`): en çok 20 bant, sekiz tür, varsayılan
-  eşlenmiş tasarım (çizilen eğri duyulan eğridir). Kulaklık düzeltmesiyle aynı kilitsiz kanal (`PeqControl`) ve
-  30 ms çapraz geçiş. En büyük yükseltme taşma korumasına bildirilir (grafik ekolayzerinkiyle toplanır).
+  eşlenmiş tasarım. Eğri, korumaya bildirilen yükseltme ve karşılaştırma telafisi çalan aygıtın hızında
+  hesaplanır (aygıt yoksa 48 kHz; hız değişince yeniden): çizilen eğri duyulan eğridir, iki tasarımda da
+  (`parametrik_cizilen_egri_aygitin_hizinda_duyulan_egri`). Kulaklık düzeltmesiyle aynı kilitsiz kanal (`PeqControl`)
+  ve 30 ms çapraz geçiş. En büyük yükseltme taşma korumasına bildirilir (grafik ekolayzerinkiyle toplanır).
   Karşılaştırma (A/B): filtreler atlanır, ses ekolayzerin pembe gürültüde ve BS.1770 K ağırlığında ölçülen ses
   yüksekliği farkı kadar değiştirilir; iki taraf eşit yükseklikte ve aynı korumayla dinlenir. Equalizer APO
   biçiminde içe/dışa aktarılır. Görseller (spektrum) parametrik ekolayzeri de yansıtır.

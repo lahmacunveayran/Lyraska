@@ -56,12 +56,11 @@ const DEFAULT_NOTCH_Q: f64 = 30.0;
 const MIN_PREAMP_DB: f64 = -40.0;
 /// Ayar değişince eski ve yeni filtrelerin karıştırılma süresi.
 const CROSSFADE_SECONDS: f64 = 0.03;
-/// Örnekleme hızı bilinmeyen yerlerde (kulaklık düzeltmesinin arayüz eğrisi) kullanılan
-/// temsilî hız.
-const DISPLAY_RATE: f64 = 48_000.0;
-/// Parametrik ekolayzerin eğrileri ve ses yüksekliği tahmini bu hızda hesaplanır: sayısal
-/// tasarım duyulur bantta analog eğriye en yakın, tahmin örnekleme hızından bağımsız olur
-/// (48 kHz'te 24 kHz'lik bir raf Nyquist'e düşer ve etkisiz sayılırdı).
+/// Örnekleme hızı bilinmeyen yerlerde (kulaklık düzeltmesinin arayüz eğrisi, ses aygıtı açık
+/// değilken parametrik ekolayzer) kullanılan temsilî hız.
+pub(crate) const DISPLAY_RATE: f64 = 48_000.0;
+/// [`loudness_gain_db`]'nin hızı: analog eğriye yakın, örnekleme hızından bağımsız bir önizleme.
+/// Çalan sesin telafisi aygıtın hızında hesaplanır ([`ParametricSettings::loudness_db_at`]).
 const ANALYSIS_RATE: f64 = 96_000.0;
 /// Profil okunurken ön kazanç sınırı bu hızların en kötüsüne göre konur (en yaygın iki hız;
 /// başka bir hızda çalınırken ses yolu kendi hızıyla yeniden sınırlar).
@@ -732,9 +731,21 @@ impl ParametricSettings {
         reference_peak_db(&self.active_filters(), self.design).max(0.0)
     }
 
+    /// [`Self::boost_db`], `sample_rate`'te çalarken: ses yolu süzgeçleri aygıtın hızında tasarlar,
+    /// tepe hıza bağlıdır (Denetim 3, DSP-02; D1-06: 44,1 kHz'te etkisiz kalan bant için ses
+    /// kısılmaz).
+    pub fn boost_db_at(&self, sample_rate: f64) -> f64 {
+        response_peak_db(&self.active_filters(), self.design, sample_rate).max(0.0)
+    }
+
     /// Müziğe benzer seste ses yüksekliği farkı (dB; bkz. [`loudness_gain_db`]).
     pub fn loudness_db(&self) -> f64 {
         loudness_gain_db(&self.active_filters(), self.design)
+    }
+
+    /// [`Self::loudness_db`], `sample_rate`'te çalarken (karşılaştırmanın telafisi).
+    pub fn loudness_db_at(&self, sample_rate: f64) -> f64 {
+        loudness_gain_db_at(&self.active_filters(), self.design, sample_rate)
     }
 
     /// Verilen frekanslarda toplam eğri (dB), verilen örnekleme hızında (görseller için).
@@ -833,7 +844,14 @@ pub struct ParametricState {
 }
 
 impl ParametricState {
+    /// Ses aygıtı açık değilken: [`DISPLAY_RATE`]'te.
     pub fn new(settings: ParametricSettings, comparing: bool) -> Self {
+        Self::at_rate(settings, comparing, DISPLAY_RATE)
+    }
+
+    /// Eğriler, korumaya bildirilen yükseltme ve karşılaştırma telafisi `sample_rate`'te (çalan
+    /// aygıtın hızı): çizilen eğri duyulan eğridir (Denetim 3, DSP-02 / D1-04 / ARY-03).
+    pub fn at_rate(settings: ParametricSettings, comparing: bool, sample_rate: f64) -> Self {
         let settings = settings.sanitized();
         let curve_hz: Vec<f64> = (0..CURVE_POINTS)
             .map(|i| 20.0 * 1000f64.powf(i as f64 / (CURVE_POINTS - 1) as f64))
@@ -841,13 +859,13 @@ impl ParametricState {
         let band_curves_db = settings
             .bands
             .iter()
-            .map(|b| response_curve(&[b.filter()], settings.design, &curve_hz))
+            .map(|b| response_curve(&[b.filter()], settings.design, &curve_hz, sample_rate))
             .collect();
         let filters = settings.active_filters();
-        let curve_db = response_curve(&filters, settings.design, &curve_hz);
+        let curve_db = response_curve(&filters, settings.design, &curve_hz, sample_rate);
         Self {
-            boost_db: reference_peak_db(&filters, settings.design).max(0.0),
-            loudness_db: loudness_gain_db(&filters, settings.design),
+            boost_db: settings.boost_db_at(sample_rate),
+            loudness_db: settings.loudness_db_at(sample_rate),
             comparing: comparing && settings.is_active(),
             settings,
             curve_hz,
@@ -861,16 +879,21 @@ impl ParametricState {
     }
 }
 
-/// Verilen frekanslarda filtrelerin toplam eğrisi (dB).
-fn response_curve(filters: &[PeqFilter], method: DesignMethod, freqs_hz: &[f64]) -> Vec<f64> {
+/// Verilen frekanslarda filtrelerin `sample_rate`'teki toplam eğrisi (dB).
+fn response_curve(
+    filters: &[PeqFilter],
+    method: DesignMethod,
+    freqs_hz: &[f64],
+    sample_rate: f64,
+) -> Vec<f64> {
     let coefs: Vec<Biquad> = filters
         .iter()
-        .map(|f| design(f, ANALYSIS_RATE, method))
+        .map(|f| design(f, sample_rate, method))
         .collect();
     freqs_hz
         .iter()
         .map(|&hz| {
-            let w = 2.0 * PI * hz / ANALYSIS_RATE;
+            let w = 2.0 * PI * hz / sample_rate;
             coefs.iter().map(|c| c.response_db(w)).sum::<f64>()
         })
         .collect()
@@ -881,6 +904,11 @@ fn response_curve(filters: &[PeqFilter], method: DesignMethod, freqs_hz: &[f64])
 /// yakın; EBU R128 ölçümünün kendisi). Karşılaştırma (A/B) bu kadar telafi edilir: ekolayzerli ve
 /// ekolayzersiz ses eşit yükseklikte dinlenir, "yüksek olan daha iyi gelir" yanılgısı olmaz.
 pub fn loudness_gain_db(filters: &[PeqFilter], method: DesignMethod) -> f64 {
+    loudness_gain_db_at(filters, method, ANALYSIS_RATE)
+}
+
+/// [`loudness_gain_db`], süzgeçler `sample_rate`'te tasarlanmış olarak.
+pub fn loudness_gain_db_at(filters: &[PeqFilter], method: DesignMethod, sample_rate: f64) -> f64 {
     if filters.is_empty() {
         return 0.0;
     }
@@ -899,13 +927,13 @@ pub fn loudness_gain_db(filters: &[PeqFilter], method: DesignMethod) -> f64 {
     };
     let coefs: Vec<Biquad> = filters
         .iter()
-        .map(|f| design(f, ANALYSIS_RATE, method))
+        .map(|f| design(f, sample_rate, method))
         .collect();
     let (mut weighted, mut total) = (0.0, 0.0);
     for i in 0..CURVE_POINTS {
         let hz = 20.0 * 1000f64.powf(i as f64 / (CURVE_POINTS - 1) as f64);
         let k = shelf.analog(hz).norm_sqr() * highpass.analog(hz).norm_sqr();
-        let w = 2.0 * PI * hz / ANALYSIS_RATE;
+        let w = 2.0 * PI * hz / sample_rate;
         let gain = 10f64.powf(coefs.iter().map(|c| c.response_db(w)).sum::<f64>() / 10.0);
         weighted += k * gain;
         total += k;
@@ -1949,5 +1977,82 @@ Filter 4: ON PK Fc 19000 Hz Gain 8 dB Q 3.0
         );
         assert!(off.curve_db.iter().all(|&db| db.abs() < 1e-9));
         assert_eq!(off.boost_db, 0.0);
+    }
+
+    #[test]
+    fn parametrik_cizilen_egri_aygitin_hizinda_duyulan_egri() {
+        // Denetim 3, DSP-02 / D1-04 / ARY-03: eğri 96 kHz'te çiziliyor, ses aygıtın hızında
+        // tasarlanıyordu (RBJ'de tizde 3 dB fark). Çizilen eğri işlemcinin çaldığıyla aynı olmalı.
+        let cases = [
+            (
+                DesignMethod::Rbj,
+                vec![
+                    band(FilterKind::HighShelf, 10_000.0, 6.0, 0.7),
+                    band(FilterKind::Peaking, 16_000.0, 6.0, 1.41),
+                ],
+            ),
+            (
+                DesignMethod::Rbj,
+                vec![band(FilterKind::Peaking, 18_000.0, -8.0, 4.0)],
+            ),
+            (
+                DesignMethod::Matched,
+                vec![band(FilterKind::Peaking, 12_000.0, 9.0, 2.0)],
+            ),
+            (
+                DesignMethod::Matched,
+                vec![band(FilterKind::HighShelf, 22_000.0, 12.0, 0.7)],
+            ),
+        ];
+        for (design, bands) in cases {
+            let settings = ParametricSettings {
+                enabled: true,
+                bands,
+                design,
+            };
+            for rate in [44_100, 48_000, 96_000] {
+                let state = ParametricState::at_rate(settings.clone(), false, f64::from(rate));
+                assert_eq!(
+                    state.boost_db,
+                    settings.boost_db_at(f64::from(rate)),
+                    "korumaya bildirilen, gösterilenle aynı"
+                );
+                let control = Arc::new(PeqControl::default());
+                control.set_filters(&settings.filters(), 0.0, state.boost_db, design, true);
+                let mut processor = PeqProcessor::new(Arc::clone(&control), 2, rate);
+                for (hz, drawn) in state.curve_hz.iter().zip(&state.curve_db).step_by(16) {
+                    if *hz < 2000.0 {
+                        continue;
+                    }
+                    let heard = measure(&mut processor, *hz, rate);
+                    assert!(
+                        (heard - drawn).abs() < 0.1,
+                        "{design:?} {rate} Hz, {hz:.0} Hz: çizilen {drawn:.2}, duyulan {heard:.2}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn karsilastirma_telafisi_aygitin_hizinda() {
+        // DSP-02: 48 kHz'te etkisiz kalan 24 kHz'lik raf için karşılaştırma tarafı 5,85 dB yüksek
+        // çalıyordu. A/B'nin iki tarafı 1 kHz'te eşit yükseklikte olmalı.
+        let settings = ParametricSettings {
+            enabled: true,
+            bands: vec![band(FilterKind::LowShelf, 24_000.0, 6.0, 0.707)],
+            design: DesignMethod::Matched,
+        };
+        let rate = 48_000;
+        let control = Arc::new(PeqControl::default());
+        control.set_filters(&settings.filters(), 0.0, 0.0, settings.design, true);
+        let mut processor = PeqProcessor::new(Arc::clone(&control), 2, rate);
+        let with_eq = measure(&mut processor, 1000.0, rate);
+        control.set_compare(true, settings.loudness_db_at(f64::from(rate)));
+        let compared = measure(&mut processor, 1000.0, rate);
+        assert!(
+            (compared - with_eq).abs() < 0.5,
+            "ekolayzerli {with_eq:.2}, karşılaştırma {compared:.2} dB"
+        );
     }
 }
