@@ -437,7 +437,8 @@ mod tests {
 
     #[test]
     fn kirpilmis_yuksek_frekans_tavani_asmaz() {
-        // Sert sınırlanmış 9 kHz: örnekler tam 1,0 ama gerçek tepe +1,7 dBTP.
+        // Sert sınırlanmış 9 kHz: örnekler tam 1,0 ama gerçek tepe +2,54 dBTP (9/44,1 = 10/49:
+        // 49 örnekte bir tekrar eden dizinin ideal, bant sınırlı ara değeri).
         let rate = 44_100;
         let mut limiter = Limiter::new(1, rate);
         let input: Vec<Sample> = (0..rate as usize)
