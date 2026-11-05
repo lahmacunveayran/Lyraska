@@ -27,8 +27,12 @@ cd "$KOK"
 sha256sum -c model-sha256.txt --quiet --ignore-missing || echo "UYARI: model karması farklı"
 
 # 3. Python ortamları (ölçüm: sherpa-onnx 2.0.1; konuşma sentezi: 1.12.40, çünkü 2.x Piper'ın espeak önişlemesini içermiyor)
-[ -d venv ] || { python3 -m venv venv; ./venv/bin/pip install -q onnxruntime==1.31.1 onnx==1.23.2 numpy==2.5.4 scipy soundfile sherpa-onnx==2.0.1 tiktoken numba; }
-[ -d venv-tts ] || { python3 -m venv venv-tts; ./venv-tts/bin/pip install -q sherpa-onnx==1.12.40 numpy scipy soundfile pyworld mido "setuptools<81"; }
+# Paketler sürümü ve karması sabit istek dosyalarından kurulur (betikler/gereksinim-*.txt; kaynakları *.in,
+# üretimi dosya başında). Not: sürümü yazılı olmayan paketlerin (scipy, soundfile, numba, pyworld vb.) ve
+# bağımlılıkların kesin sürümleri dosyalar üretildiğinde (6 Kasım 2026) seçildi; eski denemede kullanılanlarla
+# aynı olmayabilir.
+[ -d venv ] || { python3 -m venv venv; ./venv/bin/pip install -q --require-hashes -r betikler/gereksinim-olcum.txt; }
+[ -d venv-tts ] || { python3 -m venv venv-tts; ./venv-tts/bin/pip install -q --require-hashes -r betikler/gereksinim-ses.txt; }
 mkdir -p whl && [ -d whl/openai_whisper-20250625 ] || { ./venv/bin/pip download -q --no-deps openai-whisper==20250625 -d whl; tar xzf whl/openai_whisper-20250625.tar.gz -C whl; }
 command -v fluidsynth >/dev/null || apt-get install -y -q fluidsynth fluid-soundfont-gm
 
