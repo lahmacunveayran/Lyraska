@@ -1546,6 +1546,17 @@ mod tests {
     }
 
     #[test]
+    fn tekduze_muzikte_bolum_siniri_yok() {
+        // Foote yeniliği iki yanı birbirinden farklı olan ölçüde yükselir. Her ölçünün özelliği
+        // aynıysa benzerlik her yerde aynı, yenilik her yerde sıfırdır: sınır yoktur (tekdüze
+        // döngü, test tonu). Eşikle eşit olan yenilik sınır sayılmamalı.
+        assert_eq!(
+            section_boundaries(&vec![vec![1.0; 5]; 40]),
+            Vec::<usize>::new()
+        );
+    }
+
+    #[test]
     fn duz_sarkida_drop_yok() {
         let rate = 22_050;
         let (samples, _) = drum_track(120.0, 0.5, 30.0, rate, 8);
