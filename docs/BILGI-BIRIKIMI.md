@@ -39,6 +39,10 @@ kısaltılır.
   seferinde gerçek hata buldu (sınırsız döngüler, frenden kaçan desen, parlama kanıtındaki açık, yanlış satırı
   silen hızlı düzenleme). Bulgular önce testle yakalanıp düzeltilir.
 - Kullanım limiti dolunca ajanlar yarıda kalır; limit yenilenince `SendMessage` ile kaldıkları yerden sürdürülür.
+- **PR otomasyonu (sahibinin isteği, 5 Kasım 2026: "otomasyona bağlayalım"):** PR açılınca uygulamanın PR izlemesi
+  Auto-fix ile açılır; CI kırmızıya dönerse ya da yorum gelirse oturum uyanıp düzeltir (CI elle yoklanmaz). Birleştirmeyi
+  sahibi yapar; beklemeden iş sırasındaki sıradaki işe `main`'den yeni dalda geçilir. Oturum başında açık PR'lar
+  (Dependabot dahil) kontrol edilir. Kullanım sınırı yaklaşınca yarım iş commit + push edilir, kalanı devir notuna.
 - **Dışarıdan gelen hata raporu önce kendi kodumuzda doğrulanır** (1 Kasım, hata avı): raporun testleri kodun bir
   kopyasıyla çalışır, bizimkiyle değil. Gerçek kodu çağıran geçici bir testle ölçmek hızlı ve kesin (10 iddia tek
   derlemede). 28 maddeden dördü yanlıştı (eel-wasm'ın kendi ön işlemesine bakılmamıştı; MP3 kapağı yalnızca kod
