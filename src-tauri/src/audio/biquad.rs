@@ -1417,6 +1417,72 @@ mod tests {
         );
     }
 
+    /// Eşlenmiş çentik hiçbir frekansta sesi yükseltmez. Kaynak analog prototip (RBJ):
+    /// H(s) = (s² + 1)/(s² + s/Q + 1); s = jΩ'da pay 1 − Ω², payda (1 − Ω²) + jΩ/Q. Gerçek
+    /// kısımlar aynı, paydaya yalnızca sanal kısım eklenir, dolayısıyla her frekansta |H| ≤ 1,
+    /// uçlarda (DC, sonsuz) tam 1. Tasarımın iki ölçek adayı (DC'de 1, Nyquist'te 1) ikisi de bu
+    /// sınırı korumalı; yanlış ölçeklenen aday seçilirse bütün bant yükselir (mutasyon testi:
+    /// 44,1 kHz, 18 531 Hz, Q 1,5'te 1 kHz +2,95 dB).
+    ///
+    /// Genlik, ürünün φ-tabanlı `response_db`'sinden bağımsız olarak, katsayılardan doğrudan
+    /// karmaşık sayıyla hesaplanır. Pay 0,001 dB (|H|² ≤ 10^0,0001). Gerekçe: kutupları z = e^{sT}
+    /// ile eşlenmiş sayısal çentik iki ucu birden tam 1'e oturtamaz; Nyquist'e göre ölçeklenen
+    /// aday DC'de 1'i çok az aşabilir (bu ızgarada en çok |H|² − 1 = 1,4·10⁻⁷, 6·10⁻⁷ dB:
+    /// 96 kHz, 55,7 Hz, Q 4). 0,001 dB duyulmaz ve yanlış ölçeğin etkisinin (44,1 kHz'te
+    /// +0,9 … +3 dB) çok altındadır.
+    #[test]
+    fn eslenmis_centik_hicbir_frekansta_yukseltmez() {
+        let magnitude_sqr = |filter: &Biquad, w: f64| {
+            let z1 = Complex::from_polar(1.0, -w);
+            let z2 = z1 * z1;
+            let num = Complex::new(filter.b0, 0.0) + z1 * filter.b1 + z2 * filter.b2;
+            let den = Complex::new(1.0, 0.0) + z1 * filter.a1 + z2 * filter.a2;
+            num.norm_sqr() / den.norm_sqr()
+        };
+        let notch = |freq_hz, q| Spec {
+            kind: Kind::Notch,
+            freq_hz,
+            gain_db: 0.0,
+            q,
+        };
+
+        // Mutasyon testinin bulduğu ayar: 1 kHz'te analog çentik ≈ 0 dB (−0,01 dB).
+        let rate = 44_100.0;
+        let spec = notch(18_531.0, 1.5);
+        let filter = Biquad::matched(&spec, rate);
+        let at_1k = 10.0 * magnitude_sqr(&filter, 2.0 * PI * 1000.0 / rate).log10();
+        assert!(
+            (at_1k - spec.analog_db(1000.0)).abs() < 0.05,
+            "1 kHz: {at_1k:.4} dB, analog {:.4} dB",
+            spec.analog_db(1000.0)
+        );
+
+        let mut worst = (f64::NEG_INFINITY, None);
+        for rate in [44_100.0, 48_000.0, 96_000.0] {
+            let top: f64 = 0.45 * rate;
+            for i in 0..=120 {
+                let freq_hz = 20.0 * (top / 20.0).powf(f64::from(i) / 120.0);
+                for q in [0.3, 0.5, 0.707, 1.0, 1.5, 2.0, 3.0, 4.0, 8.0, 15.0, 30.0] {
+                    let filter = Biquad::matched(&notch(freq_hz, q), rate);
+                    for k in 0..=2000 {
+                        let w = PI * f64::from(k) / 2000.0;
+                        let gain = magnitude_sqr(&filter, w);
+                        if gain > worst.0 {
+                            worst = (gain, Some((rate, freq_hz, q, w * rate / (2.0 * PI))));
+                        }
+                    }
+                }
+            }
+        }
+        assert!(
+            worst.0 <= 10f64.powf(0.001 / 10.0),
+            "çentik {:+.4} dB yükseltiyor (|H|² − 1 = {:e}; hız, f0, Q, Hz): {:?}",
+            10.0 * worst.0.log10(),
+            worst.0 - 1.0,
+            worst.1
+        );
+    }
+
     #[test]
     fn karmasik_yanit_genlikle_tutarli() {
         let filter = Biquad::peaking(2000.0, -5.0, 1.4, RATE);
