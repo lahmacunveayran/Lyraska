@@ -732,6 +732,21 @@ mod tests {
     }
 
     #[test]
+    fn la_440_hz_sinusunde_akort_kaymasi_sifir() {
+        // ISO 16: La4 = 440 Hz akordun tanımıdır; saf 440 Hz sinüsün akort kayması 0'dır.
+        // Tolerans 0,01 yarım ton (1 sent): 22 050 Hz'te kutu 2,69 Hz (440 Hz'te ~10,6 sent);
+        // Hann penceresinde logaritmik parabolün sapması bunun küçük bir kesridir (ölçülen
+        // +0,05 sent, toleransın yirmide biri). Tepe yerine iniş yamacını seçen bir hata tahmini
+        // yarım kutuya yakın yukarı iter (ölçülen +5,1 sent = 0,051 yarım ton), toleransın beş
+        // katı.
+        let samples: Vec<f64> = (0..RATE as usize * 3)
+            .map(|i| 0.5 * (2.0 * std::f64::consts::PI * 440.0 * i as f64 / f64::from(RATE)).sin())
+            .collect();
+        let analysis = analyze(&samples);
+        assert!(analysis.tuning.abs() < 0.01, "{}", analysis.tuning);
+    }
+
+    #[test]
     fn yalnizca_davul_ve_sessizlik_tonsuz_ya_da_guvensiz() {
         // Yalnızca gürültü vuruşları.
         let drums = music(&[&[]], 0.5, 40, 0.0, 1.0);
