@@ -433,6 +433,40 @@ mod tests {
         assert_eq!(frame, [0.5]);
     }
 
+    /// `is_bypass` sesin gerçekten değişip değişmediğini söyler; başka testler ona güvenir
+    /// (`kapaliyken_ses_bit_bit_ayni`, `ayar_degisirken_ani_sicrama_olmaz`). Doğru cevabın
+    /// kaynağı tanım ve ölçüm: açık crossfeed yan sinyali (L = −R) kısar, dolayısıyla sabit
+    /// [0,5; −0,5] girdisi bir süre sonra girdiden farklı çıkar; mono akışa hiç dokunulmaz.
+    #[test]
+    fn atlama_bilgisi_sesin_degisip_degismedigini_soyler() {
+        let mut p = processor(on(700.0, 6.0), 48_000);
+        assert!(!p.is_bypass(), "açık crossfeed stereo sesi işler");
+        // El hesabı: M = 0, S = 0,5; yan ses DC'de G(1) = (1 − r0)/(1 + r0) katına iner
+        // (çift doğrusal dönüşüm DC kazancını korur), r0 = 10^(−6/20). Çıkış L' = G(1)·S ≈ 0,166,
+        // R' = −L'. 4800 kare (0,1 sn) süzgecin oturmasına bol bol yeter: kutbun zaman sabiti
+        // 1/(ωc·(1 + r0)) ≈ 0,15 ms, kalan geçici e^(−650) ≈ 0. Pay 1e-9: yalnızca yuvarlama.
+        let r0 = 10f64.powf(-6.0 / 20.0);
+        let expected = 0.5 * (1.0 - r0) / (1.0 + r0);
+        let mut frame = [0.5, -0.5];
+        for _ in 0..4800 {
+            frame = [0.5, -0.5];
+            p.process_frame(&mut frame);
+        }
+        assert!(
+            (frame[0] - expected).abs() < 1e-9 && (frame[1] + expected).abs() < 1e-9,
+            "atlanmıyor dediği ses gerçekten değişiyor: {frame:?}, beklenen ±{expected}"
+        );
+
+        // Mono akış, ayar açık olsa da atlanır ve aynen geçer.
+        let control = Arc::new(CrossfeedControl::default());
+        control.set(on(700.0, 6.0));
+        let mut mono = CrossfeedProcessor::new(control, 1, 48_000);
+        assert!(mono.is_bypass(), "mono akışa dokunulmaz");
+        let mut frame = [0.5];
+        mono.process_frame(&mut frame);
+        assert_eq!(frame, [0.5]);
+    }
+
     /// Yan süzgeç hiçbir frekansta yükseltmez (|G| ≤ 1), DC'de (1 − r0)/(1 + r0), Nyquist'te 1.
     #[test]
     fn yan_suzgec_hicbir_frekansi_yukseltmez() {

@@ -381,9 +381,64 @@ mod tests {
         );
     }
 
+    /// `ornekler_arasi_tepe_tavani_asmaz` testinin yüksek hızdaki eşi: 192 kHz'te ara değerleyici
+    /// yalnızca 2× sık örnekler, iki ara noktasından biri bozulursa (ör. pencere yanlış
+    /// hesaplanırsa) tepe kaçar. Girdi fs/8'de (24 kHz, örnek başına 45°) 1,4 genlikli sinüs;
+    /// sinüsün gerçek tepesi genliğidir (ITU-R BS.1770-4 Ek 2), yani +2,9 dBTP. Sinüsün ızgaraya
+    /// göre konumu bir örnek aralığında 16 adımda taranır: kaçırma bu konuma bağlıdır.
+    ///
+    /// Beklenen sınır el hesabıdır. Ara değerleyici örneğin kendisine ve ¼, ¾ örnek sonrasına
+    /// bakar (`interpolator`: merkez (32 − 1)/2, ara noktalar n − 7,75 ve n − 7,25; örnek
+    /// n − 8'de). Tepe hiçbir noktaya ¼ örnekten uzak düşmez, 45°/örnekte en çok 11,25°: okuma
+    /// en kötü cos(11,25°), 0,168 dB düşük (ölçülen: −0,832 dBTP, tepe iki örneğin tam ortasında,
+    /// konum 8). Tavan bu kadar aşılabilir; üstüne 0,02 dB pay
+    /// (ara değerleyicinin geçirme bandı ve ölçerin 8× ızgarası, 1 − cos(π/64) ≈ 0,01 dB). Bir
+    /// ara nokta kaybolursa boşluk ¾ örneğe çıkar, tepe 0,375 örnek uzağa düşebilir: cos(16,9°),
+    /// 0,38 dB.
+    ///
+    /// Not: 2× ızgaranın bu sınırı modül belgesindeki 0,1 dB'den (44,1/48 kHz'te ölçülmüş)
+    /// büyüktür; 192 kHz'te 20 kHz'te de 0,12 dB'ye çıkar.
+    ///
+    /// Ölçer `true_peak_8x` (64 katsayılı, sınırlayıcınınkinden bağımsız bir sinc); önce her
+    /// konumda girdinin tepesini 1,4 okuduğu doğrulanır.
+    #[test]
+    fn yuksek_hizda_ornekler_arasi_tepe_tavani_asmaz() {
+        let rate = 192_000u32;
+        let per_sample = 2.0 * PI * 24_000.0 / f64::from(rate);
+        let grid_miss = -dbtp((per_sample / 4.0).cos());
+        assert!((grid_miss - 0.168).abs() < 0.001, "{grid_miss}");
+        let settle = rate as usize / 4;
+        let len = rate as usize / 2;
+        let mut worst = (f64::NEG_INFINITY, 0);
+        for k in 0..16 {
+            let phase = per_sample * f64::from(k) / 16.0;
+            let input: Vec<Sample> = (0..len)
+                .map(|i| 1.4 * (per_sample * i as f64 + phase).sin())
+                .collect();
+            let measured = dbtp(true_peak_8x(&input[..4800]));
+            assert!(
+                (measured - dbtp(1.4)).abs() < 0.02,
+                "ölçer sinüsün tepesini {measured:.3} dBTP okuyor (konum {k})"
+            );
+            let mut limiter = Limiter::new(1, rate);
+            let out = run(&mut limiter, &input, 1);
+            let peak = dbtp(true_peak_8x(&out[settle..]));
+            if peak > worst.0 {
+                worst = (peak, k);
+            }
+        }
+        assert!(
+            worst.0 <= CEILING_DBTP + grid_miss + 0.02,
+            "gerçek tepe {:.3} dBTP > {CEILING_DBTP} + {grid_miss:.3} dBTP (konum {})",
+            worst.0,
+            worst.1
+        );
+    }
+
     #[test]
     fn kirpilmis_yuksek_frekans_tavani_asmaz() {
-        // Sert sınırlanmış 9 kHz: örnekler tam 1,0 ama gerçek tepe +1,7 dBTP.
+        // Sert sınırlanmış 9 kHz: örnekler tam 1,0 ama gerçek tepe +2,54 dBTP (9/44,1 = 10/49:
+        // 49 örnekte bir tekrar eden dizinin ideal, bant sınırlı ara değeri).
         let rate = 44_100;
         let mut limiter = Limiter::new(1, rate);
         let input: Vec<Sample> = (0..rate as usize)
