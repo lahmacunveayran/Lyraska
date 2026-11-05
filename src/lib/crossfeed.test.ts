@@ -82,3 +82,13 @@ describe("crossfeed", () => {
     expect(crossfeedCurvePath([], [], 1000, 120)).toBe("");
   });
 });
+
+describe("hazır ayar eşleşmesi: seviye de aranır", () => {
+  it("kesim aynı, seviye farklıysa doğru hazır ayarı ya da hiçbirini verir", () => {
+    // 700 Hz'de iki hazır ayar var: Orta (6 dB) ve Güçlü (4,5 dB).
+    expect(matchCrossfeedPreset(on(700, 4.5), CROSSFEED_PRESETS)).toBe("Güçlü");
+    expect(matchCrossfeedPreset(on(700, 6), CROSSFEED_PRESETS)).toBe("Orta");
+    // 5 dB hiçbirine uymaz.
+    expect(matchCrossfeedPreset(on(700, 5), CROSSFEED_PRESETS)).toBeNull();
+  });
+});
