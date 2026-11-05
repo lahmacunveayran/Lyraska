@@ -43,6 +43,8 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
   taraması, CI'da sınanmayan hedefler, `PlaylistPage` `useLayoutEffect`, bit-perfect 10 ms geçişin yazısı).
 - Kütüphane taslakları: Gökyüzü onaylandı ("fena olmuş"); kapak ve sanatçı levhalarının renk düzeyi soruldu, cevap
   yok. Araştırma `docs/arastirma/kutuphane-arastirma.md`.
+- symphonia'nın kanal sırası (EBU uyumunun bağımsız incelemesi, 6 Kasım; doğrulanmadı): ALAC 6.1/7.1 eşlemesi ffmpeg'den
+  farklı görünüyor; CAF'ın kanal tanımlı (`Custom`) düzeni ve FLAC'ın kanal maskesi etiketi okunmuyor. Nadir; bakılacak.
 - WebM'de şarkı adı okunmuyor (Matroska Segment Title; symphonia okumuyor) ve sondaki Opus dolgusu (≤ 20 ms)
   atılmıyor (DiscardPadding). İkisi de küçük; istenirse kendi küçük EBML okuyucusuyla.
 - Köy işi (sahibinin 656 şarkısı, 1 Kasım; araç `examples/koy_isi.rs`): hızlı türlerde yarım tempo
