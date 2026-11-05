@@ -1,7 +1,9 @@
 //! Gerçek ses aygıtıyla uçtan uca deneme (CI'da Windows'ta çalışır).
 //!
 //! Kısa, kısık bir test sesi üretir; açar, duraklatır, sarar, çalarken ekolayzeri
-//! değiştirir ve sonuna kadar çalar. Takılma, konum ve "bitti" durumunu denetler.
+//! değiştirir ve sonuna kadar çalar. Takılma, konum ve "bitti" durumunu denetler. Sonra aynı
+//! uzunlukta **sessiz** bir dosyayı bit-perfect (özel mod) çalar: konum gerçek zamanla
+//! ilerlemeli, şarkı bitmeli (sessiz: özel modda bir şey bozulursa da hoparlörden ses gelmez).
 //! Makinede ses aygıtı yoksa bunu açıkça yazar ve başarıyla çıkar.
 //!
 //! Çalıştırma: `cargo run --example ses_denemesi`
@@ -15,17 +17,20 @@ use std::time::{Duration, Instant};
 
 use lyraska_lib::audio::eq::{EqSettings, BANDS};
 use lyraska_lib::audio::player::{PlaybackState, Player};
-use lyraska_lib::audio::AudioError;
+use lyraska_lib::audio::{AudioError, PlaybackOptions};
 
 const RATE: u32 = 44_100;
 const SECONDS: f64 = 1.5;
 
 fn main() -> ExitCode {
     let path = std::env::temp_dir().join("lyraska-ses-denemesi.wav");
-    write_test_tone(&path);
+    write_test_tone(&path, 0.05);
+    let silent = std::env::temp_dir().join("lyraska-ses-denemesi-sessiz.wav");
+    write_test_tone(&silent, 0.0);
 
-    let result = run(&path);
+    let result = run(&path).and_then(|()| run_bit_perfect(&silent));
     std::fs::remove_file(&path).ok();
+    std::fs::remove_file(&silent).ok();
     match result {
         Ok(()) => {
             println!("BAŞARILI: ses aygıtında uçtan uca çalma doğrulandı.");
@@ -171,8 +176,90 @@ fn run(path: &Path) -> Result<(), Outcome> {
     Ok(())
 }
 
-/// 440 Hz, çok kısık (-26 dB) stereo test sesi; 16 bit WAV.
-fn write_test_tone(path: &Path) {
+/// Bit-perfect (özel mod): sessiz dosya gerçek zamanla çalmalı. Realtek sürücüsü yoklamalı özel
+/// modda arabelleği hiç boşaltmıyordu: konum 0'da kalıyor, sürücü ilk arabelleği döngüyle çalıyor
+/// ("uyarı sesi gibi" vızıltı; sahibinin bildirdiği, 5 Kasım 2026). Aygıt özel modu kabul
+/// etmezse (başka program tutuyor, biçim yok) adım atlanır.
+fn run_bit_perfect(path: &Path) -> Result<(), Outcome> {
+    let mut player = Player::new();
+    player
+        .set_playback_options(PlaybackOptions {
+            normalize: false,
+            bit_perfect: true,
+        })
+        .map_err(|e| Outcome::Failed(e.to_string()))?;
+    player
+        .load(path, true)
+        .map_err(|e| Outcome::Failed(e.to_string()))?;
+    let start = Instant::now();
+    std::thread::sleep(Duration::from_millis(300));
+    let status = player.status();
+    let Some(output) = status.output.clone() else {
+        return Err(Outcome::Failed("özel modda sinyal yolu yok".to_owned()));
+    };
+    if !output.bit_perfect {
+        println!(
+            "Bit-perfect ATLANDI: özel mod açılmadı ({})",
+            output.notice.unwrap_or_default()
+        );
+        return Ok(());
+    }
+    let (t0, p0) = (start.elapsed().as_secs_f64(), status.position_secs);
+    std::thread::sleep(Duration::from_millis(600));
+    let status = player.status();
+    let speed = (status.position_secs - p0) / (start.elapsed().as_secs_f64() - t0);
+    println!(
+        "Bit-perfect: {} bit, {} Hz; konum {:.3} sn, hız {speed:.3}",
+        output.bit_depth.unwrap_or_default(),
+        output.sample_rate,
+        status.position_secs
+    );
+    check(
+        (0.9..1.1).contains(&speed),
+        format!("özel modda konum gerçek zamanla ilerlemiyor (hız {speed:.3})"),
+    )?;
+    // Duraklat, sar, sürdür: özel modda da konum donar, sarma yerini bulur.
+    player.pause();
+    std::thread::sleep(Duration::from_millis(250));
+    let paused_at = player.status().position_secs;
+    std::thread::sleep(Duration::from_millis(300));
+    let still = player.status().position_secs;
+    check(
+        (still - paused_at).abs() < 0.005,
+        format!("özel modda duraklatılmışken konum ilerledi ({paused_at:.3} → {still:.3})"),
+    )?;
+    player
+        .seek(0.3)
+        .map_err(|e| Outcome::Failed(e.to_string()))?;
+    std::thread::sleep(Duration::from_millis(150));
+    let seeked = player.status().position_secs;
+    check(
+        (seeked - 0.3).abs() < 0.005,
+        format!("özel modda sarma konumu {seeked:.3}"),
+    )?;
+    player.play().map_err(|e| Outcome::Failed(e.to_string()))?;
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while player.state() == PlaybackState::Playing && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let status = player.status();
+    check(
+        status.state == PlaybackState::Ended,
+        format!("özel modda şarkı bitmedi: {:?}", status.error),
+    )?;
+    check(
+        status.underruns == 0,
+        format!("özel modda {} kez takıldı", status.underruns),
+    )?;
+    check(
+        (status.position_secs - SECONDS).abs() < 0.02,
+        format!("özel modda son konum {:.3} sn", status.position_secs),
+    )?;
+    Ok(())
+}
+
+/// 440 Hz stereo test sesi (`amplitude` 0,05: çok kısık, −26 dB; 0: sessiz); 16 bit WAV.
+fn write_test_tone(path: &Path, amplitude: f64) {
     let frames = (f64::from(RATE) * SECONDS) as usize;
     let data_len = frames * 4;
     let mut bytes = Vec::with_capacity(44 + data_len);
@@ -190,7 +277,7 @@ fn write_test_tone(path: &Path) {
     bytes.extend_from_slice(&(data_len as u32).to_le_bytes());
     for frame in 0..frames {
         let t = frame as f64 / f64::from(RATE);
-        let value = ((2.0 * std::f64::consts::PI * 440.0 * t).sin() * 0.05 * 32767.0) as i16;
+        let value = ((2.0 * std::f64::consts::PI * 440.0 * t).sin() * amplitude * 32767.0) as i16;
         bytes.extend_from_slice(&value.to_le_bytes());
         bytes.extend_from_slice(&value.to_le_bytes());
     }
