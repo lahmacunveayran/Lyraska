@@ -69,9 +69,10 @@ kısaltılır.
 - **Disk küçük** (~250 GB görünür ama izin verilen alan dolar). Dolunca denetimler sessizce yarıda kalır.
   Kurtarma: `src-tauri/target/debug/incremental` ve `examples` silinir; geçici klasördeki indirmeler ve bitmiş ajan
   çalışma kopyaları (`git worktree remove --force`) temizlenir. Uzun işten önce `df -h /` bakılır.
-- **Çalışma kopyaları depo içinde** (`.claude/worktrees/`): Prettier, ESLint ve Vitest onları da görür. Ana kopyada
-  `npx eslint . --ignore-pattern ".claude/**"`, `npx vitest run --exclude ".claude/**"` kullanılır ya da çalışma
-  kopyaları silinir. `.git/info/exclude`'a `.claude/worktrees/` yazılır (depoya girmez).
+- **Çalışma kopyaları depo içinde** (`.claude/worktrees/`): Prettier ve ESLint onları da görür. Ana kopyada
+  `npx eslint . --ignore-pattern ".claude/**"` kullanılır ya da çalışma kopyaları silinir. Vitest onları
+  `vite.config.ts`'te dışlar (5 Kasım 2026: dışlanmadan önce 97 yerine 776 dosya koşuyordu, başka dalların sonucu
+  karışıyordu). `.git/info/exclude`'a `.claude/worktrees/` yazılır (depoya girmez).
 - **Sahne denetimi üç paralel parçada** (`SCENE_SHARD`, 29 Ekim 2026): bütün CI ~16 dk (en uzunu kurulum dosyası);
   yeni denetim eklerken `check-scenes.mjs`'teki görev listesine `add(...)` ile eklenir.
 - **CI'da test derlemesi ayrı adımda** (`cargo test --no-run`, 30 dk; 30 Ekim 2026): tract gelince Windows'ta
