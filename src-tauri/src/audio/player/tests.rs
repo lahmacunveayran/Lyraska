@@ -1372,7 +1372,6 @@ fn heard_two_tones(controls: &RenderControls, rate: u32) -> (f64, f64) {
     }
     let left: Vec<Sample> = out.iter().step_by(2).skip(frames / 2).copied().collect();
     let level = |hz: f64| 20.0 * (fit(&left, hz, rate).0 / TWO_TONE_AMPLITUDE).log10();
-    eprintln!("OLCUM 100 Hz {:.4} dB, 1 kHz {:.4} dB", level(100.0), level(1000.0));
     (level(100.0), level(1000.0))
 }
 
