@@ -49,6 +49,27 @@ describe("ses gecikmesi ölçümü", () => {
   });
 });
 
+describe("ses gecikmesi ölçümü: sınır değerler", () => {
+  it("tam 8 basış yeterlidir", () => {
+    const taps = clicks.slice(3, 11).map((c) => c + 0.03);
+    const estimate = estimateAudioDelay(taps, clicks)!;
+    expect(estimate).not.toBeNull();
+    expect(estimate.delayMs).toBe(30);
+    expect(estimate.used).toBe(8);
+  });
+
+  it("tam 40 ms dağınıklık hâlâ güvenilir sayılır", () => {
+    // Sapmalar: [-40 ×3, 0, 0, +40 ×3] ms. Ortanca 0; mutlak sapmalar sıralı
+    // [0, 0, 40 ×6] ms, çift sayıda olduğundan ortanca (40 + 40) / 2 = 40 ms.
+    const deviations = [-0.04, -0.04, -0.04, 0, 0, 0.04, 0.04, 0.04];
+    const taps = deviations.map((d, i) => clicks[i + 3]! + d);
+    const estimate = estimateAudioDelay(taps, clicks)!;
+    expect(estimate.used).toBe(8);
+    expect(estimate.spreadMs).toBe(40);
+    expect(estimate.reliable).toBe(true);
+  });
+});
+
 describe("vuruş göstergesi", () => {
   it("her vuruşta bir kenara değer, arada sabit hızla gider", () => {
     expect(beatSwing(0, 0)).toBe(0);

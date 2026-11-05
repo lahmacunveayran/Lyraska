@@ -13,6 +13,10 @@ Görselleri şarkıyı önceden bilen, tamamen çevrimdışı çalışan Windows
 | Görsel akıcılık        | 1080p, dahili GPU'da **60 fps**  |
 | Kararlılık             | 1 saat çalmada **sıfır takılma** |
 
+Senkron CI'da sınanır; F-ölçüsü, 60 fps ve takılmasızlık yalnızca yerel araçlarla (`examples/`) ölçülüyor, CI'ya
+bağlanması açık iş (test kalitesi denetimi, 6 Kasım 2026: `docs/arastirma/test-kalitesi/`). Testlerin kendisi
+mutasyonla ölçülür: kod bilerek bozulur, testler düşmeli.
+
 ## Faz 0 — Temel (5–11 Ekim 2026)
 
 - [x] Tauri 2 + React + TypeScript iskeleti; Rust tarafı ses motoru, analiz ve görsel köprüsü modüllerine ayrılmış

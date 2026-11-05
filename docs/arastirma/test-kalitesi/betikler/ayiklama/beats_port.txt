@@ -1,0 +1,28 @@
+== beats.rs:349 (yerel ortalama penceresi bir kare kýsalýr) ==
+  6 tempo × 4 kesirli konum: vuruþ zamanlarýndaki en büyük fark 0.105 ms
+
+== beats.rs:542 (kare altý kayma hep 0) ==
+   84 BPM kayma 0.00 kare: aslý ort 0.14 / en çok 0.37 ms, mutant ort 4.08 / en çok 7.14 ms
+   84 BPM kayma 0.25 kare: aslý ort 0.15 / en çok 0.37 ms, mutant ort 4.17 / en çok 7.74 ms
+   84 BPM kayma 0.50 kare: aslý ort 0.17 / en çok 0.34 ms, mutant ort 4.25 / en çok 8.33 ms
+  100 BPM kayma 0.00 kare: aslý ort 0.09 / en çok 0.23 ms, mutant ort 0.00 / en çok 0.00 ms
+  100 BPM kayma 0.25 kare: aslý ort 0.30 / en çok 0.52 ms, mutant ort 4.17 / en çok 4.17 ms
+  100 BPM kayma 0.50 kare: aslý ort 0.11 / en çok 0.36 ms, mutant ort 8.33 / en çok 8.33 ms
+  120 BPM kayma 0.00 kare: aslý ort 0.08 / en çok 0.26 ms, mutant ort 0.00 / en çok 0.00 ms
+  120 BPM kayma 0.25 kare: aslý ort 0.39 / en çok 0.66 ms, mutant ort 4.17 / en çok 4.17 ms
+  120 BPM kayma 0.50 kare: aslý ort 0.07 / en çok 0.35 ms, mutant ort 8.33 / en çok 8.33 ms
+  128 BPM kayma 0.00 kare: aslý ort 0.31 / en çok 0.76 ms, mutant ort 4.02 / en çok 8.33 ms
+  128 BPM kayma 0.25 kare: aslý ort 0.28 / en çok 0.59 ms, mutant ort 4.31 / en çok 8.33 ms
+  128 BPM kayma 0.50 kare: aslý ort 0.28 / en çok 0.61 ms, mutant ort 4.31 / en çok 8.33 ms
+  143 BPM kayma 0.00 kare: aslý ort 0.35 / en çok 0.73 ms, mutant ort 4.06 / en çok 8.28 ms
+  143 BPM kayma 0.25 kare: aslý ort 0.32 / en çok 0.63 ms, mutant ort 4.25 / en çok 8.42 ms
+  143 BPM kayma 0.50 kare: aslý ort 0.34 / en çok 0.69 ms, mutant ort 4.27 / en çok 8.33 ms
+  174 BPM kayma 0.00 kare: aslý ort 0.40 / en çok 0.90 ms, mutant ort 4.16 / en çok 8.05 ms
+  174 BPM kayma 0.25 kare: aslý ort 0.39 / en çok 0.90 ms, mutant ort 4.17 / en çok 8.19 ms
+  174 BPM kayma 0.50 kare: aslý ort 0.39 / en çok 0.85 ms, mutant ort 4.17 / en çok 8.33 ms
+  peak_offset([0, 1, 0.5], 1): aslý 0.166667, mutant -0.000000  (el hesabý: 1/6 = 0.166667)
+
+== beats.rs:270 (2/3 oraný 2 olur) — önerilen testin sýnamasý ==
+  aslý  : sonuç None; parçalar [((0, 2000), 66.0, (66.0, 1.001), 1.001), ((2000, 4000), 66.0, (45.0, 0.689), 0.273), ((4000, 6000), 66.0, (66.0, 1.0), 1.0)]
+  mutant: sonuç Some; parçalar [((0, 2000), 66.0, (66.0, 1.001), 1.001), ((2000, 4000), 45.0, (45.0, 0.689), 0.273), ((4000, 6000), 66.0, (66.0, 1.0), 1.0)]
+  oran 45/66 = 0.6818; 2/3 ile göreli fark 0.0227 (tolerans 0,03)

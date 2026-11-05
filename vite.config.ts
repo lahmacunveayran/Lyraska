@@ -1,5 +1,5 @@
-/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
+import { configDefaults } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import pkg from "./package.json" with { type: "json" };
 
@@ -28,5 +28,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test-setup.ts"],
+    // Ajanların çalışma kopyaları (`.claude/worktrees/`) depo kökünün altında durur; onların testleri
+    // yerelde bu deponun testleri sanılmasın (sayı 4 katına çıkıyordu, başka dalların sonucu karışıyordu).
+    exclude: [...configDefaults.exclude, "**/.claude/**"],
   },
 });

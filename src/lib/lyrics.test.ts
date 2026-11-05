@@ -278,6 +278,23 @@ describe("lyricsTextStats", () => {
   });
 });
 
+describe("sıradaki satırın önizlemesi", () => {
+  it("sıradaki satır erken belirince 'sonraki' ondan sonraki satırdır", () => {
+    const four: Lyrics = {
+      ...lyrics,
+      lines: [
+        line(10, 12, "bir iki"),
+        line(12, 14, "üç dört"),
+        line(30, 32, "beş"),
+        line(32, 34, "altı"),
+      ],
+    };
+    const frame = lyricFrame(four, 30 - LYRIC_LEAD / 2);
+    expect(frame.line?.text).toBe("beş");
+    expect(frame.next?.text).toBe("altı");
+  });
+});
+
 describe("otomatik zamanlamanın durumu", () => {
   const untimed: Lyrics = { ...lyrics, synced: false, auto: null };
 
