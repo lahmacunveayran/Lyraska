@@ -162,6 +162,9 @@ describe("oynatma saati (söz zamanlaması)", () => {
     // Çekirdeğin duvar saati arayüzün saatinden 37 ms ileri kaymış (NTP düzeltmesi). Önce kısa sorgular
     // (fark onlardan tahmin edilir), sonra ağır sahne: yanıt 60 ms geç işleniyor (gidiş-dönüş uzun:
     // orta nokta kullanılamaz, yanıtın anı konumu 60 ms geride bırakırdı).
+    // Sahte saat: Windows'ta gerçek setTimeout(2) ~15 ms sürüyor; kısa sorgular kısa kalmayınca fark
+    // ancak ±5 ms bilinir (ölçülen hata 3,9 ms). Kısa sorgunun gerçekten 2 ms sürmesini test yönetir.
+    vi.useFakeTimers();
     const { result } = renderHook(() => usePlayer(["flac"]));
     await act(async () => {
       await result.current.openPath("C:/Müzik/gece.flac");
@@ -185,7 +188,8 @@ describe("oynatma saati (söz zamanlaması)", () => {
         }, delay),
       );
     };
-    await act(() => vi.waitFor(() => expect(answered).toBe(4), { timeout: 3000, interval: 5 }));
+    await advanceUntil(() => answered === 4, 3000);
+    expect(answered).toBe(4);
     const at = performance.now();
     expect(Math.abs(result.current.positionNow(at) - truth(at))).toBeLessThan(0.003);
   });
