@@ -90,8 +90,8 @@ pub struct TrackInfo {
 /// olan WAV'da (düz PCM, kayan nokta), `chan` öbeği olmayan CAF'ta ve MP4'teki PCM'de. Uydurma
 /// düzen gerçek sayılsaydı LFE sanılan kanal ses yüksekliğinden düşerdi. Biti bite aynı düzen
 /// gerçekten de yazılabildiği için (CAF'ta 3.1 `DVD_10` = 0x0F, 7.1 `MPEG_7_1_A` = 0xFF; WAV'da 0x0F
-/// maskesi) karar bitlere değil kaba bakılarak verilir: WAV'da maske, CAF'ta `chan` öbeği aranır
-/// ([`header_declares_layout`]). Kodeğin kendi düzeni (FLAC, Vorbis, ALAC) bildirilmiş sayılır.
+/// maskesi) karar bitlere değil kaba bakılarak verilir: WAV'da maske, CAF'ta `chan` öbeğinin
+/// symphonia'nın tanıdığı bir düzeni aranır ([`header_declares_layout`]). Kodeğin kendi düzeni (FLAC, Vorbis, ALAC) bildirilmiş sayılır.
 fn file_channel_layout(bits: u64, declared: impl FnOnce() -> bool) -> Option<u64> {
     // Tek ve iki kanalda ağırlıklar düzenden bağımsızdır; dosyaya ayrıca bakılmaz.
     (bits.count_ones() <= 2 || declared()).then_some(bits)
@@ -103,7 +103,7 @@ fn header_declares_layout(path: &Path, format: &str, codec: &str, channels: usiz
     match format {
         "wave" => wave_channel_mask(path)
             .is_some_and(|mask| mask != 0 && mask.count_ones() as usize == channels),
-        "caf" => caf_has_chunk(path, *b"chan").unwrap_or(false),
+        "caf" => caf_declares_layout(path).unwrap_or(false),
         "isomp4" => !codec.starts_with("pcm_"),
         _ => true,
     }
@@ -112,7 +112,8 @@ fn header_declares_layout(path: &Path, format: &str, codec: &str, channels: usiz
 /// Başlıkta en çok bu kadar öbeğe bakılır (bozuk dosyada sınırsız döngü olmasın).
 const MAX_HEADER_CHUNKS: usize = 256;
 
-/// WAV'ın `fmt ` öbeğindeki kanal maskesi; WAVE_FORMAT_EXTENSIBLE değilse 0. Okunamazsa `None`.
+/// WAV'ın kanal maskesi: `data`'dan önceki son `fmt ` öbeğinin (symphonia da öyle okur)
+/// WAVE_FORMAT_EXTENSIBLE maskesi; uzantılı değilse 0. Okunamazsa `None`.
 fn wave_channel_mask(path: &Path) -> Option<u32> {
     use std::io::{Read, Seek, SeekFrom};
     let mut file = File::open(path).ok()?;
@@ -121,59 +122,86 @@ fn wave_channel_mask(path: &Path) -> Option<u32> {
     if &head[0..4] != b"RIFF" || &head[8..12] != b"WAVE" {
         return None;
     }
+    let mut mask = None;
     for _ in 0..MAX_HEADER_CHUNKS {
         let mut chunk = [0u8; 8];
-        file.read_exact(&mut chunk).ok()?;
+        if file.read_exact(&mut chunk).is_err() {
+            break;
+        }
+        if &chunk[0..4] == b"data" {
+            break;
+        }
         let size = u32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]);
+        // Öbekler çift uzunluğa doldurulur.
+        let mut skip = i64::from(size) + i64::from(size & 1);
         if &chunk[0..4] == b"fmt " {
             // WAVE_FORMAT_EXTENSIBLE: biçim etiketi 0xFFFE, maske 20. baytta (fmt 40 bayt).
-            if size < 24 {
-                return Some(0);
+            mask = Some(0);
+            if size >= 24 {
+                let mut fmt = [0u8; 24];
+                file.read_exact(&mut fmt).ok()?;
+                skip -= 24;
+                if u16::from_le_bytes([fmt[0], fmt[1]]) == 0xFFFE {
+                    mask = Some(u32::from_le_bytes([fmt[20], fmt[21], fmt[22], fmt[23]]));
+                }
             }
-            let mut fmt = [0u8; 24];
-            file.read_exact(&mut fmt).ok()?;
-            let tag = u16::from_le_bytes([fmt[0], fmt[1]]);
-            return Some(if tag == 0xFFFE {
-                u32::from_le_bytes([fmt[20], fmt[21], fmt[22], fmt[23]])
-            } else {
-                0
-            });
         }
-        // Öbekler çift uzunluğa doldurulur.
-        file.seek(SeekFrom::Current(i64::from(size) + i64::from(size & 1)))
-            .ok()?;
+        file.seek(SeekFrom::Current(skip)).ok()?;
     }
-    None
+    mask
 }
 
-/// CAF'ta `id` öbeği var mı? Okunamazsa `None`.
-fn caf_has_chunk(path: &Path, id: [u8; 4]) -> Option<bool> {
+/// CAF'ın `chan` öbeği symphonia'nın düzene çevirebildiği bir düzen bildiriyor mu? symphonia
+/// (0.6) yalnızca kanal haritasını (WAV maskesiyle aynı, ilk 18 konum) ve şu etiketleri çevirir:
+/// tek kanal, stereo, kulaklık stereo, MPEG 3.0 A, 5.1 A, 7.1 A, DVD 10. Başka bir etiket (ör.
+/// dörtlü, MPEG 5.0 A) ya da kanal tanımları (`Positioned` olmaz) çevrilmez: düzen kanal
+/// sayısından uydurulmuş kalır. Birden çok öbek varsa çevrilebilen biri yeter (symphonia sırayla
+/// uygular, çevrilemeyeni atlar). Okunamazsa `None`.
+fn caf_declares_layout(path: &Path) -> Option<bool> {
     use std::io::{Read, Seek, SeekFrom};
+    const USE_CHANNEL_BITMAP: u32 = 1 << 16;
+    const KNOWN_TAGS: [u32; 7] = [
+        (100 << 16) | 1, // tek kanal
+        (101 << 16) | 2, // stereo
+        (102 << 16) | 2, // kulaklık stereo
+        (113 << 16) | 3, // MPEG 3.0 A: L R C
+        (121 << 16) | 6, // MPEG 5.1 A: L R C LFE Ls Rs
+        (126 << 16) | 8, // MPEG 7.1 A: L R C LFE Ls Rs Lc Rc
+        (136 << 16) | 4, // DVD 10: L R C LFE
+    ];
     let mut file = File::open(path).ok()?;
     let mut head = [0u8; 8];
     file.read_exact(&mut head).ok()?;
     if &head[0..4] != b"caff" {
         return None;
     }
+    let mut declared = false;
     for _ in 0..MAX_HEADER_CHUNKS {
         let mut chunk = [0u8; 12];
         if file.read_exact(&mut chunk).is_err() {
-            // Dosyanın sonu: öbek yok.
-            return Some(false);
-        }
-        if chunk[0..4] == id {
-            return Some(true);
+            // Dosyanın sonu.
+            break;
         }
         let size = i64::from_be_bytes([
             chunk[4], chunk[5], chunk[6], chunk[7], chunk[8], chunk[9], chunk[10], chunk[11],
         ]);
         // −1: ses verisi dosyanın sonuna kadar sürer (son öbek).
         if size < 0 {
-            return Some(false);
+            break;
         }
-        file.seek(SeekFrom::Current(size)).ok()?;
+        let mut skip = size;
+        if &chunk[0..4] == b"chan" && size >= 8 {
+            let mut layout = [0u8; 8];
+            file.read_exact(&mut layout).ok()?;
+            skip -= 8;
+            let tag = u32::from_be_bytes([layout[0], layout[1], layout[2], layout[3]]);
+            let bitmap = u32::from_be_bytes([layout[4], layout[5], layout[6], layout[7]]);
+            declared |=
+                KNOWN_TAGS.contains(&tag) || (tag == USE_CHANNEL_BITMAP && bitmap >> 18 == 0);
+        }
+        file.seek(SeekFrom::Current(skip)).ok()?;
     }
-    None
+    Some(declared)
 }
 
 /// Bir ses dosyasını parça parça 64-bit örneklere çözer.

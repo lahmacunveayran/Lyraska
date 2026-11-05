@@ -1802,9 +1802,54 @@ mod tests {
             caf(4, None, &[2, 3]),
             Some(surround),
         );
+        // symphonia'nın çeviremediği etiket (dörtlü, L R Ls Rs): düzen kanal sayısından uydurulmuş
+        // kalır (L R C LFE), o yüzden yine varsayılan dörtlü; 4. kanal arka sağdır, LFE değil.
+        const QUADRAPHONIC: u32 = (108 << 16) | 4;
+        let front = caf(4, Some(QUADRAPHONIC), &[0, 1]);
+        check(
+            "CAF dörtlü etiket",
+            front,
+            caf(4, Some(QUADRAPHONIC), &[2, 3]),
+            Some(surround),
+        );
+        let fourth = caf(4, Some(QUADRAPHONIC), &[3]);
+        check(
+            "CAF dörtlü etiket, 4. kanal",
+            front,
+            fourth,
+            Some(single + surround),
+        );
         let front = wav_3_1(&[0, 1]);
         check("WAV 3.1 LFE", front, wav_3_1(&[3]), None);
         check("WAV 3.1 orta", front, wav_3_1(&[2]), Some(single));
+        // İki `fmt ` öbeği: symphonia `data`'dan önceki sonuncusunu okur. Sonuncu düz PCM (maskesiz):
+        // düzen uydurmadır, 4 kanalın varsayılanı (dörtlü) geçerli; 4. kanal arka sağdır, LFE değil.
+        let two_fmt = |active: &[usize]| {
+            let path = temp_path("iki-fmt.wav");
+            write_wav_layout(&path, rate, 0x0F, 3 * rate as usize, tone_in(rate, active));
+            let mut bytes = std::fs::read(&path).unwrap();
+            let data = bytes.windows(4).position(|w| w == b"data").unwrap();
+            let mut plain = b"fmt ".to_vec();
+            plain.extend_from_slice(&16u32.to_le_bytes());
+            plain.extend_from_slice(&1u16.to_le_bytes()); // PCM
+            plain.extend_from_slice(&4u16.to_le_bytes());
+            plain.extend_from_slice(&rate.to_le_bytes());
+            plain.extend_from_slice(&(rate * 12).to_le_bytes());
+            plain.extend_from_slice(&12u16.to_le_bytes());
+            plain.extend_from_slice(&24u16.to_le_bytes());
+            bytes.splice(data..data, plain);
+            let riff = (bytes.len() - 8) as u32;
+            bytes[4..8].copy_from_slice(&riff.to_le_bytes());
+            std::fs::write(&path, bytes).unwrap();
+            quick_loudness(&path)
+        };
+        let front = two_fmt(&[0, 1]);
+        check(
+            "WAV iki fmt, 4. kanal",
+            front,
+            two_fmt(&[3]),
+            Some(single + surround),
+        );
         assert!(wrong.is_empty(), "{wrong:#?}");
     }
 
