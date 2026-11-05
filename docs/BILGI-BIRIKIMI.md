@@ -268,13 +268,6 @@ kısaltılır.
   bit sırasıyla verir (`TrackInfo::channel_layout`); ağırlık BS.1770-5 Ek 3 Tablo 4'ten (yatayda 60°–120° 1,41, LFE 0,
   gerisi 1,0; 5.x'in arka çifti çevre sayılır). Uyum sinyalleri belgenin tablosundan okunur, özetten değil; durum
   20–23'ün süzgeci belgede yazmaz, 4·fs'deki süzülmüş tepe ayrıca ölçülerek seçilir (~−0,15 dB).
-- **Kütüphanenin "düzen" bilgisi uydurulmuş olabilir** (5 Kasım 2026, bağımsız inceleme): symphonia maskesiz WAV,
-  CAF ve MP4 LPCM'de kanal düzenini sayıdan kurar (`Position::from_count`: 4 kanal L R C LFE). Bit sayısı tuttuğu
-  için gerçek sanıldı; düz 5 kanallı WAV'da durum 6 −23,66 LUFS'e düştü (eski kod −23,37). Dış kaynaktan gelen bir
-  bilginin dosyadan mı okunduğu yoksa varsayılan mı olduğu kaynağında (`chunks.rs`) okunur.
-- **Paylaşılan `target` klasöründe** başka çalışma kopyası aynı adlı test dosyasını çalıştırırken bağlama LNK1104
-  verir (ad kaynak yolundan bağımsız). Süreç bitince yeniden çalıştırılır; çıktının kendi kodundan geldiği yazdırılan
-  satırlardan denetlenir.
 
 - **Test kalitesi mutasyonla ölçülür, kapsamayla değil** (5–6 Kasım 2026; `docs/arastirma/test-kalitesi/`): kod
   bilerek bozulur, testlerin düşüp düşmediğine bakılır (`cargo mutants --shard k/n` örneklem, `--lib` yeniden
