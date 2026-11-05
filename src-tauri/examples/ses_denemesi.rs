@@ -212,7 +212,8 @@ fn run_bit_perfect(path: &Path) -> Result<(), Outcome> {
         "Bit-perfect: {} bit, {} Hz, {}; konum {:.3} sn, hız {speed:.3}",
         output.bit_depth.unwrap_or_default(),
         output.sample_rate,
-        lyraska_lib::audio::output::exclusive_timing().unwrap_or("zamanlama bilinmiyor"),
+        lyraska_lib::audio::output::exclusive_timing(output.sample_rate)
+            .unwrap_or("zamanlama bilinmiyor"),
         status.position_secs
     );
     check(

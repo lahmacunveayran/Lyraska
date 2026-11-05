@@ -130,15 +130,16 @@ pub fn exclusive_format(sample_rate: u32, channels: usize) -> Result<IntFormat, 
     }
 }
 
-/// Varsayılan aygıtta özel modun ölçülen zamanlaması ("yoklamalı", "olaylı", "kullanılamıyor");
+/// Varsayılan aygıtta bu hızda özel modun ölçülen zamanlaması ("yoklamalı", "olaylı", "kullanılamıyor");
 /// özel mod henüz açılmadıysa `None`. Denemeler ve tanı için.
-pub fn exclusive_timing() -> Option<&'static str> {
+pub fn exclusive_timing(sample_rate: u32) -> Option<&'static str> {
     #[cfg(all(windows, not(test)))]
     {
-        wasapi::exclusive_timing()
+        wasapi::exclusive_timing(sample_rate)
     }
     #[cfg(any(not(windows), test))]
     {
+        let _ = sample_rate;
         None
     }
 }

@@ -42,9 +42,15 @@ const EVENT_TIMEOUT_MS: u32 = 2_000;
 /// Özel modda açılıştaki ilk olayın en geç geleceği süre; gelmezse aygıt paylaşımlı yoldan çalar.
 const EXCLUSIVE_FIRST_EVENT_MS: u32 = 500;
 /// Yoklamalı özel modu açılışta sessizlikle ölçme süresi.
-const POLLING_PROBE: Duration = Duration::from_millis(150);
-/// Yoklamalı özel modda aygıt ölçüm süresinin en az bu kadarını tüketmeli (Realtek: ~%17).
+const POLLING_PROBE: Duration = Duration::from_millis(400);
+/// Ölçümün ilk kısmı sayılmaz: aygıt saatini geç yakalasa (USB DAC hız değişiminde, uyanan codec)
+/// da yanlış karar çıkmasın.
+const POLLING_SETTLE: Duration = Duration::from_millis(150);
+/// Yoklamalı özel modda aygıt ölçüm penceresinin en az bu kadarını tüketmeli (Realtek: 0).
 const POLLING_MIN_RATIO: f64 = 0.5;
+/// Yoklamalı akış bırakıldıktan sonra olaylı açılış "aygıt kullanımda" derse deneme sayısı ve arası.
+const REOPEN_TRIES: usize = 3;
+const REOPEN_WAIT: Duration = Duration::from_millis(50);
 /// Şarkı sonunda aygıttaki son örneklerin çalınmasını beklerken yoklama aralığı.
 const DRAIN_POLL: Duration = Duration::from_millis(5);
 /// Intel HDA uyumlu aygıtlar özel modda arabelleğin 128 baytın katı olmasını ister.
@@ -73,11 +79,12 @@ fn hresult(error: &WasapiError) -> Option<u32> {
 }
 
 /// Özel modun açılamama nedeni, kullanıcının anlayacağı biçimde.
+/// Aygıt başka bir akışa ayrılmışken özel modun nedeni.
+const IN_USE: &str = "aygıtı başka bir program özel modda kullanıyor";
+
 fn exclusive_reason(error: &WasapiError) -> String {
     match hresult(error) {
-        Some(AUDCLNT_E_DEVICE_IN_USE) => {
-            "aygıtı başka bir program özel modda kullanıyor".to_owned()
-        }
+        Some(AUDCLNT_E_DEVICE_IN_USE) => IN_USE.to_owned(),
         Some(AUDCLNT_E_EXCLUSIVE_MODE_NOT_ALLOWED) => "Windows bu aygıtta özel moda izin vermiyor \
              (Ses ayarları > aygıt > Gelişmiş: \"Uygulamaların bu cihazın özel denetimini \
              almasına izin ver\")"
@@ -267,38 +274,48 @@ enum Timing {
     Events,
 }
 
-/// Bir aygıt için özel modun ölçülmüş sonucu (aygıt kimliğiyle; program açık kaldıkça).
+/// Bir aygıt ve hız için özel modun ölçülmüş sonucu (program açık kaldıkça).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Verdict {
     Polling,
     Events,
-    /// İkisi de çalışmadı: özel mod hemen reddedilir, şarkı paylaşımlı yoldan çalar.
+    /// İki zamanlama da bir kez çalışmadı: bir sonraki açılışta yeniden ölçülür (geçici aksaklık
+    /// kalıcı karara dönmesin).
+    FailedOnce,
+    /// İki zamanlama da iki kez üst üste çalışmadı: özel mod hemen reddedilir, şarkı paylaşımlı
+    /// yoldan çalar (her sarmada boşuna beklenmez).
     Unusable,
 }
 
-/// Ölçülmüş kararlar. Yalnızca akış açılırken (ses döngüsünden önce) okunur ve yazılır.
+/// Ölçülmüş kararlar; anahtar aygıt kimliği ve hız. Yalnızca akış açılırken (ses döngüsünden önce)
+/// okunur ve yazılır.
 static VERDICTS: Mutex<Vec<(String, Verdict)>> = Mutex::new(Vec::new());
 
-fn verdict(id: &str) -> Option<Verdict> {
-    let verdicts = VERDICTS.lock().ok()?;
-    verdicts.iter().find(|(key, _)| key == id).map(|&(_, v)| v)
+fn verdict_key(id: &str, sample_rate: u32) -> String {
+    format!("{id}|{sample_rate}")
 }
 
-fn remember(id: &str, value: Verdict) {
+fn verdict(key: &str) -> Option<Verdict> {
+    let verdicts = VERDICTS.lock().ok()?;
+    verdicts.iter().find(|(k, _)| k == key).map(|&(_, v)| v)
+}
+
+fn remember(key: &str, value: Verdict) {
     if let Ok(mut verdicts) = VERDICTS.lock() {
-        verdicts.retain(|(key, _)| key != id);
-        verdicts.push((id.to_owned(), value));
+        verdicts.retain(|(k, _)| k != key);
+        verdicts.push((key.to_owned(), value));
     }
 }
 
-/// Varsayılan aygıtta özel modun hangi zamanlamayla çaldığı (ölçüldüyse): "yoklamalı",
+/// Varsayılan aygıtta bu hızda özel modun hangi zamanlamayla çaldığı (ölçüldüyse): "yoklamalı",
 /// "olaylı" ya da "kullanılamıyor". Denemeler ve tanı için.
-pub fn exclusive_timing() -> Option<&'static str> {
+pub fn exclusive_timing(sample_rate: u32) -> Option<&'static str> {
+    let _ = initialize_mta();
     let id = default_device().ok()?.get_id().ok()?;
-    Some(match verdict(&id)? {
+    Some(match verdict(&verdict_key(&id, sample_rate))? {
         Verdict::Polling => "yoklamalı",
         Verdict::Events => "olaylı",
-        Verdict::Unusable => "kullanılamıyor",
+        Verdict::FailedOnce | Verdict::Unusable => "kullanılamıyor",
     })
 }
 
@@ -360,18 +377,22 @@ fn open_shared(device: &Device, spec: OutputSpec) -> Result<Stream, AudioError> 
 /// arabelleği döngüyle çalıyordu: şarkı yerine "uyarı sesi gibi" vızıltı (5 Kasım 2026). O zaman
 /// olaylı özel mod denenir; ilk olayı da gelmezse özel mod bu aygıtta kullanılamaz.
 fn open_exclusive(device: &Device, spec: OutputSpec, int: IntFormat) -> Result<Stream, AudioError> {
-    let id = device.get_id().ok();
+    let key = device
+        .get_id()
+        .ok()
+        .map(|id| verdict_key(&id, spec.sample_rate));
     let note = |value: Verdict| {
-        if let Some(id) = &id {
-            remember(id, value);
+        if let Some(key) = &key {
+            remember(key, value);
         }
     };
     let probe = |e: WasapiError| AudioError::Exclusive(exclusive_reason(&e));
-    match id.as_deref().and_then(verdict) {
+    let known = key.as_deref().and_then(verdict);
+    match known {
         Some(Verdict::Polling) => return open_exclusive_with(device, spec, int, Timing::Polling),
         Some(Verdict::Unusable) => return Err(AudioError::Exclusive(NO_EVENTS.to_owned())),
         Some(Verdict::Events) => {}
-        None => {
+        None | Some(Verdict::FailedOnce) => {
             let mut stream = open_exclusive_with(device, spec, int, Timing::Polling)?;
             if polling_consumes(&mut stream, spec.sample_rate).map_err(probe)? {
                 note(Verdict::Polling);
@@ -381,14 +402,37 @@ fn open_exclusive(device: &Device, spec: OutputSpec, int: IntFormat) -> Result<S
             let _ = stream.client.stop_stream();
         }
     }
-    let mut stream = open_exclusive_with(device, spec, int, Timing::Events)?;
+    let mut stream = open_events_after_release(device, spec, int)?;
     if first_event_arrives(&mut stream).map_err(probe)? {
         note(Verdict::Events);
         Ok(stream)
     } else {
         let _ = stream.client.stop_stream();
-        note(Verdict::Unusable);
+        note(if known == Some(Verdict::FailedOnce) {
+            Verdict::Unusable
+        } else {
+            Verdict::FailedOnce
+        });
         Err(AudioError::Exclusive(NO_EVENTS.to_owned()))
+    }
+}
+
+/// Olaylı özel mod. Az önce bırakılan yoklamalı akışı sürücü geç bırakırsa "aygıt kullanımda"
+/// dönebilir: kısa aralarla birkaç kez denenir.
+fn open_events_after_release(
+    device: &Device,
+    spec: OutputSpec,
+    int: IntFormat,
+) -> Result<Stream, AudioError> {
+    let mut tries = 1;
+    loop {
+        match open_exclusive_with(device, spec, int, Timing::Events) {
+            Err(AudioError::Exclusive(reason)) if tries < REOPEN_TRIES && reason == IN_USE => {
+                tries += 1;
+                std::thread::sleep(REOPEN_WAIT);
+            }
+            other => return other,
+        }
     }
 }
 
@@ -445,8 +489,9 @@ fn open_exclusive_with(
 
 /// Yoklamalı özel modda aygıt sesi gerçekten tüketiyor mu: arabellek sessizlikle doldurulup akış
 /// başlatılır, [`POLLING_PROBE`] boyunca boşalan yer sessizlikle doldurulur. Tüketilen kare
-/// (yazılan + arabellekte azalan) sürenin en az [`POLLING_MIN_RATIO`] kadarı olmalı. Akış
-/// başlamış kalır; ses döngüsü arabelleği şarkıyla doldurmayı sürdürür.
+/// (yazılan + arabellekte azalan) ilk [`POLLING_SETTLE`] sayılmadan, kalan pencerede ölçülür; hızın
+/// en az [`POLLING_MIN_RATIO`] kadarı olmalı. Akış başlamış kalır; ses döngüsü arabelleği şarkıyla
+/// doldurmayı sürdürür.
 fn polling_consumes(stream: &mut Stream, sample_rate: u32) -> Result<bool, WasapiError> {
     let client = &stream.client;
     let render = client.get_audiorenderclient()?;
@@ -457,18 +502,32 @@ fn polling_consumes(stream: &mut Stream, sample_rate: u32) -> Result<bool, Wasap
     stream.started = true;
     let begin = Instant::now();
     let mut written = 0usize;
-    while begin.elapsed() < POLLING_PROBE {
+    // Pencerenin başı: (an, o ana kadar tüketilen).
+    let mut window: Option<(Instant, usize)> = None;
+    loop {
         std::thread::sleep(stream.poll);
         let space = (client.get_available_space_in_frames()? as usize).min(buffer);
         if space > 0 {
             render.write_to_device(space, &zeros[..space * stream.block_align], None)?;
             written += space;
         }
+        let now = Instant::now();
+        let elapsed = now.duration_since(begin);
+        if elapsed < POLLING_SETTLE {
+            continue;
+        }
+        let padding = client.get_current_padding()? as usize;
+        let consumed = (written + buffer).saturating_sub(padding);
+        match window {
+            None => window = Some((now, consumed)),
+            Some((from, at_from)) if elapsed >= POLLING_PROBE => {
+                let frames = consumed.saturating_sub(at_from) as f64;
+                let expected = now.duration_since(from).as_secs_f64() * f64::from(sample_rate);
+                return Ok(frames >= POLLING_MIN_RATIO * expected);
+            }
+            Some(_) => {}
+        }
     }
-    let padding = client.get_current_padding()? as usize;
-    let consumed = (written + buffer).saturating_sub(padding) as f64;
-    let expected = begin.elapsed().as_secs_f64() * f64::from(sample_rate);
-    Ok(consumed >= POLLING_MIN_RATIO * expected)
 }
 
 /// Olaylı özel mod bazı sürücülerde hiç olay vermez (ses donar): bir arabellek sessizlikle
