@@ -830,6 +830,83 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn iki_ucte_bir_oranli_ara_tempoyu_degistirmez() {
+        // Metamorfik ilişki: 3/2 ile 2/3 birbirinin tersi olan basit oranlardır ve kod ikisini de
+        // aynı kabul eder ("2/3, 3/2, 3/4, 4/3"). Mevcut `yarim_tempo_kalibindaki_ara...` testi
+        // 3/2 yönünü (parça periyodu bütününkinin 1,5 katı) sınar; bu test 2/3 yönünü.
+        // 100 kare/sn, üç 20 sn'lik parça. Her yerde 66 karede bir 0,8'lik dürtü (bütünün nabzı),
+        // orta parçada ayrıca 45 karede bir 1,0'lık dürtü. Orta parçanın kestirimi 45 kare: oran
+        // 45/66 = 0,6818, 2/3 ile göreli farkı 0,023 (tolerans 0,03); bütünün nabzı orada da
+        // sürüyor. Tempo değişmiyor: `None`. 2/3 listeden düşerse orta parça 45'te kalır,
+        // 66/45 = 1,47 > 1,08 ve şarkı "değişken tempo" sanılır.
+        let fps = 100.0;
+        let segment = (TEMPO_SEGMENT_SECONDS * fps) as usize;
+        let mut strength = vec![0.0; 3 * segment];
+        for t in (0..strength.len()).step_by(66) {
+            strength[t] += 0.8;
+        }
+        for t in (segment..2 * segment).step_by(45) {
+            strength[t] += 1.0;
+        }
+        let estimate = estimate_period_with_strength(&strength[segment..2 * segment], fps);
+        assert!(
+            estimate.is_some_and(|(p, c)| (p - 45.0).abs() < 0.5 && c >= SEGMENT_MIN_CLARITY),
+            "orta parça 45 karelik nabzı bulmalı: {estimate:?}"
+        );
+        assert_eq!(segment_periods(&strength, fps, 66.0), None);
+    }
+
+    /// Kare altı tepe: (−1, 0), (0, 1), (1, 0,5) noktalarından geçen parabol
+    /// y = −0,75x² + 0,25x + 1, tepesi x = 0,25/1,5 = 1/6 (el hesabı). Aynalısı −1/6.
+    #[test]
+    fn kare_alti_tepe_parabolun_tepesi() {
+        assert!((peak_offset(&[0.0, 1.0, 0.5], 1) - 1.0 / 6.0).abs() < 1e-12);
+        assert!((peak_offset(&[0.5, 1.0, 0.0], 1) + 1.0 / 6.0).abs() < 1e-12);
+        assert_eq!(peak_offset(&[0.5, 1.0, 0.5], 1), 0.0);
+    }
+
+    #[test]
+    fn vurus_zamani_kare_arasina_dusen_tepeyi_bulur() {
+        // Vuruşlar kare ızgarasının tam ortasına (+0,5 kare) ya da çeyreğine düşüyor; her vuruş
+        // σ = 1 kare Gauss biçimli başlangıç gücü (simetrik: tepesi gerçek anda). Doğru cevap
+        // yapım gereği bilinir. Kare altı düzeltme olmasa vuruşlar 60 kare/sn ızgarasına
+        // yuvarlanır: +0,5 karede her vuruşta 8,3 ms, +0,25'te 4,2 ms hata. Ortalama hata
+        // 2 ms'den az olmalı (ayıklama betiğinin çevirisinde aslı 0,07–0,40 ms); senkron hedefi
+        // ±20 ms, yuvarlama onun yarısına yakınını harcardı.
+        for (bpm, shift) in [(120.0, 0.5), (128.0, 0.25), (100.0, 0.5)] {
+            let frames = (20.0 * FPS) as usize;
+            let period = FPS * 60.0 / bpm;
+            let mut onset = vec![0.02f32; frames];
+            let mut truth = Vec::new();
+            let mut center = 10.0 + shift;
+            while center < frames as f64 - 5.0 {
+                for i in (center as usize - 4)..=(center as usize + 4) {
+                    onset[i] += (-0.5 * (i as f64 - center).powi(2)).exp() as f32;
+                }
+                truth.push(center / FPS);
+                center += period;
+            }
+            let grid = track(&onset, FPS, 0.0).expect("ritim bulunmalı");
+            let errors: Vec<f64> = grid
+                .beats
+                .iter()
+                .map(|b| {
+                    truth
+                        .iter()
+                        .map(|t| (b - t).abs())
+                        .fold(f64::MAX, f64::min)
+                })
+                .collect();
+            assert!(errors.len() > 20, "{bpm} BPM: {} vuruş", errors.len());
+            let mean_ms = 1000.0 * errors.iter().sum::<f64>() / errors.len() as f64;
+            assert!(
+                mean_ms < 2.0,
+                "{bpm} BPM, +{shift} kare: ortalama hata {mean_ms:.2} ms"
+            );
+        }
+    }
+
+    #[test]
     fn yarim_tempo_kalibindaki_ara_sabit_tempoyu_degisken_yapmaz() {
         // 120 BPM'lik şarkının ortasında 24 sn'lik yarım tempo kalıbı: davul 2/3 tempoda (80 BPM)
         // ama hi-hat 120'de sürüyor. Tempo değişmiyor: "değişken" sanılmamalı, tempo 120 kalmalı.
