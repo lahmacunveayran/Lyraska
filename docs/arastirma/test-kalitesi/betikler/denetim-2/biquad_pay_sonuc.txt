@@ -1,0 +1,23 @@
+durum                                           gerçek  beklenen  tolerans    pay
+LS 100 Hz +9 dB Q0,707 @20 Hz                   8.9828    9.0000       0.3   0.06
+LS 100 Hz +9 dB @100 Hz (köşede yarısı)         4.5000    4.5000       0.2   0.00
+LS 100 Hz +9 dB @2 kHz                          0.0001    0.0000      0.05   0.00
+HS 8 kHz −6 dB @20 kHz                         -5.9962   -6.0000       0.5   0.01
+HS 8 kHz −6 dB @200 Hz                         -0.0000    0.0000      0.05   0.00
+PK 1 kHz +6 @1 kHz                              6.0000    6.0000     1e-09   0.00
+LP 120 Hz Butterworth @20 Hz                   -0.0033    0.0000      0.05   0.07
+LP 120 Hz @120 Hz (−3,01)                      -3.0103   -3.0103      0.05   0.00
+LP 120 Hz @1200 Hz (< −39)                    -40.0358    <-39.0         - marj 1.04
+HP 120 Hz @2 kHz                               -0.0001    0.0000      0.05   0.00
+HP 120 Hz @12 Hz (< −39)                      -40.0008    <-39.0         - marj 1.00
+
+Analog prototip bilinen noktalar (Spec::analog için bağımsız sınama önerisi):
+  PK f0'da -12 dB → -12.000000
+  LS DC'de (1e-6·f0) -12 dB → -12.000000; f0'da → -6.000000 (G/2 = -6.0)
+  HS çok yüksekte (1e4·f0) -12 dB → -12.000000; f0'da → -6.000000
+  PK f0'da +6 dB → +6.000000
+  LS DC'de (1e-6·f0) +6 dB → +6.000000; f0'da → +3.000000 (G/2 = +3.0)
+  HS çok yüksekte (1e4·f0) +6 dB → +6.000000; f0'da → +3.000000
+  PK f0'da +18 dB → +18.000000
+  LS DC'de (1e-6·f0) +18 dB → +18.000000; f0'da → +9.000000 (G/2 = +9.0)
+  HS çok yüksekte (1e4·f0) +18 dB → +18.000000; f0'da → +9.000000

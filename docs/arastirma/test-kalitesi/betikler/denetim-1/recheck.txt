@@ -1,0 +1,18 @@
+src/audio/render.rs:208:28: replace *= with /= in Renderer::render
+src/audio/normalize.rs:437:68: replace / with * in Leveler::next_gain
+src/analysis/beats.rs:270:27: replace / with % in segment_periods
+src/analysis/beats.rs:542:27: replace - with + in peak_offset
+src/analysis/beats.rs:349:34: replace + with * in normalize
+src/analysis/key.rs:428:32: replace <= with > in ChromaAnalyzer::process
+src/analysis/key.rs:261:53: replace * with + in song_key
+src/analysis/structure.rs:484:26: replace + with * in phase_agreement
+src/analysis/structure.rs:184:26: replace < with == in map_song
+src/audio/loudness.rs:287:25: replace > with == in LoudnessMeter::finish
+src/audio/loudness.rs:192:57: replace - with / in TruePeak::add
+src/audio/limiter.rs:245:32: replace * with / in interpolator
+src/audio/crossfeed.rs:342:9: delete ! in CrossfeedProcessor::is_bypass
+src/audio/player/controls.rs:35:9: replace Player::parametric_comparing -> bool with true
+src/audio/player/controls.rs:35:9: replace Player::parametric_comparing -> bool with false
+src/audio/player/controls.rs:35:33: replace && with || in Player::parametric_comparing
+src/audio/player/controls.rs:88:9: replace Player::set_parametric_compare with ()
+src/audio/player/controls.rs:93:9: replace Player::apply_parametric_compare with ()
