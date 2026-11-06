@@ -1,0 +1,31 @@
+src/audio/mod.rs:86:5: replace unsupported_reason -> String with String::new()
+src/analysis/annotation.rs:220:62: replace == with != in AnnotationStore::files_of
+src/analysis/background.rs:183:5: replace parse_entry -> Option<(PathBuf, FileStamp)> with None
+src/analysis/beats.rs:105:39: replace / with * in BeatGrid::position_at
+src/analysis/beats.rs:221:86: replace / with * in track
+src/analysis/beats.rs:240:14: replace < with <= in segment_periods
+src/analysis/beats.rs:272:33: replace - with + in segment_periods
+src/analysis/beats.rs:296:29: replace < with > in track_period
+src/analysis/beats.rs:333:18: replace + with * in mean_interval
+src/analysis/beats.rs:354:41: replace / with % in normalize
+src/analysis/beats.rs:368:24: replace * with / in estimate_period_with_strength
+src/analysis/beats.rs:381:60: replace * with / in estimate_period_with_strength
+src/analysis/beats.rs:411:39: replace / with * in estimate_period_with_strength
+src/analysis/beats.rs:443:36: replace - with / in autocorrelation
+src/analysis/beats.rs:539:5: replace peak_offset -> f64 with 1.0
+src/analysis/cache.rs:408:29: delete ! in Row::into_cached
+src/analysis/evaluate.rs:68:57: replace / with * in evaluate_beats
+src/analysis/evaluate.rs:137:59: replace + with * in f_measure
+src/analysis/evaluate.rs:175:5: replace interval_bpm -> Option<f64> with Some(-1.0)
+src/analysis/fingerprint.rs:113:9: replace Verdict::similarity -> f64 with 0.0
+src/analysis/fingerprint.rs:194:26: replace += with *= in BandPrint::from_levels_at
+src/analysis/fingerprint.rs:248:43: replace < with == in BandPrint::align
+src/analysis/fingerprint.rs:286:9: replace BandPrint::reliable_share -> f64 with 0.0
+src/analysis/fingerprint.rs:403:23: replace << with >> in band_word
+src/analysis/fingerprint.rs:471:23: replace - with / in BandMap::standard
+src/analysis/key.rs:167:5: replace camelot_number -> u8 with 1
+src/analysis/key.rs:284:5: replace estimate -> Option<MusicalKey> with None
+src/analysis/key.rs:315:21: replace * with / in correlation
+src/analysis/key.rs:453:33: replace += with -= in ChromaAnalyzer::process
+src/analysis/key.rs:496:40: replace * with / in fold
+src/analysis/levels.rs:77:29: replace - with / in encode_db
