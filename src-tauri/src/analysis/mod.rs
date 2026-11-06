@@ -8,6 +8,7 @@
 //! - [`meter`]: aksak ölçüler (5/8, 7/8, 9/8): sekizlik ızgarası ve gruplama.
 //! - [`key`]: ton tespiti (kroma, Krumhansl–Kessler profilleri, Camelot kodu, bölüm bölüm).
 //! - [`evaluate`]: analizin doğruluğunu insan işaretlerine göre ölçme (F-ölçüsü).
+//! - [`separation_eval`]: kaynak ayrıştırmanın ölçümü (SI-SDR, BSS Eval v4; SiSEC'in ölçütü).
 //! - [`cache`]: analiz sonuçlarının SQLite önbelleği (yol + boyut + değiştirilme
 //!   zamanı; her parçanın kendi sürümü: spektrum, ritim, ses yüksekliği, bas tepeleri).
 //! - [`lyrics_align`], [`lyrics_model`], [`lyrics_text`], [`lyrics_cache`], [`lyrics_job`],
@@ -36,6 +37,7 @@ pub mod lyrics_text;
 pub mod lyrics_worker;
 pub mod map_file;
 pub mod meter;
+pub mod separation_eval;
 pub mod spectrogram;
 pub mod structure;
 pub mod tempo;
