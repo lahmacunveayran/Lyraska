@@ -2,3 +2,6 @@ src/analysis/beats.rs:238:5: replace segment_periods -> Option<Vec<(std::ops::Ra
 src/analysis/map_file.rs:563:5: replace marked_grid -> BeatGrid with Default::default()
 src/audio/biquad.rs:526:9: replace Biquad::response -> Complex<f64> with Complex::from_iter([0.0])
 src/audio/eq.rs:635:9: replace Design::with_layout -> Self with Default::default()
+src/audio/waveform.rs:267:9: replace WaveformTap::read -> Option<Window> with Some(Default::default())
+src/audio/player/session.rs:136:9: replace SharedState::now_playing -> Option<(TrackInfo, f64)> with Some((Default::default(), 0.0))
+src/audio/player/session.rs:164:9: replace SharedState::playing_at_frame -> Option<(TrackInfo, f64, usize)> with Some((Default::default(), -1.0, 1))

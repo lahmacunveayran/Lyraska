@@ -207,3 +207,18 @@ src/audio/punch.rs:153:34: replace > with >= in Punch::process_frame
 src/audio/render.rs:148:9: replace Renderer::render -> RenderOutcome with Default::default()
 src/audio/render.rs:236:53: replace + with * in Renderer::render
 src/audio/resample.rs:137:13: replace / with * in Converter::run_blocks
+src/audio/spectrum.rs:100:9: replace Transform::bin_hz -> f64 with 1.0
+src/audio/spectrum.rs:134:58: replace / with * in level
+src/audio/waveform.rs:83:38: replace * with + in Halving::push
+src/audio/waveform.rs:155:42: replace / with * in Decimator::interpolate
+src/audio/waveform.rs:299:54: replace - with + in WaveformTap::read_window
+src/audio/waveform.rs:351:46: replace * with / in to_bytes
+src/audio/player/bit_perfect.rs:24:60: replace < with > in output_mode
+src/audio/player/controls.rs:88:9: replace Player::set_parametric_compare with ()
+src/audio/player/next_track.rs:90:50: replace != with == in open_checked
+src/audio/player/session.rs:375:9: replace <impl Drop for Session>::drop with ()
+src/audio/player/song_maps.rs:121:9: replace Player::map_store -> Option<&Arc<MapStore>> with None
+src/audio/player/transition.rs:294:12: delete ! in Player::begin_device_recovery
+src/audio/player/visuals.rs:136:9: replace Player::visual_spectrum_ahead -> Option<Vec<f32>> with Some(vec![0.0])
+src/audio/player/visuals.rs:217:46: replace + with * in Player::visual_eq_offsets
+src/audio/player/visuals.rs:264:9: replace SharedState::spectrum_at -> Option<Vec<f32>> with Some(vec![])
