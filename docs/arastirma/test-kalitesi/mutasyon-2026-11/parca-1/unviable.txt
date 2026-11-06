@@ -4,3 +4,4 @@ src/analysis/spectrogram.rs:150:9: replace Spectrogram::from_saved -> Arc<Self> 
 src/audio/biquad.rs:111:9: replace Spec::analog -> Complex<f64> with Complex::from_iter([0.0])
 src/audio/biquad.rs:526:9: replace Biquad::response -> Complex<f64> with Complex::from_iter([-1.0])
 src/audio/decode.rs:729:5: replace make_decoder -> Result<Box<dyn AudioDecoder>, AudioError> with Ok(Box::new(Default::default()))
+src/audio/gapless.rs:220:13: delete match arm b"name" in itunes_freeform

@@ -160,3 +160,32 @@ src/audio/eq.rs:478:33: replace + with - in Biquad::response_db
 src/audio/eq.rs:487:42: replace * with / in Biquad::power_gain
 src/audio/eq.rs:488:55: replace - with / in Biquad::power_gain
 src/audio/eq.rs:535:65: replace * with / in Layout::tuned
+src/audio/eq.rs:601:5: replace design_point_hz -> f64 with -1.0
+src/audio/eq.rs:653:33: replace < with > in Design::with_layout
+src/audio/eq.rs:700:14: replace * with + in Design::response_db
+src/audio/eq.rs:754:29: replace < with > in solve_linear
+src/audio/eq.rs:859:25: replace * with / in EqProcessor::process
+src/audio/gapless.rs:47:35: replace / with % in mp4_trim
+src/audio/gapless.rs:86:17: replace == with != in find_top_level
+src/audio/limiter.rs:192:47: replace * with / in Limiter::next_gain
+src/audio/loudness.rs:79:9: replace Biquad::process -> f64 with -1.0
+src/audio/loudness.rs:100:30: replace * with + in k_weighting
+src/audio/loudness.rs:105:34: replace * with + in k_weighting
+src/audio/loudness.rs:114:15: delete - in k_weighting
+src/audio/loudness.rs:329:20: replace += with *= in LoudnessMeter::add
+src/audio/lyrics.rs:140:31: delete ! in choose
+src/audio/lyrics.rs:297:56: replace < with == in parse
+src/audio/lyrics.rs:367:5: replace parse_time -> Option<f64> with Some(-1.0)
+src/audio/lyrics.rs:380:55: replace * with + in parse_time
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with ("xyzzy".into(), vec![], "xyzzy".into())
+src/audio/lyrics.rs:474:40: replace / with % in estimate_words
+src/audio/normalize.rs:168:47: replace - with / in TrackLevels::bass_peaks
+src/audio/normalize.rs:278:9: replace TrackLevels::slot -> Option<&Slot> with Some(Box::leak(Box::new(Default::default())))
+src/audio/normalize.rs:333:5: replace protection -> f64 with -1.0
+src/audio/output.rs:73:9: replace IntFormat::bytes -> usize with 0
+src/audio/peq.rs:374:9: replace HeadphoneProfile::response_db -> Vec<f64> with vec![0.0]
+src/audio/peq.rs:436:42: replace * with + in coefs_peak_db
+src/audio/peq.rs:462:37: replace / with % in refine_peak
+src/audio/peq.rs:497:5: replace q_from_bandwidth -> f64 with 0.0
+src/audio/peq.rs:503:71: replace / with * in shelf_q_from_slope
+src/audio/peq.rs:545:24: replace + with * in parse_filter
