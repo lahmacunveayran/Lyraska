@@ -1,0 +1,32 @@
+src/analysis/annotation.rs:91:5: replace clean_times -> Vec<f64> with vec![1.0]
+src/analysis/annotation.rs:244:31: replace || with && in file_name
+src/analysis/background.rs:268:9: replace BackgroundAnalysis::analyzed -> usize with 1
+src/analysis/beats.rs:53:42: replace / with % in onset_latency
+src/analysis/beats.rs:153:17: replace * with + in OnsetDetector::process
+src/analysis/beats.rs:256:40: replace match guard clarity >= SEGMENT_MIN_CLARITY with false in segment_periods
+src/analysis/beats.rs:335:9: replace / with % in mean_interval
+src/analysis/beats.rs:357:54: replace / with % in normalize
+src/analysis/beats.rs:373:15: replace <= with > in estimate_period_with_strength
+src/analysis/beats.rs:381:88: replace * with + in estimate_period_with_strength
+src/analysis/beats.rs:426:5: replace pulse_clarity -> f64 with 1.0
+src/analysis/beats.rs:493:50: replace * with + in dynamic_beats
+src/analysis/beats.rs:542:61: replace + with - in peak_offset
+src/analysis/cache.rs:442:19: replace % with / in decode_key
+src/analysis/evaluate.rs:115:51: replace - with + in drop_hits
+src/analysis/evaluate.rs:146:30: replace / with * in f_measure
+src/analysis/fingerprint.rs:205:25: delete ! in BandPrint::from_levels_at
+src/analysis/fingerprint.rs:291:24: replace += with -= in BandPrint::reliable_share
+src/analysis/fingerprint.rs:345:9: replace ChromaPrint::compare -> Option<(f64, usize)> with Some((1.0, 1))
+src/analysis/fingerprint.rs:380:5: replace parse_hex -> Option<Vec<u32>> with Some(vec![0])
+src/analysis/fingerprint.rs:414:43: replace / with * in chroma_word
+src/analysis/key.rs:36:40: replace * with +
+src/analysis/key.rs:168:41: replace + with - in camelot_number
+src/analysis/key.rs:256:15: replace += with *= in song_key
+src/analysis/key.rs:296:35: replace / with * in estimate
+src/analysis/key.rs:308:19: replace - with / in correlation
+src/analysis/key.rs:388:24: replace += with *= in ChromaAnalyzer::add
+src/analysis/key.rs:428:35: replace - with / in ChromaAnalyzer::process
+src/analysis/key.rs:461:12: delete ! in ChromaAnalyzer::finish
+src/analysis/levels.rs:22:32: delete -
+src/analysis/lyrics_align.rs:185:14: replace > with < in states
+src/analysis/lyrics_align.rs:219:44: replace - with / in skip_arcs
