@@ -38,3 +38,14 @@ src/audio/bass.rs:669:44: replace * with / in BassProcessor::process_frame
 src/audio/biquad.rs:293:35: replace * with + in Biquad::allpass
 src/audio/biquad.rs:388:41: replace * with / in Biquad::matched
 src/audio/biquad.rs:473:66: replace * with + in Biquad::beyond_nyquist
+src/audio/biquad.rs:663:38: replace == with != in min_phase
+src/audio/biquad.rs:700:59: replace + with *
+src/audio/crossfeed.rs:203:24: replace * with + in SideFilter::design
+src/audio/decode.rs:169:21: replace | with ^ in caf_declares_layout
+src/audio/decode.rs:312:13: delete match arm Some(symphonia::core::audio::sample::SampleFormat::F32) | Some(symphonia::core::audio::sample::SampleFormat::F64) in Decoder::open
+src/audio/decode.rs:446:74: replace - with + in Decoder::seek
+src/audio/decode.rs:537:39: replace - with / in Decoder::next_chunk
+src/audio/decode.rs:821:57: replace + with - in matroska_duration
+src/audio/eq.rs:827:28: replace < with <= in EqProcessor::begin_block
+src/audio/gapless.rs:52:12: replace > with == in mp4_trim
+src/audio/gapless.rs:112:14: replace > with >= in walk
