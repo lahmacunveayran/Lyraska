@@ -77,3 +77,31 @@ src/analysis/structure.rs:61:30: delete -
 src/analysis/structure.rs:183:5: replace map_song -> Option<SongMap> with None
 src/analysis/structure.rs:264:34: replace / with % in map_song
 src/analysis/structure.rs:321:50: replace - with + in map_song
+src/analysis/structure.rs:377:36: replace / with * in map_song
+src/analysis/structure.rs:442:5: replace choose_meter -> (usize, usize, f64) with (1, 0, -1.0)
+src/analysis/structure.rs:524:18: replace < with > in section_boundaries
+src/analysis/structure.rs:534:60: delete - in section_boundaries
+src/analysis/structure.rs:634:5: replace drop_jumps -> (f64, f64, f64) with (-1.0, 0.0, 0.0)
+src/analysis/structure.rs:684:32: replace >= with < in find_drops
+src/analysis/structure.rs:778:14: replace >= with < in refine_drop
+src/analysis/structure.rs:790:51: replace - with / in refine_drop
+src/analysis/structure.rs:842:11: replace * with + in drop_confidence
+src/analysis/structure.rs:867:36: replace - with / in std_dev
+src/analysis/tempo.rs:111:21: replace <= with > in resolve_octave
+src/analysis/tempo.rs:238:53: replace - with + in position_peaks
+src/analysis/tempo.rs:271:44: replace / with % in rounded_bpm
+src/analysis/tempo.rs:423:5: replace peaks -> (Vec<f64>, Vec<f64>) with (vec![0.0], vec![0.0])
+src/analysis/tempo.rs:444:5: replace mean -> f64 with 1.0
+src/audio/abx.rs:182:18: replace += with *= in binomial_tail
+src/audio/abx.rs:286:27: replace * with / in decode_segment
+src/audio/abx.rs:334:43: replace * with + in find_offset
+src/audio/abx.rs:379:24: replace < with > in prepare
+src/audio/abx.rs:403:37: replace - with / in prepare
+src/audio/abx.rs:472:9: replace Mixer::envelope -> f64 with 0.0
+src/audio/abx.rs:491:35: replace - with + in Mixer::fill
+src/audio/bass.rs:123:5: replace db_to_linear -> f64 with -1.0
+src/audio/bass.rs:171:9: replace BassPeaks::shelf_rise_db -> f64 with -1.0
+src/audio/bass.rs:368:46: replace + with * in Octaver::process
+src/audio/bass.rs:388:35: replace - with / in Octaver::process
+src/audio/bass.rs:507:23: replace == with != in BassProcessor::is_bypass
+src/audio/bass.rs:621:32: replace - with / in BassProcessor::harmonics
