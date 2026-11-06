@@ -1,2 +1,5 @@
 src/analysis/beats.rs:183:5: replace track -> Option<BeatGrid> with Some(Default::default())
 src/analysis/lyrics_model.rs:517:9: replace LyricsModel::open_with -> Result<Self, ModelError> with Ok(Default::default())
+src/analysis/map_file.rs:317:9: replace MapFile::parse -> Result<Self, MapError> with Ok(Default::default())
+src/analysis/meter.rs:204:5: replace pulses -> Aksak with Default::default()
+src/analysis/spectrogram.rs:260:9: replace Spectrogram::analysis_song_map -> Option<Arc<SongMap>> with Some(Arc::new(Default::default()))
