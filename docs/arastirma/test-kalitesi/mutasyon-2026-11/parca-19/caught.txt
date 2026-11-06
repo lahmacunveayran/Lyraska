@@ -31,3 +31,30 @@ src/analysis/levels.rs:107:47: replace / with % in vu_reference_db
 src/analysis/lyrics_align.rs:59:51: replace + with * in Emissions::at
 src/analysis/lyrics_align.rs:186:23: replace * with + in states
 src/analysis/lyrics_align.rs:227:44: replace - with / in skip_arcs
+src/analysis/lyrics_align.rs:243:31: replace + with - in skip_arcs
+src/analysis/lyrics_align.rs:278:35: replace > with < in viterbi
+src/analysis/lyrics_align.rs:389:45: replace - with + in entry_mass
+src/analysis/lyrics_align.rs:408:22: replace < with <= in entry_mass
+src/analysis/lyrics_align.rs:448:19: replace == with != in align
+src/analysis/lyrics_align.rs:504:44: replace * with + in align
+src/analysis/lyrics_cache.rs:90:13: replace || with && in StoredEmissions::select
+src/analysis/lyrics_cache.rs:208:9: replace StoredEmissions::encode -> Vec<u8> with vec![0]
+src/analysis/lyrics_cache.rs:279:9: replace && with || in storable
+src/analysis/lyrics_job.rs:125:9: replace ModelSlot::is_loaded -> bool with false
+src/analysis/lyrics_job.rs:333:5: replace spoken_spans -> Option<Vec<(f64, f64)>> with None
+src/analysis/lyrics_job.rs:404:9: replace AnalysisCache::store_alignment -> Result<(), CacheError> with Ok(())
+src/analysis/lyrics_model.rs:114:5: replace decode_mono -> Result<Vec<f32>, ModelError> with Ok(vec![-1.0])
+src/analysis/lyrics_model.rs:189:36: replace || with && in tensor_f32
+src/analysis/lyrics_model.rs:297:76: replace == with != in dequantize_matmuls
+src/analysis/lyrics_model.rs:355:27: replace match guard a == s_x with false in dequantize_matmuls
+src/analysis/lyrics_model.rs:447:50: delete ! in kept_letter
+src/analysis/lyrics_model.rs:638:33: replace + with - in LyricsModel::emissions
+src/analysis/lyrics_model.rs:681:46: replace / with * in LyricsModel::emissions
+src/analysis/lyrics_package.rs:71:8: delete ! in install
+src/analysis/lyrics_text.rs:224:5: replace strip_brackets -> (&str, Option<char>) with ("xyzzy", Some(Default::default()))
+src/analysis/lyrics_text.rs:289:5: replace split_repeat -> (&str, usize) with ("xyzzy", 0)
+src/analysis/lyrics_text.rs:401:25: replace && with || in parse_header_words
+src/analysis/lyrics_text.rs:553:20: replace == with != in turkish_number
+src/analysis/lyrics_text.rs:651:29: replace / with % in english_number
+src/analysis/lyrics_text.rs:697:22: replace > with < in read_integer
+src/analysis/lyrics_text.rs:764:44: replace == with != in read_number
