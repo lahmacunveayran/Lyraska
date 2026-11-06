@@ -34,3 +34,33 @@ src/analysis/levels.rs:112:20: replace < with == in vu_reference_db
 src/analysis/lyrics_align.rs:95:9: replace LineTiming::low_confidence -> bool with false
 src/analysis/lyrics_align.rs:193:5: replace log_add -> f64 with -1.0
 src/analysis/lyrics_align.rs:228:34: replace * with / in skip_arcs
+src/analysis/lyrics_align.rs:279:28: replace - with + in viterbi
+src/analysis/lyrics_align.rs:319:14: replace == with != in viterbi
+src/analysis/lyrics_align.rs:365:35: replace - with + in entry_mass
+src/analysis/lyrics_align.rs:393:32: replace - with + in entry_mass
+src/analysis/lyrics_align.rs:409:44: replace + with * in entry_mass
+src/analysis/lyrics_align.rs:423:21: replace += with -= in entry_mass
+src/analysis/lyrics_align.rs:452:24: replace >= with < in align
+src/analysis/lyrics_cache.rs:86:25: replace == with != in StoredEmissions::select
+src/analysis/lyrics_cache.rs:226:13: replace && with || in StoredEmissions::consistent
+src/analysis/lyrics_cache.rs:277:12: replace > with >= in storable
+src/analysis/lyrics_job.rs:183:9: replace AutoAlignment::valid -> bool with false
+src/analysis/lyrics_job.rs:333:5: replace spoken_spans -> Option<Vec<(f64, f64)>> with Some(vec![(0.0, -1.0)])
+src/analysis/lyrics_job.rs:462:9: replace AnalysisCache::emission_letters -> Result<Vec<char>, CacheError> with Ok(vec![Default::default()])
+src/analysis/lyrics_model.rs:126:26: replace * with + in decode_mono
+src/analysis/lyrics_model.rs:299:51: delete ! in dequantize_matmuls
+src/analysis/lyrics_model.rs:356:29: replace == with != in dequantize_matmuls
+src/analysis/lyrics_model.rs:461:15: replace > with == in parse_tokens
+src/analysis/lyrics_model.rs:652:42: replace + with - in LyricsModel::emissions
+src/analysis/lyrics_model.rs:682:26: replace < with == in LyricsModel::emissions
+src/analysis/lyrics_package.rs:82:31: replace != with == in install
+src/analysis/lyrics_text.rs:236:5: replace strip_decoration -> &str with ""
+src/analysis/lyrics_text.rs:435:5: replace header_of -> Option<Header> with None
+src/analysis/lyrics_text.rs:560:10: replace >= with < in turkish_number
+src/analysis/lyrics_text.rs:653:14: replace > with == in english_number
+src/analysis/lyrics_text.rs:776:18: replace > with == in read_number
+src/analysis/lyrics_text.rs:988:40: delete ! in Builder::end_paragraph
+src/analysis/map_file.rs:275:32: replace * with / in MapFile::from_analysis
+src/analysis/map_file.rs:358:48: replace && with || in MapFile::validate
+src/analysis/map_file.rs:379:32: replace > with < in MapFile::validate
+src/analysis/map_file.rs:403:26: replace >= with < in MapFile::validate
