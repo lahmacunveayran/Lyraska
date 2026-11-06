@@ -147,3 +147,37 @@ src/audio/decode.rs:1004:41: replace >> with << in base64
 src/audio/eq.rs:201:9: replace EqSettings::effective_bass -> (f64, bool) with (0.0, true)
 src/audio/eq.rs:354:9: replace EqControl::set -> EqSettings with Default::default()
 src/audio/eq.rs:421:22: replace * with + in Biquad::peaking
+src/audio/eq.rs:433:9: replace Biquad::shelf_terms -> (f64, f64, f64) with (1.0, 1.0, 1.0)
+src/audio/eq.rs:444:21: replace + with - in Biquad::low_shelf
+src/audio/eq.rs:447:43: replace + with - in Biquad::low_shelf
+src/audio/eq.rs:450:46: replace - with / in Biquad::low_shelf
+src/audio/eq.rs:462:25: replace + with * in Biquad::high_shelf
+src/audio/eq.rs:464:37: replace - with + in Biquad::high_shelf
+src/audio/eq.rs:476:13: replace + with * in Biquad::response_db
+src/audio/eq.rs:478:33: replace + with * in Biquad::response_db
+src/audio/eq.rs:487:28: replace + with - in Biquad::power_gain
+src/audio/eq.rs:488:90: replace * with + in Biquad::power_gain
+src/audio/eq.rs:537:24: replace * with + in Layout::tuned
+src/audio/eq.rs:560:65: replace + with - in Layout::tuned
+src/audio/eq.rs:602:22: replace / with % in design_point_hz
+src/audio/eq.rs:700:14: replace * with / in Design::response_db
+src/audio/eq.rs:859:40: replace * with + in EqProcessor::process
+src/audio/gapless.rs:47:35: replace / with * in mp4_trim
+src/audio/gapless.rs:90:24: replace == with != in find_top_level
+src/audio/gapless.rs:149:13: delete match arm b"mdia" | b"edts" in walk_track
+src/audio/limiter.rs:163:27: replace * with / in Limiter::true_peak
+src/audio/limiter.rs:192:34: replace - with + in Limiter::next_gain
+src/audio/limiter.rs:237:37: replace / with % in interpolator
+src/audio/limiter.rs:245:32: replace * with / in interpolator
+src/audio/loudness.rs:81:13: replace - with + in Biquad::process
+src/audio/loudness.rs:100:30: replace * with / in k_weighting
+src/audio/loudness.rs:105:34: replace * with / in k_weighting
+src/audio/loudness.rs:115:30: replace / with % in k_weighting
+src/audio/loudness.rs:192:40: replace + with - in TruePeak::add
+src/audio/loudness.rs:276:30: replace | with & in channel_weights
+src/audio/loudness.rs:329:49: replace * with + in LoudnessMeter::add
+src/audio/lyrics.rs:141:46: delete ! in choose
+src/audio/lyrics.rs:297:56: replace < with > in parse
+src/audio/lyrics.rs:369:24: replace && with || in parse_time
+src/audio/lyrics.rs:380:55: replace * with / in parse_time
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with ("xyzzy".into(), vec![(0.0, String::new())], String::new())
