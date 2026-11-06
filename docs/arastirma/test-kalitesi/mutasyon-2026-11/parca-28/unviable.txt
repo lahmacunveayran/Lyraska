@@ -14,3 +14,7 @@ src/audio/biquad.rs:526:9: replace Biquad::response -> Complex<f64> with Complex
 src/audio/decode.rs:385:9: replace Decoder::info -> &TrackInfo with Box::leak(Box::new(Default::default()))
 src/audio/loudness.rs:303:9: replace LoudnessMeter::with_layout -> Self with Default::default()
 src/audio/lyrics.rs:137:5: replace choose -> Option<Lyrics> with Some(Default::default())
+src/audio/player/session.rs:136:9: replace SharedState::now_playing -> Option<(TrackInfo, f64)> with Some((Default::default(), 1.0))
+src/audio/player/session.rs:388:5: replace derive_state -> PlaybackState with Default::default()
+src/audio/player/song_maps.rs:121:9: replace Player::map_store -> Option<&Arc<MapStore>> with Some(Box::leak(Box::new(Arc::new(Default::default()))))
+src/audio/player/track_analysis.rs:211:9: replace Player::song_map -> Option<Arc<crate::analysis::structure::SongMap>> with Some(Arc::new(Default::default()))

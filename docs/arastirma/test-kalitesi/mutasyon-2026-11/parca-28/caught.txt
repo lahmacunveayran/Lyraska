@@ -201,3 +201,19 @@ src/audio/punch.rs:184:20: replace * with / in Punch::update_gain
 src/audio/render.rs:156:29: replace > with == in Renderer::render
 src/audio/render.rs:239:27: replace += with -= in Renderer::render
 src/audio/resample.rs:136:53: replace * with + in Converter::run_blocks
+src/audio/resample.rs:180:29: replace += with *= in Converter::run_blocks
+src/audio/spectrum.rs:100:9: replace Transform::bin_hz -> f64 with -1.0
+src/audio/spectrum.rs:134:45: replace - with + in level
+src/audio/waveform.rs:83:38: replace * with / in Halving::push
+src/audio/waveform.rs:157:38: replace + with - in Decimator::interpolate
+src/audio/waveform.rs:273:9: replace WaveformTap::read_window -> Option<Window<N>> with None
+src/audio/waveform.rs:299:54: replace - with / in WaveformTap::read_window
+src/audio/waveform.rs:352:48: replace * with + in to_bytes
+src/audio/player/bit_perfect.rs:24:60: replace < with <= in output_mode
+src/audio/player/controls.rs:93:9: replace Player::apply_parametric_compare with ()
+src/audio/player/next_track.rs:95:54: replace && with || in open_checked
+src/audio/player/session.rs:167:68: replace / with % in SharedState::playing_at_frame
+src/audio/player/transition.rs:298:13: replace || with && in Player::begin_device_recovery
+src/audio/player/visuals.rs:136:9: replace Player::visual_spectrum_ahead -> Option<Vec<f32>> with Some(vec![1.0])
+src/audio/player/visuals.rs:218:30: replace + with - in Player::visual_eq_offsets
+src/audio/player/visuals.rs:264:9: replace SharedState::spectrum_at -> Option<Vec<f32>> with Some(vec![0.0])
