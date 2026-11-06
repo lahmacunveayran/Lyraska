@@ -559,7 +559,12 @@ mod tests {
         // İkincisi (döngü denemesi) çok büyük `loop`'un kırpılmış hâlini taşır.
         // Dördüncüsü (kırmızı denemesi) parlaklığı değişmeden kırmızı parlar (güvenli modda kırmızı fren).
         let folder = fixture("");
-        for name in ["lyraska-parlama", "lyraska-dongu", "lyraska-golge", "lyraska-kirmizi"] {
+        for name in [
+            "lyraska-parlama",
+            "lyraska-dongu",
+            "lyraska-golge",
+            "lyraska-kirmizi",
+        ] {
             let loaded = load(Some(&folder), &fixture(&format!("{name}.milk"))).unwrap();
             assert!(!loaded.simplified, "{name}: {:?}", loaded.shader_error);
             if std::env::var_os("LYRASKA_FIXTURE_WRITE").is_some() {
