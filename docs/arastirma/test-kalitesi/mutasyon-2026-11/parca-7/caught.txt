@@ -188,3 +188,37 @@ src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, S
 src/audio/lyrics.rs:480:16: replace += with -= in estimate_words
 src/audio/normalize.rs:186:9: replace TrackLevels::is_final -> bool with true
 src/audio/normalize.rs:279:33: replace - with + in TrackLevels::slot
+src/audio/normalize.rs:376:9: replace Leveler::begin_block with ()
+src/audio/normalize.rs:434:42: replace > with == in Leveler::next_gain
+src/audio/normalize.rs:445:28: replace -= with += in Leveler::next_gain
+src/audio/output.rs:81:47: replace - with + in IntFormat::encode
+src/audio/peq.rs:114:9: replace FilterKind::has_gain -> bool with true
+src/audio/peq.rs:382:34: replace * with / in HeadphoneProfile::response_db
+src/audio/peq.rs:441:25: replace - with + in coefs_peak_db
+src/audio/peq.rs:464:37: replace * with + in refine_peak
+src/audio/peq.rs:497:16: replace * with / in q_from_bandwidth
+src/audio/peq.rs:508:50: replace + with - in shelf_slope_from_q
+src/audio/peq.rs:584:40: replace / with * in parse_filter
+src/audio/peq.rs:857:51: replace / with * in ParametricState::at_rate
+src/audio/peq.rs:936:21: replace * with + in loudness_gain_db_at
+src/audio/peq.rs:1079:47: replace > with == in PeqControl::design
+src/audio/peq.rs:1205:45: replace / with * in PeqProcessor::process_frame
+src/audio/player/mod.rs:318:68: replace / with % in Player::status
+src/audio/punch.rs:193:33: replace - with / in Punch::update_gain
+src/audio/render.rs:184:36: replace <= with > in Renderer::render
+src/audio/resample.rs:93:22: replace == with != in Converter::continues
+src/audio/resample.rs:144:66: replace < with > in Converter::run_blocks
+src/audio/spectrum.rs:56:5: replace bar_hz -> f64 with -1.0
+src/audio/spectrum.rs:115:46: replace * with + in at
+src/audio/spectrum.rs:155:5: replace silence -> Vec<f32> with vec![0.0]
+src/audio/waveform.rs:116:9: replace Decimator::process with ()
+src/audio/waveform.rs:158:50: replace - with / in Decimator::interpolate
+src/audio/waveform.rs:280:26: replace / with % in WaveformTap::read_window
+src/audio/waveform.rs:333:9: replace GainCursor<'a>::at -> f64 with 1.0
+src/audio/waveform.rs:355:17: replace * with / in to_bytes
+src/audio/player/session.rs:175:23: replace - with + in SharedState::playing_at_frame
+src/audio/player/track_analysis.rs:96:47: delete ! in Analysis::start_analysis
+src/audio/player/transition.rs:107:29: replace += with *= in Player::begin_transition
+src/audio/player/visuals.rs:52:9: replace Player::visual_now -> Option<VisualData> with None
+src/audio/player/visuals.rs:175:9: replace Player::visual_eq_offsets -> [f64; BANDS] with [0.0; BANDS]
+src/audio/player/visuals.rs:237:9: replace SharedState::window_gains -> Option<Vec<(i64, f64)>> with Some(vec![(1, 0.0)])

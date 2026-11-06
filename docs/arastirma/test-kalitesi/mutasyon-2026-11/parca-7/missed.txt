@@ -46,3 +46,7 @@ src/audio/gapless.rs:93:17: replace < with <= in find_top_level
 src/audio/gapless.rs:149:74: replace + with * in walk_track
 src/audio/loudness.rs:239:65: replace | with & in default_layout
 src/audio/loudness.rs:278:30: replace | with ^ in channel_weights
+src/audio/punch.rs:162:29: replace > with >= in Punch::process_frame
+src/audio/player/decode_thread.rs:33:56: replace * with / in decode_loop
+src/audio/player/next_track.rs:33:24: replace match guard self.analysis.as_ref().is_none_or(|a| &a.path != p) with true in Player::set_next
+src/audio/player/normalization.rs:35:27: delete ! in Player::sync_levels

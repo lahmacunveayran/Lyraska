@@ -4,3 +4,8 @@ src/analysis/map_file.rs:600:9: replace ImportedMap::status -> ImportedMapStatus
 src/audio/abx.rs:689:9: replace AbxTest::prepare -> Result<PreparedAbx, AudioError> with Ok(Default::default())
 src/audio/biquad.rs:111:9: replace Spec::analog -> Complex<f64> with Complex::from_iter([-1.0])
 src/audio/limiter.rs:115:9: replace Limiter::with_bypass -> Self with Default::default()
+src/audio/peq.rs:722:9: replace ParametricSettings::active_filters -> Vec<PeqFilter> with vec![Default::default()]
+src/audio/player/blind_test.rs:65:9: replace Player::abx_select -> AbxStatus with Default::default()
+src/audio/player/session.rs:148:9: replace SharedState::now_playing_indexed -> Option<(TrackInfo, f64, Option<u64>, usize)> with Some((Default::default(), 1.0, Some(0), 0))
+src/audio/player/session.rs:352:9: replace Session::now_playing_timed -> (TrackInfo, f64, Option<u64>, usize) with (Default::default(), 0.0, Some(0), 0)
+src/audio/player/session.rs:407:35: replace + with * in wait_for_prefill
