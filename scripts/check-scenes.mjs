@@ -405,12 +405,22 @@ async function startPlaying(page, ms, stepMs = STEP_MS) {
  * zaman aşımını beklemeden nedeni bildirilir.
  */
 /**
+ * Konsol iletisinin metni; bir kaynak yüklenemediyse ("Failed to load resource: …") adresiyle
+ * birlikte. Ara sıra görülen `ERR_CONNECTION_REFUSED`'ın hangi adreste olduğu (önizleme sunucusu mu,
+ * başka bir yer mi) metinden anlaşılmıyordu.
+ */
+function consoleText(m) {
+  const url = m.location()?.url;
+  return url && m.text().startsWith("Failed to load resource") ? `${m.text()} (${url})` : m.text();
+}
+
+/**
  * Sayfa hataları ve konsol hataları (CSP ihlali konsol hatasıdır, `pageerror` olmaz) `push`'a gider.
  * Her denetim ikisini de dinler (hata avı, 1 Kasım 2026: B14, B15).
  */
 function watchErrors(page, push) {
   page.on("console", (m) => {
-    if (m.type() === "error") push(`konsol: ${m.text()}`);
+    if (m.type() === "error") push(`konsol: ${consoleText(m)}`);
   });
   page.on("pageerror", (e) => push(`sayfa hatası: ${e}`));
 }
@@ -791,7 +801,7 @@ async function checkScene(browser, scene, variant) {
   page.on("console", (m) => {
     // Yedek çizim denetiminde WebGL'in açılamadığı bildirimi beklenen bir şeydir.
     const expected = EXPECT_FALLBACK && m.text().includes("ekran kartında çizilemedi");
-    if (m.type() === "error" && !expected) problems.push(`konsol: ${m.text()}`);
+    if (m.type() === "error" && !expected) problems.push(`konsol: ${consoleText(m)}`);
   });
   page.on("pageerror", (e) => problems.push(`sayfa hatası: ${e}`));
   await page.addInitScript(
@@ -890,7 +900,7 @@ async function checkFlashGuard(browser, code) {
   const problems = [];
   page.on("pageerror", (e) => problems.push(`parlaklık freni: sayfa hatası: ${e}`));
   page.on("console", (m) => {
-    if (m.type() === "error") problems.push(`parlaklık freni: konsol: ${m.text()}`);
+    if (m.type() === "error") problems.push(`parlaklık freni: konsol: ${consoleText(m)}`);
   });
   await page.setContent("<!doctype html><html><body></body></html>");
   await page.addScriptTag({ content: code });
@@ -986,7 +996,7 @@ async function checkMilkdropFlashes(browser, bundle, safe, milk = "parlama") {
   page.on("console", (m) => {
     if (m.type() !== "error") return;
     if (expectEvalRefusal && /unsafe-eval/.test(m.text())) return;
-    problems.push(`${label}: konsol: ${m.text()}`);
+    problems.push(`${label}: konsol: ${consoleText(m)}`);
   });
   page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
   await page.addInitScript(PRESERVE_DRAWING_BUFFER);
@@ -1303,7 +1313,7 @@ async function checkPhotoMotion(browser, safe) {
   const page = await openPage(browser, { stepMs: step, viewport: PHOTO_MOTION_VIEWPORT, scale: 1 });
   const problems = [];
   page.on("console", (m) => {
-    if (m.type() === "error") problems.push(`${label}: konsol: ${m.text()}`);
+    if (m.type() === "error") problems.push(`${label}: konsol: ${consoleText(m)}`);
   });
   page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
   await page.addInitScript(PRESERVE_DRAWING_BUFFER);
@@ -2218,7 +2228,7 @@ async function checkPhotoParticles(browser) {
     const label = `Kendi resmin · parçacıklar ${style}${safe ? " (güvenli mod)" : ""}${reduced ? " (animasyonları azalt)" : ""}`;
     const page = await openPage(browser, { viewport: PHOTO_GLOW_VIEWPORT, scale: 1 });
     page.on("console", (m) => {
-      if (m.type() === "error") problems.push(`${label}: konsol: ${m.text()}`);
+      if (m.type() === "error") problems.push(`${label}: konsol: ${consoleText(m)}`);
     });
     page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
     await page.addInitScript(initScript("photo", { safe, particles: style }));
@@ -2286,7 +2296,7 @@ async function checkMilkdropLoop(browser) {
   const page = await openPage(browser, { stepMs: step, viewport: MILKDROP_VIEWPORT, scale: 1 });
   const problems = [];
   page.on("console", (m) => {
-    if (m.type() === "error") problems.push(`${label}: konsol: ${m.text()}`);
+    if (m.type() === "error") problems.push(`${label}: konsol: ${consoleText(m)}`);
   });
   page.on("pageerror", (e) => problems.push(`${label}: sayfa hatası: ${e}`));
   await page.addInitScript(initScript("milkdrop", { milk: "dongu" }));
