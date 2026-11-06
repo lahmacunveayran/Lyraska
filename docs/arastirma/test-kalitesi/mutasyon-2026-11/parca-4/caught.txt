@@ -190,3 +190,23 @@ src/audio/peq.rs:508:5: replace shelf_slope_from_q -> f64 with -1.0
 src/audio/peq.rs:551:65: replace + with - in parse_filter
 src/audio/peq.rs:717:9: replace ParametricSettings::is_active -> bool with false
 src/audio/peq.rs:936:31: replace / with * in loudness_gain_db_at
+src/audio/peq.rs:1060:26: replace < with == in PeqControl::design
+src/audio/peq.rs:1205:21: replace - with + in PeqProcessor::process_frame
+src/audio/player/mod.rs:310:55: replace != with == in Player::status
+src/audio/punch.rs:193:49: replace * with + in Punch::update_gain
+src/audio/render.rs:177:32: replace + with - in Renderer::render
+src/audio/resample.rs:198:45: replace - with / in map_channels
+src/audio/spectrum.rs:114:18: replace - with / in at
+src/audio/spectrum.rs:149:48: replace / with % in bar_levels
+src/audio/waveform.rs:84:38: replace * with / in Halving::push
+src/audio/waveform.rs:158:42: replace * with + in Decimator::interpolate
+src/audio/waveform.rs:282:13: replace + with * in WaveformTap::read_window
+src/audio/waveform.rs:316:11: replace + with - in to_byte
+src/audio/waveform.rs:355:26: replace + with - in to_bytes
+src/audio/player/next_track.rs:25:27: replace == with != in Player::set_next
+src/audio/player/normalization.rs:13:9: replace Player::sync_levels with ()
+src/audio/player/session.rs:175:13: replace + with * in SharedState::playing_at_frame
+src/audio/player/track_analysis.rs:96:69: replace && with || in Analysis::start_analysis
+src/audio/player/transition.rs:101:57: delete ! in Player::begin_transition
+src/audio/player/transition.rs:323:13: delete match arm PlaybackState::Error in Player::begin_play
+src/audio/player/visuals.rs:237:9: replace SharedState::window_gains -> Option<Vec<(i64, f64)>> with Some(vec![(0, 0.0)])
