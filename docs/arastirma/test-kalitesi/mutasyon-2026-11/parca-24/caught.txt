@@ -144,3 +144,35 @@ src/audio/crossfeed.rs:307:14: replace + with - in Stage::process
 src/audio/crossfeed.rs:380:33: replace * with + in CrossfeedProcessor::process_frame
 src/audio/decode.rs:137:25: replace == with != in wave_channel_mask
 src/audio/decode.rs:189:17: replace < with > in caf_declares_layout
+src/audio/decode.rs:361:61: replace / with % in Decoder::open
+src/audio/decode.rs:460:9: replace Decoder::next_chunk -> Result<Option<&[Sample]>, AudioError> with Ok(Some(Vec::leak(vec![Default::default()])))
+src/audio/decode.rs:582:47: replace == with != in read_tags
+src/audio/decode.rs:712:9: delete match arm 0x80..= 0x9F in windows_1254
+src/audio/decode.rs:849:5: replace read_lyrics -> Result<Option<String>, AudioError> with Ok(Some(String::new()))
+src/audio/decode.rs:993:5: replace base64 -> String with "xyzzy".into()
+src/audio/eq.rs:288:51: delete - in EqState::at_rate
+src/audio/eq.rs:419:67: replace * with + in Biquad::peaking
+src/audio/eq.rs:433:9: replace Biquad::shelf_terms -> (f64, f64, f64) with (0.0, 1.0, 0.0)
+src/audio/eq.rs:435:46: replace * with + in Biquad::shelf_terms
+src/audio/eq.rs:447:25: replace * with + in Biquad::low_shelf
+src/audio/eq.rs:449:35: replace + with * in Biquad::low_shelf
+src/audio/eq.rs:460:33: replace - with / in Biquad::high_shelf
+src/audio/eq.rs:464:19: replace * with + in Biquad::high_shelf
+src/audio/eq.rs:466:40: replace * with + in Biquad::high_shelf
+src/audio/eq.rs:477:29: replace * with / in Biquad::response_db
+src/audio/eq.rs:479:33: replace / with * in Biquad::response_db
+src/audio/eq.rs:488:29: replace + with - in Biquad::power_gain
+src/audio/eq.rs:533:29: replace * with / in Layout::tuned
+src/audio/eq.rs:555:58: replace / with % in Layout::tuned
+src/audio/eq.rs:584:55: replace * with + in Layout::tail
+src/audio/eq.rs:613:49: replace + with * in design_target
+src/audio/eq.rs:697:9: replace Design::response_db -> f64 with 0.0
+src/audio/eq.rs:748:20: replace -= with += in solve_linear
+src/audio/eq.rs:858:30: replace + with - in EqProcessor::process
+src/audio/gapless.rs:29:30: replace * with /
+src/audio/gapless.rs:57:5: replace parse_itunsmpb -> Option<(u64, u64)> with Some((1, 1))
+src/audio/gapless.rs:161:42: replace + with * in next_box
+src/audio/gapless.rs:192:24: replace * with + in first_edit
+src/audio/limiter.rs:146:40: replace + with * in Limiter::process_frame
+src/audio/limiter.rs:185:49: replace % with + in Limiter::next_gain
+src/audio/limiter.rs:244:40: replace * with / in interpolator
