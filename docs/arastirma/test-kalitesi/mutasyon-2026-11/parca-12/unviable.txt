@@ -4,3 +4,5 @@ src/analysis/fingerprint.rs:135:9: replace TrackPrint::verify -> Option<Verdict>
 src/analysis/levels.rs:87:5: replace decode_frame -> Option<ChannelLevels> with Some(Default::default())
 src/analysis/lyrics_model.rs:98:9: replace <impl From<TractError> for ModelError>::from -> Self with Default::default()
 src/analysis/lyrics_model.rs:179:27: replace > with < in read_limited
+src/analysis/map_file.rs:650:9: replace MapStore::load -> Option<ImportedMap> with Some(Default::default())
+src/analysis/spectrogram.rs:325:9: replace Spectrogram::key -> Option<Arc<KeyAnalysis>> with Some(Arc::new(Default::default()))
