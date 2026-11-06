@@ -262,6 +262,12 @@ kısaltılır.
   yedek dala gönderilir (geçici bilgisayar silinir).
 - **Disk:** `CARGO_TARGET_DIR` unutulursa her çalışma kopyası kendi `target`'ını kurar ve disk dolar; önizleme ham
   kareleri (GB'larca) iş bitince silinir.
+- **Ses yüksekliğinde kanal ağırlığı kanalın yerinden gelir, sayısından değil** (5 Kasım 2026, EBU Tech 3341 uyumu):
+  ağırlık "6 ve üstü kanalda 4. ve 5. kanal 1,41" diye sayıdan veriliyordu; 5.0'da çevre 1,0 sayıldı (durum 6: −23,39
+  LUFS, sınır ±0,1), 7.1'de arka ile yan, 6.1'de arka orta ile yan sağ yer değiştirmişti. Symphonia kanalları maskenin
+  bit sırasıyla verir (`TrackInfo::channel_layout`); ağırlık BS.1770-5 Ek 3 Tablo 4'ten (yatayda 60°–120° 1,41, LFE 0,
+  gerisi 1,0; 5.x'in arka çifti çevre sayılır). Uyum sinyalleri belgenin tablosundan okunur, özetten değil; durum
+  20–23'ün süzgeci belgede yazmaz, 4·fs'deki süzülmüş tepe ayrıca ölçülerek seçilir (~−0,15 dB).
 
 - **Test kalitesi mutasyonla ölçülür, kapsamayla değil** (5–6 Kasım 2026; `docs/arastirma/test-kalitesi/`): kod
   bilerek bozulur, testlerin düşüp düşmediğine bakılır (`cargo mutants --shard k/n` örneklem, `--lib` yeniden

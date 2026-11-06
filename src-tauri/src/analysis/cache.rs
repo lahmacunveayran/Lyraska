@@ -68,6 +68,9 @@ pub const VERSIONS: PartVersions = PartVersions {
     // 8: eşit nabız (her vuruşta kick, iki katının araları dolu): hardstyle 80 → 160.
     // 9: üç vuruşta iki (80–100 bulunmuş, gerçek vuruşlar üçte birlerde): KUTE 87 → 130.
     rhythm: 9,
+    // Çok kanallı seste kanal ağırlıkları kanalın yerine göre (BS.1770-5; 4.0, 5.0, 6.1, 7.1):
+    // tek ve iki kanallıda sonuç aynı, sürüm artırılmadı; çok kanallılar göçle (storage V11)
+    // yeniden ölçülür.
     loudness: 1,
     bass: 1,
     key: 1,
