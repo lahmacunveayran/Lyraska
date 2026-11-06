@@ -3,10 +3,15 @@
 //! 2026: önce bu, sonra isteğe bağlı Spleeter paketi; `docs/arastirma/kaynak-ayristirma/RAPOR.md`).
 //!
 //! Spektrogramın genliği her frekans kutusunda **zamanda** ortanca süzgeçten geçirilince uzayan
-//! (ezgisel: bas, melodi, vokal) kısım kalır; her karede **frekansta** geçirilince kısa ve geniş
-//! bantlı (vurmalı: davul) kısım kalır. İkisinden yumuşak maske (Wiener, üs 2) çıkar ve her kare
-//! için yalnızca türetilmiş değerler tutulur: vurmalı enerji (davul vuruşu), ezgisel bas enerjisi
-//! (bas titreşimi), ezgisel enerji. Ayrılmış ses hiç üretilmez, saklanmaz.
+//! (ezgisel: bas, melodi) kısım kalır; her karede **frekansta** geçirilince kısa ve geniş
+//! bantlı (vurmalı: davul) kısım kalır. Maskeler üç parçalıdır (HRPS, Driedger–Müller–Disch 2014,
+//! "Extending harmonic-percussive separation of audio signals", ISMIR; ayrım payı `MARGIN`): bir kutu
+//! ezgiselse `H > β·P`, vurmalıysa `P ≥ β·H`, ikisi de değilse **kalan**dır. Kalan, ikisine de açıkça
+//! benzemeyen sesi ayırır; böylece ezgisel ve vurmalı kısımlar daha temiz kalır. **Ölçüldü (6 Kasım):**
+//! bu çözünürlükte gerçekçi vibratolu şarkı sesi (±%3–5, 8–12 harmonik) %98'den çoğuyla ezgiseldir;
+//! kalan vokal işareti değildir. Vokal için iki aşamalı ayrıştırma (Tachibana–Ono–Sagayama) ayrı adım.
+//! Vurmalı kısım üç banda bölünür: bas davul, trampet ve orta vurmalılar, zil (hi-hat). Her kare için
+//! yalnızca türetilmiş enerjiler tutulur; ayrılmış ses hiç üretilmez, saklanmaz.
 //!
 //! Akışlıdır: analiz FFT'sinin her karesi [`Hpss::push`] ile verilir; zaman süzgeci ortadaki kareyi
 //! görmek için `TIME_HALF` kare ileriye bakar, sonuç o kadar gecikmeli döner; şarkı sonunda
@@ -18,8 +23,15 @@ use std::collections::VecDeque;
 const TIME_HALF: usize = 8;
 /// Frekans süzgecinin yarı genişliği (kutu): ±8 kutu, 2048'lik FFT'de ~±170 Hz.
 const FREQ_HALF: usize = 8;
-/// Bakılan en yüksek frekans: davul ve bas için yeter, işi küçük tutar.
-const MAX_HZ: f64 = 8_000.0;
+/// Bakılan en yüksek frekans: zilin (hi-hat) enerjisi 12 kHz'e kadar; üstü işi büyütür.
+const MAX_HZ: f64 = 12_000.0;
+/// Üç parçalı maskenin ayrım payı β (Driedger–Müller–Disch 2014; β = 1 düz ikili HPSS'tir, büyüdükçe
+/// kalana daha çok ses düşer).
+const MARGIN: f64 = 2.0;
+/// Vurmalı bantlar: bas davul, trampet ve orta vurmalılar, zil.
+const KICK_HZ: (f64, f64) = (30.0, 150.0);
+const SNARE_HZ: (f64, f64) = (150.0, 5_000.0);
+const HIHAT_HZ: (f64, f64) = (5_000.0, MAX_HZ);
 /// Ezgisel bas bandı (bas gitar, 808, sub bas).
 const BASS_LOW_HZ: f64 = 40.0;
 const BASS_HIGH_HZ: f64 = 250.0;
@@ -34,14 +46,29 @@ pub struct HpssFrame {
     pub harmonic: f64,
     /// Ezgisel kısmın bas bandındaki enerjisi.
     pub harmonic_bass: f64,
+    /// Kalanın enerjisi (bütün bant): ne ezgisel ne vurmalı.
+    pub residual: f64,
+    /// Vurmalı kısmın bantları: bas davul, trampet ve orta vurmalılar, zil.
+    pub kick: f64,
+    pub snare: f64,
+    pub hihat: f64,
+}
+
+/// Bir frekans kutusunun hangi bantlara düştüğü (kutu başına bir kez hesaplanır).
+#[derive(Clone, Copy, Default)]
+struct BinBands {
+    bass: bool,
+    kick: bool,
+    snare: bool,
+    hihat: bool,
 }
 
 /// Akışlı vurmalı/ezgisel ayrıştırıcı.
 pub struct Hpss {
     /// Kullanılan kutu sayısı (0 Hz'den `MAX_HZ`'e).
     bins: usize,
-    /// Bas bandının kutuları.
-    bass: std::ops::Range<usize>,
+    /// Her kutunun bantları.
+    bands: Vec<BinBands>,
     /// Son `2·TIME_HALF + 1` karenin genlikleri; ortadaki ayrıştırılır.
     window: VecDeque<Vec<f64>>,
     /// Daha önce verilmiş kare sayısı (ilk karelerin önü sıfırla doldurulur).
@@ -57,11 +84,21 @@ impl Hpss {
         let bin_hz = f64::from(sample_rate.max(1)) / fft_size.max(2) as f64;
         let nyquist_bins = fft_size / 2 + 1;
         let bins = ((MAX_HZ / bin_hz).ceil() as usize + 1).clamp(1, nyquist_bins);
-        let low = ((BASS_LOW_HZ / bin_hz).floor() as usize).min(bins);
-        let high = ((BASS_HIGH_HZ / bin_hz).ceil() as usize + 1).clamp(low, bins);
+        let within = |hz: f64, (low, high): (f64, f64)| hz >= low && hz < high;
+        let bands = (0..bins)
+            .map(|bin| {
+                let hz = bin as f64 * bin_hz;
+                BinBands {
+                    bass: within(hz, (BASS_LOW_HZ, BASS_HIGH_HZ)),
+                    kick: within(hz, KICK_HZ),
+                    snare: within(hz, SNARE_HZ),
+                    hihat: hz >= HIHAT_HZ.0,
+                }
+            })
+            .collect();
         Self {
             bins,
-            bass: low..high,
+            bands,
             window: VecDeque::with_capacity(2 * TIME_HALF + 1),
             pushed: 0,
             column: Vec::with_capacity(2 * TIME_HALF + 1),
@@ -134,18 +171,30 @@ impl Hpss {
             self.row.extend_from_slice(&frame[from..to]);
             self.row.resize(2 * FREQ_HALF + 1, 0.0);
             let percussive = median(&mut self.row);
-            // Yumuşak maske (Wiener, üs 2): pay ikisinin güçlerine göre bölüşülür.
-            let (h2, p2) = (harmonic * harmonic, percussive * percussive);
-            let total = h2 + p2;
-            if total <= 0.0 {
+            let power = frame[bin] * frame[bin];
+            if power <= 0.0 {
                 continue;
             }
-            let power = frame[bin] * frame[bin];
-            let harmonic_power = power * h2 / total;
-            out.harmonic += harmonic_power;
-            out.percussive += power * p2 / total;
-            if self.bass.contains(&bin) {
-                out.harmonic_bass += harmonic_power;
+            // Üç parçalı ikili maske (β payı): ezgisel, vurmalı ya da kalan.
+            let bands = self.bands[bin];
+            if harmonic > MARGIN * percussive {
+                out.harmonic += power;
+                if bands.bass {
+                    out.harmonic_bass += power;
+                }
+            } else if percussive >= MARGIN * harmonic {
+                out.percussive += power;
+                if bands.kick {
+                    out.kick += power;
+                }
+                if bands.snare {
+                    out.snare += power;
+                }
+                if bands.hihat {
+                    out.hihat += power;
+                }
+            } else {
+                out.residual += power;
             }
         }
         out
@@ -341,6 +390,127 @@ mod tests {
         let bass: f64 = steady.iter().map(|f| f.harmonic_bass).sum();
         let harmonic: f64 = steady.iter().map(|f| f.harmonic).sum();
         assert!(bass / harmonic > 0.99, "bas payı {:.5}", bass / harmonic);
+    }
+
+    /// Hepsinin toplamı (her bölüm ayrı ayrı).
+    fn total(frames: &[HpssFrame], part: impl Fn(&HpssFrame) -> f64) -> f64 {
+        frames.iter().map(part).sum()
+    }
+
+    /// Tohumlu, tekrarlanabilir beyaz gürültü.
+    fn noise(n: usize, seed: u64) -> Vec<f64> {
+        let mut state = seed;
+        (0..n)
+            .map(|_| {
+                state = state
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
+                ((state >> 33) as f64 / f64::from(1u32 << 31)) - 1.0
+            })
+            .collect()
+    }
+
+    #[test]
+    fn bas_davul_ve_zil_kendi_bantlarina_duser() {
+        // Yapım gereği: bas davul = 60 Hz'lik, 40 ms'de sönen kısa ton (enerjisi 150 Hz altında);
+        // zil = 30 ms'lik, 6 kHz üstüne süzülmüş gürültü (birinci dereceden fark süzgeci iki kez).
+        let n = 3 * RATE as usize;
+        let mut kick = vec![0.0; n];
+        let mut hat = vec![0.0; n];
+        let hiss = noise(n, 7);
+        for beat in 0..5 {
+            let at = RATE as usize / 4 + beat * RATE as usize / 2;
+            for i in 0..(RATE as usize / 25) {
+                let t = i as f64 / f64::from(RATE);
+                kick[at + i] = 0.8 * (2.0 * PI * 60.0 * t).sin() * (-t / 0.04).exp();
+            }
+            let hat_at = at + RATE as usize / 4;
+            for i in 2..(RATE as usize * 3 / 100) {
+                // İki kez fark: alçak frekansları bastırır, enerji üst banda kayar.
+                let d = hiss[hat_at + i] - 2.0 * hiss[hat_at + i - 1] + hiss[hat_at + i - 2];
+                hat[hat_at + i] = 0.2 * d;
+            }
+        }
+        let kicks = separate(&kick);
+        assert!(
+            total(&kicks, |f| f.kick) > 10.0 * total(&kicks, |f| f.hihat),
+            "bas davul zile kaçtı"
+        );
+        assert!(total(&kicks, |f| f.kick) > 0.5 * total(&kicks, |f| f.percussive));
+        let hats = separate(&hat);
+        assert!(
+            total(&hats, |f| f.hihat) > 10.0 * total(&hats, |f| f.kick),
+            "zil bas davula kaçtı"
+        );
+        assert!(
+            total(&hats, |f| f.percussive)
+                > 0.5 * total(&hats, |f| f.percussive + f.harmonic + f.residual)
+        );
+    }
+
+    #[test]
+    fn uc_parcali_maske_tanimdaki_gibi() {
+        // Driedger–Müller–Disch 2014'ün kuralı (β = 2), elle kurulmuş genliklerle: 17 karenin
+        // hepsinde her kutu 1,0, yalnızca ortadaki karede bütün kutular `c`. Ortadaki karede zaman
+        // ortancası H = 1,0 (17 değerin 16'sı 1,0), frekans ortancası P = c (kenarlarda sıfır dolgulu
+        // pencere hariç). Kural: H > 2·P → ezgisel; P ≥ 2·H → vurmalı; ikisi de değil → kalan.
+        let bins = 1025;
+        for (c, expected) in [
+            (0.4, "ezgisel"),
+            // Sınır: H = 2·P tam (0,5·2 = 1,0 kayan noktada kesin); ezgisel için "büyük" gerekir.
+            (0.5, "kalan"),
+            (1.5, "kalan"),
+            (1.9, "kalan"),
+            (2.0, "vurmalı"),
+            (3.0, "vurmalı"),
+        ] {
+            let mut hpss = Hpss::new(RATE, FFT);
+            let mut out = Vec::new();
+            for frame in 0..17 {
+                let value = if frame == 8 { c } else { 1.0 };
+                out.extend(hpss.push(&vec![value; bins]));
+            }
+            out.extend(hpss.finish());
+            // İlk sonuç, sessiz önden dolgu yüzünden 0. kare; ortadaki kare 8. sonuç.
+            let center = out[8];
+            // Kenarlardaki FREQ_HALF kutu sıfır dolgu yüzünden P'si daha küçük: yalnızca iç kutular.
+            let inner = (c * c) * (hpss.bins - 2 * FREQ_HALF) as f64;
+            let (h, p, r) = (center.harmonic, center.percussive, center.residual);
+            let got = match expected {
+                "ezgisel" => h,
+                "vurmalı" => p,
+                _ => r,
+            };
+            assert!(
+                got >= inner * 0.999,
+                "c = {c}: {expected} enerjisi {got:.1}, iç kutular {inner:.1}"
+            );
+        }
+    }
+
+    #[test]
+    fn bant_sinirlari_kutu_kutu_tanimdaki_gibi() {
+        // 44,1 kHz, 2048 nokta: kutu genişliği 44 100 / 2048 = 21,533 Hz (elle hesap). Kutu k'nın
+        // frekansı k·21,533: 1 → 21,5; 2 → 43,1; 6 → 129,2; 7 → 150,7; 232 → 4995,7; 233 → 5017,2;
+        // 557 → 11 994,0; 558 → 12 015,5. Böylece kick (30–150 Hz) = 2..=6 (5 kutu), snare
+        // (150–5000 Hz) = 7..=232 (226 kutu), zil (5 kHz – 12 kHz, son kutu dahil) = 233..=558
+        // (326 kutu); kutu sayısı ⌈12 000 / 21,533⌉ + 1 = 559.
+        // Yalnızca ortadaki karede her kutu 1,0, diğer kareler sessiz: H = 0, P = 1 (sıfır dolgulu
+        // pencerede bile 17 değerin en az 9'u 1,0), yani her kutu vurmalı, gücü 1.
+        let mut hpss = Hpss::new(RATE, FFT);
+        assert_eq!(hpss.bins, 559);
+        let mut out = Vec::new();
+        for frame in 0..17 {
+            let value = if frame == 8 { 1.0 } else { 0.0 };
+            out.extend(hpss.push(&vec![value; 1025]));
+        }
+        out.extend(hpss.finish());
+        let center = out[8];
+        assert_eq!(center.percussive, 559.0);
+        assert_eq!((center.harmonic, center.residual), (0.0, 0.0));
+        assert_eq!(center.kick, 5.0, "kick bandı");
+        assert_eq!(center.snare, 226.0, "snare bandı");
+        assert_eq!(center.hihat, 326.0, "zil bandı");
     }
 
     #[test]
