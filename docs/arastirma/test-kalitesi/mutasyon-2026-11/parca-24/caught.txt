@@ -213,3 +213,14 @@ src/audio/render.rs:236:46: replace * with + in Renderer::render
 src/audio/resample.rs:123:9: replace Converter::finish -> Result<&[Sample], AudioError> with Ok(Vec::leak(vec![Default::default()]))
 src/audio/spectrum.rs:94:31: replace * with + in Transform::magnitudes
 src/audio/spectrum.rs:134:26: replace - with + in level
+src/audio/waveform.rs:83:52: replace + with * in Halving::push
+src/audio/waveform.rs:153:29: replace < with > in Decimator::interpolate
+src/audio/waveform.rs:299:62: replace > with == in WaveformTap::read_window
+src/audio/waveform.rs:350:43: replace + with - in to_bytes
+src/audio/player/bit_perfect.rs:24:31: replace match guard u32::from(format.valid_bits) < bits with true in output_mode
+src/audio/player/controls.rs:59:9: replace Player::set_parametric -> ParametricSettings with Default::default()
+src/audio/player/session.rs:127:23: replace != with == in SharedState::heard_with_time
+src/audio/player/track_analysis.rs:203:9: replace Player::analysis_for -> Option<&Analysis> with None
+src/audio/player/transition.rs:282:9: replace Player::recover_device with ()
+src/audio/player/visuals.rs:131:9: replace Player::visual_spectrum -> Option<Vec<f32>> with Some(vec![-1.0])
+src/audio/player/visuals.rs:254:48: replace / with % in SharedState::window_gains

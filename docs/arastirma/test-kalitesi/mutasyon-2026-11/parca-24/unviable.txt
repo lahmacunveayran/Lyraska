@@ -4,3 +4,7 @@ src/analysis/map_file.rs:304:9: replace MapFile::read -> Result<Self, MapError> 
 src/analysis/spectrogram.rs:665:5: replace rhythm_from_frames -> (Option<BeatGrid>, Option<SongMap>) with (None, Some(Default::default()))
 src/audio/lyrics.rs:240:5: replace parse -> Lyrics with Default::default()
 src/audio/peq.rs:641:9: replace ParametricBand::filter -> PeqFilter with Default::default()
+src/audio/player/next_track.rs:76:5: replace open_next -> Option<Decoder> with Some(Default::default())
+src/audio/player/session.rs:164:9: replace SharedState::playing_at_frame -> Option<(TrackInfo, f64, usize)> with Some((Default::default(), 1.0, 0))
+src/audio/player/session.rs:359:9: replace Session::playing_at -> (TrackInfo, f64) with (Default::default(), 1.0)
+src/audio/player/song_maps.rs:102:9: replace Player::imported_song_map -> Option<ImportedMapStatus> with Some(Default::default())
