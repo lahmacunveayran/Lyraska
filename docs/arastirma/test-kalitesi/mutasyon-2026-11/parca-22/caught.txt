@@ -183,3 +183,32 @@ src/audio/limiter.rs:244:51: replace / with * in interpolator
 src/audio/loudness.rs:32:24: delete -
 src/audio/loudness.rs:97:22: replace / with * in k_weighting
 src/audio/loudness.rs:104:22: replace * with / in k_weighting
+src/audio/loudness.rs:111:22: replace / with * in k_weighting
+src/audio/loudness.rs:180:37: replace % with + in TruePeak::add
+src/audio/loudness.rs:286:35: replace | with & in channel_weights
+src/audio/loudness.rs:350:9: replace LoudnessMeter::finish -> Option<Loudness> with None
+src/audio/lyrics.rs:112:5: replace for_track -> Option<Lyrics> with None
+src/audio/lyrics.rs:195:5: replace decode_text -> String with String::new()
+src/audio/lyrics.rs:350:5: replace leading_stamps -> (Vec<f64>, &str) with (vec![0.0], "")
+src/audio/lyrics.rs:378:31: replace + with * in parse_time
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with (String::new(), vec![(0.0, "xyzzy".into())], String::new())
+src/audio/normalize.rs:132:38: replace % with / in TrackLevels::begin_track
+src/audio/normalize.rs:269:9: replace TrackLevels::next_start -> Option<u64> with Some(1)
+src/audio/normalize.rs:324:5: replace db_to_linear -> f64 with 1.0
+src/audio/normalize.rs:415:56: replace > with == in Leveler::next_gain
+src/audio/normalize.rs:438:34: replace * with + in Leveler::next_gain
+src/audio/normalize.rs:469:22: replace + with - in approach
+src/audio/peq.rs:291:30: replace + with * in HeadphoneProfile::parse
+src/audio/peq.rs:415:5: replace reference_peak_db -> f64 with -1.0
+src/audio/peq.rs:470:27: replace * with + in refine_peak
+src/audio/peq.rs:502:35: replace / with % in shelf_q_from_slope
+src/audio/peq.rs:514:9: delete match arm "PK" | "PEQ" | "MODAL" in parse_filter
+src/audio/peq.rs:605:29: replace / with * in parse_filter
+src/audio/peq.rs:753:9: replace ParametricSettings::response_db -> Vec<f64> with vec![1.0]
+src/audio/peq.rs:907:5: replace loudness_gain_db -> f64 with 1.0
+src/audio/peq.rs:998:9: replace PeqControl::set_filters with ()
+src/audio/peq.rs:1169:9: replace PeqProcessor::is_bypass -> bool with true
+src/audio/punch.rs:151:23: replace >= with < in Punch::process_frame
+src/audio/punch.rs:182:65: replace == with != in Punch::update_gain
+src/audio/render.rs:130:9: replace Renderer::latency_frames -> usize with 0
+src/audio/render.rs:235:32: replace - with / in Renderer::render

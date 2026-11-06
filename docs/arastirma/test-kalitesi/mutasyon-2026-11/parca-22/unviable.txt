@@ -2,3 +2,5 @@ src/analysis/annotation.rs:157:9: replace AnnotationStore::save_evaluation -> Re
 src/analysis/beats.rs:238:5: replace segment_periods -> Option<Vec<(std::ops::Range<usize>, f64)>> with Some(vec![(Range::from_iter([1]), -1.0)])
 src/analysis/lyrics_model.rs:454:5: replace parse_tokens -> Result<(Vec<usize>, Vocabulary), ModelError> with Ok((vec![1], Default::default()))
 src/audio/decode.rs:827:5: replace probe -> Result<Box<dyn FormatReader>, AudioError> with Ok(Box::new(Default::default()))
+src/audio/lyrics.rs:445:5: replace timed_words -> Vec<LyricWord> with vec![Default::default()]
+src/audio/player/mod.rs:232:9: replace Player::retire_session -> Option<Session> with Some(Default::default())

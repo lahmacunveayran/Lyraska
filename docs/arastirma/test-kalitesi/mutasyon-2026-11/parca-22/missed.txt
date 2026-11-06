@@ -33,3 +33,8 @@ src/audio/decode.rs:339:39: replace * with + in Decoder::open
 src/audio/decode.rs:761:54: replace & with | in opus_packet_frames
 src/audio/gapless.rs:131:13: delete match arm b"----" in walk
 src/audio/gapless.rs:192:20: replace + with - in first_edit
+src/audio/loudness.rs:238:9: delete match arm 6 in default_layout
+src/audio/loudness.rs:240:20: replace | with ^ in default_layout
+src/audio/output.rs:136:5: replace exclusive_timing -> Option<&'static str> with Some("xyzzy")
+src/audio/peq.rs:452:17: replace > with >= in coefs_peak_db
+src/audio/resample.rs:113:29: replace += with *= in Converter::process
