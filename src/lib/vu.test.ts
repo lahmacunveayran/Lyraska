@@ -54,9 +54,13 @@ describe("VU ibresi", () => {
     const reach = positions.findIndex((p) => p >= 0.99 * target) / 60;
     expect(reach).toBeGreaterThan(0.26);
     expect(reach).toBeLessThan(0.34);
+    // Sınırlar IEC 60268-17'nin VU ölçer şartı: aşma en az %1, en çok %1,5. Ölçülen %1,338
+    // (60 fps; 144 ve 500 fps'te %1,347 ve %1,334: 2 ms'lik iç adım kare hızından bağımsız),
+    // alt sınıra 0,34, üst sınıra 0,16 puan pay. Hesap saf çift duyarlıklı aritmetik, makineye
+    // göre değişmez. Eski %0,5–2,5 aralığı sönüm 0,78 (%1,80) ve 0,83 (%0,79) bozmalarını kaçırırdı.
     const overshoot = Math.max(...positions) / target - 1;
-    expect(overshoot).toBeGreaterThan(0.005);
-    expect(overshoot).toBeLessThan(0.025);
+    expect(overshoot).toBeGreaterThanOrEqual(0.01);
+    expect(overshoot).toBeLessThanOrEqual(0.015);
     expect(positions[positions.length - 1]).toBeCloseTo(target, 3);
   });
 

@@ -11,7 +11,10 @@ describe("parlama sayacı", () => {
 
   it("yavaş da olsa gidip gelmeyi sayar", () => {
     const wave = Array.from({ length: 400 }, (_, i) => 0.5 + 0.2 * Math.sin(i / 20));
-    expect(countFlashes(wave)).toBeGreaterThanOrEqual(2);
+    // Kesin sayı: 0..19,95 radyanda 3 tepe ve 3 çukur; ilk yükselişle 7 değişim, ⌊7/2⌋ = 3
+    // parlama. Tamsayı sayım, pay gerekmez. "≥ 2" bir sıfırlamayı unutan sayacın 7 ya da 9
+    // saymasını kaçırırdı.
+    expect(countFlashes(wave)).toBe(3);
   });
 });
 

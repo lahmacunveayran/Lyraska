@@ -1348,6 +1348,129 @@ fn parametrik_ekolayzer_aygitin_hizinda_hesaplanir() {
     std::fs::remove_file(path).ok();
 }
 
+/// İki sesin karışımındaki genlik (her biri).
+const TWO_TONE_AMPLITUDE: f64 = 0.05;
+
+/// 100 Hz ve 1 kHz'lik iki sinüsün karışımını (1 sn, stereo) `controls` ile, aygıtın
+/// arabelleği gibi 512 karelik bloklar hâlinde ses yolundan geçirir. Çıkışın son yarım
+/// saniyesinde iki sesin seviyesini (dB, girişe göre) döndürür: geçişler (açılış, süzgeç
+/// yumuşatması) çoktan bitmiştir. Yarım saniyede iki frekans da tam tur atar (50 ve 500), bu
+/// yüzden iki sinüs birbirine diktir; [`fit`] her birini ötekinden etkilenmeden ölçer.
+fn heard_two_tones(controls: &RenderControls, rate: u32) -> (f64, f64) {
+    use crate::audio::render::Renderer;
+    use crate::audio::test_util::{fit, sine};
+    let frames = rate as usize;
+    let (mut producer, mut consumer) = RingBuffer::new(frames * 2);
+    for frame in 0..frames {
+        let value = TWO_TONE_AMPLITUDE * (sine(100.0, rate, frame) + sine(1000.0, rate, frame));
+        producer.push(value).unwrap();
+        producer.push(value).unwrap();
+    }
+    let mut renderer = Renderer::new(2, rate, controls.clone());
+    let mut out = vec![0.0; frames * 2];
+    for block in out.chunks_mut(512 * 2) {
+        renderer.render(&mut consumer, block, false);
+    }
+    let left: Vec<Sample> = out.iter().step_by(2).skip(frames / 2).copied().collect();
+    let level = |hz: f64| 20.0 * (fit(&left, hz, rate).0 / TWO_TONE_AMPLITUDE).log10();
+    (level(100.0), level(1000.0))
+}
+
+#[test]
+fn parametrik_karsilastirma_ekolayzeri_atlar_ve_esit_yukseklikte_calar() {
+    use crate::audio::normalize::TrackLevels;
+    use crate::audio::peq::{DesignMethod, FilterKind, ParametricBand, ParametricSettings};
+    // A/B'nin oynatıcıdaki bağlantısı: karşılaştırma açılınca çalan oturumun sesi parametrik
+    // ekolayzersiz, ama ekolayzerli hâliyle aynı yükseklikte çıkmalı; kapanınca ekolayzer döner.
+    let rate = 44_100;
+    output::simulated::set_device_rate(Some(rate));
+    let path = temp_path("parametrik-ab.wav");
+    write_wav(&path, rate, 2, rate as usize, |_, _| 0.0);
+    let mut player = Player::new();
+    // Eşitleme ilk sesi şarkının ölçümüne kadar bekletir; burada konu değil.
+    player
+        .set_playback_options(super::super::PlaybackOptions {
+            normalize: false,
+            ..Default::default()
+        })
+        .unwrap();
+    player.load(&path, false).unwrap();
+    let session = player.session.as_ref().unwrap();
+    assert!(Arc::ptr_eq(
+        &session.shared.controls.parametric,
+        &player.parametric_control
+    ));
+    // Çalan oturumun ses yolunun ayarları (sanal çıkış da bunlarla doldurur). Şarkı seviyeleri
+    // her ölçümde aynı (bilinmiyor) kalsın: taşma korumasının düz kazancı iki tarafta aynı olur.
+    let controls = RenderControls {
+        levels: Arc::new(TrackLevels::new()),
+        ..session.shared.controls.clone()
+    };
+    let one_band = |kind, freq_hz, gain_db, q| ParametricSettings {
+        enabled: true,
+        bands: vec![ParametricBand {
+            kind,
+            freq_hz,
+            gain_db,
+            q,
+            enabled: true,
+        }],
+        design: DesignMethod::Matched,
+    };
+
+    // 1) 1 kHz'te +12 dB, Q 1. El hesabı (analog tepe süzgeci): merkezde tam 12 dB; on kat
+    // aşağıda, 100 Hz'te |H|² = (0,99² + (0,1·A/Q)²) / (0,99² + (0,1/(A·Q))²), A = 10^(12/40)
+    // → +0,16 dB. 1 kHz, 100 Hz'ten 11,84 dB yüksek çıkar. Tolerans 0,1 dB: eşlenmiş tasarım
+    // 44,1 kHz'te bu frekanslarda analog eğriden bunun çok altında sapar. Düz kazançlar (taşma
+    // koruması, karşılaştırma telafisi) iki sesi birlikte değiştirir, farkı değiştirmez.
+    let eq_tilt = 12.0 - 0.16;
+    player.set_parametric(one_band(FilterKind::Peaking, 1000.0, 12.0, 1.0));
+    let (low, high) = heard_two_tones(&controls, rate);
+    assert!(
+        (high - low - eq_tilt).abs() < 0.1,
+        "ekolayzerli: 1 kHz 100 Hz'ten {:.2} dB yüksek, beklenen {eq_tilt:.2}",
+        high - low
+    );
+    assert!(!player.parametric_state().comparing);
+
+    // Karşılaştırma: ekolayzer atlanır, iki ses girişteki gibi eşit. Tolerans 0,05 dB: bu
+    // tarafta ses yolu yalnızca düz kazançtır, fark sıfır olmalı (hesap kayan noktada).
+    player.set_parametric_compare(true);
+    let (low, high) = heard_two_tones(&controls, rate);
+    assert!(
+        (high - low).abs() < 0.05,
+        "karşılaştırma: 1 kHz 100 Hz'ten {:.2} dB yüksek, ekolayzer atlanmadı",
+        high - low
+    );
+    assert!(player.parametric_state().comparing);
+
+    // Kapatınca ekolayzer geri gelir.
+    player.set_parametric_compare(false);
+    let (low, high) = heard_two_tones(&controls, rate);
+    assert!(
+        (high - low - eq_tilt).abs() < 0.1,
+        "karşılaştırma kapalı: fark {:.2} dB, beklenen {eq_tilt:.2}",
+        high - low
+    );
+    assert!(!player.parametric_state().comparing);
+
+    // 2) Eşit yükseklik. En alt frekansta (10 Hz) +6 dB'lik raf duyulan bandın tamamını 6 dB
+    // yükseltir: ekolayzerli ses müzikte de 1 kHz'te de 6 dB yüksektir, karşılaştırma tarafı da
+    // aynı yükseklikte çalmalı. Raf yalnızca ~40 Hz altında 6 dB'den azdır; orada K ağırlığı
+    // (38 Hz yüksek geçiren) ve pembe gürültüdeki payı (10 oktavdan biri) küçük olduğu için
+    // telafi 6 dB'den en çok birkaç yüzde bir dB ayrılır. Tolerans 0,1 dB.
+    player.set_parametric(one_band(FilterKind::HighShelf, 10.0, 6.0, 0.707));
+    let (_, with_eq) = heard_two_tones(&controls, rate);
+    player.set_parametric_compare(true);
+    let (_, compared) = heard_two_tones(&controls, rate);
+    assert!(
+        (compared - with_eq).abs() < 0.1,
+        "1 kHz: ekolayzerli {with_eq:.2} dB, karşılaştırma {compared:.2} dB"
+    );
+    reset_device();
+    std::fs::remove_file(path).ok();
+}
+
 #[test]
 fn arayuzdeki_ekolayzer_korumasi_aygitin_hizinda() {
     use crate::audio::eq::{EqState, BANDS as EQ_BANDS};

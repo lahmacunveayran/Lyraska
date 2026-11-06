@@ -864,6 +864,78 @@ mod tests {
         assert!(!levels.is_known(0));
     }
 
+    /// Bit-perfect oturumda kazanç yalnızca açılış/devam ve duraklatma geçişinde 1'den farklıdır
+    /// (`render` sonundaki geçiş adımı). Geçiş sesi yalnızca kısabilir: hiçbir çıkış örneği
+    /// girişin genliğini aşmaz, geçiş sessizlikten başlar ve sessizlikte biter. Kazancın her
+    /// karedeki değeri el hesabıdır: geçiş 10 kare (1000 Hz'de 10 ms), adım 1/10.
+    /// Özel modda duraklatırken ses yükselirse kullanıcının kulağına ve aygıtına zarar verir.
+    #[test]
+    fn bit_perfect_gecisi_sesi_yalnizca_kisar() {
+        let controls = RenderControls {
+            bit_perfect: true,
+            ..RenderControls::default()
+        };
+        let mut renderer = Renderer::new(2, RATE, controls);
+        let latency = renderer.latency_frames();
+        // Sabit genlik, iki işaret: sol +0,5, sağ −0,5.
+        let amp = 0.5;
+        let samples: Vec<Sample> = (0..100).flat_map(|_| [amp, -amp]).collect();
+        let mut source = filled(&samples);
+        // 40 kare çalar (10 karede açılır), sonra 30 kare duraklatılır (10 karede susar).
+        let mut playing = vec![0.0; 2 * 40];
+        let mut pausing = vec![0.0; 2 * 30];
+        renderer.render(&mut source, &mut playing, false);
+        let outcome = renderer.render(&mut source, &mut pausing, true);
+        assert_eq!(outcome.frames_consumed, 10, "susma geçişi 10 kare sürer");
+        assert_eq!(renderer.gain(), 0.0);
+        let out: Vec<Sample> = playing.into_iter().chain(pausing).collect();
+        assert!(
+            latency + 50 < out.len() / 2,
+            "susmanın sonu çıkışta görünmeli"
+        );
+
+        // Değişmez: kazanç ≤ 1 olduğundan |x·g| ≤ |x|. Kayan noktada çarpımın yuvarlaması
+        // monotondur (x·g ≤ x·1 = x), bu yüzden tolerans yok.
+        for (i, &s) in out.iter().enumerate() {
+            assert!(
+                s.abs() <= amp,
+                "kare {}: {s} girişin genliğini ({amp}) aşıyor",
+                i / 2
+            );
+        }
+
+        // El hesabı: giriş karesi k'nin kazancı açılışta k/10 (k < 10), sonra 1; duraklatmada
+        // (giriş karesi 40'tan itibaren) 1 − j/10 (j < 10), sonra 0 ve veri alınmaz. Çıkış
+        // sınırlayıcının gecikme hattı kadar geriden gelir; hattın başı sessizdir.
+        let gain_at = |input_frame: usize| -> f64 {
+            match input_frame {
+                k if k < 10 => k as f64 / 10.0,
+                k if k < 40 => 1.0,
+                k if k < 50 => 1.0 - (k - 40) as f64 / 10.0,
+                _ => 0.0,
+            }
+        };
+        for (frame, pair) in out.chunks_exact(2).enumerate() {
+            let expected = if frame < latency {
+                0.0
+            } else {
+                amp * gain_at(frame - latency)
+            };
+            // Kazanç 0,1'lik adımların toplamıdır; 0,1 ikilik tabanda tam yazılamaz, en çok
+            // 10 toplamanın yuvarlama birikimi ~1e-15'tir. 1e-12 bunun çok üstünde, ama
+            // en küçük geçiş adımının (0,5 · 0,1 = 0,05) çok altında.
+            assert!(
+                (pair[0] - expected).abs() < 1e-12 && (pair[1] + expected).abs() < 1e-12,
+                "kare {frame}: {pair:?}, beklenen ±{expected}"
+            );
+        }
+        // Geçişin arasında ses tam ölçekte, bit bit aynı (kazanç tam 1).
+        assert_eq!(out[2 * (latency + 20)], amp);
+        // Sessizlikten başlar, sessizlikte biter.
+        assert_eq!(out[2 * latency], 0.0);
+        assert!(out[2 * (latency + 50)..].iter().all(|&s| s == 0.0));
+    }
+
     /// Crossfeed ses yolunda: tamamen sola kaydırılmış bas sağ kulağa da gider (alçak frekansta
     /// ayar kadar kısık); ortadaki ses (L = R) bütün yoldan bit bit aynı geçer; bit-perfect'te
     /// ve kapalıyken sağ kanal sessiz kalır.
