@@ -1,8 +1,8 @@
 # Lyraska — Yol haritası
 
 Görselleri şarkıyı önceden bilen, tamamen çevrimdışı çalışan Windows müzik çalar.
-**Çıkış (v1.0): Faz 7 bittikten sonra** (proje sahibinin kararı, 30 Ekim 2026; eski hedef Faz 4'ün sonu, Mart
-2027 başıydı). Çıkış tarihi Faz 4 bitince, kalan fazların büyüklüğüne göre planlanır.
+**Çıkış (v1.0): Faz 8 bittikten sonra** (proje sahibinin kararı, 6 Kasım 2026; önce Faz 7'nin sonuydu): sıra Faz 7 →
+Sahneler v2 → Faz 8 (gerçek bilgisayar karnesi, en son). v1.0'ın ölçülebilir çıtası Faz 8'den sonra yazılır.
 
 ## Kalite hedefleri
 
@@ -325,10 +325,18 @@ Kaynak taramasını proje sahibi yapıyor; iş, tarama ve Faz 7 bitince başlar.
 - [ ] **Sahneler v2**: yeni sahne fikirleri önce proje sahibine seçenek ve önizleme videosuyla gösterilir
       (`docs/arastirma/sahneler-v2/`); hazır olanlar gelince VU ve Gece sürüşü kaldırılır
 
-## Çıkış — v1.0 (Faz 7'den sonra)
+## Faz 8 — Gerçek bilgisayar karnesi (en son; proje sahibinin kararı, 6 Kasım 2026)
 
-- [ ] Faz 1–7 bitince son bağımsız denetim (ses, analiz, görseller, kurulum), proje sahibinin gerçek cihaz
-      denemeleri (`docs/DOGRULAMA.md`) ve v1.0 yayımı; tarih Faz 4 bitince planlanır
+- [ ] Kalite hedeflerinin ("1080p dahili GPU'da 60 fps", "1 saat çalmada sıfır takılma", senkron ±20 ms) sahibinin
+      bilgisayarında tek tıkla ölçülmesi: programın içinde ölçüm ekranı ve rapor dosyası (internet gerekmez);
+      sahibine yalnızca "çalıştır, dosyayı gönder" düşer
+
+## Çıkış — v1.0 (Faz 8'den sonra)
+
+- [ ] **v1.0 çıtası** Faz 8'den sonra yazılır: her karnenin (ritim, ton, bölüm, sözler, ayrıştırma, gerçek
+      bilgisayar) geçmesi gereken sayı
+- [ ] Son bağımsız denetim (ses, analiz, görseller, kurulum), proje sahibinin gerçek cihaz denemeleri
+      (`docs/DOGRULAMA.md`) ve v1.0 yayımı
 - Çıkıştan sonra: macOS ve Linux sürümleri (teknik karar: önce Windows)
 
 ## Bekleyen kararlar (proje sahibinde)
@@ -354,6 +362,18 @@ bilgisayarında yerel paket olarak kullanılır (6 Kasım 2026, `CLAUDE.md` "Yer
 - **Yapay zekâ ile beat/bölüm tespiti**: klasik yöntemlerden daha isabetli. Beat This (JKU Linz, ISMIR 2024)
   kod ve ağırlıklarıyla MIT. Lyraska'nın ilk standart set karnesi (#233, Ballroom): vuruş F 0,780, ölçü başı
   0,514, hataların çoğu tempo oktavı. Beat This ile yan yana ölçüm (GTZAN) sürüyor; sonra "ritim paketi" önerilir.
+- **Her özelliğe bir karne** (6 Kasım 2026, sahibi beğendi): ritim için Ballroom ve GTZAN, ayrıştırma için
+  MUSDB18-HQ başladı; ton, bölüm ve sözler için de standart set ya da işaretli küçük set. Sayı yoksa "iyileşti"
+  denmez.
+- **Makam ve usul** (6 Kasım 2026, sahibi beğendi): ton tespiti Batı majör/minör kalıplarıyla (Krumhansl–Kessler)
+  çalışıyor, Hicaz ya da Uşşak şarkısında yanlış ton verir (koma aralıkları; Arel-Ezgi-Uzdilek 24 perde). Makam
+  tespiti ve makama uygun gösterim; aksak usuller zaten var. Doğru cevap için akademisyenden yardım istenmez
+  (sahibinin kararı): CompMusic (MTG-UPF) Türk makam veri setleri, lisansı tek tek bakılarak, yalnızca yerelde.
+- **Armonik gerilim → Görsel Yönetmen'in nefesi** (6 Kasım 2026, sahibi beğendi): müzikteki duygunun çoğu
+  beklenti ve çözülmeden doğar (Huron, _Sweet Anticipation_, 2006). Akor ve armonik gerilim (Lerdahl, _Tonal Pitch
+  Space_) çıkarılır; görseller gerilim yükselirken toplanır, kadansta açılır (bugün yalnızca drop beklentisi var).
+- **Kulak eğitimi modu** (6 Kasım 2026; öneri: şimdilik yol haritasına alınmaz, ayrı bir ürün gibi): ekolayzer ve
+  kör testle "hangi bant yükseltildi?" (Harman "How to Listen" örneği).
 - **Windows uzamsal ses** (Spatial Audio API): kullanıcı Windows Sonic ya da satın aldığı bir uzamsal
   ses eklentisini açtıysa Lyraska bunu bilinçli kullanır. Dolby'nin kendi teknolojileri kapalı kaynak ve
   ücretli olduğundan GPL-3.0 programa doğrudan eklenemez.
