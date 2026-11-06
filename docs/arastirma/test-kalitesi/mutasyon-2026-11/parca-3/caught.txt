@@ -29,3 +29,34 @@ src/analysis/key.rs:315:21: replace * with / in correlation
 src/analysis/key.rs:453:33: replace += with -= in ChromaAnalyzer::process
 src/analysis/key.rs:496:40: replace * with / in fold
 src/analysis/levels.rs:77:29: replace - with / in encode_db
+src/analysis/levels.rs:123:14: replace < with <= in vu_reference_db
+src/analysis/lyrics_align.rs:180:34: replace + with * in states
+src/analysis/lyrics_align.rs:215:29: replace - with + in skip_arcs
+src/analysis/lyrics_align.rs:291:35: replace - with + in viterbi
+src/analysis/lyrics_align.rs:335:5: replace entry_mass -> Vec<f64> with vec![0.0]
+src/analysis/lyrics_align.rs:381:22: replace - with + in entry_mass
+src/analysis/lyrics_align.rs:401:46: replace - with + in entry_mass
+src/analysis/lyrics_align.rs:411:48: replace + with * in entry_mass
+src/analysis/lyrics_align.rs:438:28: replace + with - in median
+src/analysis/lyrics_cache.rs:155:9: replace StoredEmissions::model_letter_names -> String with String::new()
+src/analysis/lyrics_cache.rs:246:28: replace + with - in Header::parse
+src/analysis/lyrics_job.rs:190:21: replace && with || in AutoAlignment::valid
+src/analysis/lyrics_job.rs:349:47: replace - with + in spoken_spans
+src/analysis/lyrics_model.rs:55:5: replace window_threads -> usize with 0
+src/analysis/lyrics_model.rs:172:5: replace read_limited -> Result<Vec<u8>, ModelError> with Ok(vec![])
+src/analysis/lyrics_model.rs:211:28: replace match guard raw with false in tensor_f32
+src/analysis/lyrics_model.rs:316:36: replace != with == in dequantize_matmuls
+src/analysis/lyrics_model.rs:414:13: delete field dims from struct pb::TensorProto expression in dequantize_matmuls
+src/analysis/lyrics_package.rs:131:14: replace == with != in sha256_of
+src/analysis/lyrics_text.rs:191:26: delete ! in detect_language
+src/analysis/lyrics_text.rs:251:46: replace || with && in repeat_count
+src/analysis/lyrics_text.rs:332:20: replace && with || in is_number_word
+src/analysis/lyrics_text.rs:461:23: replace <= with > in header_with
+src/analysis/lyrics_text.rs:570:11: replace %= with += in turkish_number
+src/analysis/lyrics_text.rs:667:22: replace / with * in english_year
+src/analysis/lyrics_text.rs:732:17: replace += with -= in read_number
+src/analysis/lyrics_text.rs:791:18: replace > with == in read_number
+src/analysis/lyrics_text.rs:932:27: replace < with == in Builder::push
+src/analysis/lyrics_worker.rs:91:35: replace || with && in Failures::contains
+src/analysis/lyrics_worker.rs:382:5: replace next -> Option<Request> with None
+src/analysis/map_file.rs:319:51: replace * with / in MapFile::parse

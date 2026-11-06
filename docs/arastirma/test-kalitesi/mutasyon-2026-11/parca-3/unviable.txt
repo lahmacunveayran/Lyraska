@@ -1,1 +1,4 @@
 src/analysis/background.rs:433:21: replace += with *= in Pacer::pace
+src/analysis/lyrics_cache.rs:339:9: replace AnalysisCache::load_emissions -> Result<Option<StoredEmissions>, CacheError> with Ok(Some(Default::default()))
+src/analysis/lyrics_model.rs:567:9: replace LyricsModel::vocabulary -> &Vocabulary with Box::leak(Box::new(Default::default()))
+src/analysis/lyrics_model.rs:621:9: replace LyricsModel::emissions -> Result<Emissions, ModelError> with Ok(Default::default())
