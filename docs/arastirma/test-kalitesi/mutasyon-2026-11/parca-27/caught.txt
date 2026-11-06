@@ -52,3 +52,28 @@ src/analysis/lyrics_model.rs:596:58: replace != with == in LyricsModel::run_wind
 src/analysis/lyrics_model.rs:667:31: replace * with + in LyricsModel::emissions
 src/analysis/lyrics_model.rs:683:37: replace * with + in LyricsModel::emissions
 src/analysis/lyrics_package.rs:104:52: replace + with - in copy_hashing
+src/analysis/lyrics_text.rs:244:5: replace repeat_count -> Option<usize> with Some(0)
+src/analysis/lyrics_text.rs:320:9: replace && with || in is_roman
+src/analysis/lyrics_text.rs:445:5: replace header_with -> Option<Header> with None
+src/analysis/lyrics_text.rs:562:14: replace > with < in turkish_number
+src/analysis/lyrics_text.rs:719:5: replace read_number with ()
+src/analysis/lyrics_text.rs:863:40: replace + with * in prepare_as
+src/analysis/map_file.rs:360:43: replace && with || in MapFile::validate
+src/analysis/map_file.rs:409:37: replace > with == in MapFile::validate
+src/analysis/map_file.rs:478:69: replace - with + in MapFile::shifted
+src/analysis/meter.rs:98:5: replace detect -> Option<Aksak> with None
+src/analysis/meter.rs:190:5: replace template -> Vec<f64> with vec![1.0]
+src/analysis/meter.rs:240:12: replace += with -= in correlation
+src/analysis/meter.rs:252:5: replace zscores -> Vec<f64> with vec![0.0]
+src/analysis/spectrogram.rs:131:9: replace Spectrogram::is_cancelled -> bool with true
+src/analysis/spectrogram.rs:208:31: replace + with * in Spectrogram::frame_at
+src/analysis/spectrogram.rs:254:9: replace Spectrogram::song_map -> Option<Arc<SongMap>> with None
+src/analysis/spectrogram.rs:384:43: replace / with % in Spectrogram::push
+src/analysis/spectrogram.rs:545:5: replace analyze with ()
+src/analysis/spectrogram.rs:693:5: replace structure_for_beats -> Option<SongMap> with None
+src/analysis/spectrogram.rs:886:9: replace BandAnalyzer::process -> ([u8; BANDS], f32) with ([1; BANDS], -1.0)
+src/analysis/spectrogram.rs:923:5: replace band_centers -> [f64; BANDS] with [1.0; BANDS]
+src/analysis/structure.rs:61:30: delete -
+src/analysis/structure.rs:183:5: replace map_song -> Option<SongMap> with None
+src/analysis/structure.rs:264:34: replace / with % in map_song
+src/analysis/structure.rs:321:50: replace - with + in map_song

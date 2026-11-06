@@ -9,3 +9,12 @@ src/analysis/lyrics_align.rs:465:61: replace == with != in align
 src/analysis/lyrics_align.rs:557:36: replace + with * in align
 src/analysis/lyrics_model.rs:142:22: replace > with == in decode_mono
 src/analysis/lyrics_model.rs:314:17: replace || with && in dequantize_matmuls
+src/analysis/lyrics_text.rs:153:17: delete match arm '\u{2028}' | '\u{2029}' in compose
+src/analysis/lyrics_text.rs:656:17: replace > with < in english_number
+src/analysis/lyrics_text.rs:779:21: delete match arm ('.', Language::English) in read_number
+src/analysis/lyrics_text.rs:996:27: replace > with >= in Builder::end_paragraph
+src/analysis/lyrics_worker.rs:303:20: delete ! in run
+src/analysis/map_file.rs:307:17: replace > with >= in MapFile::read
+src/analysis/map_file.rs:381:36: replace || with && in MapFile::validate
+src/analysis/meter.rs:148:13: replace / with * in accents
+src/analysis/structure.rs:202:30: replace + with * in map_song
