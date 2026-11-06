@@ -1835,8 +1835,21 @@ async function checkPhotoChooseButton(browser) {
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => !document.querySelector("#drawer.is-open"));
   }
+  // Düğme, arka plan resminin durumu gelince çizilir (`useBackgroundSource`: önce "pending"). Yazılımla
+  // çizen yavaş CI makinesinde bu 5 sn'yi aşabiliyordu (#140, #217): önce düğmenin çıkması uzun süre
+  // beklenir; tıklama ve pencerenin açılması için sınır yine 5 sn.
+  const button = page.getByRole("button", { name: "Resim seç…" });
   try {
-    await page.getByRole("button", { name: "Resim seç…" }).click({ timeout: 5000 });
+    await button.waitFor({ state: "visible", timeout: 30_000 });
+  } catch (e) {
+    problems.push(
+      `${label}: düğme 30 sn'de görünmedi (resim durumu gelmedi?) (${String(e).split("\n")[0]})`,
+    );
+    await page.close();
+    return problems;
+  }
+  try {
+    await button.click({ timeout: 5000 });
     await page.waitForFunction(() => window.__dialogOpened === true, null, { timeout: 5000 });
     console.log(`${label}: tıklanınca dosya seçme penceresi açılıyor`);
   } catch (e) {
