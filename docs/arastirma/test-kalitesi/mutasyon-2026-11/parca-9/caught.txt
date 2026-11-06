@@ -1,0 +1,33 @@
+src/analysis/beats.rs:53:5: replace onset_latency -> f64 with 0.0
+src/analysis/beats.rs:150:9: replace OnsetDetector::process -> f32 with 0.0
+src/analysis/beats.rs:197:31: replace + with * in track
+src/analysis/beats.rs:250:19: replace + with - in segment_periods
+src/analysis/beats.rs:283:16: replace > with == in segment_periods
+src/analysis/beats.rs:333:46: replace + with * in mean_interval
+src/analysis/beats.rs:357:16: replace > with == in normalize
+src/analysis/beats.rs:381:69: replace * with / in estimate_period_with_strength
+src/analysis/beats.rs:456:5: replace smooth -> Vec<f64> with vec![0.0]
+src/analysis/beats.rs:492:30: replace - with / in dynamic_beats
+src/analysis/beats.rs:539:28: replace + with * in peak_offset
+src/analysis/cache.rs:100:23: replace || with && in StaleParts::needs_decoding
+src/analysis/cache.rs:441:5: replace decode_key -> Option<KeyAnalysis> with None
+src/analysis/evaluate.rs:113:5: replace drop_hits -> usize with 0
+src/analysis/evaluate.rs:145:33: replace / with % in f_measure
+src/analysis/fingerprint.rs:114:20: replace * with / in Verdict::similarity
+src/analysis/fingerprint.rs:251:37: replace / with * in BandPrint::align
+src/analysis/fingerprint.rs:289:18: replace != with == in BandPrint::reliable_share
+src/analysis/fingerprint.rs:345:9: replace ChromaPrint::compare -> Option<(f64, usize)> with Some((0.0, 0))
+src/analysis/fingerprint.rs:414:5: replace chroma_word -> (u16, u16) with (1, 0)
+src/analysis/fingerprint.rs:472:44: replace - with / in BandMap::standard
+src/analysis/key.rs:168:62: replace + with * in camelot_number
+src/analysis/key.rs:254:17: replace += with -= in song_key
+src/analysis/key.rs:288:52: replace + with - in estimate
+src/analysis/key.rs:308:25: replace * with + in correlation
+src/analysis/key.rs:387:36: replace + with - in ChromaAnalyzer::add
+src/analysis/key.rs:425:56: replace / with % in ChromaAnalyzer::process
+src/analysis/key.rs:443:32: replace + with * in ChromaAnalyzer::process
+src/analysis/key.rs:454:43: replace * with + in ChromaAnalyzer::process
+src/analysis/key.rs:507:24: replace / with % in quantize
+src/analysis/levels.rs:82:33: replace / with % in decode_db
+src/analysis/levels.rs:124:39: replace - with / in vu_reference_db
+src/analysis/lyrics_align.rs:184:16: replace * with / in states
