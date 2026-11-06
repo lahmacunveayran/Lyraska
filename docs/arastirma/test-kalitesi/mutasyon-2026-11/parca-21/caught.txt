@@ -30,3 +30,29 @@ src/analysis/key.rs:486:5: replace fold -> [f64; PITCH_CLASSES] with [1.0; PITCH
 src/analysis/levels.rs:54:9: replace LevelAccumulator::finish -> [u8; VALUES_PER_FRAME] with [1; VALUES_PER_FRAME]
 src/analysis/lyrics_align.rs:59:36: replace * with / in Emissions::at
 src/analysis/lyrics_align.rs:193:5: replace log_add -> f64 with 0.0
+src/analysis/lyrics_align.rs:244:31: replace + with - in skip_arcs
+src/analysis/lyrics_align.rs:278:30: replace - with + in viterbi
+src/analysis/lyrics_align.rs:313:20: replace / with % in viterbi
+src/analysis/lyrics_align.rs:361:14: replace % with / in entry_mass
+src/analysis/lyrics_align.rs:389:31: replace - with + in entry_mass
+src/analysis/lyrics_align.rs:408:18: replace + with * in entry_mass
+src/analysis/lyrics_align.rs:450:12: delete ! in align
+src/analysis/lyrics_align.rs:509:31: delete ! in align
+src/analysis/lyrics_cache.rs:88:13: replace || with && in StoredEmissions::select
+src/analysis/lyrics_cache.rs:222:9: replace StoredEmissions::consistent -> bool with true
+src/analysis/lyrics_cache.rs:277:12: replace > with == in storable
+src/analysis/lyrics_job.rs:130:9: replace ModelSlot::times_opened -> usize with 1
+src/analysis/lyrics_job.rs:333:5: replace spoken_spans -> Option<Vec<(f64, f64)>> with Some(vec![(0.0, 0.0)])
+src/analysis/lyrics_model.rs:119:28: replace > with < in decode_mono
+src/analysis/lyrics_model.rs:299:48: replace || with && in dequantize_matmuls
+src/analysis/lyrics_model.rs:356:27: replace match guard b == s_x with false in dequantize_matmuls
+src/analysis/lyrics_model.rs:584:35: replace - with / in LyricsModel::run_window
+src/analysis/lyrics_model.rs:640:37: replace - with + in LyricsModel::emissions
+src/analysis/lyrics_model.rs:681:36: replace + with * in LyricsModel::emissions
+src/analysis/lyrics_text.rs:226:16: delete ! in strip_brackets
+src/analysis/lyrics_text.rs:294:23: replace > with == in split_repeat
+src/analysis/lyrics_text.rs:402:25: replace || with && in parse_header_words
+src/analysis/lyrics_text.rs:557:15: replace %= with /= in turkish_number
+src/analysis/lyrics_text.rs:652:11: replace %= with /= in english_number
+src/analysis/lyrics_text.rs:840:23: replace == with != in clean_word
+src/analysis/map_file.rs:275:47: replace / with * in MapFile::from_analysis
