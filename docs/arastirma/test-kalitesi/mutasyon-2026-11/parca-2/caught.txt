@@ -59,3 +59,28 @@ src/analysis/lyrics_text.rs:667:22: replace / with % in english_year
 src/analysis/lyrics_text.rs:730:34: replace + with * in read_number
 src/analysis/lyrics_text.rs:786:28: replace == with != in read_number
 src/analysis/lyrics_text.rs:932:9: replace Builder::push with ()
+src/analysis/lyrics_worker.rs:91:9: replace Failures::contains -> bool with false
+src/analysis/lyrics_worker.rs:339:53: delete ! in job
+src/analysis/map_file.rs:319:51: replace * with + in MapFile::parse
+src/analysis/map_file.rs:364:41: replace && with || in MapFile::validate
+src/analysis/map_file.rs:595:9: replace ImportedMap::is_current -> bool with true
+src/analysis/meter.rs:101:21: replace / with % in detect
+src/analysis/meter.rs:214:44: replace % with + in pulses
+src/analysis/meter.rs:240:29: replace - with / in correlation
+src/analysis/spectrogram.rs:165:9: replace Spectrogram::saved -> Option<SavedAnalysis> with None
+src/analysis/spectrogram.rs:215:54: replace + with * in Spectrogram::frame_at
+src/analysis/spectrogram.rs:291:9: replace Spectrogram::has_imported -> bool with false
+src/analysis/spectrogram.rs:488:9: replace SavedAnalysis::frames -> usize with 1
+src/analysis/spectrogram.rs:619:53: replace / with % in analyze_source
+src/analysis/spectrogram.rs:904:46: replace + with - in BandAnalyzer::process
+src/analysis/spectrogram.rs:930:5: replace shift_level -> f32 with 1.0
+src/analysis/structure.rs:141:9: replace SongMap::confident_drops -> impl Iterator<Item = f64>+'_ with ::std::iter::once(-1.0)
+src/analysis/structure.rs:184:26: replace < with > in map_song
+src/analysis/structure.rs:268:26: replace + with * in map_song
+src/analysis/structure.rs:332:34: replace >= with < in map_song
+src/analysis/structure.rs:488:36: replace % with + in phase_agreement
+src/analysis/structure.rs:528:24: replace - with + in section_boundaries
+src/analysis/structure.rs:634:5: replace drop_jumps -> (f64, f64, f64) with (-1.0, -1.0, 1.0)
+src/analysis/structure.rs:688:72: replace < with > in find_drops
+src/analysis/structure.rs:785:18: replace - with + in refine_drop
+src/analysis/structure.rs:798:22: replace > with == in refine_drop
