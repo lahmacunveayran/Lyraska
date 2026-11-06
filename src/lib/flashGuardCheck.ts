@@ -382,6 +382,40 @@ export function screenWindows(gl: WebGL2RenderingContext): Float64Array {
   return windowMeans(luminance, width, height, flashWindow(width, height), WINDOW_STEP);
 }
 
+/**
+ * Ekrandaki görüntünün WCAG kırmızı parlama ölçüsünün pencere ortalamaları, `flashRate`'in eşiğine
+ * (0,1) uydurulmuş: değerler 200'e bölünür, eşik 20 olur. İki tanım: kapılı (yalnızca doygun kırmızı,
+ * R ≥ 0,8·(R + G + B); değer 320·(R − G − B)) ve sürekli (320·max(0, R − G − B)); doğrusal ışıkta.
+ */
+export function screenRedWindows(gl: WebGL2RenderingContext): {
+  gated: Float64Array;
+  continuous: Float64Array;
+} {
+  const width = gl.drawingBufferWidth;
+  const height = gl.drawingBufferHeight;
+  const pixels = new Uint8Array(width * height * 4);
+  const bound = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, bound);
+  const gated = new Float64Array(width * height);
+  const continuous = new Float64Array(width * height);
+  for (let p = 0; p < gated.length; p++) {
+    const r = SRGB_DECODE[pixels[p * 4]!]!;
+    const g = SRGB_DECODE[pixels[p * 4 + 1]!]!;
+    const b = SRGB_DECODE[pixels[p * 4 + 2]!]!;
+    const red = (320 * Math.max(0, r - g - b)) / 200;
+    const sum = r + g + b;
+    continuous[p] = red;
+    gated[p] = sum > 0 && r >= 0.8 * sum ? red : 0;
+  }
+  const win = flashWindow(width, height);
+  return {
+    gated: windowMeans(gated, width, height, win, WINDOW_STEP),
+    continuous: windowMeans(continuous, width, height, win, WINDOW_STEP),
+  };
+}
+
 /** Karelerin pencere ortalamalarından saniyedeki parlama ve bir karede en büyük değişim. */
 export function flashRate(
   frames: readonly Float64Array[],

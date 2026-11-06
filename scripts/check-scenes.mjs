@@ -35,6 +35,8 @@
 // Gölgelendirici denemesi (lyraska-golge.*: HLSL bükme ve birleştirme gölgelendiricisi; birleştirme
 // saniyede dört kez beyaza çakar) çekirdeğin GLSL çevirisinin gerçek tarayıcıda derlendiğini
 // (`data-shaders="ok"`) ve çakan gölgelendiricide de güvenli modda frenin tuttuğunu gösterir.
+// Kırmızı denemesi (lyraska-kirmizi.*: tam ekran doygun kırmızı ↔ aynı parlaklıkta gri, saniyede dört
+// kez) güvenli modda kırmızı freni denetler: parlaklık değişmeden kırmızı parlar.
 //
 // "Kendi resmin" (`SCENE_ONLY=photo`): düz renkli resimlerde sessizden tam sese geçişte
 // parlaklık ve kırmızı fark; projenin ürettiği, bilerek parlayan hareketli APNG'de kare kare
@@ -68,6 +70,7 @@ const APP_CSP = JSON.parse(
  * JSON (`milkdrop::tests::ornek_gorsel_beklenen_jsona_cevrilir` aynı olduklarını denetler).
  * `parlama`: bilerek parlar; `dongu`: denkleminde çok büyük bir `loop` (programın sınırıyla kırpılmış);
  * `golge`: HLSL gölgelendiricileri GLSL'e çevrilmiş (`milkdrop/shader.rs`), birleştirmesi bilerek çakar.
+ * `kirmizi`: tam ekran doygun kırmızı ↔ aynı parlaklıkta gri (güvenli modda kırmızı fren).
  */
 const milkdropFixture = (name) =>
   JSON.parse(
@@ -80,6 +83,7 @@ const MILKDROP_PRESETS = {
   parlama: { name: "Lyraska parlama denemesi", preset: milkdropFixture("parlama") },
   dongu: { name: "Lyraska döngü denemesi", preset: milkdropFixture("dongu") },
   golge: { name: "Lyraska gölgelendirici denemesi", preset: milkdropFixture("golge") },
+  kirmizi: { name: "Lyraska kırmızı denemesi", preset: milkdropFixture("kirmizi") },
 };
 const EXPECT_FALLBACK = process.env.SCENE_EXPECT === "fallback";
 const APP_URL = `http://localhost:${PORT}`;
@@ -1057,23 +1061,42 @@ async function checkMilkdropFlashes(browser, bundle, safe, milk = "parlama") {
   await page.evaluate(() => {
     const visible = document.querySelector(".milkdrop-scene__canvas").getContext("webgl2");
     const internal = window.__offscreenGl ?? null;
-    const frames = { guarded: [], raw: [] };
+    const frames = { guarded: [], raw: [], guardedRed: [], rawRed: [] };
     window.__flashFrames = frames;
     window.__frameProbe = () => {
-      frames.guarded.push(window.LyraskaFlashGuardCheck.screenWindows(visible));
-      if (internal) frames.raw.push(window.LyraskaFlashGuardCheck.screenWindows(internal));
+      const check = window.LyraskaFlashGuardCheck;
+      frames.guarded.push(check.screenWindows(visible));
+      frames.guardedRed.push(check.screenRedWindows(visible));
+      if (internal) {
+        frames.raw.push(check.screenWindows(internal));
+        frames.rawRed.push(check.screenRedWindows(internal));
+      }
     };
   });
   await advance(page, seconds * 1000, step);
   const result = await page.evaluate((s) => {
     window.__frameProbe = null;
-    const { guarded, raw } = window.__flashFrames;
+    const { guarded, raw, guardedRed, rawRed } = window.__flashFrames;
     const check = window.LyraskaFlashGuardCheck;
+    // Kırmızı parlama: kapılı ve sürekli tanımın kötüsü (ikisi de WCAG'nin kırmızı ölçüsü).
+    const redRate = (list) =>
+      Math.max(
+        check.flashRate(
+          list.map((f) => f.gated),
+          s,
+        ).flashesPerSecond,
+        check.flashRate(
+          list.map((f) => f.continuous),
+          s,
+        ).flashesPerSecond,
+      );
     return {
       error: window.__probeError ?? null,
       frames: guarded.length,
       guarded: check.flashRate(guarded, s),
       raw: raw.length === guarded.length ? check.flashRate(raw, s) : null,
+      guardedRed: redRate(guardedRed),
+      rawRed: rawRed.length === guarded.length ? redRate(rawRed) : null,
     };
   }, seconds);
   await page.close();
@@ -1082,7 +1105,9 @@ async function checkMilkdropFlashes(browser, bundle, safe, milk = "parlama") {
     `${label}: ${safe ? "frenli" : "görünen (frensiz geçer)"} saniyede ` +
       `${result.guarded.flashesPerSecond.toFixed(2)} parlama (karede en ` +
       `büyük değişim ${result.guarded.maxStep.toFixed(4)}) · frensiz ` +
-      `${result.raw ? result.raw.flashesPerSecond.toFixed(2) : "-"} · ${result.frames} kare · ` +
+      `${result.raw ? result.raw.flashesPerSecond.toFixed(2) : "-"} · kırmızı ` +
+      `${result.guardedRed.toFixed(2)} (frensiz ${result.rawRed === null ? "-" : result.rawRed.toFixed(2)}) · ` +
+      `${result.frames} kare · ` +
       `fren ${state.guard} · gölgelendirici ${state.shaders ?? "-"} · eval engelli · ` +
       `${((Date.now() - started) / 1000).toFixed(1)} sn`,
   );
@@ -1095,6 +1120,17 @@ async function checkMilkdropFlashes(browser, bundle, safe, milk = "parlama") {
       `${label}: saniyede ${result.guarded.flashesPerSecond.toFixed(2)} parlama > ${limit}`,
     );
   }
+  // Güvenli modda kırmızı da frenlenir (sahibinin onayı, 6 Kasım 2026; ITU-R BT.1702-3).
+  if (result.guardedRed > limit) {
+    problems.push(`${label}: saniyede ${result.guardedRed.toFixed(2)} kırmızı parlama > ${limit}`);
+  }
+  // Kırmızı denemesi gerçekten kırmızı parlamalı (ölçümün çalıştığının kanıtı).
+  if (milk === "kirmizi" && (result.rawRed === null || result.rawRed < 2)) {
+    problems.push(
+      `${label}: frensiz kırmızı deneme kırmızı parlama olarak ölçülmedi ` +
+        `(${result.rawRed === null ? "-" : result.rawRed.toFixed(2)}): ölçüm çalışmıyor`,
+    );
+  }
   // Varsayılan modda fren devrede değil: görünen tuval de deneme presetinin parlamasını taşır.
   if (!safe && result.raw) {
     const shown = result.guarded.flashesPerSecond;
@@ -1105,7 +1141,9 @@ async function checkMilkdropFlashes(browser, bundle, safe, milk = "parlama") {
       );
     }
   }
-  if (!result.raw || result.raw.flashesPerSecond < 2) {
+  // Kırmızı denemesinin parlaklığı bilerek sabit (kırmızı ↔ aynı parlaklıkta gri): onun kanıtı yukarıda
+  // kırmızı parlamadır. Öbür denemeler parlaklıkta parlamalı.
+  if (milk !== "kirmizi" && (!result.raw || result.raw.flashesPerSecond < 2)) {
     problems.push(
       `${label}: frensiz deneme preseti parlama olarak ölçülmedi ` +
         `(${result.raw ? result.raw.flashesPerSecond.toFixed(2) : "okunamadı"}): ölçüm çalışmıyor`,
@@ -2367,6 +2405,7 @@ if (EXPECT_FALLBACK) {
       add(async () => checkMilkdropFlashes(browser, await guardBundle(), safe));
     }
     add(async () => checkMilkdropFlashes(browser, await guardBundle(), true, "golge"));
+    add(async () => checkMilkdropFlashes(browser, await guardBundle(), true, "kirmizi"));
     add(() => checkMilkdropLoop(browser));
   }
   if (!ONLY || ONLY.includes("photo")) {

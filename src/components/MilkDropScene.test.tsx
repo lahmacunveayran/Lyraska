@@ -580,7 +580,8 @@ describe("MilkDrop sahnesi", () => {
     fake.folder = FOLDER;
     const { rerender } = render(<Harness safe />);
     await waitFor(() => expect(fake.visualizers).toHaveLength(1));
-    expect(fake.guardOptions[0]).toEqual({ safe: true });
+    // Kırmızı kanal da frenlenir (güvenli modda kırmızı parlama; sahibinin onayı, 6 Kasım 2026).
+    expect(fake.guardOptions[0]).toEqual({ safe: true, red: true });
     // Ayar sahne açıkken değişince fren hemen uyar (sahne yeniden kurulmaz).
     rerender(<Harness safe={false} />);
     expect(fake.guard!.setSafe).toHaveBeenLastCalledWith(false);

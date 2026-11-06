@@ -116,7 +116,8 @@
  *    gözle görülmeyecek kadar küçük bir renk değişimi değeri sıçratabilir; hiçbir hız sınırı bunu
  *    önleyemez. Fren sürekli (WCAG çalışma tanımı) değeri sınırlar; kapılı ölçü ancak renkler
  *    sınırın iki yanında gidip geliyorsa ayrışır (bilinen sınır, kendi-resmin/README.md).
- *    Kapalıyken kırmızı aynen geçer (MilkDrop; bilinen boşluk, MIMARI.md).
+ *    Kapalıyken kırmızı aynen geçer. MilkDrop ve "Kendi resmin" açık kurar (MilkDrop: sahibinin onayı,
+ *    6 Kasım 2026; ITU-R BT.1702-3).
  *
  * Bedel: hızlı ve ince ayrıntılı hareket (ince çizgiler, keskin doku) piksel başına çok değişir;
  * fren onu da yavaşlatır (iz bırakır). Yavaş ya da yumuşak değişen görüntü (piksel başına
