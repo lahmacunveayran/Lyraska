@@ -178,3 +178,30 @@ src/audio/loudness.rs:107:53: replace * with / in k_weighting
 src/audio/loudness.rs:179:9: replace TruePeak::add with ()
 src/audio/loudness.rs:236:9: delete match arm 4 in default_layout
 src/audio/loudness.rs:286:27: replace & with | in channel_weights
+src/audio/loudness.rs:343:64: replace * with + in LoudnessMeter::add
+src/audio/lyrics.rs:184:42: replace > with < in sidecar_text
+src/audio/lyrics.rs:350:5: replace leading_stamps -> (Vec<f64>, &str) with (vec![], "")
+src/audio/lyrics.rs:378:44: replace + with * in parse_time
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with (String::new(), vec![(0.0, String::new())], String::new())
+src/audio/lyrics.rs:430:16: delete ! in word_stamps
+src/audio/normalize.rs:269:9: replace TrackLevels::next_start -> Option<u64> with None
+src/audio/normalize.rs:320:28: replace * with / in coefficient
+src/audio/normalize.rs:437:52: replace - with + in Leveler::next_gain
+src/audio/normalize.rs:469:5: replace approach -> f64 with 1.0
+src/audio/peq.rs:415:5: replace reference_peak_db -> f64 with 0.0
+src/audio/peq.rs:452:17: replace > with == in coefs_peak_db
+src/audio/peq.rs:470:19: replace - with + in refine_peak
+src/audio/peq.rs:502:29: replace + with - in shelf_q_from_slope
+src/audio/peq.rs:508:45: replace / with * in shelf_slope_from_q
+src/audio/peq.rs:603:29: replace * with / in parse_filter
+src/audio/peq.rs:753:9: replace ParametricSettings::response_db -> Vec<f64> with vec![]
+src/audio/peq.rs:896:25: replace * with / in response_curve
+src/audio/peq.rs:941:22: replace / with * in loudness_gain_db_at
+src/audio/peq.rs:1131:11: replace * with + in Bank::process
+src/audio/player/mod.rs:218:9: replace Player::close_session with ()
+src/audio/punch.rs:182:35: replace > with < in Punch::update_gain
+src/audio/render.rs:231:37: replace += with *= in Renderer::render
+src/audio/resample.rs:110:24: replace += with *= in Converter::process
+src/audio/spectrum.rs:134:19: replace + with - in level
+src/audio/waveform.rs:81:31: replace % with + in Halving::push
+src/audio/waveform.rs:151:39: replace && with || in Decimator::interpolate

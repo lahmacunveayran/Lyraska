@@ -7,3 +7,4 @@ src/audio/abx.rs:280:5: replace decode_segment -> Result<(Vec<Sample>, TrackInfo
 src/audio/bass.rs:234:9: replace BassPeakMeter::finish -> Option<BassPeaks> with Some(Default::default())
 src/audio/biquad.rs:204:9: replace Biquad::low_shelf -> Self with Default::default()
 src/audio/loudness.rs:92:5: replace k_weighting -> [Biquad; 2] with [Default::default(); 2]
+src/audio/peq.rs:288:9: replace HeadphoneProfile::parse -> Result<Self, ProfileError> with Ok(Default::default())

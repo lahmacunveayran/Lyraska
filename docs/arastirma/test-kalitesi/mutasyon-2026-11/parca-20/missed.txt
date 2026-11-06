@@ -41,3 +41,10 @@ src/audio/eq.rs:881:20: delete ! in EqProcessor::redesign
 src/audio/gapless.rs:129:13: delete match arm b"udta" | b"ilst" in walk
 src/audio/limiter.rs:181:30: replace > with >= in Limiter::next_gain
 src/audio/loudness.rs:240:38: replace | with ^ in default_layout
+src/audio/lyrics.rs:26:38: replace * with +
+src/audio/normalize.rs:75:48: replace + with *
+src/audio/normalize.rs:414:38: replace * with + in Leveler::next_gain
+src/audio/output.rs:136:5: replace exclusive_timing -> Option<&'static str> with None
+src/audio/punch.rs:145:49: replace / with * in Punch::process_frame
+src/audio/punch.rs:200:24: replace == with != in Punch::update_gain
+src/audio/spectrum.rs:92:34: replace + with - in Transform::magnitudes
