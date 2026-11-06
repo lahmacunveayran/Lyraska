@@ -27,3 +27,33 @@ src/analysis/key.rs:491:62: replace - with + in fold
 src/analysis/levels.rs:69:5: replace amplitude_db -> f64 with 0.0
 src/analysis/levels.rs:112:20: replace < with > in vu_reference_db
 src/analysis/lyrics_align.rs:95:22: replace || with && in LineTiming::low_confidence
+src/analysis/lyrics_align.rs:228:63: replace + with - in skip_arcs
+src/analysis/lyrics_align.rs:244:27: replace * with / in skip_arcs
+src/analysis/lyrics_align.rs:279:28: replace - with / in viterbi
+src/analysis/lyrics_align.rs:322:36: replace + with - in viterbi
+src/analysis/lyrics_align.rs:365:35: replace - with / in entry_mass
+src/analysis/lyrics_align.rs:393:32: replace - with / in entry_mass
+src/analysis/lyrics_align.rs:409:39: replace + with - in entry_mass
+src/analysis/lyrics_align.rs:453:42: replace >= with < in align
+src/analysis/lyrics_align.rs:531:39: replace + with - in align
+src/analysis/lyrics_cache.rs:87:37: replace != with == in StoredEmissions::select
+src/analysis/lyrics_cache.rs:225:13: replace && with || in StoredEmissions::consistent
+src/analysis/lyrics_cache.rs:278:19: replace <= with > in storable
+src/analysis/lyrics_job.rs:184:66: replace && with || in AutoAlignment::valid
+src/analysis/lyrics_job.rs:333:5: replace spoken_spans -> Option<Vec<(f64, f64)>> with Some(vec![(1.0, 0.0)])
+src/analysis/lyrics_job.rs:479:46: replace != with == in AnalysisCache::emission_letters
+src/analysis/lyrics_model.rs:126:26: replace * with / in decode_mono
+src/analysis/lyrics_model.rs:192:15: delete ! in tensor_f32
+src/analysis/lyrics_model.rs:299:87: replace != with == in dequantize_matmuls
+src/analysis/lyrics_model.rs:359:44: replace || with && in dequantize_matmuls
+src/analysis/lyrics_model.rs:461:15: replace > with < in parse_tokens
+src/analysis/lyrics_model.rs:652:42: replace + with * in LyricsModel::emissions
+src/analysis/lyrics_model.rs:682:26: replace < with > in LyricsModel::emissions
+src/analysis/lyrics_package.rs:88:12: delete ! in install
+src/analysis/lyrics_text.rs:236:5: replace strip_decoration -> &str with "xyzzy"
+src/analysis/lyrics_text.rs:319:5: replace is_roman -> bool with true
+src/analysis/lyrics_text.rs:561:20: replace / with % in turkish_number
+src/analysis/lyrics_text.rs:653:14: replace > with < in english_number
+src/analysis/lyrics_text.rs:707:9: delete match arm Language::Turkish in read_integer
+src/analysis/lyrics_text.rs:855:5: replace prepare_as -> Vec<AlignLine> with vec![]
+src/analysis/lyrics_text.rs:988:78: replace == with != in Builder::end_paragraph
