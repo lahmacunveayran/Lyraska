@@ -57,3 +57,29 @@ src/analysis/lyrics_model.rs:674:36: replace - with / in LyricsModel::emissions
 src/analysis/lyrics_model.rs:700:38: replace * with + in LyricsModel::emissions
 src/analysis/lyrics_package.rs:140:5: replace hex -> String with String::new()
 src/analysis/lyrics_text.rs:192:21: delete ! in detect_language
+src/analysis/lyrics_text.rs:251:39: replace == with != in repeat_count
+src/analysis/lyrics_text.rs:332:6: delete ! in is_number_word
+src/analysis/lyrics_text.rs:572:10: replace > with == in turkish_number
+src/analysis/lyrics_text.rs:670:14: replace match guard r < 10 with true in english_year
+src/analysis/lyrics_text.rs:791:18: replace > with < in read_number
+src/analysis/lyrics_text.rs:932:27: replace < with > in Builder::push
+src/analysis/map_file.rs:328:26: replace != with == in MapFile::parse
+src/analysis/map_file.rs:371:13: replace || with && in MapFile::validate
+src/analysis/map_file.rs:387:37: replace < with > in MapFile::validate
+src/analysis/map_file.rs:492:17: delete field start from struct MapSection expression in MapFile::shifted
+src/analysis/map_file.rs:596:64: replace && with || in ImportedMap::is_current
+src/analysis/meter.rs:103:24: replace / with % in detect
+src/analysis/meter.rs:150:38: replace * with + in accents
+src/analysis/meter.rs:214:31: replace - with / in pulses
+src/analysis/meter.rs:241:12: replace += with *= in correlation
+src/analysis/meter.rs:258:26: replace > with == in zscores
+src/analysis/spectrogram.rs:165:28: replace || with && in Spectrogram::saved
+src/analysis/spectrogram.rs:218:35: replace / with * in Spectrogram::frame_at
+src/analysis/spectrogram.rs:488:27: replace / with * in SavedAnalysis::frames
+src/analysis/spectrogram.rs:622:31: replace % with / in analyze_source
+src/analysis/spectrogram.rs:733:5: replace refresh_paced -> bool with false
+src/analysis/spectrogram.rs:904:73: replace - with + in BandAnalyzer::process
+src/analysis/spectrogram.rs:930:14: replace <= with > in shift_level
+src/analysis/structure.rs:150:9: replace SongMap::energy_at -> Option<f32> with None
+src/analysis/structure.rs:184:40: replace == with != in map_song
+src/analysis/structure.rs:219:32: replace + with - in map_song
