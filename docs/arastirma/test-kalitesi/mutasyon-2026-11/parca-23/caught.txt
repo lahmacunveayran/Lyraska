@@ -200,3 +200,34 @@ src/audio/normalize.rs:324:5: replace db_to_linear -> f64 with -1.0
 src/audio/normalize.rs:415:56: replace > with < in Leveler::next_gain
 src/audio/normalize.rs:469:22: replace + with * in approach
 src/audio/output.rs:178:9: replace FadeWatch::wrote with ()
+src/audio/peq.rs:423:5: replace response_peak_db -> f64 with 0.0
+src/audio/peq.rs:452:34: replace >= with < in coefs_peak_db
+src/audio/peq.rs:470:27: replace * with / in refine_peak
+src/audio/peq.rs:502:35: replace / with * in shelf_q_from_slope
+src/audio/peq.rs:515:9: delete match arm "LS" in parse_filter
+src/audio/peq.rs:636:5: replace enabled_by_default -> bool with false
+src/audio/peq.rs:753:9: replace ParametricSettings::response_db -> Vec<f64> with vec![-1.0]
+src/audio/peq.rs:907:5: replace loudness_gain_db -> f64 with -1.0
+src/audio/peq.rs:1007:27: replace == with != in PeqControl::set_filters
+src/audio/peq.rs:1169:9: replace PeqProcessor::is_bypass -> bool with false
+src/audio/player/mod.rs:235:31: replace += with -= in Player::retire_session
+src/audio/punch.rs:151:36: replace * with + in Punch::process_frame
+src/audio/punch.rs:183:32: replace * with + in Punch::update_gain
+src/audio/render.rs:130:9: replace Renderer::latency_frames -> usize with 1
+src/audio/render.rs:236:28: replace <= with > in Renderer::render
+src/audio/resample.rs:123:9: replace Converter::finish -> Result<&[Sample], AudioError> with Ok(Vec::leak(Vec::new()))
+src/audio/spectrum.rs:92:30: replace / with * in Transform::magnitudes
+src/audio/spectrum.rs:134:39: replace * with / in level
+src/audio/waveform.rs:83:52: replace + with - in Halving::push
+src/audio/waveform.rs:153:29: replace < with == in Decimator::interpolate
+src/audio/waveform.rs:256:19: replace == with != in WaveformTap::write
+src/audio/waveform.rs:299:22: replace >= with < in WaveformTap::read_window
+src/audio/waveform.rs:347:5: replace to_bytes -> Vec<u8> with vec![1]
+src/audio/player/bit_perfect.rs:19:5: replace output_mode -> (OutputMode, Option<String>) with (Default::default(), Some("xyzzy".into()))
+src/audio/player/controls.rs:51:9: replace Player::parametric_rate -> f64 with -1.0
+src/audio/player/next_track.rs:76:5: replace open_next -> Option<Decoder> with None
+src/audio/player/session.rs:127:28: replace && with || in SharedState::heard_with_time
+src/audio/player/session.rs:251:32: replace > with < in Session::start
+src/audio/player/song_maps.rs:102:9: replace Player::imported_song_map -> Option<ImportedMapStatus> with None
+src/audio/player/transition.rs:262:35: replace != with == in Player::install
+src/audio/player/visuals.rs:131:9: replace Player::visual_spectrum -> Option<Vec<f32>> with Some(vec![1.0])
