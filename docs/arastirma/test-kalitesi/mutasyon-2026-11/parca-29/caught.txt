@@ -1,0 +1,32 @@
+src/analysis/annotation.rs:184:20: replace != with == in AnnotationStore::write
+src/analysis/background.rs:134:12: delete ! in CrashGuard::recover
+src/analysis/background.rs:346:46: replace > with >= in wait_for_foreground
+src/analysis/beats.rs:101:51: replace + with * in BeatGrid::position_at
+src/analysis/beats.rs:183:5: replace track -> Option<BeatGrid> with None
+src/analysis/beats.rs:218:61: replace - with / in track
+src/analysis/beats.rs:238:42: replace * with + in segment_periods
+src/analysis/beats.rs:269:28: replace / with * in segment_periods
+src/analysis/beats.rs:295:5: replace track_period -> Option<(Vec<f64>, Vec<f64>)> with Some((vec![-1.0], vec![1.0]))
+src/analysis/beats.rs:350:36: replace - with + in normalize
+src/analysis/beats.rs:367:31: replace / with * in estimate_period_with_strength
+src/analysis/beats.rs:381:32: replace + with * in estimate_period_with_strength
+src/analysis/beats.rs:408:50: replace - with / in estimate_period_with_strength
+src/analysis/beats.rs:438:5: replace autocorrelation -> Vec<f64> with vec![]
+src/analysis/beats.rs:528:25: replace * with + in trim_quiet_ends
+src/analysis/beats.rs:550:10: replace * with / in parabola
+src/analysis/cache.rs:341:24: replace > with == in AnalysisCache::pending_library_tracks
+src/analysis/cache.rs:479:5: replace inflate -> Option<Vec<u8>> with Some(vec![0])
+src/analysis/evaluate.rs:137:35: replace && with || in f_measure
+src/analysis/evaluate.rs:164:29: replace <= with > in tap_offset
+src/analysis/fingerprint.rs:101:30: replace < with > in Verdict::is_match
+src/analysis/fingerprint.rs:191:49: replace + with * in BandPrint::from_levels_at
+src/analysis/fingerprint.rs:244:70: replace * with / in BandPrint::align
+src/analysis/fingerprint.rs:277:46: replace & with | in BandPrint::errors_at
+src/analysis/fingerprint.rs:325:35: replace + with - in ChromaPrint::from_chroma
+src/analysis/fingerprint.rs:354:21: replace += with -= in ChromaPrint::compare
+src/analysis/fingerprint.rs:401:25: replace - with + in band_word
+src/analysis/key.rs:153:60: replace || with && in key_relation
+src/analysis/key.rs:229:5: replace sum_chroma -> [f64; PITCH_CLASSES] with [1.0; PITCH_CLASSES]
+src/analysis/key.rs:274:39: replace * with + in song_key
+src/analysis/key.rs:304:70: replace / with % in correlation
+src/analysis/key.rs:438:42: replace > with < in ChromaAnalyzer::process
