@@ -1,1 +1,2 @@
 src/audio/gapless.rs:161:5: replace next_box -> Option<([u8; 4], &[u8], usize)> with Some(([0; 4], Vec::leak(vec![1]), 1))
+src/audio/resample.rs:108:9: replace Converter::process -> Result<&[Sample], AudioError> with Ok(Vec::leak(vec![Default::default()]))
