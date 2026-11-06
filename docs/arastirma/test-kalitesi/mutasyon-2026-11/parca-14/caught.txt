@@ -61,3 +61,33 @@ src/analysis/map_file.rs:34:36: replace * with /
 src/analysis/map_file.rs:353:35: replace && with || in MapFile::validate
 src/analysis/map_file.rs:394:42: delete ! in MapFile::validate
 src/analysis/map_file.rs:441:38: replace - with / in MapFile::verify
+src/analysis/map_file.rs:509:24: delete - in MapFile::shifted
+src/analysis/map_file.rs:653:13: replace && with || in MapStore::load
+src/analysis/meter.rs:163:25: replace + with - in accents
+src/analysis/meter.rs:242:24: replace * with / in correlation
+src/analysis/spectrogram.rs:198:12: delete ! in Spectrogram::frame_at
+src/analysis/spectrogram.rs:229:18: replace >= with < in Spectrogram::meters_at
+src/analysis/spectrogram.rs:495:44: replace * with / in SavedAnalysis::is_consistent
+src/analysis/spectrogram.rs:626:29: replace += with *= in analyze_source
+src/analysis/spectrogram.rs:816:39: replace * with + in frame_end
+src/analysis/spectrogram.rs:908:27: replace * with + in BandAnalyzer::process
+src/analysis/spectrogram.rs:939:5: replace band_edges -> Vec<f64> with vec![-1.0]
+src/analysis/structure.rs:158:9: replace SongMap::bar_beat -> usize with 1
+src/analysis/structure.rs:189:33: replace * with + in map_song
+src/analysis/structure.rs:396:79: replace - with / in map_song
+src/analysis/structure.rs:506:5: replace section_boundaries -> Vec<usize> with vec![]
+src/analysis/structure.rs:530:51: replace < with == in section_boundaries
+src/analysis/structure.rs:546:41: replace <= with > in section_boundaries
+src/analysis/structure.rs:634:5: replace drop_jumps -> (f64, f64, f64) with (0.0, 1.0, -1.0)
+src/analysis/structure.rs:656:48: replace - with / in drop_jumps
+src/analysis/structure.rs:704:39: replace + with - in find_drops
+src/analysis/structure.rs:789:28: replace - with + in refine_drop
+src/analysis/structure.rs:818:5: replace drop_confidence -> f32 with 0.0
+src/analysis/structure.rs:835:67: replace <= with > in drop_confidence
+src/analysis/structure.rs:882:57: replace * with / in percentile_range
+src/analysis/tempo.rs:184:53: replace && with || in resolve_octave
+src/analysis/tempo.rs:217:41: replace - with + in three_halves
+src/analysis/tempo.rs:300:5: replace accent_envelope -> Vec<f64> with vec![0.0]
+src/analysis/tempo.rs:401:5: replace noise_envelope -> Vec<f64> with vec![0.0]
+src/analysis/tempo.rs:436:44: replace + with - in peaks
+src/audio/abx.rs:253:17: replace += with -= in random_coin
