@@ -1,2 +1,32 @@
 src/analysis/annotation.rs:136:9: replace AnnotationStore::file_for -> Option<PathBuf> with Some(Default::default())
 src/analysis/background.rs:319:30: replace != with == in run
+src/analysis/beats.rs:96:33: replace || with && in BeatGrid::position_at
+src/analysis/beats.rs:154:47: replace * with + in OnsetDetector::process
+src/analysis/beats.rs:206:42: replace / with * in track
+src/analysis/beats.rs:295:5: replace track_period -> Option<(Vec<f64>, Vec<f64>)> with Some((vec![0.0], vec![0.0]))
+src/analysis/beats.rs:307:30: replace + with * in track_period
+src/analysis/beats.rs:340:23: replace * with / in normalize
+src/analysis/beats.rs:367:5: replace estimate_period_with_strength -> Option<(f64, f64)> with Some((0.0, 1.0))
+src/analysis/beats.rs:379:63: replace / with % in estimate_period_with_strength
+src/analysis/beats.rs:402:47: replace / with * in estimate_period_with_strength
+src/analysis/beats.rs:468:44: replace - with + in smooth
+src/analysis/beats.rs:500:39: replace > with < in dynamic_beats
+src/analysis/beats.rs:546:28: replace - with / in parabola
+src/analysis/cache.rs:210:9: replace AnalysisCache::load -> Result<Option<CachedAnalysis>, CacheError> with Ok(None)
+src/analysis/cache.rs:467:5: replace undelta -> Vec<u8> with vec![0]
+src/analysis/evaluate.rs:134:20: replace < with > in f_measure
+src/analysis/evaluate.rs:147:43: replace + with * in f_measure
+src/analysis/fingerprint.rs:231:48: replace + with - in BandPrint::align_to_levels
+src/analysis/fingerprint.rs:266:9: replace BandPrint::errors_at -> (u64, u64) with (1, 1)
+src/analysis/fingerprint.rs:348:28: replace == with != in ChromaPrint::compare
+src/analysis/fingerprint.rs:397:5: replace band_word -> (u32, u32) with (1, 1)
+src/analysis/key.rs:104:25: replace >= with < in MusicalKey::is_confident
+src/analysis/key.rs:265:53: replace * with + in song_key
+src/analysis/key.rs:297:25: replace - with / in estimate
+src/analysis/key.rs:309:19: replace - with / in correlation
+src/analysis/key.rs:410:20: replace += with -= in ChromaAnalyzer::process
+src/analysis/key.rs:432:42: replace < with > in ChromaAnalyzer::process
+src/analysis/key.rs:445:36: replace * with + in ChromaAnalyzer::process
+src/analysis/key.rs:486:5: replace fold -> [f64; PITCH_CLASSES] with [0.0; PITCH_CLASSES]
+src/analysis/levels.rs:54:9: replace LevelAccumulator::finish -> [u8; VALUES_PER_FRAME] with [0; VALUES_PER_FRAME]
+src/analysis/levels.rs:107:47: replace / with * in vu_reference_db
