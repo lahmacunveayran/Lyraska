@@ -6,3 +6,8 @@ src/audio/biquad.rs:111:9: replace Spec::analog -> Complex<f64> with Complex::ne
 src/audio/biquad.rs:270:9: replace Biquad::bandpass -> Self with Default::default()
 src/audio/biquad.rs:526:9: replace Biquad::response -> Complex<f64> with Complex::new(-1.0)
 src/audio/decode.rs:896:5: replace read_cover -> Result<Option<Cover>, AudioError> with Ok(Some(Default::default()))
+src/audio/output.rs:209:5: replace spawn -> Result<JoinHandle<()>, AudioError> with Ok(JoinHandle::new())
+src/audio/peq.rs:708:9: replace ParametricSettings::filters -> Vec<PeqFilter> with vec![Default::default()]
+src/audio/player/session.rs:148:9: replace SharedState::now_playing_indexed -> Option<(TrackInfo, f64, Option<u64>, usize)> with Some((Default::default(), 0.0, Some(0), 1))
+src/audio/player/session.rs:344:9: replace Session::now_playing -> (TrackInfo, f64) with (Default::default(), 0.0)
+src/audio/player/transition.rs:316:9: replace Player::begin_play -> Option<Transition> with Some(Default::default())
