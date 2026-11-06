@@ -198,3 +198,20 @@ src/audio/peq.rs:1209:29: replace - with / in PeqProcessor::process_frame
 src/audio/punch.rs:109:9: replace Punch::restart with ()
 src/audio/punch.rs:163:37: replace - with / in Punch::process_frame
 src/audio/punch.rs:197:35: replace * with + in Punch::update_gain
+src/audio/render.rs:208:28: replace *= with += in Renderer::render
+src/audio/resample.rs:103:32: replace * with + in Converter::input_end_frame
+src/audio/resample.rs:155:66: replace * with + in Converter::run_blocks
+src/audio/spectrum.rs:56:36: replace * with / in bar_hz
+src/audio/spectrum.rs:127:5: replace level -> f32 with 0.0
+src/audio/waveform.rs:50:43: replace * with /
+src/audio/waveform.rs:146:9: replace Decimator::interpolate with ()
+src/audio/waveform.rs:186:9: replace Window<N>::index_at_frame -> i64 with 1
+src/audio/waveform.rs:282:27: replace * with + in WaveformTap::read_window
+src/audio/waveform.rs:333:25: replace + with - in GainCursor<'a>::at
+src/audio/waveform.rs:366:76: replace * with / in mono_mix
+src/audio/player/decode_thread.rs:78:37: replace / with % in decode_loop
+src/audio/player/next_track.rs:51:9: replace SharedState::take_next -> Option<PathBuf> with Some(Default::default())
+src/audio/player/session.rs:185:9: replace SharedState::now_playing_index -> Option<usize> with Some(1)
+src/audio/player/session.rs:416:5: replace unix_micros -> u64 with 0
+src/audio/player/transition.rs:161:9: replace Player::begin_seek -> Option<Transition> with None
+src/audio/player/visuals.rs:108:9: replace Player::visual_waveform -> Option<Vec<u8>> with Some(vec![])
