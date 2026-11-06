@@ -1,3 +1,4 @@
 src/analysis/beats.rs:238:5: replace segment_periods -> Option<Vec<(std::ops::Range<usize>, f64)>> with Some(vec![(Range::from_iter([0]), -1.0)])
 src/analysis/cache.rs:170:9: replace AnalysisCache::open -> Result<Self, CacheError> with Ok(Default::default())
 src/analysis/fingerprint.rs:172:9: replace BandPrint::from_levels -> Self with Default::default()
+src/audio/abx.rs:247:5: replace random_coin -> Box<dyn FnMut()-> bool +Send> with Box::new(Default::default())
