@@ -1020,6 +1020,78 @@ mod tests {
     use super::*;
     use crate::audio::test_util::{sine, temp_path, write_wav};
 
+    /// RFC 6716 §3.1, Tablo 2: TOC baytının üst 5 biti (config) kipi, bant genişliğini ve çerçeve
+    /// süresini verir; alt 2 bit (c) paketteki çerçeve sayısını (0: 1, 1 ve 2: 2, 3: ikinci baytın alt
+    /// 6 biti, M). Beklenen süreler tablodan (ms) 48 kHz örneğe çevrildi: 2,5 ms = 120 örnek.
+    #[test]
+    fn opus_paket_suresi_rfc_6716_tablosuyla_ayni() {
+        // config → çerçeve süresi (ms), RFC 6716 Tablo 2.
+        let table_ms: [f64; 32] = [
+            10.0, 20.0, 40.0, 60.0, // 0–3: SILK NB
+            10.0, 20.0, 40.0, 60.0, // 4–7: SILK MB
+            10.0, 20.0, 40.0, 60.0, // 8–11: SILK WB
+            10.0, 20.0, // 12–13: Hybrid SWB
+            10.0, 20.0, // 14–15: Hybrid FB
+            2.5, 5.0, 10.0, 20.0, // 16–19: CELT NB
+            2.5, 5.0, 10.0, 20.0, // 20–23: CELT WB
+            2.5, 5.0, 10.0, 20.0, // 24–27: CELT SWB
+            2.5, 5.0, 10.0, 20.0, // 28–31: CELT FB
+        ];
+        for (config, ms) in table_ms.iter().enumerate() {
+            let frame = (ms * 48.0) as i64;
+            let toc = (config as u8) << 3;
+            for stereo in [0u8, 0b100] {
+                let toc = toc | stereo; // s biti süreyi değiştirmez
+                assert_eq!(opus_packet_frames(&[toc]), frame, "config {config}, c=0");
+                assert_eq!(
+                    opus_packet_frames(&[toc | 1]),
+                    2 * frame,
+                    "config {config}, c=1"
+                );
+                assert_eq!(
+                    opus_packet_frames(&[toc | 2]),
+                    2 * frame,
+                    "config {config}, c=2"
+                );
+                // c=3: ikinci bayt v p M(6 bit); v ve p biti sayıyı değiştirmez.
+                for (byte, m) in [(5u8, 5), (0b1100_0011, 3), (0x30, 48), (0, 0)] {
+                    assert_eq!(
+                        opus_packet_frames(&[toc | 3, byte]),
+                        m * frame,
+                        "config {config}, c=3, M={m}"
+                    );
+                }
+                // c=3 ama ikinci bayt yok: bozuk paket, süre 0.
+                assert_eq!(opus_packet_frames(&[toc | 3]), 0);
+            }
+        }
+        assert_eq!(opus_packet_frames(&[]), 0, "boş paket");
+    }
+
+    /// RFC 7845 §5.1: "OpusHead" (8 bayt), sürüm (1), kanal sayısı (1), ön boşluk (2 bayt, küçük
+    /// sonlu, 48 kHz örnek). Kısa ya da imzası yanlış başlıkta ön boşluk yok sayılır.
+    #[test]
+    fn opus_on_boslugu_rfc_7845_basligindan_okunur() {
+        let head = |bytes: &[u8]| {
+            let mut params = AudioCodecParameters::new();
+            params.extra_data = Some(bytes.to_vec().into_boxed_slice());
+            params
+        };
+        let mut good = b"OpusHead".to_vec();
+        good.extend_from_slice(&[1, 2, 0x38, 0x01, 0x80, 0xBB, 0, 0, 0, 0, 0]);
+        assert_eq!(
+            opus_pre_skip(&head(&good)),
+            312,
+            "0x0138 = 312 (libopus'un varsayılanı)"
+        );
+        assert_eq!(opus_pre_skip(&head(&good[..12])), 312, "tam 12 bayt yeter");
+        assert_eq!(opus_pre_skip(&head(&good[..11])), 0, "kısa başlık");
+        let mut wrong = good.clone();
+        wrong[0] = b'X';
+        assert_eq!(opus_pre_skip(&head(&wrong)), 0, "imza yanlış");
+        assert_eq!(opus_pre_skip(&AudioCodecParameters::new()), 0, "başlık yok");
+    }
+
     fn mkv_tags(pairs: &[(&str, &str)]) -> Tags {
         let raw: Vec<symphonia::core::meta::Tag> = pairs
             .iter()
