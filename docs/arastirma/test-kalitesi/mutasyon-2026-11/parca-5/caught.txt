@@ -59,3 +59,34 @@ src/analysis/lyrics_text.rs:740:41: replace || with && in read_number
 src/analysis/lyrics_text.rs:932:27: replace < with <= in Builder::push
 src/analysis/map_file.rs:331:27: replace > with == in MapFile::parse
 src/analysis/map_file.rs:370:13: replace || with && in MapFile::validate
+src/analysis/map_file.rs:387:37: replace < with <= in MapFile::validate
+src/analysis/map_file.rs:423:9: replace MapFile::print -> Option<TrackPrint> with None
+src/analysis/map_file.rs:493:17: delete field end from struct MapSection expression in MapFile::shifted
+src/analysis/map_file.rs:596:45: replace == with != in ImportedMap::is_current
+src/analysis/meter.rs:103:24: replace / with * in detect
+src/analysis/meter.rs:150:38: replace * with / in accents
+src/analysis/meter.rs:214:27: replace + with - in pulses
+src/analysis/meter.rs:241:24: replace * with + in correlation
+src/analysis/meter.rs:258:26: replace > with < in zscores
+src/analysis/spectrogram.rs:165:12: delete ! in Spectrogram::saved
+src/analysis/spectrogram.rs:225:9: replace Spectrogram::meters_at -> Option<ChannelLevels> with None
+src/analysis/spectrogram.rs:300:9: replace Spectrogram::imported_part -> Option<T> with None
+src/analysis/spectrogram.rs:622:31: replace % with + in analyze_source
+src/analysis/spectrogram.rs:733:30: replace == with != in refresh_paced
+src/analysis/spectrogram.rs:933:23: replace + with - in shift_level
+src/analysis/structure.rs:150:9: replace SongMap::energy_at -> Option<f32> with Some(0.0)
+src/analysis/structure.rs:219:32: replace + with * in map_song
+src/analysis/structure.rs:273:78: replace / with * in map_song
+src/analysis/structure.rs:351:38: replace + with - in map_song
+src/analysis/structure.rs:496:17: replace == with != in phase_agreement
+src/analysis/structure.rs:528:31: replace + with * in section_boundaries
+src/analysis/structure.rs:624:5: replace is_crescendo -> bool with false
+src/analysis/structure.rs:702:22: replace && with || in find_drops
+src/analysis/structure.rs:747:15: replace <= with > in align_sections_to_drops
+src/analysis/structure.rs:785:45: replace + with * in refine_drop
+src/analysis/structure.rs:798:39: replace && with || in refine_drop
+src/analysis/structure.rs:833:26: replace / with * in drop_confidence
+src/analysis/structure.rs:846:5: replace distance -> f64 with -1.0
+src/analysis/structure.rs:877:5: replace percentile_range -> (f64, f64) with (0.0, 1.0)
+src/analysis/tempo.rs:133:13: replace && with || in resolve_octave
+src/analysis/tempo.rs:159:26: replace || with && in resolve_octave
