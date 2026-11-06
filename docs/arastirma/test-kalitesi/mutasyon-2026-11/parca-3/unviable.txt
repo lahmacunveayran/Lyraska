@@ -3,3 +3,4 @@ src/analysis/lyrics_cache.rs:339:9: replace AnalysisCache::load_emissions -> Res
 src/analysis/lyrics_model.rs:567:9: replace LyricsModel::vocabulary -> &Vocabulary with Box::leak(Box::new(Default::default()))
 src/analysis/lyrics_model.rs:621:9: replace LyricsModel::emissions -> Result<Emissions, ModelError> with Ok(Default::default())
 src/analysis/spectrogram.rs:165:9: replace Spectrogram::saved -> Option<SavedAnalysis> with Some(Default::default())
+src/audio/biquad.rs:258:9: replace Biquad::highpass -> Self with Default::default()
