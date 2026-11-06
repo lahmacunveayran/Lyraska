@@ -60,6 +60,13 @@ pub fn stream_opens(path: &Path) -> usize {
         .map_or(0, |s| s.opened.iter().filter(|(p, _)| p == path).count())
 }
 
+/// `path`'in şu an açık akış sayısı.
+pub fn open_streams(path: &Path) -> usize {
+    streams()
+        .as_ref()
+        .map_or(0, |s| s.open.iter().filter(|(_, p)| p == path).count())
+}
+
 /// `paths`'ten birinin akışı açılırken bu yollardan aynı anda en çok kaç akış açıktı.
 pub fn max_open_streams(paths: &[&Path]) -> usize {
     streams().as_ref().map_or(0, |s| {
