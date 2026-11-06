@@ -37,3 +37,7 @@ src/audio/decode.rs:325:33: replace + with - in Decoder::open
 src/audio/decode.rs:758:27: replace & with | in opus_packet_frames
 src/audio/decode.rs:822:10: replace > with < in matroska_duration
 src/audio/eq.rs:194:17: replace || with && in EqSettings::is_active
+src/audio/eq.rs:881:20: delete ! in EqProcessor::redesign
+src/audio/gapless.rs:129:13: delete match arm b"udta" | b"ilst" in walk
+src/audio/limiter.rs:181:30: replace > with >= in Limiter::next_gain
+src/audio/loudness.rs:240:38: replace | with ^ in default_layout

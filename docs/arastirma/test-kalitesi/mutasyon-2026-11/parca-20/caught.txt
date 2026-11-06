@@ -148,3 +148,33 @@ src/audio/decode.rs:453:20: replace * with + in Decoder::seek
 src/audio/decode.rs:545:54: replace * with / in Decoder::next_chunk
 src/audio/decode.rs:696:19: replace match guard e.error_len().is_none() && !bytes[..e.valid_up_to()].is_ascii() with false in id3v1_text
 src/audio/decode.rs:984:26: replace > with < in image_type
+src/audio/eq.rs:284:21: replace + with * in EqState::at_rate
+src/audio/eq.rs:419:44: replace * with + in Biquad::peaking
+src/audio/eq.rs:427:22: replace - with / in Biquad::peaking
+src/audio/eq.rs:435:33: replace * with + in Biquad::shelf_terms
+src/audio/eq.rs:446:37: replace - with + in Biquad::low_shelf
+src/audio/eq.rs:449:22: replace * with + in Biquad::low_shelf
+src/audio/eq.rs:460:21: replace + with * in Biquad::high_shelf
+src/audio/eq.rs:463:44: replace + with - in Biquad::high_shelf
+src/audio/eq.rs:466:28: replace - with + in Biquad::high_shelf
+src/audio/eq.rs:476:25: replace * with / in Biquad::response_db
+src/audio/eq.rs:478:80: replace * with / in Biquad::response_db
+src/audio/eq.rs:488:48: replace + with - in Biquad::power_gain
+src/audio/eq.rs:533:48: replace / with * in Layout::tuned
+src/audio/eq.rs:551:25: replace * with + in Layout::tuned
+src/audio/eq.rs:581:63: replace * with / in Layout::tail
+src/audio/eq.rs:613:32: replace + with * in design_target
+src/audio/eq.rs:692:40: replace == with != in Design::is_flat
+src/audio/eq.rs:746:27: replace -= with += in solve_linear
+src/audio/eq.rs:838:29: replace != with == in EqProcessor::advance_frame
+src/audio/gapless.rs:57:5: replace parse_itunsmpb -> Option<(u64, u64)> with None
+src/audio/gapless.rs:188:5: replace first_edit -> Option<(u64, u64)> with Some((1, 1))
+src/audio/limiter.rs:144:65: replace * with / in Limiter::process_frame
+src/audio/limiter.rs:226:5: replace interpolator -> ([[Sample; TAPS]; MAX_PHASES], usize, Sample) with ([[Default::default(); TAPS]; MAX_PHASES], 0, Default::default())
+src/audio/limiter.rs:244:28: replace * with / in interpolator
+src/audio/loudness.rs:28:33: delete -
+src/audio/loudness.rs:104:26: replace - with / in k_weighting
+src/audio/loudness.rs:107:53: replace * with / in k_weighting
+src/audio/loudness.rs:179:9: replace TruePeak::add with ()
+src/audio/loudness.rs:236:9: delete match arm 4 in default_layout
+src/audio/loudness.rs:286:27: replace & with | in channel_weights
