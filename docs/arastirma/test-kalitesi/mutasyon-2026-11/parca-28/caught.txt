@@ -143,3 +143,30 @@ src/audio/crossfeed.rs:342:9: replace CrossfeedProcessor::is_bypass -> bool with
 src/audio/crossfeed.rs:381:24: replace -= with += in CrossfeedProcessor::process_frame
 src/audio/decode.rs:144:57: replace == with != in wave_channel_mask
 src/audio/decode.rs:193:44: replace >= with < in caf_declares_layout
+src/audio/decode.rs:604:49: replace match guard tags.artist.is_none() with true in read_tags
+src/audio/decode.rs:716:9: delete match arm 0xF0 in windows_1254
+src/audio/decode.rs:883:52: replace * with /
+src/audio/eq.rs:194:36: replace > with == in EqSettings::is_active
+src/audio/eq.rs:312:5: replace protection_db -> f64 with 0.0
+src/audio/eq.rs:420:24: replace / with % in Biquad::peaking
+src/audio/eq.rs:433:9: replace Biquad::shelf_terms -> (f64, f64, f64) with (0.0, -1.0, 1.0)
+src/audio/eq.rs:440:26: replace < with > in Biquad::low_shelf
+src/audio/eq.rs:447:38: replace - with + in Biquad::low_shelf
+src/audio/eq.rs:449:47: replace * with / in Biquad::low_shelf
+src/audio/eq.rs:462:19: replace * with / in Biquad::high_shelf
+src/audio/eq.rs:464:32: replace + with - in Biquad::high_shelf
+src/audio/eq.rs:472:9: replace Biquad::response_db -> f64 with 0.0
+src/audio/eq.rs:477:19: replace * with / in Biquad::response_db
+src/audio/eq.rs:487:77: replace - with + in Biquad::power_gain
+src/audio/eq.rs:488:74: replace * with + in Biquad::power_gain
+src/audio/eq.rs:535:26: replace * with + in Layout::tuned
+src/audio/eq.rs:558:31: replace * with + in Layout::tuned
+src/audio/eq.rs:593:9: replace Layout::band_response_db -> f64 with -1.0
+src/audio/eq.rs:697:45: replace / with * in Design::response_db
+src/audio/eq.rs:753:30: replace + with - in solve_linear
+src/audio/eq.rs:859:44: replace + with - in EqProcessor::process
+src/audio/gapless.rs:79:5: replace find_top_level -> Option<Vec<u8>> with Some(vec![0])
+src/audio/gapless.rs:194:49: replace == with != in first_edit
+src/audio/limiter.rs:189:32: replace < with > in Limiter::next_gain
+src/audio/limiter.rs:233:22: replace * with + in interpolator
+src/audio/loudness.rs:52:17: replace <= with > in Loudness::gain_db
