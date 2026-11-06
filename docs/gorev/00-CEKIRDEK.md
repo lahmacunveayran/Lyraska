@@ -1,5 +1,10 @@
 # LYRASKA GÖREV KİTABI: ÇEKİRDEK (her oturumda okunur)
 
+> **Arşiv notu (6 Kasım 2026).** Bu kitap 18 Ekim 2026'da Lyraska 0.0.50 için dışarıda hazırlandı; bugünkü plan ve
+> durum için **tek doğruluk kaynağı `docs/ROADMAP.md` ve `docs/ACIK-KONULAR.md`'dir**, çelişkide onlar geçerlidir.
+> Kitaptaki "Faz" numaraları ROADMAP'in fazları değildir (ör. buradaki Faz 3 "Opus" 0.0.65'te yapıldı). Durum dosyaları
+> `FINDINGS.json` ve `GATES.md`'dir (kitap eskiden `BULGULAR.json`/`KAPILAR.md` diyordu); test linki `CLAUDE.md`'dekidir.
+
 Sürüm: 18 Ekim 2026 · Hedef: Lyraska 0.0.50 · Okuyucu: Claude Opus 5.5 (`claude-opus-5-5`), Claude Code içinde
 
 Kitap üç dosyadır; bölüm numaraları dosyalar boyunca süreklidir ve başvurular (§) dosya sınırını aşar.
@@ -100,7 +105,7 @@ yeşilmiş gibi raporlama.
   "Durum", "Sıradaki adım", "Notlar / açık sorular". "Durum" ve "Sıradaki adım" her PR'dan sonra güncellenir.
 - `main` güncellenince "Test sürümü" iş akışı Windows kurulum dosyasını derler. Sahibine test için her zaman sabit
   link verilir:
-  `https://github.com/gozlemesevdalisi/Lyraska/releases/download/test-surumu/Lyraska-Kurulum.exe`
+  `https://github.com/lahmacunveayran/Lyraska/releases/download/test-surumu/Lyraska-Kurulum.exe`
 
 **Doğrulama haftası kuralı** (CLAUDE.md, 9 Ekim 2026'dan beri; tam metin orada)
 
@@ -147,7 +152,7 @@ Kuralların gerekçesi yanlarında yazılı; gerekçeyi anladığında kuralın 
 
 ### 2.2 Bitiş çizgisi, otonomi ve kapılar
 
-- Her fazın bir bitiş çizgisi vardır: §5'teki "bitti sayılma ölçütü" ve `BULGULAR.json`'daki madde listesi. Görevin
+- Her fazın bir bitiş çizgisi vardır: §5'teki "bitti sayılma ölçütü" ve `FINDINGS.json`'daki madde listesi. Görevin
   parçalarını bu listede tut. Bir tur metinle bitiyorsa ve listede açık madde varsa ve bir engel belirtilmemişse, o
   metin bir rapordur, bitiş değildir: açık maddeleri sırayla bitir.
 - Onaylı bir fazın içindeyken sahibinin gerçek zamanlı izlemediğini ve ara soruya hemen cevap veremeyeceğini
@@ -170,7 +175,7 @@ Kuralların gerekçesi yanlarında yazılı; gerekçeyi anladığında kuralın 
   söyle ve işi istendiği gibi sürdür; sessizce daraltma, genişletme ya da dönüştürme. Bütün işi bitir, istenmeyen
   eylemlere girişme.
 - İş sırasında listede olmayan bir hata, performans sorunu ya da tutarsızlık bulursan, istenen davranış onsuz
-  çalışamıyorsa dışında düzeltme; özetinde "ek bulgu" olarak yaz ve `BULGULAR.json`'a ekle. Gerekçe: küçük, gözden
+  çalışamıyorsa dışında düzeltme; özetinde "ek bulgu" olarak yaz ve `FINDINGS.json`'a ekle. Gerekçe: küçük, gözden
   geçirilebilir PR'lar.
 - Bir maddeye başlamadan önce ilgili kodu, testleri ve eski denetim kaydını oku; maddenin açıkça anmadığı ama
   etkilenen yerlere de (çağıran kod, testler, belgeler) bak. Gerekçe: kısa bir araştırma, yanlış yere yapılan
@@ -181,7 +186,7 @@ Kuralların gerekçesi yanlarında yazılı; gerekçeyi anladığında kuralın 
 | Sınıf     | Kural                                                                           |
 | --------- | ------------------------------------------------------------------------------- |
 | `hata`    | Serbest: önce hatayı yakalayan test, sonra düzeltme.                            |
-| `özellik` | Sahibinin açık onayı olmadan başlama; onay `BULGULAR.json`'a tarihiyle yazılır. |
+| `özellik` | Sahibinin açık onayı olmadan başlama; onay `FINDINGS.json`'a tarihiyle yazılır. |
 | `karar`   | Seçenekler ve önerinle sahibine sor; cevap gelene kadar o madde dışında çalış.  |
 
 ### 2.4 Test mühendisliği
@@ -231,7 +236,7 @@ Kuralların gerekçesi yanlarında yazılı; gerekçeyi anladığında kuralın 
   dosyalarda). Büyük dosyada gereken aralığı oku; aynı dosyayı yeniden okuma.
 - Komut çıktılarını süz: yalnızca başarısız testleri, son 30–40 satırı ya da özeti bağlama al (`| tail -n 40`,
   `--quiet`). Kapak resmi `data:` URL'si, ikili dosya ya da base64 çıktısını bağlama basma.
-- Durum dosyasını (`BULGULAR.json`) küçük bir betikle güncelle; her seferinde tamamını yeniden yazma.
+- Durum dosyasını (`FINDINGS.json`) küçük bir betikle güncelle; her seferinde tamamını yeniden yazma.
 - Geçici betikleri ve deneme dosyalarını iş bitince sil; kalıcı olacak ölçüm betikleri `docs/gorev/hesap/` altına
   gider.
 
@@ -257,7 +262,7 @@ bağlamını ve kullanım payını harcar.
   (3) aynı şeyi yeniden okuma, çıktıyı süz (§2.7); (4) alt ajan sayısını düşük tut (§2.8); (5) her iş birimi
   atomik olsun: bittiğinde kendi başına derlenir, testleri geçer ve commit + push edilir; yarım değişiklik bırakma.
 - Sahibi "limit doluyor" derse ya da bir araç sınır hatası dönerse: mevcut iş birimini güvenli bir noktaya getir,
-  `BULGULAR.json`'daki `devam_noktasi` alanını ve devir notunu güncelle, push et ve dur.
+  `FINDINGS.json`'daki `devam_noktasi` alanını ve devir notunu güncelle, push et ve dur.
 - Uzun bir belgeyi (rapor, profil) yapıyı belirledikten sonra doğrudan dosyaya yaz; taslağı iki kez yazma.
 
 </sozlesme>
@@ -273,12 +278,12 @@ git geçmişinden durumu hızlı ve güvenilir biçimde çıkarır.
 
 | Dosya                       | İçerik                                                                      | Biçim          |
 | --------------------------- | --------------------------------------------------------------------------- | -------------- |
-| `docs/gorev/BULGULAR.json`  | Her maddenin durumu, kanıtı, testi, PR'ı, onayı                             | yapısal (JSON) |
-| `docs/gorev/KAPILAR.md`     | Bu ortamda çalışan kapı komutları, süreleri, taban durumu (hangisi kırmızı) | serbest metin  |
+| `docs/gorev/FINDINGS.json`  | Her maddenin durumu, kanıtı, testi, PR'ı, onayı                             | yapısal (JSON) |
+| `docs/gorev/GATES.md`       | Bu ortamda çalışan kapı komutları, süreleri, taban durumu (hangisi kırmızı) | serbest metin  |
 | `docs/devlog/YYYY-AA-GG.md` | Devir notu (CLAUDE.md şablonu)                                              | serbest metin  |
 | `docs/DOGRULAMA.md`         | Sahibinin elle yapacağı testler (mevcut biçimde)                            | mevcut biçim   |
 
-`BULGULAR.json` biçimi (örnek; alanları koru, maddeleri asla silme):
+`FINDINGS.json` biçimi (örnek; alanları koru, maddeleri asla silme):
 
 ```json
 {
@@ -311,16 +316,16 @@ güncellenir: oturum limit ya da bağlam nedeniyle kesilirse bir sonraki oturum 
 
 1. `pwd`; yalnızca depo klasöründe çalış.
 2. `git status` ve `git log --oneline -15`.
-3. Son devir notunu, `BULGULAR.json`'u ve `KAPILAR.md`'yi oku.
+3. Son devir notunu, `FINDINGS.json`'u ve `GATES.md`'yi oku.
 4. Hızlı tabanı çalıştır (biçim, lint, tür + bu işe ait hedef test); sonra sıradaki maddeye geç. Yeni bir özellikten
    önce tabanın yeşil olduğunu gör.
 
-**Oturum kapanışı:** `BULGULAR.json`'u (küçük bir betikle, tamamını yeniden yazmadan) güncelle, devir notunu yaz (CLAUDE.md şablonu; "Sıradaki adım" somut olsun),
+**Oturum kapanışı:** `FINDINGS.json`'u (küçük bir betikle, tamamını yeniden yazmadan) güncelle, devir notunu yaz (CLAUDE.md şablonu; "Sıradaki adım" somut olsun),
 commit + push (atanan dal), gerekirse PR aç. Sahibine sabit test linkini ve elle test adımlarını ver.
 
 **Bağlam sınırı.** Bağlamın otomatik sıkıştırılabileceğini ya da yeni bir pencerede dosyalardan devam
 edebileceğini bil. Bağlam dolmak üzere diye işi erken bırakma; ilerlemeyi dosyaya yaz ve devam et. Bağlam
-gerçekten büyüdüyse sahibine tek cümleyle yeni oturum açmasını söyle ve yapıştıracağı cümleyi ver: "docs/gorev/00-CEKIRDEK.md dosyasını, işe ait bölüm dosyasını ve docs/gorev/BULGULAR.json dosyasını oku, devir notundaki 'Sıradaki adım'dan devam et."
+gerçekten büyüdüyse sahibine tek cümleyle yeni oturum açmasını söyle ve yapıştıracağı cümleyi ver: "docs/gorev/00-CEKIRDEK.md dosyasını, işe ait bölüm dosyasını ve docs/gorev/FINDINGS.json dosyasını oku, devir notundaki 'Sıradaki adım'dan devam et."
 
 **Bağlam sıkıştırılırken şunları aynen koru:** (1) sahibinin istekleri, kararları, kısıtları ve onayları (kelimesine
 yakın); (2) hangi maddenin doğrulandı, çürütüldü, düzeltildi, onay bekliyor olduğu; (3) şu an hangi fazda ve hangi

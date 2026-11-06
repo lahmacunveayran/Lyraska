@@ -13,12 +13,10 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
    birleşti; paket test sürümü sayfasında (1 Kasım, SHA denetlendi) → sahibinin 5–10 Türkçe şarkı denemesi.
 2. Ses motoru denetimi (64-bit, EQ, AutoEq, R128, bit-perfect, ABX): Denetim 3 §5.1 (`ccr-a69bd749-djgi3v`,
    `ccr-a46535b3-m3v2i5`) + #56; RTS-03, D1-01, DSP-01, eğri aygıt hızında (#186) ve DSP-03 düzeltildi; sırada RTS-01.
-3. Görev kitabı (`docs/gorev/`) ile ROADMAP/ACIK-KONULAR çelişkileri (ROADMAP 30 Ekim'de güncellendi: kaldırılan
-   sahneler, söz işleri, çıkış Faz 7'den sonra). Tek doğruluk kaynağı ROADMAP + ACIK-KONULAR.
-4. Kaynak ayrıştırma: Spleeter ve Demucs karşılaştırması (kalite, hız, ağırlık lisansı birincil kaynaktan).
-5. Sahneler v2, sonra Otomatik DJ. Işık Ustası sahibinin kararıyla kaldırıldı (30 Ekim, "sıkıcı"); yeni sahne
+3. Kaynak ayrıştırma: Spleeter ve Demucs karşılaştırması (kalite, hız, ağırlık lisansı birincil kaynaktan).
+4. Sahneler v2, sonra Otomatik DJ. Işık Ustası sahibinin kararıyla kaldırıldı (30 Ekim, "sıkıcı"); yeni sahne
    fikri önce sahibine seçenek + önizlemeyle sorulur.
-6. En son: drop v2, karar **B** (ikisi programda, varsayılan eski, İşaretle'de yan yana; sahibinin işaretiyle seçim;
+5. En son: drop v2, karar **B** (ikisi programda, varsayılan eski, İşaretle'de yan yana; sahibinin işaretiyle seçim;
    `-yedek-drop` dalındaki `docs/arastirma/drop/DURUM.md`); önce DnB temposu (sürekli sub bas
    kick kanıtını örtüyor, `tempo.rs`) ve hip-hop drop'u; maksumda yanlış aksak (`meter.rs`).
 
@@ -55,5 +53,3 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 - Drop (sahibi, 23 Ekim): sentetik ölçümle iyileşti (`docs/arastirma/drop/`), sahibinin şarkılarıyla doğrulanacak
   (A15). "Dubstep 128" üretilemedi. Açık (öncelikli): maksumda, Türk pop'unda, swing'li hip-hop'ta ve breakbeat'te
   yanlış aksak (2+3, 3+2) bulunuyor, tempo yarıya düşüyor (`meter.rs`).
-- Görev kitabı: durum dosyaları `BULGULAR.json`/`KAPILAR.md` der (depoda `FINDINGS.json`/`GATES.md`); test linki
-  eski hesap adını taşıyor (doğrusu `CLAUDE.md`'deki).

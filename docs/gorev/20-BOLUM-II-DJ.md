@@ -1,5 +1,12 @@
 # LYRASKA GÖREV KİTABI: BÖLÜM II (Otomatik DJ)
 
+> **Arşiv notu (6 Kasım 2026).** Bu kitap 18 Ekim 2026'da Lyraska 0.0.50 için dışarıda hazırlandı; bugünkü plan ve
+> durum için **tek doğruluk kaynağı `docs/ROADMAP.md` ve `docs/ACIK-KONULAR.md`'dir**, çelişkide onlar geçerlidir.
+> Kitaptaki "Faz" numaraları ROADMAP'in fazları değildir (ör. buradaki Faz 3 "Opus" 0.0.65'te yapıldı). Durum dosyaları
+> `FINDINGS.json` ve `GATES.md`'dir (kitap eskiden `BULGULAR.json`/`KAPILAR.md` diyordu); test linki `CLAUDE.md`'dekidir.
+> Bölüm II, ROADMAP Faz 7'nin (Otomatik DJ) ayrıntılı planı olarak okunur; sırası ROADMAP'e göredir (Faz 6'dan
+> sonra, sahneler v2'den sonra; ACIK-KONULAR iş sırası).
+
 Önce `00-CEKIRDEK.md` dosyasını oku. Bu dosya §6–§9 bölümlerini içerir ve yalnızca sahibi açıkça "Bölüm II'ye geç"
 dediğinde okunur.
 
