@@ -150,3 +150,30 @@ src/audio/crossfeed.rs:379:26: replace - with / in CrossfeedProcessor::process_f
 src/audio/decode.rs:136:40: replace + with * in wave_channel_mask
 src/audio/decode.rs:170:14: replace << with >> in caf_declares_layout
 src/audio/decode.rs:453:20: replace * with / in Decoder::seek
+src/audio/eq.rs:193:17: replace || with && in EqSettings::is_active
+src/audio/eq.rs:419:44: replace * with / in Biquad::peaking
+src/audio/eq.rs:433:9: replace Biquad::shelf_terms -> (f64, f64, f64) with (0.0, 0.0, 0.0)
+src/audio/eq.rs:435:33: replace * with / in Biquad::shelf_terms
+src/audio/eq.rs:446:37: replace - with / in Biquad::low_shelf
+src/audio/eq.rs:449:22: replace * with / in Biquad::low_shelf
+src/audio/eq.rs:460:40: replace * with + in Biquad::high_shelf
+src/audio/eq.rs:463:44: replace + with * in Biquad::high_shelf
+src/audio/eq.rs:466:28: replace - with / in Biquad::high_shelf
+src/audio/eq.rs:476:35: replace * with + in Biquad::response_db
+src/audio/eq.rs:479:14: replace * with + in Biquad::response_db
+src/audio/eq.rs:488:48: replace + with * in Biquad::power_gain
+src/audio/eq.rs:533:34: replace * with + in Layout::tuned
+src/audio/eq.rs:551:25: replace * with / in Layout::tuned
+src/audio/eq.rs:582:21: replace == with != in Layout::tail
+src/audio/eq.rs:613:27: replace / with % in design_target
+src/audio/eq.rs:692:85: replace < with == in Design::is_flat
+src/audio/eq.rs:746:27: replace -= with /= in solve_linear
+src/audio/eq.rs:842:24: replace -= with += in EqProcessor::advance_frame
+src/audio/gapless.rs:57:5: replace parse_itunsmpb -> Option<(u64, u64)> with Some((0, 0))
+src/audio/gapless.rs:190:28: replace == with != in first_edit
+src/audio/limiter.rs:146:45: replace % with / in Limiter::process_frame
+src/audio/limiter.rs:181:50: replace / with % in Limiter::next_gain
+src/audio/limiter.rs:226:5: replace interpolator -> ([[Sample; TAPS]; MAX_PHASES], usize, Sample) with ([[Default::default(); TAPS]; MAX_PHASES], 1, Default::default())
+src/audio/limiter.rs:244:51: replace / with % in interpolator
+src/audio/loudness.rs:30:31: delete -
+src/audio/loudness.rs:97:22: replace / with % in k_weighting
