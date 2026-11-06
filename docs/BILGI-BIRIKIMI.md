@@ -294,7 +294,8 @@ kısaltılır.
 
 - "Ticari kullanım yasak" (NC) lisanslar GPL-3.0 ile çelişir (GPL satma hakkı da verir): depoya ve herkese açık
   sürüme girmez. İstisna (6 Kasım 2026): yalnızca sahibinin bilgisayarında kurulan model paketleri (CLAUDE.md "Yerel
-  model paketleri"). Lisansı yazılmamış eser "tüm hakları saklı"dır; kişisel kullanımda da yazarın izni gerekir.
+  model paketleri"). Lisansı yazılmamış eser "tüm hakları saklı"dır; depoya ve herkese açık sürüme girmez. Yerel
+  pakette sahibi bu riski bilerek kabul etti (6 Kasım 2026).
 - Yapay zekâ modellerinde **kod, ağırlık ve eğitim verisi** ayrı ayrı denetlenir (ör. Demucs ağırlıkları "yalnızca
   araştırma"; MUSDB18 NC).
 - npm paketinin "MIT" alanı içeriğin tamamını kapsamayabilir (ör. `butterchurn-presets`: paketleyicinin MIT'i
@@ -320,11 +321,16 @@ kısaltılır.
   JOSS makalesi (depodaki `paper.md`) "source code and pre-trained models … distributed under a MIT license" diyor;
   eğitim verisi Deezer'ın iç kataloğu, MUSDB18 yok. Demucs, Open-Unmix, RoFormer'lar, Banquet, UVR kurala aykırı ya da
   belirsiz. Ayrıntı ve seçenekler: `docs/arastirma/kaynak-ayristirma/RAPOR.md`.
+- **Güvenli modda MilkDrop kırmızı freni** (6 Kasım 2026, sahibinin onayı): iki bağımsız araştırma taraması
+  güvenli modda MilkDrop'ta kırmızı kanalın sınırsız olduğunu buldu (kodda doğrulandı; "Kendi resmin"de açıktı).
+  ITU-R BT.1702-3 doygun kırmızı geçişini parlaklıktan bağımsız olarak zararlı sayar. Fren açılır; yalnızca güvenli
+  modu sıkılaştırır, varsayılan mod değişmez.
 - **Kaynak ayrıştırmada yeni karar (6 Kasım 2026):** Lyraska ticari olmayacak ve topluluğa dağıtılmayacak. Sahibi
   "çığır açan, standartlı" iş istiyor ve "dünyada en iyi ayrıştırma çalışmaları varsa hepsini kullanabilirsin" dedi.
   Ticari olmayan ve araştırma lisanslı modeller (HTDemucs, BS-RoFormer, MDX23C …) ile MUSDB18-HQ ölçümü
   **yalnızca sahibinin bilgisayarında** kullanılabilir (seçenek A; depo herkese açık kalır, depoyu gizlemek CI
-  dakikalarını tüketirdi). Lisansı hiç yazılmamış modeller yine alınmaz (sahibinin seçimi). Yol: ölçü aleti
+  dakikalarını tüketirdi). Aynı gün ikinci karar: lisansı yazılmamış ya da belirsiz modeller de (ör. Demucs
+  ağırlıkları) yerel pakette kullanılır, gerekirse harmanlanır ("o kuralı kaldır … hepsini kullanalım"). Yol: ölçü aleti
   (BSS Eval v4, museval ile doğrulanmış) → MUSDB18-HQ'da klasik, Spleeter, HTDemucs, RoFormer karşılaştırması →
   kazanan ONNX'le Lyraska'da → yapı ve söz zamanıyla bilgilendirilmiş iyileştirmeler, her biri ölçülerek.
 - Sahibi Spleeter'ı "geliştirip daha iyi yapmak" istiyor (23 Ekim 2026). Yeniden eğitim yasal veriye bağlı (MUSDB18
