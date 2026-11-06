@@ -1,3 +1,5 @@
 src/analysis/beats.rs:238:5: replace segment_periods -> Option<Vec<(std::ops::Range<usize>, f64)>> with Some(vec![(Range::from(0), 0.0)])
 src/analysis/cache.rs:193:9: replace AnalysisCache::lock -> Result<std::sync::MutexGuard<'_, Connection>, CacheError> with Ok(MutexGuard::from_iter([Default::default()]))
 src/analysis/fingerprint.rs:345:25: replace << with >> in ChromaPrint::compare
+src/analysis/lyrics_cache.rs:81:9: replace StoredEmissions::select -> Option<Self> with Some(Default::default())
+src/analysis/lyrics_worker.rs:251:39: replace + with * in LyricsWorker::stop
