@@ -20,3 +20,31 @@ src/analysis/fingerprint.rs:406:27: replace << with >> in band_word
 src/analysis/key.rs:167:40: replace + with - in camelot_number
 src/analysis/key.rs:288:77: replace % with + in estimate
 src/analysis/key.rs:307:30: replace - with / in correlation
+src/analysis/key.rs:386:37: replace % with + in ChromaAnalyzer::add
+src/analysis/key.rs:443:37: replace * with + in ChromaAnalyzer::process
+src/analysis/key.rs:453:43: replace * with / in ChromaAnalyzer::process
+src/analysis/key.rs:504:12: replace <= with > in quantize
+src/analysis/levels.rs:82:5: replace decode_db -> f32 with -1.0
+src/analysis/levels.rs:124:29: replace - with + in vu_reference_db
+src/analysis/lyrics_align.rs:184:20: replace + with - in states
+src/analysis/lyrics_align.rs:219:60: replace + with * in skip_arcs
+src/analysis/lyrics_align.rs:257:5: replace viterbi -> Result<Vec<usize>, AlignError> with Ok(vec![0])
+src/analysis/lyrics_align.rs:292:22: replace > with < in viterbi
+src/analysis/lyrics_align.rs:337:49: replace * with + in entry_mass
+src/analysis/lyrics_align.rs:382:17: replace < with == in entry_mass
+src/analysis/lyrics_align.rs:401:36: replace + with * in entry_mass
+src/analysis/lyrics_align.rs:412:39: replace + with - in entry_mass
+src/analysis/lyrics_align.rs:470:46: replace > with < in align
+src/analysis/lyrics_align.rs:587:20: replace > with == in align
+src/analysis/lyrics_cache.rs:252:23: replace || with && in Header::parse
+src/analysis/lyrics_job.rs:80:9: replace ModelSlot::model_sha256 -> &str with ""
+src/analysis/lyrics_job.rs:194:65: replace <= with > in AutoAlignment::valid
+src/analysis/lyrics_job.rs:349:39: replace + with * in spoken_spans
+src/analysis/lyrics_model.rs:223:19: replace == with != in tensor_f32
+src/analysis/lyrics_model.rs:326:48: replace == with != in dequantize_matmuls
+src/analysis/lyrics_model.rs:420:8: delete ! in dequantize_matmuls
+src/analysis/lyrics_model.rs:573:9: replace LyricsModel::run_window -> Result<Vec<f32>, ModelError> with Ok(vec![1.0])
+src/analysis/lyrics_model.rs:677:52: replace + with * in LyricsModel::emissions
+src/analysis/lyrics_model.rs:700:51: replace * with + in LyricsModel::emissions
+src/analysis/lyrics_text.rs:116:5: replace compose -> String with String::new()
+src/analysis/lyrics_text.rs:195:13: replace >= with < in detect_language
