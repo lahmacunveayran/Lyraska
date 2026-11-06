@@ -9,6 +9,12 @@ Kısaca: **Evet, bir aday var: Spleeter.** Deezer'ın kendi yayımladığı maka
 açıkça yazıyor ve modeller MUSDB18 ile eğitilmemiş. Diğer bütün ünlü modeller ya MUSDB18 / MoisesDB (ticari olmayan
 veri) ile eğitilmiş ya da ağırlıkların lisansı yok.
 
+> **Güncelleme (6 Kasım 2026):** Proje sahibinin kararıyla ticari olmayan, araştırma lisanslı ve lisansı belirsiz
+> modeller yalnızca sahibinin bilgisayarında yerel paket olarak kullanılabilir (`CLAUDE.md` "Yerel model
+> paketleri"); aşağıdaki "kurala aykırı" hükümleri bu çerçevede yeniden değerlendirildi
+> (`../genel-tarama/SENTEZ.md`). **Düzeltme:** Kimberley Jensen Mel-RoFormer vokal modelinin Hugging Face
+> kartında lisans MIT yazıyor (genel tarama 1, B §0.2); aşağıdaki tabloda "lisans yok" denmişti.
+
 ## 0. Yöntem ve erişim
 
 - Yalnızca birincil kaynak: resmî depolar (git ile klonlandı), depodaki makale kaynağı, lisans dosyaları, veri seti

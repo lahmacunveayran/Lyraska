@@ -315,12 +315,15 @@ kısaltılır.
 - İşe yarayan GitHub repoları kullanılabilir; lisans kuralıyla birlikte.
 - YouTube'dan indirme (yt-dlp) önerilmedi (telif, çevrimdışı ilkesi, kalite); yasal "klasör izleme" önerildi;
   karar Faz 4 sonrasına kaldı.
-- **Kaynak ayrıştırma** (davul/bas/vokal): **Spleeter** seçildi (23 Ekim 2026; kod ve ağırlıklar MIT, kurulum
+- **Kaynak ayrıştırma** (davul/bas/vokal; 6 Kasım kararıyla aşıldı, aşağıda): **Spleeter** seçildi (23 Ekim 2026; kod ve ağırlıklar MIT, kurulum
   +40–80 MB, önceden arka planda hesaplanır). Uygulamadan önce ağırlık lisansı ve çalışma zamanı (ONNX) lisansı
   birincil kaynaktan yeniden doğrulanır. **Doğrulandı (6 Kasım 2026):** README yalnızca kodu söylüyor, ama Deezer'ın
   JOSS makalesi (depodaki `paper.md`) "source code and pre-trained models … distributed under a MIT license" diyor;
   eğitim verisi Deezer'ın iç kataloğu, MUSDB18 yok. Demucs, Open-Unmix, RoFormer'lar, Banquet, UVR kurala aykırı ya da
   belirsiz. Ayrıntı ve seçenekler: `docs/arastirma/kaynak-ayristirma/RAPOR.md`.
+- **Sahneler v2 Faz 7'den sonra** (6 Kasım 2026): sahibi "sahneler v2'yi faz 7'den sonra yapacağız, şu an onun
+  için kaynak taraması yapıyorum" dedi. Sıra: Faz 4'ün kalanı, analizin iyileştirilmesi, Faz 5, Faz 6–7, sonra
+  Sahneler v2.
 - **Güvenli modda MilkDrop kırmızı freni** (6 Kasım 2026, sahibinin onayı): iki bağımsız araştırma taraması
   güvenli modda MilkDrop'ta kırmızı kanalın sınırsız olduğunu buldu (kodda doğrulandı; "Kendi resmin"de açıktı).
   ITU-R BT.1702-3 doygun kırmızı geçişini parlaklıktan bağımsız olarak zararlı sayar. Fren açılır; yalnızca güvenli
@@ -333,7 +336,7 @@ kısaltılır.
   ağırlıkları) yerel pakette kullanılır, gerekirse harmanlanır ("o kuralı kaldır … hepsini kullanalım"). Yol: ölçü aleti
   (BSS Eval v4, museval ile doğrulanmış) → MUSDB18-HQ'da klasik, Spleeter, HTDemucs, RoFormer karşılaştırması →
   kazanan ONNX'le Lyraska'da → yapı ve söz zamanıyla bilgilendirilmiş iyileştirmeler, her biri ölçülerek.
-- Sahibi Spleeter'ı "geliştirip daha iyi yapmak" istiyor (23 Ekim 2026). Yeniden eğitim yasal veriye bağlı (MUSDB18
+- Sahibi Spleeter'ı "geliştirip daha iyi yapmak" istiyor (23 Ekim 2026; 6 Kasım kararıyla aşıldı: daha iyi hazır modeller yerelde). Yeniden eğitim yasal veriye bağlı (MUSDB18
   NC, kullanılamaz); önce eğitimsiz iyileştirmeler (Wiener süzgeci, 16 kHz bant, analiz amaçlı kullanım) ölçülür.
 - **İş sırası (23 Ekim 2026):** yama 0001 (#105) → `.opus`/`.webm` → kütüphanenin baştan tasarımı (4 PR: çekirdek
   sorguları ve gruplama; tam ekran kütüphane + Şarkılar; Albümler ve Sanatçılar; Klasörler ve uyarılar) → kaynak
