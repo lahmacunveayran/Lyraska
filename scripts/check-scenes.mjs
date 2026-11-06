@@ -1939,7 +1939,10 @@ async function checkLyricsOverlap(browser) {
       return v;
     };
     const line = document.querySelector(selector);
-    if (!line) return { error: `${selector} yok` };
+    if (!line) {
+      const cinema = !!document.querySelector(".app.is-cinema");
+      return { error: `${selector} yok (sinema görünümü ${cinema ? "açık" : "kapalı"})` };
+    }
     const a = line.getBoundingClientRect();
     const clip = clipSelector ? document.querySelector(clipSelector)?.getBoundingClientRect() : a;
     const box = {
@@ -1994,6 +1997,17 @@ async function checkLyricsOverlap(browser) {
     await page.mouse.move(width / 3, height / 3);
     await page.mouse.move(width / 3 + 20, height / 3 + 10);
     await page.waitForTimeout(1200);
+    // Sinema görünümü gerçek saatle 4 sn hareketsizlikte açılır; yavaş makinede (CI'da Windows,
+    // yazılımla çizim) fare hareketinden ölçüme kadar bu süre dolabiliyordu ve üstteki söz katmanı
+    // kalkmış oluyordu (#203). Ölçümden hemen önce fare yeniden kıpırdatılır ve satır beklenir;
+    // ölçülen şey aynı (denetimler görünürken söz satırının kesişimleri).
+    await page.mouse.move(width / 3 + 40, height / 3 + 20);
+    await page
+      .waitForSelector(".photo-lyrics-top .photo-lyrics__line", {
+        state: "attached",
+        timeout: 3_000,
+      })
+      .catch(() => {});
     const controls = await page.evaluate(measure, [
       ".photo-lyrics-top .photo-lyrics__line",
       ".photo-lyrics-top",
