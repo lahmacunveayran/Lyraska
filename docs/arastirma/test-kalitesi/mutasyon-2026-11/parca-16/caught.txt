@@ -1,0 +1,35 @@
+src/analysis/annotation.rs:266:5: replace fnv1a -> u64 with 1
+src/analysis/background.rs:295:11: delete ! in run
+src/analysis/beats.rs:54:30: replace * with + in onset_latency
+src/analysis/beats.rs:152:24: replace - with + in OnsetDetector::process
+src/analysis/beats.rs:204:78: replace / with * in track
+src/analysis/beats.rs:295:5: replace track_period -> Option<(Vec<f64>, Vec<f64>)> with Some((vec![], vec![0.0]))
+src/analysis/beats.rs:307:62: replace - with / in track_period
+src/analysis/beats.rs:340:5: replace normalize -> Option<Vec<f64>> with Some(vec![0.0])
+src/analysis/beats.rs:362:5: replace estimate_period -> Option<f64> with Some(1.0)
+src/analysis/beats.rs:377:25: replace * with / in estimate_period_with_strength
+src/analysis/beats.rs:427:56: replace - with + in pulse_clarity
+src/analysis/beats.rs:459:24: replace * with / in smooth
+src/analysis/beats.rs:546:5: replace parabola -> f64 with -1.0
+src/analysis/cache.rs:459:5: replace delta -> Vec<u8> with vec![1]
+src/analysis/evaluate.rs:123:5: replace f_measure -> f64 with -1.0
+src/analysis/evaluate.rs:184:59: replace / with % in interval_bpm
+src/analysis/fingerprint.rs:177:37: replace * with / in BandPrint::from_levels_at
+src/analysis/fingerprint.rs:297:26: replace / with * in BandPrint::reliable_share
+src/analysis/fingerprint.rs:380:28: delete ! in parse_hex
+src/analysis/key.rs:99:9: replace MusicalKey::camelot_code -> String with String::new()
+src/analysis/key.rs:168:10: replace * with + in camelot_number
+src/analysis/key.rs:263:29: replace += with -= in song_key
+src/analysis/key.rs:296:55: replace - with / in estimate
+src/analysis/key.rs:309:13: replace += with *= in correlation
+src/analysis/key.rs:393:23: replace += with -= in ChromaAnalyzer::add
+src/analysis/key.rs:432:27: replace || with && in ChromaAnalyzer::process
+src/analysis/key.rs:467:52: replace / with % in ChromaAnalyzer::finish
+src/analysis/levels.rs:46:38: replace * with + in LevelAccumulator::add
+src/analysis/levels.rs:100:5: replace vu_reference_db -> Option<f32> with Some(1.0)
+src/analysis/lyrics_align.rs:59:9: replace Emissions::at -> f64 with 1.0
+src/analysis/lyrics_align.rs:185:30: replace - with / in states
+src/analysis/lyrics_align.rs:227:48: replace - with + in skip_arcs
+src/analysis/lyrics_align.rs:241:36: replace - with / in skip_arcs
+src/analysis/lyrics_align.rs:278:23: replace && with || in viterbi
+src/analysis/lyrics_align.rs:347:24: replace + with * in entry_mass
