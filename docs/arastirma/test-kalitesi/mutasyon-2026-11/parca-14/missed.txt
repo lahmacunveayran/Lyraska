@@ -43,3 +43,10 @@ src/audio/decode.rs:444:37: delete ! in Decoder::seek
 src/audio/decode.rs:533:45: replace + with * in Decoder::next_chunk
 src/audio/decode.rs:809:5: replace matroska_duration -> Option<f64> with Some(-1.0)
 src/audio/eq.rs:456:26: replace < with <= in Biquad::high_shelf
+src/audio/limiter.rs:201:17: replace > with == in Limiter::next_gain
+src/audio/limiter.rs:251:22: replace > with < in interpolator
+src/audio/loudness.rs:230:29: replace | with ^ in default_layout
+src/audio/loudness.rs:239:20: replace | with ^ in default_layout
+src/audio/lyrics.rs:377:51: replace && with || in parse_time
+src/audio/lyrics.rs:399:29: replace && with || in is_id_tag
+src/audio/peq.rs:154:9: replace DesignMethod::method -> Method with Default::default()

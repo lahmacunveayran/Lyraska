@@ -161,3 +161,31 @@ src/audio/eq.rs:487:88: replace * with + in Biquad::power_gain
 src/audio/eq.rs:527:33: replace < with == in Layout::tuned
 src/audio/eq.rs:548:88: replace - with + in Layout::tuned
 src/audio/eq.rs:562:38: replace * with + in Layout::tuned
+src/audio/eq.rs:610:5: replace design_target -> f64 with -1.0
+src/audio/eq.rs:682:37: replace != with == in Design::peak_db
+src/audio/eq.rs:740:20: replace < with > in solve_linear
+src/audio/eq.rs:820:20: replace != with == in EqProcessor::begin_block
+src/audio/eq.rs:872:26: replace + with - in EqProcessor::step
+src/audio/gapless.rs:51:39: replace * with + in mp4_trim
+src/audio/gapless.rs:112:5: replace walk with ()
+src/audio/gapless.rs:182:25: replace + with - in header_timescale
+src/audio/limiter.rs:142:42: replace + with - in Limiter::process_frame
+src/audio/limiter.rs:174:32: replace % with + in Limiter::true_peak
+src/audio/limiter.rs:241:34: replace * with / in interpolator
+src/audio/loudness.rs:79:67: replace * with + in Biquad::process
+src/audio/loudness.rs:103:34: replace * with / in k_weighting
+src/audio/loudness.rs:107:49: replace + with * in k_weighting
+src/audio/loudness.rs:115:41: replace - with + in k_weighting
+src/audio/loudness.rs:282:28: replace & with ^ in channel_weights
+src/audio/loudness.rs:335:28: replace == with != in LoudnessMeter::add
+src/audio/loudness.rs:372:41: replace > with < in LoudnessMeter::finish
+src/audio/lyrics.rs:182:5: replace sidecar_text -> Option<String> with None
+src/audio/lyrics.rs:304:40: delete ! in parse
+src/audio/lyrics.rs:406:8: delete ! in word_stamps
+src/audio/lyrics.rs:494:19: replace += with *= in syllables
+src/audio/normalize.rs:244:48: replace - with + in TrackLevels::level
+src/audio/normalize.rs:320:9: replace - with + in coefficient
+src/audio/normalize.rs:406:9: replace Leveler::next_gain -> Sample with Default::default()
+src/audio/normalize.rs:436:48: replace - with + in Leveler::next_gain
+src/audio/normalize.rs:456:19: replace * with + in Leveler::next_gain
+src/audio/output.rs:83:29: replace << with >> in IntFormat::encode
