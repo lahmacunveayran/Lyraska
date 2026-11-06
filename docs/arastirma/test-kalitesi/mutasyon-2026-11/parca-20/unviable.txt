@@ -2,3 +2,7 @@ src/analysis/background.rs:73:9: replace CrashGuard::disabled -> Self with Defau
 src/analysis/beats.rs:238:5: replace segment_periods -> Option<Vec<(std::ops::Range<usize>, f64)>> with Some(vec![(Range::from_iter([1]), 0.0)])
 src/analysis/lyrics_model.rs:454:5: replace parse_tokens -> Result<(Vec<usize>, Vocabulary), ModelError> with Ok((vec![], Default::default()))
 src/analysis/meter.rs:66:9: replace Aksak::beat_grid -> BeatGrid with Default::default()
+src/analysis/tempo.rs:206:5: replace three_halves -> Option<BeatGrid> with Some(Default::default())
+src/audio/abx.rs:280:5: replace decode_segment -> Result<(Vec<Sample>, TrackInfo), AudioError> with Ok((vec![Default::default()], Default::default()))
+src/audio/bass.rs:234:9: replace BassPeakMeter::finish -> Option<BassPeaks> with Some(Default::default())
+src/audio/biquad.rs:204:9: replace Biquad::low_shelf -> Self with Default::default()
