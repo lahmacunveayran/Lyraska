@@ -75,3 +75,28 @@ src/analysis/meter.rs:240:24: replace * with + in correlation
 src/analysis/meter.rs:252:5: replace zscores -> Vec<f64> with vec![-1.0]
 src/analysis/spectrogram.rs:136:9: replace Spectrogram::is_truncated -> bool with true
 src/analysis/spectrogram.rs:215:38: replace * with + in Spectrogram::frame_at
+src/analysis/spectrogram.rs:260:9: replace Spectrogram::analysis_song_map -> Option<Arc<SongMap>> with None
+src/analysis/spectrogram.rs:396:9: replace Spectrogram::finish with ()
+src/analysis/spectrogram.rs:561:9: replace <impl ChunkSource for Decoder>::next_chunk -> Result<Option<&[Sample]>, AudioError> with Ok(None)
+src/analysis/spectrogram.rs:888:35: replace * with / in BandAnalyzer::process
+src/analysis/spectrogram.rs:924:39: replace * with + in band_centers
+src/analysis/structure.rs:136:9: replace SongMap::bars_confident -> bool with false
+src/analysis/structure.rs:183:52: replace / with % in map_song
+src/analysis/structure.rs:267:31: replace * with + in map_song
+src/analysis/structure.rs:323:34: replace / with % in map_song
+src/analysis/structure.rs:382:25: replace + with * in map_song
+src/analysis/structure.rs:442:5: replace choose_meter -> (usize, usize, f64) with (1, 1, 1.0)
+src/analysis/structure.rs:524:31: replace > with == in section_boundaries
+src/analysis/structure.rs:535:25: replace += with *= in section_boundaries
+src/analysis/structure.rs:589:38: replace - with / in label_sections
+src/analysis/structure.rs:634:5: replace drop_jumps -> (f64, f64, f64) with (-1.0, 0.0, -1.0)
+src/analysis/structure.rs:687:56: replace - with + in find_drops
+src/analysis/structure.rs:723:49: replace >= with < in find_drops
+src/analysis/structure.rs:782:20: replace - with / in refine_drop
+src/analysis/structure.rs:790:42: replace - with / in refine_drop
+src/analysis/structure.rs:842:28: replace * with + in drop_confidence
+src/analysis/structure.rs:871:5: replace zscores -> Vec<f64> with vec![0.0]
+src/analysis/tempo.rs:119:40: replace * with / in resolve_octave
+src/analysis/tempo.rs:153:34: replace < with == in resolve_octave
+src/analysis/tempo.rs:208:47: replace < with == in three_halves
+src/analysis/tempo.rs:238:73: replace * with + in position_peaks
