@@ -3,3 +3,6 @@ src/analysis/cache.rs:398:9: replace Row::into_cached -> Option<CachedAnalysis> 
 src/analysis/key.rs:242:5: replace song_key -> Option<MusicalKey> with Some(Default::default())
 src/analysis/lyrics_cache.rs:243:9: replace Header::parse -> Option<Self> with Some(Default::default())
 src/audio/biquad.rs:111:9: replace Spec::analog -> Complex<f64> with Complex::new(0.0)
+src/audio/biquad.rs:270:9: replace Biquad::bandpass -> Self with Default::default()
+src/audio/biquad.rs:526:9: replace Biquad::response -> Complex<f64> with Complex::new(-1.0)
+src/audio/decode.rs:896:5: replace read_cover -> Result<Option<Cover>, AudioError> with Ok(Some(Default::default()))

@@ -117,3 +117,33 @@ src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)>
 src/audio/biquad.rs:197:36: replace * with + in Biquad::peaking
 src/audio/biquad.rs:210:44: replace * with / in Biquad::low_shelf
 src/audio/biquad.rs:215:20: replace + with * in Biquad::low_shelf
+src/audio/biquad.rs:230:19: replace * with / in Biquad::high_shelf
+src/audio/biquad.rs:232:44: replace * with + in Biquad::high_shelf
+src/audio/biquad.rs:237:32: replace - with + in Biquad::high_shelf
+src/audio/biquad.rs:252:43: replace - with / in Biquad::lowpass
+src/audio/biquad.rs:284:25: replace / with * in Biquad::notch
+src/audio/biquad.rs:300:43: replace + with - in Biquad::allpass
+src/audio/biquad.rs:352:45: replace * with / in Biquad::matched
+src/audio/biquad.rs:379:54: replace + with - in Biquad::matched
+src/audio/biquad.rs:425:71: replace * with / in Biquad::matched
+src/audio/biquad.rs:551:9: replace Biquad::power_gain -> f64 with 1.0
+src/audio/biquad.rs:560:46: replace < with <= in Biquad::is_stable
+src/audio/biquad.rs:576:43: replace * with + in Biquad::max_zero_radius
+src/audio/biquad.rs:592:5: replace phi -> (f64, f64, f64) with (1.0, 0.0, -1.0)
+src/audio/biquad.rs:599:5: replace matched_poles -> (f64, f64) with (-1.0, 0.0)
+src/audio/biquad.rs:606:23: replace * with / in matched_poles
+src/audio/biquad.rs:645:23: replace + with - in factor
+src/audio/biquad.rs:661:5: replace min_phase -> [f64; 3] with [-1.0; 3]
+src/audio/biquad.rs:756:62: replace - with / in Grid::add_top
+src/audio/biquad.rs:791:19: replace <= with > in Grid::fit
+src/audio/biquad.rs:837:32: replace * with / in Grid::fit
+src/audio/crossfeed.rs:113:35: replace / with * in CrossfeedSettings::ratio
+src/audio/crossfeed.rs:221:48: delete - in SideFilter::response
+src/audio/crossfeed.rs:230:29: replace + with * in SideFilter::process
+src/audio/decode.rs:97:29: replace || with && in file_channel_layout
+src/audio/decode.rs:200:51: replace == with != in caf_declares_layout
+src/audio/decode.rs:402:38: replace - with + in Decoder::seek
+src/audio/decode.rs:1004:41: replace >> with << in base64
+src/audio/eq.rs:201:9: replace EqSettings::effective_bass -> (f64, bool) with (0.0, true)
+src/audio/eq.rs:354:9: replace EqControl::set -> EqSettings with Default::default()
+src/audio/eq.rs:421:22: replace * with + in Biquad::peaking

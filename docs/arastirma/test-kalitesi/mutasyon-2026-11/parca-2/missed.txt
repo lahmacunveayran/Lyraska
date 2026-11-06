@@ -30,3 +30,15 @@ src/analysis/tempo.rs:382:19: replace * with + in gap_coverage
 src/audio/bass.rs:370:14: replace < with <= in Octaver::process
 src/audio/bass.rs:586:62: replace < with <= in BassProcessor::step
 src/audio/bass.rs:622:22: replace * with + in BassProcessor::harmonics
+src/audio/biquad.rs:395:24: replace += with *= in Biquad::matched
+src/audio/biquad.rs:436:46: replace * with / in Biquad::matched
+src/audio/biquad.rs:488:30: replace * with + in Biquad::beyond_nyquist
+src/audio/biquad.rs:630:32: replace * with + in Power::at
+src/audio/biquad.rs:670:20: replace > with >= in min_phase
+src/audio/crossfeed.rs:205:32: replace / with * in SideFilter::design
+src/audio/crossfeed.rs:347:9: replace CrossfeedProcessor::begin_block with ()
+src/audio/decode.rs:164:21: replace | with ^ in caf_declares_layout
+src/audio/decode.rs:499:26: replace < with == in Decoder::next_chunk
+src/audio/decode.rs:613:54: replace match guard tags.track_number.is_none() with true in read_tags
+src/audio/decode.rs:730:22: replace || with && in make_decoder
+src/audio/decode.rs:781:14: replace > with < in media_duration
