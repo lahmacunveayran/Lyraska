@@ -66,8 +66,8 @@ Sıra önem sırasıdır. Her biri ayrı küçük PR.
 
 1. **Tam mutasyon taraması (bulutta):** yerelde 4 çekirdekle günler sürer. Bulutta `cargo mutants --shard k/n` ile
    parçalara bölünür, her parça ayrı oturumda; kaçanlar `AYIKLAMA.md` gibi sınıflanır. Sahibine soruldu, cevap yok.
-2. **EBU uyumu** (`claude/ebu-uyum`): incelemenin bulguları düzeltiliyor; uydurma kanal düzeni "bilinmiyor"
-   sayılacak, stereo/mono şarkılar yeniden çözülmesin diye göç, durum 20–23'ün sınırı üretecin kendi tepesine göre.
+2. **EBU uyumu** (`claude/ebu-uyum`): yapıldı (6 Kasım). Ağırlık kanalın yerinden (BS.1770-5), uydurma düzen
+   başlıktan anlaşılır (maskesiz WAV, `chan`'sız CAF, MP4 PCM), yalnızca çok kanallılar göçle yeniden ölçülür (V11).
 3. **CI'da sınanmayan kalite hedefleri** (Denetim-2 B3): 1080p dahili GPU'da 60 fps, 1 saat sıfır takılma, vuruş
    F-ölçüsü ≥ 0,80. Bugün yalnızca yerel araçlarla (`examples/`) ölçülüyor.
 4. **Zayıf doğrulamalar** (B9, B10): `shader.rs:1367` beklenen değeri kodun çıktısı; F-ölçüsü 70 ms sınırında `<`
@@ -79,7 +79,7 @@ Sıra önem sırasıdır. Her biri ayrı küçük PR.
    kez); `shader.rs:1278` duvar saatine bağlı; `PlaylistPage` çift tıklaması (`playRef` `useEffect`'te, önerilen
    `useLayoutEffect`; önce yakalayan test).
 7. **Bit-perfect ilk 10 ms** (B8): özel modda başlangıç geçişi bit bit aynı değil. Sahibinin kararı (5 Kasım):
-   "kalsın, belgeye yaz"; Ayarlar'daki bit-perfect yazısına da eklenecek.
+   "kalsın, belgeye yaz". Yapıldı (6 Kasım): `MIMARI.md`, `DOGRULAMA.md` B6 ve Ayarlar'daki bit-perfect yazısı.
 8. **Saat farkı ±5 ms:** durum sorgusu hiç 10 ms'den hızlı bitmezse ses–görüntü saat farkı ancak ±5 ms bilinir
    (`ClockOffset` tasarım payı); senkron hedefi ±20 ms olduğundan şimdilik yeter.
 9. **Denetim-3'ün kalan test bulguları:** TST-01, TST-06, TST-07b/c, TST-08 (`DENETIM-1.md` son bölüm).

@@ -191,8 +191,24 @@ CREATE TRIGGER IF NOT EXISTS lyrics_alignments_follow_tracks AFTER DELETE ON tra
 BEGIN DELETE FROM lyrics_alignments WHERE path = old.path; END;
 ";
 
+/// 11: çok kanallı şarkıların ses yüksekliği yeniden ölçülür. Kanal ağırlıkları artık kanalın
+/// yerinden gelir (BS.1770-5, `audio::loudness::channel_weights`); eskiden kanal sayısından
+/// veriliyordu ve 5.0'da çevre kanalları 1,0 sayılıyordu (EBU Tech 3341 durum 6: −23,39 LUFS).
+/// Tek ve iki kanallı seste ağırlıklar aynı kaldı (tek kanal 2,0; iki kanal 1,0 ve 1,0): onların
+/// kaydı geçerlidir. Bu yüzden parçanın sürümü (`analysis::cache::VERSIONS.loudness`) artırılmadı
+/// (bütün kütüphane yeniden çözülürdü); yalnızca kütüphanede ikiden çok kanallı görünen şarkıların
+/// ses yüksekliği sürümü 0 yapılır, arka plan analizi yalnızca onları yeniden çözer (kareler, ritim,
+/// bas, ton yeniden hesaplanmaz). Çok kanallıların bir kısmında da sonuç aynıdır (5.1 0x3F ve 0x60F,
+/// L R C); kanal düzeni önbellekte tutulmadığı için ayırt edilemez, hepsi bir kez yeniden ölçülür. Bilinen sınır: kütüphanede olmayan çok kanallı bir dosyanın eski
+/// kaydı (kanal sayısı önbellekte tutulmaz) eski ağırlıkla kalır, dosya değişince yenilenir.
+const V11: &str = "
+UPDATE analyses SET loudness_version = 0
+ WHERE loudness_version != 0
+   AND path IN (SELECT path FROM tracks WHERE channels > 2);
+";
+
 /// Sıralı göç adımları (bkz. modül belgesi). Yalnızca sona eklenir.
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11];
 
 /// Bu sürümün bildiği en yeni şema.
 pub const SCHEMA_VERSION: i64 = MIGRATIONS.len() as i64;
@@ -553,6 +569,79 @@ mod tests {
                 ("C:/Müzik/v3.flac".to_owned(), 1, 1, 1, 0, None),
                 ("C:/Müzik/v4.flac".to_owned(), 1, 1, 1, 0, None),
                 ("C:/Müzik/v5.flac".to_owned(), 1, 1, 1, 1, Some(48_000)),
+            ]
+        );
+    }
+
+    #[test]
+    fn cok_kanalli_sarkilarin_ses_yuksekligi_yeniden_olculur() {
+        // 10. adımın veritabanı: her şarkının analizi güncel (ses yüksekliği sürüm 1).
+        let mut conn = Connection::open_in_memory().unwrap();
+        apply(&mut conn, &MIGRATIONS[..10]).unwrap();
+        conn.execute("INSERT INTO folders (id, path) VALUES (1, 'C:/Müzik')", [])
+            .unwrap();
+        for (path, channels) in [("mono", 1), ("stereo", 2), ("lcr", 3), ("5.1", 6)] {
+            conn.execute(
+                "INSERT INTO tracks (folder_id, path, file_name, codec, sample_rate, channels,
+                     file_size, modified, sort_key, search)
+                 VALUES (1, ?1, ?1, 'flac', 48000, ?2, 1, 1, '', '')",
+                rusqlite::params![path, channels],
+            )
+            .unwrap();
+        }
+        // "disarida": kütüphanede değil (kanal sayısı bilinmiyor); "hic": hiç ölçülmemiş.
+        for (path, loudness) in [
+            ("mono", 1),
+            ("stereo", 1),
+            ("lcr", 1),
+            ("5.1", 1),
+            ("disarida", 1),
+            ("hic", 0),
+        ] {
+            conn.execute(
+                "INSERT INTO analyses (path, file_size, modified, version, frames, levels, meters,
+                     onset, spectrum_version, rhythm_version, loudness_version, bass_version,
+                     key_version)
+                 VALUES (?1, 1, 1, 6, 0, x'', x'', x'', 2, 9, ?2, 1, 1)",
+                rusqlite::params![path, loudness],
+            )
+            .unwrap();
+        }
+        migrate(&mut conn).unwrap();
+        assert_eq!(version(&conn), 11);
+        let mut stmt = conn
+            .prepare(
+                "SELECT path, spectrum_version, rhythm_version, loudness_version, bass_version,
+                        key_version
+                 FROM analyses ORDER BY path",
+            )
+            .unwrap();
+        let rows: Vec<(String, i64, i64, i64, i64, i64)> = stmt
+            .query_map([], |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                ))
+            })
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        // Yalnızca ikiden çok kanallıların ses yüksekliği yeniden ölçülür (0); başka parçaya ve
+        // tek/iki kanallılara dokunulmaz.
+        let row = |path: &str, loudness| (path.to_owned(), 2, 9, loudness, 1, 1);
+        assert_eq!(
+            rows,
+            [
+                row("5.1", 0),
+                row("disarida", 1),
+                row("hic", 0),
+                row("lcr", 0),
+                row("mono", 1),
+                row("stereo", 1),
             ]
         );
     }

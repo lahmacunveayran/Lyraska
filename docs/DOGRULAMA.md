@@ -224,6 +224,8 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 - Sonuç (5 Kasım 2026, sahibi): şarkı yerine "uyarı sesi gibi" vızıltı. Neden: yoklamalı özel mod Realtek'te
   arabelleği boşaltmıyordu; artık açılışta ölçülüp olaylı moda geçiliyor (Realtek'te 44,1/48/96 kHz 24 bit hız
   1,00). Yeniden denenecek: şarkı normal çalar; duraklat, sar ve şarkı sonu (B11) da denenir.
+- Bilinen ve kabul edilen (5 Kasım 2026, sahibinin kararı): başlarken, sarınca ve duraklatıp sürdürürken ses 10 ms'de
+  yumuşakça açılıp kapanır (tık olmasın); arada her örnek aynen gider. Ayarlar'daki yazıda da yazar.
 
 **B7. Uzun çalma, takılma yok**
 
