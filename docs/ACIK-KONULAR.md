@@ -16,8 +16,8 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 3. Kaynak ayrıştırma (6 Kasım kararı: bütün modeller yalnızca sahibinin bilgisayarında, harmanlanabilir): ölçü aleti
    #226; MUSDB18-HQ'da HTDemucs, SCNet XL IHF, BS-RoFormer ve harman karşılaştırması sürüyor (SDR + başlangıç F1 +
    zarf), sonra kazananın yolu (tract ya da RTX 4050 için GPU: sahibine sorulur). HRPS (#222) klasik yedek.
-4. Sahneler v2, sonra Otomatik DJ. Işık Ustası sahibinin kararıyla kaldırıldı (30 Ekim, "sıkıcı"); yeni sahne
-   fikri önce sahibine seçenek + önizlemeyle sorulur.
+4. Otomatik DJ (Faz 6–7). Sahneler v2 Faz 7'den sonra (sahibinin kararı, 6 Kasım; kaynak taramasını sahibi
+   yapıyor); yeni sahne fikri önce sahibine seçenek + önizlemeyle sorulur.
 5. En son: drop v2, karar **B** (ikisi programda, varsayılan eski, İşaretle'de yan yana; sahibinin işaretiyle seçim;
    `-yedek-drop` dalındaki `docs/arastirma/drop/DURUM.md`); önce DnB temposu (sürekli sub bas
    kick kanıtını örtüyor, `tempo.rs`) ve hip-hop drop'u; maksumda yanlış aksak (`meter.rs`).
