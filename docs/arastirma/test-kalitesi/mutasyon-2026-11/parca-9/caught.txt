@@ -148,3 +148,38 @@ src/audio/decode.rs:283:12: delete ! in Decoder::open
 src/audio/decode.rs:529:47: replace * with + in Decoder::next_chunk
 src/audio/eq.rs:63:29: replace * with +
 src/audio/eq.rs:224:9: replace EqSettings::effective_gains -> [f64; BANDS] with [0.0; BANDS]
+src/audio/eq.rs:423:26: replace * with + in Biquad::peaking
+src/audio/eq.rs:433:9: replace Biquad::shelf_terms -> (f64, f64, f64) with (-1.0, 0.0, -1.0)
+src/audio/eq.rs:446:55: replace / with * in Biquad::low_shelf
+src/audio/eq.rs:448:50: replace - with / in Biquad::low_shelf
+src/audio/eq.rs:450:33: replace - with + in Biquad::low_shelf
+src/audio/eq.rs:463:26: replace * with + in Biquad::high_shelf
+src/audio/eq.rs:465:34: replace - with / in Biquad::high_shelf
+src/audio/eq.rs:474:18: replace * with + in Biquad::response_db
+src/audio/eq.rs:478:66: replace * with + in Biquad::response_db
+src/audio/eq.rs:487:58: replace + with * in Biquad::power_gain
+src/audio/eq.rs:494:5: replace db_to_linear -> f64 with 1.0
+src/audio/eq.rs:545:26: replace * with / in Layout::tuned
+src/audio/eq.rs:561:59: replace * with / in Layout::tuned
+src/audio/eq.rs:604:47: replace + with * in design_point_hz
+src/audio/eq.rs:722:61: replace * with / in solve_gains
+src/audio/eq.rs:814:9: replace EqProcessor::boost_db -> f64 with 0.0
+src/audio/eq.rs:860:40: replace * with / in EqProcessor::process
+src/audio/gapless.rs:50:39: replace > with == in mp4_trim
+src/audio/gapless.rs:97:29: replace - with + in find_top_level
+src/audio/gapless.rs:151:53: replace == with != in walk_track
+src/audio/gapless.rs:175:30: replace + with * in next_box
+src/audio/limiter.rs:121:9: replace Limiter::latency_frames -> usize with 1
+src/audio/limiter.rs:198:53: replace % with + in Limiter::next_gain
+src/audio/limiter.rs:241:28: replace / with % in interpolator
+src/audio/limiter.rs:246:30: replace / with % in interpolator
+src/audio/loudness.rs:79:31: replace + with * in Biquad::process
+src/audio/loudness.rs:103:26: replace / with % in k_weighting
+src/audio/loudness.rs:107:19: replace * with + in k_weighting
+src/audio/loudness.rs:115:19: replace * with / in k_weighting
+src/audio/loudness.rs:228:5: replace default_layout -> Option<u64> with Some(0)
+src/audio/loudness.rs:279:33: replace & with | in channel_weights
+src/audio/loudness.rs:332:25: replace += with *= in LoudnessMeter::add
+src/audio/loudness.rs:369:73: replace + with - in LoudnessMeter::finish
+src/audio/lyrics.rs:301:30: replace - with / in parse
+src/audio/lyrics.rs:377:22: replace match guard c.len() == 2 && b.len() == 2 && !c.contains('.') with false in parse_time
