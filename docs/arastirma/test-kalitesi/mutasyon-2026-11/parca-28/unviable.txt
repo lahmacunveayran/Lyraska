@@ -12,3 +12,5 @@ src/analysis/structure.rs:183:5: replace map_song -> Option<SongMap> with Some(D
 src/audio/biquad.rs:224:9: replace Biquad::high_shelf -> Self with Default::default()
 src/audio/biquad.rs:526:9: replace Biquad::response -> Complex<f64> with Complex::new(0.0)
 src/audio/decode.rs:385:9: replace Decoder::info -> &TrackInfo with Box::leak(Box::new(Default::default()))
+src/audio/loudness.rs:303:9: replace LoudnessMeter::with_layout -> Self with Default::default()
+src/audio/lyrics.rs:137:5: replace choose -> Option<Lyrics> with Some(Default::default())
