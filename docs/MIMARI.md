@@ -48,6 +48,11 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
 ```
 
 - İç işlem 64-bit kayan noktadır; dönüşüm yalnızca çözme girişinde ve aygıt çıkışında yapılır.
+- **Oturum geçişi** (`player/transition.rs`: yeni şarkı, sarma, durdurma, aygıt değişimi): kilit altında başlar,
+  hazırlık (dosya, ön dolum, aygıt) kilit dışında, takma kilit altında. Üst üste gelen geçişler (ör. "Önceki"ye
+  iki hızlı basış) tek sırada hazırlanır: ses aygıtında aynı anda tek akış vardır, eskimiş hazırlık aygıtı
+  açmaz, eski oturumlar kısılarak kapanır (Denetim 3, RTS-01; testler sanal aygıtın akış kaydıyla ölçer:
+  `player::tests::sarma_ve_acma_ust_uste_gelince_tek_oturum_calar` ve yanındakiler). Kör test bu sıranın dışında.
 - EQ, kulaklık ve eşitleme ayarları ses iş parçacığına kilitsiz (atomik) iletilir; değişiklik yumuşakça uygulanır.
 - **Süzgeç tasarımı** (`audio/biquad.rs`): sekiz tür (tepe, alçak/yüksek raf, alçak/yüksek/bant geçiren, çentik,
   tüm geçiren), iki yöntem:

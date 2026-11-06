@@ -34,6 +34,7 @@ impl Player {
         let pending = self.pending.take();
         if pending.is_some() {
             self.transition_seq += 1;
+            self.gate.begin(self.transition_seq);
         }
         if self.abx_resume.is_none() {
             self.abx_resume = self

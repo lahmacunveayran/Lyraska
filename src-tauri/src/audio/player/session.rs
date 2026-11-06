@@ -180,6 +180,13 @@ impl SharedState {
         Some((segment.info.clone(), seconds, index))
     }
 
+    /// Oturumun ilk şarkısının yolu (sanal çıkışın test kaydı için).
+    #[cfg(test)]
+    pub(crate) fn first_path(&self) -> Option<PathBuf> {
+        let segments = self.segments.lock().ok()?;
+        segments.first().map(|segment| segment.info.path.clone())
+    }
+
     /// Şu an duyulan şarkının oturumdaki sırası.
     pub(super) fn now_playing_index(&self) -> Option<usize> {
         let heard = self.output_heard.load(Ordering::Acquire);

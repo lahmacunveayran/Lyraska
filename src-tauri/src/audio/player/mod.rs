@@ -181,6 +181,8 @@ pub struct Player {
     abx_resume: Option<(PathBuf, f64)>,
     /// Son başlatılan geçişin sırası: eskisi sonradan bitse de takılmaz.
     transition_seq: u64,
+    /// Geçişlerin sırası (RTS-01): hazırlıklar arasında paylaşılır.
+    gate: Arc<transition::TransitionGate>,
     /// Kilit dışında süren geçiş (durum sorgusu için).
     pending: Option<PendingTransition>,
     /// Aygıt değişiminde art arda yapılan otomatik yeniden açma sayısı.
@@ -225,6 +227,8 @@ impl Player {
             }
         }
         self.retire_session();
+        // Hazırlığı henüz başlamamış geçişlerin kapattığı oturumlar da (kapanış, kör test).
+        self.gate.close_retired();
     }
 
     /// Oturumu kapatır; duyulan boşluksuz geçişleri sayaca ekler (sayaç yalnızca artar).
