@@ -30,3 +30,34 @@ src/analysis/key.rs:454:33: replace += with -= in ChromaAnalyzer::process
 src/analysis/key.rs:507:31: replace * with + in quantize
 src/analysis/levels.rs:82:14: replace + with - in decode_db
 src/analysis/levels.rs:124:29: replace - with / in vu_reference_db
+src/analysis/lyrics_align.rs:184:20: replace + with * in states
+src/analysis/lyrics_align.rs:257:5: replace viterbi -> Result<Vec<usize>, AlignError> with Ok(vec![1])
+src/analysis/lyrics_align.rs:337:49: replace * with / in entry_mass
+src/analysis/lyrics_align.rs:382:17: replace < with > in entry_mass
+src/analysis/lyrics_align.rs:401:23: replace + with - in entry_mass
+src/analysis/lyrics_align.rs:412:39: replace + with * in entry_mass
+src/analysis/lyrics_align.rs:438:19: replace / with % in median
+src/analysis/lyrics_align.rs:587:20: replace > with < in align
+src/analysis/lyrics_cache.rs:169:12: delete ! in StoredEmissions::decode
+src/analysis/lyrics_cache.rs:252:16: delete ! in Header::parse
+src/analysis/lyrics_job.rs:80:9: replace ModelSlot::model_sha256 -> &str with "xyzzy"
+src/analysis/lyrics_job.rs:194:75: replace <= with > in AutoAlignment::valid
+src/analysis/lyrics_job.rs:350:18: replace += with -= in spoken_spans
+src/analysis/lyrics_model.rs:58:32: replace * with +
+src/analysis/lyrics_model.rs:172:39: replace > with < in read_limited
+src/analysis/lyrics_model.rs:236:5: replace dequantize_matmuls -> usize with 0
+src/analysis/lyrics_model.rs:327:83: replace || with && in dequantize_matmuls
+src/analysis/lyrics_model.rs:434:33: replace == with != in dequantize_matmuls
+src/analysis/lyrics_model.rs:573:9: replace LyricsModel::run_window -> Result<Vec<f32>, ModelError> with Ok(vec![-1.0])
+src/analysis/lyrics_model.rs:624:24: replace > with == in LyricsModel::emissions
+src/analysis/lyrics_model.rs:677:48: replace * with + in LyricsModel::emissions
+src/analysis/lyrics_model.rs:700:51: replace * with / in LyricsModel::emissions
+src/analysis/lyrics_text.rs:116:5: replace compose -> String with "xyzzy".into()
+src/analysis/lyrics_text.rs:195:30: replace >= with < in detect_language
+src/analysis/lyrics_text.rs:254:50: replace || with && in repeat_count
+src/analysis/lyrics_text.rs:361:42: replace || with && in parse_header_words
+src/analysis/lyrics_text.rs:492:5: replace is_credit -> bool with true
+src/analysis/lyrics_text.rs:579:5: replace turkish_ordinal -> String with String::new()
+src/analysis/lyrics_text.rs:668:13: replace % with + in english_year
+src/analysis/lyrics_text.rs:746:16: replace && with || in read_number
+src/analysis/lyrics_text.rs:792:30: replace - with / in read_number
