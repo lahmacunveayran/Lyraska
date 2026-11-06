@@ -120,3 +120,35 @@ src/audio/biquad.rs:235:45: replace + with * in Biquad::high_shelf
 src/audio/biquad.rs:244:35: replace * with / in Biquad::lowpass
 src/audio/biquad.rs:259:37: replace / with * in Biquad::highpass
 src/audio/biquad.rs:271:27: replace * with + in Biquad::bandpass
+src/audio/biquad.rs:286:19: delete - in Biquad::notch
+src/audio/biquad.rs:301:32: replace * with / in Biquad::allpass
+src/audio/biquad.rs:353:27: replace * with + in Biquad::matched
+src/audio/biquad.rs:381:56: replace * with / in Biquad::matched
+src/audio/biquad.rs:427:29: replace += with -= in Biquad::matched
+src/audio/biquad.rs:449:41: replace match guard error <= rbj_error + 1e-9 with true in Biquad::matched
+src/audio/biquad.rs:490:40: replace * with / in Biquad::beyond_nyquist
+src/audio/biquad.rs:528:47: replace + with - in Biquad::response
+src/audio/biquad.rs:553:29: replace + with * in Biquad::power_gain
+src/audio/biquad.rs:583:25: replace * with + in Biquad::process
+src/audio/biquad.rs:592:5: replace phi -> (f64, f64, f64) with (1.0, -1.0, 1.0)
+src/audio/biquad.rs:607:15: replace + with - in matched_poles
+src/audio/biquad.rs:634:9: replace Power::at_phi -> f64 with 1.0
+src/audio/biquad.rs:646:22: replace * with / in factor
+src/audio/biquad.rs:662:35: replace * with + in min_phase
+src/audio/biquad.rs:677:15: replace * with + in min_phase
+src/audio/biquad.rs:757:47: replace * with + in Grid::add_top
+src/audio/biquad.rs:794:50: replace / with * in Grid::fit
+src/audio/biquad.rs:844:47: replace / with % in Grid::fit
+src/audio/crossfeed.rs:201:22: replace * with + in SideFilter::design
+src/audio/crossfeed.rs:211:28: replace / with % in SideFilter::design
+src/audio/crossfeed.rs:222:53: replace * with + in SideFilter::response
+src/audio/crossfeed.rs:231:26: replace * with + in SideFilter::process
+src/audio/crossfeed.rs:357:34: replace < with > in CrossfeedProcessor::begin_block
+src/audio/decode.rs:106:9: delete match arm "caf" in header_declares_layout
+src/audio/decode.rs:409:36: replace + with * in Decoder::seek
+src/audio/decode.rs:525:44: replace * with + in Decoder::next_chunk
+src/audio/decode.rs:789:5: replace is_matroska_file -> bool with false
+src/audio/eq.rs:201:9: replace EqSettings::effective_bass -> (f64, bool) with (-1.0, false)
+src/audio/eq.rs:423:22: replace + with - in Biquad::peaking
+src/audio/eq.rs:433:9: replace Biquad::shelf_terms -> (f64, f64, f64) with (-1.0, 0.0, 0.0)
+src/audio/eq.rs:444:33: replace - with / in Biquad::low_shelf
