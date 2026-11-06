@@ -118,3 +118,33 @@ src/audio/biquad.rs:212:50: replace - with / in Biquad::low_shelf
 src/audio/biquad.rs:217:27: replace + with - in Biquad::low_shelf
 src/audio/biquad.rs:231:32: replace - with + in Biquad::high_shelf
 src/audio/biquad.rs:236:27: replace - with + in Biquad::high_shelf
+src/audio/biquad.rs:251:19: replace - with + in Biquad::lowpass
+src/audio/biquad.rs:263:33: delete - in Biquad::highpass
+src/audio/biquad.rs:274:62: delete - in Biquad::bandpass
+src/audio/biquad.rs:296:37: replace / with * in Biquad::allpass
+src/audio/biquad.rs:343:43: replace >= with < in Biquad::matched
+src/audio/biquad.rs:378:36: replace + with - in Biquad::matched
+src/audio/biquad.rs:431:29: replace > with < in Biquad::matched
+src/audio/biquad.rs:477:50: replace > with < in Biquad::beyond_nyquist
+src/audio/biquad.rs:529:22: replace * with / in Biquad::response
+src/audio/biquad.rs:554:38: replace * with + in Biquad::power_gain
+src/audio/biquad.rs:571:17: replace / with % in Biquad::max_zero_radius
+src/audio/biquad.rs:585:28: replace * with / in Biquad::process
+src/audio/biquad.rs:593:25: replace * with + in phi
+src/audio/biquad.rs:601:40: replace * with + in matched_poles
+src/audio/biquad.rs:624:27: replace * with + in Power::of
+src/audio/biquad.rs:641:5: replace factor -> Option<[f64; 3]> with Some([0.0; 3])
+src/audio/biquad.rs:667:27: replace + with - in min_phase
+src/audio/biquad.rs:700:34: replace + with -
+src/audio/biquad.rs:775:18: replace += with *= in Grid::push
+src/audio/biquad.rs:807:27: replace * with + in Grid::fit
+src/audio/biquad.rs:916:9: replace Ceiling::excess -> f64 with 0.0
+src/audio/crossfeed.rs:204:20: replace / with * in SideFilter::design
+src/audio/crossfeed.rs:219:9: replace SideFilter::response -> (f64, f64) with (0.0, 1.0)
+src/audio/crossfeed.rs:224:14: replace * with + in SideFilter::response
+src/audio/crossfeed.rs:306:67: replace * with + in Stage::process
+src/audio/crossfeed.rs:379:26: replace - with + in CrossfeedProcessor::process_frame
+src/audio/decode.rs:453:20: replace * with + in Decoder::seek
+src/audio/decode.rs:545:54: replace * with / in Decoder::next_chunk
+src/audio/decode.rs:696:19: replace match guard e.error_len().is_none() && !bytes[..e.valid_up_to()].is_ascii() with false in id3v1_text
+src/audio/decode.rs:984:26: replace > with < in image_type

@@ -27,3 +27,13 @@ src/audio/abx.rs:596:9: replace Playback::pause with ()
 src/audio/bass.rs:362:72: replace * with + in Octaver::process
 src/audio/bass.rs:620:27: replace - with + in BassProcessor::harmonics
 src/audio/bass.rs:681:51: replace + with - in BassProcessor::process_frame
+src/audio/biquad.rs:388:62: replace * with + in Biquad::matched
+src/audio/biquad.rs:414:43: replace == with != in Biquad::matched
+src/audio/biquad.rs:498:38: replace * with + in Biquad::beyond_nyquist
+src/audio/biquad.rs:652:18: replace || with && in factor
+src/audio/decode.rs:136:40: replace + with - in wave_channel_mask
+src/audio/decode.rs:170:21: replace | with ^ in caf_declares_layout
+src/audio/decode.rs:325:33: replace + with - in Decoder::open
+src/audio/decode.rs:758:27: replace & with | in opus_packet_frames
+src/audio/decode.rs:822:10: replace > with < in matroska_duration
+src/audio/eq.rs:194:17: replace || with && in EqSettings::is_active
