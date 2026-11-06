@@ -94,3 +94,42 @@ src/analysis/tempo.rs:300:5: replace accent_envelope -> Vec<f64> with vec![-1.0]
 src/analysis/tempo.rs:401:5: replace noise_envelope -> Vec<f64> with vec![-1.0]
 src/analysis/tempo.rs:436:54: replace * with + in peaks
 src/audio/abx.rs:369:26: replace - with + in prepare
+src/audio/abx.rs:400:38: replace / with % in prepare
+src/audio/abx.rs:489:57: replace + with - in Mixer::fill
+src/audio/bass.rs:119:5: replace harmonic_amount -> f64 with -1.0
+src/audio/bass.rs:147:5: replace small_speaker_boost_db -> f64 with 0.0
+src/audio/bass.rs:219:18: replace += with *= in BassPeakMeter::add
+src/audio/bass.rs:361:51: replace * with + in Octaver::process
+src/audio/bass.rs:379:38: replace + with * in Octaver::process
+src/audio/bass.rs:395:37: replace * with / in Octaver::process
+src/audio/bass.rs:551:37: replace && with || in BassProcessor::begin_block
+src/audio/bass.rs:618:22: replace / with * in BassProcessor::harmonics
+src/audio/bass.rs:624:36: replace * with + in BassProcessor::harmonics
+src/audio/bass.rs:669:44: replace * with + in BassProcessor::process_frame
+src/audio/biquad.rs:141:52: replace < with == in Spec::is_flat
+src/audio/biquad.rs:173:22: replace / with % in Biquad::normalized
+src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((0.0, -1.0, 1.0, -1.0))
+src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((-1.0, 0.0, 0.0, 1.0))
+src/audio/biquad.rs:198:47: replace - with + in Biquad::peaking
+src/audio/biquad.rs:211:43: replace + with * in Biquad::low_shelf
+src/audio/biquad.rs:216:40: replace + with - in Biquad::low_shelf
+src/audio/biquad.rs:231:22: replace * with / in Biquad::high_shelf
+src/audio/biquad.rs:236:21: replace * with + in Biquad::high_shelf
+src/audio/biquad.rs:249:32: replace * with + in Biquad::lowpass
+src/audio/biquad.rs:263:26: replace / with % in Biquad::highpass
+src/audio/biquad.rs:274:53: replace + with - in Biquad::bandpass
+src/audio/biquad.rs:293:20: replace >= with < in Biquad::allpass
+src/audio/biquad.rs:309:59: replace * with / in Biquad::design
+src/audio/biquad.rs:374:13: delete match arm Kind::Notch in Biquad::matched
+src/audio/biquad.rs:407:33: replace * with + in Biquad::matched
+src/audio/biquad.rs:428:48: replace * with / in Biquad::matched
+src/audio/biquad.rs:492:63: replace * with + in Biquad::beyond_nyquist
+src/audio/biquad.rs:529:47: replace + with * in Biquad::response
+src/audio/biquad.rs:554:29: replace + with - in Biquad::power_gain
+src/audio/biquad.rs:569:34: replace * with / in Biquad::max_zero_radius
+src/audio/biquad.rs:584:42: replace * with / in Biquad::process
+src/audio/biquad.rs:592:5: replace phi -> (f64, f64, f64) with (-1.0, -1.0, 1.0)
+src/audio/biquad.rs:601:26: replace * with + in matched_poles
+src/audio/biquad.rs:623:26: replace + with - in Power::of
+src/audio/biquad.rs:634:40: replace * with / in Power::at_phi
+src/audio/biquad.rs:651:18: replace * with + in factor
