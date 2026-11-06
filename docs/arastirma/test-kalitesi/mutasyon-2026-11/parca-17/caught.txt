@@ -186,3 +186,19 @@ src/audio/peq.rs:896:30: replace * with + in response_curve
 src/audio/peq.rs:941:10: replace * with + in loudness_gain_db_at
 src/audio/peq.rs:1110:38: replace == with != in Bank::is_bypass
 src/audio/punch.rs:182:9: replace Punch::update_gain with ()
+src/audio/render.rs:227:28: replace *= with += in Renderer::render
+src/audio/resample.rs:109:34: replace / with % in Converter::process
+src/audio/resample.rs:166:41: replace * with + in Converter::run_blocks
+src/audio/spectrum.rs:86:9: replace Transform::magnitudes -> Vec<Sample> with vec![Default::default()]
+src/audio/spectrum.rs:130:24: replace / with % in level
+src/audio/waveform.rs:81:9: replace Halving::push -> Option<[f64; 2]> with Some([-1.0; 2])
+src/audio/waveform.rs:149:34: replace / with * in Decimator::interpolate
+src/audio/waveform.rs:244:9: replace WaveformTap::write with ()
+src/audio/waveform.rs:287:26: replace - with / in WaveformTap::read_window
+src/audio/waveform.rs:366:40: replace + with * in mono_mix
+src/audio/player/controls.rs:35:9: replace Player::parametric_comparing -> bool with true
+src/audio/player/next_track.rs:58:16: delete ! in SharedState::next_consumed
+src/audio/player/session.rs:123:9: replace SharedState::heard_with_time -> (u64, Option<u64>) with (0, None)
+src/audio/player/session.rs:158:9: replace SharedState::playing_at -> Option<(TrackInfo, f64)> with None
+src/audio/player/session.rs:206:9: replace SharedState::error -> Option<String> with Some(String::new())
+src/audio/player/visuals.rs:113:9: replace Player::visual_waveform_ahead -> Option<Vec<u8>> with Some(vec![])

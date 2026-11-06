@@ -12,3 +12,4 @@ src/audio/abx.rs:137:9: replace AbxStatus::inactive -> Self with Default::defaul
 src/audio/biquad.rs:320:9: replace Biquad::rbj -> Self with Default::default()
 src/audio/eq.rs:580:9: replace Layout::tail -> Biquad with Default::default()
 src/audio/player/mod.rs:202:9: replace Player::load -> Result<TrackInfo, AudioError> with Ok(Default::default())
+src/audio/player/session.rs:352:9: replace Session::now_playing_timed -> (TrackInfo, f64, Option<u64>, usize) with (Default::default(), -1.0, None, 0)

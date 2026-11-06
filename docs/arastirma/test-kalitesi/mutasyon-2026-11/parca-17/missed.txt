@@ -57,3 +57,9 @@ src/audio/lyrics.rs:399:81: replace == with != in is_id_tag
 src/audio/normalize.rs:461:9: replace Leveler::headroom_db -> f64 with 1.0
 src/audio/punch.rs:133:9: replace Punch::flush with ()
 src/audio/punch.rs:199:20: replace - with + in Punch::update_gain
+src/audio/waveform.rs:333:72: replace + with * in GainCursor<'a>::at
+src/audio/player/song_maps.rs:41:46: replace / with % in Player::export_song_map
+src/audio/player/track_analysis.rs:167:9: replace <impl Drop for Analysis>::drop with ()
+src/audio/player/transition.rs:187:17: replace && with || in Player::prepare
+src/audio/player/visuals.rs:188:29: replace + with - in Player::visual_eq_offsets
+src/audio/player/visuals.rs:250:35: replace && with || in SharedState::window_gains
