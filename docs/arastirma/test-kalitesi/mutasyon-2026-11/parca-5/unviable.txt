@@ -1,3 +1,5 @@
 src/audio/mod.rs:95:9: replace <impl From<symphonia::core::errors::Error> for AudioError>::from -> Self with Default::default()
 src/analysis/annotation.rs:226:5: replace read -> Option<Annotation> with Some(Default::default())
 src/analysis/background.rs:191:5: replace read_strikes -> std::collections::HashMap<(PathBuf, FileStamp), u32> with HashMap::new()
+src/analysis/lyrics_job.rs:75:9: replace ModelSlot::product -> Self with Default::default()
+src/analysis/lyrics_worker.rs:139:9: replace LyricsWorker::start_with -> Self with Default::default()
