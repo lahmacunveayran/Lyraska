@@ -197,7 +197,9 @@ function MilkDropCanvas({ playing, safe, controls }: Required<MilkDropSceneProps
       return;
     }
     canvas.dataset.gpu = gpuName(gl);
-    const setup = createFlashGuard(gl, { safe: safeRef.current });
+    // Kırmızı kanal da sınırlanır (güvenli modda; ITU-R BT.1702-3 doygun kırmızıya geçişi parlaklıktan
+    // bağımsız olarak zararlı sayar). Proje sahibinin onayı, 6 Kasım 2026: güvenli modu yalnızca sıkılaştırır.
+    const setup = createFlashGuard(gl, { safe: safeRef.current, red: true });
     let guard: FlashGuard | null = null;
     // Fren kurulamazsa varsayılan modda görüntü frensiz gösterilir (ayrı 2D tuvalde).
     const raw = setup.ok ? null : rawRef.current;

@@ -321,9 +321,10 @@ Tasarım tavanları (gök, otoyol, sahne ışığı ve galeri parlaklık bantlar
     `320 · s_r · N⁺/N` değişir (`flashGuardMath.ts` 9. adım; test: aynı parlaklıkta kırmızı ↔ gri 10 Hz).
     `primeSource`: durum frensiz o kareye gelir (varsayılan modda her karede; güvenli modda yalnızca "Kendi resmin"
     ilk gösterilirken, sabit resmin belirmesi gibi tek geçiş).
-  - Bilinen sınırlar: (1) MilkDrop'ta kırmızı kanal kapalı: aynı parlaklıkta kırmızı ↔ başka renk titreşimi
-    (WCAG "red flash") orada parlaklık frenine görünmez; doymuş kırmızı ↔ karanlık geçişleri sınırlıdır. Açmak tek
-    satır, ama kırmızı içerik daha yavaş değişir (proje sahibinin kararı bekleniyor). Kapılı PEAT ölçüsü (doygun
+  - Bilinen sınırlar: (1) Kırmızı kanal MilkDrop'ta da açık (6 Kasım 2026, sahibinin onayı; ITU-R BT.1702-3):
+    aynı parlaklıkta kırmızı ↔ başka renk titreşimi (WCAG "red flash") güvenli modda sınırlanır; bedeli kırmızı
+    içeriğin daha yavaş değişmesi. Sahne denetiminin kırmızı denemesi (`lyraska-kirmizi.*`: doygun kırmızı ↔ aynı
+    parlaklıkta gri, saniyede dört kez) frenli görüntüde ≤ 1 kırmızı parlama/sn ister. Kapılı PEAT ölçüsü (doygun
     olmayan renk 0) süreksizdir: doygunluk sınırında görünmez bir renk değişimi değeri sıçratabilir; fren sürekli
     (WCAG çalışma tanımı) değeri sınırlar. (2) Fren hızlı hareketi de yavaşlatır (iz bırakır): desen sınırı piksel başına çalıştığı için ince
     ve hızlı ayrıntı (keskin dalga çizgileri, ince doku) da yavaşlar; yavaş ya da yumuşak değişim (piksel başına

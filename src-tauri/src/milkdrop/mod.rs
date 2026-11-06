@@ -557,8 +557,9 @@ mod tests {
         // Sahne denetimi (`scripts/check-scenes.mjs`) sahte çekirdekte bu JSON'u döndürür: gerçek
         // tarayıcıda denenen preset, bu ayrıştırıcının çıktısıyla birebir aynıdır.
         // İkincisi (döngü denemesi) çok büyük `loop`'un kırpılmış hâlini taşır.
+        // Dördüncüsü (kırmızı denemesi) parlaklığı değişmeden kırmızı parlar (güvenli modda kırmızı fren).
         let folder = fixture("");
-        for name in ["lyraska-parlama", "lyraska-dongu", "lyraska-golge"] {
+        for name in ["lyraska-parlama", "lyraska-dongu", "lyraska-golge", "lyraska-kirmizi"] {
             let loaded = load(Some(&folder), &fixture(&format!("{name}.milk"))).unwrap();
             assert!(!loaded.simplified, "{name}: {:?}", loaded.shader_error);
             if std::env::var_os("LYRASKA_FIXTURE_WRITE").is_some() {
