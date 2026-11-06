@@ -1,0 +1,36 @@
+src/analysis/beats.rs:96:44: replace < with > in BeatGrid::position_at
+src/analysis/beats.rs:207:41: replace * with + in track
+src/analysis/beats.rs:295:5: replace track_period -> Option<(Vec<f64>, Vec<f64>)> with Some((vec![1.0], vec![]))
+src/analysis/beats.rs:325:5: replace mean_interval -> f64 with 0.0
+src/analysis/beats.rs:349:34: replace + with - in normalize
+src/analysis/beats.rs:367:5: replace estimate_period_with_strength -> Option<(f64, f64)> with Some((1.0, 1.0))
+src/analysis/beats.rs:379:43: replace / with * in estimate_period_with_strength
+src/analysis/beats.rs:404:54: replace + with - in estimate_period_with_strength
+src/analysis/beats.rs:431:33: replace > with < in pulse_clarity
+src/analysis/beats.rs:468:31: replace + with * in smooth
+src/analysis/beats.rs:501:37: replace + with * in dynamic_beats
+src/analysis/beats.rs:547:26: replace < with == in parabola
+src/analysis/cache.rs:240:60: replace != with == in AnalysisCache::load
+src/analysis/cache.rs:469:44: replace - with / in undelta
+src/analysis/evaluate.rs:134:57: replace < with > in f_measure
+src/analysis/evaluate.rs:153:5: replace tap_offset -> f64 with -1.0
+src/analysis/fingerprint.rs:48:57: replace / with *
+src/analysis/fingerprint.rs:181:31: replace / with * in BandPrint::from_levels_at
+src/analysis/fingerprint.rs:231:63: replace / with * in BandPrint::align_to_levels
+src/analysis/fingerprint.rs:319:30: replace + with * in ChromaPrint::from_chroma
+src/analysis/fingerprint.rs:352:32: replace & with | in ChromaPrint::compare
+src/analysis/fingerprint.rs:399:48: replace + with - in band_word
+src/analysis/fingerprint.rs:424:27: replace << with >> in chroma_word
+src/analysis/key.rs:191:21: replace < with == in KeyAnalysis::key_between
+src/analysis/key.rs:270:45: replace match guard windows >= 2 && weight >= VOTE_MAJORITY * total with false in song_key
+src/analysis/key.rs:303:5: replace correlation -> Option<f64> with None
+src/analysis/key.rs:312:47: replace || with && in correlation
+src/analysis/key.rs:410:25: replace * with / in ChromaAnalyzer::process
+src/analysis/key.rs:437:45: replace + with * in ChromaAnalyzer::process
+src/analysis/key.rs:445:42: replace / with * in ChromaAnalyzer::process
+src/analysis/key.rs:488:18: replace <= with > in fold
+src/analysis/levels.rs:55:54: replace / with * in LevelAccumulator::finish
+src/analysis/levels.rs:112:20: replace < with == in vu_reference_db
+src/analysis/lyrics_align.rs:95:9: replace LineTiming::low_confidence -> bool with false
+src/analysis/lyrics_align.rs:193:5: replace log_add -> f64 with -1.0
+src/analysis/lyrics_align.rs:228:34: replace * with / in skip_arcs
