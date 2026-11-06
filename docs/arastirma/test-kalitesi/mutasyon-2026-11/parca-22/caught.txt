@@ -82,3 +82,40 @@ src/analysis/structure.rs:531:48: replace + with * in section_boundaries
 src/analysis/structure.rs:576:25: replace * with / in label_sections
 src/analysis/structure.rs:634:5: replace drop_jumps -> (f64, f64, f64) with (1.0, 1.0, 1.0)
 src/analysis/structure.rs:675:59: replace + with - in find_drops
+src/analysis/structure.rs:776:32: replace + with * in refine_drop
+src/analysis/structure.rs:790:31: replace - with + in refine_drop
+src/analysis/structure.rs:821:72: replace - with / in drop_confidence
+src/analysis/structure.rs:842:53: replace + with * in drop_confidence
+src/analysis/structure.rs:861:36: replace / with * in mean
+src/analysis/tempo.rs:109:29: replace < with > in resolve_octave
+src/analysis/tempo.rs:145:75: replace < with == in resolve_octave
+src/analysis/tempo.rs:207:22: replace * with / in three_halves
+src/analysis/tempo.rs:234:5: replace position_peaks -> Vec<f64> with vec![-1.0]
+src/analysis/tempo.rs:262:21: replace / with * in retrack
+src/analysis/tempo.rs:309:5: replace band_rise -> Vec<f64> with vec![-1.0]
+src/analysis/tempo.rs:359:5: replace offbeat_ratio -> f64 with 1.0
+src/analysis/tempo.rs:423:5: replace peaks -> (Vec<f64>, Vec<f64>) with (vec![], vec![])
+src/analysis/tempo.rs:437:47: replace + with - in peaks
+src/audio/abx.rs:173:16: replace > with == in binomial_tail
+src/audio/abx.rs:281:19: replace > with < in decode_segment
+src/audio/abx.rs:331:32: replace + with * in find_offset
+src/audio/abx.rs:402:61: replace * with + in prepare
+src/audio/abx.rs:423:47: replace * with + in prepare
+src/audio/abx.rs:491:28: replace + with * in Mixer::fill
+src/audio/bass.rs:119:35: replace - with / in harmonic_amount
+src/audio/bass.rs:148:49: replace / with * in small_speaker_boost_db
+src/audio/bass.rs:234:24: replace > with < in BassPeakMeter::finish
+src/audio/bass.rs:362:48: replace - with + in Octaver::process
+src/audio/bass.rs:388:19: replace += with -= in Octaver::process
+src/audio/bass.rs:512:13: replace && with || in BassProcessor::is_bypass
+src/audio/bass.rs:558:56: replace == with != in BassProcessor::begin_block
+src/audio/bass.rs:620:22: replace * with + in BassProcessor::harmonics
+src/audio/biquad.rs:116:46: replace / with % in Spec::analog
+src/audio/biquad.rs:119:57: replace * with + in Spec::analog
+src/audio/biquad.rs:126:34: replace * with + in Spec::analog
+src/audio/biquad.rs:129:45: replace + with - in Spec::analog
+src/audio/biquad.rs:146:9: replace Spec::pole -> (f64, f64) with (1.0, 0.0)
+src/audio/biquad.rs:176:22: replace / with % in Biquad::normalized
+src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((1.0, 0.0, 0.0, -1.0))
+src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((-1.0, 0.0, -1.0, 1.0))
+src/audio/biquad.rs:186:27: replace * with / in Biquad::shape
