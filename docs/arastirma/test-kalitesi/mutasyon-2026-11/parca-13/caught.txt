@@ -161,3 +161,40 @@ src/audio/eq.rs:677:9: replace Design::peak_db -> f64 with -1.0
 src/audio/eq.rs:819:9: replace EqProcessor::begin_block with ()
 src/audio/eq.rs:869:39: replace <= with > in EqProcessor::step
 src/audio/gapless.rs:51:58: replace / with * in mp4_trim
+src/audio/gapless.rs:180:32: replace == with != in header_timescale
+src/audio/limiter.rs:140:34: replace * with / in Limiter::process_frame
+src/audio/limiter.rs:174:32: replace % with / in Limiter::true_peak
+src/audio/limiter.rs:199:38: replace / with * in Limiter::next_gain
+src/audio/limiter.rs:241:34: replace * with + in interpolator
+src/audio/loudness.rs:79:43: replace * with / in Biquad::process
+src/audio/loudness.rs:103:34: replace * with + in k_weighting
+src/audio/loudness.rs:107:49: replace + with - in k_weighting
+src/audio/loudness.rs:115:49: replace + with * in k_weighting
+src/audio/loudness.rs:230:29: replace | with & in default_layout
+src/audio/loudness.rs:282:28: replace & with | in channel_weights
+src/audio/loudness.rs:334:27: replace += with *= in LoudnessMeter::add
+src/audio/loudness.rs:372:41: replace > with == in LoudnessMeter::finish
+src/audio/lyrics.rs:172:5: replace sidecar_paths -> Vec<PathBuf> with vec![Default::default()]
+src/audio/lyrics.rs:304:37: replace && with || in parse
+src/audio/lyrics.rs:374:30: replace * with / in parse_time
+src/audio/lyrics.rs:395:5: replace is_id_tag -> bool with false
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with ("xyzzy".into(), vec![(-1.0, "xyzzy".into())], "xyzzy".into())
+src/audio/lyrics.rs:494:19: replace += with -= in syllables
+src/audio/normalize.rs:231:17: delete match arm SILENT in TrackLevels::level
+src/audio/normalize.rs:320:5: replace coefficient -> f64 with -1.0
+src/audio/normalize.rs:397:48: replace + with * in Leveler::begin_block
+src/audio/normalize.rs:436:61: replace / with * in Leveler::next_gain
+src/audio/output.rs:82:66: replace - with / in IntFormat::encode
+src/audio/peq.rs:398:5: replace parse_number -> Option<f64> with None
+src/audio/peq.rs:442:44: replace * with + in coefs_peak_db
+src/audio/peq.rs:464:58: replace * with + in refine_peak
+src/audio/peq.rs:502:5: replace shelf_q_from_slope -> Option<f64> with Some(0.0)
+src/audio/peq.rs:508:17: replace / with % in shelf_slope_from_q
+src/audio/peq.rs:738:9: replace ParametricSettings::boost_db_at -> f64 with -1.0
+src/audio/peq.rs:889:5: replace response_curve -> Vec<f64> with vec![1.0]
+src/audio/peq.rs:938:23: replace * with + in loudness_gain_db_at
+src/audio/peq.rs:1110:9: replace Bank::is_bypass -> bool with true
+src/audio/peq.rs:1209:29: replace - with / in PeqProcessor::process_frame
+src/audio/punch.rs:109:9: replace Punch::restart with ()
+src/audio/punch.rs:163:37: replace - with / in Punch::process_frame
+src/audio/punch.rs:197:35: replace * with + in Punch::update_gain
