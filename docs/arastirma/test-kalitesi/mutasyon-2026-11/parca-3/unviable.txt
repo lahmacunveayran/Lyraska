@@ -4,3 +4,4 @@ src/analysis/lyrics_model.rs:567:9: replace LyricsModel::vocabulary -> &Vocabula
 src/analysis/lyrics_model.rs:621:9: replace LyricsModel::emissions -> Result<Emissions, ModelError> with Ok(Default::default())
 src/analysis/spectrogram.rs:165:9: replace Spectrogram::saved -> Option<SavedAnalysis> with Some(Default::default())
 src/audio/biquad.rs:258:9: replace Biquad::highpass -> Self with Default::default()
+src/audio/output.rs:209:5: replace spawn -> Result<JoinHandle<()>, AudioError> with Ok(JoinHandle::from_iter([()]))
