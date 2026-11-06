@@ -128,3 +128,32 @@ src/audio/biquad.rs:212:50: replace - with + in Biquad::low_shelf
 src/audio/biquad.rs:217:45: replace - with / in Biquad::low_shelf
 src/audio/biquad.rs:231:39: replace + with * in Biquad::high_shelf
 src/audio/biquad.rs:236:34: replace - with / in Biquad::high_shelf
+src/audio/biquad.rs:251:26: replace / with * in Biquad::lowpass
+src/audio/biquad.rs:263:19: replace + with * in Biquad::highpass
+src/audio/biquad.rs:274:67: replace * with / in Biquad::bandpass
+src/audio/biquad.rs:296:37: replace / with % in Biquad::allpass
+src/audio/biquad.rs:343:27: replace || with && in Biquad::matched
+src/audio/biquad.rs:378:42: replace / with * in Biquad::matched
+src/audio/biquad.rs:409:48: replace * with / in Biquad::matched
+src/audio/biquad.rs:431:29: replace > with == in Biquad::matched
+src/audio/biquad.rs:477:50: replace > with == in Biquad::beyond_nyquist
+src/audio/biquad.rs:529:22: replace * with + in Biquad::response
+src/audio/biquad.rs:554:24: replace * with / in Biquad::power_gain
+src/audio/biquad.rs:585:28: replace * with + in Biquad::process
+src/audio/biquad.rs:592:25: replace / with * in phi
+src/audio/biquad.rs:601:33: replace - with / in matched_poles
+src/audio/biquad.rs:623:21: replace - with / in Power::of
+src/audio/biquad.rs:641:5: replace factor -> Option<[f64; 3]> with None
+src/audio/biquad.rs:651:23: replace + with * in factor
+src/audio/biquad.rs:667:35: replace / with * in min_phase
+src/audio/biquad.rs:775:18: replace += with -= in Grid::push
+src/audio/biquad.rs:807:21: replace += with *= in Grid::fit
+src/audio/biquad.rs:865:29: replace * with / in Grid::error
+src/audio/crossfeed.rs:204:20: replace / with % in SideFilter::design
+src/audio/crossfeed.rs:219:9: replace SideFilter::response -> (f64, f64) with (0.0, 0.0)
+src/audio/crossfeed.rs:224:19: replace + with * in SideFilter::response
+src/audio/crossfeed.rs:305:25: replace + with * in Stage::process
+src/audio/crossfeed.rs:379:32: replace * with / in CrossfeedProcessor::process_frame
+src/audio/decode.rs:131:25: replace == with != in wave_channel_mask
+src/audio/decode.rs:170:21: replace | with & in caf_declares_layout
+src/audio/decode.rs:696:19: replace match guard e.error_len().is_none() && !bytes[..e.valid_up_to()].is_ascii() with true in id3v1_text

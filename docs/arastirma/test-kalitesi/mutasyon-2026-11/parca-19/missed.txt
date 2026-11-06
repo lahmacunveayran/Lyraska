@@ -17,3 +17,11 @@ src/analysis/tempo.rs:353:31: replace - with + in standard_deviation
 src/audio/abx.rs:421:12: replace *= with /= in prepare
 src/audio/bass.rs:383:29: replace > with == in Octaver::process
 src/audio/bass.rs:558:29: replace > with == in BassProcessor::begin_block
+src/audio/biquad.rs:388:67: replace * with / in Biquad::matched
+src/audio/biquad.rs:497:34: replace * with / in Biquad::beyond_nyquist
+src/audio/biquad.rs:570:17: replace < with <= in Biquad::max_zero_radius
+src/audio/biquad.rs:700:46: replace + with *
+src/audio/decode.rs:320:27: delete ! in Decoder::open
+src/audio/decode.rs:448:44: delete - in Decoder::seek
+src/audio/decode.rs:760:9: delete match arm 1 | 2 in opus_packet_frames
+src/audio/decode.rs:822:10: replace > with == in matroska_duration
