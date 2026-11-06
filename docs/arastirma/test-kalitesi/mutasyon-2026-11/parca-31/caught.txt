@@ -64,3 +64,30 @@ src/analysis/lyrics_text.rs:664:36: replace && with || in english_year
 src/analysis/lyrics_text.rs:729:13: replace || with && in read_number
 src/analysis/lyrics_text.rs:783:56: replace == with != in read_number
 src/analysis/lyrics_text.rs:899:33: replace > with == in prepare_as
+src/analysis/lyrics_worker.rs:339:46: replace > with == in job
+src/analysis/map_file.rs:317:30: replace > with == in MapFile::parse
+src/analysis/map_file.rs:381:79: delete ! in MapFile::validate
+src/analysis/map_file.rs:478:85: replace % with / in MapFile::shifted
+src/analysis/meter.rs:144:56: replace + with * in accents
+src/analysis/meter.rs:209:18: replace += with -= in pulses
+src/analysis/spectrogram.rs:140:9: replace Spectrogram::mark_truncated with ()
+src/analysis/spectrogram.rs:215:59: replace * with + in Spectrogram::frame_at
+src/analysis/spectrogram.rs:266:9: replace Spectrogram::set_imported with ()
+src/analysis/spectrogram.rs:415:9: replace Spectrogram::complete with ()
+src/analysis/spectrogram.rs:561:9: replace <impl ChunkSource for Decoder>::next_chunk -> Result<Option<&[Sample]>, AudioError> with Ok(Some(Vec::leak(vec![Default::default()])))
+src/analysis/spectrogram.rs:696:37: replace + with - in structure_for_beats
+src/analysis/spectrogram.rs:907:15: replace * with / in BandAnalyzer::process
+src/analysis/spectrogram.rs:924:49: replace + with - in band_centers
+src/analysis/structure.rs:141:9: replace SongMap::confident_drops -> impl Iterator<Item = f64>+'_ with ::std::iter::empty()
+src/analysis/structure.rs:210:72: replace - with / in map_song
+src/analysis/structure.rs:268:38: replace * with + in map_song
+src/analysis/structure.rs:330:38: replace + with - in map_song
+src/analysis/structure.rs:382:35: replace / with * in map_song
+src/analysis/structure.rs:461:57: replace / with % in choose_meter
+src/analysis/structure.rs:484:26: replace + with * in phase_agreement
+src/analysis/structure.rs:535:41: replace * with / in section_boundaries
+src/analysis/structure.rs:597:5: replace average -> Vec<f64> with vec![0.0]
+src/analysis/structure.rs:634:5: replace drop_jumps -> (f64, f64, f64) with (-1.0, 1.0, 1.0)
+src/analysis/structure.rs:688:55: replace || with && in find_drops
+src/analysis/structure.rs:740:55: replace && with || in align_sections_to_drops
+src/analysis/structure.rs:784:23: replace + with * in refine_drop
