@@ -1,0 +1,30 @@
+src/analysis/annotation.rs:91:42: replace >= with < in clean_times
+src/analysis/annotation.rs:266:5: replace fnv1a -> u64 with 0
+src/analysis/background.rs:294:5: replace run with ()
+src/analysis/beats.rs:54:47: replace + with * in onset_latency
+src/analysis/beats.rs:152:17: replace / with * in OnsetDetector::process
+src/analysis/beats.rs:204:78: replace / with % in track
+src/analysis/beats.rs:295:5: replace track_period -> Option<(Vec<f64>, Vec<f64>)> with Some((vec![], vec![]))
+src/analysis/beats.rs:340:5: replace normalize -> Option<Vec<f64>> with Some(vec![])
+src/analysis/beats.rs:362:5: replace estimate_period -> Option<f64> with Some(0.0)
+src/analysis/beats.rs:377:25: replace * with + in estimate_period_with_strength
+src/analysis/beats.rs:391:30: replace / with * in estimate_period_with_strength
+src/analysis/beats.rs:426:45: replace / with * in pulse_clarity
+src/analysis/beats.rs:459:24: replace * with + in smooth
+src/analysis/beats.rs:494:51: replace > with < in dynamic_beats
+src/analysis/beats.rs:546:5: replace parabola -> f64 with 1.0
+src/analysis/cache.rs:459:5: replace delta -> Vec<u8> with vec![0]
+src/analysis/evaluate.rs:123:5: replace f_measure -> f64 with 1.0
+src/analysis/evaluate.rs:147:21: replace * with + in f_measure
+src/analysis/fingerprint.rs:177:37: replace * with + in BandPrint::from_levels_at
+src/analysis/fingerprint.rs:217:9: replace BandPrint::from_hex -> Option<Self> with None
+src/analysis/fingerprint.rs:297:26: replace / with % in BandPrint::reliable_share
+src/analysis/fingerprint.rs:380:8: delete ! in parse_hex
+src/analysis/key.rs:45:25: delete -
+src/analysis/key.rs:296:55: replace - with + in estimate
+src/analysis/key.rs:309:13: replace += with -= in correlation
+src/analysis/key.rs:389:55: replace >= with < in ChromaAnalyzer::add
+src/analysis/key.rs:444:40: replace * with / in ChromaAnalyzer::process
+src/analysis/levels.rs:46:28: replace += with *= in LevelAccumulator::add
+src/analysis/levels.rs:100:5: replace vu_reference_db -> Option<f32> with Some(0.0)
+src/analysis/lyrics_align.rs:59:9: replace Emissions::at -> f64 with 0.0
