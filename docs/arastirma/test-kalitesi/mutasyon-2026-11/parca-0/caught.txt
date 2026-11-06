@@ -1,0 +1,35 @@
+src/analysis/background.rs:166:9: replace CrashGuard::end_slot with ()
+src/analysis/background.rs:406:28: replace != with == in analyze_one
+src/analysis/beats.rs:103:26: replace / with % in BeatGrid::position_at
+src/analysis/beats.rs:183:29: replace < with > in track
+src/analysis/beats.rs:218:29: replace + with - in track
+src/analysis/beats.rs:239:32: replace / with * in segment_periods
+src/analysis/beats.rs:295:30: replace * with / in track_period
+src/analysis/beats.rs:332:31: replace - with + in mean_interval
+src/analysis/beats.rs:350:56: replace - with / in normalize
+src/analysis/beats.rs:368:31: replace / with % in estimate_period_with_strength
+src/analysis/beats.rs:381:46: replace * with + in estimate_period_with_strength
+src/analysis/beats.rs:408:36: replace / with % in estimate_period_with_strength
+src/analysis/beats.rs:438:5: replace autocorrelation -> Vec<f64> with vec![-1.0]
+src/analysis/beats.rs:484:23: replace * with / in dynamic_beats
+src/analysis/beats.rs:530:53: replace >= with < in trim_quiet_ends
+src/analysis/beats.rs:550:48: delete - in parabola
+src/analysis/cache.rs:342:12: delete ! in AnalysisCache::pending_library_tracks
+src/analysis/evaluate.rs:65:53: replace - with + in evaluate_beats
+src/analysis/evaluate.rs:137:17: replace < with <= in f_measure
+src/analysis/evaluate.rs:175:5: replace interval_bpm -> Option<f64> with None
+src/analysis/fingerprint.rs:105:45: replace <= with > in Verdict::is_match
+src/analysis/fingerprint.rs:192:67: replace + with - in BandPrint::from_levels_at
+src/analysis/fingerprint.rs:246:22: delete - in BandPrint::align
+src/analysis/fingerprint.rs:277:41: replace ^ with & in BandPrint::errors_at
+src/analysis/fingerprint.rs:329:60: replace + with - in ChromaPrint::from_chroma
+src/analysis/fingerprint.rs:356:18: replace >= with < in ChromaPrint::compare
+src/analysis/key.rs:155:32: replace == with != in key_relation
+src/analysis/key.rs:232:16: replace += with *= in sum_chroma
+src/analysis/key.rs:274:29: replace / with * in song_key
+src/analysis/key.rs:307:13: replace += with *= in correlation
+src/analysis/key.rs:315:14: replace / with % in correlation
+src/analysis/key.rs:452:33: replace * with / in ChromaAnalyzer::process
+src/analysis/key.rs:496:20: replace += with -= in fold
+src/analysis/levels.rs:77:41: replace * with + in encode_db
+src/analysis/lyrics_align.rs:162:56: replace - with / in build_labels
