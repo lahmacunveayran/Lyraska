@@ -1,0 +1,6 @@
+src/analysis/background.rs:64:9: replace CrashGuard::named -> Self with Default::default()
+src/analysis/beats.rs:95:9: replace BeatGrid::position_at -> Option<BeatPosition> with Some(Default::default())
+src/analysis/beats.rs:238:5: replace segment_periods -> Option<Vec<(std::ops::Range<usize>, f64)>> with Some(vec![(Range::from(0), -1.0)])
+src/analysis/cache.rs:193:9: replace AnalysisCache::lock -> Result<std::sync::MutexGuard<'_, Connection>, CacheError> with Ok(MutexGuard::from(Default::default()))
+src/analysis/fingerprint.rs:315:9: replace ChromaPrint::from_chroma -> Self with Default::default()
+src/analysis/key.rs:187:9: replace KeyAnalysis::key_between -> Option<MusicalKey> with Some(Default::default())
