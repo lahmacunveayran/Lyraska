@@ -26,11 +26,13 @@ use std::time::{Duration, Instant};
 
 use rtrb::Consumer;
 use wasapi::{
-    initialize_mta, AudioClient, Device, DeviceEnumerator, Direction, Handle, SampleType,
-    StreamMode, WasapiError, WaveFormat,
+    initialize_mta, AudioClient, AudioClientProperties, Device, DeviceEnumerator, Direction,
+    Handle, SampleType, StreamCategory, StreamMode, StreamOption, WasapiError, WaveFormat,
 };
 
-use super::{DeviceInfo, FadeWatch, IntFormat, OutputMode, OutputSpec};
+use super::{
+    choose_processing, DeviceInfo, FadeWatch, IntFormat, OutputMode, OutputSpec, StreamProcessing,
+};
 use crate::audio::player::SharedState;
 use crate::audio::render::Renderer;
 use crate::audio::{AudioError, Sample};
@@ -352,6 +354,17 @@ fn open_shared(device: &Device, spec: OutputSpec) -> Result<Stream, AudioError> 
         autoconvert: true,
         buffer_duration_hns: BUFFER_DURATION_HNS,
     };
+    // Windows'un ses iyileştirmeleri bu akışa uygulanmasın (Raw); özellikler başlatmadan önce.
+    let processing = choose_processing(|raw| {
+        let media = AudioClientProperties::new().set_category(StreamCategory::Media);
+        let properties = if raw {
+            media.set_option(StreamOption::Raw)
+        } else {
+            media
+        };
+        client.set_properties(properties).is_ok()
+    });
+    report_processing(processing);
     client
         .initialize_client(&format, &Direction::Render, &mode)
         .map_err(fail("Ses akışı başlatılamadı"))?;
@@ -367,6 +380,25 @@ fn open_shared(device: &Device, spec: OutputSpec) -> Result<Stream, AudioError> 
         int: None,
         started: false,
     })
+}
+
+/// Paylaşımlı akışın sinyal işlemesi günlüğe yazılır, yalnızca değiştiğinde (her şarkıda değil).
+fn report_processing(processing: StreamProcessing) {
+    static LAST: Mutex<Option<StreamProcessing>> = Mutex::new(None);
+    let Ok(mut last) = LAST.lock() else {
+        return;
+    };
+    if *last == Some(processing) {
+        return;
+    }
+    *last = Some(processing);
+    crate::diagnostics::info(match processing {
+        StreamProcessing::Raw => "Paylaşımlı ses Raw modda: Windows ses iyileştirmeleri uygulanmıyor",
+        StreamProcessing::Media => {
+            "Paylaşımlı ses: sürücü Raw modu desteklemiyor; Windows ses iyileştirmeleri açıksa uygulanır"
+        }
+        StreamProcessing::Default => "Paylaşımlı ses: akış özellikleri ayarlanamadı (Windows varsayılanı)",
+    });
 }
 
 /// Özel mod (bit-perfect): şarkının hızında, aygıtın tamsayı biçiminde. Açılamazsa

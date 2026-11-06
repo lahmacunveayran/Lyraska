@@ -307,6 +307,15 @@ Hepsini bir günde yapmanız gerekmez. En önemlileri **kalın** yazılı: önce
 - Neye bakılır: ses takılmaz; **Ayarlar → Program** altındaki takılma sayacı 0 kalır. (Ses iş parçacığı artık
   Windows'un "Pro Audio" önceliğinde.)
 
+**B17. Windows ses iyileştirmeleri Lyraska'nın sesine dokunmuyor (Raw modu, 0.0.99'dan sonra)**
+
+- Nasıl: Windows'ta **Ayarlar → Sistem → Ses → (hoparlörünüz ya da kulaklığınız) → Ses iyileştirmeleri**'ni açın
+  (varsa "Ses yüksekliği eşitleme" de). Lyraska'da bir şarkıyı **paylaşımlı modda** (bit-perfect kapalı) çalın,
+  sonra **Ayarlar → Hata günlüğü**'nü açın.
+- Neye bakılır: günlükte "Paylaşımlı ses Raw modda: Windows ses iyileştirmeleri uygulanmıyor" satırı görünür ve ses
+  iyileştirmeleri açıkken de kapalıyken de aynı duyulur. Günlükte "sürücü Raw modu desteklemiyor" yazıyorsa ses
+  kartı sürücüsü bu modu sunmuyor demektir; o zaman iyileştirmeleri Windows'tan kapatmak gerekir.
+
 ## C. Ekolayzer ve bas
 
 **C1. Bas ve Derinlik (0.0.29)**
