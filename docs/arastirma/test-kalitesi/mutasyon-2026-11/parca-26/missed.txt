@@ -43,3 +43,10 @@ src/audio/biquad.rs:780:56: replace > with >= in Grid::used
 src/audio/biquad.rs:829:45: replace * with / in Grid::fit
 src/audio/biquad.rs:930:24: replace < with == in flush
 src/audio/decode.rs:193:36: replace && with || in caf_declares_layout
+src/audio/decode.rs:375:31: replace && with || in Decoder::open
+src/audio/decode.rs:466:24: replace match guard e.kind() == std::io::ErrorKind::UnexpectedEof with false in Decoder::next_chunk
+src/audio/decode.rs:768:5: replace opus_pre_skip -> u64 with 0
+src/audio/decode.rs:1001:74: replace | with ^ in base64
+src/audio/eq.rs:555:44: replace * with + in Layout::tuned
+src/audio/gapless.rs:166:51: replace + with - in next_box
+src/audio/limiter.rs:228:27: replace < with > in interpolator

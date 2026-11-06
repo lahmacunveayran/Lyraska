@@ -135,3 +135,34 @@ src/audio/crossfeed.rs:224:44: replace - with + in SideFilter::response
 src/audio/crossfeed.rs:307:26: replace - with + in Stage::process
 src/audio/crossfeed.rs:380:27: replace - with + in CrossfeedProcessor::process_frame
 src/audio/decode.rs:143:22: replace -= with += in wave_channel_mask
+src/audio/decode.rs:601:53: replace match guard tags.title.is_none() with true in read_tags
+src/audio/decode.rs:714:9: delete match arm 0xDD in windows_1254
+src/audio/decode.rs:868:17: delete match arm Some(StandardTag::Lyrics(text)) in read_lyrics
+src/audio/eq.rs:193:33: replace > with < in EqSettings::is_active
+src/audio/eq.rs:291:36: replace + with - in EqState::at_rate
+src/audio/eq.rs:419:76: replace * with + in Biquad::peaking
+src/audio/eq.rs:433:9: replace Biquad::shelf_terms -> (f64, f64, f64) with (0.0, 1.0, -1.0)
+src/audio/eq.rs:447:21: replace * with + in Biquad::low_shelf
+src/audio/eq.rs:449:28: replace - with / in Biquad::low_shelf
+src/audio/eq.rs:462:55: replace / with * in Biquad::high_shelf
+src/audio/eq.rs:464:50: replace - with + in Biquad::high_shelf
+src/audio/eq.rs:466:33: replace - with + in Biquad::high_shelf
+src/audio/eq.rs:477:24: replace * with / in Biquad::response_db
+src/audio/eq.rs:486:9: replace Biquad::power_gain -> f64 with 1.0
+src/audio/eq.rs:488:24: replace + with - in Biquad::power_gain
+src/audio/eq.rs:535:80: replace / with % in Layout::tuned
+src/audio/eq.rs:593:9: replace Layout::band_response_db -> f64 with 0.0
+src/audio/eq.rs:613:45: replace / with * in design_target
+src/audio/eq.rs:697:9: replace Design::response_db -> f64 with -1.0
+src/audio/eq.rs:748:30: replace * with + in solve_linear
+src/audio/eq.rs:858:22: replace * with + in EqProcessor::process
+src/audio/gapless.rs:79:5: replace find_top_level -> Option<Vec<u8>> with None
+src/audio/gapless.rs:129:57: replace + with - in walk
+src/audio/gapless.rs:193:33: replace + with - in first_edit
+src/audio/limiter.rs:159:66: replace % with / in Limiter::true_peak
+src/audio/limiter.rs:185:44: replace + with * in Limiter::next_gain
+src/audio/limiter.rs:244:35: replace * with / in interpolator
+src/audio/loudness.rs:51:27: replace - with + in Loudness::gain_db
+src/audio/loudness.rs:98:33: replace / with * in k_weighting
+src/audio/loudness.rs:105:30: replace + with * in k_weighting
+src/audio/loudness.rs:112:26: replace + with * in k_weighting

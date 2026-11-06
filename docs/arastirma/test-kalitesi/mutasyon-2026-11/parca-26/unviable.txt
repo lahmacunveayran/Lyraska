@@ -4,3 +4,5 @@ src/analysis/lyrics_model.rs:47:43: replace * with /
 src/analysis/spectrogram.rs:244:9: replace Spectrogram::choreography -> Option<Arc<Choreography>> with Some(Arc::new(Default::default()))
 src/analysis/spectrogram.rs:665:5: replace rhythm_from_frames -> (Option<BeatGrid>, Option<SongMap>) with (Some(Default::default()), Some(Default::default()))
 src/audio/biquad.rs:526:9: replace Biquad::response -> Complex<f64> with Complex::new()
+src/audio/eq.rs:440:9: replace Biquad::low_shelf -> Self with Default::default()
+src/audio/gapless.rs:33:5: replace mp4_trim -> Option<Trim> with Some(Default::default())
