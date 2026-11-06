@@ -168,3 +168,33 @@ src/audio/eq.rs:462:32: replace + with * in Biquad::high_shelf
 src/audio/eq.rs:464:44: replace * with + in Biquad::high_shelf
 src/audio/eq.rs:477:13: replace + with * in Biquad::response_db
 src/audio/eq.rs:478:43: replace + with * in Biquad::response_db
+src/audio/eq.rs:487:42: replace * with + in Biquad::power_gain
+src/audio/eq.rs:488:55: replace - with + in Biquad::power_gain
+src/audio/eq.rs:535:65: replace * with + in Layout::tuned
+src/audio/eq.rs:559:36: replace + with - in Layout::tuned
+src/audio/eq.rs:601:5: replace design_point_hz -> f64 with 1.0
+src/audio/eq.rs:653:33: replace < with == in Design::with_layout
+src/audio/eq.rs:697:35: replace * with / in Design::response_db
+src/audio/eq.rs:859:25: replace * with + in EqProcessor::process
+src/audio/gapless.rs:80:18: replace + with * in find_top_level
+src/audio/gapless.rs:143:14: replace > with < in walk_track
+src/audio/limiter.rs:163:43: replace <= with > in Limiter::true_peak
+src/audio/limiter.rs:192:47: replace * with + in Limiter::next_gain
+src/audio/loudness.rs:79:9: replace Biquad::process -> f64 with 1.0
+src/audio/loudness.rs:100:22: replace / with * in k_weighting
+src/audio/loudness.rs:105:22: replace * with / in k_weighting
+src/audio/loudness.rs:112:30: replace * with / in k_weighting
+src/audio/loudness.rs:275:24: replace | with & in channel_weights
+src/audio/loudness.rs:329:20: replace += with -= in LoudnessMeter::add
+src/audio/loudness.rs:357:25: replace > with < in LoudnessMeter::finish
+src/audio/lyrics.rs:140:31: replace match guard !sidecar.lines.is_empty() with false in choose
+src/audio/lyrics.rs:259:37: delete ! in parse
+src/audio/lyrics.rs:367:5: replace parse_time -> Option<f64> with Some(1.0)
+src/audio/lyrics.rs:380:33: replace * with / in parse_time
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with ("xyzzy".into(), vec![], String::new())
+src/audio/lyrics.rs:468:40: replace * with / in estimate_words
+src/audio/normalize.rs:168:47: replace - with + in TrackLevels::bass_peaks
+src/audio/normalize.rs:278:9: replace TrackLevels::slot -> Option<&Slot> with None
+src/audio/normalize.rs:333:5: replace protection -> f64 with 1.0
+src/audio/normalize.rs:430:57: replace < with > in Leveler::next_gain
+src/audio/normalize.rs:443:39: replace - with / in Leveler::next_gain
