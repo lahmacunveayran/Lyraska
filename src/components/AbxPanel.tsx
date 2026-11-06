@@ -5,6 +5,7 @@ import {
   TRIAL_CHOICES,
   baseName,
   neededCorrect,
+  powerText,
   setupSummary,
   verdict,
 } from "../lib/abx";
@@ -102,7 +103,8 @@ function Setup({ abx, available }: AbxPanelProps) {
       </div>
       <p className="sync__caption">
         {abx.trials} denemede en az {neededCorrect(abx.trials)} doğru, farkı duyduğunuzu gösterir
-        (şansla çıkma olasılığı %5'in altında).
+        (şansla çıkma olasılığı %5'in altında). {powerText(abx.trials)} Deneme arttıkça küçük
+        farklar da yakalanır.
       </p>
 
       <div className="marker__actions">
