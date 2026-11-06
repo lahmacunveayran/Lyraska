@@ -183,3 +183,28 @@ src/audio/normalize.rs:385:41: replace - with + in Leveler::begin_block
 src/audio/normalize.rs:434:42: replace > with < in Leveler::next_gain
 src/audio/normalize.rs:445:28: replace -= with /= in Leveler::next_gain
 src/audio/output.rs:81:47: replace - with / in IntFormat::encode
+src/audio/peq.rs:114:9: replace FilterKind::has_gain -> bool with false
+src/audio/peq.rs:382:29: replace * with + in HeadphoneProfile::response_db
+src/audio/peq.rs:464:37: replace * with / in refine_peak
+src/audio/peq.rs:497:48: replace * with + in q_from_bandwidth
+src/audio/peq.rs:508:50: replace + with * in shelf_slope_from_q
+src/audio/peq.rs:587:40: replace / with % in parse_filter
+src/audio/peq.rs:936:21: replace * with / in loudness_gain_db_at
+src/audio/peq.rs:1079:47: replace > with < in PeqControl::design
+src/audio/player/mod.rs:318:68: replace / with * in Player::status
+src/audio/punch.rs:163:23: replace += with -= in Punch::process_frame
+src/audio/render.rs:190:31: replace < with == in Renderer::render
+src/audio/resample.rs:93:53: replace == with != in Converter::continues
+src/audio/spectrum.rs:56:14: replace + with - in bar_hz
+src/audio/spectrum.rs:115:46: replace * with / in at
+src/audio/spectrum.rs:155:5: replace silence -> Vec<f32> with vec![1.0]
+src/audio/waveform.rs:280:26: replace / with * in WaveformTap::read_window
+src/audio/waveform.rs:333:9: replace GainCursor<'a>::at -> f64 with -1.0
+src/audio/waveform.rs:362:5: replace mono_mix -> Vec<Sample> with vec![]
+src/audio/player/next_track.rs:33:24: replace match guard self.analysis.as_ref().is_none_or(|a| &a.path != p) with false in Player::set_next
+src/audio/player/normalization.rs:42:16: delete ! in Player::sync_levels
+src/audio/player/session.rs:175:23: replace - with / in SharedState::playing_at_frame
+src/audio/player/track_analysis.rs:96:72: delete ! in Analysis::start_analysis
+src/audio/player/transition.rs:126:27: replace == with != in Player::begin_transition
+src/audio/player/visuals.rs:175:9: replace Player::visual_eq_offsets -> [f64; BANDS] with [1.0; BANDS]
+src/audio/player/visuals.rs:237:9: replace SharedState::window_gains -> Option<Vec<(i64, f64)>> with Some(vec![(1, 1.0)])

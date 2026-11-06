@@ -49,3 +49,11 @@ src/audio/limiter.rs:238:31: replace < with <= in interpolator
 src/audio/loudness.rs:239:65: replace | with ^ in default_layout
 src/audio/loudness.rs:363:52: replace > with >= in LoudnessMeter::finish
 src/audio/lyrics.rs:301:30: replace - with + in parse
+src/audio/peq.rs:731:9: replace ParametricSettings::boost_db -> f64 with 0.0
+src/audio/peq.rs:857:67: replace - with + in ParametricState::at_rate
+src/audio/peq.rs:1209:22: replace + with - in PeqProcessor::process_frame
+src/audio/punch.rs:194:26: replace && with || in Punch::update_gain
+src/audio/resample.rs:144:66: replace < with <= in Converter::run_blocks
+src/audio/waveform.rs:126:9: replace Decimator::finish with ()
+src/audio/player/decode_thread.rs:34:43: replace / with % in decode_loop
+src/audio/player/session.rs:408:53: replace && with || in wait_for_prefill
