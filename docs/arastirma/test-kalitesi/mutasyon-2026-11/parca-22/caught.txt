@@ -1,0 +1,30 @@
+src/analysis/background.rs:81:9: replace CrashGuard::current -> Option<PathBuf> with Some(Default::default())
+src/analysis/beats.rs:96:44: replace < with == in BeatGrid::position_at
+src/analysis/beats.rs:162:17: replace / with % in OnsetDetector::process
+src/analysis/beats.rs:207:57: replace / with * in track
+src/analysis/beats.rs:295:5: replace track_period -> Option<(Vec<f64>, Vec<f64>)> with Some((vec![0.0], vec![-1.0]))
+src/analysis/beats.rs:344:59: replace + with * in normalize
+src/analysis/beats.rs:367:5: replace estimate_period_with_strength -> Option<(f64, f64)> with Some((1.0, 0.0))
+src/analysis/beats.rs:379:43: replace / with % in estimate_period_with_strength
+src/analysis/beats.rs:403:58: replace - with / in estimate_period_with_strength
+src/analysis/beats.rs:431:33: replace > with == in pulse_clarity
+src/analysis/beats.rs:468:31: replace + with - in smooth
+src/analysis/beats.rs:501:37: replace + with - in dynamic_beats
+src/analysis/beats.rs:546:34: replace * with / in parabola
+src/analysis/cache.rs:239:58: replace != with == in AnalysisCache::load
+src/analysis/cache.rs:469:44: replace - with + in undelta
+src/analysis/evaluate.rs:134:57: replace < with == in f_measure
+src/analysis/evaluate.rs:153:5: replace tap_offset -> f64 with 1.0
+src/analysis/fingerprint.rs:48:57: replace / with %
+src/analysis/fingerprint.rs:181:31: replace / with % in BandPrint::from_levels_at
+src/analysis/fingerprint.rs:231:63: replace / with % in BandPrint::align_to_levels
+src/analysis/fingerprint.rs:319:30: replace + with - in ChromaPrint::from_chroma
+src/analysis/fingerprint.rs:352:20: replace += with *= in ChromaPrint::compare
+src/analysis/fingerprint.rs:399:33: replace - with / in band_word
+src/analysis/fingerprint.rs:424:22: replace |= with &= in chroma_word
+src/analysis/key.rs:143:9: replace KeyRelation::is_hit -> bool with false
+src/analysis/key.rs:298:49: replace * with / in estimate
+src/analysis/key.rs:309:30: replace - with / in correlation
+src/analysis/key.rs:410:25: replace * with + in ChromaAnalyzer::process
+src/analysis/key.rs:437:45: replace + with - in ChromaAnalyzer::process
+src/analysis/key.rs:445:42: replace / with % in ChromaAnalyzer::process
