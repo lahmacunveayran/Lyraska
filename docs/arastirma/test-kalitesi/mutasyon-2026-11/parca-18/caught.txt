@@ -193,3 +193,34 @@ src/audio/normalize.rs:257:33: replace - with + in TrackLevels::level
 src/audio/normalize.rs:320:12: delete - in coefficient
 src/audio/normalize.rs:437:68: replace / with % in Leveler::next_gain
 src/audio/peq.rs:272:9: replace HeadphoneProfile::name_from_file -> String with String::new()
+src/audio/peq.rs:405:5: replace finite_or -> f64 with 1.0
+src/audio/peq.rs:450:32: replace + with * in coefs_peak_db
+src/audio/peq.rs:468:17: replace > with < in refine_peak
+src/audio/peq.rs:502:40: replace * with + in shelf_q_from_slope
+src/audio/peq.rs:508:39: replace + with * in shelf_slope_from_q
+src/audio/peq.rs:602:42: replace == with != in parse_filter
+src/audio/peq.rs:748:9: replace ParametricSettings::loudness_db_at -> f64 with 1.0
+src/audio/peq.rs:896:30: replace * with / in response_curve
+src/audio/peq.rs:941:10: replace * with / in loudness_gain_db_at
+src/audio/player/mod.rs:211:9: replace Player::has_session -> bool with true
+src/audio/punch.rs:145:9: replace Punch::process_frame with ()
+src/audio/render.rs:227:28: replace *= with /= in Renderer::render
+src/audio/resample.rs:109:34: replace / with * in Converter::process
+src/audio/resample.rs:166:41: replace * with / in Converter::run_blocks
+src/audio/spectrum.rs:89:36: replace * with + in Transform::magnitudes
+src/audio/spectrum.rs:130:24: replace / with * in level
+src/audio/waveform.rs:81:35: replace == with != in Halving::push
+src/audio/waveform.rs:150:38: replace % with / in Decimator::interpolate
+src/audio/waveform.rs:248:21: replace == with != in WaveformTap::write
+src/audio/waveform.rs:287:38: replace - with + in WaveformTap::read_window
+src/audio/waveform.rs:334:23: replace += with -= in GainCursor<'a>::at
+src/audio/waveform.rs:373:5: replace silence -> Vec<u8> with vec![]
+src/audio/player/controls.rs:35:9: replace Player::parametric_comparing -> bool with false
+src/audio/player/decode_thread.rs:107:54: replace + with * in decode_loop
+src/audio/player/next_track.rs:61:13: replace && with || in SharedState::next_consumed
+src/audio/player/session.rs:123:9: replace SharedState::heard_with_time -> (u64, Option<u64>) with (0, Some(0))
+src/audio/player/session.rs:206:9: replace SharedState::error -> Option<String> with Some("xyzzy".into())
+src/audio/player/track_analysis.rs:175:9: replace Player::set_analysis_cache with ()
+src/audio/player/visuals.rs:113:9: replace Player::visual_waveform_ahead -> Option<Vec<u8>> with Some(vec![0])
+src/audio/player/visuals.rs:188:29: replace + with * in Player::visual_eq_offsets
+src/audio/player/visuals.rs:250:27: replace <= with > in SharedState::window_gains
