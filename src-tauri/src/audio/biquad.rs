@@ -1075,6 +1075,101 @@ mod tests {
         check("analog HS 16 kHz", high.analog_db(16_000.0), -5.6232);
     }
 
+    /// Analog prototipin (`Spec::analog`) kendisi, sekiz tür için: değerler H(s)'in kapalı
+    /// biçiminden el hesabıdır (s = j·f/f0, A = 10^(G/40)), koddan bağımsız.
+    /// - Tepe: f0'da (s = j) pay ve payda yalnızca s·A/Q ve s/(A·Q) kalır, |H| = A² → tam G dB.
+    ///   Logaritmik eksende simetrik: |H(f0·r)| = |H(f0/r)|.
+    /// - Alçak raf: DC'de H = A·A/1 = A² → G; f0'da |H| = A·|(A−1) + jk| / |(1−A) + jk| = A → G/2.
+    ///   Yüksek raf: çok yüksek frekansta G, f0'da G/2 (aynı hesap, aynalı).
+    /// - Alçak/yüksek geçiren: f0'da |H| = Q; Q = 1/√2 (Butterworth) → −3,0103 dB. Geçirme bandında 0 dB.
+    /// - Bant geçiren: f0'da 0 dB; −3 dB noktaları f0·(√(1 + 1/(4Q²)) ± 1/(2Q)) (bant genişliği f0/Q).
+    /// - Çentik: f0'da sıfır. Tüm geçiren: her frekansta |H| = 1, f0'da faz 180°.
+    #[test]
+    fn analog_prototip_kapali_bicimle_ayni() {
+        let spec = |kind, freq_hz, gain_db, q| Spec {
+            kind,
+            freq_hz,
+            gain_db,
+            q,
+        };
+        let close = |what: &str, got: f64, want: f64| {
+            assert!(
+                (got - want).abs() < 1e-9,
+                "{what}: {got:.6} != {want:.6} dB"
+            );
+        };
+        let butterworth_corner = 20.0 * std::f64::consts::FRAC_1_SQRT_2.log10();
+        assert!((butterworth_corner + 3.0103).abs() < 1e-4);
+
+        for (gain, q) in [(6.0, 1.0), (-9.5, 0.4), (12.0, 4.3)] {
+            let peak = spec(Kind::Peaking, 1000.0, gain, q);
+            close("tepe f0", peak.analog_db(1000.0), gain);
+            for r in [1.3, 2.0, 7.0] {
+                close(
+                    "tepe simetri",
+                    peak.analog_db(1000.0 * r),
+                    peak.analog_db(1000.0 / r),
+                );
+            }
+            let low = spec(Kind::LowShelf, 200.0, gain, q);
+            close("alçak raf DC", low.analog_db(0.0), gain);
+            close("alçak raf f0", low.analog_db(200.0), gain / 2.0);
+            let high = spec(Kind::HighShelf, 5000.0, gain, q);
+            close("yüksek raf f0", high.analog_db(5000.0), gain / 2.0);
+            assert!((high.analog_db(5e9) - gain).abs() < 1e-6, "yüksek raf ∞");
+        }
+
+        let q = std::f64::consts::FRAC_1_SQRT_2;
+        let lp = spec(Kind::LowPass, 3000.0, 0.0, q);
+        close("alçak geçiren f0", lp.analog_db(3000.0), butterworth_corner);
+        close("alçak geçiren DC", lp.analog_db(0.0), 0.0);
+        let hp = spec(Kind::HighPass, 3000.0, 0.0, q);
+        close(
+            "yüksek geçiren f0",
+            hp.analog_db(3000.0),
+            butterworth_corner,
+        );
+        assert!(hp.analog_db(3e9).abs() < 1e-6, "yüksek geçiren ∞");
+        for q in [0.5, 2.0, 7.0] {
+            close(
+                "Q'lu alçak geçiren f0",
+                spec(Kind::LowPass, 100.0, 0.0, q).analog_db(100.0),
+                20.0 * q.log10(),
+            );
+            let bp = spec(Kind::BandPass, 1000.0, 0.0, q);
+            close("bant geçiren f0", bp.analog_db(1000.0), 0.0);
+            let half = 1.0 / (2.0 * q);
+            let root = (1.0 + half * half).sqrt();
+            close(
+                "bant geçiren alt köşe",
+                bp.analog_db(1000.0 * (root - half)),
+                butterworth_corner,
+            );
+            close(
+                "bant geçiren üst köşe",
+                bp.analog_db(1000.0 * (root + half)),
+                butterworth_corner,
+            );
+            assert!(
+                spec(Kind::Notch, 1000.0, 0.0, q).analog_db(1000.0) < -200.0,
+                "çentik f0"
+            );
+            close(
+                "çentik DC",
+                spec(Kind::Notch, 1000.0, 0.0, q).analog_db(0.0),
+                0.0,
+            );
+            let all = spec(Kind::AllPass, 1000.0, 0.0, q);
+            for hz in [0.0, 10.0, 999.0, 1000.0, 1001.0, 50_000.0] {
+                close("tüm geçiren", all.analog_db(hz), 0.0);
+            }
+            assert!(
+                (all.analog(1000.0).arg().abs() - std::f64::consts::PI).abs() < 1e-9,
+                "tüm geçiren faz"
+            );
+        }
+    }
+
     const KINDS: [Kind; 8] = [
         Kind::Peaking,
         Kind::LowShelf,

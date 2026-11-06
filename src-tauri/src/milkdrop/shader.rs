@@ -1384,4 +1384,50 @@ shader_body
             assert!(out.is_ok(), "{good}: {out:?}");
         }
     }
+
+    /// `kucuk_sabit_donguler_cevrilir`'in eşi: kabul edilen döngüler GLSL'de de döngü olarak kalır.
+    /// Beklenen parçalar girdiden elle çıkarıldı (döngü değişkeni, sınır, adım); boşluk ve
+    /// parantezler atılarak karşılaştırılır, çeviricinin biçimine (tür dönüşümü yazımı) bağlı değil.
+    #[test]
+    fn kucuk_sabit_donguler_glsl_de_korunur() {
+        let compact = |text: &str| -> String {
+            text.chars()
+                .filter(|c| !c.is_whitespace() && *c != '(' && *c != ')')
+                .collect()
+        };
+        for (source, loops, parts) in [
+            (
+                "shader_body { float3 s = 0; for (int x = -2; x <= 2; x++) for (int y = -2; y <= 2; y++) \
+                 s += tex2D(sampler_main, uv + float2(x, y)*texsize.zw).xyz; ret = s / 25; }",
+                2,
+                &["intx=", "x<=2;x++", "inty=", "y<=2;y++"][..],
+            ),
+            (
+                "static const int N = 8;\nshader_body { float s = 0; for (int i = N; i > 0; i -= 2) \
+                 s += 1; ret = s; }",
+                1,
+                // Sabit, girdileri dolduran işlevde atanır (`N = int(8)`).
+                &["N=int8", "inti=", "i>0;i-=2"][..],
+            ),
+            (
+                "shader_body { float s = 0; for (float t = 0; t < 1; t += 0.125) s += t; \
+                 for (int i = 0; i < 256; i++) s += 1; ret = s; }",
+                2,
+                &["floatt=", "0.125", "inti=", "i<256;i++"][..],
+            ),
+            (
+                "float f(float x) { float s = 0; for (int i = 0; i < 4; i++) s += x; return s; }\n\
+                 shader_body { float s = 0; for (int k = 0; k < 4; k++) s += f(k); ret = s; }",
+                2,
+                &["inti=", "i<4;i++", "intk=", "k<4;k++"][..],
+            ),
+        ] {
+            let out = compact(&convert_uncached(source, ShaderKind::Comp).expect(source));
+            // Çeviricinin eklediği hazır kodda döngü yok: GLSL'deki `for` sayısı girdidekiyle aynı.
+            assert_eq!(out.matches("for").count(), loops, "{source}");
+            for part in parts {
+                assert!(out.contains(part), "{source}: GLSL'de `{part}` yok");
+            }
+        }
+    }
 }
