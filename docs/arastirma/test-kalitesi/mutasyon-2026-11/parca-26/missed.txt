@@ -33,3 +33,13 @@ src/audio/bass.rs:621:32: replace - with + in BassProcessor::harmonics
 src/audio/bass.rs:648:13: replace && with || in BassProcessor::process_frame
 src/audio/biquad.rs:116:64: replace + with - in Spec::analog
 src/audio/biquad.rs:126:45: replace + with - in Spec::analog
+src/audio/biquad.rs:279:35: replace * with / in Biquad::notch
+src/audio/biquad.rs:394:56: replace / with * in Biquad::matched
+src/audio/biquad.rs:434:27: replace > with >= in Biquad::matched
+src/audio/biquad.rs:560:9: replace Biquad::is_stable -> bool with true
+src/audio/biquad.rs:574:15: delete - in Biquad::max_zero_radius
+src/audio/biquad.rs:629:9: replace Power::at -> f64 with 1.0
+src/audio/biquad.rs:780:56: replace > with >= in Grid::used
+src/audio/biquad.rs:829:45: replace * with / in Grid::fit
+src/audio/biquad.rs:930:24: replace < with == in flush
+src/audio/decode.rs:193:36: replace && with || in caf_declares_layout
