@@ -1858,18 +1858,33 @@ async function checkPhotoChooseButton(browser) {
     await page.close();
     return problems;
   }
+  // Düğme çıktığı anda sahne de kuruluyor (React etkileri, ölçüm). Yazılımla çizen yavaş CI makinesinde
+  // tıklama ara sıra 5 sn'yi aşıyordu (#229, #230: tıklama "element is stable" ve "waiting for scheduled
+  // navigations" aşamalarında kaldı); neden kesin değil, sayfanın meşgul olması en olası. Önce kuyruktaki
+  // işler bitene kadar beklenir (ana iş parçacığında iki görev turu) ve bu bekleme ölçülür; düşerse
+  // iletide sayfanın tıklamadan önce ve sonra ne kadar geç yanıt verdiği yazar. Tıklama ve pencere için
+  // 5 sn'lik sınır aynen kalır.
+  const responseMs = async () => {
+    const started = Date.now();
+    await page.evaluate(() => new Promise((r) => setTimeout(() => setTimeout(r, 0), 0)));
+    return Date.now() - started;
+  };
+  const before = await responseMs();
   try {
     await button.click({ timeout: 5000 });
     await page.waitForFunction(() => window.__dialogOpened === true, null, { timeout: 5000 });
     console.log(`${label}: tıklanınca dosya seçme penceresi açılıyor`);
   } catch (e) {
+    const after = await responseMs().catch(() => "-");
+    const reason = String(e)
+      .split("\n")
+      // Playwright'ın bekleme günlüğünden nedeni gösteren satırlar (örten öğe, kararsız, görünmez).
+      .filter((l, i) => i === 0 || /intercepts|element is|waiting for|retrying/.test(l))
+      .slice(0, 6)
+      .join(" · ");
     problems.push(
-      `${label}: tıklanamıyor ya da pencere açılmıyor (${String(e)
-        .split("\n")
-        // Playwright'ın bekleme günlüğünden nedeni gösteren satırlar (örten öğe, kararsız, görünmez).
-        .filter((l, i) => i === 0 || /intercepts|element is|waiting for|retrying/.test(l))
-        .slice(0, 6)
-        .join(" · ")})`,
+      `${label}: tıklanamıyor ya da pencere açılmıyor (${reason}) · sayfa yanıtı: tıklamadan önce ` +
+        `${before} ms, sonra ${after} ms`,
     );
   }
   await page.close();
