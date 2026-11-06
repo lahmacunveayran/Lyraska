@@ -206,3 +206,6 @@ src/audio/waveform.rs:366:76: replace * with + in mono_mix
 src/audio/player/next_track.rs:51:9: replace SharedState::take_next -> Option<PathBuf> with None
 src/audio/player/normalization.rs:58:9: replace Player::current_level -> Option<TrackLevel> with None
 src/audio/player/session.rs:185:9: replace SharedState::now_playing_index -> Option<usize> with Some(0)
+src/audio/player/visuals.rs:108:9: replace Player::visual_waveform -> Option<Vec<u8>> with None
+src/audio/player/visuals.rs:177:52: replace match guard v == version && r == rate with true in Player::visual_eq_offsets
+src/audio/player/visuals.rs:237:9: replace SharedState::window_gains -> Option<Vec<(i64, f64)>> with Some(vec![(-1, -1.0)])
