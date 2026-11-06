@@ -165,3 +165,31 @@ src/audio/eq.rs:488:79: replace - with + in Biquad::power_gain
 src/audio/eq.rs:527:52: replace * with / in Layout::tuned
 src/audio/eq.rs:551:30: replace * with + in Layout::tuned
 src/audio/eq.rs:580:14: replace == with != in Layout::tail
+src/audio/eq.rs:613:13: replace * with / in design_target
+src/audio/eq.rs:692:9: replace Design::is_flat -> bool with false
+src/audio/eq.rs:744:38: replace / with % in solve_linear
+src/audio/eq.rs:836:9: replace EqProcessor::advance_frame with ()
+src/audio/eq.rs:879:9: replace EqProcessor::redesign with ()
+src/audio/gapless.rs:119:13: delete match arm b"trak" in walk
+src/audio/gapless.rs:188:5: replace first_edit -> Option<(u64, u64)> with Some((0, 1))
+src/audio/limiter.rs:144:31: replace == with != in Limiter::process_frame
+src/audio/limiter.rs:181:30: replace > with == in Limiter::next_gain
+src/audio/limiter.rs:244:22: replace - with / in interpolator
+src/audio/loudness.rs:24:30: delete -
+src/audio/loudness.rs:81:25: replace * with + in Biquad::process
+src/audio/loudness.rs:104:17: replace * with / in k_weighting
+src/audio/loudness.rs:107:45: replace / with * in k_weighting
+src/audio/loudness.rs:115:53: replace * with + in k_weighting
+src/audio/loudness.rs:234:9: delete match arm 2 in default_layout
+src/audio/loudness.rs:286:48: replace || with && in channel_weights
+src/audio/loudness.rs:343:59: replace / with % in LoudnessMeter::add
+src/audio/loudness.rs:382:34: replace * with + in LoudnessMeter::finish
+src/audio/lyrics.rs:184:12: delete ! in sidecar_text
+src/audio/lyrics.rs:322:24: replace + with - in parse
+src/audio/lyrics.rs:377:54: delete ! in parse_time
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with (String::new(), vec![], String::new())
+src/audio/normalize.rs:62:9: replace LoudnessControl::enabled -> bool with false
+src/audio/normalize.rs:257:33: replace - with + in TrackLevels::level
+src/audio/normalize.rs:320:12: delete - in coefficient
+src/audio/normalize.rs:437:68: replace / with % in Leveler::next_gain
+src/audio/peq.rs:272:9: replace HeadphoneProfile::name_from_file -> String with String::new()
