@@ -63,3 +63,34 @@ src/analysis/lyrics_text.rs:797:42: replace && with || in read_number
 src/analysis/lyrics_text.rs:951:30: replace == with != in Builder::chorus
 src/analysis/lyrics_worker.rs:233:9: replace LyricsWorker::finished -> usize with 0
 src/analysis/map_file.rs:32:35: replace * with +
+src/analysis/map_file.rs:347:36: replace != with == in MapFile::validate
+src/analysis/map_file.rs:392:29: replace > with < in MapFile::validate
+src/analysis/map_file.rs:441:67: replace > with < in MapFile::verify
+src/analysis/map_file.rs:496:33: replace < with > in MapFile::shifted
+src/analysis/map_file.rs:650:9: replace MapStore::load -> Option<ImportedMap> with None
+src/analysis/meter.rs:118:56: replace || with && in detect
+src/analysis/meter.rs:226:44: replace / with % in pulses
+src/analysis/meter.rs:242:12: replace += with -= in correlation
+src/analysis/spectrogram.rs:40:5: replace fft_size -> usize with 0
+src/analysis/spectrogram.rs:198:9: replace Spectrogram::frame_at -> Option<[f32; BANDS]> with Some([1.0; BANDS])
+src/analysis/spectrogram.rs:325:9: replace Spectrogram::key -> Option<Arc<KeyAnalysis>> with None
+src/analysis/spectrogram.rs:494:37: replace * with / in SavedAnalysis::is_consistent
+src/analysis/spectrogram.rs:624:22: replace += with *= in analyze_source
+src/analysis/spectrogram.rs:816:50: replace / with * in frame_end
+src/analysis/spectrogram.rs:905:28: replace - with / in BandAnalyzer::process
+src/analysis/spectrogram.rs:939:5: replace band_edges -> Vec<f64> with vec![]
+src/analysis/structure.rs:150:44: replace < with > in SongMap::energy_at
+src/analysis/structure.rs:188:77: replace + with * in map_song
+src/analysis/structure.rs:396:74: replace / with % in map_song
+src/analysis/structure.rs:530:40: replace < with == in section_boundaries
+src/analysis/structure.rs:544:24: replace > with >= in section_boundaries
+src/analysis/structure.rs:634:5: replace drop_jumps -> (f64, f64, f64) with (0.0, 0.0, -1.0)
+src/analysis/structure.rs:656:33: replace < with > in drop_jumps
+src/analysis/structure.rs:704:22: replace * with / in find_drops
+src/analysis/structure.rs:770:33: replace * with / in refine_drop
+src/analysis/structure.rs:804:15: replace - with / in refine_drop
+src/analysis/structure.rs:835:46: replace > with == in drop_confidence
+src/analysis/structure.rs:854:11: replace * with + in gauss
+src/analysis/structure.rs:877:5: replace percentile_range -> (f64, f64) with (-1.0, 1.0)
+src/analysis/tempo.rs:137:23: replace && with || in resolve_octave
+src/analysis/tempo.rs:175:67: replace < with == in resolve_octave
