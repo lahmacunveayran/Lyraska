@@ -206,3 +206,17 @@ src/audio/peq.rs:1131:11: replace * with / in Bank::process
 src/audio/player/mod.rs:232:9: replace Player::retire_session -> Option<Session> with None
 src/audio/punch.rs:148:16: replace >= with < in Punch::process_frame
 src/audio/render.rs:235:32: replace - with + in Renderer::render
+src/audio/spectrum.rs:134:19: replace + with * in level
+src/audio/waveform.rs:83:60: replace * with + in Halving::push
+src/audio/waveform.rs:151:34: replace == with != in Decimator::interpolate
+src/audio/waveform.rs:296:49: replace + with * in WaveformTap::read_window
+src/audio/waveform.rs:347:5: replace to_bytes -> Vec<u8> with vec![]
+src/audio/player/bit_perfect.rs:19:5: replace output_mode -> (OutputMode, Option<String>) with (Default::default(), None)
+src/audio/player/controls.rs:51:9: replace Player::parametric_rate -> f64 with 0.0
+src/audio/player/next_track.rs:63:44: replace + with * in SharedState::next_consumed
+src/audio/player/session.rs:123:9: replace SharedState::heard_with_time -> (u64, Option<u64>) with (1, Some(0))
+src/audio/player/session.rs:164:9: replace SharedState::playing_at_frame -> Option<(TrackInfo, f64, usize)> with None
+src/audio/player/session.rs:251:27: replace match guard secs > 0.0 with false in Session::start
+src/audio/player/track_analysis.rs:190:9: replace Player::adopt_analysis with ()
+src/audio/player/transition.rs:244:16: replace != with == in Player::install
+src/audio/player/visuals.rs:131:9: replace Player::visual_spectrum -> Option<Vec<f32>> with Some(vec![])

@@ -45,3 +45,7 @@ src/audio/normalize.rs:414:38: replace * with / in Leveler::next_gain
 src/audio/output.rs:136:5: replace exclusive_timing -> Option<&'static str> with Some("")
 src/audio/punch.rs:182:35: replace > with >= in Punch::update_gain
 src/audio/punch.rs:200:52: replace == with != in Punch::update_gain
+src/audio/spectrum.rs:92:34: replace + with * in Transform::magnitudes
+src/audio/player/song_maps.rs:72:46: replace / with % in Player::import_song_map
+src/audio/player/visuals.rs:196:55: delete ! in Player::visual_eq_offsets
+src/audio/player/visuals.rs:250:80: replace > with == in SharedState::window_gains

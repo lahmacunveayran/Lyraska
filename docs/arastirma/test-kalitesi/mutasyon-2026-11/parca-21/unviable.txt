@@ -4,3 +4,4 @@ src/analysis/lyrics_job.rs:432:9: replace AnalysisCache::load_alignment -> Resul
 src/analysis/lyrics_model.rs:454:5: replace parse_tokens -> Result<(Vec<usize>, Vocabulary), ModelError> with Ok((vec![0], Default::default()))
 src/analysis/spectrogram.rs:816:55: replace * with / in frame_end
 src/audio/peq.rs:513:5: replace parse_filter -> Result<PeqFilter, FilterError> with Ok(Default::default())
+src/audio/player/session.rs:352:9: replace Session::now_playing_timed -> (TrackInfo, f64, Option<u64>, usize) with (Default::default(), -1.0, Some(1), 0)
