@@ -2,3 +2,4 @@ src/analysis/annotation.rs:124:9: replace AnnotationStore::unavailable -> Self w
 src/analysis/beats.rs:238:5: replace segment_periods -> Option<Vec<(std::ops::Range<usize>, f64)>> with Some(vec![(Range::new(0), -1.0)])
 src/analysis/cache.rs:193:9: replace AnalysisCache::lock -> Result<std::sync::MutexGuard<'_, Connection>, CacheError> with Ok(MutexGuard::new())
 src/analysis/fingerprint.rs:217:9: replace BandPrint::from_hex -> Option<Self> with Some(Default::default())
+src/analysis/meter.rs:169:5: replace fit -> Fit with Default::default()

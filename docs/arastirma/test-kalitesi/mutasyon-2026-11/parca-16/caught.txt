@@ -60,3 +60,37 @@ src/analysis/map_file.rs:353:47: replace > with < in MapFile::validate
 src/analysis/map_file.rs:376:33: replace > with < in MapFile::validate
 src/analysis/map_file.rs:398:37: replace > with == in MapFile::validate
 src/analysis/map_file.rs:514:62: replace + with * in MapFile::shifted
+src/analysis/map_file.rs:660:9: replace MapStore::save -> std::io::Result<()> with Ok(())
+src/analysis/meter.rs:118:66: replace < with > in detect
+src/analysis/meter.rs:226:64: replace - with / in pulses
+src/analysis/meter.rs:242:18: replace - with / in correlation
+src/analysis/spectrogram.rs:41:41: replace * with + in fft_size
+src/analysis/spectrogram.rs:198:44: replace < with > in Spectrogram::frame_at
+src/analysis/spectrogram.rs:233:47: replace * with / in Spectrogram::meters_at
+src/analysis/spectrogram.rs:334:9: replace Spectrogram::measured_loudness -> Option<Option<Loudness>> with Some(None)
+src/analysis/spectrogram.rs:504:5: replace measure_loudness with ()
+src/analysis/spectrogram.rs:631:49: replace < with > in analyze_source
+src/analysis/spectrogram.rs:816:14: replace * with + in frame_end
+src/analysis/spectrogram.rs:917:5: replace to_level -> u8 with 0
+src/analysis/spectrogram.rs:939:46: replace * with / in band_edges
+src/analysis/structure.rs:159:89: replace + with * in SongMap::bar_beat
+src/analysis/structure.rs:252:21: replace / with * in map_song
+src/analysis/structure.rs:294:57: replace / with * in map_song
+src/analysis/structure.rs:477:5: replace phase_agreement -> f64 with 0.0
+src/analysis/structure.rs:506:5: replace section_boundaries -> Vec<usize> with vec![1]
+src/analysis/structure.rs:530:51: replace < with <= in section_boundaries
+src/analysis/structure.rs:557:5: replace label_sections -> Vec<usize> with vec![0]
+src/analysis/structure.rs:634:5: replace drop_jumps -> (f64, f64, f64) with (0.0, -1.0, 1.0)
+src/analysis/structure.rs:662:5: replace find_drops -> Vec<usize> with vec![0]
+src/analysis/structure.rs:704:62: replace * with + in find_drops
+src/analysis/structure.rs:774:29: replace * with / in refine_drop
+src/analysis/structure.rs:789:19: replace + with - in refine_drop
+src/analysis/structure.rs:818:5: replace drop_confidence -> f32 with -1.0
+src/analysis/tempo.rs:143:52: replace >= with < in resolve_octave
+src/analysis/tempo.rs:184:68: replace >= with < in resolve_octave
+src/analysis/tempo.rs:217:32: replace / with % in three_halves
+src/analysis/tempo.rs:262:51: replace && with || in retrack
+src/analysis/tempo.rs:300:5: replace accent_envelope -> Vec<f64> with vec![-1.0]
+src/analysis/tempo.rs:401:5: replace noise_envelope -> Vec<f64> with vec![-1.0]
+src/analysis/tempo.rs:436:54: replace * with + in peaks
+src/audio/abx.rs:369:26: replace - with + in prepare
