@@ -5196,12 +5196,2463 @@
           ]
         }
       ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/lyrics_text.rs:850:5: replace prepare -> Vec<AlignLine> with vec![]",
+          "package": "lyraska",
+          "file": "src/analysis/lyrics_text.rs",
+          "function": {
+            "function_name": "prepare",
+            "return_type": "-> Vec<AlignLine>",
+            "span": {
+              "start": {
+                "line": 848,
+                "column": 1
+              },
+              "end": {
+                "line": 851,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 850,
+              "column": 5
+            },
+            "end": {
+              "line": 850,
+              "column": 44
+            }
+          },
+          "replacement": "vec![]",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__lyrics_text.rs_line_850_col_5.log",
+      "diff_path": "diff/src__analysis__lyrics_text.rs_line_850_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 22.135986015,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 176.756702637,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/lyrics_text.rs:988:20: delete ! in Builder::end_paragraph",
+          "package": "lyraska",
+          "file": "src/analysis/lyrics_text.rs",
+          "function": {
+            "function_name": "Builder::end_paragraph",
+            "return_type": "",
+            "span": {
+              "start": {
+                "line": 984,
+                "column": 5
+              },
+              "end": {
+                "line": 1001,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 988,
+              "column": 20
+            },
+            "end": {
+              "line": 988,
+              "column": 21
+            }
+          },
+          "replacement": "",
+          "genre": "UnaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__lyrics_text.rs_line_988_col_20.log",
+      "diff_path": "diff/src__analysis__lyrics_text.rs_line_988_col_20.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 23.005649234,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 56.875899277,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/lyrics_worker.rs:252:55: replace < with <= in LyricsWorker::stop",
+          "package": "lyraska",
+          "file": "src/analysis/lyrics_worker.rs",
+          "function": {
+            "function_name": "LyricsWorker::stop",
+            "return_type": "",
+            "span": {
+              "start": {
+                "line": 241,
+                "column": 5
+              },
+              "end": {
+                "line": 263,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 252,
+              "column": 55
+            },
+            "end": {
+              "line": 252,
+              "column": 56
+            }
+          },
+          "replacement": "<=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__analysis__lyrics_worker.rs_line_252_col_55.log",
+      "diff_path": "diff/src__analysis__lyrics_worker.rs_line_252_col_55.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 22.092782752,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 56.59206787,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/map_file.rs:275:32: replace * with + in MapFile::from_analysis",
+          "package": "lyraska",
+          "file": "src/analysis/map_file.rs",
+          "function": {
+            "function_name": "MapFile::from_analysis",
+            "return_type": "-> Self",
+            "span": {
+              "start": {
+                "line": 203,
+                "column": 5
+              },
+              "end": {
+                "line": 300,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 275,
+              "column": 32
+            },
+            "end": {
+              "line": 275,
+              "column": 33
+            }
+          },
+          "replacement": "+",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__map_file.rs_line_275_col_32.log",
+      "diff_path": "diff/src__analysis__map_file.rs_line_275_col_32.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 24.083385301,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 57.039617818,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/map_file.rs:356:74: replace + with * in MapFile::validate",
+          "package": "lyraska",
+          "file": "src/analysis/map_file.rs",
+          "function": {
+            "function_name": "MapFile::validate",
+            "return_type": "-> Result<(), MapError>",
+            "span": {
+              "start": {
+                "line": 344,
+                "column": 5
+              },
+              "end": {
+                "line": 419,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 356,
+              "column": 74
+            },
+            "end": {
+              "line": 356,
+              "column": 75
+            }
+          },
+          "replacement": "*",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__map_file.rs_line_356_col_74.log",
+      "diff_path": "diff/src__analysis__map_file.rs_line_356_col_74.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 24.153725483,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 56.323070054,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/map_file.rs:379:32: replace > with == in MapFile::validate",
+          "package": "lyraska",
+          "file": "src/analysis/map_file.rs",
+          "function": {
+            "function_name": "MapFile::validate",
+            "return_type": "-> Result<(), MapError>",
+            "span": {
+              "start": {
+                "line": 344,
+                "column": 5
+              },
+              "end": {
+                "line": 419,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 379,
+              "column": 32
+            },
+            "end": {
+              "line": 379,
+              "column": 33
+            }
+          },
+          "replacement": "==",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__analysis__map_file.rs_line_379_col_32.log",
+      "diff_path": "diff/src__analysis__map_file.rs_line_379_col_32.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 21.729650105,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 56.837253265,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/map_file.rs:403:32: replace || with && in MapFile::validate",
+          "package": "lyraska",
+          "file": "src/analysis/map_file.rs",
+          "function": {
+            "function_name": "MapFile::validate",
+            "return_type": "-> Result<(), MapError>",
+            "span": {
+              "start": {
+                "line": 344,
+                "column": 5
+              },
+              "end": {
+                "line": 419,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 403,
+              "column": 32
+            },
+            "end": {
+              "line": 403,
+              "column": 34
+            }
+          },
+          "replacement": "&&",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__map_file.rs_line_403_col_32.log",
+      "diff_path": "diff/src__analysis__map_file.rs_line_403_col_32.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 23.96722812,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 57.175887458,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/map_file.rs:472:47: replace < with <= in MapFile::shifted",
+          "package": "lyraska",
+          "file": "src/analysis/map_file.rs",
+          "function": {
+            "function_name": "MapFile::shifted",
+            "return_type": "-> Self",
+            "span": {
+              "start": {
+                "line": 458,
+                "column": 5
+              },
+              "end": {
+                "line": 517,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 472,
+              "column": 47
+            },
+            "end": {
+              "line": 472,
+              "column": 48
+            }
+          },
+          "replacement": "<=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__analysis__map_file.rs_line_472_col_47.log",
+      "diff_path": "diff/src__analysis__map_file.rs_line_472_col_47.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 24.137401797,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 57.599226256,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/map_file.rs:558:5: replace round_time -> f64 with -1.0",
+          "package": "lyraska",
+          "file": "src/analysis/map_file.rs",
+          "function": {
+            "function_name": "round_time",
+            "return_type": "-> f64",
+            "span": {
+              "start": {
+                "line": 556,
+                "column": 1
+              },
+              "end": {
+                "line": 559,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 558,
+              "column": 5
+            },
+            "end": {
+              "line": 558,
+              "column": 64
+            }
+          },
+          "replacement": "-1.0",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__map_file.rs_line_558_col_5.log",
+      "diff_path": "diff/src__analysis__map_file.rs_line_558_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 24.182084196,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 56.68298954,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/meter.rs:66:64: replace / with * in Aksak::beat_grid",
+          "package": "lyraska",
+          "file": "src/analysis/meter.rs",
+          "function": {
+            "function_name": "Aksak::beat_grid",
+            "return_type": "-> BeatGrid",
+            "span": {
+              "start": {
+                "line": 64,
+                "column": 5
+              },
+              "end": {
+                "line": 72,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 66,
+              "column": 64
+            },
+            "end": {
+              "line": 66,
+              "column": 65
+            }
+          },
+          "replacement": "*",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__analysis__meter.rs_line_66_col_64.log",
+      "diff_path": "diff/src__analysis__meter.rs_line_66_col_64.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 22.795520966,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 58.504924866,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/meter.rs:142:5: replace accents -> Vec<f64> with vec![1.0]",
+          "package": "lyraska",
+          "file": "src/analysis/meter.rs",
+          "function": {
+            "function_name": "accents",
+            "return_type": "-> Vec<f64>",
+            "span": {
+              "start": {
+                "line": 133,
+                "column": 1
+              },
+              "end": {
+                "line": 165,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 142,
+              "column": 5
+            },
+            "end": {
+              "line": 164,
+              "column": 19
+            }
+          },
+          "replacement": "vec![1.0]",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__meter.rs_line_142_col_5.log",
+      "diff_path": "diff/src__analysis__meter.rs_line_142_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 33.995336887,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 57.466975283,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/meter.rs:174:38: replace + with * in fit",
+          "package": "lyraska",
+          "file": "src/analysis/meter.rs",
+          "function": {
+            "function_name": "fit",
+            "return_type": "-> Fit",
+            "span": {
+              "start": {
+                "line": 167,
+                "column": 1
+              },
+              "end": {
+                "line": 186,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 174,
+              "column": 38
+            },
+            "end": {
+              "line": 174,
+              "column": 39
+            }
+          },
+          "replacement": "*",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__meter.rs_line_174_col_38.log",
+      "diff_path": "diff/src__analysis__meter.rs_line_174_col_38.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 35.636083067,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 52.082780275,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/meter.rs:233:10: replace < with <= in correlation",
+          "package": "lyraska",
+          "file": "src/analysis/meter.rs",
+          "function": {
+            "function_name": "correlation",
+            "return_type": "-> f64",
+            "span": {
+              "start": {
+                "line": 231,
+                "column": 1
+              },
+              "end": {
+                "line": 249,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 233,
+              "column": 10
+            },
+            "end": {
+              "line": 233,
+              "column": 11
+            }
+          },
+          "replacement": "<=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__analysis__meter.rs_line_233_col_10.log",
+      "diff_path": "diff/src__analysis__meter.rs_line_233_col_10.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 26.984759459,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 57.982133238,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/meter.rs:247:12: replace / with % in correlation",
+          "package": "lyraska",
+          "file": "src/analysis/meter.rs",
+          "function": {
+            "function_name": "correlation",
+            "return_type": "-> f64",
+            "span": {
+              "start": {
+                "line": 231,
+                "column": 1
+              },
+              "end": {
+                "line": 249,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 247,
+              "column": 12
+            },
+            "end": {
+              "line": 247,
+              "column": 13
+            }
+          },
+          "replacement": "%",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__meter.rs_line_247_col_12.log",
+      "diff_path": "diff/src__analysis__meter.rs_line_247_col_12.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 22.242739416,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 60.147241442,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/spectrogram.rs:50:23: delete -",
+          "package": "lyraska",
+          "file": "src/analysis/spectrogram.rs",
+          "function": null,
+          "span": {
+            "start": {
+              "line": 50,
+              "column": 23
+            },
+            "end": {
+              "line": 50,
+              "column": 24
+            }
+          },
+          "replacement": "",
+          "genre": "UnaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__spectrogram.rs_line_50_col_23.log",
+      "diff_path": "diff/src__analysis__spectrogram.rs_line_50_col_23.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 24.803073385,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 58.410653579,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/spectrogram.rs:208:66: replace - with + in Spectrogram::frame_at",
+          "package": "lyraska",
+          "file": "src/analysis/spectrogram.rs",
+          "function": {
+            "function_name": "Spectrogram::frame_at",
+            "return_type": "-> Option<[f32; BANDS]>",
+            "span": {
+              "start": {
+                "line": 192,
+                "column": 5
+              },
+              "end": {
+                "line": 221,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 208,
+              "column": 66
+            },
+            "end": {
+              "line": 208,
+              "column": 67
+            }
+          },
+          "replacement": "+",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__spectrogram.rs_line_208_col_66.log",
+      "diff_path": "diff/src__analysis__spectrogram.rs_line_208_col_66.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 25.60430263,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 59.094796764,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/spectrogram.rs:238:9: replace Spectrogram::vu_reference_db -> Option<f32> with Some(0.0)",
+          "package": "lyraska",
+          "file": "src/analysis/spectrogram.rs",
+          "function": {
+            "function_name": "Spectrogram::vu_reference_db",
+            "return_type": "-> Option<f32>",
+            "span": {
+              "start": {
+                "line": 236,
+                "column": 5
+              },
+              "end": {
+                "line": 239,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 238,
+              "column": 9
+            },
+            "end": {
+              "line": 238,
+              "column": 55
+            }
+          },
+          "replacement": "Some(0.0)",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__spectrogram.rs_line_238_col_9.log",
+      "diff_path": "diff/src__analysis__spectrogram.rs_line_238_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 32.745185803,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 57.633399356,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/spectrogram.rs:365:9: replace Spectrogram::beat_grid -> Option<Arc<BeatGrid>> with None",
+          "package": "lyraska",
+          "file": "src/analysis/spectrogram.rs",
+          "function": {
+            "function_name": "Spectrogram::beat_grid",
+            "return_type": "-> Option<Arc<BeatGrid>>",
+            "span": {
+              "start": {
+                "line": 362,
+                "column": 5
+              },
+              "end": {
+                "line": 367,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 365,
+              "column": 9
+            },
+            "end": {
+              "line": 366,
+              "column": 51
+            }
+          },
+          "replacement": "None",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__spectrogram.rs_line_365_col_9.log",
+      "diff_path": "diff/src__analysis__spectrogram.rs_line_365_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 33.302825177,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 54.199288681,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/spectrogram.rs:522:39: replace / with % in measure_loudness",
+          "package": "lyraska",
+          "file": "src/analysis/spectrogram.rs",
+          "function": {
+            "function_name": "measure_loudness",
+            "return_type": "",
+            "span": {
+              "start": {
+                "line": 500,
+                "column": 1
+              },
+              "end": {
+                "line": 538,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 522,
+              "column": 39
+            },
+            "end": {
+              "line": 522,
+              "column": 40
+            }
+          },
+          "replacement": "%",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__spectrogram.rs_line_522_col_39.log",
+      "diff_path": "diff/src__analysis__spectrogram.rs_line_522_col_39.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 29.1684952,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 58.359089832,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/spectrogram.rs:639:41: replace * with / in analyze_source",
+          "package": "lyraska",
+          "file": "src/analysis/spectrogram.rs",
+          "function": {
+            "function_name": "analyze_source",
+            "return_type": "",
+            "span": {
+              "start": {
+                "line": 571,
+                "column": 1
+              },
+              "end": {
+                "line": 655,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 639,
+              "column": 41
+            },
+            "end": {
+              "line": 639,
+              "column": 42
+            }
+          },
+          "replacement": "/",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__analysis__spectrogram.rs_line_639_col_41.log",
+      "diff_path": "diff/src__analysis__spectrogram.rs_line_639_col_41.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 24.045938027,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 58.536075663,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/spectrogram.rs:886:9: replace BandAnalyzer::process -> ([u8; BANDS], f32) with ([0; BANDS], 0.0)",
+          "package": "lyraska",
+          "file": "src/analysis/spectrogram.rs",
+          "function": {
+            "function_name": "BandAnalyzer::process",
+            "return_type": "-> ([u8; BANDS], f32)",
+            "span": {
+              "start": {
+                "line": 883,
+                "column": 5
+              },
+              "end": {
+                "line": 912,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 886,
+              "column": 9
+            },
+            "end": {
+              "line": 911,
+              "column": 59
+            }
+          },
+          "replacement": "([0; BANDS], 0.0)",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__spectrogram.rs_line_886_col_9.log",
+      "diff_path": "diff/src__analysis__spectrogram.rs_line_886_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 29.620161092,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 51.507408234,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/spectrogram.rs:917:41: replace - with + in to_level",
+          "package": "lyraska",
+          "file": "src/analysis/spectrogram.rs",
+          "function": {
+            "function_name": "to_level",
+            "return_type": "-> u8",
+            "span": {
+              "start": {
+                "line": 915,
+                "column": 1
+              },
+              "end": {
+                "line": 919,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 917,
+              "column": 41
+            },
+            "end": {
+              "line": 917,
+              "column": 42
+            }
+          },
+          "replacement": "+",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__spectrogram.rs_line_917_col_41.log",
+      "diff_path": "diff/src__analysis__spectrogram.rs_line_917_col_41.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 31.235078946,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 57.725521596,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/spectrogram.rs:942:27: replace * with / in band_edges",
+          "package": "lyraska",
+          "file": "src/analysis/spectrogram.rs",
+          "function": {
+            "function_name": "band_edges",
+            "return_type": "-> Vec<f64>",
+            "span": {
+              "start": {
+                "line": 936,
+                "column": 1
+              },
+              "end": {
+                "line": 944,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 942,
+              "column": 27
+            },
+            "end": {
+              "line": 942,
+              "column": 28
+            }
+          },
+          "replacement": "/",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__spectrogram.rs_line_942_col_27.log",
+      "diff_path": "diff/src__analysis__spectrogram.rs_line_942_col_27.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 28.751480791,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 57.674187489,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/structure.rs:166:46: replace && with || in SongMap::section_at",
+          "package": "lyraska",
+          "file": "src/analysis/structure.rs",
+          "function": {
+            "function_name": "SongMap::section_at",
+            "return_type": "-> Option<usize>",
+            "span": {
+              "start": {
+                "line": 162,
+                "column": 5
+              },
+              "end": {
+                "line": 167,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 166,
+              "column": 46
+            },
+            "end": {
+              "line": 166,
+              "column": 48
+            }
+          },
+          "replacement": "||",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__structure.rs_line_166_col_46.log",
+      "diff_path": "diff/src__analysis__structure.rs_line_166_col_46.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 27.968022156,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 59.333159661,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/structure.rs:201:45: replace / with % in map_song",
+          "package": "lyraska",
+          "file": "src/analysis/structure.rs",
+          "function": {
+            "function_name": "map_song",
+            "return_type": "-> Option<SongMap>",
+            "span": {
+              "start": {
+                "line": 170,
+                "column": 1
+              },
+              "end": {
+                "line": 437,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 201,
+              "column": 45
+            },
+            "end": {
+              "line": 201,
+              "column": 46
+            }
+          },
+          "replacement": "%",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__analysis__structure.rs_line_201_col_45.log",
+      "diff_path": "diff/src__analysis__structure.rs_line_201_col_45.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 26.941282909,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 57.674472676,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/structure.rs:263:43: replace / with * in map_song",
+          "package": "lyraska",
+          "file": "src/analysis/structure.rs",
+          "function": {
+            "function_name": "map_song",
+            "return_type": "-> Option<SongMap>",
+            "span": {
+              "start": {
+                "line": 170,
+                "column": 1
+              },
+              "end": {
+                "line": 437,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 263,
+              "column": 43
+            },
+            "end": {
+              "line": 263,
+              "column": 44
+            }
+          },
+          "replacement": "*",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__structure.rs_line_263_col_43.log",
+      "diff_path": "diff/src__analysis__structure.rs_line_263_col_43.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 26.53211192,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 53.812451294,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/structure.rs:299:89: replace - with / in map_song",
+          "package": "lyraska",
+          "file": "src/analysis/structure.rs",
+          "function": {
+            "function_name": "map_song",
+            "return_type": "-> Option<SongMap>",
+            "span": {
+              "start": {
+                "line": 170,
+                "column": 1
+              },
+              "end": {
+                "line": 437,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 299,
+              "column": 89
+            },
+            "end": {
+              "line": 299,
+              "column": 90
+            }
+          },
+          "replacement": "/",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__structure.rs_line_299_col_89.log",
+      "diff_path": "diff/src__analysis__structure.rs_line_299_col_89.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 27.760992198,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 57.693583267,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/structure.rs:375:18: replace += with *= in map_song",
+          "package": "lyraska",
+          "file": "src/analysis/structure.rs",
+          "function": {
+            "function_name": "map_song",
+            "return_type": "-> Option<SongMap>",
+            "span": {
+              "start": {
+                "line": 170,
+                "column": 1
+              },
+              "end": {
+                "line": 437,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 375,
+              "column": 18
+            },
+            "end": {
+              "line": 375,
+              "column": 20
+            }
+          },
+          "replacement": "*=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "Timeout",
+      "log_path": "log/src__analysis__structure.rs_line_375_col_18.log",
+      "diff_path": "diff/src__analysis__structure.rs_line_375_col_18.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 26.496116135,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 300.069289528,
+          "process_status": "Timeout",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/structure.rs:442:5: replace choose_meter -> (usize, usize, f64) with (0, 1, 0.0)",
+          "package": "lyraska",
+          "file": "src/analysis/structure.rs",
+          "function": {
+            "function_name": "choose_meter",
+            "return_type": "-> (usize, usize, f64)",
+            "span": {
+              "start": {
+                "line": 439,
+                "column": 1
+              },
+              "end": {
+                "line": 472,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 442,
+              "column": 5
+            },
+            "end": {
+              "line": 471,
+              "column": 6
+            }
+          },
+          "replacement": "(0, 1, 0.0)",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__structure.rs_line_442_col_5.log",
+      "diff_path": "diff/src__analysis__structure.rs_line_442_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 31.557619763,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 52.761284074,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/structure.rs:479:24: replace / with * in phase_agreement",
+          "package": "lyraska",
+          "file": "src/analysis/structure.rs",
+          "function": {
+            "function_name": "phase_agreement",
+            "return_type": "-> f64",
+            "span": {
+              "start": {
+                "line": 474,
+                "column": 1
+              },
+              "end": {
+                "line": 502,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 479,
+              "column": 24
+            },
+            "end": {
+              "line": 479,
+              "column": 25
+            }
+          },
+          "replacement": "*",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__structure.rs_line_479_col_24.log",
+      "diff_path": "diff/src__analysis__structure.rs_line_479_col_24.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 30.733284031,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 56.073854207,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/structure.rs:508:14: replace * with + in section_boundaries",
+          "package": "lyraska",
+          "file": "src/analysis/structure.rs",
+          "function": {
+            "function_name": "section_boundaries",
+            "return_type": "-> Vec<usize>",
+            "span": {
+              "start": {
+                "line": 504,
+                "column": 1
+              },
+              "end": {
+                "line": 551,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 508,
+              "column": 14
+            },
+            "end": {
+              "line": 508,
+              "column": 15
+            }
+          },
+          "replacement": "+",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__analysis__structure.rs_line_508_col_14.log",
+      "diff_path": "diff/src__analysis__structure.rs_line_508_col_14.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 25.499469341,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 57.556406105,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/structure.rs:531:48: replace + with * in section_boundaries",
+          "package": "lyraska",
+          "file": "src/analysis/structure.rs",
+          "function": {
+            "function_name": "section_boundaries",
+            "return_type": "-> Vec<usize>",
+            "span": {
+              "start": {
+                "line": 504,
+                "column": 1
+              },
+              "end": {
+                "line": 551,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 531,
+              "column": 48
+            },
+            "end": {
+              "line": 531,
+              "column": 49
+            }
+          },
+          "replacement": "*",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__structure.rs_line_531_col_48.log",
+      "diff_path": "diff/src__analysis__structure.rs_line_531_col_48.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 28.120554374,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 58.388105655,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/structure.rs:576:25: replace * with / in label_sections",
+          "package": "lyraska",
+          "file": "src/analysis/structure.rs",
+          "function": {
+            "function_name": "label_sections",
+            "return_type": "-> Vec<usize>",
+            "span": {
+              "start": {
+                "line": 553,
+                "column": 1
+              },
+              "end": {
+                "line": 594,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 576,
+              "column": 25
+            },
+            "end": {
+              "line": 576,
+              "column": 26
+            }
+          },
+          "replacement": "/",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__structure.rs_line_576_col_25.log",
+      "diff_path": "diff/src__analysis__structure.rs_line_576_col_25.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 26.50276571,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 56.401636724,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/structure.rs:634:5: replace drop_jumps -> (f64, f64, f64) with (1.0, 1.0, 1.0)",
+          "package": "lyraska",
+          "file": "src/analysis/structure.rs",
+          "function": {
+            "function_name": "drop_jumps",
+            "return_type": "-> (f64, f64, f64)",
+            "span": {
+              "start": {
+                "line": 627,
+                "column": 1
+              },
+              "end": {
+                "line": 658,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 634,
+              "column": 5
+            },
+            "end": {
+              "line": 657,
+              "column": 67
+            }
+          },
+          "replacement": "(1.0, 1.0, 1.0)",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__structure.rs_line_634_col_5.log",
+      "diff_path": "diff/src__analysis__structure.rs_line_634_col_5.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 25.956428583,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 54.163029379,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/structure.rs:675:59: replace + with - in find_drops",
+          "package": "lyraska",
+          "file": "src/analysis/structure.rs",
+          "function": {
+            "function_name": "find_drops",
+            "return_type": "-> Vec<usize>",
+            "span": {
+              "start": {
+                "line": 660,
+                "column": 1
+              },
+              "end": {
+                "line": 729,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 675,
+              "column": 59
+            },
+            "end": {
+              "line": 675,
+              "column": 60
+            }
+          },
+          "replacement": "-",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/src__analysis__structure.rs_line_675_col_59.log",
+      "diff_path": "diff/src__analysis__structure.rs_line_675_col_59.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 29.667180883,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 51.420195353,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "src/analysis/structure.rs:718:21: replace < with <= in find_drops",
+          "package": "lyraska",
+          "file": "src/analysis/structure.rs",
+          "function": {
+            "function_name": "find_drops",
+            "return_type": "-> Vec<usize>",
+            "span": {
+              "start": {
+                "line": 660,
+                "column": 1
+              },
+              "end": {
+                "line": 729,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 718,
+              "column": 21
+            },
+            "end": {
+              "line": 718,
+              "column": 22
+            }
+          },
+          "replacement": "<=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/src__analysis__structure.rs_line_718_col_21.log",
+      "diff_path": "diff/src__analysis__structure.rs_line_718_col_21.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 23.505621514,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 56.440734684,
+          "process_status": "Success",
+          "argv": [
+            "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=lyraska@0.0.99",
+            "--config=profile.test.package.lyraska.debug=0",
+            "--lib"
+          ]
+        }
+      ]
     }
   ],
-  "total_mutants": 76,
-  "missed": 14,
-  "caught": 58,
-  "timeout": 1,
+  "total_mutants": 112,
+  "missed": 23,
+  "caught": 84,
+  "timeout": 2,
   "unviable": 3,
   "success": 0,
   "start_time": "2026-11-06T06:43:14.041958369Z",

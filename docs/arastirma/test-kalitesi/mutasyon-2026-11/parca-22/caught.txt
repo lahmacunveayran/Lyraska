@@ -56,3 +56,29 @@ src/analysis/lyrics_text.rs:402:34: replace == with != in parse_header_words
 src/analysis/lyrics_text.rs:557:15: replace %= with += in turkish_number
 src/analysis/lyrics_text.rs:652:11: replace %= with += in english_number
 src/analysis/lyrics_text.rs:697:70: replace > with < in read_integer
+src/analysis/lyrics_text.rs:850:5: replace prepare -> Vec<AlignLine> with vec![]
+src/analysis/lyrics_text.rs:988:20: delete ! in Builder::end_paragraph
+src/analysis/map_file.rs:275:32: replace * with + in MapFile::from_analysis
+src/analysis/map_file.rs:356:74: replace + with * in MapFile::validate
+src/analysis/map_file.rs:403:32: replace || with && in MapFile::validate
+src/analysis/map_file.rs:558:5: replace round_time -> f64 with -1.0
+src/analysis/meter.rs:142:5: replace accents -> Vec<f64> with vec![1.0]
+src/analysis/meter.rs:174:38: replace + with * in fit
+src/analysis/meter.rs:247:12: replace / with % in correlation
+src/analysis/spectrogram.rs:50:23: delete -
+src/analysis/spectrogram.rs:208:66: replace - with + in Spectrogram::frame_at
+src/analysis/spectrogram.rs:238:9: replace Spectrogram::vu_reference_db -> Option<f32> with Some(0.0)
+src/analysis/spectrogram.rs:365:9: replace Spectrogram::beat_grid -> Option<Arc<BeatGrid>> with None
+src/analysis/spectrogram.rs:522:39: replace / with % in measure_loudness
+src/analysis/spectrogram.rs:886:9: replace BandAnalyzer::process -> ([u8; BANDS], f32) with ([0; BANDS], 0.0)
+src/analysis/spectrogram.rs:917:41: replace - with + in to_level
+src/analysis/spectrogram.rs:942:27: replace * with / in band_edges
+src/analysis/structure.rs:166:46: replace && with || in SongMap::section_at
+src/analysis/structure.rs:263:43: replace / with * in map_song
+src/analysis/structure.rs:299:89: replace - with / in map_song
+src/analysis/structure.rs:442:5: replace choose_meter -> (usize, usize, f64) with (0, 1, 0.0)
+src/analysis/structure.rs:479:24: replace / with * in phase_agreement
+src/analysis/structure.rs:531:48: replace + with * in section_boundaries
+src/analysis/structure.rs:576:25: replace * with / in label_sections
+src/analysis/structure.rs:634:5: replace drop_jumps -> (f64, f64, f64) with (1.0, 1.0, 1.0)
+src/analysis/structure.rs:675:59: replace + with - in find_drops
