@@ -2,3 +2,4 @@ src/analysis/beats.rs:238:5: replace segment_periods -> Option<Vec<(std::ops::Ra
 src/analysis/cache.rs:210:9: replace AnalysisCache::load -> Result<Option<CachedAnalysis>, CacheError> with Ok(Some(Default::default()))
 src/analysis/lyrics_job.rs:432:9: replace AnalysisCache::load_alignment -> Result<Option<AutoAlignment>, CacheError> with Ok(Some(Default::default()))
 src/analysis/lyrics_model.rs:454:5: replace parse_tokens -> Result<(Vec<usize>, Vocabulary), ModelError> with Ok((vec![0], Default::default()))
+src/analysis/spectrogram.rs:816:55: replace * with / in frame_end
