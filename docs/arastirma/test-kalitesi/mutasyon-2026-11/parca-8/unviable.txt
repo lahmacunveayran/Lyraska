@@ -1,0 +1,4 @@
+src/audio/mod.rs:125:5: replace status -> EngineStatus with Default::default()
+src/analysis/beats.rs:238:5: replace segment_periods -> Option<Vec<(std::ops::Range<usize>, f64)>> with Some(vec![(Range::new(), 0.0)])
+src/analysis/evaluate.rs:90:5: replace evaluate_file -> Result<BeatEvaluation, AudioError> with Ok(Default::default())
+src/analysis/fingerprint.rs:286:25: replace << with >> in BandPrint::reliable_share
