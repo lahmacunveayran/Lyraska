@@ -48,3 +48,6 @@ src/audio/output.rs:136:5: replace exclusive_timing -> Option<&'static str> with
 src/audio/punch.rs:145:49: replace / with * in Punch::process_frame
 src/audio/punch.rs:200:24: replace == with != in Punch::update_gain
 src/audio/spectrum.rs:92:34: replace + with - in Transform::magnitudes
+src/audio/player/session.rs:251:27: replace match guard secs > 0.0 with true in Session::start
+src/audio/player/track_analysis.rs:185:9: replace Player::foreground_analyses -> Arc<AtomicUsize> with Arc::new(Default::default())
+src/audio/player/visuals.rs:196:52: replace && with || in Player::visual_eq_offsets

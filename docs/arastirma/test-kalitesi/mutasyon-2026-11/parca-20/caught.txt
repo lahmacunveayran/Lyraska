@@ -205,3 +205,11 @@ src/audio/resample.rs:110:24: replace += with *= in Converter::process
 src/audio/spectrum.rs:134:19: replace + with - in level
 src/audio/waveform.rs:81:31: replace % with + in Halving::push
 src/audio/waveform.rs:151:39: replace && with || in Decimator::interpolate
+src/audio/waveform.rs:296:49: replace + with - in WaveformTap::read_window
+src/audio/waveform.rs:338:41: replace <= with > in GainCursor<'a>::at
+src/audio/waveform.rs:373:5: replace silence -> Vec<u8> with vec![1]
+src/audio/player/decode_thread.rs:137:48: replace * with / in decode_loop
+src/audio/player/next_track.rs:63:44: replace + with - in SharedState::next_consumed
+src/audio/player/session.rs:123:9: replace SharedState::heard_with_time -> (u64, Option<u64>) with (1, None)
+src/audio/player/visuals.rs:131:9: replace Player::visual_spectrum -> Option<Vec<f32>> with None
+src/audio/player/visuals.rs:250:51: replace + with * in SharedState::window_gains
