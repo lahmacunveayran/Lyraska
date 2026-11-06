@@ -3,3 +3,8 @@ src/analysis/lyrics_worker.rs:74:9: replace Queue::pop -> Option<Request> with S
 src/analysis/map_file.rs:317:30: replace > with < in MapFile::parse
 src/audio/abx.rs:662:9: replace PreparedAbx::start_with -> Result<AbxTest, AudioError> with Ok(Default::default())
 src/audio/biquad.rs:111:9: replace Spec::analog -> Complex<f64> with Complex::new()
+src/audio/peq.rs:485:5: replace design -> Biquad with Default::default()
+src/audio/waveform.rs:273:9: replace WaveformTap::read_window -> Option<Window<N>> with Some(Window::from(Default::default()))
+src/audio/player/session.rs:148:9: replace SharedState::now_playing_indexed -> Option<(TrackInfo, f64, Option<u64>, usize)> with Some((Default::default(), 0.0, None, 1))
+src/audio/player/track_analysis.rs:60:9: replace Analysis::start_analysis -> Option<Self> with Some(Default::default())
+src/audio/player/transition.rs:93:9: replace Player::begin_transition -> Transition with Default::default()
