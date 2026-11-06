@@ -120,4 +120,32 @@ src/audio/biquad.rs:123:37: replace + with * in Spec::analog
 src/audio/biquad.rs:126:41: replace * with / in Spec::analog
 src/audio/biquad.rs:129:41: replace / with * in Spec::analog
 src/audio/biquad.rs:146:41: replace / with * in Spec::pole
+src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((-1.0, 1.0, 1.0, -1.0))
 src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((0.0, 0.0, 1.0, 1.0))
+src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((1.0, 1.0, 0.0, 0.0))
+src/audio/biquad.rs:210:32: replace - with + in Biquad::low_shelf
+src/audio/biquad.rs:215:45: replace + with - in Biquad::low_shelf
+src/audio/biquad.rs:227:32: replace * with + in Biquad::high_shelf
+src/audio/biquad.rs:232:50: replace - with / in Biquad::high_shelf
+src/audio/biquad.rs:237:27: replace - with / in Biquad::high_shelf
+src/audio/biquad.rs:252:18: replace + with * in Biquad::lowpass
+src/audio/biquad.rs:264:32: replace * with + in Biquad::highpass
+src/audio/biquad.rs:282:27: replace * with + in Biquad::notch
+src/audio/biquad.rs:300:18: replace - with + in Biquad::allpass
+src/audio/biquad.rs:350:42: replace * with + in Biquad::matched
+src/audio/biquad.rs:379:47: replace / with * in Biquad::matched
+src/audio/biquad.rs:425:36: replace - with + in Biquad::matched
+src/audio/biquad.rs:487:23: replace * with / in Biquad::beyond_nyquist
+src/audio/biquad.rs:526:9: replace Biquad::response -> Complex<f64> with Complex::from(0.0)
+src/audio/biquad.rs:545:9: replace Biquad::response_db_phi -> f64 with 1.0
+src/audio/biquad.rs:560:23: replace < with == in Biquad::is_stable
+src/audio/biquad.rs:576:36: replace / with % in Biquad::max_zero_radius
+src/audio/biquad.rs:592:5: replace phi -> (f64, f64, f64) with (0.0, -1.0, 0.0)
+src/audio/biquad.rs:599:5: replace matched_poles -> (f64, f64) with (0.0, 1.0)
+src/audio/biquad.rs:605:23: replace * with / in matched_poles
+src/audio/biquad.rs:641:35: replace < with > in factor
+src/audio/biquad.rs:655:42: delete - in factor
+src/audio/biquad.rs:667:50: delete - in min_phase
+src/audio/biquad.rs:787:9: replace Grid::fit -> Option<[f64; 3]> with Some([1.0; 3])
+src/audio/biquad.rs:834:37: replace / with % in Grid::fit
+src/audio/crossfeed.rs:101:9: replace CrossfeedSettings::sanitized -> Self with Default::default()
