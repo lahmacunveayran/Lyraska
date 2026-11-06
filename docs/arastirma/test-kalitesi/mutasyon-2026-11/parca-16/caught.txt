@@ -33,3 +33,30 @@ src/analysis/lyrics_align.rs:227:48: replace - with + in skip_arcs
 src/analysis/lyrics_align.rs:241:36: replace - with / in skip_arcs
 src/analysis/lyrics_align.rs:278:23: replace && with || in viterbi
 src/analysis/lyrics_align.rs:347:24: replace + with * in entry_mass
+src/analysis/lyrics_align.rs:386:36: replace + with * in entry_mass
+src/analysis/lyrics_align.rs:407:33: replace + with * in entry_mass
+src/analysis/lyrics_cache.rs:81:9: replace StoredEmissions::select -> Option<Self> with None
+src/analysis/lyrics_cache.rs:176:33: replace * with / in StoredEmissions::decode
+src/analysis/lyrics_cache.rs:277:5: replace storable -> bool with false
+src/analysis/lyrics_job.rs:116:30: replace && with || in ModelSlot::is_unavailable
+src/analysis/lyrics_job.rs:317:60: replace < with == in auto_lyrics
+src/analysis/lyrics_model.rs:114:5: replace decode_mono -> Result<Vec<f32>, ModelError> with Ok(vec![])
+src/analysis/lyrics_model.rs:188:5: replace tensor_f32 -> Option<Vec<f32>> with Some(vec![0.0])
+src/analysis/lyrics_model.rs:294:24: replace match guard t.dims.is_empty() with true in dequantize_matmuls
+src/analysis/lyrics_model.rs:338:89: replace != with == in dequantize_matmuls
+src/analysis/lyrics_model.rs:447:7: replace == with != in kept_letter
+src/analysis/lyrics_model.rs:580:32: replace + with - in LyricsModel::run_window
+src/analysis/lyrics_model.rs:638:50: replace < with == in LyricsModel::emissions
+src/analysis/lyrics_model.rs:678:47: replace > with < in LyricsModel::emissions
+src/analysis/lyrics_package.rs:60:30: replace == with != in installed
+src/analysis/lyrics_text.rs:224:5: replace strip_brackets -> (&str, Option<char>) with ("", None)
+src/analysis/lyrics_text.rs:379:18: replace == with != in parse_header_words
+src/analysis/lyrics_text.rs:552:23: replace / with * in turkish_number
+src/analysis/lyrics_text.rs:697:54: replace || with && in read_integer
+src/analysis/lyrics_text.rs:761:47: replace == with != in read_number
+src/analysis/lyrics_text.rs:970:44: replace > with == in Builder::repeat
+src/analysis/map_file.rs:207:59: replace >= with < in MapFile::from_analysis
+src/analysis/map_file.rs:353:47: replace > with < in MapFile::validate
+src/analysis/map_file.rs:376:33: replace > with < in MapFile::validate
+src/analysis/map_file.rs:398:37: replace > with == in MapFile::validate
+src/analysis/map_file.rs:514:62: replace + with * in MapFile::shifted
