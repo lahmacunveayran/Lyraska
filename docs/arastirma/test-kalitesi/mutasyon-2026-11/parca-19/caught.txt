@@ -58,3 +58,37 @@ src/analysis/lyrics_text.rs:553:20: replace == with != in turkish_number
 src/analysis/lyrics_text.rs:651:29: replace / with % in english_number
 src/analysis/lyrics_text.rs:697:22: replace > with < in read_integer
 src/analysis/lyrics_text.rs:764:44: replace == with != in read_number
+src/analysis/lyrics_text.rs:837:5: replace clean_word -> String with "xyzzy".into()
+src/analysis/lyrics_text.rs:972:34: replace == with != in Builder::repeat
+src/analysis/map_file.rs:222:48: delete ! in MapFile::from_analysis
+src/analysis/map_file.rs:356:47: replace && with || in MapFile::validate
+src/analysis/map_file.rs:384:13: replace || with && in MapFile::validate
+src/analysis/map_file.rs:398:55: replace + with - in MapFile::validate
+src/analysis/map_file.rs:465:28: replace + with * in MapFile::shifted
+src/analysis/map_file.rs:670:27: replace match guard path.exists() with false in MapStore::remove
+src/analysis/meter.rs:125:34: replace >= with < in detect
+src/analysis/meter.rs:174:42: replace - with + in fit
+src/analysis/meter.rs:232:5: replace correlation -> f64 with -1.0
+src/analysis/spectrogram.rs:41:49: replace / with * in fft_size
+src/analysis/spectrogram.rs:207:49: replace / with * in Spectrogram::frame_at
+src/analysis/spectrogram.rs:233:74: replace + with - in Spectrogram::meters_at
+src/analysis/spectrogram.rs:631:60: replace / with * in analyze_source
+src/analysis/spectrogram.rs:816:9: replace + with * in frame_end
+src/analysis/spectrogram.rs:917:30: replace / with * in to_level
+src/analysis/spectrogram.rs:940:22: replace / with % in band_edges
+src/analysis/structure.rs:164:9: replace SongMap::section_at -> Option<usize> with None
+src/analysis/structure.rs:200:24: replace + with * in map_song
+src/analysis/structure.rs:252:45: replace - with + in map_song
+src/analysis/structure.rs:299:84: replace / with % in map_song
+src/analysis/structure.rs:374:19: replace += with -= in map_song
+src/analysis/structure.rs:442:5: replace choose_meter -> (usize, usize, f64) with (0, 0, 0.0)
+src/analysis/structure.rs:478:36: replace * with + in phase_agreement
+src/analysis/structure.rs:531:54: replace - with + in section_boundaries
+src/analysis/structure.rs:572:20: replace + with - in label_sections
+src/analysis/structure.rs:634:5: replace drop_jumps -> (f64, f64, f64) with (1.0, 0.0, 1.0)
+src/analysis/structure.rs:668:27: replace / with * in find_drops
+src/analysis/structure.rs:718:40: replace || with && in find_drops
+src/analysis/structure.rs:775:52: replace * with + in refine_drop
+src/analysis/structure.rs:789:45: replace - with / in refine_drop
+src/analysis/structure.rs:821:27: replace - with + in drop_confidence
+src/analysis/structure.rs:858:5: replace mean -> f64 with 1.0
