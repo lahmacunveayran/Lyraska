@@ -7,3 +7,5 @@ src/audio/biquad.rs:526:9: replace Biquad::response -> Complex<f64> with Complex
 src/audio/normalize.rs:161:9: replace TrackLevels::bass_peaks -> Option<BassPeaks> with Some(Default::default())
 src/audio/player/mod.rs:291:9: replace Player::state -> PlaybackState with Default::default()
 src/audio/waveform.rs:273:9: replace WaveformTap::read_window -> Option<Window<N>> with Some(Window::from_iter([Default::default()]))
+src/audio/player/track_analysis.rs:45:9: replace Analysis::start -> Option<Self> with Some(Default::default())
+src/audio/player/track_analysis.rs:218:9: replace Player::song_key -> Option<crate::analysis::key::KeyMap> with Some(Default::default())

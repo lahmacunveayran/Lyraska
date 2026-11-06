@@ -215,3 +215,15 @@ src/audio/spectrum.rs:100:34: replace / with * in Transform::bin_hz
 src/audio/spectrum.rs:134:65: replace - with + in level
 src/audio/waveform.rs:84:60: replace * with / in Halving::push
 src/audio/waveform.rs:157:42: replace * with + in Decimator::interpolate
+src/audio/waveform.rs:302:31: replace % with + in WaveformTap::read_window
+src/audio/waveform.rs:353:43: replace * with + in to_bytes
+src/audio/player/controls.rs:108:9: replace Player::set_crossfeed -> CrossfeedSettings with Default::default()
+src/audio/player/next_track.rs:103:38: replace > with == in open_checked
+src/audio/player/session.rs:148:9: replace SharedState::now_playing_indexed -> Option<(TrackInfo, f64, Option<u64>, usize)> with None
+src/audio/player/session.rs:168:36: replace + with - in SharedState::playing_at_frame
+src/audio/player/session.rs:282:53: replace / with * in Session::start
+src/audio/player/session.rs:400:35: replace + with - in wait_for_fade_out
+src/audio/player/transition.rs:302:32: replace += with -= in Player::begin_device_recovery
+src/audio/player/visuals.rs:151:9: replace Player::audio_delay_ms -> i32 with 0
+src/audio/player/visuals.rs:229:9: replace SharedState::waveform_at -> Option<Vec<u8>> with None
+src/audio/player/visuals.rs:264:9: replace SharedState::spectrum_at -> Option<Vec<f32>> with Some(vec![-1.0])
