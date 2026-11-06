@@ -35,3 +35,11 @@ src/audio/biquad.rs:128:48: replace + with - in Spec::analog
 src/audio/biquad.rs:182:69: replace < with <= in Biquad::shape
 src/audio/biquad.rs:388:41: replace * with + in Biquad::matched
 src/audio/biquad.rs:473:45: replace * with / in Biquad::beyond_nyquist
+src/audio/biquad.rs:663:25: replace == with != in min_phase
+src/audio/decode.rs:122:31: replace || with && in wave_channel_mask
+src/audio/decode.rs:305:21: replace > with >= in Decoder::open
+src/audio/decode.rs:446:37: delete ! in Decoder::seek
+src/audio/decode.rs:537:39: replace - with + in Decoder::next_chunk
+src/audio/decode.rs:817:28: replace == with != in matroska_duration
+src/audio/eq.rs:527:33: replace < with <= in Layout::tuned
+src/audio/gapless.rs:52:16: replace || with && in mp4_trim
