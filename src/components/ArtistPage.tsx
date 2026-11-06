@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { PlayIcon, ShuffleIcon } from "./icons";
 import { AlbumArt, albumKey, albumLength, isAlbumOf } from "./AlbumGrid";
 import { albumRows, REPEAT_PLAY_MS } from "./AlbumPage";
@@ -136,8 +145,10 @@ export function ArtistPage({
     onPlay(paths, start, order);
   };
   // Satırların çalma işlevi kimliğini korur (liste `memo` ile yeniden çizilmez); en son `play`.
+  // Çizimle aynı anda güncellenir (`useLayoutEffect`): `useEffect` ayrı görevde koşar, o arada
+  // ekrandaki satıra yapılan çift tıklama eski `play`'i (şarkılar henüz yüklenmemiş) çağırırdı.
   const playRef = useRef(play);
-  useEffect(() => {
+  useLayoutEffect(() => {
     playRef.current = play;
   });
   const playRow = useCallback((time: number, path: string) => playRef.current(time, path), []);
