@@ -37,6 +37,7 @@ pub mod lyrics_text;
 pub mod lyrics_worker;
 pub mod map_file;
 pub mod meter;
+pub mod rhythm_model;
 pub mod separation_eval;
 pub mod spectrogram;
 pub mod structure;

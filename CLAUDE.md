@@ -179,6 +179,7 @@ lyraska/
 │   │   │   ├── structure.rs  #   ölçü başları ve ölçü güveni, bölümler (Foote yeniliği), droplar, enerji eğrisi
 │   │   │   ├── tempo.rs      #   tempo oktavı (yarısı / iki katı): kick/snare vuruş arasında mı, yarım tempo hissi, boş aralar
 │   │   │   ├── meter.rs      #   aksak ölçü (5/8, 7/8, 9/8): sekizlik ızgarası, gruplama, grup başı vuruşlar
+│   │   │   ├── rhythm_model.rs # ritim modelinin (Beat This, MIT) girişi ve çıkışı: log-mel (22 050 Hz, 50 kare/sn, 128 Slaney mel), 30 sn parçalar, logitten vuruş ve ölçü başı; Python koduyla birebir
 │   │   │   ├── key.rs        #   ton tespiti: kroma, akort, Krumhansl–Kessler, Camelot, bölüm bölüm
 │   │   │   ├── cache.rs      #   analiz önbelleği (SQLite; yol + boyut + değişme zamanı; parça sürümleri)
 │   │   │   └── background.rs #   kütüphanenin arka plan analizi (düşük öncelik; çalan → sıradaki → geri kalan)
