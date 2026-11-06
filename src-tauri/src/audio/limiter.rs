@@ -11,16 +11,18 @@
 //! daha yükseğe çıkabilir (fs/4'te +3 dB'ye kadar). Bu yüzden kazanç örneklerin
 //! kendisine değil, **örnekler arası tepeye** göre hesaplanır: her kanal her örnekleme
 //! hızında 8× sık örneklenir (ITU-R BS.1770'teki gibi çok fazlı pencereli sinc, faz başına
-//! 48 katsayı; 32 kHz'in altında 16), tepe ara noktalarla birlikte bulunur. Sert kırpılmış tizde (örnekler tam
-//! 1,0; 0,1–0,45 fs, 44,1–192 kHz) çıkışın gerçek tepesi en çok −0,92 dBTP; testler 0,1 dB
-//! tolerans tanır. (Eski 16 katsayılı süzgeç Nyquist'e yakın tizi eksik okuyordu: aynı
-//! sinyallerde +0,9 ile +1,1 dBTP.)
+//! 48 katsayı; 32 kHz'in altında 16), tepe ara noktalarla birlikte bulunur. Sert kırpılmış
+//! tizde (örnekler tam 1,0; 0,1–0,45 fs, 44,1–192 kHz) çıkışın gerçek tepesi yaklaşık
+//! −0,9 dBTP (çok ince bir ölçerle en kötü −0,82); testler 0,1 dB tolerans tanır. Eski 16
+//! katsayılı süzgeç Nyquist'e yakın tizi eksik okuyordu: aynı sinyallerde +0,9 ile +1,1 dBTP.
+//! Bilinen sınır: 0,45 fs'nin üstünde (44,1 kHz'te 19,8 kHz) süzgecin geçiş bandı başlar;
+//! kırpılmış 0,48 fs'te tepe +1 dBTP'ye çıkabilir. 32 kHz'in altında 16 katsayının eksiği sürer.
 //!
 //! Yöntem: istenen kazançların kayan penceredeki en küçüğü, hızlı iniş / yavaş
 //! dönüş, ardından bakış uzunluğunda kayan ortalama. Bu üçlü, tepe çıkışa
 //! ulaştığında kazancın yeterince düşmüş olmasını garanti eder. Ara değerleyici
-//! tepeyi katsayı sayısının yarısı kadar kare geç bildirdiği için ses o kadar fazla geciktirilir; toplam
-//! gecikme yine ~1,5 ms'dir.
+//! tepeyi katsayı sayısının yarısı kadar kare geç bildirdiği için bakış o kadar kısalır;
+//! toplam gecikme yine ~1,5 ms'dir.
 //!
 //! Bit-perfect kipte sınırlayıcı atlanır ([`Limiter::with_bypass`]): ses işlenmez,
 //! yalnızca aynı gecikmeyle geçer.
@@ -42,14 +44,13 @@ const LATENCY_SECONDS: f64 = 0.0015;
 /// Kazancın geri dönüş süresi (zaman sabiti).
 const RELEASE_SECONDS: f64 = 0.08;
 /// Ara değerleyicinin faz sayısı (her hızda 8× sık örnekleme) ve faz başına katsayı sayısı.
-/// Aygıt hızlarında (`LONG_TAPS_FROM_RATE` ve üstü) 48 katsayı: 16 katsayı Nyquist'e yakın
-/// tizde tepeyi 2 dB'ye kadar eksik okuyordu. 48 katsayıyla gecikme 1,5 ms'de kalır ve 48
-/// kHz'te bakış payı 1 ms'yi korur. Daha düşük hızlarda 1,5 ms 48 katsayıya yetmez (bakış
-/// payı kalmaz); orada 16 katsayı.
+/// 48 katsayı: 16 katsayı Nyquist'e yakın tizde tepeyi 2 dB'ye kadar eksik okuyordu. Ara
+/// değerleyicinin gecikmesi (katsayıların yarısı) 1,5 ms'lik gecikmeden düşülür; 48 katsayı
+/// ancak bakış payı bu gecikmenin en az yarısı kaldıkça kullanılır (gecikme ≥ 48 kare, yani
+/// 32 kHz ve üstü; 48 kHz'te bakış 1 ms). Daha düşük hızlarda (aygıtlarda nadir) 16 katsayı.
 const PHASES: usize = 8;
 const LONG_TAPS: usize = 48;
 const TAPS: usize = 16;
-const LONG_TAPS_FROM_RATE: u32 = 32_000;
 /// Kısa ara değerleyicinin gecikmesi (kare): ara noktalar bu kadar kare öncesine düşer.
 const INTERP_DELAY: usize = TAPS / 2;
 
@@ -67,7 +68,8 @@ pub struct Limiter {
     interp_delay: usize,
     /// Her kanalın son `taps` örneği (ara değerleme için), dairesel; `head` yazılacak yer.
     /// Her örnek iki kez yazılır (`head` ve `head + taps`): son `taps` örnek her zaman
-    /// `head + 1`'den başlayan düz bir dilimdir (eskiden yeniye), çarpım vektörleşir.
+    /// `head + 1`'den başlayan düz bir dilimdir (eskiden yeniye); çarpımda dairesel indeks
+    /// hesabı yoktur.
     history: Vec<[Sample; 2 * LONG_TAPS]>,
     head: usize,
     /// Çok fazlı sinc: `phases[p][j]` p. ara noktanın j. katsayısı (j = 0 en eski örnek);
@@ -95,12 +97,13 @@ impl Limiter {
     pub fn new(channels: usize, sample_rate: u32) -> Self {
         let channels = channels.max(1);
         let rate = f64::from(sample_rate);
-        let (taps, interp_delay) = if sample_rate >= LONG_TAPS_FROM_RATE {
+        let budget = (LATENCY_SECONDS * rate).round() as usize;
+        let (taps, interp_delay) = if budget >= LONG_TAPS {
             (LONG_TAPS, LONG_TAPS / 2)
         } else {
             (TAPS, INTERP_DELAY)
         };
-        let delay = ((LATENCY_SECONDS * rate).round() as usize).max(interp_delay + 1);
+        let delay = budget.max(interp_delay + 1);
         let lookahead = delay - interp_delay;
         let release = 1.0 - (-1.0 / (RELEASE_SECONDS * rate)).exp();
         let (phases, max_gain) = interpolator(taps);
@@ -366,6 +369,29 @@ mod tests {
         assert!(Limiter::new(2, 48_000).lookahead >= 48, "bakış en az 1 ms");
         // Çok düşük hızlarda en az ara değerleyici gecikmesi + 1 kare bakış.
         assert_eq!(Limiter::new(1, 1000).latency_frames(), INTERP_DELAY + 1);
+    }
+
+    #[test]
+    fn uzun_ara_degerleyici_bakis_payinin_yarisini_birakir() {
+        // Kural: 48 katsayı (24 kare gecikme) ancak bakış payı 1,5 ms'lik gecikmenin en az
+        // yarısı kalırsa. El hesabı: 24 kHz'te gecikme 36 kare → 16 katsayı, bakış 36 − 8 = 28;
+        // 32 kHz'te 48 kare → 48 katsayı, bakış 48 − 24 = 24; 44,1 kHz'te 66 − 24 = 42.
+        for (rate, taps, lookahead) in [
+            (16_000, TAPS, 16),
+            (24_000, TAPS, 28),
+            (32_000, LONG_TAPS, 24),
+            (44_100, LONG_TAPS, 42),
+            (48_000, LONG_TAPS, 48),
+            (192_000, LONG_TAPS, 264),
+        ] {
+            let limiter = Limiter::new(2, rate);
+            assert_eq!(
+                (limiter.taps, limiter.lookahead),
+                (taps, lookahead),
+                "{rate} Hz"
+            );
+            assert!(2 * limiter.lookahead >= limiter.delay, "{rate} Hz");
+        }
     }
 
     #[test]
