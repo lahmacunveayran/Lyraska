@@ -1,5 +1,11 @@
 # LYRASKA GÖREV KİTABI: BÖLÜM I (sertleştirme)
 
+> **Arşiv notu (6 Kasım 2026).** Bu kitap 18 Ekim 2026'da Lyraska 0.0.50 için dışarıda hazırlandı; bugünkü plan ve
+> durum için **tek doğruluk kaynağı `docs/ROADMAP.md` ve `docs/ACIK-KONULAR.md`'dir**, çelişkide onlar geçerlidir.
+> Kitaptaki "Faz" numaraları ROADMAP'in fazları değildir (ör. buradaki Faz 3 "Opus" 0.0.65'te yapıldı). Durum dosyaları
+> `FINDINGS.json` ve `GATES.md`'dir (kitap eskiden `BULGULAR.json`/`KAPILAR.md` diyordu); test linki `CLAUDE.md`'dekidir.
+> Bölüm I'in maddeleri 0.0.50'nin durumunu anlatır; sonrası devir notlarında ve ACIK-KONULAR'da.
+
 Önce `00-CEKIRDEK.md` dosyasını oku. Bu dosya §4 (bulgu kaydı) ve §5 (fazlar) bölümlerini içerir.
 
 <kayit>
@@ -74,7 +80,7 @@ Aşağıdakiler 16 Ekim denetim raporlarında yok (`docs/` içinde `addFiles`, `
 ## 5. Fazlar
 
 **Her madde için bitti sayılma ölçütü:** (1) hatayı yakalayan test önce kırmızı, sonra yeşil (komut çıktısının
-özetiyle); (2) hedef kapılar yeşil, faz sonunda tam kapı; (3) `BULGULAR.json` güncel; (4) gerçek cihaz ya da gerçek
+özetiyle); (2) hedef kapılar yeşil, faz sonunda tam kapı; (3) `FINDINGS.json` güncel; (4) gerçek cihaz ya da gerçek
 sürükleme gerektiriyorsa `docs/DOGRULAMA.md`'ye sahibinin adım adım yapacağı madde; (5) devir notu ve PR; (6) kalan
 risk bir cümleyle yazılı. Bir fazın sonunda dur ve özet ver (biçim için §10'daki örneklere bak).
 
@@ -85,16 +91,16 @@ Yalnızca `docs/gorev/` altındaki dosyalar ve devir notu değişir. Bitiş çiz
 1. **Oku:** `CLAUDE.md`, `docs/ROADMAP.md`, `docs/MIMARI.md`, `docs/DENETIM-2.md` (özellikle §5), `docs/DOGRULAMA.md`
    (yapı ve "Bildirdikleriniz" tablosu), son iki devir notu. Bağımsız dosyaları tek turda paralel oku.
 2. **Ortamı keşfet:** işletim sistemi, Node ve Rust araç zinciri, hedefler (`rustup target list --installed`), ağ
-   erişimi. Hangi kapı komutlarının bu ortamda çalıştığını belirle ve `docs/gorev/KAPILAR.md` dosyasına yaz:
+   erişimi. Hangi kapı komutlarının bu ortamda çalıştığını belirle ve `docs/gorev/GATES.md` dosyasına yaz:
    komut, süre, sonuç, sonraki oturumların çalıştıracağı en kısa tam kapı sırası.
 3. **Tabanı ölç:** kapıları bir kez çalıştır (bağımsız olanları paralel, ağır olanları arka planda; çıktıyı süz,
-   §2.7). Kırmızı kapıları nedenleriyle `KAPILAR.md`'ye yaz. Düzeltmeye çalışma.
+   §2.7). Kırmızı kapıları nedenleriyle `GATES.md`'ye yaz. Düzeltmeye çalışma.
 4. **Kaydı doğrula:** §4.1 ve §4.2'deki her maddeyi `HEAD` (0.0.50) kodunda aç, oku ve durumunu belirle: `acik`,
    `duzeltildi`, `curutuldu`. Her madde için dosya:satır kanıtı ve güven derecesi yaz. 16 Ekim'den 0.0.50'ye
    birleşen PR'ların hangi maddeleri kapattığını `git log` ve devir notlarından çıkar. Çalıştırabildiğin ucuz
    deneyleri yap (Node'da `drop.ts` ve `queue.ts`; sürüm farkları). §4.3'teki çürütmeleri de kontrol et; bir
    iddiayı yanlış bulursan kanıtla yaz.
-5. **`docs/gorev/BULGULAR.json`'u oluştur** (§3 biçimi, her madde, sınıf ve önemle, `devam_noktasi` dahil). Bu
+5. **`docs/gorev/FINDINGS.json`'u oluştur** (§3 biçimi, her madde, sınıf ve önemle, `devam_noktasi` dahil). Bu
    kitaptaki ◐ işaretli her iddianın sonucunu `kanit` alanına yaz.
 6. **Devir notu** (CLAUDE.md şablonu) yaz, yalnızca belge dosyalarını commit'le, atanan dala push et, PR aç.
 7. **Sahibine tek, sade Türkçe özet ver:** (a) kaç madde doğrulandı, kaçı zaten düzelmiş, kaçı yanlış çıktı;
