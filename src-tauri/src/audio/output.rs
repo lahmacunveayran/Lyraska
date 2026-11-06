@@ -184,6 +184,14 @@ impl FadeWatch {
         }
     }
 
+    /// Şarkı bitti, aygıta artık yazılmıyor (arabellekteki son örnekler çalınıyor). `paused`:
+    /// bu arada duraklatıldı ya da geçiş istendi; yazılmış sesi kısmak mümkün değil, sessizlik
+    /// arabellek boşalınca başlar. (Eskiden bu aralıkta sessizlik hiç bildirilmiyordu: sarma ve
+    /// şarkı değiştirme her seferinde 300 ms'lik üst sınırı bekliyordu; #56.)
+    pub fn draining(&mut self, paused: bool) {
+        self.wrote(0, paused, 0);
+    }
+
     /// Aygıtta henüz çalınmamış `padding` kare varken: sessizlik hoparlöre ulaştı mı?
     pub fn faded_out(&self, padding: u64) -> bool {
         self.silent_from
@@ -304,6 +312,21 @@ mod tests {
         let mut watch = FadeWatch::default();
         watch.wrote(BUFFER as usize, true, LATENCY);
         assert!(watch.faded_out(BUFFER));
+    }
+
+    #[test]
+    fn sarki_sonunda_duraklatilinca_arabellek_bosalinca_sessiz_sayilir() {
+        // Şarkının son kareleri yazıldı (arabellek dolu), artık yazılmıyor; o sırada sarıldı.
+        let mut watch = FadeWatch::default();
+        watch.wrote(BUFFER as usize, false, LATENCY);
+        watch.draining(false);
+        assert!(!watch.faded_out(BUFFER), "çalarken sessiz değil");
+        watch.draining(true);
+        assert!(
+            !watch.faded_out(BUFFER / 2),
+            "arabellekte ses varken sessiz sayılmaz"
+        );
+        assert!(watch.faded_out(0), "arabellek boşalınca sessiz");
     }
 
     #[test]

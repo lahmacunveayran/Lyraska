@@ -649,6 +649,9 @@ fn run(
                 let silent = paused && renderer.gain() == 0.0;
                 fade.wrote(frames, silent, renderer.latency_frames());
             }
+        } else {
+            // Yazılacak ses kalmadı: duraklatılırsa sessizlik arabellek boşalınca başlar (#56).
+            fade.draining(shared.paused.load(Ordering::Acquire));
         }
 
         // Arabellek ilk kez dolduktan sonra başlat: çalma sessizlikle başlamasın (özel mod
