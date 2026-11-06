@@ -1835,8 +1835,21 @@ async function checkPhotoChooseButton(browser) {
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => !document.querySelector("#drawer.is-open"));
   }
+  // Düğme, arka plan resminin durumu gelince çizilir (`useBackgroundSource`: önce "pending"). Yazılımla
+  // çizen yavaş CI makinesinde bu 5 sn'yi aşabiliyordu (#140, #217): önce düğmenin çıkması uzun süre
+  // beklenir; tıklama ve pencerenin açılması için sınır yine 5 sn.
+  const button = page.getByRole("button", { name: "Resim seç…" });
   try {
-    await page.getByRole("button", { name: "Resim seç…" }).click({ timeout: 5000 });
+    await button.waitFor({ state: "visible", timeout: 30_000 });
+  } catch (e) {
+    problems.push(
+      `${label}: düğme 30 sn'de görünmedi (resim durumu gelmedi?) (${String(e).split("\n")[0]})`,
+    );
+    await page.close();
+    return problems;
+  }
+  try {
+    await button.click({ timeout: 5000 });
     await page.waitForFunction(() => window.__dialogOpened === true, null, { timeout: 5000 });
     console.log(`${label}: tıklanınca dosya seçme penceresi açılıyor`);
   } catch (e) {
@@ -2001,6 +2014,15 @@ async function checkLyricsOverlap(browser) {
     // yazılımla çizim) fare hareketinden ölçüme kadar bu süre dolabiliyordu ve üstteki söz katmanı
     // kalkmış oluyordu (#203). Ölçümden hemen önce fare yeniden kıpırdatılır ve satır beklenir;
     // ölçülen şey aynı (denetimler görünürken söz satırının kesişimleri).
+    // Çok yavaş makinede (#218'in koşusu: tek ölçüm 30 sn) fare hareketinden ölçüme kadar 4 sn yine
+    // dolabiliyor. Ölçüm boyunca kullanıcı fareyi kıpırdatıyormuş gibi sayfada her yarım saniyede bir
+    // `pointermove` gönderilir: denetimler ölçüm bitene dek görünür kalır. Ölçülen şey değişmez.
+    await page.evaluate(() => {
+      window.__keepAwake = window.setInterval(
+        () => window.dispatchEvent(new PointerEvent("pointermove")),
+        500,
+      );
+    });
     await page.mouse.move(width / 3 + 40, height / 3 + 20);
     await page
       .waitForSelector(".photo-lyrics-top .photo-lyrics__line", {
@@ -2012,6 +2034,7 @@ async function checkLyricsOverlap(browser) {
       ".photo-lyrics-top .photo-lyrics__line",
       ".photo-lyrics-top",
     ]);
+    await page.evaluate(() => window.clearInterval(window.__keepAwake));
     // Fare kıpırdamaz: sinema görünümü (gerçek saatle 4 sn), yazı CSS geçişiyle (0,8 sn) gelir.
     await advance(page, 6000);
     await page.waitForFunction(() => !!document.querySelector(".app.is-cinema"), null, {
