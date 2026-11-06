@@ -222,3 +222,9 @@ src/audio/waveform.rs:299:62: replace > with < in WaveformTap::read_window
 src/audio/waveform.rs:350:43: replace + with * in to_bytes
 src/audio/player/bit_perfect.rs:24:31: replace match guard u32::from(format.valid_bits) < bits with false in output_mode
 src/audio/player/controls.rs:80:9: replace Player::refresh_parametric_rate with ()
+src/audio/player/next_track.rs:88:5: replace open_checked -> Option<Decoder> with None
+src/audio/player/session.rs:127:38: replace == with != in SharedState::heard_with_time
+src/audio/player/song_maps.rs:103:12: delete ! in Player::imported_song_map
+src/audio/player/transition.rs:293:9: replace Player::begin_device_recovery -> Option<Transition> with None
+src/audio/player/visuals.rs:136:9: replace Player::visual_spectrum_ahead -> Option<Vec<f32>> with None
+src/audio/player/visuals.rs:254:48: replace / with * in SharedState::window_gains
