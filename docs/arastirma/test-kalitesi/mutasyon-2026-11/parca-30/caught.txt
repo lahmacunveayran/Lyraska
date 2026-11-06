@@ -183,3 +183,35 @@ src/audio/loudness.rs:55:37: replace - with / in Loudness::gain_db
 src/audio/loudness.rs:100:18: replace + with * in k_weighting
 src/audio/loudness.rs:105:26: replace / with * in k_weighting
 src/audio/loudness.rs:112:22: replace / with * in k_weighting
+src/audio/loudness.rs:310:25: replace * with / in LoudnessMeter::with_layout
+src/audio/loudness.rs:356:36: replace / with * in LoudnessMeter::finish
+src/audio/lyrics.rs:259:34: replace && with || in parse
+src/audio/lyrics.rs:367:5: replace parse_time -> Option<f64> with None
+src/audio/lyrics.rs:380:42: replace + with * in parse_time
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with (String::new(), vec![(-1.0, "xyzzy".into())], String::new())
+src/audio/lyrics.rs:468:21: replace - with / in estimate_words
+src/audio/normalize.rs:271:31: replace + with - in TrackLevels::next_start
+src/audio/normalize.rs:328:10: replace * with / in linear_to_db
+src/audio/normalize.rs:429:21: replace == with != in Leveler::next_gain
+src/audio/normalize.rs:443:52: replace / with * in Leveler::next_gain
+src/audio/output.rs:189:9: replace FadeWatch::faded_out -> bool with false
+src/audio/peq.rs:359:49: delete - in HeadphoneProfile::sanitized
+src/audio/peq.rs:436:63: replace / with * in coefs_peak_db
+src/audio/peq.rs:462:5: replace refine_peak -> f64 with 0.0
+src/audio/peq.rs:475:32: replace - with + in refine_peak
+src/audio/peq.rs:503:21: replace > with < in shelf_q_from_slope
+src/audio/peq.rs:522:9: delete match arm "NO" in parse_filter
+src/audio/peq.rs:651:70: replace >= with < in ParametricBand::is_effective
+src/audio/peq.rs:770:9: replace ParametricSettings::from_profile -> Self with Default::default()
+src/audio/peq.rs:934:47: replace / with * in loudness_gain_db_at
+src/audio/peq.rs:1032:9: replace PeqControl::version -> u64 with 0
+src/audio/peq.rs:1181:41: replace && with || in PeqProcessor::begin_block
+src/audio/punch.rs:156:23: replace *= with += in Punch::process_frame
+src/audio/render.rs:156:29: replace > with >= in Renderer::render
+src/audio/render.rs:249:9: replace Renderer::write_frame with ()
+src/audio/resample.rs:141:46: replace / with % in Converter::run_blocks
+src/audio/resample.rs:180:48: replace / with * in Converter::run_blocks
+src/audio/spectrum.rs:100:34: replace / with * in Transform::bin_hz
+src/audio/spectrum.rs:134:65: replace - with + in level
+src/audio/waveform.rs:84:60: replace * with / in Halving::push
+src/audio/waveform.rs:157:42: replace * with + in Decimator::interpolate

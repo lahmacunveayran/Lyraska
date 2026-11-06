@@ -4,3 +4,6 @@ src/analysis/map_file.rs:317:9: replace MapFile::parse -> Result<Self, MapError>
 src/analysis/meter.rs:204:5: replace pulses -> Aksak with Default::default()
 src/analysis/spectrogram.rs:260:9: replace Spectrogram::analysis_song_map -> Option<Arc<SongMap>> with Some(Arc::new(Default::default()))
 src/audio/biquad.rs:526:9: replace Biquad::response -> Complex<f64> with Complex::from_iter([1.0])
+src/audio/normalize.rs:161:9: replace TrackLevels::bass_peaks -> Option<BassPeaks> with Some(Default::default())
+src/audio/player/mod.rs:291:9: replace Player::state -> PlaybackState with Default::default()
+src/audio/waveform.rs:273:9: replace WaveformTap::read_window -> Option<Window<N>> with Some(Window::from_iter([Default::default()]))
