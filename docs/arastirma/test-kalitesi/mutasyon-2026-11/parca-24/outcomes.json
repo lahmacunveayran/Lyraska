@@ -5604,6 +5604,42 @@
      ]
     }
    ]
+  },
+  {
+   "scenario": "Baseline",
+   "summary": "Success",
+   "log_path": "log/baseline.log",
+   "diff_path": null,
+   "phase_results": [
+    {
+     "phase": "Build",
+     "duration": 149.694128233,
+     "process_status": "Success",
+     "argv": [
+      "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+      "test",
+      "--no-run",
+      "--verbose",
+      "--package=lyraska@0.0.99",
+      "--config=profile.test.package.lyraska.debug=0",
+      "--lib"
+     ]
+    },
+    {
+     "phase": "Test",
+     "duration": 61.428844412,
+     "process_status": "Success",
+     "argv": [
+      "/root/.rustup/toolchains/1.97.0-x86_64-unknown-linux-gnu/bin/cargo",
+      "test",
+      "--verbose",
+      "--package=lyraska@0.0.99",
+      "--config=profile.test.package.lyraska.debug=0",
+      "--lib"
+     ]
+    }
+   ],
+   "note": "ikinci çalıştırmanın temel testi"
   }
  ],
  "total_mutants": 287,
