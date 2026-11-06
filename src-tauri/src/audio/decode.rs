@@ -1068,6 +1068,106 @@ mod tests {
         );
     }
 
+    /// Apple "Core Audio Format Specification" biçiminde CAF yazar: `caff`, sürüm 1, bayrak 0;
+    /// ardından öbekler (dört harfli tür, 64 bit büyük sonlu boy, içerik).
+    fn write_caf(path: &std::path::Path, chunks: &[(&[u8; 4], i64, Vec<u8>)]) {
+        let mut bytes = b"caff".to_vec();
+        bytes.extend_from_slice(&1u16.to_be_bytes());
+        bytes.extend_from_slice(&0u16.to_be_bytes());
+        for (kind, size, body) in chunks {
+            bytes.extend_from_slice(*kind);
+            bytes.extend_from_slice(&size.to_be_bytes());
+            bytes.extend_from_slice(body);
+        }
+        std::fs::write(path, bytes).unwrap();
+    }
+
+    /// `chan` öbeğinin içeriği: düzen etiketi, kanal haritası, kanal tanımı sayısı (0).
+    fn caf_chan(tag: u32, bitmap: u32) -> (&'static [u8; 4], i64, Vec<u8>) {
+        let mut body = tag.to_be_bytes().to_vec();
+        body.extend_from_slice(&bitmap.to_be_bytes());
+        body.extend_from_slice(&0u32.to_be_bytes());
+        (b"chan", 12, body)
+    }
+
+    fn caf_layout(chunks: &[(&[u8; 4], i64, Vec<u8>)]) -> Option<bool> {
+        let path = temp_path("duzen.caf");
+        write_caf(&path, chunks);
+        caf_declares_layout(&path)
+    }
+
+    #[test]
+    fn caf_kanal_duzeni_apple_etiketleriyle_taninir() {
+        // Beklenen değerler Apple'ın CoreAudioBaseTypes.h başlığındaki `kAudioChannelLayoutTag_*`
+        // sabitleri (onaltılık yazımla); symphonia 0.6.1 (symphonia-format-caf, chunks.rs) bunlardan
+        // yalnızca ilk yedisini ve kanal haritasını düzene çevirir.
+        let desc = (b"desc", 32, vec![0u8; 32]);
+        let data_to_end = (b"data", -1, vec![0u8; 16]);
+        let known = [
+            (0x0064_0001, "Mono"),
+            (0x0065_0002, "Stereo"),
+            (0x0066_0002, "StereoHeadphones"),
+            (0x0071_0003, "MPEG_3_0_A"),
+            (0x0079_0006, "MPEG_5_1_A"),
+            (0x007E_0008, "MPEG_7_1_A"),
+            (0x0088_0004, "DVD_10"),
+        ];
+        let unknown = [
+            (0x0000_0000, "UseChannelDescriptions"),
+            (0x006C_0004, "Quadraphonic"),
+            (0x0075_0005, "MPEG_5_0_A"),
+            (0x0067_0002, "MatrixStereo"),
+        ];
+        let cases = known.iter().map(|&(t, n)| (t, n, true));
+        for (tag, name, expected) in cases.chain(unknown.iter().map(|&(t, n)| (t, n, false))) {
+            let got = caf_layout(&[desc.clone(), caf_chan(tag, 0), data_to_end.clone()]);
+            assert_eq!(got, Some(expected), "{name} (0x{tag:08X})");
+        }
+
+        // UseChannelBitmap = 0x0001_0000: harita WAV maskesiyle aynı; symphonia ilk 18 konumu tanır.
+        const BITMAP: u32 = 0x0001_0000;
+        for (bitmap, expected) in [
+            (0x0000_003F, true),  // 5.1
+            (1 << 17, true),      // 18. konum: arka üst sağ
+            (1 << 18, false),     // tanımsız konum
+            (0x8000_003F, false), // en üst bit
+        ] {
+            let got = caf_layout(&[desc.clone(), caf_chan(BITMAP, bitmap), data_to_end.clone()]);
+            assert_eq!(got, Some(expected), "kanal haritası 0x{bitmap:08X}");
+        }
+
+        let stereo = caf_chan(0x0065_0002, 0);
+        let quad = caf_chan(0x006C_0004, 0);
+        // Boyu 0 olan öbek (ör. boş `free`) dosyanın sonu değildir: arkasındaki `chan` okunur.
+        assert_eq!(
+            caf_layout(&[desc.clone(), (b"free", 0, Vec::new()), stereo.clone()]),
+            Some(true)
+        );
+        // Boy −1: ses verisi dosyanın sonuna kadar sürer, arkası öbek değildir.
+        assert_eq!(
+            caf_layout(&[desc.clone(), data_to_end.clone(), stereo.clone()]),
+            Some(false)
+        );
+        // Başka türden bir öbeğin içeriği düzen etiketine benzese de düzen sayılmaz.
+        let mut lookalike = stereo.clone();
+        lookalike.0 = b"info";
+        assert_eq!(caf_layout(&[desc.clone(), lookalike]), Some(false));
+        // Birden çok `chan`: çevrilebilen biri yeter, sırası önemsiz.
+        assert_eq!(caf_layout(&[quad.clone(), stereo.clone()]), Some(true));
+        assert_eq!(caf_layout(&[stereo.clone(), quad.clone()]), Some(true));
+        // `chan` yok: düzen bildirilmemiş.
+        assert_eq!(
+            caf_layout(&[desc.clone(), data_to_end.clone()]),
+            Some(false)
+        );
+        // CAF değil ya da başlık yarım: okunamadı.
+        let path = temp_path("caf-degil.caf");
+        std::fs::write(&path, b"RIFF\0\0\0\0WAVE").unwrap();
+        assert_eq!(caf_declares_layout(&path), None);
+        std::fs::write(&path, b"caf").unwrap();
+        assert_eq!(caf_declares_layout(&path), None);
+    }
+
     /// 32 bit kayan noktalı mono WAV (biçim 3) yazar: bozuk dosyaları taklit etmek için.
     fn write_float_wav(path: &std::path::Path, samples: &[f32]) {
         let data_len = (samples.len() * 4) as u32;
