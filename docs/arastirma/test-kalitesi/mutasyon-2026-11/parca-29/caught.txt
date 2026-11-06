@@ -216,6 +216,15 @@ src/audio/peq.rs:761:29: replace * with / in ParametricSettings::response_db
 src/audio/peq.rs:934:47: replace / with % in loudness_gain_db_at
 src/audio/player/controls.rs:101:9: replace Player::crossfeed -> CrossfeedSettings with Default::default()
 src/audio/player/mod.rs:284:9: replace Player::stop -> Result<(), AudioError> with Ok(())
+src/audio/player/next_track.rs:95:74: replace != with == in open_checked
+src/audio/player/session.rs:282:53: replace / with % in Session::start
+src/audio/player/session.rs:400:5: replace wait_for_fade_out with ()
+src/audio/player/track_analysis.rs:218:9: replace Player::song_key -> Option<crate::analysis::key::KeyMap> with None
+src/audio/player/track_analysis.rs:45:9: replace Analysis::start -> Option<Self> with None
+src/audio/player/transition.rs:298:39: replace >= with < in Player::begin_device_recovery
+src/audio/player/visuals.rs:136:9: replace Player::visual_spectrum_ahead -> Option<Vec<f32>> with Some(vec![-1.0])
+src/audio/player/visuals.rs:218:30: replace + with * in Player::visual_eq_offsets
+src/audio/player/visuals.rs:264:9: replace SharedState::spectrum_at -> Option<Vec<f32>> with Some(vec![1.0])
 src/audio/punch.rs:154:28: replace -= with /= in Punch::process_frame
 src/audio/punch.rs:184:31: replace - with + in Punch::update_gain
 src/audio/render.rs:156:29: replace > with < in Renderer::render
