@@ -10,3 +10,5 @@ src/audio/decode.rs:945:5: replace embedded_cover -> Result<Option<Cover>, Audio
 src/audio/eq.rs:65:30: replace + with -
 src/audio/eq.rs:456:9: replace Biquad::high_shelf -> Self with Default::default()
 src/audio/normalize.rs:224:9: replace TrackLevels::level -> TrackLevel with Default::default()
+src/audio/player/session.rs:148:9: replace SharedState::now_playing_indexed -> Option<(TrackInfo, f64, Option<u64>, usize)> with Some((Default::default(), -1.0, None, 0))
+src/audio/player/session.rs:352:9: replace Session::now_playing_timed -> (TrackInfo, f64, Option<u64>, usize) with (Default::default(), 1.0, None, 0)

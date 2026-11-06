@@ -192,3 +192,37 @@ src/audio/lyrics.rs:493:21: replace && with || in syllables
 src/audio/normalize.rs:320:5: replace coefficient -> f64 with 0.0
 src/audio/normalize.rs:388:32: replace + with * in Leveler::begin_block
 src/audio/normalize.rs:436:27: replace += with *= in Leveler::next_gain
+src/audio/normalize.rs:450:43: replace < with == in Leveler::next_gain
+src/audio/output.rs:82:52: delete - in IntFormat::encode
+src/audio/peq.rs:132:9: replace FilterKind::code -> usize with 1
+src/audio/peq.rs:383:32: replace + with * in HeadphoneProfile::response_db
+src/audio/peq.rs:442:55: replace / with % in coefs_peak_db
+src/audio/peq.rs:464:50: replace + with - in refine_peak
+src/audio/peq.rs:497:42: replace / with * in q_from_bandwidth
+src/audio/peq.rs:508:27: replace - with + in shelf_slope_from_q
+src/audio/peq.rs:596:59: replace > with == in parse_filter
+src/audio/peq.rs:738:9: replace ParametricSettings::boost_db_at -> f64 with 0.0
+src/audio/peq.rs:938:18: replace += with -= in loudness_gain_db_at
+src/audio/peq.rs:1084:49: replace / with * in PeqControl::design
+src/audio/peq.rs:1209:36: replace * with / in PeqProcessor::process_frame
+src/audio/player/mod.rs:324:54: replace + with - in Player::status
+src/audio/punch.rs:163:50: replace * with / in Punch::process_frame
+src/audio/render.rs:198:44: replace += with -= in Renderer::render
+src/audio/resample.rs:103:59: replace / with % in Converter::input_end_frame
+src/audio/resample.rs:154:55: replace * with + in Converter::run_blocks
+src/audio/spectrum.rs:56:47: replace / with * in bar_hz
+src/audio/spectrum.rs:116:52: replace * with + in at
+src/audio/waveform.rs:43:37: replace * with /
+src/audio/waveform.rs:127:28: replace << with >> in Decimator::finish
+src/audio/waveform.rs:167:23: replace += with *= in Decimator::interpolate
+src/audio/waveform.rs:281:23: replace % with / in WaveformTap::read_window
+src/audio/waveform.rs:333:29: replace < with > in GainCursor<'a>::at
+src/audio/player/blind_test.rs:98:9: replace Player::begin_abx_stop -> Option<Transition> with None
+src/audio/player/next_track.rs:45:9: replace SharedState::set_next with ()
+src/audio/player/normalization.rs:53:9: replace Player::headroom_db -> f64 with -1.0
+src/audio/player/session.rs:185:9: replace SharedState::now_playing_index -> Option<usize> with None
+src/audio/player/session.rs:408:71: replace < with > in wait_for_prefill
+src/audio/player/transition.rs:137:31: replace match guard next.path == path with false in Player::begin_transition
+src/audio/player/visuals.rs:86:12: delete ! in Player::visual_ahead
+src/audio/player/visuals.rs:175:41: replace ^ with & in Player::visual_eq_offsets
+src/audio/player/visuals.rs:237:9: replace SharedState::window_gains -> Option<Vec<(i64, f64)>> with Some(vec![(-1, 1.0)])
