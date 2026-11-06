@@ -211,3 +211,11 @@ src/audio/spectrum.rs:155:5: replace silence -> Vec<f32> with vec![-1.0]
 src/audio/waveform.rs:164:27: replace += with *= in Decimator::interpolate
 src/audio/waveform.rs:333:48: replace && with || in GainCursor<'a>::at
 src/audio/waveform.rs:362:5: replace mono_mix -> Vec<Sample> with vec![Default::default()]
+src/audio/player/normalization.rs:53:9: replace Player::headroom_db -> f64 with 0.0
+src/audio/player/session.rs:176:34: replace / with % in SharedState::playing_at_frame
+src/audio/player/session.rs:408:11: delete ! in wait_for_prefill
+src/audio/player/track_analysis.rs:126:9: replace Analysis::refresh -> Option<Self> with None
+src/audio/player/transition.rs:132:73: replace == with != in Player::begin_transition
+src/audio/player/visuals.rs:59:9: replace Player::visual_ahead -> Option<VisualData> with None
+src/audio/player/visuals.rs:175:9: replace Player::visual_eq_offsets -> [f64; BANDS] with [-1.0; BANDS]
+src/audio/player/visuals.rs:237:9: replace SharedState::window_gains -> Option<Vec<(i64, f64)>> with Some(vec![(1, -1.0)])

@@ -11,3 +11,5 @@ src/audio/eq.rs:666:76: replace - with / in Design::with_layout
 src/audio/lyrics.rs:153:5: replace text_for_track -> Option<LyricsText> with Some(Default::default())
 src/audio/peq.rs:118:9: replace FilterKind::shape -> Kind with Default::default()
 src/audio/player/blind_test.rs:80:9: replace Player::abx_answer -> AbxStatus with Default::default()
+src/audio/player/session.rs:148:9: replace SharedState::now_playing_indexed -> Option<(TrackInfo, f64, Option<u64>, usize)> with Some((Default::default(), 1.0, Some(1), 0))
+src/audio/player/session.rs:352:9: replace Session::now_playing_timed -> (TrackInfo, f64, Option<u64>, usize) with (Default::default(), 0.0, Some(1), 0)
