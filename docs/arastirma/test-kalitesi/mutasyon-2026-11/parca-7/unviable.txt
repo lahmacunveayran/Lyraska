@@ -1,1 +1,3 @@
 src/analysis/background.rs:191:5: replace read_strikes -> std::collections::HashMap<(PathBuf, FileStamp), u32> with HashMap::from_iter([((Default::default(), Default::default()), 1)])
+src/analysis/map_file.rs:440:9: replace MapFile::verify -> Result<Verdict, MapError> with Ok(Default::default())
+src/analysis/map_file.rs:600:9: replace ImportedMap::status -> ImportedMapStatus with Default::default()
