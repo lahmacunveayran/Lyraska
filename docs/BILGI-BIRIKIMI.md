@@ -114,6 +114,16 @@ kısaltılır.
 - **Bulut oturumları** (`env_01UDiXdcZ3koAMDVBD8fbjUn`, "Default"): `main`'den ya da push edilmiş daldan başlar,
   her biri soğuk derlemeyle; Linux'tur (WASAPI sınanmaz, Windows'u CI sınar); buraya rapor dönmez.
 
+- **Çalışan bozma koşusunu durdurma** (6 Kasım): `TaskStop`'tan önce görevin komutuna bakılır; bekleme döngüsü
+  yerine koşunun kendisi durdurulunca kaynakta bozma kaldı (cargo-mutants da öldürülünce aynısını yapar). Bozma
+  betiği artık SIGTERM'de dosyayı geri yazıyor; durdurduktan sonra yine de `git diff` ile denetlenir. Yarıda kesilen
+  derleme artımlı önbelleği bozabilir (bağlayıcı hatası): `target/debug/incremental` silinir.
+- **`a && b; c` zinciri**: `cargo fmt --check` düşse de `;` sonrası commit ve push çalışır. Denetim ile commit ayrı
+  komutlarda ya da tamamı `&&` ile.
+- **Bulut ağı:** web araması ağ kuralından bağımsız çalışır ama sayfaların kendisi açılmaz; birincil kaynak için
+  sahibi ortamın Allowed domains listesine adres ekler (ortam hizmeti Claude'un önerisini reddetti). Otomatik izin
+  denetimi GitHub'dan indirilmiş kodu çalıştırmayı durdurur; PyPI paketleri (ör. demucs) çalışır.
+
 ## 5. Teknik dersler
 
 - **Oynatıcı düzeltmesi arayüzün yolunda sınanır:** arayüz şarkıyı `Player::load` ile değil `open_track`'in üç
