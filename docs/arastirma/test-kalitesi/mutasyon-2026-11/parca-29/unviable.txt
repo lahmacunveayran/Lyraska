@@ -1,3 +1,6 @@
 src/analysis/lyrics_model.rs:507:9: replace LyricsModel::open -> Result<Self, ModelError> with Ok(Default::default())
 src/analysis/lyrics_worker.rs:338:5: replace job -> Option<(FileStamp, Result<(), JobError>)> with Some((Default::default(), Ok(())))
 src/audio/biquad.rs:193:9: replace Biquad::peaking -> Self with Default::default()
+src/audio/peq.rs:355:9: replace HeadphoneProfile::sanitized -> Self with Default::default()
+src/audio/player/bit_perfect.rs:47:5: replace signal_path -> SignalPath with Default::default()
+src/audio/waveform.rs:273:9: replace WaveformTap::read_window -> Option<Window<N>> with Some(Window::new())

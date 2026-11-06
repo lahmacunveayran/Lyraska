@@ -199,3 +199,32 @@ src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, S
 src/audio/lyrics.rs:468:21: replace - with + in estimate_words
 src/audio/normalize.rs:161:9: replace TrackLevels::bass_peaks -> Option<BassPeaks> with None
 src/audio/normalize.rs:271:36: replace % with + in TrackLevels::next_start
+src/audio/normalize.rs:328:10: replace * with + in linear_to_db
+src/audio/normalize.rs:430:17: replace && with || in Leveler::next_gain
+src/audio/normalize.rs:443:52: replace / with % in Leveler::next_gain
+src/audio/normalize.rs:470:30: replace < with > in approach
+src/audio/output.rs:189:9: replace FadeWatch::faded_out -> bool with true
+src/audio/peq.rs:1028:9: replace PeqControl::boost_db -> f64 with -1.0
+src/audio/peq.rs:1180:9: replace PeqProcessor::begin_block with ()
+src/audio/peq.rs:436:63: replace / with % in coefs_peak_db
+src/audio/peq.rs:457:30: replace * with / in coefs_peak_db
+src/audio/peq.rs:475:27: replace * with / in refine_peak
+src/audio/peq.rs:503:21: replace > with == in shelf_q_from_slope
+src/audio/peq.rs:521:9: delete match arm "BP" in parse_filter
+src/audio/peq.rs:651:26: delete ! in ParametricBand::is_effective
+src/audio/peq.rs:761:29: replace * with / in ParametricSettings::response_db
+src/audio/peq.rs:934:47: replace / with % in loudness_gain_db_at
+src/audio/player/controls.rs:101:9: replace Player::crossfeed -> CrossfeedSettings with Default::default()
+src/audio/player/mod.rs:284:9: replace Player::stop -> Result<(), AudioError> with Ok(())
+src/audio/punch.rs:154:28: replace -= with /= in Punch::process_frame
+src/audio/punch.rs:184:31: replace - with + in Punch::update_gain
+src/audio/render.rs:156:29: replace > with < in Renderer::render
+src/audio/render.rs:239:27: replace += with *= in Renderer::render
+src/audio/resample.rs:136:53: replace * with / in Converter::run_blocks
+src/audio/resample.rs:180:48: replace / with % in Converter::run_blocks
+src/audio/spectrum.rs:100:34: replace / with % in Transform::bin_hz
+src/audio/spectrum.rs:134:45: replace - with / in level
+src/audio/waveform.rs:157:38: replace + with * in Decimator::interpolate
+src/audio/waveform.rs:302:31: replace % with / in WaveformTap::read_window
+src/audio/waveform.rs:352:48: replace * with / in to_bytes
+src/audio/waveform.rs:84:60: replace * with + in Halving::push
