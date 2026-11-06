@@ -132,3 +132,15 @@ src/audio/biquad.rs:592:5: replace phi -> (f64, f64, f64) with (0.0, 0.0, 1.0)
 src/audio/biquad.rs:594:23: replace * with + in phi
 src/audio/biquad.rs:604:30: replace - with + in matched_poles
 src/audio/biquad.rs:624:17: delete - in Power::of
+src/audio/biquad.rs:655:29: replace * with / in factor
+src/audio/biquad.rs:667:42: replace * with / in min_phase
+src/audio/biquad.rs:707:5: replace error_weight -> f64 with 1.0
+src/audio/biquad.rs:780:56: replace > with == in Grid::used
+src/audio/biquad.rs:829:36: replace <= with > in Grid::fit
+src/audio/biquad.rs:921:63: replace - with / in Ceiling::excess
+src/audio/crossfeed.rs:219:9: replace SideFilter::response -> (f64, f64) with (1.0, -1.0)
+src/audio/crossfeed.rs:224:55: replace / with % in SideFilter::response
+src/audio/crossfeed.rs:307:14: replace + with - in Stage::process
+src/audio/crossfeed.rs:380:33: replace * with + in CrossfeedProcessor::process_frame
+src/audio/decode.rs:137:25: replace == with != in wave_channel_mask
+src/audio/decode.rs:189:17: replace < with > in caf_declares_layout
