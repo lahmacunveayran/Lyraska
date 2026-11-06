@@ -3,3 +3,16 @@ src/analysis/beats.rs:260:22: replace > with == in segment_periods
 src/analysis/beats.rs:302:21: replace < with <= in track_period
 src/analysis/key.rs:444:40: replace * with + in ChromaAnalyzer::process
 src/analysis/key.rs:464:41: replace == with != in ChromaAnalyzer::finish
+src/analysis/lyrics_align.rs:238:56: replace * with / in skip_arcs
+src/analysis/lyrics_align.rs:420:22: replace > with >= in entry_mass
+src/analysis/lyrics_align.rs:453:9: replace || with && in align
+src/analysis/lyrics_job.rs:391:5: replace version -> i64 with -1
+src/analysis/lyrics_model.rs:446:23: replace < with <= in kept_letter
+src/analysis/lyrics_model.rs:580:25: replace / with % in LyricsModel::run_window
+src/analysis/lyrics_model.rs:678:31: replace < with <= in LyricsModel::emissions
+src/analysis/lyrics_text.rs:131:21: delete match arm ('C', '\u{327}') in compose
+src/analysis/lyrics_text.rs:208:17: delete match arm 'İ' in lowercase
+src/analysis/lyrics_text.rs:375:32: replace == with != in parse_header_words
+src/analysis/lyrics_text.rs:645:30: replace / with % in english_number
+src/analysis/lyrics_worker.rs:238:9: replace LyricsWorker::model_loaded -> bool with false
+src/analysis/map_file.rs:376:59: replace || with && in MapFile::validate

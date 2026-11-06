@@ -34,3 +34,30 @@ src/analysis/levels.rs:100:5: replace vu_reference_db -> Option<f32> with None
 src/analysis/lyrics_align.rs:45:18: delete -
 src/analysis/lyrics_align.rs:185:35: replace != with == in states
 src/analysis/lyrics_align.rs:225:18: replace > with < in skip_arcs
+src/analysis/lyrics_align.rs:274:45: replace + with - in viterbi
+src/analysis/lyrics_align.rs:308:27: replace - with / in viterbi
+src/analysis/lyrics_align.rs:345:39: replace - with / in entry_mass
+src/analysis/lyrics_align.rs:385:41: replace / with * in entry_mass
+src/analysis/lyrics_align.rs:403:20: replace += with *= in entry_mass
+src/analysis/lyrics_align.rs:490:53: replace != with == in align
+src/analysis/lyrics_cache.rs:51:36: replace * with +
+src/analysis/lyrics_cache.rs:176:24: replace != with == in StoredEmissions::decode
+src/analysis/lyrics_cache.rs:272:45: delete ! in covered
+src/analysis/lyrics_job.rs:116:9: replace ModelSlot::is_unavailable -> bool with true
+src/analysis/lyrics_job.rs:299:40: replace < with <= in auto_lyrics
+src/analysis/lyrics_model.rs:104:5: replace finite -> f32 with 1.0
+src/analysis/lyrics_model.rs:188:5: replace tensor_f32 -> Option<Vec<f32>> with None
+src/analysis/lyrics_model.rs:289:27: replace match guard !outputs.contains(name) with false in dequantize_matmuls
+src/analysis/lyrics_model.rs:338:33: replace != with == in dequantize_matmuls
+src/analysis/lyrics_model.rs:632:38: replace - with + in LyricsModel::emissions
+src/analysis/lyrics_package.rs:60:9: replace && with || in installed
+src/analysis/lyrics_text.rs:281:34: replace match guard RECALL_WORDS.contains(&w) with false in standalone_repeat
+src/analysis/lyrics_text.rs:551:14: replace >= with < in turkish_number
+src/analysis/lyrics_text.rs:689:14: replace match guard w.ends_with('y') with false in english_ordinal
+src/analysis/lyrics_text.rs:759:21: replace > with >= in read_number
+src/analysis/lyrics_text.rs:815:5: replace spoken_words with ()
+src/analysis/lyrics_text.rs:962:9: replace Builder::open_section with ()
+src/analysis/map_file.rs:34:36: replace * with /
+src/analysis/map_file.rs:353:35: replace && with || in MapFile::validate
+src/analysis/map_file.rs:394:42: delete ! in MapFile::validate
+src/analysis/map_file.rs:441:38: replace - with / in MapFile::verify
