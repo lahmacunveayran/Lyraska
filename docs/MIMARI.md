@@ -102,9 +102,10 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
   - İlk ses, ölçüm (ya da ilk 5 saniyeden erken tahmin) için en fazla 0,15 sn bekler (sessizlik yazılır, şarkı
     yerinde durur); önbellekteki şarkıda ve sarmada beklenmez. Ölçüm yetişmezse tipik bir kayıt (−10 LUFS)
     varsayılır, ölçüm gelince 1,5 sn'de yavaşça düzelir.
-  - Taşma koruması (`audio/limiter.rs`): ileriye bakan sınırlayıcı **örnekler arası** (gerçek) tepeyi 8× ara
-    değerleyerek ölçer ve çıkışı −1 dBTP'de tutar (EBU R128 tavanı); gecikme 1,5 ms. Bit-perfect'te yalnızca
-    gecikme hattıdır.
+  - Taşma koruması (`audio/limiter.rs`): ileriye bakan sınırlayıcı **örnekler arası** (gerçek) tepeyi her hızda
+    8× ara değerleyerek (faz başına 48 katsayı; 32 kHz'in altında 16) ölçer ve çıkışı −1 dBTP'de tutar (EBU R128
+    tavanı); gecikme 1,5 ms. Kırpılmış tizde 44,1–192 kHz'te sınırı
+    `limiter::tests::her_hizda_kirpilmis_tiz_tavani_asmaz` denetler. Bit-perfect'te yalnızca gecikme hattıdır.
 - **Bas motoru** (`audio/bass.rs`; ayarları ekolayzerinkinin içinde, aynı kilitsiz kanaldan):
   - Bas düğmesi (0–18 dB; 12'nin üstü kulüp düzeyi): 100 Hz alçak raf.
   - Derinlik (alt oktav): bas bandının (40–160 Hz) periyodu yükselen geçişlerden izlenir ve yarı frekansta bir
