@@ -43,3 +43,11 @@ src/audio/decode.rs:616:53: replace match guard tags.disc_number.is_none() with 
 src/audio/decode.rs:736:29: replace && with || in make_decoder
 src/audio/decode.rs:781:38: replace * with + in media_duration
 src/audio/gapless.rs:91:24: replace - with / in find_top_level
+src/audio/gapless.rs:172:13: replace < with <= in next_box
+src/audio/limiter.rs:245:27: replace * with / in interpolator
+src/audio/loudness.rs:193:21: replace += with -= in TruePeak::add
+src/audio/loudness.rs:238:38: replace | with ^ in default_layout
+src/audio/normalize.rs:430:69: replace * with + in Leveler::next_gain
+src/audio/normalize.rs:444:66: replace / with * in Leveler::next_gain
+src/audio/peq.rs:440:29: replace * with / in coefs_peak_db
+src/audio/peq.rs:857:27: replace * with + in ParametricState::at_rate

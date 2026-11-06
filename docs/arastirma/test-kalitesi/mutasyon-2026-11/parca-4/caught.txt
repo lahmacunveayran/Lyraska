@@ -162,3 +162,31 @@ src/audio/eq.rs:757:29: replace / with * in solve_linear
 src/audio/eq.rs:860:33: replace - with + in EqProcessor::process
 src/audio/gapless.rs:47:28: replace * with / in mp4_trim
 src/audio/gapless.rs:151:13: delete match arm b"hdlr" in walk_track
+src/audio/limiter.rs:36:31: delete -
+src/audio/limiter.rs:169:25: replace += with *= in Limiter::true_peak
+src/audio/limiter.rs:196:27: replace += with -= in Limiter::next_gain
+src/audio/limiter.rs:237:27: replace - with + in interpolator
+src/audio/loudness.rs:80:13: replace - with + in Biquad::process
+src/audio/loudness.rs:103:39: replace / with * in k_weighting
+src/audio/loudness.rs:107:30: replace / with * in k_weighting
+src/audio/loudness.rs:115:14: replace * with + in k_weighting
+src/audio/loudness.rs:277:36: replace | with & in channel_weights
+src/audio/loudness.rs:329:45: replace * with + in LoudnessMeter::add
+src/audio/loudness.rs:363:32: replace > with < in LoudnessMeter::finish
+src/audio/lyrics.rs:147:5: replace is_untimed -> bool with false
+src/audio/lyrics.rs:297:39: replace - with + in parse
+src/audio/lyrics.rs:369:64: replace || with && in parse_time
+src/audio/lyrics.rs:383:37: replace < with == in parse_time
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with ("xyzzy".into(), vec![(0.0, "xyzzy".into())], String::new())
+src/audio/lyrics.rs:474:31: replace * with / in estimate_words
+src/audio/normalize.rs:180:9: replace TrackLevels::is_known -> bool with true
+src/audio/normalize.rs:279:16: replace < with > in TrackLevels::slot
+src/audio/normalize.rs:334:18: delete - in protection
+src/audio/output.rs:73:41: replace / with * in IntFormat::bytes
+src/audio/peq.rs:382:39: replace / with % in HeadphoneProfile::response_db
+src/audio/peq.rs:462:30: replace - with / in refine_peak
+src/audio/peq.rs:497:9: replace / with % in q_from_bandwidth
+src/audio/peq.rs:508:5: replace shelf_slope_from_q -> f64 with -1.0
+src/audio/peq.rs:551:65: replace + with - in parse_filter
+src/audio/peq.rs:717:9: replace ParametricSettings::is_active -> bool with false
+src/audio/peq.rs:936:31: replace / with * in loudness_gain_db_at

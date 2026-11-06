@@ -9,3 +9,4 @@ src/audio/biquad.rs:111:9: replace Spec::analog -> Complex<f64> with Complex::fr
 src/audio/biquad.rs:244:9: replace Biquad::lowpass -> Self with Default::default()
 src/audio/crossfeed.rs:200:9: replace SideFilter::design -> Self with Default::default()
 src/audio/decode.rs:909:5: replace sidecar_cover -> Option<Cover> with Some(Default::default())
+src/audio/output.rs:209:5: replace spawn -> Result<JoinHandle<()>, AudioError> with Ok(JoinHandle::new(()))
