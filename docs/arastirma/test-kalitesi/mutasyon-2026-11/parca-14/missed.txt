@@ -50,3 +50,9 @@ src/audio/loudness.rs:239:20: replace | with ^ in default_layout
 src/audio/lyrics.rs:377:51: replace && with || in parse_time
 src/audio/lyrics.rs:399:29: replace && with || in is_id_tag
 src/audio/peq.rs:154:9: replace DesignMethod::method -> Method with Default::default()
+src/audio/peq.rs:743:9: replace ParametricSettings::loudness_db -> f64 with 0.0
+src/audio/punch.rs:128:9: replace Punch::gain_db -> f64 with 0.0
+src/audio/player/decode_thread.rs:78:37: replace / with * in decode_loop
+src/audio/player/session.rs:97:9: replace SharedState::with_controls -> Self with Default::default()
+src/audio/player/track_analysis.rs:139:47: delete ! in Analysis::refresh
+src/audio/player/visuals.rs:238:44: replace - with / in SharedState::window_gains
