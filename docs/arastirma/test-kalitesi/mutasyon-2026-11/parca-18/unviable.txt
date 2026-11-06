@@ -2,3 +2,4 @@ src/analysis/annotation.rs:131:9: replace AnnotationStore::dir -> Option<&Path> 
 src/analysis/beats.rs:238:5: replace segment_periods -> Option<Vec<(std::ops::Range<usize>, f64)>> with Some(vec![(Range::from(0), 1.0)])
 src/analysis/cache.rs:193:9: replace AnalysisCache::lock -> Result<std::sync::MutexGuard<'_, Connection>, CacheError> with Ok(MutexGuard::new(Default::default()))
 src/analysis/fingerprint.rs:227:9: replace BandPrint::align_to_levels -> Option<Alignment> with Some(Default::default())
+src/audio/biquad.rs:342:9: replace Biquad::matched -> Self with Default::default()

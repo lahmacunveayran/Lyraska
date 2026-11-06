@@ -21,3 +21,13 @@ src/analysis/tempo.rs:184:81: replace / with * in resolve_octave
 src/analysis/tempo.rs:303:31: replace + with * in accent_envelope
 src/analysis/tempo.rs:353:61: replace / with * in standard_deviation
 src/analysis/tempo.rs:408:47: replace - with / in noise_envelope
+src/audio/abx.rs:401:37: replace * with + in prepare
+src/audio/abx.rs:421:12: replace *= with += in prepare
+src/audio/abx.rs:556:17: delete field bit_perfect from struct RenderControls expression in Playback::start
+src/audio/bass.rs:225:25: replace / with * in BassPeakMeter::add
+src/audio/bass.rs:558:35: replace && with || in BassProcessor::begin_block
+src/audio/bass.rs:669:64: replace - with + in BassProcessor::process_frame
+src/audio/biquad.rs:141:52: replace < with <= in Spec::is_flat
+src/audio/biquad.rs:293:35: replace * with / in Biquad::allpass
+src/audio/biquad.rs:388:67: replace * with + in Biquad::matched
+src/audio/biquad.rs:473:66: replace * with / in Biquad::beyond_nyquist
