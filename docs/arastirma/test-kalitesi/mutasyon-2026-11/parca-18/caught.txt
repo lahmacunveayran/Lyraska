@@ -68,3 +68,33 @@ src/analysis/map_file.rs:376:62: delete ! in MapFile::validate
 src/analysis/map_file.rs:398:37: replace > with >= in MapFile::validate
 src/analysis/map_file.rs:465:28: replace + with - in MapFile::shifted
 src/analysis/map_file.rs:551:9: replace MapFile::musical_key -> Option<MusicalKey> with None
+src/analysis/map_file.rs:670:27: replace match guard path.exists() with true in MapStore::remove
+src/analysis/meter.rs:121:54: replace >= with < in detect
+src/analysis/meter.rs:174:55: replace % with + in fit
+src/analysis/meter.rs:232:5: replace correlation -> f64 with 1.0
+src/analysis/meter.rs:242:29: replace - with / in correlation
+src/analysis/spectrogram.rs:41:49: replace / with % in fft_size
+src/analysis/spectrogram.rs:207:49: replace / with % in Spectrogram::frame_at
+src/analysis/spectrogram.rs:233:79: replace * with / in Spectrogram::meters_at
+src/analysis/spectrogram.rs:816:9: replace + with - in frame_end
+src/analysis/spectrogram.rs:917:30: replace / with % in to_level
+src/analysis/spectrogram.rs:939:40: replace / with * in band_edges
+src/analysis/structure.rs:159:30: replace - with / in SongMap::bar_beat
+src/analysis/structure.rs:200:24: replace + with - in map_song
+src/analysis/structure.rs:251:57: replace - with / in map_song
+src/analysis/structure.rs:294:62: replace - with / in map_song
+src/analysis/structure.rs:477:5: replace phase_agreement -> f64 with -1.0
+src/analysis/structure.rs:508:10: replace < with > in section_boundaries
+src/analysis/structure.rs:558:10: replace == with != in label_sections
+src/analysis/structure.rs:634:5: replace drop_jumps -> (f64, f64, f64) with (1.0, 0.0, 0.0)
+src/analysis/structure.rs:708:62: replace == with != in find_drops
+src/analysis/structure.rs:775:33: replace - with / in refine_drop
+src/analysis/structure.rs:789:45: replace - with + in refine_drop
+src/analysis/structure.rs:821:49: replace / with * in drop_confidence
+src/analysis/structure.rs:841:43: replace / with * in drop_confidence
+src/analysis/structure.rs:858:5: replace mean -> f64 with 0.0
+src/analysis/tempo.rs:111:9: replace || with && in resolve_octave
+src/analysis/tempo.rs:217:69: replace <= with > in three_halves
+src/analysis/tempo.rs:262:43: replace <= with > in retrack
+src/analysis/tempo.rs:437:24: replace + with - in peaks
+src/audio/abx.rs:170:5: replace binomial_tail -> f64 with 0.0

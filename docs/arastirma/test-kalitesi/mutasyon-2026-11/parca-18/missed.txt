@@ -9,3 +9,15 @@ src/analysis/lyrics_model.rs:638:50: replace < with <= in LyricsModel::emissions
 src/analysis/lyrics_package.rs:71:24: replace || with && in install
 src/analysis/lyrics_text.rs:135:21: delete match arm ('U', '\u{308}') in compose
 src/analysis/map_file.rs:215:42: replace || with && in MapFile::from_analysis
+src/analysis/spectrogram.rs:342:9: replace Spectrogram::early_loudness -> Option<Loudness> with None
+src/analysis/spectrogram.rs:510:50: replace * with / in measure_loudness
+src/analysis/spectrogram.rs:631:60: replace / with % in analyze_source
+src/analysis/structure.rs:373:17: replace += with *= in map_song
+src/analysis/structure.rs:412:44: replace * with / in map_song
+src/analysis/structure.rs:532:25: replace * with / in section_boundaries
+src/analysis/structure.rs:668:27: replace / with % in find_drops
+src/analysis/tempo.rs:145:31: replace && with || in resolve_octave
+src/analysis/tempo.rs:184:81: replace / with * in resolve_octave
+src/analysis/tempo.rs:303:31: replace + with * in accent_envelope
+src/analysis/tempo.rs:353:61: replace / with * in standard_deviation
+src/analysis/tempo.rs:408:47: replace - with / in noise_envelope
