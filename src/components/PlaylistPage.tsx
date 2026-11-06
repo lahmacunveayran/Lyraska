@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -131,8 +132,11 @@ export function PlaylistPage({
     if (startIndex === undefined) onPlay(paths, start, order);
     else onPlay(paths, start, order, startIndex);
   };
+  // Satırların çalma işlevi kimliğini korur; en son `play`. Çizimle aynı anda güncellenir
+  // (`useLayoutEffect`): `useEffect` ayrı görevde koşar, o arada ekrandaki satıra yapılan çift
+  // tıklama eski `play`'i (liste henüz yüklenmemiş) çağırırdı.
   const playRef = useRef(play);
-  useEffect(() => {
+  useLayoutEffect(() => {
     playRef.current = play;
   });
   const playRow = useCallback(
