@@ -304,6 +304,8 @@ kısaltılır.
 ## 7. Proje sahibinin kararları (özet; ayrıntı devir notlarında)
 
 - Lyraska **ücretsiz** kalacak, ticarileştirme yok (22 Ekim 2026).
+- **PR'ları Claude birleştirir** (6 Kasım 2026; önceden sahibi birleştiriyordu): CI tamamen yeşilse, büyük iş
+  bağımsız incelemeden geçtiyse; her birleştirme sahibine bildirilir (kural CLAUDE.md "Git ve yayın akışı").
 - **Kod imzası olmayacak** (23 Ekim 2026).
 - Görsel tasarım onayı (24 Ekim 2026'da Claude'a verilmişti) genel yetkiyle birlikte sahibine döndü: her görsel iş
   önizlenip sahibine gösterilir, onayı alınır.

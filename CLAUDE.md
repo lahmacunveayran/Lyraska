@@ -356,6 +356,9 @@ Görsel güvenlik (zorunlu):
 - Commit mesajları Türkçe, ilk satır kısa ve emir kipinde (ör. "Ses motoruna WASAPI çıkışı ekle").
 - Geliştirme oturuma atanan dalda yapılır; `main`'e doğrudan push yapılmaz, PR açılır.
 - PR'da CI yeşil olmadan birleştirme yapılmaz. Testler atlanmaz, devre dışı bırakılmaz.
+- **Claude kendi açtığı PR'ı birleştirir** (proje sahibinin kararı, 6 Kasım 2026): bütün CI denetimleri yeşilse;
+  büyük değişiklik önce bağımsız incelemeden geçer; her birleştirme sahibine tek satırla bildirilir; sahibi "dur"
+  derse birleştirme durur. Birleştirmeden önce `main` ile çakışma ve yeniden çekme denetlenir.
 - `main` her güncellendiğinde "Test sürümü" iş akışı Windows kurulum dosyasını derler ve
   `test-surumu` Release'ini yeniler. Sabit link yukarıda.
 - Sürüm numarası `package.json` içindedir; `src-tauri/Cargo.toml` ile aynı tutulur.
