@@ -35,3 +35,12 @@ src/audio/biquad.rs:394:43: replace * with + in Biquad::matched
 src/audio/biquad.rs:436:92: replace / with % in Biquad::matched
 src/audio/biquad.rs:629:9: replace Power::at -> f64 with -1.0
 src/audio/crossfeed.rs:205:16: replace > with >= in SideFilter::design
+src/audio/decode.rs:375:55: delete - in Decoder::open
+src/audio/decode.rs:466:33: replace == with != in Decoder::next_chunk
+src/audio/decode.rs:768:5: replace opus_pre_skip -> u64 with 1
+src/audio/eq.rs:193:33: replace > with >= in EqSettings::is_active
+src/audio/eq.rs:440:26: replace < with == in Biquad::low_shelf
+src/audio/gapless.rs:41:29: replace > with == in mp4_trim
+src/audio/gapless.rs:129:57: replace + with * in walk
+src/audio/gapless.rs:166:51: replace + with * in next_box
+src/audio/limiter.rs:228:27: replace < with <= in interpolator
