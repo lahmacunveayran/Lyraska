@@ -34,6 +34,7 @@ fn test_segment() -> Segment {
             codec: "pcm".into(),
             sample_rate: 8_000,
             channels: 2,
+            channel_layout: None,
             duration_secs: None,
         },
         first_output_frame: 0,
