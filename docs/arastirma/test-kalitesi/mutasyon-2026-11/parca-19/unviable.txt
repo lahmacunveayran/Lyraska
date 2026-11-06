@@ -6,3 +6,4 @@ src/analysis/fingerprint.rs:315:9: replace ChromaPrint::from_chroma -> Self with
 src/analysis/key.rs:187:9: replace KeyAnalysis::key_between -> Option<MusicalKey> with Some(Default::default())
 src/analysis/map_file.rs:551:9: replace MapFile::musical_key -> Option<MusicalKey> with Some(Default::default())
 src/analysis/spectrogram.rs:342:9: replace Spectrogram::early_loudness -> Option<Loudness> with Some(Default::default())
+src/audio/abx.rs:280:5: replace decode_segment -> Result<(Vec<Sample>, TrackInfo), AudioError> with Ok((vec![], Default::default()))
