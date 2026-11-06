@@ -25,3 +25,57 @@ src/analysis/key.rs:150:45: replace - with / in key_relation
 src/analysis/key.rs:270:53: replace >= with < in song_key
 src/analysis/key.rs:303:5: replace correlation -> Option<f64> with Some(1.0)
 src/analysis/key.rs:312:20: replace * with + in correlation
+src/analysis/key.rs:411:35: replace * with / in ChromaAnalyzer::process
+src/analysis/key.rs:437:34: replace - with / in ChromaAnalyzer::process
+src/analysis/key.rs:448:31: replace * with / in ChromaAnalyzer::process
+src/analysis/key.rs:491:62: replace - with / in fold
+src/analysis/levels.rs:69:5: replace amplitude_db -> f64 with 1.0
+src/analysis/lyrics_align.rs:95:41: replace < with == in LineTiming::low_confidence
+src/analysis/lyrics_align.rs:193:25: replace > with < in log_add
+src/analysis/lyrics_align.rs:228:63: replace + with * in skip_arcs
+src/analysis/lyrics_align.rs:244:56: replace + with - in skip_arcs
+src/analysis/lyrics_align.rs:282:40: replace && with || in viterbi
+src/analysis/lyrics_align.rs:322:36: replace + with * in viterbi
+src/analysis/lyrics_align.rs:365:55: replace - with + in entry_mass
+src/analysis/lyrics_align.rs:396:27: replace + with - in entry_mass
+src/analysis/lyrics_align.rs:409:39: replace + with * in entry_mass
+src/analysis/lyrics_align.rs:430:5: replace median -> f64 with 0.0
+src/analysis/lyrics_align.rs:454:46: replace >= with < in align
+src/analysis/lyrics_align.rs:531:39: replace + with * in align
+src/analysis/lyrics_cache.rs:87:52: replace * with + in StoredEmissions::select
+src/analysis/lyrics_cache.rs:224:13: replace && with || in StoredEmissions::consistent
+src/analysis/lyrics_cache.rs:280:23: replace > with == in storable
+src/analysis/lyrics_job.rs:184:50: replace && with || in AutoAlignment::valid
+src/analysis/lyrics_job.rs:333:5: replace spoken_spans -> Option<Vec<(f64, f64)>> with Some(vec![(1.0, 1.0)])
+src/analysis/lyrics_model.rs:195:9: delete match arm DataType::Uint8 in tensor_f32
+src/analysis/lyrics_model.rs:316:17: replace || with && in dequantize_matmuls
+src/analysis/lyrics_model.rs:359:35: replace != with == in dequantize_matmuls
+src/analysis/lyrics_model.rs:596:24: replace != with == in LyricsModel::run_window
+src/analysis/lyrics_model.rs:667:41: replace + with - in LyricsModel::emissions
+src/analysis/lyrics_package.rs:104:5: replace copy_hashing -> Result<String, PackageError> with Ok(String::new())
+src/analysis/lyrics_text.rs:151:17: delete match arm '\u{feff}' | '\u{200d}' | '\u{2060}' in compose
+src/analysis/lyrics_text.rs:237:27: replace || with && in strip_decoration
+src/analysis/lyrics_text.rs:319:5: replace is_roman -> bool with false
+src/analysis/lyrics_text.rs:561:20: replace / with * in turkish_number
+src/analysis/lyrics_text.rs:653:14: replace > with >= in english_number
+src/analysis/lyrics_text.rs:709:16: delete ! in read_integer
+src/analysis/lyrics_text.rs:776:18: replace > with >= in read_number
+src/analysis/lyrics_text.rs:996:27: replace > with == in Builder::end_paragraph
+src/analysis/map_file.rs:358:81: replace < with > in MapFile::validate
+src/analysis/map_file.rs:381:76: replace || with && in MapFile::validate
+src/analysis/map_file.rs:407:31: replace * with + in MapFile::validate
+src/analysis/map_file.rs:478:92: replace % with / in MapFile::shifted
+src/analysis/map_file.rs:558:8: replace * with + in round_time
+src/analysis/meter.rs:142:30: replace / with * in accents
+src/analysis/meter.rs:190:5: replace template -> Vec<f64> with vec![]
+src/analysis/meter.rs:237:41: replace / with % in correlation
+src/analysis/meter.rs:247:18: replace * with / in correlation
+src/analysis/spectrogram.rs:126:9: replace Spectrogram::is_done -> bool with true
+src/analysis/spectrogram.rs:208:46: replace * with / in Spectrogram::frame_at
+src/analysis/spectrogram.rs:244:9: replace Spectrogram::choreography -> Option<Arc<Choreography>> with None
+src/analysis/spectrogram.rs:523:20: delete ! in measure_loudness
+src/analysis/spectrogram.rs:886:9: replace BandAnalyzer::process -> ([u8; BANDS], f32) with ([1; BANDS], 0.0)
+src/analysis/spectrogram.rs:918:8: replace * with / in to_level
+src/analysis/spectrogram.rs:942:36: replace * with + in band_edges
+src/analysis/structure.rs:166:57: replace < with > in SongMap::section_at
+src/analysis/structure.rs:263:51: replace - with + in map_song

@@ -1,3 +1,7 @@
 src/analysis/background.rs:92:9: replace CrashGuard::recover -> HashSet<(PathBuf, FileStamp)> with HashSet::from_iter([(Default::default(), Default::default())])
 src/analysis/beats.rs:238:5: replace segment_periods -> Option<Vec<(std::ops::Range<usize>, f64)>> with Some(vec![(Range::new(1), -1.0)])
 src/analysis/fingerprint.rs:241:9: replace BandPrint::align -> Option<Alignment> with Some(Default::default())
+src/analysis/lyrics_model.rs:47:43: replace * with +
+src/analysis/lyrics_text.rs:855:5: replace prepare_as -> Vec<AlignLine> with vec![Default::default()]
+src/analysis/spectrogram.rs:371:9: replace Spectrogram::analysis_beat_grid -> Option<Arc<BeatGrid>> with Some(Arc::new(Default::default()))
+src/analysis/spectrogram.rs:665:5: replace rhythm_from_frames -> (Option<BeatGrid>, Option<SongMap>) with (Some(Default::default()), None)
