@@ -91,3 +91,32 @@ src/analysis/structure.rs:634:5: replace drop_jumps -> (f64, f64, f64) with (-1.
 src/analysis/structure.rs:688:55: replace || with && in find_drops
 src/analysis/structure.rs:740:55: replace && with || in align_sections_to_drops
 src/analysis/structure.rs:784:23: replace + with * in refine_drop
+src/analysis/structure.rs:842:42: replace * with + in drop_confidence
+src/analysis/structure.rs:871:5: replace zscores -> Vec<f64> with vec![-1.0]
+src/analysis/tempo.rs:119:29: replace + with * in resolve_octave
+src/analysis/tempo.rs:238:78: replace - with + in position_peaks
+src/analysis/tempo.rs:277:5: replace box3 -> Vec<f64> with vec![]
+src/analysis/tempo.rs:423:5: replace peaks -> (Vec<f64>, Vec<f64>) with (vec![1.0], vec![0.0])
+src/analysis/tempo.rs:448:5: replace upper_half_mean -> f64 with 0.0
+src/audio/abx.rs:184:32: replace / with * in binomial_tail
+src/audio/abx.rs:303:5: replace mono -> Vec<f64> with vec![]
+src/audio/abx.rs:335:28: replace > with < in find_offset
+src/audio/abx.rs:386:39: replace * with + in prepare
+src/audio/abx.rs:472:50: replace - with / in Mixer::envelope
+src/audio/abx.rs:495:26: replace * with + in Mixer::fill
+src/audio/bass.rs:127:5: replace linear_to_db -> f64 with 1.0
+src/audio/bass.rs:177:48: replace / with * in BassPeaks::shelf_rise_db
+src/audio/bass.rs:258:35: replace + with - in BassBoost::rise_db
+src/audio/bass.rs:369:43: replace * with / in Octaver::process
+src/audio/bass.rs:511:27: replace == with != in BassProcessor::is_bypass
+src/audio/bass.rs:585:56: replace - with / in BassProcessor::step
+src/audio/biquad.rs:83:9: replace Kind::has_gain -> bool with false
+src/audio/biquad.rs:116:68: replace / with * in Spec::analog
+src/audio/biquad.rs:123:29: replace + with * in Spec::analog
+src/audio/biquad.rs:126:49: replace / with * in Spec::analog
+src/audio/biquad.rs:129:66: replace + with * in Spec::analog
+src/audio/biquad.rs:147:24: replace / with * in Spec::pole
+src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((0.0, 0.0, -1.0, 0.0))
+src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((1.0, 1.0, 0.0, -1.0))
+src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((-1.0, 1.0, -1.0, 1.0))
+src/audio/biquad.rs:197:18: replace + with * in Biquad::peaking
