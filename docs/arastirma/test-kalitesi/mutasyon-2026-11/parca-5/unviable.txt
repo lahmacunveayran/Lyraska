@@ -5,3 +5,6 @@ src/analysis/lyrics_job.rs:75:9: replace ModelSlot::product -> Self with Default
 src/analysis/lyrics_worker.rs:139:9: replace LyricsWorker::start_with -> Self with Default::default()
 src/audio/biquad.rs:111:9: replace Spec::analog -> Complex<f64> with Complex::new(1.0)
 src/audio/decode.rs:243:9: replace Decoder::open -> Result<Self, AudioError> with Ok(Default::default())
+src/audio/output.rs:209:5: replace spawn -> Result<JoinHandle<()>, AudioError> with Ok(JoinHandle::from(()))
+src/audio/player/session.rs:148:9: replace SharedState::now_playing_indexed -> Option<(TrackInfo, f64, Option<u64>, usize)> with Some((Default::default(), 1.0, None, 0))
+src/audio/player/session.rs:352:9: replace Session::now_playing_timed -> (TrackInfo, f64, Option<u64>, usize) with (Default::default(), 0.0, None, 0)
