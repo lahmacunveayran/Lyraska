@@ -46,6 +46,9 @@ impl Player {
                 })
                 .or_else(|| pending.map(|p| (p.path, p.position_secs)));
         }
+        // Ses aygıtında başka oturum kalmasın: süren hazırlık biter, takılmamış oturum kısılır
+        // (RTS-01'in kör test ayağı).
+        self.gate.quiesce();
         self.close_session();
         match prepared.start() {
             Ok(test) => {

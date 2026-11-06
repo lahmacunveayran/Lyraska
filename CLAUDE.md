@@ -172,6 +172,7 @@ lyraska/
 │   │   │   ├── annotation.rs #   kullanıcının işaretlediği beat/drop anları (JSON, ses içermez)
 │   │   │   ├── map_file.rs   #   açık şarkı haritası biçimi (dışa/içe aktarma, doğrulama, kayma, içe aktarılanların deposu)
 │   │   │   ├── fingerprint.rs #  ses parmak izi (analiz karelerinden bant bitleri + kroma): aynı kaydı tanır
+│   │   │   ├── hpss.rs       #   vurmalı/ezgisel ayrıştırma (ortanca süzgeç, modelsiz): davul ve bas zarfı; henüz bağlı değil
 │   │   │   ├── evaluate.rs   #   analizi işaretlere göre ölçme (F-ölçüsü, parmak gecikmesi)
 │   │   │   ├── beats.rs      #   başlangıç gücü, tempo ve vuruşlar (dinamik programlama)
 │   │   │   ├── structure.rs  #   ölçü başları ve ölçü güveni, bölümler (Foote yeniliği), droplar, enerji eğrisi

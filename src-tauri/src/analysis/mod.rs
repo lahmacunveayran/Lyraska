@@ -24,6 +24,7 @@ pub mod beats;
 pub mod cache;
 pub mod evaluate;
 pub mod fingerprint;
+pub mod hpss;
 pub mod key;
 pub mod levels;
 pub mod lyrics_align;
