@@ -134,3 +134,31 @@ src/audio/biquad.rs:646:26: replace + with - in factor
 src/audio/biquad.rs:662:24: replace - with / in min_phase
 src/audio/biquad.rs:756:44: replace / with * in Grid::add_top
 src/audio/biquad.rs:794:33: replace / with % in Grid::fit
+src/audio/crossfeed.rs:208:20: replace / with * in SideFilter::design
+src/audio/crossfeed.rs:222:29: replace + with * in SideFilter::response
+src/audio/crossfeed.rs:230:25: replace * with / in SideFilter::process
+src/audio/decode.rs:103:5: replace header_declares_layout -> bool with true
+src/audio/decode.rs:402:44: replace / with % in Decoder::seek
+src/audio/decode.rs:1014:5: replace non_empty -> Option<String> with Some(String::new())
+src/audio/eq.rs:201:9: replace EqSettings::effective_bass -> (f64, bool) with (1.0, true)
+src/audio/eq.rs:386:9: replace EqControl::version -> u64 with 0
+src/audio/eq.rs:421:17: delete - in Biquad::peaking
+src/audio/eq.rs:433:9: replace Biquad::shelf_terms -> (f64, f64, f64) with (1.0, -1.0, 0.0)
+src/audio/eq.rs:444:40: replace * with + in Biquad::low_shelf
+src/audio/eq.rs:448:55: replace / with % in Biquad::low_shelf
+src/audio/eq.rs:450:28: replace + with * in Biquad::low_shelf
+src/audio/eq.rs:462:44: replace * with / in Biquad::high_shelf
+src/audio/eq.rs:465:53: replace / with % in Biquad::high_shelf
+src/audio/eq.rs:475:13: replace + with * in Biquad::response_db
+src/audio/eq.rs:478:23: replace + with * in Biquad::response_db
+src/audio/eq.rs:487:23: replace + with - in Biquad::power_gain
+src/audio/eq.rs:488:85: replace * with + in Biquad::power_gain
+src/audio/eq.rs:545:47: replace / with % in Layout::tuned
+src/audio/eq.rs:561:39: replace * with + in Layout::tuned
+src/audio/eq.rs:604:28: replace * with + in design_point_hz
+src/audio/eq.rs:666:34: replace + with - in Design::with_layout
+src/audio/eq.rs:707:5: replace solve_gains -> [f64; BANDS] with [1.0; BANDS]
+src/audio/eq.rs:757:29: replace / with * in solve_linear
+src/audio/eq.rs:860:33: replace - with + in EqProcessor::process
+src/audio/gapless.rs:47:28: replace * with / in mp4_trim
+src/audio/gapless.rs:151:13: delete match arm b"hdlr" in walk_track
