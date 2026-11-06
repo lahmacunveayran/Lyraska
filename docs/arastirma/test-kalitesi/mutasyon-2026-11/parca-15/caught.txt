@@ -28,3 +28,32 @@ src/analysis/key.rs:444:40: replace * with / in ChromaAnalyzer::process
 src/analysis/levels.rs:46:28: replace += with *= in LevelAccumulator::add
 src/analysis/levels.rs:100:5: replace vu_reference_db -> Option<f32> with Some(0.0)
 src/analysis/lyrics_align.rs:59:9: replace Emissions::at -> f64 with 0.0
+src/analysis/lyrics_align.rs:185:30: replace - with + in states
+src/analysis/lyrics_align.rs:225:18: replace > with >= in skip_arcs
+src/analysis/lyrics_align.rs:241:36: replace - with + in skip_arcs
+src/analysis/lyrics_align.rs:274:45: replace + with * in viterbi
+src/analysis/lyrics_align.rs:347:24: replace + with - in entry_mass
+src/analysis/lyrics_align.rs:386:36: replace + with - in entry_mass
+src/analysis/lyrics_align.rs:407:33: replace + with - in entry_mass
+src/analysis/lyrics_cache.rs:51:36: replace * with /
+src/analysis/lyrics_cache.rs:176:33: replace * with + in StoredEmissions::decode
+src/analysis/lyrics_cache.rs:277:5: replace storable -> bool with true
+src/analysis/lyrics_job.rs:116:9: replace ModelSlot::is_unavailable -> bool with false
+src/analysis/lyrics_job.rs:317:41: replace || with && in auto_lyrics
+src/analysis/lyrics_model.rs:104:5: replace finite -> f32 with -1.0
+src/analysis/lyrics_model.rs:188:5: replace tensor_f32 -> Option<Vec<f32>> with Some(vec![])
+src/analysis/lyrics_model.rs:289:27: delete ! in dequantize_matmuls
+src/analysis/lyrics_model.rs:338:45: delete ! in dequantize_matmuls
+src/analysis/lyrics_model.rs:447:15: replace || with && in kept_letter
+src/analysis/lyrics_package.rs:59:22: replace == with != in installed
+src/analysis/lyrics_text.rs:132:21: delete match arm ('o', '\u{308}') in compose
+src/analysis/lyrics_text.rs:552:23: replace / with % in turkish_number
+src/analysis/lyrics_text.rs:697:5: replace read_integer with ()
+src/analysis/lyrics_text.rs:760:35: replace == with != in read_number
+src/analysis/lyrics_text.rs:818:25: replace == with != in spoken_words
+src/analysis/lyrics_text.rs:970:9: replace Builder::repeat with ()
+src/analysis/lyrics_worker.rs:243:9: replace LyricsWorker::stop with ()
+src/analysis/map_file.rs:353:47: replace > with == in MapFile::validate
+src/analysis/map_file.rs:398:61: replace || with && in MapFile::validate
+src/analysis/map_file.rs:514:62: replace + with - in MapFile::shifted
+src/analysis/map_file.rs:652:30: replace == with != in MapStore::load
