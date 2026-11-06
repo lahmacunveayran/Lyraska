@@ -1272,10 +1272,14 @@ shader_body
     #[test]
     fn sonuclar_bellekte_saklanir() {
         let first = convert(COMP, ShaderKind::Comp).unwrap();
-        let started = std::time::Instant::now();
+        // Çevirici her çalışmada bu iş parçacığının yakıt sayacını yazar (`translate`). İkinci
+        // çeviri bellekten gelirse sayaç olduğu gibi kalır. (Eskiden süre ölçülüyordu, < 5 ms:
+        // yüklü makinede bellekten okuma da gecikebilir, çeviri de hızlı olabilir; ikisi de
+        // duvar saatine bağlıydı.)
+        FUEL_USED.set(u64::MAX);
         let again = convert(COMP, ShaderKind::Comp).unwrap();
         assert_eq!(first, again);
-        assert!(started.elapsed().as_millis() < 5);
+        assert_eq!(FUEL_USED.get(), u64::MAX, "ikinci çeviri bellekten gelmedi");
     }
 
     #[test]
