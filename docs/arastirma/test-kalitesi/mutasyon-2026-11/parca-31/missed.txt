@@ -32,3 +32,10 @@ src/audio/biquad.rs:576:28: replace - with + in Biquad::max_zero_radius
 src/audio/biquad.rs:630:22: replace + with * in Power::at
 src/audio/crossfeed.rs:205:38: replace * with + in SideFilter::design
 src/audio/decode.rs:481:27: replace / with % in Decoder::next_chunk
+src/audio/decode.rs:779:5: replace media_duration -> Option<u64> with Some(0)
+src/audio/eq.rs:558:95: replace - with / in Layout::tuned
+src/audio/eq.rs:640:52: replace < with <= in Design::with_layout
+src/audio/gapless.rs:143:14: replace > with == in walk_track
+src/audio/gapless.rs:169:28: replace - with + in next_box
+src/audio/gapless.rs:215:5: replace itunes_freeform -> Option<String> with Some(String::new())
+src/audio/limiter.rs:245:43: replace / with % in interpolator

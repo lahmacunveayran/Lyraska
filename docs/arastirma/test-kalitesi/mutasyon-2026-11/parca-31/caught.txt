@@ -150,3 +150,32 @@ src/audio/decode.rs:97:5: replace file_channel_layout -> Option<u64> with None
 src/audio/decode.rs:161:5: replace caf_declares_layout -> Option<bool> with Some(false)
 src/audio/decode.rs:199:22: replace |= with &= in caf_declares_layout
 src/audio/decode.rs:390:9: replace Decoder::source_bits -> Option<u32> with Some(1)
+src/audio/decode.rs:607:48: replace match guard tags.album.is_none() with false in read_tags
+src/audio/decode.rs:712:46: replace - with + in windows_1254
+src/audio/decode.rs:888:9: replace Cover::data_url -> String with String::new()
+src/audio/decode.rs:1003:27: replace <= with > in base64
+src/audio/eq.rs:195:36: replace > with == in EqSettings::is_active
+src/audio/eq.rs:312:5: delete - in protection_db
+src/audio/eq.rs:420:31: replace + with * in Biquad::peaking
+src/audio/eq.rs:433:9: replace Biquad::shelf_terms -> (f64, f64, f64) with (1.0, 0.0, 1.0)
+src/audio/eq.rs:444:46: replace + with * in Biquad::low_shelf
+src/audio/eq.rs:447:31: replace - with / in Biquad::low_shelf
+src/audio/eq.rs:450:51: replace / with % in Biquad::low_shelf
+src/audio/eq.rs:462:32: replace + with - in Biquad::high_shelf
+src/audio/eq.rs:464:25: replace + with * in Biquad::high_shelf
+src/audio/eq.rs:477:13: replace + with - in Biquad::response_db
+src/audio/eq.rs:478:43: replace + with - in Biquad::response_db
+src/audio/eq.rs:487:47: replace + with * in Biquad::power_gain
+src/audio/eq.rs:488:60: replace + with * in Biquad::power_gain
+src/audio/eq.rs:535:21: replace * with / in Layout::tuned
+src/audio/eq.rs:601:5: replace design_point_hz -> f64 with 0.0
+src/audio/eq.rs:697:35: replace * with + in Design::response_db
+src/audio/eq.rs:753:56: replace * with / in solve_linear
+src/audio/eq.rs:859:33: replace - with / in EqProcessor::process
+src/audio/gapless.rs:45:58: replace > with < in mp4_trim
+src/audio/gapless.rs:80:18: replace + with - in find_top_level
+src/audio/limiter.rs:159:43: replace + with * in Limiter::true_peak
+src/audio/limiter.rs:192:23: replace + with * in Limiter::next_gain
+src/audio/limiter.rs:234:37: replace / with * in interpolator
+src/audio/loudness.rs:79:9: replace Biquad::process -> f64 with 0.0
+src/audio/loudness.rs:100:22: replace / with % in k_weighting
