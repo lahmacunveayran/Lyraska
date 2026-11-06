@@ -179,3 +179,34 @@ src/audio/limiter.rs:192:23: replace + with * in Limiter::next_gain
 src/audio/limiter.rs:234:37: replace / with * in interpolator
 src/audio/loudness.rs:79:9: replace Biquad::process -> f64 with 0.0
 src/audio/loudness.rs:100:22: replace / with % in k_weighting
+src/audio/loudness.rs:105:22: replace * with + in k_weighting
+src/audio/loudness.rs:112:30: replace * with + in k_weighting
+src/audio/loudness.rs:192:61: replace - with / in TruePeak::add
+src/audio/loudness.rs:237:20: replace | with & in default_layout
+src/audio/loudness.rs:323:9: replace LoudnessMeter::add with ()
+src/audio/loudness.rs:357:25: replace > with == in LoudnessMeter::finish
+src/audio/lyrics.rs:140:31: replace match guard !sidecar.lines.is_empty() with true in choose
+src/audio/lyrics.rs:259:16: delete ! in parse
+src/audio/lyrics.rs:367:5: replace parse_time -> Option<f64> with Some(0.0)
+src/audio/lyrics.rs:380:33: replace * with + in parse_time
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with (String::new(), vec![(-1.0, "xyzzy".into())], "xyzzy".into())
+src/audio/lyrics.rs:468:40: replace * with + in estimate_words
+src/audio/normalize.rs:162:12: delete ! in TrackLevels::bass_peaks
+src/audio/normalize.rs:271:31: replace + with * in TrackLevels::next_start
+src/audio/normalize.rs:333:5: replace protection -> f64 with 0.0
+src/audio/normalize.rs:430:57: replace < with == in Leveler::next_gain
+src/audio/normalize.rs:443:39: replace - with + in Leveler::next_gain
+src/audio/output.rs:190:70: replace >= with < in FadeWatch::faded_out
+src/audio/peq.rs:367:18: delete - in HeadphoneProfile::sanitized
+src/audio/peq.rs:436:47: replace * with + in coefs_peak_db
+src/audio/peq.rs:462:5: replace refine_peak -> f64 with 1.0
+src/audio/peq.rs:475:32: replace - with / in refine_peak
+src/audio/peq.rs:523:9: delete match arm "AP" in parse_filter
+src/audio/peq.rs:693:9: replace ParametricSettings::sanitized -> Self with Default::default()
+src/audio/peq.rs:792:9: replace ParametricSettings::to_apo -> String with String::new()
+src/audio/peq.rs:1032:9: replace PeqControl::version -> u64 with 1
+src/audio/peq.rs:1181:20: replace != with == in PeqProcessor::begin_block
+src/audio/punch.rs:156:23: replace *= with /= in Punch::process_frame
+src/audio/punch.rs:188:30: replace > with == in Punch::update_gain
+src/audio/render.rs:157:27: replace || with && in Renderer::render
+src/audio/render.rs:260:5: replace to_device -> Sample with Default::default()

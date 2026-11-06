@@ -39,3 +39,8 @@ src/audio/gapless.rs:143:14: replace > with == in walk_track
 src/audio/gapless.rs:169:28: replace - with + in next_box
 src/audio/gapless.rs:215:5: replace itunes_freeform -> Option<String> with Some(String::new())
 src/audio/limiter.rs:245:43: replace / with % in interpolator
+src/audio/loudness.rs:270:17: delete match arm 4 | 5 in channel_weights
+src/audio/normalize.rs:470:14: replace - with + in approach
+src/audio/peq.rs:503:21: replace > with >= in shelf_q_from_slope
+src/audio/peq.rs:934:63: replace - with + in loudness_gain_db_at
+src/audio/player/mod.rs:293:38: replace match guard pending.playing with true in Player::state
