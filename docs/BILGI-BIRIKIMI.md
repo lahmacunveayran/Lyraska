@@ -406,3 +406,6 @@ kısaltılır.
   resimde tam. Ölçüm: `docs/arastirma/kendi-resmin/README.md` "Güvenli modda kırmızı resim".
 - Görsel tasarımda sahibi zor beğenir: seçenekleri gerçek boyutta, yan yana görsel olarak sun; bağımsız sanat
   yönetmeni denetimi işe yarıyor (puan 6 → hedef 8+).
+- **Sıra ve v1.0** (6 Kasım 2026): Faz 7 → Sahneler v2 → Faz 8 (gerçek bilgisayar karnesi, en son); v1.0'ın çıtası Faz
+  8'den sonra yazılır. Makam/usul, armonik gerilim ve "her özelliğe karne" fikirlerini beğendi; akademisyenden
+  yardım istenmez (Türk müziğinin doğru cevabı başka kaynaktan).
