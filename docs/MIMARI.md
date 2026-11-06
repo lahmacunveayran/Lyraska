@@ -125,6 +125,10 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
     (32 → 24 → 16 bit, `output::IntFormat`). Yeniden örnekleme yoktur.
   - Ses çıkışı kulaklık düzeltmesini, ekolayzeri ve eşitlemeyi atlar (`RenderControls.bit_perfect`). Çözücü
     tamsayıları 2'nin kuvvetine böldüğü için çıkışta aynı kuvvetle çarpılan örnekler bit bit aynıdır.
+  - Tek istisna açılış ve kapanış geçişi: çalma başlarken (sarınca da, yeni oturum) ve duraklatıp sürdürürken ses
+    10 ms'de doğrusal açılıp kapanır (tık olmasın). Geçişte kazanç ≤ 1'dir, ses yalnızca kısılır; arada kazanç tam
+    1'dir. Bit bit karşılaştıran testler (`bit_perfect_zinciri_…`) geçişten sonrasını karşılaştırır. Sahibinin
+    kararı (5 Kasım 2026, Denetim-2 B8): kalsın, belgeye ve Ayarlar'daki yazıya eklensin.
   - Özel modun iki zamanlaması var, ikisi de bazı sürücülerde bozuk: yoklamalı (arabellek ~100 ms) USB ses
     sürücüsünde iyi, Realtek'te aygıt arabelleği hiç tüketmiyor ve ilk arabelleği döngüyle çalıyor (vızıltı; 5 Kasım
     2026, ölçülen oran 0); olaylı (arabellek bir periyot, ~10 ms, her yazım tam arabellek) Realtek'te iyi, USB

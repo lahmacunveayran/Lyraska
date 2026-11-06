@@ -79,7 +79,7 @@ Sıra önem sırasıdır. Her biri ayrı küçük PR.
    kez); `shader.rs:1278` duvar saatine bağlı; `PlaylistPage` çift tıklaması (`playRef` `useEffect`'te, önerilen
    `useLayoutEffect`; önce yakalayan test).
 7. **Bit-perfect ilk 10 ms** (B8): özel modda başlangıç geçişi bit bit aynı değil. Sahibinin kararı (5 Kasım):
-   "kalsın, belgeye yaz"; Ayarlar'daki bit-perfect yazısına da eklenecek.
+   "kalsın, belgeye yaz". Yapıldı (6 Kasım): `MIMARI.md`, `DOGRULAMA.md` B6 ve Ayarlar'daki bit-perfect yazısı.
 8. **Saat farkı ±5 ms:** durum sorgusu hiç 10 ms'den hızlı bitmezse ses–görüntü saat farkı ancak ±5 ms bilinir
    (`ClockOffset` tasarım payı); senkron hedefi ±20 ms olduğundan şimdilik yeter.
 9. **Denetim-3'ün kalan test bulguları:** TST-01, TST-06, TST-07b/c, TST-08 (`DENETIM-1.md` son bölüm).

@@ -217,7 +217,9 @@ export function SettingsPanel({
         <p className="settings__hint">
           Şarkı ses aygıtına hiç değiştirilmeden, kendi hızında ve çözünürlüğünde gider; aygıt
           yalnızca Lyraska'ya ayrılır. Açıkken ekolayzer, kulaklık düzeltmesi ve ses yüksekliği
-          eşitleme çalışmaz, diğer programların sesi duyulmaz.
+          eşitleme çalışmaz, diğer programların sesi duyulmaz. Tek istisna: çalma başlarken, sarınca
+          ve duraklatıp sürdürürken ses 10 ms içinde yumuşakça açılıp kapanır (hoparlörden tık
+          gelmesin diye); arada her örnek aynen gider.
         </p>
         <p className="settings__warn">
           Dikkat: özel modda Windows ses düzeyi çoğu aygıtta etkisizdir ve ses tam yükseklikte

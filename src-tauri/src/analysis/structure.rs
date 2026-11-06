@@ -1526,6 +1526,54 @@ mod tests {
     }
 
     #[test]
+    fn olcu_basi_tutarliligi_el_hesabiyla() {
+        // 128 vuruş, 4/4: ilk yarıda ölçü başı 0. vuruşta (puan 1), ikinci yarıda 2. vuruşta
+        // (puan 2). Pencere 8 ölçü = 32 vuruş, adım 16: [0,32) [16,48) [32,64) [48,80) [64,96)
+        // [80,112) [96,128), yedi pencere. El hesabı: ilk üçünde faz 0 kazanır; [48,80)'de faz
+        // 0'ın ortalaması 4/8 · 1 = 0,5, faz 2'ninki 4/8 · 2 = 1,0, faz 2 kazanır; son üçü de
+        // faz 2. Faz 0 için 3/7, faz 2 için 4/7. Tolerans 1e-12: tam sayıların oranı, yalnızca
+        // bölmenin yuvarlaması.
+        let score: Vec<f64> = (0..128)
+            .map(|i| match (i < 64, i % 4) {
+                (true, 0) => 1.0,
+                (false, 2) => 2.0,
+                _ => 0.0,
+            })
+            .collect();
+        let (zero, two) = (phase_agreement(&score, 4, 0), phase_agreement(&score, 4, 2));
+        assert!((zero - 3.0 / 7.0).abs() < 1e-12, "{zero}");
+        assert!((two - 4.0 / 7.0).abs() < 1e-12, "{two}");
+    }
+
+    #[test]
+    fn harita_en_az_iki_olcu_ister() {
+        // Sınır değer: şarkı haritası en az 8 vuruşla (iki 4/4 ölçü) çıkarılır; 7 vuruşta yok.
+        // Kısa (4–5 sn) ve yavaş kayıtlarda haritanın var/yok durumu bu sınıra bağlıdır.
+        // Ses düz (bütün bantlar 100, −20 dBFS), 120 BPM, 270 kare (4,5 sn).
+        let frames = 270;
+        let bands = vec![100u8; frames * 32];
+        let loudness = vec![-20.0f32; frames];
+        let grid = |count: usize| BeatGrid {
+            bpm: 120.0,
+            beats: (0..count).map(|i| 0.5 * i as f64).collect(),
+            variable_tempo: false,
+        };
+        assert!(map_song(&bands, 32, &loudness, &grid(8), 60.0, None).is_some());
+        assert!(map_song(&bands, 32, &loudness, &grid(7), 60.0, None).is_none());
+    }
+
+    #[test]
+    fn tekduze_muzikte_bolum_siniri_yok() {
+        // Foote yeniliği iki yanı birbirinden farklı olan ölçüde yükselir. Her ölçünün özelliği
+        // aynıysa benzerlik her yerde aynı, yenilik her yerde sıfırdır: sınır yoktur (tekdüze
+        // döngü, test tonu). Eşikle eşit olan yenilik sınır sayılmamalı.
+        assert_eq!(
+            section_boundaries(&vec![vec![1.0; 5]; 40]),
+            Vec::<usize>::new()
+        );
+    }
+
+    #[test]
     fn duz_sarkida_drop_yok() {
         let rate = 22_050;
         let (samples, _) = drum_track(120.0, 0.5, 30.0, rate, 8);
