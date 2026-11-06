@@ -210,3 +210,20 @@ src/audio/punch.rs:156:23: replace *= with /= in Punch::process_frame
 src/audio/punch.rs:188:30: replace > with == in Punch::update_gain
 src/audio/render.rs:157:27: replace || with && in Renderer::render
 src/audio/render.rs:260:5: replace to_device -> Sample with Default::default()
+src/audio/resample.rs:141:46: replace / with * in Converter::run_blocks
+src/audio/resample.rs:182:22: replace && with || in Converter::run_blocks
+src/audio/spectrum.rs:134:65: replace - with / in level
+src/audio/waveform.rs:84:52: replace + with - in Halving::push
+src/audio/waveform.rs:157:42: replace * with / in Decimator::interpolate
+src/audio/waveform.rs:313:5: replace to_byte -> u8 with 0
+src/audio/waveform.rs:353:43: replace * with / in to_bytes
+src/audio/player/bit_perfect.rs:65:9: replace Player::playback_options -> PlaybackOptions with Default::default()
+src/audio/player/controls.rs:116:9: replace Player::render_controls -> RenderControls with Default::default()
+src/audio/player/next_track.rs:103:38: replace > with < in open_checked
+src/audio/player/session.rs:168:36: replace + with * in SharedState::playing_at_frame
+src/audio/player/session.rs:304:13: delete ! in Session::start
+src/audio/player/track_analysis.rs:60:9: replace Analysis::start_analysis -> Option<Self> with None
+src/audio/player/transition.rs:302:32: replace += with *= in Player::begin_device_recovery
+src/audio/player/visuals.rs:151:9: replace Player::audio_delay_ms -> i32 with 1
+src/audio/player/visuals.rs:229:9: replace SharedState::waveform_at -> Option<Vec<u8>> with Some(vec![])
+src/audio/player/visuals.rs:264:50: replace / with % in SharedState::spectrum_at

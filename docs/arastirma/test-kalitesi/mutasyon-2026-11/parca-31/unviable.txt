@@ -3,3 +3,8 @@ src/analysis/background.rs:365:5: replace analyze_one -> Outcome with Default::d
 src/analysis/evaluate.rs:64:5: replace evaluate_beats -> BeatEvaluation with Default::default()
 src/audio/abx.rs:655:9: replace PreparedAbx::start -> Result<AbxTest, AudioError> with Ok(Default::default())
 src/audio/biquad.rs:526:9: replace Biquad::response -> Complex<f64> with Complex::new(1.0)
+src/audio/spectrum.rs:105:5: replace transform -> &'static Transform with Box::leak(Box::new(Default::default()))
+src/audio/waveform.rs:273:9: replace WaveformTap::read_window -> Option<Window<N>> with Some(Window::new(Default::default()))
+src/audio/player/session.rs:148:9: replace SharedState::now_playing_indexed -> Option<(TrackInfo, f64, Option<u64>, usize)> with Some((Default::default(), 0.0, None, 0))
+src/audio/player/session.rs:400:35: replace + with * in wait_for_fade_out
+src/audio/player/transition.rs:80:9: replace Player::restart -> Result<TrackInfo, AudioError> with Ok(Default::default())
