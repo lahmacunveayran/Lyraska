@@ -1,2 +1,3 @@
 src/analysis/structure.rs:499:15: replace += with *= in phase_agreement
 src/audio/decode.rs:531:41: replace - with + in Decoder::next_chunk
+src/audio/gapless.rs:161:5: replace next_box -> Option<([u8; 4], &[u8], usize)> with Some(([0; 4], Vec::leak(Vec::new()), 0))

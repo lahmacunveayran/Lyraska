@@ -158,3 +158,37 @@ src/audio/eq.rs:446:19: replace * with / in Biquad::low_shelf
 src/audio/eq.rs:448:32: replace - with / in Biquad::low_shelf
 src/audio/eq.rs:463:22: replace * with + in Biquad::high_shelf
 src/audio/eq.rs:465:27: replace - with / in Biquad::high_shelf
+src/audio/eq.rs:475:18: replace * with + in Biquad::response_db
+src/audio/eq.rs:478:49: replace * with + in Biquad::response_db
+src/audio/eq.rs:487:53: replace - with / in Biquad::power_gain
+src/audio/eq.rs:494:19: replace / with % in db_to_linear
+src/audio/eq.rs:548:59: replace * with / in Layout::tuned
+src/audio/eq.rs:562:48: replace / with * in Layout::tuned
+src/audio/eq.rs:604:43: replace / with * in design_point_hz
+src/audio/eq.rs:677:9: replace Design::peak_db -> f64 with 0.0
+src/audio/eq.rs:724:51: replace * with / in solve_gains
+src/audio/eq.rs:814:9: replace EqProcessor::boost_db -> f64 with -1.0
+src/audio/eq.rs:868:32: replace - with + in EqProcessor::step
+src/audio/gapless.rs:180:5: replace header_timescale -> Option<u64> with Some(0)
+src/audio/limiter.rs:131:9: replace Limiter::process_frame with ()
+src/audio/limiter.rs:169:46: replace + with - in Limiter::true_peak
+src/audio/limiter.rs:198:48: replace + with * in Limiter::next_gain
+src/audio/limiter.rs:241:17: replace * with + in interpolator
+src/audio/limiter.rs:246:47: replace * with + in interpolator
+src/audio/loudness.rs:79:27: replace * with / in Biquad::process
+src/audio/loudness.rs:103:22: replace * with + in k_weighting
+src/audio/loudness.rs:107:58: replace / with % in k_weighting
+src/audio/loudness.rs:115:58: replace / with * in k_weighting
+src/audio/loudness.rs:229:31: replace | with & in default_layout
+src/audio/loudness.rs:281:23: replace << with >> in channel_weights
+src/audio/loudness.rs:333:24: replace += with *= in LoudnessMeter::add
+src/audio/loudness.rs:369:51: replace / with % in LoudnessMeter::finish
+src/audio/lyrics.rs:161:9: delete match arm LyricsSource::File in text_for_track
+src/audio/lyrics.rs:304:27: replace match guard same_time && !line.text.is_empty() && !last.text.is_empty() with false in parse
+src/audio/lyrics.rs:374:37: replace + with * in parse_time
+src/audio/lyrics.rs:388:5: replace id_tag -> Option<&'a str> with Some("xyzzy")
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with ("xyzzy".into(), vec![(-1.0, String::new())], "xyzzy".into())
+src/audio/lyrics.rs:493:21: replace && with || in syllables
+src/audio/normalize.rs:320:5: replace coefficient -> f64 with 0.0
+src/audio/normalize.rs:388:32: replace + with * in Leveler::begin_block
+src/audio/normalize.rs:436:27: replace += with *= in Leveler::next_gain
