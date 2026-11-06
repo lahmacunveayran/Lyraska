@@ -40,3 +40,8 @@ src/audio/decode.rs:617:77: replace > with < in read_tags
 src/audio/decode.rs:754:9: delete match arm 0..= 11 in opus_packet_frames
 src/audio/decode.rs:801:5: replace has_extension -> bool with false
 src/audio/loudness.rs:239:48: replace | with ^ in default_layout
+src/audio/normalize.rs:446:30: replace * with / in Leveler::next_gain
+src/audio/peq.rs:596:50: replace && with || in parse_filter
+src/audio/peq.rs:731:9: replace ParametricSettings::boost_db -> f64 with -1.0
+src/audio/punch.rs:194:42: replace < with == in Punch::update_gain
+src/audio/waveform.rs:127:52: replace + with * in Decimator::finish

@@ -192,3 +192,23 @@ src/audio/lyrics.rs:388:5: replace id_tag -> Option<&'a str> with Some("")
 src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with ("xyzzy".into(), vec![(-1.0, String::new())], String::new())
 src/audio/lyrics.rs:488:5: replace syllables -> usize with 1
 src/audio/normalize.rs:207:9: replace TrackLevels::set_loudness with ()
+src/audio/normalize.rs:388:32: replace + with - in Leveler::begin_block
+src/audio/normalize.rs:436:27: replace += with -= in Leveler::next_gain
+src/audio/output.rs:82:29: replace * with / in IntFormat::encode
+src/audio/peq.rs:132:9: replace FilterKind::code -> usize with 0
+src/audio/peq.rs:383:32: replace + with - in HeadphoneProfile::response_db
+src/audio/peq.rs:442:29: replace + with * in coefs_peak_db
+src/audio/peq.rs:464:42: replace - with / in refine_peak
+src/audio/peq.rs:497:42: replace / with % in q_from_bandwidth
+src/audio/peq.rs:508:34: replace / with * in shelf_slope_from_q
+src/audio/peq.rs:869:34: replace && with || in ParametricState::at_rate
+src/audio/peq.rs:937:83: replace / with * in loudness_gain_db_at
+src/audio/peq.rs:1084:49: replace / with % in PeqControl::design
+src/audio/peq.rs:1209:36: replace * with + in PeqProcessor::process_frame
+src/audio/player/mod.rs:319:68: replace / with * in Player::status
+src/audio/punch.rs:163:50: replace * with + in Punch::process_frame
+src/audio/render.rs:190:31: replace < with <= in Renderer::render
+src/audio/resample.rs:100:9: replace Converter::input_end_frame -> u64 with 1
+src/audio/spectrum.rs:56:47: replace / with % in bar_hz
+src/audio/spectrum.rs:115:53: replace - with / in at
+src/audio/waveform.rs:43:37: replace * with +
