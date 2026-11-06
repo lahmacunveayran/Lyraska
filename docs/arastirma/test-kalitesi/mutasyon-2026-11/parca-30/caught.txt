@@ -119,3 +119,35 @@ src/audio/biquad.rs:197:18: replace + with - in Biquad::peaking
 src/audio/biquad.rs:210:32: replace - with / in Biquad::low_shelf
 src/audio/biquad.rs:215:45: replace + with * in Biquad::low_shelf
 src/audio/biquad.rs:227:32: replace * with / in Biquad::high_shelf
+src/audio/biquad.rs:232:32: replace + with - in Biquad::high_shelf
+src/audio/biquad.rs:237:20: replace + with - in Biquad::high_shelf
+src/audio/biquad.rs:252:32: replace * with + in Biquad::lowpass
+src/audio/biquad.rs:264:32: replace * with / in Biquad::highpass
+src/audio/biquad.rs:282:27: replace * with / in Biquad::notch
+src/audio/biquad.rs:300:18: replace - with / in Biquad::allpass
+src/audio/biquad.rs:350:42: replace * with / in Biquad::matched
+src/audio/biquad.rs:379:41: replace + with - in Biquad::matched
+src/audio/biquad.rs:425:36: replace - with / in Biquad::matched
+src/audio/biquad.rs:545:9: replace Biquad::response_db_phi -> f64 with -1.0
+src/audio/biquad.rs:560:23: replace < with > in Biquad::is_stable
+src/audio/biquad.rs:576:36: replace / with * in Biquad::max_zero_radius
+src/audio/biquad.rs:592:5: replace phi -> (f64, f64, f64) with (0.0, -1.0, 1.0)
+src/audio/biquad.rs:599:5: replace matched_poles -> (f64, f64) with (0.0, -1.0)
+src/audio/biquad.rs:605:32: replace + with - in matched_poles
+src/audio/biquad.rs:655:59: replace * with + in factor
+src/audio/biquad.rs:667:69: replace * with + in min_phase
+src/audio/biquad.rs:754:9: replace Grid::add_top with ()
+src/audio/biquad.rs:787:9: replace Grid::fit -> Option<[f64; 3]> with Some([-1.0; 3])
+src/audio/biquad.rs:834:37: replace / with * in Grid::fit
+src/audio/crossfeed.rs:113:9: replace CrossfeedSettings::ratio -> f64 with 0.0
+src/audio/crossfeed.rs:221:43: replace * with + in SideFilter::response
+src/audio/crossfeed.rs:224:49: replace * with + in SideFilter::response
+src/audio/crossfeed.rs:342:22: replace || with && in CrossfeedProcessor::is_bypass
+src/audio/crossfeed.rs:382:27: replace == with != in CrossfeedProcessor::process_frame
+src/audio/decode.rs:161:5: replace caf_declares_layout -> Option<bool> with Some(true)
+src/audio/decode.rs:196:18: replace -= with /= in caf_declares_layout
+src/audio/decode.rs:390:9: replace Decoder::source_bits -> Option<u32> with Some(0)
+src/audio/decode.rs:480:43: replace + with * in Decoder::next_chunk
+src/audio/decode.rs:607:48: replace match guard tags.album.is_none() with true in read_tags
+src/audio/decode.rs:718:9: delete match arm 0xFE in windows_1254
+src/audio/decode.rs:883:45: replace * with /
