@@ -8,3 +8,6 @@ src/analysis/map_file.rs:551:9: replace MapFile::musical_key -> Option<MusicalKe
 src/analysis/spectrogram.rs:342:9: replace Spectrogram::early_loudness -> Option<Loudness> with Some(Default::default())
 src/audio/abx.rs:280:5: replace decode_segment -> Result<(Vec<Sample>, TrackInfo), AudioError> with Ok((vec![], Default::default()))
 src/audio/output.rs:118:5: replace exclusive_format -> Result<IntFormat, String> with Ok(Default::default())
+src/audio/player/session.rs:158:9: replace SharedState::playing_at -> Option<(TrackInfo, f64)> with Some((Default::default(), 1.0))
+src/audio/player/session.rs:249:9: replace Session::start -> Result<Self, AudioError> with Ok(Default::default())
+src/audio/player/session.rs:352:9: replace Session::now_playing_timed -> (TrackInfo, f64, Option<u64>, usize) with (Default::default(), -1.0, Some(0), 0)
