@@ -1,3 +1,5 @@
 src/analysis/beats.rs:263:22: replace < with > in segment_periods
 src/analysis/structure.rs:375:18: replace += with *= in map_song
 src/audio/decode.rs:460:9: replace Decoder::next_chunk -> Result<Option<&[Sample]>, AudioError> with Ok(None)
+src/audio/decode.rs:545:69: replace * with / in Decoder::next_chunk
+src/audio/gapless.rs:161:5: replace next_box -> Option<([u8; 4], &[u8], usize)> with Some(([1; 4], Vec::leak(vec![1]), 1))

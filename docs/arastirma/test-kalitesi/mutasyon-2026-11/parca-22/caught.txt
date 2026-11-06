@@ -152,3 +152,34 @@ src/audio/crossfeed.rs:306:58: replace - with + in Stage::process
 src/audio/crossfeed.rs:380:21: replace + with - in CrossfeedProcessor::process_frame
 src/audio/decode.rs:136:57: replace & with | in wave_channel_mask
 src/audio/decode.rs:175:20: replace != with == in caf_declares_layout
+src/audio/decode.rs:696:46: delete ! in id3v1_text
+src/audio/decode.rs:984:76: replace == with != in image_type
+src/audio/eq.rs:192:54: replace > with == in EqSettings::is_active
+src/audio/eq.rs:288:27: replace match guard rate != DISPLAY_RATE with false in EqState::at_rate
+src/audio/eq.rs:419:71: replace - with + in Biquad::peaking
+src/audio/eq.rs:433:9: replace Biquad::shelf_terms -> (f64, f64, f64) with (0.0, 0.0, 1.0)
+src/audio/eq.rs:435:22: replace * with + in Biquad::shelf_terms
+src/audio/eq.rs:447:57: replace / with % in Biquad::low_shelf
+src/audio/eq.rs:449:17: delete - in Biquad::low_shelf
+src/audio/eq.rs:460:40: replace * with / in Biquad::high_shelf
+src/audio/eq.rs:464:55: replace / with % in Biquad::high_shelf
+src/audio/eq.rs:466:21: replace + with - in Biquad::high_shelf
+src/audio/eq.rs:476:35: replace * with / in Biquad::response_db
+src/audio/eq.rs:479:14: replace * with / in Biquad::response_db
+src/audio/eq.rs:488:43: replace * with + in Biquad::power_gain
+src/audio/eq.rs:533:34: replace * with / in Layout::tuned
+src/audio/eq.rs:553:37: replace * with + in Layout::tuned
+src/audio/eq.rs:582:30: replace - with + in Layout::tail
+src/audio/eq.rs:613:27: replace / with * in design_target
+src/audio/eq.rs:692:85: replace < with > in Design::is_flat
+src/audio/eq.rs:746:37: replace * with + in solve_linear
+src/audio/eq.rs:842:24: replace -= with /= in EqProcessor::advance_frame
+src/audio/gapless.rs:29:37: replace * with /
+src/audio/gapless.rs:57:5: replace parse_itunsmpb -> Option<(u64, u64)> with Some((0, 1))
+src/audio/limiter.rs:146:45: replace % with + in Limiter::process_frame
+src/audio/limiter.rs:181:50: replace / with * in Limiter::next_gain
+src/audio/limiter.rs:226:33: replace < with == in interpolator
+src/audio/limiter.rs:244:51: replace / with * in interpolator
+src/audio/loudness.rs:32:24: delete -
+src/audio/loudness.rs:97:22: replace / with * in k_weighting
+src/audio/loudness.rs:104:22: replace * with / in k_weighting
