@@ -5,8 +5,11 @@
 //!
 //! İki kip vardır ([`OutputMode`]):
 //! - **Paylaşımlı** (varsayılan): akış aygıtın kendi örnekleme hızında açılır
-//!   ([`device_info`]); şarkı o hıza [`super::resample`] ile çevrilir. Böylece Windows
-//!   ses motoru sese dokunmaz; diğer programların sesi de duyulur.
+//!   ([`device_info`]); şarkı o hıza [`super::resample`] ile çevrilir, Windows hızı değiştirmez.
+//!   Akış "Media" kategorisinde ve sürücü destekliyorsa **Raw** modda açılır
+//!   ([`choose_processing`]): Windows'un ve sürücünün ses iyileştirmeleri (ses yüksekliği
+//!   eşitleme, sanal surround, ekolayzer) Lyraska'nın sesine uygulanmaz. Diğer programların sesi
+//!   de duyulur.
 //! - **Özel (bit-perfect)**: aygıt yalnızca Lyraska'ya ayrılır, şarkının kendi hızında ve
 //!   tamsayı biçiminde açılır ([`exclusive_format`]). Şarkının örnekleri aygıta değişmeden
 //!   gider; Windows ses düzeyi ve diğer programların sesi devre dışı kalır.
@@ -229,9 +232,61 @@ pub fn spawn(
     }
 }
 
+/// Paylaşımlı akışın Windows'taki sinyal işlemesi. Windows ve ses sürücüsü paylaşımlı moddaki her
+/// akışa "ses iyileştirmeleri" (APO: ses yüksekliği eşitleme, sanal surround, ekolayzer) uygulayabilir;
+/// Microsoft'un Raw modu (`AUDCLNT_STREAMOPTIONS_RAW`) bunları o akış için kapatır. Sürücüler Raw'u
+/// desteklemek zorunda değildir.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StreamProcessing {
+    /// Raw: iyileştirmeler bu akışa uygulanmaz.
+    Raw,
+    /// Yalnızca "Media" kategorisi (Raw desteklenmiyor): iyileştirmeler açıksa uygulanabilir.
+    Media,
+    /// Akış özellikleri kabul edilmedi: Windows'un varsayılanı.
+    Default,
+}
+
+/// Paylaşımlı akışın özelliklerini seçer: önce Raw + Media istenir, sürücü reddederse yalnızca
+/// Media. `apply(raw)` özellikleri akışa uygulamayı dener (akış başlatılmadan önce), kabul
+/// edilirse `true` döner.
+pub fn choose_processing(mut apply: impl FnMut(bool) -> bool) -> StreamProcessing {
+    if apply(true) {
+        StreamProcessing::Raw
+    } else if apply(false) {
+        StreamProcessing::Media
+    } else {
+        StreamProcessing::Default
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn once_raw_istenir_olmazsa_yalnizca_media() {
+        // Sürücü Raw'u kabul ediyor: tek deneme, Raw.
+        let mut tried = Vec::new();
+        let got = choose_processing(|raw| {
+            tried.push(raw);
+            true
+        });
+        assert_eq!((got, tried), (StreamProcessing::Raw, vec![true]));
+        // Raw reddediliyor (AUDCLNT_E_RAW_MODE_UNSUPPORTED), kategori kabul: önce Raw, sonra Media.
+        let mut tried = Vec::new();
+        let got = choose_processing(|raw| {
+            tried.push(raw);
+            !raw
+        });
+        assert_eq!((got, tried), (StreamProcessing::Media, vec![true, false]));
+        // İkisi de reddediliyor (ör. IAudioClient2 yok): Windows'un varsayılanı, akış yine açılır.
+        let mut tried = Vec::new();
+        let got = choose_processing(|raw| {
+            tried.push(raw);
+            false
+        });
+        assert_eq!((got, tried), (StreamProcessing::Default, vec![true, false]));
+    }
 
     fn encoded(format: IntFormat, sample: Sample) -> Vec<u8> {
         let mut out = vec![0u8; format.bytes()];
