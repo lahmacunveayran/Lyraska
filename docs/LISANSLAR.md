@@ -203,6 +203,14 @@ kuralları). Kod bağımlılıklarının lisanslarını CI denetler (`npm run ch
 - **Eğitim müziği:** `r2_beste.py` ile programla yazılan rastgele parçalar, yine FluidR3_GM (MIT) ile çalınır. Hazır
   şarkı, MUSDB18, MoisesDB ya da telifli kayıt kullanılmadı. Eğitilen ağırlıklar depoya konmadı (kapı geçilmedi).
 
+### Kaynak ayrıştırma ölçümü (6 Kasım 2026)
+
+- **Ne için:** `analysis/separation_eval.rs`'in (SI-SDR, BSS Eval v4) başvuru değerleri. Programa girmez, dağıtılmaz;
+  yalnızca testlerdeki beklenen sayıları bağımsız hesaplamak için geçici bir Python ortamında çalıştırıldı. Kod
+  kopyalanmadı; tanım makalelerden ve museval'in belgelenmiş adımlarından Rust'ta yeniden yazıldı.
+- **museval:** PyPI `museval` 0.4.1 (sigsep); lisans MIT (paket üst verisi). numpy 2.5.4 ve scipy 1.18.1 (BSD-3-Clause)
+  ile.
+
 ### Söz hizalama araştırması (30 Ekim 2026)
 
 - **Ne için:** sözleri sese otomatik hizalama ([arastirma/soz-hizalama/](arastirma/soz-hizalama/README.md)). Aşağıdaki
