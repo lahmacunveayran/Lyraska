@@ -189,3 +189,28 @@ src/audio/loudness.rs:81:25: replace * with / in Biquad::process
 src/audio/loudness.rs:104:26: replace - with + in k_weighting
 src/audio/loudness.rs:107:53: replace * with + in k_weighting
 src/audio/loudness.rs:115:53: replace * with / in k_weighting
+src/audio/loudness.rs:286:43: replace != with == in channel_weights
+src/audio/loudness.rs:343:59: replace / with * in LoudnessMeter::add
+src/audio/loudness.rs:382:34: replace * with / in LoudnessMeter::finish
+src/audio/lyrics.rs:184:42: replace > with == in sidecar_text
+src/audio/lyrics.rs:322:24: replace + with * in parse
+src/audio/lyrics.rs:378:44: replace + with - in parse_time
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with (String::new(), vec![], "xyzzy".into())
+src/audio/normalize.rs:75:48: replace + with -
+src/audio/normalize.rs:257:33: replace - with / in TrackLevels::level
+src/audio/normalize.rs:320:28: replace * with + in coefficient
+src/audio/normalize.rs:437:68: replace / with * in Leveler::next_gain
+src/audio/normalize.rs:469:5: replace approach -> f64 with 0.0
+src/audio/peq.rs:272:9: replace HeadphoneProfile::name_from_file -> String with "xyzzy".into()
+src/audio/peq.rs:405:5: replace finite_or -> f64 with -1.0
+src/audio/peq.rs:502:40: replace * with / in shelf_q_from_slope
+src/audio/peq.rs:508:45: replace / with % in shelf_slope_from_q
+src/audio/peq.rs:603:29: replace * with + in parse_filter
+src/audio/peq.rs:748:9: replace ParametricSettings::loudness_db_at -> f64 with -1.0
+src/audio/peq.rs:896:25: replace * with + in response_curve
+src/audio/peq.rs:941:22: replace / with % in loudness_gain_db_at
+src/audio/peq.rs:1121:9: replace Bank::process -> Sample with Default::default()
+src/audio/player/mod.rs:211:9: replace Player::has_session -> bool with false
+src/audio/punch.rs:182:35: replace > with == in Punch::update_gain
+src/audio/render.rs:231:37: replace += with -= in Renderer::render
+src/audio/resample.rs:171:54: replace * with + in Converter::run_blocks
