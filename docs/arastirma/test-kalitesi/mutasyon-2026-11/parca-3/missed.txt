@@ -56,3 +56,9 @@ src/audio/lyrics.rs:297:56: replace < with <= in parse
 src/audio/lyrics.rs:383:26: replace && with || in parse_time
 src/audio/normalize.rs:430:37: replace * with / in Leveler::next_gain
 src/audio/normalize.rs:444:66: replace / with % in Leveler::next_gain
+src/audio/peq.rs:440:29: replace * with + in coefs_peak_db
+src/audio/punch.rs:160:30: replace -= with += in Punch::process_frame
+src/audio/render.rs:163:40: replace / with * in Renderer::render
+src/audio/resample.rs:144:43: replace > with == in Converter::run_blocks
+src/audio/player/transition.rs:319:13: delete match arm PlaybackState::Ended in Player::begin_play
+src/audio/player/visuals.rs:267:69: replace + with - in SharedState::spectrum_at
