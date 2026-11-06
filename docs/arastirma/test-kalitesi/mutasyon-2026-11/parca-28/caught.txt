@@ -115,3 +115,31 @@ src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)>
 src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((1.0, 0.0, -1.0, -1.0))
 src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((-1.0, 1.0, 1.0, 1.0))
 src/audio/biquad.rs:188:34: replace * with / in Biquad::shape
+src/audio/biquad.rs:210:50: replace + with * in Biquad::low_shelf
+src/audio/biquad.rs:212:37: replace - with / in Biquad::low_shelf
+src/audio/biquad.rs:232:50: replace - with + in Biquad::high_shelf
+src/audio/biquad.rs:237:27: replace - with + in Biquad::high_shelf
+src/audio/biquad.rs:252:18: replace + with - in Biquad::lowpass
+src/audio/biquad.rs:264:18: replace + with * in Biquad::highpass
+src/audio/biquad.rs:282:37: replace / with * in Biquad::notch
+src/audio/biquad.rs:298:32: replace * with / in Biquad::allpass
+src/audio/biquad.rs:350:47: replace * with / in Biquad::matched
+src/audio/biquad.rs:379:47: replace / with % in Biquad::matched
+src/audio/biquad.rs:425:60: replace - with / in Biquad::matched
+src/audio/biquad.rs:545:9: replace Biquad::response_db_phi -> f64 with 0.0
+src/audio/biquad.rs:574:34: replace * with / in Biquad::max_zero_radius
+src/audio/biquad.rs:592:5: replace phi -> (f64, f64, f64) with (0.0, 1.0, -1.0)
+src/audio/biquad.rs:599:5: replace matched_poles -> (f64, f64) with (0.0, 0.0)
+src/audio/biquad.rs:605:23: replace * with + in matched_poles
+src/audio/biquad.rs:630:37: replace + with - in Power::at
+src/audio/biquad.rs:655:52: replace / with * in factor
+src/audio/biquad.rs:667:54: replace - with / in min_phase
+src/audio/biquad.rs:787:9: replace Grid::fit -> Option<[f64; 3]> with Some([0.0; 3])
+src/audio/biquad.rs:833:28: replace + with * in Grid::fit
+src/audio/crossfeed.rs:205:27: replace < with == in SideFilter::design
+src/audio/crossfeed.rs:221:33: replace + with - in SideFilter::response
+src/audio/crossfeed.rs:224:39: replace * with + in SideFilter::response
+src/audio/crossfeed.rs:342:9: replace CrossfeedProcessor::is_bypass -> bool with true
+src/audio/crossfeed.rs:381:24: replace -= with += in CrossfeedProcessor::process_frame
+src/audio/decode.rs:144:57: replace == with != in wave_channel_mask
+src/audio/decode.rs:193:44: replace >= with < in caf_declares_layout
