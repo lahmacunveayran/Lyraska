@@ -35,3 +35,13 @@ src/audio/bass.rs:586:38: replace - with + in BassProcessor::step
 src/audio/bass.rs:662:30: replace > with >= in BassProcessor::process_frame
 src/audio/biquad.rs:270:47: replace * with + in Biquad::bandpass
 src/audio/biquad.rs:284:32: replace * with + in Biquad::notch
+src/audio/biquad.rs:396:25: replace += with -= in Biquad::matched
+src/audio/biquad.rs:436:70: replace * with + in Biquad::matched
+src/audio/biquad.rs:630:32: replace * with / in Power::at
+src/audio/biquad.rs:671:18: replace *= with += in min_phase
+src/audio/decode.rs:164:14: replace << with >> in caf_declares_layout
+src/audio/decode.rs:200:89: replace == with != in caf_declares_layout
+src/audio/decode.rs:499:26: replace < with > in Decoder::next_chunk
+src/audio/decode.rs:613:54: replace match guard tags.track_number.is_none() with false in read_tags
+src/audio/decode.rs:730:38: replace != with == in make_decoder
+src/audio/decode.rs:781:14: replace > with >= in media_duration

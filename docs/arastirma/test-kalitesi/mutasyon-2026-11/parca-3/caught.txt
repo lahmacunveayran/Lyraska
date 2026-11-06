@@ -120,3 +120,36 @@ src/audio/biquad.rs:237:32: replace - with / in Biquad::high_shelf
 src/audio/biquad.rs:300:43: replace + with * in Biquad::allpass
 src/audio/biquad.rs:352:66: replace * with + in Biquad::matched
 src/audio/biquad.rs:379:54: replace + with * in Biquad::matched
+src/audio/biquad.rs:426:37: replace / with % in Biquad::matched
+src/audio/biquad.rs:488:30: replace * with / in Biquad::beyond_nyquist
+src/audio/biquad.rs:526:9: replace Biquad::response -> Complex<f64> with Complex::from(-1.0)
+src/audio/biquad.rs:551:9: replace Biquad::power_gain -> f64 with -1.0
+src/audio/biquad.rs:560:52: replace + with - in Biquad::is_stable
+src/audio/biquad.rs:576:43: replace * with / in Biquad::max_zero_radius
+src/audio/biquad.rs:592:5: replace phi -> (f64, f64, f64) with (1.0, 1.0, 0.0)
+src/audio/biquad.rs:599:5: replace matched_poles -> (f64, f64) with (-1.0, 1.0)
+src/audio/biquad.rs:606:32: replace - with + in matched_poles
+src/audio/biquad.rs:645:23: replace + with * in factor
+src/audio/biquad.rs:662:24: replace - with + in min_phase
+src/audio/biquad.rs:756:44: replace / with % in Grid::add_top
+src/audio/biquad.rs:791:29: delete ! in Grid::fit
+src/audio/biquad.rs:843:35: replace + with - in Grid::fit
+src/audio/crossfeed.rs:113:20: delete - in CrossfeedSettings::ratio
+src/audio/crossfeed.rs:208:20: replace / with % in SideFilter::design
+src/audio/crossfeed.rs:222:29: replace + with - in SideFilter::response
+src/audio/crossfeed.rs:230:25: replace * with + in SideFilter::process
+src/audio/crossfeed.rs:348:41: replace && with || in CrossfeedProcessor::begin_block
+src/audio/decode.rs:97:24: replace <= with > in file_channel_layout
+src/audio/decode.rs:402:38: replace - with / in Decoder::seek
+src/audio/decode.rs:909:5: replace sidecar_cover -> Option<Cover> with None
+src/audio/decode.rs:1014:5: replace non_empty -> Option<String> with None
+src/audio/eq.rs:201:9: replace EqSettings::effective_bass -> (f64, bool) with (0.0, false)
+src/audio/eq.rs:372:9: replace EqControl::settings -> EqSettings with Default::default()
+src/audio/eq.rs:421:22: replace * with / in Biquad::peaking
+src/audio/eq.rs:433:9: replace Biquad::shelf_terms -> (f64, f64, f64) with (1.0, 1.0, -1.0)
+src/audio/eq.rs:444:21: replace + with * in Biquad::low_shelf
+src/audio/eq.rs:447:43: replace + with * in Biquad::low_shelf
+src/audio/eq.rs:450:28: replace + with - in Biquad::low_shelf
+src/audio/eq.rs:462:44: replace * with + in Biquad::high_shelf
+src/audio/eq.rs:464:37: replace - with / in Biquad::high_shelf
+src/audio/eq.rs:475:13: replace + with - in Biquad::response_db
