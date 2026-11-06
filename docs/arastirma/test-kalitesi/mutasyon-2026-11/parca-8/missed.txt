@@ -35,3 +35,12 @@ src/audio/bass.rs:623:38: replace + with - in BassProcessor::harmonics
 src/audio/biquad.rs:119:25: replace + with - in Spec::analog
 src/audio/biquad.rs:123:55: replace + with - in Spec::analog
 src/audio/biquad.rs:398:24: replace > with < in Biquad::matched
+src/audio/biquad.rs:490:51: replace * with + in Biquad::beyond_nyquist
+src/audio/crossfeed.rs:357:34: replace < with <= in CrossfeedProcessor::begin_block
+src/audio/decode.rs:107:9: delete match arm "isomp4" in header_declares_layout
+src/audio/decode.rs:166:21: replace | with ^ in caf_declares_layout
+src/audio/decode.rs:271:34: delete ! in Decoder::open
+src/audio/decode.rs:409:79: replace / with % in Decoder::seek
+src/audio/decode.rs:614:78: replace > with >= in read_tags
+src/audio/decode.rs:748:5: replace opus_packet_frames -> i64 with -1
+src/audio/eq.rs:63:37: replace - with /
