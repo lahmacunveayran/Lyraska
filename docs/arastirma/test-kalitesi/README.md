@@ -70,9 +70,9 @@ Sıra önem sırasıdır. Her biri ayrı küçük PR.
    başlıktan anlaşılır (maskesiz WAV, `chan`'sız CAF, MP4 PCM), yalnızca çok kanallılar göçle yeniden ölçülür (V11).
 3. **CI'da sınanmayan kalite hedefleri** (Denetim-2 B3): 1080p dahili GPU'da 60 fps, 1 saat sıfır takılma, vuruş
    F-ölçüsü ≥ 0,80. Bugün yalnızca yerel araçlarla (`examples/`) ölçülüyor.
-4. **Zayıf doğrulamalar** (B9, B10): `shader.rs:1367` beklenen değeri kodun çıktısı; F-ölçüsü 70 ms sınırında `<`
-   ile `<=` ayrımı sınanmıyor; eşleştirme açgözlü, `mir_eval` en iyi eşleştirmeyi yapar (aynı girdide aynı sonuç
-   verdiği sınanmalı).
+4. **Zayıf doğrulamalar** (B9, B10): `shader.rs:1367` beklenen değeri kodun çıktısı. F-ölçüsü yapıldı (6 Kasım):
+   tam sınır sınanıyor; açgözlü eşleştirme sık vuruşta isabet kaybettiriyordu, artık mir_eval'in en büyük
+   eşleştirmesiyle aynı (`betikler/mir_eval/f_olcusu.py`: 20 000 girdide eski 682 farklı, yeni 0).
 5. **Ton ilişkisi adlandırması** (B7): MIREX'in "beşli" ilişkisi yönlü; bizimki yönsüz olabilir, başvuru koduyla
    karşılaştırılmalı.
 6. **Kararsız testler:** `check:scenes` "Söz zamanlaması (Kendi resmin)" yavaş makinede 137,9 ms geç (#190'da bir

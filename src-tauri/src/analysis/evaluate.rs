@@ -116,32 +116,27 @@ pub fn drop_hits(detected: &[f64], marked: &[f64]) -> usize {
         .count()
 }
 
-/// F-ölçüsü: her gerçek vuruşa en fazla bir tahmin, `tolerance` saniye içinde.
-/// İki liste de artan sırada olmalıdır.
+/// F-ölçüsü: her gerçek vuruşa en fazla bir tahmin, `tolerance` saniye içinde (sınır dahil).
+/// İki liste de artan sırada olmalıdır. İsabet sayısı mir_eval'in (`util.match_events`) en büyük
+/// iki parçalı eşleştirmesiyle aynıdır.
 pub fn f_measure(estimated: &[f64], truth: &[f64], tolerance: f64) -> f64 {
     if estimated.is_empty() || truth.is_empty() {
         return 0.0;
     }
-    // Sıralı listelerde açgözlü eşleştirme: her gerçek vuruşa, henüz kullanılmamış
-    // en yakın tahmin.
-    let mut used = vec![false; estimated.len()];
-    let mut start = 0usize;
+    // Her gerçek vuruşa (sırayla) penceresindeki henüz kullanılmamış en erken tahmin. Pencereler
+    // aynı genişlikte olduğundan bu en çok isabeti verir: bir tahmini sonraki vuruşa bırakmak hiçbir
+    // zaman daha fazla eşleştirme sağlamaz (aralık eşleştirmesinin bilinen açgözlü çözümü). Penceresinin
+    // gerisinde kalan tahmin sonraki vuruşların da gerisindedir, bir daha bakılmaz. (Önceki "en yakın
+    // tahmin" seçimi, vuruşlar 2 × `tolerance`'tan sık olunca isabet kaybettiriyordu.)
+    let mut next = 0usize;
     let mut hits = 0usize;
     for &t in truth {
-        while start < estimated.len() && estimated[start] < t - tolerance {
-            start += 1;
+        while next < estimated.len() && estimated[next] < t - tolerance {
+            next += 1;
         }
-        let best = (start..estimated.len())
-            .take_while(|&i| estimated[i] <= t + tolerance)
-            .filter(|&i| !used[i])
-            .min_by(|&a, &b| {
-                (estimated[a] - t)
-                    .abs()
-                    .total_cmp(&(estimated[b] - t).abs())
-            });
-        if let Some(i) = best {
-            used[i] = true;
+        if next < estimated.len() && estimated[next] <= t + tolerance {
             hits += 1;
+            next += 1;
         }
     }
     if hits == 0 {
@@ -210,6 +205,30 @@ mod tests {
         let double = grid(1.0, 0.25, 80);
         assert!((f_measure(&double, &truth, BEAT_TOLERANCE) - 2.0 / 3.0).abs() < 0.02);
         assert_eq!(f_measure(&[], &truth, BEAT_TOLERANCE), 0.0);
+    }
+
+    #[test]
+    fn f_olcusu_tam_sinirdaki_tahmini_sayar() {
+        // mir_eval (`util.match_events`): |tahmin − gerçek| ≤ pencere isabettir, sınır dahil.
+        // 0,0625 ve sayılar ikilik tabanda tam yazılır: sınır gerçekten tam sınırdır.
+        let tolerance = 0.0625;
+        let truth = [1.0, 2.0];
+        assert_eq!(f_measure(&[1.0625, 1.9375], &truth, tolerance), 1.0);
+        // Sınırın bir kayan nokta adımı ötesi dışarıda.
+        let beyond = [1.0625f64.next_up(), 1.9375f64.next_down()];
+        assert_eq!(f_measure(&beyond, &truth, tolerance), 0.0);
+    }
+
+    #[test]
+    fn f_olcusu_en_cok_isabeti_bulur() {
+        // Pencereler örtüşünce (vuruşlar 2 × 70 ms'den sık) en yakını seçmek isabet kaybettirir.
+        // El hesabı: gerçek 1,00 ve 1,10; tahmin 0,94 ve 1,05. 0,94 yalnızca 1,00'ın penceresinde,
+        // 1,05 ikisinin de. En çok eşleştirme 1,00↔0,94 ve 1,10↔1,05: iki isabet, F = 1. (1,00'a en
+        // yakın olan 1,05'i verirsek 1,10 eşsiz kalır: F = 0,5.) mir_eval'in en büyük iki parçalı
+        // eşleştirmesi de 1 verir.
+        assert_eq!(f_measure(&[0.94, 1.05], &[1.0, 1.1], BEAT_TOLERANCE), 1.0);
+        // Aynalısı: 1,10'un yalnızca kendi penceresinde bir tahmini var.
+        assert_eq!(f_measure(&[1.05, 1.16], &[1.0, 1.1], BEAT_TOLERANCE), 1.0);
     }
 
     #[test]
