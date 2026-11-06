@@ -59,3 +59,21 @@ src/analysis/lyrics_text.rs:855:5: replace prepare_as -> Vec<AlignLine> with vec
 src/analysis/lyrics_text.rs:988:78: replace == with != in Builder::end_paragraph
 src/analysis/lyrics_worker.rs:281:5: replace run with ()
 src/analysis/map_file.rs:358:81: replace < with == in MapFile::validate
+src/analysis/map_file.rs:403:35: delete ! in MapFile::validate
+src/analysis/map_file.rs:472:33: replace + with * in MapFile::shifted
+src/analysis/map_file.rs:558:41: replace / with * in round_time
+src/analysis/meter.rs:236:41: replace / with * in correlation
+src/analysis/meter.rs:247:18: replace * with + in correlation
+src/analysis/spectrogram.rs:122:9: replace Spectrogram::cancel with ()
+src/analysis/spectrogram.rs:208:46: replace * with + in Spectrogram::frame_at
+src/analysis/spectrogram.rs:238:9: replace Spectrogram::vu_reference_db -> Option<f32> with Some(-1.0)
+src/analysis/spectrogram.rs:371:9: replace Spectrogram::analysis_beat_grid -> Option<Arc<BeatGrid>> with None
+src/analysis/spectrogram.rs:523:32: replace && with || in measure_loudness
+src/analysis/spectrogram.rs:886:9: replace BandAnalyzer::process -> ([u8; BANDS], f32) with ([0; BANDS], -1.0)
+src/analysis/spectrogram.rs:918:8: replace * with + in to_level
+src/analysis/spectrogram.rs:942:47: replace / with * in band_edges
+src/analysis/structure.rs:166:57: replace < with == in SongMap::section_at
+src/analysis/structure.rs:263:36: replace - with / in map_song
+src/analysis/structure.rs:442:5: replace choose_meter -> (usize, usize, f64) with (0, 1, -1.0)
+src/analysis/structure.rs:521:43: delete - in section_boundaries
+src/analysis/structure.rs:532:48: replace - with / in section_boundaries
