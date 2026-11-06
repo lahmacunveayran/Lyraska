@@ -68,8 +68,64 @@ yaklaşık 0,94, ölçü başında yaklaşık 0,86. Kaynak: Böck, Krebs, Widmer
 with recurrent neural networks"; sayılar birincil kaynaktan yeniden okunacak. Beat This bu seti eğitimde kullandığı
 için burada adil karşılaştırılamaz; onun için GTZAN (Beat This'in görmediği test seti) ölçülecek.
 
+## GTZAN: Lyraska ve Beat This yan yana (6 Kasım 2026)
+
+- **Set:** Tzanetakis ve Cook 2002, 1000 parça, 30 sn, on tür. Sesler Hugging Face `marsyas/gtzan`; vuruş ve ölçü başı
+  işaretleri GitHub `TempoBeatDownbeat/gtzan_tempo_beat` (Marchand ve Peeters). Yalnızca yerel ölçüm.
+  `jazz_00054` bilinen bozuk dosya (açılamıyor), 998 parça ölçüldü (bir parça işaretsiz).
+- **Beat This GTZAN'ı eğitimde kullanmadı** (makalenin test seti); karşılaştırma adil. Beat This `minimal` son
+  işlemle (DBN yok), pip `beat-this` 1.1.0, CPU. Ölçütler `ritim_olcum.rs` ile aynı (mir_eval); betik
+  [`beatthis_olc.py`](beatthis_olc.py), tablo [`gtzan_tablo.py`](gtzan_tablo.py).
+- **Ham sonuçlar:** [`gtzan-lyraska-2026-11-06.jsonl`](gtzan-lyraska-2026-11-06.jsonl),
+  [`gtzan-beatthis-small0-2026-11-06.jsonl`](gtzan-beatthis-small0-2026-11-06.jsonl),
+  [`gtzan-beatthis-final0-2026-11-06.jsonl`](gtzan-beatthis-final0-2026-11-06.jsonl).
+
+| Sistem           | Vuruş F   | 5 sn kırpık | Ortanca F | Ölçü başı F | ACC1  | ACC2  | Parça başına sn |
+| ---------------- | --------- | ----------- | --------- | ----------- | ----- | ----- | --------------- |
+| Lyraska          | 0,748     | 0,758       | 0,936     | 0,445       | 0,670 | 0,865 | 0,12            |
+| Beat This small0 | 0,883     | 0,885       | 0,991     | 0,767       | 0,811 | 0,935 | 2,90            |
+| Beat This final0 | **0,888** | **0,891**   | 0,991     | **0,783**   | 0,821 | 0,941 | 4,51            |
+
+ACC'de tempo bulunamayan parça yanlış sayılır. Süreler yüklü bulut makinesinde (4 çekirdek, başka ölçümlerle
+paylaşılan), karşılaştırma içindir.
+
+| Tür       | Lyraska F | small0 F | final0 F | Lyraska ölçü başı | small0 ölçü başı | final0 ölçü başı |
+| --------- | --------- | -------- | -------- | ----------------- | ---------------- | ---------------- |
+| blues     | 0,739     | 0,811    | 0,830    | 0,313             | 0,627            | 0,640            |
+| classical | 0,415     | 0,642    | 0,652    | 0,226             | 0,462            | 0,508            |
+| country   | 0,814     | 0,916    | 0,940    | 0,599             | 0,895            | 0,905            |
+| disco     | 0,934     | 0,968    | 0,964    | 0,406             | 0,935            | 0,934            |
+| hiphop    | 0,811     | 0,972    | 0,972    | 0,591             | 0,875            | 0,896            |
+| jazz      | 0,565     | 0,856    | 0,866    | 0,243             | 0,698            | 0,741            |
+| metal     | 0,754     | 0,888    | 0,875    | 0,427             | 0,780            | 0,766            |
+| pop       | 0,825     | 0,945    | 0,952    | 0,631             | 0,912            | 0,938            |
+| reggae    | 0,873     | 0,905    | 0,905    | 0,490             | 0,670            | 0,681            |
+| rock      | 0,753     | 0,923    | 0,921    | 0,507             | 0,806            | 0,814            |
+
+Tempo oranı (bulunan / gerçek, ±%4):
+
+| Sistem           | doğru | yarı | iki kat | 3/2 | 2/3 | üç kat | üçte bir | diğer | yok |
+| ---------------- | ----- | ---- | ------- | --- | --- | ------ | -------- | ----- | --- |
+| Lyraska          | 669   | 88   | 98      | 5   | 11  | 8      | 0        | 55    | 64  |
+| Beat This small0 | 809   | 58   | 52      | 5   | 2   | 13     | 1        | 58    | 0   |
+| Beat This final0 | 819   | 54   | 55      | 3   | 4   | 11     | 0        | 52    | 0   |
+
+### Okuma
+
+- **Beat This her türde önde; en büyük fark ölçü başında** (0,445 → 0,78). Görsellerin ölçü başına bağlı her şeyi
+  (bölüm dalgası, drop hizası) bundan yararlanır.
+- **Lyraska'nın kaybı çoğunlukla tempo seçiminde:** tempo ikisinde de doğruyken vuruş F Lyraska 0,918, Beat This
+  0,970. Lyraska'nın oktav hataları dengeli (88 yarı, 98 iki kat): hızlı şarkıda yarıya, yavaşta iki katına kayıyor;
+  tek yönlü bir kaydırma çözmez.
+- **"Yok" 64 parça Lyraska'da bilinçli:** ritim belirsizse (`MIN_RHYTHM_STRENGTH`) ızgara verilmez, görseller rastgele
+  atmasın diye; bunun 37'si klasik. Ölçüde 0 sayılır.
+- **small0 ≈ final0:** küçük model (8 MB) büyükten yalnızca vuruşta 0,005, ölçü başında 0,016 geride ve ~1,6 kat hızlı.
+  Ritim paketi için önerilen başlangıç small0 (tract ile çalıştığı doğrulandı: ONNX çıktısı onnxruntime'la en çok
+  5·10⁻⁶ farklı).
+- Makaledeki GTZAN sayılarıyla karşılaştırma birincil kaynaktan yapılacak.
+
 ## Sırada
 
-1. GTZAN (Beat This'in test seti; Hugging Face `marsyas/gtzan`, işaretler GitHub'da) aynı araçla.
-2. Ritim paketi (Beat This, MIT): aynı tabloda Lyraska ile yan yana; hedef oktav hatalarını ve ölçü başını düzeltmek.
-3. Tempo oktavı seçimi (`tempo.rs`): Quickstep ve Viyana valsi gibi hızlı türlerde yarıya inme; sonuç bu tabloyla.
+1. Ritim paketi (Beat This small0, MIT): giriş ve çıkışı Rust'ta (#238); sırada tract ile çalıştırma, dağıtım
+   (sahibine seçenek + öneri) ve analize bağlama; aynı tablolarla uçtan uca ölçüm.
+2. Tempo oktavı seçimi (`tempo.rs`): ritim paketi gelince yeniden değerlendirilir (Beat This oktavda da önde).

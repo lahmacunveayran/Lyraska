@@ -126,6 +126,21 @@ kısaltılır.
 
 ## 5. Teknik dersler
 
+- **Saf modülün bozma sınaması küçük kopya projede** (6 Kasım 2026): `mut.py` her bozmada bütün `lyraska_lib`'i
+  (tract, Tauri) yeniden derliyordu; 16 bozma ~1 saat. Yalnızca `rustfft`'e bağlı `rhythm_model.rs` aynı sürümlü
+  bağımlılıkla tek dosyalık bir projeye kopyalanınca 45 sn. Kopyanın SHA'sı asılla aynı olmalı; test eklenince
+  ikisine birden.
+- **Testte sabit bekleme değil, ilerleyene kadar bekleme** (6 Kasım 2026, #240): "30 ms bekle, konum değişsin" yüklü
+  Windows CI'da düştü. Başa saran değer (konum mod bölüm) yerine başa sarmayan sayaç izlenir, süre sınırıyla beklenir.
+- **Playwright tıklaması arayüzün uyandığı anda** (6 Kasım 2026, #236): fare pencereye girince sinema görünümü uyanır,
+  cam denetimler (`backdrop-filter`) belirir; yazılımla çizen CI'da sayfa saniyelerce ağırlaşır. Önce `hover`, sayfa
+  sakinleşince (göreli eşik) tıklanır.
+- **Ağır işleri aynı anda çalıştırma** (6 Kasım 2026): 4 çekirdekte PyTorch (kendi iş parçacıklarıyla) + Demucs +
+  `cargo` birlikte yük 11'e çıktı, hepsi yavaşladı. Öncelik ver: kaldığı yerden sürebileni durdur.
+- **Beat This → ONNX** (6 Kasım 2026): `rotary_embedding_torch`'un önbelleği (`cache_if_possible`) kapatılmadan
+  dışa aktarılırsa yanlış çıkar; `torch.onnx.export` modülü dönüşte eğitim moduna alır (dropout), karşılaştırmadan
+  önce `eval()`. tract 0.23.9 modeli çalıştırıyor (fark ≤ 5·10⁻⁶).
+
 - **Oynatıcı düzeltmesi arayüzün yolunda sınanır:** arayüz şarkıyı `Player::load` ile değil `open_track`'in üç
   adımıyla (`begin_transition` → `prepare` → `install`) açar. Yalnızca `load`'a konan bir koruma programda
   çalışmaz (#105'te öyle oldu); test komut gövdesini (`commands::open_on`) çağırır.
