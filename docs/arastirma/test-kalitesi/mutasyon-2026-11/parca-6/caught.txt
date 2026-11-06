@@ -181,3 +181,40 @@ src/audio/lyrics.rs:147:5: delete ! in is_untimed
 src/audio/lyrics.rs:299:32: replace - with + in parse
 src/audio/lyrics.rs:374:9: delete match arm [m, s] in parse_time
 src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with ("xyzzy".into(), vec![(1.0, String::new())], String::new())
+src/audio/lyrics.rs:477:25: replace + with * in estimate_words
+src/audio/normalize.rs:181:62: replace != with == in TrackLevels::is_known
+src/audio/normalize.rs:279:41: replace <= with > in TrackLevels::slot
+src/audio/normalize.rs:334:29: replace - with / in protection
+src/audio/normalize.rs:434:34: replace && with || in Leveler::next_gain
+src/audio/normalize.rs:444:50: replace - with / in Leveler::next_gain
+src/audio/output.rs:81:27: replace << with >> in IntFormat::encode
+src/audio/peq.rs:56:28: delete -
+src/audio/peq.rs:382:34: replace * with + in HeadphoneProfile::response_db
+src/audio/peq.rs:441:32: replace * with / in coefs_peak_db
+src/audio/peq.rs:464:29: replace - with / in refine_peak
+src/audio/peq.rs:497:16: replace * with + in q_from_bandwidth
+src/audio/peq.rs:508:9: replace / with * in shelf_slope_from_q
+src/audio/peq.rs:584:40: replace / with % in parse_filter
+src/audio/peq.rs:722:9: replace ParametricSettings::active_filters -> Vec<PeqFilter> with vec![]
+src/audio/peq.rs:857:51: replace / with % in ParametricState::at_rate
+src/audio/peq.rs:936:26: replace * with / in loudness_gain_db_at
+src/audio/peq.rs:1205:45: replace / with % in PeqProcessor::process_frame
+src/audio/player/mod.rs:312:60: delete ! in Player::status
+src/audio/punch.rs:162:29: replace > with < in Punch::process_frame
+src/audio/punch.rs:193:33: replace - with + in Punch::update_gain
+src/audio/render.rs:184:23: replace && with || in Renderer::render
+src/audio/resample.rs:144:66: replace < with == in Converter::run_blocks
+src/audio/spectrum.rs:56:5: replace bar_hz -> f64 with 1.0
+src/audio/spectrum.rs:116:9: replace + with * in at
+src/audio/spectrum.rs:155:5: replace silence -> Vec<f32> with vec![]
+src/audio/waveform.rs:89:20: replace += with *= in Halving::push
+src/audio/waveform.rs:158:50: replace - with + in Decimator::interpolate
+src/audio/waveform.rs:281:13: replace + with * in WaveformTap::read_window
+src/audio/waveform.rs:333:9: replace GainCursor<'a>::at -> f64 with 0.0
+src/audio/waveform.rs:355:17: replace * with + in to_bytes
+src/audio/player/blind_test.rs:36:33: replace += with *= in Player::abx_install
+src/audio/player/session.rs:407:35: replace + with - in wait_for_prefill
+src/audio/player/track_analysis.rs:96:27: delete ! in Analysis::start_analysis
+src/audio/player/transition.rs:107:29: replace += with -= in Player::begin_transition
+src/audio/player/visuals.rs:166:9: replace Player::set_visual_safe with ()
+src/audio/player/visuals.rs:237:9: replace SharedState::window_gains -> Option<Vec<(i64, f64)>> with Some(vec![(0, -1.0)])

@@ -47,3 +47,9 @@ src/audio/limiter.rs:238:31: replace < with == in interpolator
 src/audio/limiter.rs:245:57: replace - with / in interpolator
 src/audio/loudness.rs:238:20: replace | with ^ in default_layout
 src/audio/lyrics.rs:383:37: replace < with <= in parse_time
+src/audio/peq.rs:1060:26: replace < with <= in PeqControl::design
+src/audio/resample.rs:93:33: replace && with || in Converter::continues
+src/audio/player/decode_thread.rs:33:56: replace * with + in decode_loop
+src/audio/player/next_track.rs:30:24: replace match guard self.next_analysis.as_ref().is_some_and(|a| &a.path == p) with false in Player::set_next
+src/audio/player/normalization.rs:32:16: delete ! in Player::sync_levels
+src/audio/player/session.rs:175:69: replace * with / in SharedState::playing_at_frame

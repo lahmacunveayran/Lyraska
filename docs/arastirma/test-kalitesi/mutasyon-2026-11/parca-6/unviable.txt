@@ -5,3 +5,6 @@ src/analysis/map_file.rs:423:9: replace MapFile::print -> Option<TrackPrint> wit
 src/analysis/spectrogram.rs:225:9: replace Spectrogram::meters_at -> Option<ChannelLevels> with Some(Default::default())
 src/analysis/spectrogram.rs:300:9: replace Spectrogram::imported_part -> Option<T> with Some(Default::default())
 src/audio/eq.rs:413:9: replace Biquad::peaking -> Self with Default::default()
+src/audio/player/session.rs:148:9: replace SharedState::now_playing_indexed -> Option<(TrackInfo, f64, Option<u64>, usize)> with Some((Default::default(), 1.0, None, 1))
+src/audio/player/session.rs:352:9: replace Session::now_playing_timed -> (TrackInfo, f64, Option<u64>, usize) with (Default::default(), 0.0, None, 1)
+src/audio/player/transition.rs:339:9: replace Player::begin_stop -> Option<Transition> with Some(Default::default())
