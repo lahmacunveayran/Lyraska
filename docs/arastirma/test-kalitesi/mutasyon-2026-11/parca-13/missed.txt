@@ -24,3 +24,16 @@ src/analysis/tempo.rs:175:67: replace < with <= in resolve_octave
 src/analysis/tempo.rs:351:5: replace standard_deviation -> f64 with 1.0
 src/analysis/tempo.rs:436:34: replace * with / in peaks
 src/audio/abx.rs:75:9: replace AbxSource::to_u8 -> u8 with 0
+src/audio/abx.rs:353:5: replace peak -> f64 with 1.0
+src/audio/abx.rs:419:12: replace > with >= in prepare
+src/audio/abx.rs:487:25: replace - with / in Mixer::fill
+src/audio/abx.rs:550:13: replace * with / in Playback::start
+src/audio/bass.rs:281:54: replace + with - in settings_boost
+src/audio/bass.rs:536:58: replace + with * in BassProcessor::refresh_boost
+src/audio/bass.rs:666:53: replace / with * in BassProcessor::process_frame
+src/audio/biquad.rs:273:32: replace * with + in Biquad::bandpass
+src/audio/biquad.rs:387:23: replace > with >= in Biquad::matched
+src/audio/biquad.rs:400:50: replace * with / in Biquad::matched
+src/audio/biquad.rs:473:59: replace / with % in Biquad::beyond_nyquist
+src/audio/biquad.rs:492:25: replace + with * in Biquad::beyond_nyquist
+src/audio/biquad.rs:647:15: delete - in factor
