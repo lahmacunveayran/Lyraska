@@ -3,3 +3,4 @@ src/analysis/map_file.rs:440:9: replace MapFile::verify -> Result<Verdict, MapEr
 src/analysis/map_file.rs:600:9: replace ImportedMap::status -> ImportedMapStatus with Default::default()
 src/audio/abx.rs:689:9: replace AbxTest::prepare -> Result<PreparedAbx, AudioError> with Ok(Default::default())
 src/audio/biquad.rs:111:9: replace Spec::analog -> Complex<f64> with Complex::from_iter([-1.0])
+src/audio/limiter.rs:115:9: replace Limiter::with_bypass -> Self with Default::default()
