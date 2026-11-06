@@ -3,3 +3,9 @@ src/analysis/cache.rs:334:9: replace AnalysisCache::pending_library_tracks -> Re
 src/analysis/lyrics_align.rs:139:5: replace build_labels -> Labels with Default::default()
 src/analysis/lyrics_text.rs:172:5: replace detect_language -> Language with Default::default()
 src/analysis/lyrics_text.rs:445:5: replace header_with -> Option<Header> with Some(Default::default())
+src/analysis/map_file.rs:409:37: replace > with < in MapFile::validate
+src/analysis/meter.rs:98:5: replace detect -> Option<Aksak> with Some(Default::default())
+src/analysis/spectrogram.rs:254:9: replace Spectrogram::song_map -> Option<Arc<SongMap>> with Some(Arc::new(Default::default()))
+src/analysis/spectrogram.rs:557:9: replace <impl ChunkSource for Decoder>::info -> &TrackInfo with Box::leak(Box::new(Default::default()))
+src/analysis/spectrogram.rs:693:5: replace structure_for_beats -> Option<SongMap> with Some(Default::default())
+src/analysis/structure.rs:183:5: replace map_song -> Option<SongMap> with Some(Default::default())
