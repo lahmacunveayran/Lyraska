@@ -28,3 +28,9 @@ src/audio/biquad.rs:394:56: replace / with % in Biquad::matched
 src/audio/biquad.rs:434:27: replace > with < in Biquad::matched
 src/audio/biquad.rs:481:43: replace < with <= in Biquad::beyond_nyquist
 src/audio/biquad.rs:504:38: replace * with / in Biquad::beyond_nyquist
+src/audio/biquad.rs:629:9: replace Power::at -> f64 with 0.0
+src/audio/biquad.rs:929:5: replace flush with ()
+src/audio/decode.rs:189:17: replace < with <= in caf_declares_layout
+src/audio/decode.rs:466:24: replace match guard e.kind() == std::io::ErrorKind::UnexpectedEof with true in Decoder::next_chunk
+src/audio/decode.rs:763:11: replace * with / in opus_packet_frames
+src/audio/eq.rs:193:33: replace > with == in EqSettings::is_active
