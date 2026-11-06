@@ -59,3 +59,21 @@ src/analysis/lyrics_text.rs:274:5: replace standalone_repeat -> Option<usize> wi
 src/analysis/lyrics_text.rs:520:32: replace - with + in classify
 src/analysis/lyrics_text.rs:634:10: replace < with == in english_number
 src/analysis/lyrics_text.rs:761:9: replace && with || in read_number
+src/analysis/lyrics_text.rs:793:50: replace == with != in read_number
+src/analysis/lyrics_worker.rs:225:12: delete ! in LyricsWorker::show
+src/analysis/map_file.rs:32:42: replace * with /
+src/analysis/map_file.rs:346:9: replace MapFile::validate -> Result<(), MapError> with Ok(())
+src/analysis/map_file.rs:370:37: replace > with < in MapFile::validate
+src/analysis/map_file.rs:441:67: replace > with == in MapFile::verify
+src/analysis/map_file.rs:496:33: replace < with == in MapFile::shifted
+src/analysis/map_file.rs:643:9: replace MapStore::file_for -> Option<PathBuf> with Some(Default::default())
+src/analysis/meter.rs:117:48: replace - with / in detect
+src/analysis/meter.rs:155:32: replace + with - in accents
+src/analysis/meter.rs:216:25: replace == with != in pulses
+src/analysis/meter.rs:241:29: replace - with / in correlation
+src/analysis/spectrogram.rs:198:9: replace Spectrogram::frame_at -> Option<[f32; BANDS]> with Some([0.0; BANDS])
+src/analysis/spectrogram.rs:225:44: replace < with > in Spectrogram::meters_at
+src/analysis/spectrogram.rs:494:37: replace * with + in SavedAnalysis::is_consistent
+src/analysis/spectrogram.rs:624:22: replace += with -= in analyze_source
+src/analysis/spectrogram.rs:816:50: replace / with % in frame_end
+src/analysis/spectrogram.rs:933:39: replace - with / in shift_level
