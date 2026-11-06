@@ -325,7 +325,13 @@ Görsel güvenlik (zorunlu):
 
 - Proje lisansı **GPL-3.0-only** (`LICENSE`). Yeni kaynak dosyalarına lisans başlığı gerekmez.
 - **AGPL lisanslı** ve **ticari kullanımı yasaklayan** (NonCommercial, SSPL, BUSL, Commons Clause,
-  Elastic, PolyForm Noncommercial vb.) hiçbir bağımlılık, veri seti, yazı tipi, shader veya görsel eklenmez.
+  Elastic, PolyForm Noncommercial vb.) hiçbir bağımlılık, yazı tipi, shader veya görsel eklenmez; depoya ve
+  herkese açık sürüme giren hiçbir şey bu lisanslarla gelmez (depo ve test sürümü herkese açık).
+- **Yerel model paketleri** (proje sahibinin kararı, 6 Kasım 2026): Lyraska ticari olmayacak, yalnızca sahibinin
+  kişisel kullanımı için. Yapay zekâ model ağırlıkları ve veri setleri ticari olmayan ya da araştırma lisanslı olabilir
+  (ör. MUSDB18 ile eğitilmiş ayrıştırma modelleri; ölçüm için MUSDB18-HQ). Bunlar **yalnızca sahibinin
+  bilgisayarında** kurulur: depoya, kurulum dosyasına ve herkese açık sürüme asla girmez; program onları ayrı bir
+  paket olarak bulursa kullanır, yoksa lisansı temiz yolla çalışır. Hiç lisansı yazılmamış modeller yine alınmaz.
 - İzin verilen lisanslar `src-tauri/deny.toml` içinde listelidir (MIT, Apache-2.0, BSD, ISC, Zlib, MPL-2.0,
   LGPL, GPL-3.0, yazı tipleri için OFL-1.1 vb.). Listede olmayan bir lisans gerekirse önce proje sahibine sorulur.
 - CI iki denetim yapar: `cargo deny check licenses bans sources` ve `npm run check:licenses`.
