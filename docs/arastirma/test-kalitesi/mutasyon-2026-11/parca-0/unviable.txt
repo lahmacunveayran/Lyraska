@@ -1,3 +1,5 @@
 src/analysis/lyrics_align.rs:210:5: replace skip_arcs -> Arcs with Default::default()
 src/analysis/lyrics_worker.rs:74:9: replace Queue::pop -> Option<Request> with Some(Default::default())
 src/analysis/map_file.rs:317:30: replace > with < in MapFile::parse
+src/audio/abx.rs:662:9: replace PreparedAbx::start_with -> Result<AbxTest, AudioError> with Ok(Default::default())
+src/audio/biquad.rs:111:9: replace Spec::analog -> Complex<f64> with Complex::new()
