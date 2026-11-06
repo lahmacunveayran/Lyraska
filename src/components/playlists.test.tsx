@@ -298,6 +298,50 @@ describe("çalma listeleri", () => {
     expect(onPlay).toHaveBeenCalledWith(["a.flac", "b.flac", "a.flac"], "a.flac", undefined, 2);
   });
 
+  // Liste çekirdekten gelip satırlar ekrana yazıldığı an çift tıklama da çalmalı. React `useEffect`'i
+  // çizimden sonra, ayrı bir görevde çalıştırır; satırlar o arada da tıklanabilir. Tıklama, satırlar
+  // DOM'a yazılınca (MutationObserver, aynı görevin içinde) hemen gönderilir: çalma fonksiyonu o anda
+  // da yeni listeyi bilmeli. Yüklü makinede bir kez düşen çift tıklama testinin kararlı hâli.
+  it("liste sayfası: satırlar görünür görünmez çift tıklama çalar", async () => {
+    backend.lists = [{ id: 1, name: "Karışık", paths: ["a.flac", "b.flac"] }];
+    const tracks = [song("a.flac", "Ay"), song("b.flac", "Bulut")];
+    const onPlay = vi.fn();
+    const clicked: string[] = [];
+    const observer = new MutationObserver(() => {
+      const rows = document.querySelectorAll('[role="row"]');
+      if (clicked.length > 0 || rows.length < 3) return;
+      clicked.push("ok");
+      rows[2]!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    try {
+      render(
+        <PlaylistPage
+          playlist={row(backend.lists[0]!)}
+          tracks={tracks}
+          byPath={new Map(tracks.map((t) => [t.path, t]))}
+          coverIndex={albumCoverIndex(tracks)}
+          coverRevision={0}
+          refreshKey="k"
+          currentPath={null}
+          playing={false}
+          camelot={false}
+          onBack={vi.fn()}
+          onPlay={onPlay}
+          onRename={vi.fn(async () => true)}
+          onDelete={vi.fn()}
+          onChooseCover={vi.fn()}
+          onClearCover={vi.fn()}
+          onChanged={vi.fn()}
+        />,
+      );
+      await waitFor(() => expect(clicked).toEqual(["ok"]));
+    } finally {
+      observer.disconnect();
+    }
+    expect(onPlay).toHaveBeenCalledWith(["a.flac", "b.flac"], "b.flac", undefined, 1);
+  });
+
   it("× ile üstteki satır çıkınca seçim aynı şarkıda kalır", async () => {
     backend.lists = [{ id: 1, name: "L", paths: ["a.flac", "b.flac", "c.flac"] }];
     const tracks = [song("a.flac", "Ay"), song("b.flac", "Bulut"), song("c.flac", "Ceylan")];
