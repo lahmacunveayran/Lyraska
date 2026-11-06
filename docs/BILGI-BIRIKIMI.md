@@ -305,7 +305,10 @@ kısaltılır.
   karar Faz 4 sonrasına kaldı.
 - **Kaynak ayrıştırma** (davul/bas/vokal): **Spleeter** seçildi (23 Ekim 2026; kod ve ağırlıklar MIT, kurulum
   +40–80 MB, önceden arka planda hesaplanır). Uygulamadan önce ağırlık lisansı ve çalışma zamanı (ONNX) lisansı
-  birincil kaynaktan yeniden doğrulanır.
+  birincil kaynaktan yeniden doğrulanır. **Doğrulandı (6 Kasım 2026):** README yalnızca kodu söylüyor, ama Deezer'ın
+  JOSS makalesi (depodaki `paper.md`) "source code and pre-trained models … distributed under a MIT license" diyor;
+  eğitim verisi Deezer'ın iç kataloğu, MUSDB18 yok. Demucs, Open-Unmix, RoFormer'lar, Banquet, UVR kurala aykırı ya da
+  belirsiz. Ayrıntı ve seçenekler: `docs/arastirma/kaynak-ayristirma/RAPOR.md`.
 - Sahibi Spleeter'ı "geliştirip daha iyi yapmak" istiyor (23 Ekim 2026). Yeniden eğitim yasal veriye bağlı (MUSDB18
   NC, kullanılamaz); önce eğitimsiz iyileştirmeler (Wiener süzgeci, 16 kHz bant, analiz amaçlı kullanım) ölçülür.
 - **İş sırası (23 Ekim 2026):** yama 0001 (#105) → `.opus`/`.webm` → kütüphanenin baştan tasarımı (4 PR: çekirdek
