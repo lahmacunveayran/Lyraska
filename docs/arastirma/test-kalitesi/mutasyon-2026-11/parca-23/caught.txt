@@ -64,3 +64,36 @@ src/analysis/map_file.rs:275:32: replace * with / in MapFile::from_analysis
 src/analysis/map_file.rs:358:48: replace && with || in MapFile::validate
 src/analysis/map_file.rs:379:32: replace > with < in MapFile::validate
 src/analysis/map_file.rs:403:26: replace >= with < in MapFile::validate
+src/analysis/map_file.rs:472:33: replace + with - in MapFile::shifted
+src/analysis/map_file.rs:558:41: replace / with % in round_time
+src/analysis/meter.rs:66:26: replace / with % in Aksak::beat_grid
+src/analysis/meter.rs:142:5: replace accents -> Vec<f64> with vec![-1.0]
+src/analysis/meter.rs:174:50: replace % with / in fit
+src/analysis/meter.rs:236:41: replace / with % in correlation
+src/analysis/meter.rs:247:12: replace / with * in correlation
+src/analysis/spectrogram.rs:51:22: delete -
+src/analysis/spectrogram.rs:208:66: replace - with / in Spectrogram::frame_at
+src/analysis/spectrogram.rs:238:9: replace Spectrogram::vu_reference_db -> Option<f32> with Some(1.0)
+src/analysis/spectrogram.rs:665:5: replace rhythm_from_frames -> (Option<BeatGrid>, Option<SongMap>) with (None, None)
+src/analysis/spectrogram.rs:886:9: replace BandAnalyzer::process -> ([u8; BANDS], f32) with ([0; BANDS], 1.0)
+src/analysis/spectrogram.rs:917:41: replace - with / in to_level
+src/analysis/spectrogram.rs:942:47: replace / with % in band_edges
+src/analysis/structure.rs:166:35: replace >= with < in SongMap::section_at
+src/analysis/structure.rs:263:36: replace - with + in map_song
+src/analysis/structure.rs:442:5: replace choose_meter -> (usize, usize, f64) with (0, 1, 1.0)
+src/analysis/structure.rs:483:41: replace || with && in phase_agreement
+src/analysis/structure.rs:532:48: replace - with + in section_boundaries
+src/analysis/structure.rs:586:37: replace match guard d < threshold with true in label_sections
+src/analysis/structure.rs:634:5: replace drop_jumps -> (f64, f64, f64) with (1.0, 1.0, -1.0)
+src/analysis/structure.rs:675:59: replace + with * in find_drops
+src/analysis/structure.rs:790:31: replace - with / in refine_drop
+src/analysis/structure.rs:822:54: replace / with % in drop_confidence
+src/analysis/structure.rs:842:35: replace + with - in drop_confidence
+src/analysis/tempo.rs:145:75: replace < with > in resolve_octave
+src/analysis/tempo.rs:207:52: replace + with - in three_halves
+src/analysis/tempo.rs:262:58: replace <= with > in retrack
+src/analysis/tempo.rs:320:17: replace / with % in band_rise
+src/analysis/tempo.rs:359:5: replace offbeat_ratio -> f64 with -1.0
+src/analysis/tempo.rs:423:5: replace peaks -> (Vec<f64>, Vec<f64>) with (vec![], vec![0.0])
+src/analysis/tempo.rs:437:47: replace + with * in peaks
+src/audio/abx.rs:173:16: replace > with < in binomial_tail
