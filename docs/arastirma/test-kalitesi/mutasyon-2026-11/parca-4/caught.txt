@@ -28,3 +28,32 @@ src/analysis/key.rs:247:69: replace > with < in song_key
 src/analysis/key.rs:307:19: replace - with / in correlation
 src/analysis/key.rs:385:9: replace ChromaAnalyzer::add with ()
 src/analysis/key.rs:439:28: replace - with / in ChromaAnalyzer::process
+src/analysis/key.rs:453:33: replace += with *= in ChromaAnalyzer::process
+src/analysis/key.rs:503:5: replace quantize -> [u8; PITCH_CLASSES] with [0; PITCH_CLASSES]
+src/analysis/levels.rs:82:5: replace decode_db -> f32 with 0.0
+src/analysis/levels.rs:124:17: replace += with -= in vu_reference_db
+src/analysis/lyrics_align.rs:180:19: replace * with + in states
+src/analysis/lyrics_align.rs:215:29: replace - with / in skip_arcs
+src/analysis/lyrics_align.rs:245:52: replace * with / in skip_arcs
+src/analysis/lyrics_align.rs:291:35: replace - with / in viterbi
+src/analysis/lyrics_align.rs:335:5: replace entry_mass -> Vec<f64> with vec![1.0]
+src/analysis/lyrics_align.rs:381:22: replace - with / in entry_mass
+src/analysis/lyrics_align.rs:401:46: replace - with / in entry_mass
+src/analysis/lyrics_align.rs:412:44: replace + with - in entry_mass
+src/analysis/lyrics_align.rs:438:28: replace + with * in median
+src/analysis/lyrics_align.rs:469:25: replace * with / in align
+src/analysis/lyrics_align.rs:585:38: replace / with % in align
+src/analysis/lyrics_cache.rs:155:9: replace StoredEmissions::model_letter_names -> String with "xyzzy".into()
+src/analysis/lyrics_cache.rs:246:28: replace + with * in Header::parse
+src/analysis/lyrics_cache.rs:360:20: delete ! in AnalysisCache::load_emissions
+src/analysis/lyrics_job.rs:194:70: replace && with || in AutoAlignment::valid
+src/analysis/lyrics_job.rs:349:47: replace - with / in spoken_spans
+src/analysis/lyrics_model.rs:172:5: replace read_limited -> Result<Vec<u8>, ModelError> with Ok(vec![0])
+src/analysis/lyrics_model.rs:210:32: replace && with || in tensor_f32
+src/analysis/lyrics_model.rs:326:41: replace && with || in dequantize_matmuls
+src/analysis/lyrics_model.rs:415:13: delete field data_type from struct pb::TensorProto expression in dequantize_matmuls
+src/analysis/lyrics_model.rs:573:9: replace LyricsModel::run_window -> Result<Vec<f32>, ModelError> with Ok(vec![])
+src/analysis/lyrics_model.rs:674:36: replace - with / in LyricsModel::emissions
+src/analysis/lyrics_model.rs:700:38: replace * with + in LyricsModel::emissions
+src/analysis/lyrics_package.rs:140:5: replace hex -> String with String::new()
+src/analysis/lyrics_text.rs:192:21: delete ! in detect_language
