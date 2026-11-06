@@ -2014,6 +2014,15 @@ async function checkLyricsOverlap(browser) {
     // yazılımla çizim) fare hareketinden ölçüme kadar bu süre dolabiliyordu ve üstteki söz katmanı
     // kalkmış oluyordu (#203). Ölçümden hemen önce fare yeniden kıpırdatılır ve satır beklenir;
     // ölçülen şey aynı (denetimler görünürken söz satırının kesişimleri).
+    // Çok yavaş makinede (#218'in koşusu: tek ölçüm 30 sn) fare hareketinden ölçüme kadar 4 sn yine
+    // dolabiliyor. Ölçüm boyunca kullanıcı fareyi kıpırdatıyormuş gibi sayfada her yarım saniyede bir
+    // `pointermove` gönderilir: denetimler ölçüm bitene dek görünür kalır. Ölçülen şey değişmez.
+    await page.evaluate(() => {
+      window.__keepAwake = window.setInterval(
+        () => window.dispatchEvent(new PointerEvent("pointermove")),
+        500,
+      );
+    });
     await page.mouse.move(width / 3 + 40, height / 3 + 20);
     await page
       .waitForSelector(".photo-lyrics-top .photo-lyrics__line", {
@@ -2025,6 +2034,7 @@ async function checkLyricsOverlap(browser) {
       ".photo-lyrics-top .photo-lyrics__line",
       ".photo-lyrics-top",
     ]);
+    await page.evaluate(() => window.clearInterval(window.__keepAwake));
     // Fare kıpırdamaz: sinema görünümü (gerçek saatle 4 sn), yazı CSS geçişiyle (0,8 sn) gelir.
     await advance(page, 6000);
     await page.waitForFunction(() => !!document.querySelector(".app.is-cinema"), null, {
