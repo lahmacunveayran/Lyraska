@@ -2,3 +2,5 @@ src/analysis/lyrics_align.rs:180:5: replace states -> States with Default::defau
 src/analysis/map_file.rs:414:42: replace > with < in MapFile::validate
 src/analysis/spectrogram.rs:150:9: replace Spectrogram::from_saved -> Arc<Self> with Arc::new(Default::default())
 src/audio/biquad.rs:111:9: replace Spec::analog -> Complex<f64> with Complex::from_iter([0.0])
+src/audio/biquad.rs:526:9: replace Biquad::response -> Complex<f64> with Complex::from_iter([-1.0])
+src/audio/decode.rs:729:5: replace make_decoder -> Result<Box<dyn AudioDecoder>, AudioError> with Ok(Box::new(Default::default()))

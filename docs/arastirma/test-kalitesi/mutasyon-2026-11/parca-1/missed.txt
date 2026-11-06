@@ -32,3 +32,13 @@ src/audio/bass.rs:391:24: replace -= with += in Octaver::process
 src/audio/bass.rs:586:62: replace < with > in BassProcessor::step
 src/audio/biquad.rs:127:34: replace / with * in Spec::analog
 src/audio/biquad.rs:395:24: replace += with -= in Biquad::matched
+src/audio/biquad.rs:436:46: replace * with + in Biquad::matched
+src/audio/biquad.rs:488:45: replace * with / in Biquad::beyond_nyquist
+src/audio/biquad.rs:576:24: delete - in Biquad::max_zero_radius
+src/audio/biquad.rs:630:17: replace * with / in Power::at
+src/audio/biquad.rs:791:26: replace || with && in Grid::fit
+src/audio/crossfeed.rs:205:32: replace / with % in SideFilter::design
+src/audio/decode.rs:164:21: replace | with & in caf_declares_layout
+src/audio/decode.rs:492:34: replace && with || in Decoder::next_chunk
+src/audio/decode.rs:610:54: replace match guard tags.album_artist.is_none() with false in read_tags
+src/audio/decode.rs:781:14: replace > with == in media_duration
