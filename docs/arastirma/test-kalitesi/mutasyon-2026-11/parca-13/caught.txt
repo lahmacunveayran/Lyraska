@@ -129,3 +129,35 @@ src/audio/biquad.rs:592:5: replace phi -> (f64, f64, f64) with (-1.0, 1.0, 1.0)
 src/audio/biquad.rs:601:15: replace * with + in matched_poles
 src/audio/biquad.rs:622:26: replace + with * in Power::of
 src/audio/biquad.rs:634:17: replace * with + in Power::at_phi
+src/audio/biquad.rs:663:13: replace < with == in min_phase
+src/audio/biquad.rs:678:25: replace * with / in min_phase
+src/audio/biquad.rs:766:26: replace * with + in Grid::push
+src/audio/biquad.rs:799:55: replace * with / in Grid::fit
+src/audio/biquad.rs:858:9: replace Grid::error -> f64 with 1.0
+src/audio/crossfeed.rs:202:49: replace * with + in SideFilter::design
+src/audio/crossfeed.rs:212:23: replace - with + in SideFilter::design
+src/audio/crossfeed.rs:223:20: replace * with / in SideFilter::response
+src/audio/crossfeed.rs:376:21: replace - with / in CrossfeedProcessor::process_frame
+src/audio/decode.rs:118:5: replace wave_channel_mask -> Option<u32> with None
+src/audio/decode.rs:635:28: replace > with == in matroska_tags
+src/audio/decode.rs:978:5: replace image_type -> Option<&'static str> with None
+src/audio/eq.rs:164:9: replace EqSettings::sanitized -> Self with Default::default()
+src/audio/eq.rs:277:27: replace * with + in EqState::at_rate
+src/audio/eq.rs:419:37: replace * with / in Biquad::peaking
+src/audio/eq.rs:425:22: replace - with + in Biquad::peaking
+src/audio/eq.rs:433:9: replace Biquad::shelf_terms -> (f64, f64, f64) with (-1.0, -1.0, 0.0)
+src/audio/eq.rs:446:50: replace + with * in Biquad::low_shelf
+src/audio/eq.rs:448:25: replace + with * in Biquad::low_shelf
+src/audio/eq.rs:456:26: replace < with > in Biquad::high_shelf
+src/audio/eq.rs:463:17: delete - in Biquad::high_shelf
+src/audio/eq.rs:465:46: replace * with / in Biquad::high_shelf
+src/audio/eq.rs:476:41: replace * with + in Biquad::response_db
+src/audio/eq.rs:478:55: replace + with - in Biquad::response_db
+src/audio/eq.rs:487:93: replace * with / in Biquad::power_gain
+src/audio/eq.rs:548:82: replace * with / in Layout::tuned
+src/audio/eq.rs:562:43: replace * with / in Layout::tuned
+src/audio/eq.rs:610:5: replace design_target -> f64 with 1.0
+src/audio/eq.rs:677:9: replace Design::peak_db -> f64 with -1.0
+src/audio/eq.rs:819:9: replace EqProcessor::begin_block with ()
+src/audio/eq.rs:869:39: replace <= with > in EqProcessor::step
+src/audio/gapless.rs:51:58: replace / with * in mp4_trim

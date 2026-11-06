@@ -37,3 +37,12 @@ src/audio/biquad.rs:400:50: replace * with / in Biquad::matched
 src/audio/biquad.rs:473:59: replace / with % in Biquad::beyond_nyquist
 src/audio/biquad.rs:492:25: replace + with * in Biquad::beyond_nyquist
 src/audio/biquad.rs:647:15: delete - in factor
+src/audio/crossfeed.rs:270:9: replace CrossfeedControl::version -> u64 with 1
+src/audio/decode.rs:168:21: replace | with & in caf_declares_layout
+src/audio/decode.rs:303:28: replace > with >= in Decoder::open
+src/audio/decode.rs:444:48: replace || with && in Decoder::seek
+src/audio/decode.rs:533:45: replace + with - in Decoder::next_chunk
+src/audio/decode.rs:754:61: replace % with + in opus_packet_frames
+src/audio/decode.rs:809:5: replace matroska_duration -> Option<f64> with Some(1.0)
+src/audio/eq.rs:740:20: replace < with == in solve_linear
+src/audio/gapless.rs:98:21: replace > with >= in find_top_level
