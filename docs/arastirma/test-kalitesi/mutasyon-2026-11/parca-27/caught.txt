@@ -1,0 +1,27 @@
+src/analysis/annotation.rs:166:28: replace != with == in AnnotationStore::save_evaluation
+src/analysis/background.rs:120:20: replace += with -= in CrashGuard::recover
+src/analysis/background.rs:346:46: replace > with == in wait_for_foreground
+src/analysis/beats.rs:99:55: replace <= with > in BeatGrid::position_at
+src/analysis/beats.rs:295:5: replace track_period -> Option<(Vec<f64>, Vec<f64>)> with Some((vec![-1.0], vec![]))
+src/analysis/beats.rs:326:32: replace / with * in mean_interval
+src/analysis/beats.rs:350:50: replace / with % in normalize
+src/analysis/beats.rs:381:53: replace + with * in estimate_period_with_strength
+src/analysis/beats.rs:408:63: replace <= with > in estimate_period_with_strength
+src/analysis/beats.rs:431:63: replace + with - in pulse_clarity
+src/analysis/beats.rs:482:5: replace dynamic_beats -> Vec<usize> with vec![0]
+src/analysis/beats.rs:527:69: replace / with % in trim_quiet_ends
+src/analysis/beats.rs:550:27: replace / with * in parabola
+src/analysis/cache.rs:334:9: replace AnalysisCache::pending_library_tracks -> Result<Vec<(PathBuf, FileStamp)>, CacheError> with Ok(vec![])
+src/analysis/cache.rs:479:5: replace inflate -> Option<Vec<u8>> with None
+src/analysis/evaluate.rs:135:18: replace += with -= in f_measure
+src/analysis/evaluate.rs:161:29: replace - with + in tap_offset
+src/analysis/fingerprint.rs:101:9: replace Verdict::is_match -> bool with false
+src/analysis/fingerprint.rs:191:58: replace * with / in BandPrint::from_levels_at
+src/analysis/fingerprint.rs:241:45: replace * with / in BandPrint::align
+src/analysis/fingerprint.rs:277:24: replace += with -= in BandPrint::errors_at
+src/analysis/fingerprint.rs:324:31: replace - with + in ChromaPrint::from_chroma
+src/analysis/fingerprint.rs:353:18: replace += with -= in ChromaPrint::compare
+src/analysis/fingerprint.rs:400:53: replace + with - in band_word
+src/analysis/fingerprint.rs:466:16: delete ! in BandMap::standard
+src/analysis/key.rs:153:46: replace && with || in key_relation
+src/analysis/key.rs:220:62: replace != with == in KeyAnalysis::key_map
