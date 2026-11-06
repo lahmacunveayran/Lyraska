@@ -1897,21 +1897,53 @@ async function checkPhotoChooseButton(browser) {
     return problems;
   }
   // Düğme çıktığı anda sahne de kuruluyor (React etkileri, ölçüm). Yazılımla çizen yavaş CI makinesinde
-  // tıklama ara sıra 5 sn'yi aşıyordu (#229, #230: tıklama "element is stable" ve "waiting for scheduled
-  // navigations" aşamalarında kaldı); neden kesin değil, sayfanın meşgul olması en olası. Önce kuyruktaki
-  // işler bitene kadar beklenir (ana iş parçacığında iki görev turu) ve bu bekleme ölçülür; düşerse
-  // iletide sayfanın tıklamadan önce ve sonra ne kadar geç yanıt verdiği yazar. Tıklama ve pencere için
-  // 5 sn'lik sınır aynen kalır.
+  // tıklama ara sıra 5 sn'yi aşıyordu (#229, #230, #235). Nedeni ölçüldü: fare pencereye girince sinema
+  // görünümü uyanır, cam denetimler belirir; o geçiş boyunca sayfa ağırlaşır (yerelde yanıt ~1 ms'den
+  // ~150 ms'ye, CI'da tıklama denemesinden sonra 1,2 sn). Tıklama bu geçişin ortasına düşüyordu. Gerçek
+  // kullanıcı gibi önce fare düğmeye getirilir ve sayfa yeniden sakinleşene kadar (iki görev turu art arda
+  // iki kez fare gelmeden önceki yanıtın 1,5 katı ya da 50 ms içinde; en çok 30 sn, düğmenin çıkması için
+  // verilen süre kadar) beklenir; sonra tıklanır. Tıklama ve
+  // pencere için 5 sn'lik sınır ve Playwright'ın "düğme o noktada en üstte mi" denetimi aynen kalır.
+  // Düşerse iletide sayfanın tıklamadan önce ve sonra ne kadar geç yanıt verdiği yazar.
   const responseMs = async () => {
     const started = Date.now();
     await page.evaluate(() => new Promise((r) => setTimeout(() => setTimeout(r, 0), 0)));
     return Date.now() - started;
   };
-  const before = await responseMs();
+  // Sakin sayfanın yanıtı (fare gelmeden önce üç ölçümün ortancası); yazılımla çizen makinede kendisi de
+  // 100 ms'yi aşabilir (#235: 130 ms).
+  const quiet = [await responseMs(), await responseMs(), await responseMs()].sort(
+    (a, b) => a - b,
+  )[1];
+  const calmMs = Math.max(50, 1.5 * quiet);
+  const hoverStarted = Date.now();
+  try {
+    await button.hover({ timeout: 30_000 });
+  } catch (e) {
+    const reason = String(e)
+      .split("\n")
+      .filter((l, i) => i === 0 || /intercepts/.test(l))
+      .slice(0, 3)
+      .join(" · ");
+    problems.push(`${label}: fare düğmeye 30 sn'de gelemedi, üstü örtülü olabilir (${reason})`);
+    await page.close();
+    return problems;
+  }
+  let calm = 0;
+  let before = await responseMs();
+  while (Date.now() - hoverStarted < 30_000) {
+    calm = before <= calmMs ? calm + 1 : 0;
+    if (calm >= 2) break;
+    before = await responseMs();
+  }
+  const settleMs = Date.now() - hoverStarted;
   try {
     await button.click({ timeout: 5000 });
     await page.waitForFunction(() => window.__dialogOpened === true, null, { timeout: 5000 });
-    console.log(`${label}: tıklanınca dosya seçme penceresi açılıyor`);
+    console.log(
+      `${label}: tıklanınca dosya seçme penceresi açılıyor (fare geldikten sonra sayfa ${settleMs} ms'de ` +
+        `sakinleşti)`,
+    );
   } catch (e) {
     const after = await responseMs().catch(() => "-");
     const reason = String(e)
@@ -1922,7 +1954,7 @@ async function checkPhotoChooseButton(browser) {
       .join(" · ");
     problems.push(
       `${label}: tıklanamıyor ya da pencere açılmıyor (${reason}) · sayfa yanıtı: tıklamadan önce ` +
-        `${before} ms, sonra ${after} ms`,
+        `${before} ms (sakin ${quiet} ms; fare geldikten ${settleMs} ms sonra), sonra ${after} ms`,
     );
   }
   await page.close();

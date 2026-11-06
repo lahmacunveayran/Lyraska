@@ -198,8 +198,7 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
       parçacıklar (Kıvılcım, Kar, Kapalı); başlığın altında söylenen kelimesi ışıldayan söz satırı
 - ~~**Işık Ustası**~~ (sahneler v2'nin ilk sahnesi, 0.0.96): proje sahibi beğenmedi ("sıkıcı"), 0.0.99'da kaldırıldı
   (30 Ekim 2026); kodu yedek dalda `claude/eloquent-shannon-0eigyf-yedek-isik-ustasi`
-- [ ] **Sahneler v2**: yeni sahne fikirleri önce proje sahibine seçenek ve önizleme videosuyla gösterilir
-      (`docs/arastirma/sahneler-v2/`); hazır olanlar gelince VU ve Gece sürüşü kaldırılır
+- **Sahneler v2** Faz 7'den sonraya alındı (proje sahibinin kararı, 6 Kasım 2026): aşağıda kendi bölümünde.
 - [x] Butterchurn / MilkDrop desteği (0.0.60): galerinin 16. sahnesi **MilkDrop**, kullanıcının **kendi** `.milk`
       görsellerini Butterchurn 3.0.0-beta.5 (MIT) ile çizer; **Lyraska hazır görsel içermez** (yaygın paketlerin
       yazarları lisans vermemiş). Klasör seçilir ve hatırlanır; `.milk` Rust'ta Butterchurn biçimine çevrilir
@@ -273,9 +272,10 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
 
 - [ ] **Kaynak ayrıştırma** (proje sahibinin seçimi, 22 Ekim 2026): şarkı arka plan analizinde davul, bas, vokal ve
       diğerlerine ayrılır; Görsel Yönetmen her birine ayrı tepki verir (davul vuruşu, bas titreşimi, vokalin girişi;
-      sözler vokalle). Yalnızca türetilen zarf ve başlangıç verisi saklanır, ayrılmış ses asla. Önce lisans
-      araştırması: kod **ve** model ağırlıkları (eğitim verisi ticari kullanımı yasaklıyorsa GPL-3.0 ile çelişir);
-      temiz model yoksa yedek: klasik sinyal işlemeyle (vurmalı/ezgisel ayrıştırma, bas izleme, vokal sezimi) Rust'ta.
+      sözler vokalle). Yalnızca türetilen zarf ve başlangıç verisi saklanır, ayrılmış ses asla. 6 Kasım 2026
+      kararıyla bütün modeller (ticari olmayan, araştırma lisanslı ya da lisansı belirsiz) yalnızca sahibinin
+      bilgisayarında yerel paket olarak kullanılabilir ve harmanlanabilir. Ölçü aleti (#226, BSS Eval v4) hazır;
+      MUSDB18-HQ'da HTDemucs, SCNet, BS-RoFormer karşılaştırması sürüyor. Klasik yedek: HRPS (#222).
       Sözlerin sese oturtulması buna bağlı değil (ölçüldü: ayrıştırma Türkçe setlerde fark getirmiyor)
 - [ ] Sistem sesi modu (bilgisayarda çalan her sesi görselleştirme)
 - [ ] Video dışa aktarma
@@ -293,8 +293,8 @@ Proje sahibi, 16 Ekim 2026: "Faz 1 tamam."
 - [ ] Ses yüksekliği eşitleme (EBU R128) ve ton uyumu uyarısı (engellemez)
 - [ ] Güvenlik kuralı: tempo farkı varsayılan olarak %8'den büyükse, tempo şarkı içinde değişiyorsa ya da beat
       güveni düşükse hizalama yapılmaz, kısa düz geçiş kullanılır
-- [ ] Perdeyi bozmadan tempo eşitleme (aday: Signalsmith Stretch, MIT; Rubber Band GPL olduğu için ikinci
-      seçenek; lisans eklemeden önce doğrulanır)
+- [ ] Perdeyi bozmadan tempo eşitleme (adaylar: Signalsmith Stretch, MIT; Rubber Band GPL-2.0-or-later, GPL-3.0
+      ile uyumlu; ikisi ölçülerek seçilir, lisans eklemeden önce doğrulanır)
 - [ ] Geçiş stilleri: crossfade, bas takası, yankılı çıkış
 - [ ] Kullanıcı kontrolü: şarkı çifti başına geçiş noktası, stil ve uzunluk ayarı; "geçişi dinle" önizlemesi
 - [ ] Görsel Yönetmen geçişi de koreografe eder
@@ -318,6 +318,13 @@ Faz 6'da sırayı kullanıcı seçer; burada **sırayı program seçer**, geçi�
 - [ ] Kalite hedefi: proje sahibinin dinleme denemesinde "elle seçmiş gibi" bulunan geçiş oranı; ölçütler ve
       ağırlıklar ayarlanabilir, testlerde sentetik kütüphaneyle sınanır.
 
+## Sahneler v2 (Faz 7'den sonra; proje sahibinin kararı, 6 Kasım 2026)
+
+Kaynak taramasını proje sahibi yapıyor; iş, tarama ve Faz 7 bitince başlar.
+
+- [ ] **Sahneler v2**: yeni sahne fikirleri önce proje sahibine seçenek ve önizleme videosuyla gösterilir
+      (`docs/arastirma/sahneler-v2/`); hazır olanlar gelince VU ve Gece sürüşü kaldırılır
+
 ## Çıkış — v1.0 (Faz 7'den sonra)
 
 - [ ] Faz 1–7 bitince son bağımsız denetim (ses, analiz, görseller, kurulum), proje sahibinin gerçek cihaz
@@ -339,12 +346,14 @@ Faz 6'da sırayı kullanıcı seçer; burada **sırayı program seçer**, geçi�
 
 ## Fikir havuzu (karar bekliyor)
 
-Proje sahibinin sorularından doğan öneriler. Her biri eklenmeden önce lisansı (kod **ve** model
-ağırlıkları) ayrıca doğrulanır; ticari kullanımı yasaklayanlar alınmaz.
+Proje sahibinin sorularından doğan öneriler. Her birinin lisansı (kod **ve** model ağırlıkları) ayrıca
+doğrulanır: kod GPL-3.0 ile uyumlu olmalı; ticari olmayan ya da araştırma lisanslı ağırlıklar yalnızca sahibinin
+bilgisayarında yerel paket olarak kullanılır (6 Kasım 2026, `CLAUDE.md` "Yerel model paketleri").
 
 - ~~**Kaynak ayrıştırma**~~: proje sahibi seçti (22 Ekim 2026), Faz 5'e alındı.
-- **Yapay zekâ ile beat/bölüm tespiti**: klasik yöntemlerden daha isabetli; F-ölçüsü ≥ 0,80 hedefine
-  yardım eder. Bilinen bazı modellerin ağırlıkları ticari kullanımı yasakladığı için seçim dikkatle yapılmalı.
+- **Yapay zekâ ile beat/bölüm tespiti**: klasik yöntemlerden daha isabetli. Beat This (JKU Linz, ISMIR 2024)
+  kod ve ağırlıklarıyla MIT. Lyraska'nın ilk standart set karnesi (#233, Ballroom): vuruş F 0,780, ölçü başı
+  0,514, hataların çoğu tempo oktavı. Beat This ile yan yana ölçüm (GTZAN) sürüyor; sonra "ritim paketi" önerilir.
 - **Windows uzamsal ses** (Spatial Audio API): kullanıcı Windows Sonic ya da satın aldığı bir uzamsal
   ses eklentisini açtıysa Lyraska bunu bilinçli kullanır. Dolby'nin kendi teknolojileri kapalı kaynak ve
   ücretli olduğundan GPL-3.0 programa doğrudan eklenemez.

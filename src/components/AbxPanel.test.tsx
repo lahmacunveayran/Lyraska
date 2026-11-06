@@ -101,6 +101,7 @@ describe("Kör test paneli", () => {
     const start = screen.getByRole("button", { name: "Testi başlat" });
     expect((start as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/16 denemede en az 12 doğru/)).toBeTruthy();
+    expect(screen.getByText(/bu testi %45 olasılıkla geçer/)).toBeTruthy();
 
     core.picks = ["C:\\Müzik\\Şarkı.flac", "C:\\Müzik\\Şarkı.mp3"];
     fireEvent.click(screen.getByRole("button", { name: "A dosyasını seç" }));
@@ -110,6 +111,8 @@ describe("Kör test paneli", () => {
     fireEvent.change(screen.getByLabelText("Süre"), { target: { value: "10" } });
     fireEvent.change(screen.getByLabelText("Deneme"), { target: { value: "8" } });
     expect(screen.getByText(/8 denemede en az 7 doğru/)).toBeTruthy();
+    // 8 denemede güç: P(K ≥ 7 | p = 0,7) = 0,25529833 (tam kesirle).
+    expect(screen.getByText(/bu testi %25,5 olasılıkla geçer/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Testi başlat" }));
 
     await screen.findByText(/Deneme 1 \/ 16/);
