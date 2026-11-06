@@ -178,3 +178,38 @@ src/audio/limiter.rs:185:49: replace % with + in Limiter::next_gain
 src/audio/limiter.rs:244:40: replace * with / in interpolator
 src/audio/loudness.rs:51:9: replace Loudness::gain_db -> f64 with 1.0
 src/audio/loudness.rs:97:17: replace * with / in k_weighting
+src/audio/loudness.rs:105:39: replace / with * in k_weighting
+src/audio/loudness.rs:111:17: replace * with / in k_weighting
+src/audio/loudness.rs:180:32: replace + with * in TruePeak::add
+src/audio/loudness.rs:254:5: replace channel_weights -> Vec<f64> with vec![0.0]
+src/audio/loudness.rs:286:68: replace && with || in channel_weights
+src/audio/loudness.rs:350:42: replace + with - in LoudnessMeter::finish
+src/audio/lyrics.rs:121:5: replace for_track_with -> Option<Lyrics> with None
+src/audio/lyrics.rs:350:5: replace leading_stamps -> (Vec<f64>, &str) with (vec![1.0], "")
+src/audio/lyrics.rs:378:24: replace * with / in parse_time
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with (String::new(), vec![(1.0, String::new())], String::new())
+src/audio/lyrics.rs:450:30: replace + with * in timed_words
+src/audio/normalize.rs:136:32: replace + with - in TrackLevels::begin_track
+src/audio/normalize.rs:270:20: replace < with > in TrackLevels::next_start
+src/audio/normalize.rs:324:19: replace / with % in db_to_linear
+src/audio/normalize.rs:441:27: replace > with == in Leveler::next_gain
+src/audio/normalize.rs:469:41: replace * with + in approach
+src/audio/output.rs:178:22: replace += with -= in FadeWatch::wrote
+src/audio/peq.rs:302:16: delete ! in HeadphoneProfile::parse
+src/audio/peq.rs:423:5: replace response_peak_db -> f64 with 1.0
+src/audio/peq.rs:453:54: replace - with + in coefs_peak_db
+src/audio/peq.rs:470:32: replace - with + in refine_peak
+src/audio/peq.rs:502:55: replace - with + in shelf_q_from_slope
+src/audio/peq.rs:516:9: delete match arm "LSC" in parse_filter
+src/audio/peq.rs:761:39: replace / with % in ParametricSettings::response_db
+src/audio/peq.rs:912:5: replace loudness_gain_db_at -> f64 with 0.0
+src/audio/peq.rs:1009:31: replace && with || in PeqControl::set_filters
+src/audio/peq.rs:1169:29: replace && with || in PeqProcessor::is_bypass
+src/audio/player/mod.rs:235:31: replace += with *= in Player::retire_session
+src/audio/punch.rs:151:36: replace * with / in Punch::process_frame
+src/audio/punch.rs:183:32: replace * with / in Punch::update_gain
+src/audio/render.rs:135:9: replace Renderer::gain -> f64 with 0.0
+src/audio/render.rs:236:46: replace * with + in Renderer::render
+src/audio/resample.rs:123:9: replace Converter::finish -> Result<&[Sample], AudioError> with Ok(Vec::leak(vec![Default::default()]))
+src/audio/spectrum.rs:94:31: replace * with + in Transform::magnitudes
+src/audio/spectrum.rs:134:26: replace - with + in level
