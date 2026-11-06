@@ -39,3 +39,9 @@ src/audio/decode.rs:984:26: replace > with >= in image_type
 src/audio/eq.rs:288:27: replace match guard rate != DISPLAY_RATE with true in EqState::at_rate
 src/audio/gapless.rs:29:37: replace * with +
 src/audio/gapless.rs:130:13: delete match arm b"meta" in walk
+src/audio/loudness.rs:240:20: replace | with & in default_layout
+src/audio/lyrics.rs:184:42: replace > with >= in sidecar_text
+src/audio/normalize.rs:414:38: replace * with / in Leveler::next_gain
+src/audio/output.rs:136:5: replace exclusive_timing -> Option<&'static str> with Some("")
+src/audio/punch.rs:182:35: replace > with >= in Punch::update_gain
+src/audio/punch.rs:200:52: replace == with != in Punch::update_gain
