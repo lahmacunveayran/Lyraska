@@ -52,7 +52,8 @@ dosya ─▶ symphonia (çözme) ─▶ f64 ─▶ boşluksuz kırpma ─▶ rub
   hazırlık (dosya, ön dolum, aygıt) kilit dışında, takma kilit altında. Üst üste gelen geçişler (ör. "Önceki"ye
   iki hızlı basış) tek sırada hazırlanır: ses aygıtında aynı anda tek akış vardır, eskimiş hazırlık aygıtı
   açmaz, eski oturumlar kısılarak kapanır (Denetim 3, RTS-01; testler sanal aygıtın akış kaydıyla ölçer:
-  `player::tests::sarma_ve_acma_ust_uste_gelince_tek_oturum_calar` ve yanındakiler). Kör test bu sıranın dışında.
+  `player::tests::sarma_ve_acma_ust_uste_gelince_tek_oturum_calar` ve yanındakiler). Kör test başlarken süren
+  hazırlığın bitmesini bekler, takılmamış oturumu kısar.
 - EQ, kulaklık ve eşitleme ayarları ses iş parçacığına kilitsiz (atomik) iletilir; değişiklik yumuşakça uygulanır.
 - **Süzgeç tasarımı** (`audio/biquad.rs`): sekiz tür (tepe, alçak/yüksek raf, alçak/yüksek/bant geçiren, çentik,
   tüm geçiren), iki yöntem:
