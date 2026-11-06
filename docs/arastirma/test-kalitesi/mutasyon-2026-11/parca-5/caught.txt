@@ -148,3 +148,39 @@ src/audio/eq.rs:386:9: replace EqControl::version -> u64 with 1
 src/audio/eq.rs:423:34: replace * with + in Biquad::peaking
 src/audio/eq.rs:433:9: replace Biquad::shelf_terms -> (f64, f64, f64) with (1.0, -1.0, 1.0)
 src/audio/eq.rs:444:40: replace * with / in Biquad::low_shelf
+src/audio/eq.rs:448:55: replace / with * in Biquad::low_shelf
+src/audio/eq.rs:450:21: replace + with - in Biquad::low_shelf
+src/audio/eq.rs:462:37: replace - with + in Biquad::high_shelf
+src/audio/eq.rs:465:53: replace / with * in Biquad::high_shelf
+src/audio/eq.rs:474:13: replace + with - in Biquad::response_db
+src/audio/eq.rs:478:28: replace * with + in Biquad::response_db
+src/audio/eq.rs:487:23: replace + with * in Biquad::power_gain
+src/audio/eq.rs:488:85: replace * with / in Biquad::power_gain
+src/audio/eq.rs:545:47: replace / with * in Layout::tuned
+src/audio/eq.rs:561:39: replace * with / in Layout::tuned
+src/audio/eq.rs:604:28: replace * with / in design_point_hz
+src/audio/eq.rs:666:34: replace + with * in Design::with_layout
+src/audio/eq.rs:707:5: replace solve_gains -> [f64; BANDS] with [-1.0; BANDS]
+src/audio/eq.rs:757:21: replace - with + in solve_linear
+src/audio/eq.rs:860:33: replace - with / in EqProcessor::process
+src/audio/gapless.rs:93:17: replace < with == in find_top_level
+src/audio/gapless.rs:152:13: delete match arm b"elst" in walk_track
+src/audio/gapless.rs:172:40: replace > with == in next_box
+src/audio/limiter.rs:47:34: replace / with %
+src/audio/limiter.rs:169:30: replace * with + in Limiter::true_peak
+src/audio/limiter.rs:196:27: replace += with *= in Limiter::next_gain
+src/audio/limiter.rs:237:27: replace - with / in interpolator
+src/audio/loudness.rs:80:13: replace - with / in Biquad::process
+src/audio/loudness.rs:103:30: replace + with - in k_weighting
+src/audio/loudness.rs:107:14: replace * with + in k_weighting
+src/audio/loudness.rs:115:14: replace * with / in k_weighting
+src/audio/loudness.rs:193:21: replace += with *= in TruePeak::add
+src/audio/loudness.rs:329:45: replace * with / in LoudnessMeter::add
+src/audio/lyrics.rs:147:29: replace && with || in is_untimed
+src/audio/lyrics.rs:297:39: replace - with / in parse
+src/audio/lyrics.rs:369:69: replace == with != in parse_time
+src/audio/lyrics.rs:383:37: replace < with > in parse_time
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with ("xyzzy".into(), vec![(0.0, "xyzzy".into())], "xyzzy".into())
+src/audio/lyrics.rs:477:25: replace + with - in estimate_words
+src/audio/normalize.rs:180:9: replace TrackLevels::is_known -> bool with false
+src/audio/normalize.rs:334:29: replace - with + in protection
