@@ -5,3 +5,5 @@ src/analysis/lyrics_worker.rs:382:5: replace next -> Option<Request> with Some(D
 src/analysis/spectrogram.rs:296:9: replace Spectrogram::imported_key -> Option<MusicalKey> with Some(Default::default())
 src/analysis/tempo.rs:214:37: replace >= with < in three_halves
 src/audio/abx.rs:210:9: replace Trials::x -> AbxSource with Default::default()
+src/audio/biquad.rs:111:9: replace Spec::analog -> Complex<f64> with Complex::from_iter([1.0])
+src/audio/biquad.rs:244:9: replace Biquad::lowpass -> Self with Default::default()

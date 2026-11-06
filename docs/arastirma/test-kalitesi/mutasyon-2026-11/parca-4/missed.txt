@@ -24,3 +24,13 @@ src/audio/abx.rs:305:48: replace / with * in mono
 src/audio/abx.rs:473:16: replace + with - in Mixer::envelope
 src/audio/bass.rs:261:42: replace * with / in BassBoost::rise_db
 src/audio/bass.rs:586:38: replace - with / in BassProcessor::step
+src/audio/bass.rs:664:37: replace && with || in BassProcessor::process_frame
+src/audio/biquad.rs:127:45: replace + with - in Spec::analog
+src/audio/biquad.rs:258:47: replace * with + in Biquad::highpass
+src/audio/biquad.rs:270:47: replace * with / in Biquad::bandpass
+src/audio/biquad.rs:396:25: replace += with *= in Biquad::matched
+src/audio/biquad.rs:436:70: replace * with / in Biquad::matched
+src/audio/biquad.rs:488:25: replace * with + in Biquad::beyond_nyquist
+src/audio/biquad.rs:526:43: delete - in Biquad::response
+src/audio/biquad.rs:630:47: replace * with + in Power::at
+src/audio/biquad.rs:671:18: replace *= with /= in min_phase

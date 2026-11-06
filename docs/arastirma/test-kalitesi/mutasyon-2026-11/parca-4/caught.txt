@@ -107,3 +107,30 @@ src/audio/bass.rs:372:30: replace && with || in Octaver::process
 src/audio/bass.rs:391:31: replace * with / in Octaver::process
 src/audio/bass.rs:526:9: replace BassProcessor::refresh_boost with ()
 src/audio/bass.rs:622:33: replace - with + in BassProcessor::harmonics
+src/audio/biquad.rs:119:38: replace * with + in Spec::analog
+src/audio/biquad.rs:123:33: replace * with + in Spec::analog
+src/audio/biquad.rs:129:62: replace / with % in Spec::analog
+src/audio/biquad.rs:154:13: delete match arm Kind::HighShelf in Spec::pole
+src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((0.0, 1.0, 0.0, -1.0))
+src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((1.0, 1.0, -1.0, 1.0))
+src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((-1.0, -1.0, 1.0, 0.0))
+src/audio/biquad.rs:197:31: delete - in Biquad::peaking
+src/audio/biquad.rs:210:37: replace - with / in Biquad::low_shelf
+src/audio/biquad.rs:215:39: replace * with / in Biquad::low_shelf
+src/audio/biquad.rs:230:50: replace + with * in Biquad::high_shelf
+src/audio/biquad.rs:232:37: replace - with + in Biquad::high_shelf
+src/audio/biquad.rs:284:32: replace * with / in Biquad::notch
+src/audio/biquad.rs:301:18: replace + with - in Biquad::allpass
+src/audio/biquad.rs:352:66: replace * with / in Biquad::matched
+src/audio/biquad.rs:379:60: replace * with + in Biquad::matched
+src/audio/biquad.rs:426:37: replace / with * in Biquad::matched
+src/audio/biquad.rs:553:43: replace + with - in Biquad::power_gain
+src/audio/biquad.rs:560:52: replace + with * in Biquad::is_stable
+src/audio/biquad.rs:583:9: replace Biquad::process -> Sample with Default::default()
+src/audio/biquad.rs:592:5: replace phi -> (f64, f64, f64) with (1.0, 1.0, 1.0)
+src/audio/biquad.rs:599:5: replace matched_poles -> (f64, f64) with (-1.0, -1.0)
+src/audio/biquad.rs:606:32: replace - with / in matched_poles
+src/audio/biquad.rs:646:26: replace + with - in factor
+src/audio/biquad.rs:662:24: replace - with / in min_phase
+src/audio/biquad.rs:756:44: replace / with * in Grid::add_top
+src/audio/biquad.rs:794:33: replace / with % in Grid::fit
