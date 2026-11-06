@@ -166,3 +166,33 @@ src/audio/loudness.rs:51:27: replace - with + in Loudness::gain_db
 src/audio/loudness.rs:98:33: replace / with * in k_weighting
 src/audio/loudness.rs:105:30: replace + with * in k_weighting
 src/audio/loudness.rs:112:26: replace + with * in k_weighting
+src/audio/loudness.rs:254:5: replace channel_weights -> Vec<f64> with vec![-1.0]
+src/audio/loudness.rs:286:56: replace & with | in channel_weights
+src/audio/loudness.rs:350:49: replace * with + in LoudnessMeter::finish
+src/audio/lyrics.rs:121:41: delete ! in for_track_with
+src/audio/lyrics.rs:249:74: replace / with * in parse
+src/audio/lyrics.rs:350:5: replace leading_stamps -> (Vec<f64>, &str) with (vec![-1.0], "")
+src/audio/lyrics.rs:378:57: replace / with * in parse_time
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with (String::new(), vec![(1.0, "xyzzy".into())], String::new())
+src/audio/normalize.rs:141:9: replace TrackLevels::has_bass_peaks -> bool with true
+src/audio/normalize.rs:270:16: replace + with - in TrackLevels::next_start
+src/audio/normalize.rs:328:5: replace linear_to_db -> f64 with 0.0
+src/audio/normalize.rs:441:27: replace > with >= in Leveler::next_gain
+src/audio/normalize.rs:469:32: replace - with + in approach
+src/audio/output.rs:179:12: delete ! in FadeWatch::wrote
+src/audio/peq.rs:435:5: replace coefs_peak_db -> f64 with 0.0
+src/audio/peq.rs:453:65: replace + with - in coefs_peak_db
+src/audio/peq.rs:475:19: replace + with - in refine_peak
+src/audio/peq.rs:502:47: replace / with % in shelf_q_from_slope
+src/audio/peq.rs:518:9: delete match arm "HSC" in parse_filter
+src/audio/peq.rs:651:9: replace ParametricBand::is_effective -> bool with false
+src/audio/peq.rs:761:34: replace * with + in ParametricSettings::response_db
+src/audio/peq.rs:912:5: replace loudness_gain_db_at -> f64 with -1.0
+src/audio/peq.rs:1020:9: replace PeqControl::set_compare with ()
+src/audio/peq.rs:1175:9: replace PeqProcessor::boost_db -> f64 with 0.0
+src/audio/player/mod.rs:249:9: replace Player::play -> Result<(), AudioError> with Ok(())
+src/audio/punch.rs:153:34: replace > with < in Punch::process_frame
+src/audio/punch.rs:183:45: replace / with * in Punch::update_gain
+src/audio/render.rs:135:9: replace Renderer::gain -> f64 with -1.0
+src/audio/render.rs:236:53: replace + with - in Renderer::render
+src/audio/resample.rs:137:13: replace / with % in Converter::run_blocks
