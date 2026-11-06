@@ -174,6 +174,7 @@ lyraska/
 │   │   │   ├── fingerprint.rs #  ses parmak izi (analiz karelerinden bant bitleri + kroma): aynı kaydı tanır
 │   │   │   ├── hpss.rs       #   vurmalı/ezgisel/kalan ayrıştırma (ortanca süzgeç, β = 2 paylı ikili maske, modelsiz): bas, kick, snare, zil zarfı; henüz bağlı değil
 │   │   │   ├── evaluate.rs   #   analizi işaretlere göre ölçme (F-ölçüsü, parmak gecikmesi)
+│   │   │   ├── separation_eval.rs # kaynak ayrıştırmanın ölçümü: SI-SDR ve BSS Eval v4 (SDR, ISR, SIR, SAR; museval ile aynı)
 │   │   │   ├── beats.rs      #   başlangıç gücü, tempo ve vuruşlar (dinamik programlama)
 │   │   │   ├── structure.rs  #   ölçü başları ve ölçü güveni, bölümler (Foote yeniliği), droplar, enerji eğrisi
 │   │   │   ├── tempo.rs      #   tempo oktavı (yarısı / iki katı): kick/snare vuruş arasında mı, yarım tempo hissi, boş aralar
