@@ -665,6 +665,98 @@ mod tests {
             .all(|&g| (to_db(g) + 6.0).abs() < 1e-9));
     }
 
+    /// Sınırdan önceki iniş (yeni şarkı daha kısık): eşitleme kazancı da ekolayzerin koruma
+    /// kısması da kalan kare sayısına bölünerek iner, yani ikisi de düz bir çizgidir. Her biri
+    /// her karede hedefine doğru monoton ilerler, hedefini aşmaz ve tam sınırda hedefine varır.
+    /// Beklenen değerler el hesabıdır: N = 480 karelik inişin k. karesinde değer
+    /// v₀ + (v₁ − v₀)·k/N (k = 1..N). Kanıt: değer k. karede buradaysa kalan N − k kareye
+    /// bölünen fark (v₁ − v₀)·(N − k)/N / (N − k) = (v₁ − v₀)/N'dir, her kare aynı adım.
+    /// Mevcut testlerde ekolayzer düz olduğundan koruma hep 1'di: korumanın inişi sınanmıyordu.
+    #[test]
+    fn sinirdan_once_inis_dogrusal_ve_hedefi_asmaz() {
+        // Ekolayzer +5 dB. 1. şarkı: −20 LUFS, tepe −12 dBTP → eşitleme +6 dB, tepe −6 dBTP;
+        // −1 dBTP tavanına 5 dB boşluk: koruma kısmaz (1). 2. şarkı: −8 LUFS, tepe +2 dBTP →
+        // eşitleme −6 dB, tepe −4 dBTP; 3 dB boşluk: koruma 5 − 3 = 2 dB kısar.
+        let eq_db = 5.0;
+        let levels = TrackLevels::new();
+        levels.set_loudness(0, Some(quiet()));
+        let mut leveler = Leveler::new(RATE, &levels, true);
+        let boundary = RATE as usize;
+        levels.begin_track(boundary as u64);
+        levels.set_loudness(
+            1,
+            Some(Loudness {
+                integrated_lufs: -8.0,
+                true_peak_dbtp: 2.0,
+            }),
+        );
+        // Ses iş parçacığı gibi: her 10 ms'lik turun başında hedefler güncellenir. Kazanç ve
+        // koruma ayrı ayrı kaydedilir (ikisi de inişte doğrusal; çarpımları değil).
+        let block = RATE as usize / 100;
+        let frames = boundary + RATE as usize / 10;
+        let mut gains = Vec::with_capacity(frames);
+        let mut protects = Vec::with_capacity(frames);
+        let mut totals = Vec::with_capacity(frames);
+        while totals.len() < frames {
+            leveler.begin_block(&levels, true, eq_db, BassBoost::default());
+            for _ in 0..block {
+                totals.push(leveler.next_gain(&levels, true));
+                gains.push(leveler.gain);
+                protects.push(leveler.protect);
+            }
+        }
+
+        let ramp = RATE as usize / 100; // 10 ms = 480 kare
+        let start = boundary - ramp;
+        // 480 ardışık toplamanın yuvarlama birikimi en çok ~480 · 2⁻⁵² · 2 ≈ 2e-13'tür; 1e-12
+        // bunun üstünde, ama en küçük iniş adımının ((1 − 0,79) / 480 ≈ 4e-4) çok altında.
+        let tolerance = 1e-12;
+        let check = |name: &str, values: &[f64], from: f64, to: f64| {
+            assert!(
+                (values[start - 1] - from).abs() < tolerance,
+                "{name}: iniş sınıra 10 ms kala başlar ({} ≠ {from})",
+                values[start - 1]
+            );
+            for (k, &value) in values[start..boundary].iter().enumerate() {
+                let step = (k + 1) as f64;
+                let expected = from + (to - from) * step / ramp as f64;
+                assert!(
+                    (value - expected).abs() < tolerance,
+                    "{name}, iniş karesi {}: {value}, beklenen {expected}",
+                    k + 1
+                );
+                assert!(
+                    value >= to - tolerance,
+                    "{name}, iniş karesi {}: hedefin altına indi",
+                    k + 1
+                );
+            }
+            // Değişmez: her kare hedefe doğru (aşağı) ilerler. Negatif bir fark eklemek kayan
+            // noktada sayıyı büyütemez: tolerans yok.
+            assert!(
+                values[start - 1..boundary].windows(2).all(|w| w[1] <= w[0]),
+                "{name}: iniş monoton olmalı"
+            );
+            // Tam sınırda hedefte; yeni şarkı da orada kalır.
+            assert!(
+                values[boundary - 1..]
+                    .iter()
+                    .all(|&v| (v - to).abs() < tolerance),
+                "{name}: sınırdan sonra hedefte kalmalı"
+            );
+        };
+        check("kazanç", &gains, db_to_linear(6.0), db_to_linear(-6.0));
+        check("koruma", &protects, 1.0, db_to_linear(-2.0));
+        // Toplam kazanç da iki inişin çarpımı olarak monoton iner, hiçbir karede yeni şarkının
+        // seviyesinin altına düşmez ve sınırdan sonra onu aşmaz (yeni şarkı fazla yüksek başlamaz).
+        let new_total = db_to_linear(-6.0) * db_to_linear(-2.0);
+        assert!(totals[start - 1..boundary].windows(2).all(|w| w[1] <= w[0]));
+        assert!(totals[start..].iter().all(|&g| g >= new_total - tolerance));
+        assert!(totals[boundary..]
+            .iter()
+            .all(|&g| g <= new_total + tolerance));
+    }
+
     #[test]
     fn esitleme_acilinca_koruma_kazanctan_once_kalkmaz() {
         // 0 dBTP'lik yüksek kayıt, ekolayzer +6 dB (#55). Eşitleme kapalıyken koruma 6 dB

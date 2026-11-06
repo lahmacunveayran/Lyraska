@@ -822,6 +822,7 @@ mod tests {
             codec: "flac".to_owned(),
             sample_rate: 44_100,
             channels: 2,
+            channel_layout: None,
             duration_secs: Some(200.0),
         }
     }

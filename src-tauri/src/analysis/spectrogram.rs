@@ -503,7 +503,7 @@ impl SavedAnalysis {
 pub fn measure_loudness(mut decoder: Decoder, target: &Spectrogram) {
     let info = decoder.info().clone();
     let channels = info.channels.max(1);
-    let mut meter = LoudnessMeter::new(info.sample_rate, channels);
+    let mut meter = LoudnessMeter::with_layout(info.sample_rate, channels, info.channel_layout);
     // Bütünleşik ölçüm bütün şarkıyı ister (4 dk'lık MP3 1–3 sn); ilk saniyelerden bir
     // tahmin yayımlanır ki ilk ses −10 LUFS varsayımıyla değil, şarkının kendi girişiyle
     // başlasın. Kesin ölçüm gelince kazanç yumuşakça düzelir.
@@ -593,7 +593,7 @@ pub fn analyze_source(decoder: &mut dyn ChunkSource, target: &Spectrogram, pace:
     let mut meter_batch: Vec<u8> = Vec::with_capacity(VALUES_PER_FRAME * 64);
     let mut onset_batch: Vec<f32> = Vec::with_capacity(64);
     // Ses yüksekliği şarkının kendi hızında, bütün kanallarıyla ölçülür (EBU R128).
-    let mut loudness = LoudnessMeter::new(info.sample_rate, channels);
+    let mut loudness = LoudnessMeter::with_layout(info.sample_rate, channels, info.channel_layout);
     // Bas düğmesinin şarkının tepesini ne kadar yükselttiği (taşma koruması buna göre).
     let mut bass_peaks = BassPeakMeter::new(info.sample_rate, channels);
     // Ton: uzun pencereli kroma, aynı geçişte.
@@ -748,7 +748,7 @@ pub fn refresh_paced(
         sample_rate = Some(info.sample_rate);
         let mut loudness_meter = stale
             .loudness
-            .then(|| LoudnessMeter::new(info.sample_rate, channels));
+            .then(|| LoudnessMeter::with_layout(info.sample_rate, channels, info.channel_layout));
         let mut bass_meter = stale
             .bass
             .then(|| BassPeakMeter::new(info.sample_rate, channels));
@@ -947,7 +947,10 @@ pub fn band_edges(bands: usize, sample_rate: f64) -> Vec<f64> {
 mod tests {
     use super::*;
     use crate::analysis::cache::StaleParts;
-    use crate::audio::test_util::{sine, temp_path, write_wav};
+    use crate::audio::test_util::{
+        sine, temp_path, write_caf, write_wav, write_wav_bits, write_wav_extensible,
+        write_wav_layout,
+    };
     use std::path::Path;
 
     #[test]
@@ -1575,5 +1578,304 @@ mod tests {
             "önbelleğe analiz yazılır"
         );
         std::fs::remove_file(path).ok();
+    }
+
+    /// Çok kanallı dosyanın ses yüksekliği dosyanın kanal düzeniyle ölçülür: analizin üç yolu
+    /// da (hızlı ölçüm, tam analiz, eskiyen parçanın yenilenmesi) aynı ağırlıkları kullanır.
+    #[test]
+    fn ebu_3341_durum_6_bes_kanalli_dosya() {
+        // EBU Tech 3341 durum 6: 5.0, 1 kHz, 20 sn; L ve R −28, C −24, Ls ve Rs −30 dBFS →
+        // −23,0 LUFS (±0,1). Maske 0x607: L, R, C, yan sol, yan sağ.
+        let rate = 48_000;
+        let path = temp_path("ebu-durum-6.wav");
+        let levels = [-28.0, -28.0, -24.0, -30.0, -30.0];
+        write_wav_layout(&path, rate, 0x607, 20 * rate as usize, |f, ch| {
+            10f64.powf(levels[ch] / 20.0) * sine(1000.0, rate, f)
+        });
+        let check = |what: &str, l: Option<Loudness>| {
+            let l = l.unwrap_or_else(|| panic!("{what}: ölçülmedi"));
+            assert!((l.integrated_lufs + 23.0).abs() < 0.1, "{what}: {l:?}");
+        };
+        let quick = Spectrogram::new();
+        measure_loudness(Decoder::open(&path).unwrap(), &quick);
+        check("hızlı ölçüm", quick.measured_loudness().flatten());
+        let full = analyze_file(&path);
+        check("tam analiz", full.loudness());
+        let target = Spectrogram::new();
+        let stale = StaleParts {
+            loudness: true,
+            ..StaleParts::default()
+        };
+        let mut open = || Decoder::open(&path).ok();
+        assert!(refresh_paced(
+            aged(&full.saved().unwrap(), stale),
+            &mut open,
+            &target,
+            &mut || {}
+        ));
+        check("yenileme", target.loudness());
+        std::fs::remove_file(path).ok();
+    }
+
+    /// BS.1770-5 kanal ağırlıkları kanalın yerine göre (Ek 1 Tablo 3, Ek 3 Tablo 4): yatayda
+    /// 60°–120° arası (yan; 5.x'te çevre) 1,41, LFE 0, geri kalanı 1,0. Aynı sinyal yalnızca
+    /// seçilen kanallarda çalınır, ön çifte (L + R) göre farkı ölçülür.
+    #[test]
+    fn cok_kanalli_dosyada_agirlik_kanalin_yerine_gore() {
+        let rate = 48_000;
+        let measure = |mask: u32, active: &[usize]| {
+            let path = temp_path("kanal-duzeni.wav");
+            write_wav_layout(&path, rate, mask, 3 * rate as usize, |f, ch| {
+                if active.contains(&ch) {
+                    0.1 * sine(1000.0, rate, f)
+                } else {
+                    0.0
+                }
+            });
+            let quick = Spectrogram::new();
+            measure_loudness(Decoder::open(&path).unwrap(), &quick);
+            std::fs::remove_file(path).ok();
+            quick.measured_loudness().flatten()
+        };
+        // Çevre çifti: +1,49 dB (10·log10 1,41); ağırlığı 1 olan tek kanal: −3,01 dB.
+        let surround = 10.0 * 1.41f64.log10();
+        let single = -10.0 * 2f64.log10();
+        // (düzen, maske, sinyalli kanallar, ön çifte göre beklenen fark; None: ölçülmez)
+        let cases: [(&str, u32, &[usize], Option<f64>); 7] = [
+            // 5.0: L R C, yan sol, yan sağ
+            ("5.0 yan", 0x607, &[3, 4], Some(surround)),
+            // 5.0: L R C, arka sol, arka sağ (5.x'te tek çevre çifti, ±110°)
+            ("5.0 arka", 0x037, &[3, 4], Some(surround)),
+            // 5.1: L R C LFE, arka sol, arka sağ
+            ("5.1 çevre", 0x03F, &[4, 5], Some(surround)),
+            ("5.1 LFE", 0x03F, &[3], None),
+            // 7.1: L R C LFE, arka sol, arka sağ (±135°), yan sol, yan sağ (±90°)
+            ("7.1 arka", 0x63F, &[4, 5], Some(0.0)),
+            ("7.1 yan", 0x63F, &[6, 7], Some(surround)),
+            // 6.1: L R C LFE, arka orta (180°), yan sol, yan sağ
+            ("6.1 arka orta", 0x70F, &[4], Some(single)),
+        ];
+        // Bütün düzenler ölçülür, hatalılar birlikte bildirilir.
+        let mut wrong = Vec::new();
+        for (name, mask, active, expected) in cases {
+            let front = measure(mask, &[0, 1]).expect("ön çift ölçülür");
+            let diff = measure(mask, active).map(|l| l.integrated_lufs - front.integrated_lufs);
+            let ok = match (diff, expected) {
+                (Some(d), Some(e)) => (d - e).abs() < 0.05,
+                (None, None) => true,
+                _ => false,
+            };
+            if !ok {
+                wrong.push(format!("{name}: {diff:?} dB, beklenen {expected:?}"));
+            }
+        }
+        assert!(wrong.is_empty(), "{wrong:#?}");
+    }
+
+    /// Dosyanın hızlı ölçümdeki ses yüksekliği; dosya sonra silinir.
+    fn quick_loudness(path: &Path) -> Option<Loudness> {
+        let quick = Spectrogram::new();
+        measure_loudness(Decoder::open(path).unwrap(), &quick);
+        std::fs::remove_file(path).ok();
+        quick.measured_loudness().flatten()
+    }
+
+    /// Yalnızca `active` kanallarında 1 kHz, 0,1 genlikli sinüs.
+    fn tone_in(rate: u32, active: &[usize]) -> impl Fn(usize, usize) -> f64 + '_ {
+        move |f, ch| {
+            if active.contains(&ch) {
+                0.1 * sine(1000.0, rate, f)
+            } else {
+                0.0
+            }
+        }
+    }
+
+    /// Kanal maskesi olmayan dosyada symphonia düzeni kanal sayısından uydurur (`from_count`: 4
+    /// kanal L R C LFE, 5 kanal L R C LFE arka sol). Bu düzen gerçek sayılmaz; kanal sayısının
+    /// varsayılan düzeni kullanılır (4: dörtlü, 5: 5.0).
+    #[test]
+    fn maskesiz_cok_kanalli_dosya_varsayilan_duzenle_olculur() {
+        let rate = 48_000;
+        let mut wrong = Vec::new();
+        // EBU Tech 3341 durum 6: düz PCM başlıklı (WAVEFORMATEX) ve maskesi 0 olan uzantılı başlıklı
+        // 5 kanallı dosya → −23,0 LUFS (±0,1).
+        let levels = [-28.0, -28.0, -24.0, -30.0, -30.0];
+        let case_6 = |f: usize, ch: usize| 10f64.powf(levels[ch] / 20.0) * sine(1000.0, rate, f);
+        let plain = temp_path("ebu-durum-6-duz.wav");
+        write_wav_bits(&plain, rate, 5, 24, 20 * rate as usize, case_6);
+        let unmasked = temp_path("ebu-durum-6-maske-0.wav");
+        write_wav_extensible(&unmasked, rate, 5, 0, 20 * rate as usize, case_6);
+        for (name, path) in [("düz PCM", plain), ("maske 0", unmasked)] {
+            let l = quick_loudness(&path).expect("ölçülür");
+            if (l.integrated_lufs + 23.0).abs() >= 0.1 {
+                wrong.push(format!("durum 6, {name}: {:.3} LUFS", l.integrated_lufs));
+            }
+        }
+        // Düz PCM 4 kanal: dörtlü (L, R, arka sol, arka sağ); arka çift çevredir (+1,49 dB).
+        let quad = |active: &[usize]| {
+            let path = temp_path("dortlu-duz.wav");
+            write_wav_bits(&path, rate, 4, 24, 3 * rate as usize, tone_in(rate, active));
+            quick_loudness(&path)
+        };
+        let front = quad(&[0, 1]).expect("ön çift ölçülür");
+        let rear = quad(&[2, 3]).map(|l| l.integrated_lufs - front.integrated_lufs);
+        let surround = 10.0 * 1.41f64.log10();
+        if !rear.is_some_and(|d| (d - surround).abs() < 0.05) {
+            wrong.push(format!(
+                "düz 4 kanal, arka çift: {rear:?} dB, beklenen {surround:.3}"
+            ));
+        }
+        assert!(wrong.is_empty(), "{wrong:#?}");
+    }
+
+    /// Kanal sayısından uydurulmuş düzenle biti bite aynı düzen dosyada gerçekten yazılı olabilir:
+    /// CAF'ın 3.1 (`DVD_10`, L R C LFE) ve 7.1 (`MPEG_7_1_A`, L R C LFE Ls Rs Lc Rc) etiketleri,
+    /// WAV'ın 0x0F (3.1) maskesi. Bunlar dosyanın düzeniyle ölçülür (BS.1770-5: LFE ölçüme girmez,
+    /// çevre 1,41, ön orta-yan Lc/Rc 1,0); düzen bildirmeyen CAF ise kanal sayısının varsayılanıyla
+    /// (4: dörtlü, arka çift çevre).
+    #[test]
+    fn dosyada_yazili_duzen_uydurma_sayilmaz() {
+        let rate = 48_000;
+        // Apple CoreAudioTypes.h: etiket = (kimlik << 16) | kanal sayısı.
+        const DVD_10: u32 = (136 << 16) | 4;
+        const MPEG_7_1_A: u32 = (126 << 16) | 8;
+        let surround = 10.0 * 1.41f64.log10();
+        let single = -10.0 * 2f64.log10();
+        let caf = |channels: u32, tag: Option<u32>, active: &[usize]| {
+            let path = temp_path("kanal-duzeni.caf");
+            write_caf(
+                &path,
+                rate,
+                channels,
+                tag,
+                3 * rate as usize,
+                tone_in(rate, active),
+            );
+            quick_loudness(&path)
+        };
+        let wav_3_1 = |active: &[usize]| {
+            let path = temp_path("kanal-duzeni-3-1.wav");
+            write_wav_layout(&path, rate, 0x0F, 3 * rate as usize, tone_in(rate, active));
+            quick_loudness(&path)
+        };
+        let mut wrong = Vec::new();
+        let mut check =
+            |name: &str, front: Option<Loudness>, got: Option<Loudness>, want: Option<f64>| {
+                let diff = got
+                    .zip(front)
+                    .map(|(g, f)| g.integrated_lufs - f.integrated_lufs);
+                let ok = match (diff, want) {
+                    (Some(d), Some(e)) => (d - e).abs() < 0.05,
+                    (None, None) => got.is_none(),
+                    _ => false,
+                };
+                if !ok || front.is_none() {
+                    wrong.push(format!("{name}: {diff:?} dB, beklenen {want:?}"));
+                }
+            };
+        let front = caf(4, Some(DVD_10), &[0, 1]);
+        check("CAF 3.1 LFE", front, caf(4, Some(DVD_10), &[3]), None);
+        check(
+            "CAF 3.1 orta",
+            front,
+            caf(4, Some(DVD_10), &[2]),
+            Some(single),
+        );
+        let front = caf(8, Some(MPEG_7_1_A), &[0, 1]);
+        check(
+            "CAF 7.1 Ls Rs",
+            front,
+            caf(8, Some(MPEG_7_1_A), &[4, 5]),
+            Some(surround),
+        );
+        check(
+            "CAF 7.1 Lc Rc",
+            front,
+            caf(8, Some(MPEG_7_1_A), &[6, 7]),
+            Some(0.0),
+        );
+        let front = caf(4, None, &[0, 1]);
+        check(
+            "CAF düzensiz 4",
+            front,
+            caf(4, None, &[2, 3]),
+            Some(surround),
+        );
+        // symphonia'nın çeviremediği etiket (dörtlü, L R Ls Rs): düzen kanal sayısından uydurulmuş
+        // kalır (L R C LFE), o yüzden yine varsayılan dörtlü; 4. kanal arka sağdır, LFE değil.
+        const QUADRAPHONIC: u32 = (108 << 16) | 4;
+        let front = caf(4, Some(QUADRAPHONIC), &[0, 1]);
+        check(
+            "CAF dörtlü etiket",
+            front,
+            caf(4, Some(QUADRAPHONIC), &[2, 3]),
+            Some(surround),
+        );
+        let fourth = caf(4, Some(QUADRAPHONIC), &[3]);
+        check(
+            "CAF dörtlü etiket, 4. kanal",
+            front,
+            fourth,
+            Some(single + surround),
+        );
+        let front = wav_3_1(&[0, 1]);
+        check("WAV 3.1 LFE", front, wav_3_1(&[3]), None);
+        check("WAV 3.1 orta", front, wav_3_1(&[2]), Some(single));
+        // İki `fmt ` öbeği: symphonia `data`'dan önceki sonuncusunu okur. Sonuncu düz PCM (maskesiz):
+        // düzen uydurmadır, 4 kanalın varsayılanı (dörtlü) geçerli; 4. kanal arka sağdır, LFE değil.
+        let two_fmt = |active: &[usize]| {
+            let path = temp_path("iki-fmt.wav");
+            write_wav_layout(&path, rate, 0x0F, 3 * rate as usize, tone_in(rate, active));
+            let mut bytes = std::fs::read(&path).unwrap();
+            let data = bytes.windows(4).position(|w| w == b"data").unwrap();
+            let mut plain = b"fmt ".to_vec();
+            plain.extend_from_slice(&16u32.to_le_bytes());
+            plain.extend_from_slice(&1u16.to_le_bytes()); // PCM
+            plain.extend_from_slice(&4u16.to_le_bytes());
+            plain.extend_from_slice(&rate.to_le_bytes());
+            plain.extend_from_slice(&(rate * 12).to_le_bytes());
+            plain.extend_from_slice(&12u16.to_le_bytes());
+            plain.extend_from_slice(&24u16.to_le_bytes());
+            bytes.splice(data..data, plain);
+            let riff = (bytes.len() - 8) as u32;
+            bytes[4..8].copy_from_slice(&riff.to_le_bytes());
+            std::fs::write(&path, bytes).unwrap();
+            quick_loudness(&path)
+        };
+        let front = two_fmt(&[0, 1]);
+        check(
+            "WAV iki fmt, 4. kanal",
+            front,
+            two_fmt(&[3]),
+            Some(single + surround),
+        );
+        assert!(wrong.is_empty(), "{wrong:#?}");
+    }
+
+    /// Maskesi yazılı dörtlü (0x33: L, R, arka sol, arka sağ) ve 2.1 (0x0B: L, R, LFE) dosya.
+    #[test]
+    fn dortlu_ve_2_1_dosyada_agirlik() {
+        let rate = 48_000;
+        let measure = |mask: u32, active: &[usize]| {
+            let path = temp_path("dortlu-2-1.wav");
+            write_wav_layout(&path, rate, mask, 3 * rate as usize, tone_in(rate, active));
+            quick_loudness(&path)
+        };
+        let surround = 10.0 * 1.41f64.log10();
+        let quad_front = measure(0x33, &[0, 1]).expect("ön çift ölçülür");
+        let quad_rear =
+            measure(0x33, &[2, 3]).map(|l| l.integrated_lufs - quad_front.integrated_lufs);
+        assert!(
+            quad_rear.is_some_and(|d| (d - surround).abs() < 0.05),
+            "dörtlü arka çift: {quad_rear:?} dB, beklenen {surround:.3}"
+        );
+        let stereo = measure(0x03, &[0, 1]).expect("stereo ölçülür");
+        let front = measure(0x0B, &[0, 1]).expect("2.1 ön çift ölçülür");
+        assert!(
+            (front.integrated_lufs - stereo.integrated_lufs).abs() < 0.01,
+            "2.1'in ön çifti stereo gibi: {front:?} / {stereo:?}"
+        );
+        assert_eq!(measure(0x0B, &[2]), None, "2.1'in LFE'si ölçüme girmez");
     }
 }

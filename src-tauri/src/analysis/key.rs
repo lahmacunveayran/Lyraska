@@ -666,6 +666,28 @@ mod tests {
     }
 
     #[test]
+    fn ayni_pencere_tekrarlaninca_sarkinin_guveni_pencereninkine_esit() {
+        // Metamorfik ilişki: şarkının güveni "kazanan tonun pencerelerinin ortalama güveni × oy
+        // payı"dır. Aynı 15 sn'lik pencere iki kez tekrarlanırsa oy payı 1, ortalama da o
+        // pencerenin güvenidir. Satır Do majör ve La minör profillerinin toplamı (0..255'e
+        // ölçekli): ton Do majör, güven 1'den belirgin küçük (~0,45), yani ilişki sınırda değil.
+        // Tolerans 1e-6: güven f32 (yedi anlamlı basamak); fark yalnızca yuvarlamadan gelebilir.
+        let row = [255, 105, 152, 106, 198, 175, 113, 185, 121, 217, 108, 139];
+        let chroma = vec![row; 2 * VOTE_WINDOW_SECONDS];
+        let window = estimate(&sum_chroma(&chroma[..VOTE_WINDOW_SECONDS])).unwrap();
+        assert!(
+            window.is_confident() && window.confidence < 0.9,
+            "{window:?}"
+        );
+        let song = song_key(&chroma).unwrap();
+        assert_eq!((song.tonic, song.minor), (0, false), "{song:?}");
+        assert!(
+            (song.confidence - window.confidence).abs() < 1e-6,
+            "{song:?} {window:?}"
+        );
+    }
+
+    #[test]
     fn do_majorde_akor_dizisi_do_major_bulunur() {
         let key = detect(&progression(C, false), 0.0, 0.0);
         assert_eq!((key.tonic, key.minor), (0, false), "{key:?}");
@@ -729,6 +751,21 @@ mod tests {
         let key = analysis.key.unwrap();
         assert_eq!((key.tonic, key.minor), (9, true), "{key:?}");
         assert!(key.is_confident(), "{key:?}");
+    }
+
+    #[test]
+    fn la_440_hz_sinusunde_akort_kaymasi_sifir() {
+        // ISO 16: La4 = 440 Hz akordun tanımıdır; saf 440 Hz sinüsün akort kayması 0'dır.
+        // Tolerans 0,01 yarım ton (1 sent): 22 050 Hz'te kutu 2,69 Hz (440 Hz'te ~10,6 sent);
+        // Hann penceresinde logaritmik parabolün sapması bunun küçük bir kesridir (ölçülen
+        // +0,05 sent, toleransın yirmide biri). Tepe yerine iniş yamacını seçen bir hata tahmini
+        // yarım kutuya yakın yukarı iter (ölçülen +5,1 sent = 0,051 yarım ton), toleransın beş
+        // katı.
+        let samples: Vec<f64> = (0..RATE as usize * 3)
+            .map(|i| 0.5 * (2.0 * std::f64::consts::PI * 440.0 * i as f64 / f64::from(RATE)).sin())
+            .collect();
+        let analysis = analyze(&samples);
+        assert!(analysis.tuning.abs() < 0.01, "{}", analysis.tuning);
     }
 
     #[test]
