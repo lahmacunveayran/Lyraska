@@ -45,3 +45,6 @@ src/audio/peq.rs:596:50: replace && with || in parse_filter
 src/audio/peq.rs:731:9: replace ParametricSettings::boost_db -> f64 with -1.0
 src/audio/punch.rs:194:42: replace < with == in Punch::update_gain
 src/audio/waveform.rs:127:52: replace + with * in Decimator::finish
+src/audio/player/decode_thread.rs:60:12: delete ! in decode_loop
+src/audio/player/transition.rs:137:31: replace match guard next.path == path with true in Player::begin_transition
+src/audio/player/visuals.rs:175:41: replace ^ with | in Player::visual_eq_offsets

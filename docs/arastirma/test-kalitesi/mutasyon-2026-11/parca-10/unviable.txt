@@ -5,3 +5,8 @@ src/analysis/fingerprint.rs:121:9: replace TrackPrint::of -> Self with Default::
 src/analysis/lyrics_text.rs:948:9: replace Builder::chorus -> Option<Vec<AlignLine>> with Some(vec![Default::default()])
 src/analysis/spectrogram.rs:320:9: replace Spectrogram::bass_peaks -> Option<BassPeaks> with Some(Default::default())
 src/audio/eq.rs:63:29: replace * with /
+src/audio/player/blind_test.rs:88:9: replace Player::abx_stop -> AbxStatus with Default::default()
+src/audio/player/session.rs:148:9: replace SharedState::now_playing_indexed -> Option<(TrackInfo, f64, Option<u64>, usize)> with Some((Default::default(), 1.0, Some(1), 1))
+src/audio/player/session.rs:352:9: replace Session::now_playing_timed -> (TrackInfo, f64, Option<u64>, usize) with (Default::default(), 0.0, Some(1), 1)
+src/audio/player/track_analysis.rs:126:9: replace Analysis::refresh -> Option<Self> with Some(Default::default())
+src/audio/player/visuals.rs:59:9: replace Player::visual_ahead -> Option<VisualData> with Some(Default::default())
