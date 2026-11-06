@@ -227,6 +227,8 @@ impl Player {
             }
         }
         self.retire_session();
+        // Hazırlığı henüz başlamamış geçişlerin kapattığı oturumlar da (kapanış, kör test).
+        self.gate.close_retired();
     }
 
     /// Oturumu kapatır; duyulan boşluksuz geçişleri sayaca ekler (sayaç yalnızca artar).

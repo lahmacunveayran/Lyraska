@@ -29,8 +29,6 @@ pub struct Transition {
     path: PathBuf,
     autoplay: bool,
     start_secs: Option<f64>,
-    /// Kapatılacak eski oturum (kısılması bekleyip düşürülür).
-    old: Option<Session>,
     /// Artık gerekmeyen analizler (iş parçacıkları kilit dışında bırakılır).
     stale: Vec<Analysis>,
     analysis: AnalysisPlan,
@@ -71,17 +69,18 @@ enum Outcome {
 /// Geçişlerin sırası (Denetim 3, RTS-01). Arayüz sarmayı ve şarkı açmayı ayrı kuyruklardan gönderir;
 /// "Önceki"ye iki hızlı basış iki geçişi üst üste başlatır. Eskiden iki hazırlık aynı anda ses aygıtını
 /// açıp çalıyor, eskimiş olanı takılırken kısılmadan kesiliyordu (tık; bit-perfect'te özel modu
-/// tutup yenisinin açılmasını engelleyebilir). Şimdi:
+/// tutup yenisinin açılmasını engelleyebilir). Şimdi ses aygıtında aynı anda tek oturum vardır:
 /// - hazırlıklar sırayla yapılır: yeni hazırlık, ondan önce başlamış ve süren hazırlığın bitmesini
 ///   bekler (`preparing`);
-/// - yeni hazırlık, ondan önceki geçişlerin kapattığı oturumların kısılmasını da bekler
-///   (`retiring`; o geçişin hazırlığı henüz başlamamış olsa da);
+/// - geçişin kapattığı oturum geçişte değil, burada durur (`retired`): hangi hazırlık önce başlarsa
+///   onu kısarak kapatır, ses aygıtını ancak ondan sonra açar;
 /// - daha yeni bir geçiş başlamışsa hazırlık ses aygıtını hiç açmaz; açtıktan sonra eskidiyse oturumu
-///   kısarak kapatır; takılırken eskimiş çıkan oturum da kilit dışında kısılarak kapanır.
+///   kısarak kapatır; takılırken eskimiş çıkan oturum da kilit dışında kısılarak kapanır, sonraki
+///   hazırlık onun kapanmasını bekler (`closing`).
 ///
-/// Bekleme kilit almaz (hazırlıklar oynatıcı kilidi dışındadır); sınırı vardır, takılan bir hazırlık
-/// sonrakileri sonsuza dek durdurmaz.
-#[derive(Debug, Default)]
+/// Bekleme oynatıcı kilidini almaz (hazırlıklar kilit dışındadır); sınırı vardır, takılan bir
+/// hazırlık sonrakileri sonsuza dek durdurmaz.
+#[derive(Default)]
 pub(super) struct TransitionGate {
     /// En son başlatılan geçişin sırası.
     latest: AtomicU64,
@@ -89,16 +88,21 @@ pub(super) struct TransitionGate {
     turn: Condvar,
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 struct GateState {
     /// Hazırlığı süren geçişler.
     preparing: BTreeSet<u64>,
-    /// Geçişlerin kapattığı, kısılması süren oturumlar (geçişin sırasıyla).
-    retiring: Vec<(u64, Weak<SharedState>)>,
+    /// Geçişlerin kapattığı, kısılması başlamış oturumlar: sıradaki hazırlık kapatır.
+    retired: Vec<Session>,
+    /// Hazırlanmış ama henüz takılmamış oturumlar ile kilit dışında (ayrı iş parçacığında)
+    /// kapanmakta olanlar: sonraki hazırlık, takılmaları ya da kapanmaları bitene kadar bekler.
+    unsettled: Vec<Weak<SharedState>>,
 }
 
 /// Yeni hazırlık, önceki hazırlık bitmezse en çok bu kadar bekler.
 const TURN_TIMEOUT: Duration = Duration::from_secs(10);
+/// Kilit dışında kapanan oturumun bitmesi en çok bu kadar beklenir (kısılma + iş parçacıkları).
+const CLOSING_TIMEOUT: Duration = Duration::from_millis(500);
 
 impl TransitionGate {
     fn state(&self) -> MutexGuard<'_, GateState> {
@@ -115,9 +119,21 @@ impl TransitionGate {
         self.latest.load(Ordering::Acquire) != seq
     }
 
-    /// Kısılmakta olan oturum: sonraki geçişler açılmadan önce kısılmasının bitmesini bekler.
-    fn retire(&self, seq: u64, shared: &Arc<SharedState>) {
-        self.state().retiring.push((seq, Arc::downgrade(shared)));
+    /// Kapatılacak oturum (kısılması başlamış olmalı): sıradaki hazırlık kapatır.
+    fn retire(&self, session: Session) {
+        self.state().retired.push(session);
+    }
+
+    /// Hazırlanan oturum takılana (ya da eskimişse kapanana) kadar sonraki hazırlık bekler.
+    fn unsettled(&self, shared: &Arc<SharedState>) {
+        self.state().unsettled.push(Arc::downgrade(shared));
+    }
+
+    /// Hazırlanan oturum takıldı: artık oynatıcının oturumu (sonraki geçiş onu kapatır).
+    fn settled(&self, shared: &Arc<SharedState>) {
+        self.state()
+            .unsettled
+            .retain(|weak| !std::ptr::eq(weak.as_ptr(), Arc::as_ptr(shared)));
     }
 
     /// Sırayı bekler: `seq`'ten önce başlamış, süren hazırlık kalmayınca döner.
@@ -138,22 +154,29 @@ impl TransitionGate {
         Turn { gate: self, seq }
     }
 
-    /// `seq`'ten önceki geçişlerin kapattığı oturumların kısılmasını bekler.
-    fn wait_for_retiring(&self, seq: u64) {
-        let earlier: Vec<Arc<SharedState>> = {
-            let mut state = self.state();
-            state.retiring.retain(|(_, weak)| weak.strong_count() > 0);
-            state
-                .retiring
-                .iter()
-                .filter(|(owner, _)| *owner < seq)
-                .filter_map(|(_, weak)| weak.upgrade())
-                .collect()
-        };
-        for shared in earlier {
-            if !shared.ended.load(Ordering::Acquire) && shared.error().is_none() {
-                wait_for_fade_out(&shared, FADE_OUT_TIMEOUT);
+    /// Havuzdaki kapatılan oturumları kısarak kapatır (oynatıcı kapanırken ve kör test başlarken de).
+    pub(super) fn close_retired(&self) {
+        let retired = std::mem::take(&mut self.state().retired);
+        for session in retired {
+            close_quietly(session);
+        }
+    }
+
+    /// Kapatılan oturumları kısarak kapatır; hazırlanmış ama takılmamış ve kilit dışında kapanan
+    /// oturumları bekler: dönünce ses aygıtında eski oturum kalmamıştır.
+    fn clear_device(&self) {
+        self.close_retired();
+        let deadline = Instant::now() + CLOSING_TIMEOUT;
+        loop {
+            let busy = {
+                let mut state = self.state();
+                state.unsettled.retain(|weak| weak.strong_count() > 0);
+                !state.unsettled.is_empty()
+            };
+            if !busy || Instant::now() >= deadline {
+                break;
             }
+            std::thread::sleep(Duration::from_millis(2));
         }
     }
 }
@@ -259,7 +282,6 @@ impl Player {
             ) {
                 // Kısılma hemen başlar; hoparlöre ulaşması `prepare`'de beklenir.
                 session.shared.paused.store(true, Ordering::Release);
-                self.gate.retire(seq, &session.shared);
             }
             let (track, _) = session.now_playing();
             if track.path == path {
@@ -267,6 +289,10 @@ impl Player {
             }
         }
         self.pending = Some(pending);
+        // Eski oturum sıradaki hazırlıkça kapatılır (bu geçişinki olmayabilir: o daha önce başlarsa).
+        if let Some(session) = old {
+            self.gate.retire(session);
+        }
         let mut stale = Vec::new();
         let analysis = if self.analysis.as_ref().is_some_and(|a| a.path == path) {
             AnalysisPlan::Keep(self.analysis.as_ref().map(|a| Arc::clone(&a.spectrogram)))
@@ -286,7 +312,6 @@ impl Player {
             path: path.to_path_buf(),
             autoplay,
             start_secs,
-            old,
             stale,
             analysis,
             context: self.analysis_context.clone(),
@@ -312,7 +337,6 @@ impl Player {
             path,
             autoplay,
             start_secs,
-            old,
             stale,
             analysis,
             context,
@@ -322,21 +346,10 @@ impl Player {
         } = transition;
         // Önce başlamış hazırlık bitene kadar beklenir: iki hazırlık aynı anda aygıt açmaz.
         let turn = gate.enter(seq);
-        // Eski oturum: kısılma hoparlöre ulaşınca kapanır ("tık" olmasın); ses aygıtı serbest
-        // kalır, iki şarkı üst üste çalmaz.
-        if let Some(session) = old {
-            if session.shared.paused.load(Ordering::Acquire)
-                && !session.shared.ended.load(Ordering::Acquire)
-                && session.shared.error().is_none()
-            {
-                wait_for_fade_out(&session.shared, FADE_OUT_TIMEOUT);
-            }
-            drop(session);
-        }
         drop(stale);
-        // Önceki geçişlerin kapattığı oturumlar da kısılmış olsun (hazırlıkları başlamamış olabilir).
-        gate.wait_for_retiring(seq);
-        // Daha yeni bir geçiş var: bu hazırlık ses aygıtını açmaz (şarkının bilgisi yeter).
+        // Daha yeni bir geçiş var: bu hazırlık ses aygıtına hiç dokunmaz (şarkının bilgisi yeter).
+        // Eski oturumları da kapatmaz: onları en son geçişin hazırlığı kapatır (eskimiş hazırlık
+        // havuzu alırsa, en son hazırlık havuzu boş bulup kapanma bitmeden aygıtı açabilirdi).
         if gate.superseded(seq) {
             drop(turn);
             let outcome = match Decoder::open(&path) {
@@ -351,6 +364,9 @@ impl Player {
                 outcome,
             };
         }
+        // Eski oturumlar (bu geçişin ve önceki geçişlerin kapattıkları): kısılma hoparlöre ulaşınca
+        // kapanır ("tık" olmasın); ses aygıtı serbest kalır, iki şarkı üst üste çalmaz.
+        gate.clear_device();
         // Analiz önce kurulur: ses yüksekliği ölçümü hazırsa ilk örnekten uygulanır.
         let (analysis, spectrogram) = match analysis {
             AnalysisPlan::Keep(spectrogram) => (None, spectrogram),
@@ -392,7 +408,10 @@ impl Player {
                 close_quietly(session);
                 Outcome::Superseded(info)
             }
-            Ok(session) => Outcome::Started(session),
+            Ok(session) => {
+                gate.unsettled(&session.shared);
+                Outcome::Started(session)
+            }
             Err(error) => Outcome::Failed(error),
         };
         drop(turn);
@@ -427,7 +446,6 @@ impl Player {
                     // geçişler kısılmanın bitmesini bekler.
                     let info = session.info.clone();
                     session.shared.paused.store(true, Ordering::Release);
-                    gate.retire(seq, &session.shared);
                     let closing = std::thread::Builder::new()
                         .name("lyraska-oturum-kapat".into())
                         .spawn(move || close_quietly(session));
@@ -452,6 +470,7 @@ impl Player {
                     session.shared.set_next(self.next_path.clone());
                 }
                 let info = session.info.clone();
+                gate.settled(&session.shared);
                 self.session = Some(session);
                 self.refresh_parametric_rate();
                 Ok(info)
