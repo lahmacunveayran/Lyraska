@@ -4,3 +4,4 @@ src/audio/decode.rs:460:9: replace Decoder::next_chunk -> Result<Option<&[Sample
 src/audio/decode.rs:545:69: replace * with / in Decoder::next_chunk
 src/audio/gapless.rs:161:5: replace next_box -> Option<([u8; 4], &[u8], usize)> with Some(([1; 4], Vec::leak(vec![1]), 1))
 src/audio/resample.rs:173:29: replace -= with /= in Converter::run_blocks
+src/audio/player/decode_thread.rs:137:37: replace / with * in decode_loop

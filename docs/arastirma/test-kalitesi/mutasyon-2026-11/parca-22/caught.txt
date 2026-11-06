@@ -212,3 +212,18 @@ src/audio/punch.rs:151:23: replace >= with < in Punch::process_frame
 src/audio/punch.rs:182:65: replace == with != in Punch::update_gain
 src/audio/render.rs:130:9: replace Renderer::latency_frames -> usize with 0
 src/audio/render.rs:235:32: replace - with / in Renderer::render
+src/audio/spectrum.rs:92:30: replace / with % in Transform::magnitudes
+src/audio/spectrum.rs:134:39: replace * with + in level
+src/audio/waveform.rs:83:60: replace * with / in Halving::push
+src/audio/waveform.rs:151:52: replace == with != in Decimator::interpolate
+src/audio/waveform.rs:255:16: replace += with *= in WaveformTap::write
+src/audio/waveform.rs:299:38: replace || with && in WaveformTap::read_window
+src/audio/waveform.rs:347:5: replace to_bytes -> Vec<u8> with vec![0]
+src/audio/player/bit_perfect.rs:19:5: replace output_mode -> (OutputMode, Option<String>) with (Default::default(), Some(String::new()))
+src/audio/player/controls.rs:51:9: replace Player::parametric_rate -> f64 with 1.0
+src/audio/player/next_track.rs:67:9: replace SharedState::push_segment with ()
+src/audio/player/session.rs:123:9: replace SharedState::heard_with_time -> (u64, Option<u64>) with (1, Some(1))
+src/audio/player/session.rs:251:32: replace > with == in Session::start
+src/audio/player/track_analysis.rs:190:58: replace == with != in Player::adopt_analysis
+src/audio/player/transition.rs:253:56: replace == with != in Player::install
+src/audio/player/visuals.rs:131:9: replace Player::visual_spectrum -> Option<Vec<f32>> with Some(vec![0.0])
