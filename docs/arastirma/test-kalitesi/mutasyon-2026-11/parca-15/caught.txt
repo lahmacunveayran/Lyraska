@@ -162,3 +162,36 @@ src/audio/eq.rs:611:20: replace / with % in design_target
 src/audio/eq.rs:687:14: replace * with + in Design::peak_db
 src/audio/eq.rs:872:26: replace + with * in EqProcessor::step
 src/audio/gapless.rs:51:39: replace * with / in mp4_trim
+src/audio/gapless.rs:182:25: replace + with * in header_timescale
+src/audio/limiter.rs:142:42: replace + with * in Limiter::process_frame
+src/audio/limiter.rs:174:27: replace + with - in Limiter::true_peak
+src/audio/limiter.rs:201:17: replace > with < in Limiter::next_gain
+src/audio/loudness.rs:79:67: replace * with / in Biquad::process
+src/audio/loudness.rs:104:32: replace / with % in k_weighting
+src/audio/loudness.rs:107:41: replace - with + in k_weighting
+src/audio/loudness.rs:115:41: replace - with / in k_weighting
+src/audio/loudness.rs:284:26: replace != with == in channel_weights
+src/audio/loudness.rs:338:31: replace += with -= in LoudnessMeter::add
+src/audio/lyrics.rs:182:5: replace sidecar_text -> Option<String> with Some(String::new())
+src/audio/lyrics.rs:304:65: delete ! in parse
+src/audio/lyrics.rs:399:13: delete ! in is_id_tag
+src/audio/lyrics.rs:414:11: delete ! in word_stamps
+src/audio/normalize.rs:26:27: delete -
+src/audio/normalize.rs:244:48: replace - with / in TrackLevels::level
+src/audio/normalize.rs:320:9: replace - with / in coefficient
+src/audio/normalize.rs:406:59: replace >= with < in Leveler::next_gain
+src/audio/normalize.rs:436:48: replace - with / in Leveler::next_gain
+src/audio/normalize.rs:456:19: replace * with / in Leveler::next_gain
+src/audio/output.rs:83:53: replace - with + in IntFormat::encode
+src/audio/peq.rs:398:5: replace parse_number -> Option<f64> with Some(1.0)
+src/audio/peq.rs:464:63: replace - with + in refine_peak
+src/audio/peq.rs:502:5: replace shelf_q_from_slope -> Option<f64> with Some(-1.0)
+src/audio/peq.rs:508:22: replace * with + in shelf_slope_from_q
+src/audio/peq.rs:601:62: replace / with * in parse_filter
+src/audio/peq.rs:896:35: replace / with % in response_curve
+src/audio/peq.rs:939:15: replace += with -= in loudness_gain_db_at
+src/audio/peq.rs:1110:25: replace && with || in Bank::is_bypass
+src/audio/peq.rs:1211:24: replace -= with /= in PeqProcessor::process_frame
+src/audio/punch.rs:128:9: replace Punch::gain_db -> f64 with 1.0
+src/audio/punch.rs:173:26: replace -= with += in Punch::process_frame
+src/audio/punch.rs:200:13: replace || with && in Punch::update_gain

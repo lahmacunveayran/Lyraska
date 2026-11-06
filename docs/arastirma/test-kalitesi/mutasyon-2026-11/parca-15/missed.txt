@@ -46,3 +46,11 @@ src/audio/decode.rs:813:24: replace == with != in matroska_duration
 src/audio/eq.rs:740:20: replace < with <= in solve_linear
 src/audio/eq.rs:827:28: replace < with == in EqProcessor::begin_block
 src/audio/gapless.rs:112:14: replace > with == in walk
+src/audio/limiter.rs:245:13: replace + with - in interpolator
+src/audio/limiter.rs:251:22: replace > with >= in interpolator
+src/audio/loudness.rs:231:29: replace | with & in default_layout
+src/audio/loudness.rs:240:55: replace | with & in default_layout
+src/audio/loudness.rs:372:41: replace > with >= in LoudnessMeter::finish
+src/audio/lyrics.rs:377:35: replace && with || in parse_time
+src/audio/peq.rs:442:37: replace - with + in coefs_peak_db
+src/audio/peq.rs:743:9: replace ParametricSettings::loudness_db -> f64 with 1.0
