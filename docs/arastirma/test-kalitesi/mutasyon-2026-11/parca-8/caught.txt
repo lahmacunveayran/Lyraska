@@ -151,3 +151,35 @@ src/audio/eq.rs:463:58: replace / with * in Biquad::high_shelf
 src/audio/eq.rs:465:34: replace - with + in Biquad::high_shelf
 src/audio/eq.rs:473:22: replace * with / in Biquad::response_db
 src/audio/eq.rs:478:38: replace * with / in Biquad::response_db
+src/audio/eq.rs:487:58: replace + with - in Biquad::power_gain
+src/audio/eq.rs:494:5: replace db_to_linear -> f64 with 0.0
+src/audio/eq.rs:545:26: replace * with + in Layout::tuned
+src/audio/eq.rs:561:59: replace * with + in Layout::tuned
+src/audio/eq.rs:604:47: replace + with - in design_point_hz
+src/audio/eq.rs:722:61: replace * with + in solve_gains
+src/audio/eq.rs:809:9: replace EqProcessor::is_flat -> bool with false
+src/audio/eq.rs:860:40: replace * with + in EqProcessor::process
+src/audio/gapless.rs:96:25: replace == with != in find_top_level
+src/audio/gapless.rs:151:34: replace |= with &= in walk_track
+src/audio/gapless.rs:175:30: replace + with - in next_box
+src/audio/limiter.rs:121:9: replace Limiter::latency_frames -> usize with 0
+src/audio/limiter.rs:169:58: replace % with + in Limiter::true_peak
+src/audio/limiter.rs:198:53: replace % with / in Limiter::next_gain
+src/audio/limiter.rs:246:18: replace % with + in interpolator
+src/audio/loudness.rs:79:31: replace + with - in Biquad::process
+src/audio/loudness.rs:103:17: replace + with * in k_weighting
+src/audio/loudness.rs:107:23: replace - with / in k_weighting
+src/audio/loudness.rs:115:19: replace * with + in k_weighting
+src/audio/loudness.rs:228:5: replace default_layout -> Option<u64> with None
+src/audio/loudness.rs:279:40: replace == with != in channel_weights
+src/audio/loudness.rs:332:25: replace += with -= in LoudnessMeter::add
+src/audio/lyrics.rs:153:5: replace text_for_track -> Option<LyricsText> with None
+src/audio/lyrics.rs:377:22: replace match guard c.len() == 2 && b.len() == 2 && !c.contains('.') with true in parse_time
+src/audio/lyrics.rs:383:44: replace * with / in parse_time
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with ("xyzzy".into(), vec![(1.0, "xyzzy".into())], String::new())
+src/audio/lyrics.rs:480:16: replace += with *= in estimate_words
+src/audio/normalize.rs:186:9: replace TrackLevels::is_final -> bool with false
+src/audio/normalize.rs:385:41: replace - with + in Leveler::begin_block
+src/audio/normalize.rs:434:42: replace > with < in Leveler::next_gain
+src/audio/normalize.rs:445:28: replace -= with /= in Leveler::next_gain
+src/audio/output.rs:81:47: replace - with / in IntFormat::encode
