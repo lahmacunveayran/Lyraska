@@ -25,3 +25,30 @@ src/analysis/fingerprint.rs:400:53: replace + with - in band_word
 src/analysis/fingerprint.rs:466:16: delete ! in BandMap::standard
 src/analysis/key.rs:153:46: replace && with || in key_relation
 src/analysis/key.rs:220:62: replace != with == in KeyAnalysis::key_map
+src/analysis/key.rs:270:85: replace * with + in song_key
+src/analysis/key.rs:304:43: replace / with % in correlation
+src/analysis/key.rs:450:32: replace += with *= in ChromaAnalyzer::process
+src/analysis/key.rs:491:35: replace / with * in fold
+src/analysis/levels.rs:69:14: replace <= with > in amplitude_db
+src/analysis/levels.rs:119:23: replace * with / in vu_reference_db
+src/analysis/lyrics_align.rs:194:11: replace <= with > in log_add
+src/analysis/lyrics_align.rs:228:52: replace * with / in skip_arcs
+src/analysis/lyrics_align.rs:282:18: replace >= with < in viterbi
+src/analysis/lyrics_align.rs:322:26: replace * with / in viterbi
+src/analysis/lyrics_align.rs:369:70: replace < with == in entry_mass
+src/analysis/lyrics_align.rs:396:23: replace * with + in entry_mass
+src/analysis/lyrics_align.rs:409:56: replace + with * in entry_mass
+src/analysis/lyrics_align.rs:430:5: replace median -> f64 with -1.0
+src/analysis/lyrics_cache.rs:88:16: delete ! in StoredEmissions::select
+src/analysis/lyrics_cache.rs:224:46: replace * with + in StoredEmissions::consistent
+src/analysis/lyrics_cache.rs:280:23: replace > with >= in storable
+src/analysis/lyrics_job.rs:184:57: replace <= with > in AutoAlignment::valid
+src/analysis/lyrics_job.rs:333:5: replace spoken_spans -> Option<Vec<(f64, f64)>> with Some(vec![(-1.0, 0.0)])
+src/analysis/lyrics_model.rs:48:37: replace * with +
+src/analysis/lyrics_model.rs:216:9: delete match arm DataType::Float in tensor_f32
+src/analysis/lyrics_model.rs:366:16: delete ! in dequantize_matmuls
+src/analysis/lyrics_model.rs:468:32: replace match guard kept_letter(c) with true in parse_tokens
+src/analysis/lyrics_model.rs:596:58: replace != with == in LyricsModel::run_window
+src/analysis/lyrics_model.rs:667:31: replace * with + in LyricsModel::emissions
+src/analysis/lyrics_model.rs:683:37: replace * with + in LyricsModel::emissions
+src/analysis/lyrics_package.rs:104:52: replace + with - in copy_hashing
