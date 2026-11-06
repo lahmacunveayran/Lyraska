@@ -189,3 +189,25 @@ src/audio/peq.rs:462:37: replace / with % in refine_peak
 src/audio/peq.rs:497:5: replace q_from_bandwidth -> f64 with 0.0
 src/audio/peq.rs:503:71: replace / with * in shelf_q_from_slope
 src/audio/peq.rs:545:24: replace + with * in parse_filter
+src/audio/peq.rs:708:9: replace ParametricSettings::filters -> Vec<PeqFilter> with vec![]
+src/audio/peq.rs:1041:20: replace && with || in PeqControl::design
+src/audio/peq.rs:1195:9: replace PeqProcessor::process_frame with ()
+src/audio/player/mod.rs:295:29: replace match guard self.last_error.is_some() with true in Player::state
+src/audio/render.rs:161:23: delete ! in Renderer::render
+src/audio/resample.rs:83:9: replace Converter::output_channels -> usize with 0
+src/audio/resample.rs:144:29: replace && with || in Converter::run_blocks
+src/audio/spectrum.rs:142:5: replace bar_levels -> Vec<f32> with vec![0.0]
+src/audio/waveform.rs:84:32: replace + with - in Halving::push
+src/audio/waveform.rs:157:50: replace - with / in Decimator::interpolate
+src/audio/waveform.rs:274:27: replace || with && in WaveformTap::read_window
+src/audio/waveform.rs:313:8: delete ! in to_byte
+src/audio/waveform.rs:353:34: replace + with * in to_bytes
+src/audio/player/bit_perfect.rs:76:32: replace == with != in Player::set_playback_options
+src/audio/player/next_track.rs:118:5: replace attach_next with ()
+src/audio/player/session.rs:168:50: replace * with / in SharedState::playing_at_frame
+src/audio/player/session.rs:308:17: delete field bit_perfect from struct RenderControls expression in Session::start
+src/audio/player/session.rs:401:11: delete ! in wait_for_fade_out
+src/audio/player/track_analysis.rs:63:37: replace match guard !cached.stale.any() with true in Analysis::start_analysis
+src/audio/player/transition.rs:316:9: replace Player::begin_play -> Option<Transition> with None
+src/audio/player/visuals.rs:156:9: replace Player::set_audio_delay_ms -> i32 with 0
+src/audio/player/visuals.rs:229:9: replace SharedState::waveform_at -> Option<Vec<u8>> with Some(vec![1])
