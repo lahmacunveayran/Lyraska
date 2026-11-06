@@ -48,3 +48,30 @@ src/analysis/lyrics_model.rs:467:13: delete match arm (None, _) in parse_tokens
 src/analysis/lyrics_model.rs:596:41: replace != with == in LyricsModel::run_window
 src/analysis/lyrics_model.rs:682:37: delete ! in LyricsModel::emissions
 src/analysis/lyrics_package.rs:104:5: replace copy_hashing -> Result<String, PackageError> with Ok("xyzzy".into())
+src/analysis/lyrics_text.rs:244:5: replace repeat_count -> Option<usize> with None
+src/analysis/lyrics_text.rs:321:9: replace && with || in is_roman
+src/analysis/lyrics_text.rs:436:17: replace != with == in header_of
+src/analysis/lyrics_text.rs:562:14: replace > with == in turkish_number
+src/analysis/lyrics_text.rs:709:23: replace && with || in read_integer
+src/analysis/lyrics_text.rs:863:40: replace + with - in prepare_as
+src/analysis/lyrics_text.rs:996:27: replace > with < in Builder::end_paragraph
+src/analysis/lyrics_worker.rs:302:40: replace match guard slot.is_unavailable() with false in run
+src/analysis/map_file.rs:381:56: replace || with && in MapFile::validate
+src/analysis/map_file.rs:407:31: replace * with / in MapFile::validate
+src/analysis/map_file.rs:478:92: replace % with + in MapFile::shifted
+src/analysis/map_file.rs:558:8: replace * with / in round_time
+src/analysis/meter.rs:190:5: replace template -> Vec<f64> with vec![0.0]
+src/analysis/meter.rs:237:41: replace / with * in correlation
+src/analysis/meter.rs:252:5: replace zscores -> Vec<f64> with vec![]
+src/analysis/spectrogram.rs:126:9: replace Spectrogram::is_done -> bool with false
+src/analysis/spectrogram.rs:208:31: replace + with - in Spectrogram::frame_at
+src/analysis/spectrogram.rs:376:9: replace Spectrogram::push with ()
+src/analysis/spectrogram.rs:886:9: replace BandAnalyzer::process -> ([u8; BANDS], f32) with ([1; BANDS], 1.0)
+src/analysis/spectrogram.rs:923:5: replace band_centers -> [f64; BANDS] with [0.0; BANDS]
+src/analysis/spectrogram.rs:942:36: replace * with / in band_edges
+src/analysis/structure.rs:202:30: replace + with - in map_song
+src/analysis/structure.rs:263:51: replace - with / in map_song
+src/analysis/structure.rs:442:5: replace choose_meter -> (usize, usize, f64) with (1, 0, 1.0)
+src/analysis/structure.rs:483:17: replace + with * in phase_agreement
+src/analysis/structure.rs:524:18: replace < with == in section_boundaries
+src/analysis/structure.rs:532:42: replace + with * in section_boundaries
