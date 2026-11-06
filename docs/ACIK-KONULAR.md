@@ -38,8 +38,9 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
   (#13, #14: söz hizalama betiğinin `pip install`'ları karmalı istek dosyasından) bir sonraki taramada kapanmalı;
   Code-Review ve Binary-Artifacts sahibi "Won't fix" ile kapattı; Maintained zamanla kapanır; Vulnerabilities
   (Linux'a özgü GTK bağımlılığı), Fuzzing, CII-Best-Practices sonra.
-- Sahne denetiminde ara sıra `ERR_CONNECTION_REFUSED` (iki kez, 6 Kasım): #220'den beri iletide adres yazıyor;
-  yinelenirse adrese göre düzeltilir.
+- Sahne denetiminin ara sıra düşmeleri (yavaş Windows CI): `ERR_CONNECTION_REFUSED` (iki kez; #220'den beri adres
+  yazıyor) ve "Resim seç…" tıklaması 5 sn'yi aşıyor (#229, #230; ana iş parçacığını kilitlemek yeniden üretmedi;
+  #232 yanıt süresini yazıyor). Yinelenirse iletideki kanıta göre düzeltilir.
 - Rust `arayuzdeki_ekolayzer_korumasi_aygitin_hizinda` bir kez düştü (5 Kasım; tek başına 5/5); yinelenirse yakala.
 - Test kalitesi: tam mutasyon taraması bitti (%81,0; 1 656 kaçan, `claude/mutasyon-*` dalları); ayıklama sürüyor
   (sırada `structure.rs`, `biquad.rs` `matched`, `bass.rs` `process_frame`); eskimiş 4 yedek dal sahibine soruluyor.
@@ -48,8 +49,7 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
   yok. Araştırma `docs/arastirma/kutuphane-arastirma.md`.
 - symphonia'nın kanal sırası (EBU uyumunun bağımsız incelemesi, 6 Kasım; doğrulanmadı): ALAC 6.1/7.1 eşlemesi ffmpeg'den
   farklı görünüyor; CAF'ın kanal tanımlı (`Custom`) düzeni ve FLAC'ın kanal maskesi etiketi okunmuyor. Nadir; bakılacak.
-- WebM'de şarkı adı okunmuyor (Matroska Segment Title; symphonia okumuyor) ve sondaki Opus dolgusu (≤ 20 ms)
-  atılmıyor (DiscardPadding). İkisi de küçük; istenirse kendi küçük EBML okuyucusuyla.
+- WebM: şarkı adı (Matroska Segment Title) okunmuyor, sondaki Opus dolgusu (≤ 20 ms) atılmıyor; ikisi küçük.
 - Köy işi (sahibinin 656 şarkısı, 1 Kasım; araç `examples/koy_isi.rs`): hızlı türlerde yarım tempo
   düzeltildi (eşit nabız, #171; `docs/arastirma/tempo/`). 3:2'nin dördü düzeldi (üç vuruşta iki, #173); açık: Armin, Discobitch, DnB/Skillet
   2× (vuruş arası oranı 0,5–0,73), ölçü güveni şarkıların yarısında < 0,5, söz "oturmadı" hükmü fazla temkinli
