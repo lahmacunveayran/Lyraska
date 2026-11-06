@@ -122,3 +122,29 @@ src/audio/biquad.rs:244:20: replace >= with < in Biquad::lowpass
 src/audio/biquad.rs:271:37: replace / with % in Biquad::bandpass
 src/audio/biquad.rs:286:24: replace * with + in Biquad::notch
 src/audio/biquad.rs:301:18: replace + with * in Biquad::allpass
+src/audio/biquad.rs:353:42: replace / with % in Biquad::matched
+src/audio/biquad.rs:379:60: replace * with / in Biquad::matched
+src/audio/biquad.rs:426:43: replace * with + in Biquad::matched
+src/audio/biquad.rs:527:21: replace * with + in Biquad::response
+src/audio/biquad.rs:553:43: replace + with * in Biquad::power_gain
+src/audio/biquad.rs:583:29: replace + with - in Biquad::process
+src/audio/biquad.rs:592:5: replace phi -> (f64, f64, f64) with (1.0, 1.0, -1.0)
+src/audio/biquad.rs:599:13: replace < with == in matched_poles
+src/audio/biquad.rs:606:26: delete - in matched_poles
+src/audio/biquad.rs:646:26: replace + with * in factor
+src/audio/biquad.rs:662:19: replace * with + in min_phase
+src/audio/biquad.rs:756:37: replace + with - in Grid::add_top
+src/audio/biquad.rs:794:33: replace / with * in Grid::fit
+src/audio/biquad.rs:843:61: replace * with + in Grid::fit
+src/audio/crossfeed.rs:201:27: replace * with + in SideFilter::design
+src/audio/crossfeed.rs:209:22: replace + with - in SideFilter::design
+src/audio/crossfeed.rs:222:39: replace * with + in SideFilter::response
+src/audio/crossfeed.rs:231:30: replace - with + in SideFilter::process
+src/audio/decode.rs:103:5: replace header_declares_layout -> bool with false
+src/audio/decode.rs:402:44: replace / with * in Decoder::seek
+src/audio/decode.rs:1014:5: replace non_empty -> Option<String> with Some("xyzzy".into())
+src/audio/eq.rs:201:9: replace EqSettings::effective_bass -> (f64, bool) with (1.0, false)
+src/audio/eq.rs:386:9: replace EqControl::version -> u64 with 1
+src/audio/eq.rs:423:34: replace * with + in Biquad::peaking
+src/audio/eq.rs:433:9: replace Biquad::shelf_terms -> (f64, f64, f64) with (1.0, -1.0, 1.0)
+src/audio/eq.rs:444:40: replace * with / in Biquad::low_shelf
