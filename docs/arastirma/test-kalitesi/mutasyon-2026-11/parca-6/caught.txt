@@ -48,3 +48,32 @@ src/analysis/lyrics_model.rs:677:52: replace + with * in LyricsModel::emissions
 src/analysis/lyrics_model.rs:700:51: replace * with + in LyricsModel::emissions
 src/analysis/lyrics_text.rs:116:5: replace compose -> String with String::new()
 src/analysis/lyrics_text.rs:195:13: replace >= with < in detect_language
+src/analysis/lyrics_text.rs:254:23: replace && with || in repeat_count
+src/analysis/lyrics_text.rs:572:10: replace > with >= in turkish_number
+src/analysis/lyrics_text.rs:668:13: replace % with / in english_year
+src/analysis/lyrics_text.rs:743:8: delete ! in read_number
+src/analysis/lyrics_text.rs:792:30: replace - with + in read_number
+src/analysis/lyrics_text.rs:938:9: replace Builder::extend_copies with ()
+src/analysis/lyrics_worker.rs:181:9: replace LyricsWorker::request with ()
+src/analysis/lyrics_worker.rs:395:45: delete ! in next
+src/analysis/map_file.rs:331:27: replace > with < in MapFile::parse
+src/analysis/map_file.rs:369:13: replace || with && in MapFile::validate
+src/analysis/map_file.rs:387:48: replace - with + in MapFile::validate
+src/analysis/map_file.rs:492:33: replace + with - in MapFile::shifted
+src/analysis/map_file.rs:596:82: replace == with != in ImportedMap::is_current
+src/analysis/meter.rs:214:27: replace + with * in pulses
+src/analysis/spectrogram.rs:183:9: replace Spectrogram::set_sample_rate with ()
+src/analysis/spectrogram.rs:493:9: replace SavedAnalysis::is_consistent -> bool with false
+src/analysis/spectrogram.rs:622:26: replace + with - in analyze_source
+src/analysis/spectrogram.rs:905:23: replace + with - in BandAnalyzer::process
+src/analysis/spectrogram.rs:933:23: replace + with * in shift_level
+src/analysis/structure.rs:150:9: replace SongMap::energy_at -> Option<f32> with Some(1.0)
+src/analysis/structure.rs:184:64: replace < with > in map_song
+src/analysis/structure.rs:225:20: replace - with + in map_song
+src/analysis/structure.rs:462:21: replace - with / in choose_meter
+src/analysis/structure.rs:496:26: replace % with / in phase_agreement
+src/analysis/structure.rs:529:28: replace - with + in section_boundaries
+src/analysis/structure.rs:542:56: replace - with + in section_boundaries
+src/analysis/structure.rs:624:45: replace > with == in is_crescendo
+src/analysis/structure.rs:647:23: replace + with - in drop_jumps
+src/analysis/structure.rs:702:38: replace >= with < in find_drops
