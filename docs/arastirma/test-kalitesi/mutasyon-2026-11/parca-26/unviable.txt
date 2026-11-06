@@ -7,3 +7,7 @@ src/audio/biquad.rs:526:9: replace Biquad::response -> Complex<f64> with Complex
 src/audio/eq.rs:440:9: replace Biquad::low_shelf -> Self with Default::default()
 src/audio/gapless.rs:33:5: replace mp4_trim -> Option<Trim> with Some(Default::default())
 src/audio/lyrics.rs:459:5: replace estimate_words -> Vec<LyricWord> with vec![Default::default()]
+src/audio/player/next_track.rs:88:5: replace open_checked -> Option<Decoder> with Some(Default::default())
+src/audio/player/session.rs:164:9: replace SharedState::playing_at_frame -> Option<(TrackInfo, f64, usize)> with Some((Default::default(), -1.0, 0))
+src/audio/player/session.rs:365:9: replace Session::state -> PlaybackState with Default::default()
+src/audio/player/transition.rs:293:9: replace Player::begin_device_recovery -> Option<Transition> with Some(Default::default())

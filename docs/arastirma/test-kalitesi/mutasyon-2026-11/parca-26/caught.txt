@@ -196,3 +196,17 @@ src/audio/punch.rs:183:45: replace / with * in Punch::update_gain
 src/audio/render.rs:135:9: replace Renderer::gain -> f64 with -1.0
 src/audio/render.rs:236:53: replace + with - in Renderer::render
 src/audio/resample.rs:137:13: replace / with % in Converter::run_blocks
+src/audio/spectrum.rs:100:9: replace Transform::bin_hz -> f64 with 0.0
+src/audio/spectrum.rs:134:58: replace / with % in level
+src/audio/waveform.rs:83:32: replace + with * in Halving::push
+src/audio/waveform.rs:155:42: replace / with % in Decimator::interpolate
+src/audio/waveform.rs:267:9: replace WaveformTap::read -> Option<Window> with None
+src/audio/waveform.rs:299:62: replace > with >= in WaveformTap::read_window
+src/audio/waveform.rs:351:46: replace * with + in to_bytes
+src/audio/player/bit_perfect.rs:24:60: replace < with == in output_mode
+src/audio/player/controls.rs:80:35: replace != with == in Player::refresh_parametric_rate
+src/audio/player/session.rs:136:9: replace SharedState::now_playing -> Option<(TrackInfo, f64)> with None
+src/audio/player/song_maps.rs:111:9: replace Player::remove_song_map -> std::io::Result<()> with Ok(())
+src/audio/player/track_analysis.rs:206:30: replace == with != in Player::analysis_for
+src/audio/player/visuals.rs:136:9: replace Player::visual_spectrum_ahead -> Option<Vec<f32>> with Some(vec![])
+src/audio/player/visuals.rs:264:9: replace SharedState::spectrum_at -> Option<Vec<f32>> with None
