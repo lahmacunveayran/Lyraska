@@ -737,6 +737,111 @@ fn daha_yeni_gecis_baslamissa_eski_hazirlik_takilmaz() {
     std::fs::remove_file(b).ok();
 }
 
+/// RTS-01 (Denetim 3): sarma ile şarkı açma üst üste gelince ("Önceki"ye iki hızlı basış) iki hazırlık
+/// aynı anda çalışıyordu: ikisi de ses aygıtını açıp çalıyor, eskimiş olan kısılmadan kesiliyordu
+/// (tık). Denetçinin kanıt testinin iddiaları tersine: aynı anda en çok bir hazırlanmış oturum ses
+/// üretir; hiçbir oturum kısılmadan durdurulmaz.
+#[test]
+fn sarma_ve_acma_ust_uste_gelince_tek_oturum_calar() {
+    let a = temp_path("rts01-a.wav");
+    let b = temp_path("rts01-b.wav");
+    for path in [&a, &b] {
+        write_wav(path, 8_000, 1, 80_000, |frame, _| {
+            0.5 * (frame as f64 * 0.05).sin()
+        });
+    }
+    let mut player = Player::new();
+    player.load(&a, true).unwrap();
+    assert!(wait_until(|| player.status().position_secs > 0.3));
+    let original = Arc::clone(&player.session.as_ref().unwrap().shared);
+
+    // Arayüz sarmayı ve açmayı ayrı kuyruklardan gönderir: ikisi de kilit altında başlar, hazırlık
+    // kilit dışında, aynı anda.
+    let seek = player.begin_seek(1.0).unwrap();
+    let open = player.begin_transition(&b, true, None);
+    let seek_thread = std::thread::spawn(move || Player::prepare(seek));
+    let open_thread = std::thread::spawn(move || Player::prepare(open));
+    let seek_ready = seek_thread.join().unwrap();
+    let open_ready = open_thread.join().unwrap();
+    let prepared: Vec<_> = [&seek_ready, &open_ready]
+        .iter()
+        .filter_map(|ready| ready.session_shared())
+        .collect();
+    let sounding = prepared
+        .iter()
+        .filter(|s| !s.paused.load(Ordering::Acquire) && !s.stop.load(Ordering::Acquire))
+        .count();
+    assert_eq!(
+        sounding, 1,
+        "aynı anda yalnızca bir hazırlanmış oturum çalar"
+    );
+    assert!(
+        original.faded_out.load(Ordering::Acquire),
+        "yeni oturum, çalan şarkının kısılması bitmeden açılmaz"
+    );
+
+    player.install(seek_ready).unwrap();
+    player.install(open_ready).unwrap();
+    assert_eq!(player.status().track.unwrap().path, b);
+    for shared in prepared.iter().chain([&original]) {
+        if shared.stop.load(Ordering::Acquire) || shared.paused.load(Ordering::Acquire) {
+            assert!(
+                wait_until(|| shared.faded_out.load(Ordering::Acquire)),
+                "oturum kısılmadan kesildi (tık)"
+            );
+        }
+    }
+    std::fs::remove_file(a).ok();
+    std::fs::remove_file(b).ok();
+}
+
+/// RTS-01: hazırlık başlamadan daha yeni bir geçiş başladıysa eskimiş hazırlık ses aygıtını hiç açmaz
+/// (bit-perfect'te özel modu tutup yeni şarkının açılmasını engellemesin).
+#[test]
+fn eskimis_hazirlik_ses_aygitini_acmaz() {
+    let a = ramp_song("rts01-eski-a.wav");
+    let b = ramp_song("rts01-eski-b.wav");
+    let mut player = Player::new();
+    let first = player.begin_transition(&a, true, None);
+    let second = player.begin_transition(&b, true, None);
+    let first_ready = Player::prepare(first);
+    assert!(
+        first_ready.session_shared().is_none(),
+        "eskimiş hazırlık oturum açtı"
+    );
+    assert_eq!(player.install(first_ready).unwrap().path, a);
+    player.install(Player::prepare(second)).unwrap();
+    assert_eq!(player.status().track.unwrap().path, b);
+    std::fs::remove_file(a).ok();
+    std::fs::remove_file(b).ok();
+}
+
+/// RTS-01: hazırlık bittikten sonra daha yeni bir geçiş başladıysa takılmayan oturum kısılarak
+/// kapanır (eskiden tam seviyede kesiliyordu: tık).
+#[test]
+fn takilmayan_oturum_kisilarak_kapanir() {
+    let a = temp_path("rts01-kis-a.wav");
+    let b = ramp_song("rts01-kis-b.wav");
+    write_wav(&a, 8_000, 1, 80_000, |_, _| 0.5);
+    let mut player = Player::new();
+    let first = Player::prepare(player.begin_transition(&a, true, None));
+    let started = first.session_shared().expect("ilk hazırlık oturum açtı");
+    assert!(wait_until(
+        || started.output_heard.load(Ordering::Acquire) > 0
+    ));
+    let second = player.begin_transition(&b, true, None);
+    player.install(first).unwrap();
+    assert!(player.session.is_none(), "eskimiş oturum takılmadı");
+    assert!(
+        wait_until(|| started.faded_out.load(Ordering::Acquire)),
+        "takılmayan oturum kısılmadan kesildi"
+    );
+    player.install(Player::prepare(second)).unwrap();
+    assert_eq!(player.status().track.unwrap().path, b);
+    std::fs::remove_file(a).ok();
+    std::fs::remove_file(b).ok();
+}
+
 #[test]
 fn analiz_baslatilamazsa_ilk_ses_beklemez() {
     // Analiz yoksa ölçüm hiç gelmeyecek: eşitleme bu şarkıya uygulanmaz, ses beklemeden
