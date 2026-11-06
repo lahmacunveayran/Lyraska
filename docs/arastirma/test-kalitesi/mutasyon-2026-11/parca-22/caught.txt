@@ -119,3 +119,36 @@ src/audio/biquad.rs:176:22: replace / with % in Biquad::normalized
 src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((1.0, 0.0, 0.0, -1.0))
 src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((-1.0, 0.0, -1.0, 1.0))
 src/audio/biquad.rs:186:27: replace * with / in Biquad::shape
+src/audio/biquad.rs:207:32: replace * with / in Biquad::low_shelf
+src/audio/biquad.rs:212:32: replace - with / in Biquad::low_shelf
+src/audio/biquad.rs:217:20: replace + with - in Biquad::low_shelf
+src/audio/biquad.rs:231:51: replace * with + in Biquad::high_shelf
+src/audio/biquad.rs:236:46: replace * with + in Biquad::high_shelf
+src/audio/biquad.rs:251:37: replace - with + in Biquad::lowpass
+src/audio/biquad.rs:263:39: replace + with * in Biquad::highpass
+src/audio/biquad.rs:274:78: replace - with / in Biquad::bandpass
+src/audio/biquad.rs:296:27: replace * with / in Biquad::allpass
+src/audio/biquad.rs:378:31: replace + with - in Biquad::matched
+src/audio/biquad.rs:432:47: replace / with % in Biquad::matched
+src/audio/biquad.rs:481:34: replace && with || in Biquad::beyond_nyquist
+src/audio/biquad.rs:529:37: replace * with / in Biquad::response
+src/audio/biquad.rs:554:52: replace * with + in Biquad::power_gain
+src/audio/biquad.rs:574:27: replace / with % in Biquad::max_zero_radius
+src/audio/biquad.rs:585:42: replace * with / in Biquad::process
+src/audio/biquad.rs:593:36: replace * with + in phi
+src/audio/biquad.rs:601:65: replace * with + in matched_poles
+src/audio/biquad.rs:624:22: replace * with + in Power::of
+src/audio/biquad.rs:641:5: replace factor -> Option<[f64; 3]> with Some([-1.0; 3])
+src/audio/biquad.rs:652:21: delete ! in factor
+src/audio/biquad.rs:667:23: delete - in min_phase
+src/audio/biquad.rs:702:23: delete -
+src/audio/biquad.rs:780:9: replace Grid::used -> impl Iterator<Item = usize>+'_ with ::std::iter::once(0)
+src/audio/biquad.rs:816:19: replace += with -= in Grid::fit
+src/audio/biquad.rs:916:9: replace Ceiling::excess -> f64 with -1.0
+src/audio/crossfeed.rs:204:27: replace * with / in SideFilter::design
+src/audio/crossfeed.rs:219:9: replace SideFilter::response -> (f64, f64) with (1.0, 0.0)
+src/audio/crossfeed.rs:224:24: replace * with + in SideFilter::response
+src/audio/crossfeed.rs:306:58: replace - with + in Stage::process
+src/audio/crossfeed.rs:380:21: replace + with - in CrossfeedProcessor::process_frame
+src/audio/decode.rs:136:57: replace & with | in wave_channel_mask
+src/audio/decode.rs:175:20: replace != with == in caf_declares_layout
