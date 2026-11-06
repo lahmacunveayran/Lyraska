@@ -33,3 +33,33 @@ src/analysis/key.rs:428:35: replace - with + in ChromaAnalyzer::process
 src/analysis/key.rs:444:33: replace - with / in ChromaAnalyzer::process
 src/analysis/levels.rs:14:27: delete -
 src/analysis/levels.rs:87:5: replace decode_frame -> Option<ChannelLevels> with None
+src/analysis/levels.rs:131:44: replace * with / in vu_reference_db
+src/analysis/lyrics_align.rs:185:14: replace > with == in states
+src/analysis/lyrics_align.rs:219:44: replace - with + in skip_arcs
+src/analysis/lyrics_align.rs:238:33: replace * with + in skip_arcs
+src/analysis/lyrics_align.rs:274:31: replace * with / in viterbi
+src/analysis/lyrics_align.rs:302:25: replace + with - in viterbi
+src/analysis/lyrics_align.rs:344:23: replace && with || in entry_mass
+src/analysis/lyrics_align.rs:383:32: replace / with % in entry_mass
+src/analysis/lyrics_align.rs:483:23: replace / with % in align
+src/analysis/lyrics_cache.rs:174:28: replace * with / in StoredEmissions::decode
+src/analysis/lyrics_cache.rs:270:5: replace covered -> bool with true
+src/analysis/lyrics_job.rs:100:9: replace ModelSlot::release with ()
+src/analysis/lyrics_job.rs:383:5: replace text_sha256 -> String with "xyzzy".into()
+src/analysis/lyrics_model.rs:71:31: replace << with >>
+src/analysis/lyrics_model.rs:269:60: replace == with != in dequantize_matmuls
+src/analysis/lyrics_model.rs:327:86: delete ! in dequantize_matmuls
+src/analysis/lyrics_model.rs:446:31: replace || with && in kept_letter
+src/analysis/lyrics_model.rs:624:35: replace * with / in LyricsModel::emissions
+src/analysis/lyrics_model.rs:708:46: replace / with * in LyricsModel::emissions
+src/analysis/lyrics_text.rs:128:21: delete match arm ('s', '\u{327}') in compose
+src/analysis/lyrics_text.rs:204:5: replace lowercase -> String with "xyzzy".into()
+src/analysis/lyrics_text.rs:274:5: replace standalone_repeat -> Option<usize> with Some(0)
+src/analysis/lyrics_text.rs:520:32: replace - with / in classify
+src/analysis/lyrics_text.rs:634:10: replace < with > in english_number
+src/analysis/lyrics_text.rs:681:5: replace english_ordinal -> String with String::new()
+src/analysis/lyrics_text.rs:760:9: replace && with || in read_number
+src/analysis/lyrics_text.rs:797:42: replace && with || in read_number
+src/analysis/lyrics_text.rs:951:30: replace == with != in Builder::chorus
+src/analysis/lyrics_worker.rs:233:9: replace LyricsWorker::finished -> usize with 0
+src/analysis/map_file.rs:32:35: replace * with +
