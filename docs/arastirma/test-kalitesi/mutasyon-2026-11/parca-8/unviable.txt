@@ -6,3 +6,4 @@ src/analysis/lyrics_job.rs:84:9: replace ModelSlot::get -> Result<&LyricsModel, 
 src/analysis/map_file.rs:639:9: replace MapStore::unavailable -> Self with Default::default()
 src/analysis/spectrogram.rs:305:9: replace Spectrogram::build_choreography -> Option<Choreography> with Some(Default::default())
 src/analysis/tempo.rs:256:5: replace retrack -> Option<BeatGrid> with Some(Default::default())
+src/audio/biquad.rs:111:9: replace Spec::analog -> Complex<f64> with Complex::new(-1.0)
