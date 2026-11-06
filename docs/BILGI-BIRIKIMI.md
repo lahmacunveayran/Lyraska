@@ -282,8 +282,9 @@ kısaltılır.
 
 ## 6. Lisans dersleri
 
-- "Ticari kullanım yasak" (NC) lisanslar GPL-3.0 ile çelişir (GPL satma hakkı da verir); program ücretsiz olsa da
-  alınmaz. Lisansı yazılmamış eser "tüm hakları saklı"dır; ücretsiz dağıtımda da yazarın izni gerekir.
+- "Ticari kullanım yasak" (NC) lisanslar GPL-3.0 ile çelişir (GPL satma hakkı da verir): depoya ve herkese açık
+  sürüme girmez. İstisna (6 Kasım 2026): yalnızca sahibinin bilgisayarında kurulan model paketleri (CLAUDE.md "Yerel
+  model paketleri"). Lisansı yazılmamış eser "tüm hakları saklı"dır; kişisel kullanımda da yazarın izni gerekir.
 - Yapay zekâ modellerinde **kod, ağırlık ve eğitim verisi** ayrı ayrı denetlenir (ör. Demucs ağırlıkları "yalnızca
   araştırma"; MUSDB18 NC).
 - npm paketinin "MIT" alanı içeriğin tamamını kapsamayabilir (ör. `butterchurn-presets`: paketleyicinin MIT'i
@@ -309,6 +310,13 @@ kısaltılır.
   JOSS makalesi (depodaki `paper.md`) "source code and pre-trained models … distributed under a MIT license" diyor;
   eğitim verisi Deezer'ın iç kataloğu, MUSDB18 yok. Demucs, Open-Unmix, RoFormer'lar, Banquet, UVR kurala aykırı ya da
   belirsiz. Ayrıntı ve seçenekler: `docs/arastirma/kaynak-ayristirma/RAPOR.md`.
+- **Kaynak ayrıştırmada yeni karar (6 Kasım 2026):** Lyraska ticari olmayacak ve topluluğa dağıtılmayacak. Sahibi
+  "çığır açan, standartlı" iş istiyor ve "dünyada en iyi ayrıştırma çalışmaları varsa hepsini kullanabilirsin" dedi.
+  Ticari olmayan ve araştırma lisanslı modeller (HTDemucs, BS-RoFormer, MDX23C …) ile MUSDB18-HQ ölçümü
+  **yalnızca sahibinin bilgisayarında** kullanılabilir (seçenek A; depo herkese açık kalır, depoyu gizlemek CI
+  dakikalarını tüketirdi). Lisansı hiç yazılmamış modeller yine alınmaz (sahibinin seçimi). Yol: ölçü aleti
+  (BSS Eval v4, museval ile doğrulanmış) → MUSDB18-HQ'da klasik, Spleeter, HTDemucs, RoFormer karşılaştırması →
+  kazanan ONNX'le Lyraska'da → yapı ve söz zamanıyla bilgilendirilmiş iyileştirmeler, her biri ölçülerek.
 - Sahibi Spleeter'ı "geliştirip daha iyi yapmak" istiyor (23 Ekim 2026). Yeniden eğitim yasal veriye bağlı (MUSDB18
   NC, kullanılamaz); önce eğitimsiz iyileştirmeler (Wiener süzgeci, 16 kHz bant, analiz amaçlı kullanım) ölçülür.
 - **İş sırası (23 Ekim 2026):** yama 0001 (#105) → `.opus`/`.webm` → kütüphanenin baştan tasarımı (4 PR: çekirdek
