@@ -115,3 +115,29 @@ src/audio/biquad.rs:287:27: delete - in Biquad::notch
 src/audio/biquad.rs:309:28: replace && with || in Biquad::design
 src/audio/biquad.rs:358:68: replace < with == in Biquad::matched
 src/audio/biquad.rs:427:34: replace * with / in Biquad::matched
+src/audio/biquad.rs:492:25: replace + with - in Biquad::beyond_nyquist
+src/audio/biquad.rs:528:22: replace * with / in Biquad::response
+src/audio/biquad.rs:553:52: replace * with + in Biquad::power_gain
+src/audio/biquad.rs:569:23: replace * with / in Biquad::max_zero_radius
+src/audio/biquad.rs:584:32: replace - with / in Biquad::process
+src/audio/biquad.rs:592:5: replace phi -> (f64, f64, f64) with (-1.0, 1.0, 0.0)
+src/audio/biquad.rs:601:19: replace * with / in matched_poles
+src/audio/biquad.rs:622:26: replace + with - in Power::of
+src/audio/biquad.rs:634:30: replace + with * in Power::at_phi
+src/audio/biquad.rs:663:19: replace || with && in min_phase
+src/audio/biquad.rs:678:25: replace * with + in min_phase
+src/audio/biquad.rs:766:31: replace / with * in Grid::push
+src/audio/biquad.rs:799:55: replace * with + in Grid::fit
+src/audio/biquad.rs:858:9: replace Grid::error -> f64 with 0.0
+src/audio/crossfeed.rs:202:39: replace - with / in SideFilter::design
+src/audio/crossfeed.rs:212:28: replace / with * in SideFilter::design
+src/audio/crossfeed.rs:223:20: replace * with + in SideFilter::response
+src/audio/crossfeed.rs:376:21: replace - with + in CrossfeedProcessor::process_frame
+src/audio/decode.rs:303:28: replace > with < in Decoder::open
+src/audio/decode.rs:631:5: replace matroska_tags with ()
+src/audio/decode.rs:966:74: replace <= with > in embedded_cover
+src/audio/eq.rs:419:37: replace * with + in Biquad::peaking
+src/audio/eq.rs:425:34: replace * with / in Biquad::peaking
+src/audio/eq.rs:433:9: replace Biquad::shelf_terms -> (f64, f64, f64) with (-1.0, 1.0, -1.0)
+src/audio/eq.rs:446:50: replace + with - in Biquad::low_shelf
+src/audio/eq.rs:448:25: replace + with - in Biquad::low_shelf
