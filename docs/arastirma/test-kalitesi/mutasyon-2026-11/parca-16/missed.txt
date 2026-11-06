@@ -43,3 +43,9 @@ src/audio/decode.rs:537:39: replace - with + in Decoder::next_chunk
 src/audio/decode.rs:817:28: replace == with != in matroska_duration
 src/audio/eq.rs:527:33: replace < with <= in Layout::tuned
 src/audio/gapless.rs:52:16: replace || with && in mp4_trim
+src/audio/limiter.rs:201:17: replace > with >= in Limiter::next_gain
+src/audio/limiter.rs:253:20: replace /= with %= in interpolator
+src/audio/loudness.rs:231:29: replace | with ^ in default_layout
+src/audio/loudness.rs:240:55: replace | with ^ in default_layout
+src/audio/normalize.rs:461:9: replace Leveler::headroom_db -> f64 with 0.0
+src/audio/peq.rs:743:9: replace ParametricSettings::loudness_db -> f64 with -1.0
