@@ -899,6 +899,99 @@ mod tests {
         );
     }
 
+    /// Derinlik %100'de alt oktav kısmı (çıkış − giriş; bas düğmesi 0 dB'de raf düzdür).
+    fn octave_part(freq: f64, amplitude: f64) -> Vec<Sample> {
+        let mut processor = BassProcessor::new(deep(0.0, 1.0, false), 1, RATE);
+        let skip = RATE as usize / 2;
+        run(&mut processor, freq, amplitude)
+            .iter()
+            .enumerate()
+            .map(|(i, &y)| y - amplitude * sine(freq, RATE, i + skip))
+            .collect()
+    }
+
+    #[test]
+    fn derinlik_duzeyi_suzgec_egrilerinden_hesaplanan_kadar() {
+        // Bağımsız hesap (kodun süzgeçleri değil, ikinci dereceden Butterworth'un analog eğrisi
+        // |H|² = 1 / (1 + (f/fc)⁴)): nota f, bant 40 Hz yüksek geçiren × 160 Hz alçak geçiren
+        // (iki kez) ile süzülür; zarf onun tepesidir. Alt oktav (f/2) 0,8 kazançla üretilir,
+        // 85 Hz alçak geçiren (iki kez) ve 18 Hz yüksek geçirenden geçer. Tepe zarfı |b|'nin yarım
+        // periyotta bir gelen tepelerinden sonra 150 ms'lik sabitle iner: ortalaması tepenin
+        // (τ/h)·(1 − e^(−h/τ)) katı, h = 1/(2f). Hesap ölçümle 0,04 dB içinde; tolerans 0,15 dB.
+        // Alt oktav sinüstür: kalanı (f/2'deki sinüsten sonra) ≤ −48 dB (ölçülen en kötü −51 dB).
+        let lowpass = |f: f64, fc: f64| 1.0 / (1.0 + (f / fc).powi(4)).sqrt();
+        let highpass = |f: f64, fc: f64| 1.0 / (1.0 + (fc / f).powi(4)).sqrt();
+        for freq in [55.0, 80.0, 110.0, 200.0] {
+            let h = 0.5 / freq;
+            let ripple = (0.15 / h) * (1.0 - (-h / 0.15f64).exp());
+            let gain = highpass(freq, 40.0)
+                * lowpass(freq, 160.0).powi(2)
+                * lowpass(freq / 2.0, 85.0).powi(2)
+                * highpass(freq / 2.0, 18.0)
+                * 0.8
+                * ripple;
+            let expected_db = 20.0 * gain.log10();
+            let (amplitude, residual_db) = fit(&octave_part(freq, 0.5), freq / 2.0, RATE);
+            let got_db = 20.0 * (amplitude / 0.5).log10();
+            assert!(
+                (got_db - expected_db).abs() < 0.15,
+                "{freq} Hz: alt oktav {got_db:.2} dB, hesap {expected_db:.2} dB"
+            );
+            assert!(
+                residual_db < -48.0,
+                "{freq} Hz: sinüsten sapma {residual_db:.1} dB"
+            );
+        }
+    }
+
+    #[test]
+    fn derinlik_izleme_araligi_disindaki_notaya_alt_oktav_eklemez() {
+        // Bas notası sayılan aralık 25–250 Hz: 300 ve 400 Hz'te periyot en kısa sınırın altında,
+        // kilit hiç açılmaz, alt oktav tam sıfır kalır (aralıktaki 200 Hz'te ise vardır).
+        for freq in [300.0, 400.0] {
+            let peak = octave_part(freq, 0.5)
+                .iter()
+                .fold(0.0f64, |m, v| m.max(v.abs()));
+            assert!(peak < 1e-12, "{freq} Hz: alt oktav tepesi {peak:e}");
+        }
+        let (amplitude, _) = fit(&octave_part(200.0, 0.5), 100.0, RATE);
+        assert!(amplitude > 0.01, "200 Hz: {amplitude}");
+    }
+
+    #[test]
+    fn derinlik_nota_bitince_alt_oktav_susar() {
+        // 80 Hz nota 1 sn, ardından sessizlik. Kilit son geçişten en geç en uzun periyot sonra
+        // (1/25 sn = 40 ms) düşer, 10 ms'lik sabitle söner; bant süzgecinin sönümüyle birlikte
+        // 50 ms'den sonra e^(−5) (−43 dB) ve zarfın 150 ms'lik inişi (100 ms'de −5,8 dB): bitişten
+        // 100–200 ms sonra ≤ −40 dB. Bitişin ilk 20 ms'inde alt oktav daha çalar (≥ −3 dB): kilit
+        // hemen düşmez, ses kesilmez.
+        let mut processor = BassProcessor::new(deep(0.0, 1.0, false), 1, RATE);
+        let n = RATE as usize;
+        let mut octave = Vec::with_capacity(n + n / 2);
+        for f in 0..(n + n / 2) {
+            if f % 480 == 0 {
+                processor.begin_block();
+            }
+            let x = if f < n {
+                0.5 * sine(80.0, RATE, f)
+            } else {
+                0.0
+            };
+            let mut frame = [x];
+            processor.process_frame(&mut frame);
+            octave.push(frame[0] - x);
+        }
+        let rms = |a: usize, b: usize| {
+            (octave[a..b].iter().map(|v| v * v).sum::<f64>() / (b - a) as f64).sqrt()
+        };
+        let steady = rms(n / 2, n);
+        let after = |ms: usize| n + ms * RATE as usize / 1000;
+        let early_db = 20.0 * (rms(after(0), after(20)) / steady).log10();
+        let late_db = 20.0 * (rms(after(100), after(200)) / steady).log10();
+        assert!(early_db > -3.0, "bitişten hemen sonra {early_db:.1} dB");
+        assert!(late_db < -40.0, "bitişten 100–200 ms sonra {late_db:.1} dB");
+    }
+
     #[test]
     fn derinlik_ortadaki_sese_dokunmaz() {
         let mut processor = BassProcessor::new(deep(0.0, 1.0, false), 1, RATE);
