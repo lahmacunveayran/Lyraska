@@ -192,3 +192,33 @@ src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, S
 src/audio/lyrics.rs:459:5: replace estimate_words -> Vec<LyricWord> with vec![]
 src/audio/normalize.rs:136:32: replace + with * in TrackLevels::begin_track
 src/audio/normalize.rs:270:20: replace < with <= in TrackLevels::next_start
+src/audio/normalize.rs:324:19: replace / with * in db_to_linear
+src/audio/normalize.rs:441:27: replace > with < in Leveler::next_gain
+src/audio/normalize.rs:469:41: replace * with / in approach
+src/audio/output.rs:178:22: replace += with *= in FadeWatch::wrote
+src/audio/peq.rs:318:16: delete ! in HeadphoneProfile::parse
+src/audio/peq.rs:423:5: replace response_peak_db -> f64 with -1.0
+src/audio/peq.rs:453:54: replace - with / in coefs_peak_db
+src/audio/peq.rs:470:32: replace - with / in refine_peak
+src/audio/peq.rs:502:55: replace - with / in shelf_q_from_slope
+src/audio/peq.rs:517:9: delete match arm "HS" in parse_filter
+src/audio/peq.rs:651:9: replace ParametricBand::is_effective -> bool with true
+src/audio/peq.rs:761:39: replace / with * in ParametricSettings::response_db
+src/audio/peq.rs:912:5: replace loudness_gain_db_at -> f64 with 1.0
+src/audio/peq.rs:1009:34: delete ! in PeqControl::set_filters
+src/audio/peq.rs:1169:24: replace == with != in PeqProcessor::is_bypass
+src/audio/punch.rs:153:34: replace > with == in Punch::process_frame
+src/audio/punch.rs:183:45: replace / with % in Punch::update_gain
+src/audio/render.rs:135:9: replace Renderer::gain -> f64 with 1.0
+src/audio/render.rs:236:46: replace * with / in Renderer::render
+src/audio/resample.rs:132:9: replace Converter::run_blocks -> Result<(), AudioError> with Ok(())
+src/audio/resample.rs:178:64: replace * with + in Converter::run_blocks
+src/audio/spectrum.rs:94:31: replace * with / in Transform::magnitudes
+src/audio/spectrum.rs:134:26: replace - with / in level
+src/audio/waveform.rs:83:32: replace + with - in Halving::push
+src/audio/waveform.rs:153:29: replace < with <= in Decimator::interpolate
+src/audio/waveform.rs:260:22: replace += with *= in WaveformTap::write
+src/audio/waveform.rs:299:62: replace > with < in WaveformTap::read_window
+src/audio/waveform.rs:350:43: replace + with * in to_bytes
+src/audio/player/bit_perfect.rs:24:31: replace match guard u32::from(format.valid_bits) < bits with false in output_mode
+src/audio/player/controls.rs:80:9: replace Player::refresh_parametric_rate with ()
