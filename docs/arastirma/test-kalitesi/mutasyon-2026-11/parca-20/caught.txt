@@ -59,3 +59,32 @@ src/analysis/lyrics_text.rs:553:34: replace == with != in turkish_number
 src/analysis/lyrics_text.rs:651:29: replace / with * in english_number
 src/analysis/lyrics_text.rs:697:22: replace > with >= in read_integer
 src/analysis/lyrics_text.rs:766:22: replace != with == in read_number
+src/analysis/lyrics_text.rs:839:39: replace || with && in clean_word
+src/analysis/lyrics_text.rs:985:9: replace Builder::end_paragraph with ()
+src/analysis/map_file.rs:275:47: replace / with % in MapFile::from_analysis
+src/analysis/map_file.rs:356:51: delete - in MapFile::validate
+src/analysis/map_file.rs:383:13: replace || with && in MapFile::validate
+src/analysis/map_file.rs:472:47: replace < with == in MapFile::shifted
+src/analysis/map_file.rs:558:5: replace round_time -> f64 with 0.0
+src/analysis/meter.rs:142:5: replace accents -> Vec<f64> with vec![]
+src/analysis/meter.rs:174:42: replace - with / in fit
+src/analysis/meter.rs:244:11: replace <= with > in correlation
+src/analysis/spectrogram.rs:207:56: replace * with + in Spectrogram::frame_at
+src/analysis/spectrogram.rs:233:74: replace + with * in Spectrogram::meters_at
+src/analysis/spectrogram.rs:349:9: replace Spectrogram::set_early_loudness with ()
+src/analysis/spectrogram.rs:522:24: replace += with -= in measure_loudness
+src/analysis/spectrogram.rs:816:55: replace * with + in frame_end
+src/analysis/spectrogram.rs:917:18: replace - with + in to_level
+src/analysis/spectrogram.rs:940:22: replace / with * in band_edges
+src/analysis/structure.rs:164:9: replace SongMap::section_at -> Option<usize> with Some(0)
+src/analysis/structure.rs:201:31: replace + with - in map_song
+src/analysis/structure.rs:252:45: replace - with / in map_song
+src/analysis/structure.rs:299:84: replace / with * in map_song
+src/analysis/structure.rs:442:5: replace choose_meter -> (usize, usize, f64) with (0, 0, 1.0)
+src/analysis/structure.rs:478:36: replace * with / in phase_agreement
+src/analysis/structure.rs:531:54: replace - with / in section_boundaries
+src/analysis/structure.rs:634:5: replace drop_jumps -> (f64, f64, f64) with (1.0, 0.0, -1.0)
+src/analysis/structure.rs:718:21: replace < with == in find_drops
+src/analysis/structure.rs:775:52: replace * with / in refine_drop
+src/analysis/structure.rs:790:58: replace / with % in refine_drop
+src/analysis/structure.rs:821:27: replace - with / in drop_confidence
