@@ -85,3 +85,38 @@ src/analysis/tempo.rs:133:31: replace >= with < in resolve_octave
 src/analysis/tempo.rs:175:17: replace / with % in resolve_octave
 src/analysis/tempo.rs:216:67: replace >= with < in three_halves
 src/analysis/tempo.rs:260:23: replace / with % in retrack
+src/analysis/tempo.rs:291:22: replace * with + in with_midpoints
+src/analysis/tempo.rs:391:22: replace += with -= in gap_coverage
+src/analysis/tempo.rs:434:26: replace - with / in peaks
+src/analysis/tempo.rs:456:23: replace > with < in quotient
+src/audio/abx.rs:222:33: replace == with != in Trials::answer
+src/audio/abx.rs:312:5: replace find_offset -> (usize, f64) with (1, 1.0)
+src/audio/abx.rs:345:5: replace loudness -> Option<f64> with Some(0.0)
+src/audio/abx.rs:391:35: replace + with - in prepare
+src/audio/abx.rs:480:57: replace == with != in Mixer::fill
+src/audio/bass.rs:133:40: replace * with / in response_db
+src/audio/bass.rs:178:57: replace * with / in BassPeaks::shelf_rise_db
+src/audio/bass.rs:269:5: replace boost_db -> f64 with -1.0
+src/audio/bass.rs:378:56: replace * with + in Octaver::process
+src/audio/bass.rs:532:28: replace == with != in BassProcessor::refresh_boost
+src/audio/bass.rs:623:38: replace + with * in BassProcessor::harmonics
+src/audio/bass.rs:664:49: replace < with > in BassProcessor::process_frame
+src/audio/biquad.rs:111:9: replace Spec::analog -> Complex<f64> with Complex::from(-1.0)
+src/audio/biquad.rs:119:25: replace + with * in Spec::analog
+src/audio/biquad.rs:123:55: replace + with * in Spec::analog
+src/audio/biquad.rs:127:49: replace / with * in Spec::analog
+src/audio/biquad.rs:136:9: replace Spec::analog_db -> f64 with 1.0
+src/audio/biquad.rs:150:47: replace * with + in Spec::pole
+src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((0.0, 1.0, -1.0, 1.0))
+src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((1.0, -1.0, 1.0, 0.0))
+src/audio/biquad.rs:182:9: replace Biquad::shape -> Option<(f64, f64, f64, f64)> with Some((-1.0, -1.0, -1.0, -1.0))
+src/audio/biquad.rs:198:18: replace + with - in Biquad::peaking
+src/audio/biquad.rs:211:38: replace - with + in Biquad::low_shelf
+src/audio/biquad.rs:216:17: delete - in Biquad::low_shelf
+src/audio/biquad.rs:230:44: replace * with + in Biquad::high_shelf
+src/audio/biquad.rs:235:27: replace - with / in Biquad::high_shelf
+src/audio/biquad.rs:247:37: replace / with * in Biquad::lowpass
+src/audio/biquad.rs:259:27: replace * with / in Biquad::highpass
+src/audio/biquad.rs:271:22: replace * with + in Biquad::bandpass
+src/audio/biquad.rs:287:18: replace + with * in Biquad::notch
+src/audio/biquad.rs:301:43: replace - with + in Biquad::allpass
