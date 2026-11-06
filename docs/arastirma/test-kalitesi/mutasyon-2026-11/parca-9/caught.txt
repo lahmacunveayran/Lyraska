@@ -59,3 +59,29 @@ src/analysis/lyrics_text.rs:793:21: replace == with != in read_number
 src/analysis/lyrics_text.rs:948:9: replace Builder::chorus -> Option<Vec<AlignLine>> with Some(vec![])
 src/analysis/map_file.rs:32:42: replace * with +
 src/analysis/map_file.rs:341:9: replace MapFile::to_json -> String with "xyzzy".into()
+src/analysis/map_file.rs:493:29: replace + with * in MapFile::shifted
+src/analysis/map_file.rs:643:9: replace MapStore::file_for -> Option<PathBuf> with None
+src/analysis/meter.rs:117:48: replace - with + in detect
+src/analysis/spectrogram.rs:198:9: replace Spectrogram::frame_at -> Option<[f32; BANDS]> with None
+src/analysis/spectrogram.rs:320:9: replace Spectrogram::bass_peaks -> Option<BassPeaks> with None
+src/analysis/spectrogram.rs:494:27: replace == with != in SavedAnalysis::is_consistent
+src/analysis/spectrogram.rs:623:30: replace + with * in analyze_source
+src/analysis/spectrogram.rs:815:5: replace frame_end -> u64 with 1
+src/analysis/spectrogram.rs:905:33: replace * with / in BandAnalyzer::process
+src/analysis/spectrogram.rs:933:39: replace - with + in shift_level
+src/analysis/structure.rs:150:12: delete ! in SongMap::energy_at
+src/analysis/structure.rs:188:86: replace / with * in map_song
+src/analysis/structure.rs:238:71: replace + with * in map_song
+src/analysis/structure.rs:285:24: replace + with * in map_song
+src/analysis/structure.rs:497:19: replace += with *= in phase_agreement
+src/analysis/structure.rs:529:35: replace + with * in section_boundaries
+src/analysis/structure.rs:544:24: replace > with == in section_boundaries
+src/analysis/structure.rs:634:5: replace drop_jumps -> (f64, f64, f64) with (0.0, 0.0, 0.0)
+src/analysis/structure.rs:704:79: replace + with * in find_drops
+src/analysis/structure.rs:770:5: replace refine_drop -> f64 with -1.0
+src/analysis/structure.rs:790:13: replace - with / in refine_drop
+src/analysis/structure.rs:877:5: replace percentile_range -> (f64, f64) with (1.0, -1.0)
+src/analysis/tempo.rs:133:31: replace >= with < in resolve_octave
+src/analysis/tempo.rs:175:17: replace / with % in resolve_octave
+src/analysis/tempo.rs:216:67: replace >= with < in three_halves
+src/analysis/tempo.rs:260:23: replace / with % in retrack
