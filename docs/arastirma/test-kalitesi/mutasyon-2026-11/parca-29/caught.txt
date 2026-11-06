@@ -149,3 +149,28 @@ src/audio/biquad.rs:667:50: delete - in min_phase
 src/audio/biquad.rs:787:9: replace Grid::fit -> Option<[f64; 3]> with Some([1.0; 3])
 src/audio/biquad.rs:834:37: replace / with % in Grid::fit
 src/audio/crossfeed.rs:101:9: replace CrossfeedSettings::sanitized -> Self with Default::default()
+src/audio/crossfeed.rs:205:27: replace < with > in SideFilter::design
+src/audio/crossfeed.rs:221:33: replace + with * in SideFilter::response
+src/audio/crossfeed.rs:224:39: replace * with / in SideFilter::response
+src/audio/crossfeed.rs:342:9: replace CrossfeedProcessor::is_bypass -> bool with false
+src/audio/crossfeed.rs:381:24: replace -= with /= in CrossfeedProcessor::process_frame
+src/audio/decode.rs:1001:38: replace << with >> in base64
+src/audio/decode.rs:161:5: replace caf_declares_layout -> Option<bool> with None
+src/audio/decode.rs:196:18: replace -= with += in caf_declares_layout
+src/audio/decode.rs:390:9: replace Decoder::source_bits -> Option<u32> with None
+src/audio/decode.rs:604:49: replace match guard tags.artist.is_none() with false in read_tags
+src/audio/decode.rs:717:9: delete match arm 0xFD in windows_1254
+src/audio/eq.rs:312:5: replace protection_db -> f64 with 1.0
+src/audio/eq.rs:420:24: replace / with * in Biquad::peaking
+src/audio/eq.rs:433:9: replace Biquad::shelf_terms -> (f64, f64, f64) with (0.0, -1.0, -1.0)
+src/audio/eq.rs:447:38: replace - with / in Biquad::low_shelf
+src/audio/eq.rs:449:40: replace + with - in Biquad::low_shelf
+src/audio/eq.rs:462:50: replace + with - in Biquad::high_shelf
+src/audio/eq.rs:464:32: replace + with * in Biquad::high_shelf
+src/audio/eq.rs:472:9: replace Biquad::response_db -> f64 with 1.0
+src/audio/eq.rs:478:74: replace + with - in Biquad::response_db
+src/audio/eq.rs:487:77: replace - with / in Biquad::power_gain
+src/audio/eq.rs:488:74: replace * with / in Biquad::power_gain
+src/audio/eq.rs:535:26: replace * with / in Layout::tuned
+src/audio/eq.rs:558:31: replace * with / in Layout::tuned
+src/audio/eq.rs:594:13: replace + with - in Layout::band_response_db
