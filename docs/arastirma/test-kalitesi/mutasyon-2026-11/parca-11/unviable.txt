@@ -5,3 +5,7 @@ src/analysis/lyrics_job.rs:283:5: replace auto_lyrics -> Lyrics with Default::de
 src/analysis/tempo.rs:261:37: replace >= with < in retrack
 src/audio/abx.rs:543:9: replace Playback::start -> Result<Self, AudioError> with Ok(Default::default())
 src/audio/biquad.rs:309:9: replace Biquad::design -> Self with Default::default()
+src/audio/biquad.rs:621:9: replace Power::of -> Self with Default::default()
+src/audio/decode.rs:945:5: replace embedded_cover -> Result<Option<Cover>, AudioError> with Ok(Some(Default::default()))
+src/audio/eq.rs:65:30: replace + with -
+src/audio/eq.rs:456:9: replace Biquad::high_shelf -> Self with Default::default()

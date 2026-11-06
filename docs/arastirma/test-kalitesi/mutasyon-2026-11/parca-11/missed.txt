@@ -26,3 +26,9 @@ src/audio/bass.rs:536:17: delete field floor_db from struct BassBoost expression
 src/audio/bass.rs:605:20: replace += with *= in BassProcessor::ramp
 src/audio/biquad.rs:387:23: replace > with == in Biquad::matched
 src/audio/biquad.rs:399:33: replace / with * in Biquad::matched
+src/audio/biquad.rs:663:32: replace || with && in min_phase
+src/audio/decode.rs:167:21: replace | with ^ in caf_declares_layout
+src/audio/decode.rs:417:28: replace - with / in Decoder::seek
+src/audio/decode.rs:617:77: replace > with >= in read_tags
+src/audio/decode.rs:755:9: delete match arm 12..= 15 in opus_packet_frames
+src/audio/decode.rs:809:5: replace matroska_duration -> Option<f64> with None

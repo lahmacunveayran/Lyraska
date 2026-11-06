@@ -129,3 +129,32 @@ src/audio/biquad.rs:273:25: replace / with % in Biquad::bandpass
 src/audio/biquad.rs:287:32: replace * with / in Biquad::notch
 src/audio/biquad.rs:358:34: replace && with || in Biquad::matched
 src/audio/biquad.rs:427:34: replace * with + in Biquad::matched
+src/audio/biquad.rs:449:60: replace + with * in Biquad::matched
+src/audio/biquad.rs:492:33: replace + with * in Biquad::beyond_nyquist
+src/audio/biquad.rs:528:22: replace * with + in Biquad::response
+src/audio/biquad.rs:553:38: replace * with / in Biquad::power_gain
+src/audio/biquad.rs:569:23: replace * with + in Biquad::max_zero_radius
+src/audio/biquad.rs:584:32: replace - with + in Biquad::process
+src/audio/biquad.rs:592:5: replace phi -> (f64, f64, f64) with (-1.0, 0.0, -1.0)
+src/audio/biquad.rs:601:19: replace * with + in matched_poles
+src/audio/biquad.rs:634:30: replace + with - in Power::at_phi
+src/audio/biquad.rs:647:22: replace * with + in factor
+src/audio/biquad.rs:677:27: replace + with * in min_phase
+src/audio/biquad.rs:766:31: replace / with % in Grid::push
+src/audio/biquad.rs:796:17: replace - with / in Grid::fit
+src/audio/biquad.rs:849:66: replace == with != in Grid::fit
+src/audio/crossfeed.rs:202:39: replace - with + in SideFilter::design
+src/audio/crossfeed.rs:212:28: replace / with % in SideFilter::design
+src/audio/crossfeed.rs:223:25: replace + with * in SideFilter::response
+src/audio/crossfeed.rs:260:9: replace CrossfeedControl::set with ()
+src/audio/crossfeed.rs:372:27: replace == with != in CrossfeedProcessor::process_frame
+src/audio/decode.rs:105:73: replace == with != in header_declares_layout
+src/audio/decode.rs:303:28: replace > with == in Decoder::open
+src/audio/eq.rs:224:9: replace EqSettings::effective_gains -> [f64; BANDS] with [-1.0; BANDS]
+src/audio/eq.rs:417:42: replace * with / in Biquad::peaking
+src/audio/eq.rs:425:34: replace * with + in Biquad::peaking
+src/audio/eq.rs:433:9: replace Biquad::shelf_terms -> (f64, f64, f64) with (-1.0, 1.0, 1.0)
+src/audio/eq.rs:446:19: replace * with / in Biquad::low_shelf
+src/audio/eq.rs:448:32: replace - with / in Biquad::low_shelf
+src/audio/eq.rs:463:22: replace * with + in Biquad::high_shelf
+src/audio/eq.rs:465:27: replace - with / in Biquad::high_shelf
