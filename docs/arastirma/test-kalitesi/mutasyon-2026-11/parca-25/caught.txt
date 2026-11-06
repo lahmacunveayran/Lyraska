@@ -1,0 +1,27 @@
+src/analysis/annotation.rs:164:26: replace != with == in AnnotationStore::save_evaluation
+src/analysis/background.rs:346:5: replace wait_for_foreground with ()
+src/analysis/beats.rs:99:67: replace - with + in BeatGrid::position_at
+src/analysis/beats.rs:160:34: replace - with / in OnsetDetector::process
+src/analysis/beats.rs:263:31: replace / with * in segment_periods
+src/analysis/beats.rs:295:5: replace track_period -> Option<(Vec<f64>, Vec<f64>)> with Some((vec![1.0], vec![1.0]))
+src/analysis/beats.rs:325:5: replace mean_interval -> f64 with -1.0
+src/analysis/beats.rs:349:25: replace + with - in normalize
+src/analysis/beats.rs:381:20: replace * with / in estimate_period_with_strength
+src/analysis/beats.rs:404:44: replace * with + in estimate_period_with_strength
+src/analysis/beats.rs:431:69: replace / with % in pulse_clarity
+src/analysis/beats.rs:470:27: replace * with / in smooth
+src/analysis/beats.rs:524:5: replace trim_quiet_ends -> Vec<usize> with vec![0]
+src/analysis/cache.rs:242:55: replace != with == in AnalysisCache::load
+src/analysis/cache.rs:475:5: replace deflate -> Vec<u8> with vec![0]
+src/analysis/evaluate.rs:134:61: replace - with + in f_measure
+src/analysis/evaluate.rs:156:53: replace < with > in tap_offset
+src/analysis/fingerprint.rs:181:21: replace - with / in BandPrint::from_levels_at
+src/analysis/fingerprint.rs:275:18: replace != with == in BandPrint::errors_at
+src/analysis/fingerprint.rs:320:37: replace < with > in ChromaPrint::from_chroma
+src/analysis/fingerprint.rs:352:27: replace ^ with | in ChromaPrint::compare
+src/analysis/fingerprint.rs:400:37: replace - with + in band_word
+src/analysis/fingerprint.rs:461:9: replace BandMap::standard -> [f32; BANDS] with [1.0; BANDS]
+src/analysis/key.rs:150:45: replace - with / in key_relation
+src/analysis/key.rs:270:53: replace >= with < in song_key
+src/analysis/key.rs:303:5: replace correlation -> Option<f64> with Some(1.0)
+src/analysis/key.rs:312:20: replace * with + in correlation
