@@ -30,3 +30,32 @@ src/analysis/key.rs:445:36: replace * with + in ChromaAnalyzer::process
 src/analysis/key.rs:486:5: replace fold -> [f64; PITCH_CLASSES] with [0.0; PITCH_CLASSES]
 src/analysis/levels.rs:54:9: replace LevelAccumulator::finish -> [u8; VALUES_PER_FRAME] with [0; VALUES_PER_FRAME]
 src/analysis/levels.rs:107:47: replace / with * in vu_reference_db
+src/analysis/lyrics_align.rs:59:36: replace * with + in Emissions::at
+src/analysis/lyrics_align.rs:186:23: replace * with / in states
+src/analysis/lyrics_align.rs:228:45: replace + with - in skip_arcs
+src/analysis/lyrics_align.rs:243:31: replace + with * in skip_arcs
+src/analysis/lyrics_align.rs:278:35: replace > with >= in viterbi
+src/analysis/lyrics_align.rs:313:13: replace <= with > in viterbi
+src/analysis/lyrics_align.rs:361:27: replace == with != in entry_mass
+src/analysis/lyrics_align.rs:389:45: replace - with / in entry_mass
+src/analysis/lyrics_align.rs:408:18: replace + with - in entry_mass
+src/analysis/lyrics_align.rs:449:46: replace != with == in align
+src/analysis/lyrics_align.rs:504:44: replace * with / in align
+src/analysis/lyrics_cache.rs:89:13: replace || with && in StoredEmissions::select
+src/analysis/lyrics_cache.rs:208:9: replace StoredEmissions::encode -> Vec<u8> with vec![1]
+src/analysis/lyrics_cache.rs:278:9: replace && with || in storable
+src/analysis/lyrics_job.rs:130:9: replace ModelSlot::times_opened -> usize with 0
+src/analysis/lyrics_job.rs:333:5: replace spoken_spans -> Option<Vec<(f64, f64)>> with Some(vec![])
+src/analysis/lyrics_job.rs:432:9: replace AnalysisCache::load_alignment -> Result<Option<AutoAlignment>, CacheError> with Ok(None)
+src/analysis/lyrics_model.rs:189:8: delete ! in tensor_f32
+src/analysis/lyrics_model.rs:299:67: replace || with && in dequantize_matmuls
+src/analysis/lyrics_model.rs:356:27: replace match guard b == s_x with true in dequantize_matmuls
+src/analysis/lyrics_model.rs:638:33: replace + with * in LyricsModel::emissions
+src/analysis/lyrics_model.rs:681:36: replace + with - in LyricsModel::emissions
+src/analysis/lyrics_package.rs:71:38: replace != with == in install
+src/analysis/lyrics_text.rs:289:5: replace split_repeat -> (&str, usize) with ("xyzzy", 1)
+src/analysis/lyrics_text.rs:401:28: delete ! in parse_header_words
+src/analysis/lyrics_text.rs:553:34: replace == with != in turkish_number
+src/analysis/lyrics_text.rs:651:29: replace / with * in english_number
+src/analysis/lyrics_text.rs:697:22: replace > with >= in read_integer
+src/analysis/lyrics_text.rs:766:22: replace != with == in read_number
