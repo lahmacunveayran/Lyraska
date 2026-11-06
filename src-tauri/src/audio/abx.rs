@@ -1004,12 +1004,24 @@ mod tests {
         test.answer(AbxSource::B); // doğru
         let result = test.status().result.unwrap();
         assert_eq!((result.correct, result.total), (3, 4));
-        // Ses çalıyor: konum ilerliyor, hata yok.
-        let before = test.status().position_secs;
-        std::thread::sleep(Duration::from_millis(30));
+        // Ses çalıyor: duyulan kare sayacı ilerliyor, konum bölümün içinde, hata yok. Konum bölüm başa
+        // sardıkça tam 0'a döner (3 sn = sanal çıkışın 60 adımı) ve çalma başlar başlamaz da 0'dır; o yüzden
+        // başa sarmayan sayaç izlenir. Yüklü makinede (Windows CI) sanal çıkış iş parçacığı onlarca ms
+        // bekleyebildiğinden sabit bir süre değil, ilerleyene kadar (en çok 5 sn) beklenir.
+        let heard = |t: &AbxTest| t.playback.shared.output_heard.load(Ordering::Acquire);
+        let before = heard(&test);
+        let started = std::time::Instant::now();
+        while heard(&test) == before && started.elapsed() < Duration::from_secs(5) {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(heard(&test) > before, "ses 5 sn'de ilerlemedi");
         let status = test.status();
         assert!(status.error.is_none());
-        assert!(status.position_secs != before || before > 0.0);
+        assert!(
+            (0.0..3.0).contains(&status.position_secs),
+            "{}",
+            status.position_secs
+        );
         simulated::set_device_rate(None);
     }
 }
