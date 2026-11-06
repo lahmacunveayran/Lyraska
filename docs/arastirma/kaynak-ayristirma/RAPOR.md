@@ -212,3 +212,34 @@ Bu her durumda çalışır ve ölçüm için temel olur. İkinci iş Spleeter pa
 dönüşümü ve tract'ta hız ve bellek ölçümü yapılır, sonra sahibinin işaretlediği şarkılarda davul ve bas başlangıçlarının
 klasik yola göre ne kadar iyi olduğu ölçülür. Spleeter ölçümde açıkça fark getirmezse B ile yetinilir. Uygulamadan
 hemen önce makaledeki MIT cümlesinin `master`'da durduğu yeniden kontrol edilir.
+
+## 9. Çok dilli tarama (6 Kasım 2026, sahibinin isteği)
+
+Sahibi taramanın İngilizce kaynaklarla sınırlı kalmamasını istedi ("çince Japonca Rusça falan kaynak taraması yap
+kapsamlı olarak"). Üç ayrı ajan aynı yöntemle (yalnızca birincil kaynak, aynen alıntı + Türkçe çeviri, açılamayan
+kaynak açıkça yazılır) taradı:
+
+- [`cince.md`](cince.md): ByteDance (`bytesep`: kod Apache-2.0, "trained ONLY on the Musdb18 dataset"), Tencent,
+  Alibaba/ModelScope, Baidu, topluluk araçları (MSST-WebUI AGPL), akademik modeller (DTTNet, Apollo: MUSDB), Çince veri
+  setleri (M4Singer, GTSinger, Opencpop: NC). sherpa-onnx Spleeter'ı Deezer'ın kendi ağırlıklarıyla ONNX olarak
+  dağıtıyor (yalnızca 2 kanal, fp16 33,6 MB); 4–5 kanalda bellek uyarısı.
+- [`japonca-korece.md`](japonca-korece.md): Sony (X-UMX, Open-Unmix: MUSDB18; UMX-L CC BY-NC-SA), tsurumeso/vocal-remover
+  (kendi CD'leri + DSD100), Korea University (LaSAFT, MDX-Net: MUSDB18; SDX23: MoisesDB), Gaudio Lab ve Supertone
+  (kapalı), RWC 2.0 (CC BY-NC 4.0). **Yararlı bulgu:** Tachibana–Ono–Sagayama'nın iki aşamalı HPSS'i (kısa ve uzun
+  pencereyle iki kez ayrıştırma) modelsiz bir vokal bileşeni verir; yazarların kodu MIT/BSD-3.
+- [`rusca-diger.md`](rusca-diger.md): Rusça (Habr, MVSep, Sber/Yandex/VK; bu ortamdan açılmadı, yalnızca arama özeti),
+  Almanca/Fransızca/İspanyolca (Essentia: AGPL, MTG modelleri CC BY-NC-SA; madmom modelleri NC; LarsNet ağırlıkları
+  CC BY-NC 4.0; drumsep lisanssız; MTG-Jamendo NC). Klasik yöntemler: AudioLabs Erlangen libfmp `hrps` (MIT,
+  Driedger–Müller–Disch 2014), libnmfd (MIT, NMFD davul ayrıştırma), nussl REPET/REPET-SIM (MIT).
+
+**Sonuç değişmedi:** dört dil grubunda da ticari kullanılabilir tek hazır model Spleeter; ağırlıklar yalnızca
+deezer/spleeter sürümlerinden alınmalı (Essentia'daki kopyasının lisansı okunamadı).
+
+**Klasik yolun sırası (iki raporun önerisi birleşti):** (1) düz HPSS (#215), (2) üç parçalı HRPS (ezgisel / vurmalı /
+artık, β payı) ve banda bölünmüş vurmalı başlangıçlar (kick, trampet, hi-hat), (3) iki aşamalı HPSS ile "vokal olası"
+zarfı, (4) gerekirse REPET-SIM; her adım sahibinin işaretlediği şarkılarda ölçülür, Spleeter paketiyle karşılaştırma
+en sonda.
+
+**Erişim sınırı:** dört taramada da yalnızca GitHub (ve PyPI) açıldı; zenodo, arxiv, huggingface, ModelScope, Gitee,
+habr.com, mvsep.com, essentia.upf.edu, J-STAGE ve benzerleri açılamadı. Bunlardan gelen her bilgi raporlarda "arama
+özeti" ya da "doğrulanmadı" diye işaretli; sonuçlar GitHub'daki birincil dosyalara dayanıyor.

@@ -1146,6 +1146,90 @@ fn kor_test_suren_sarki_gecisiyle_ust_uste_calmaz() {
     std::fs::remove_file(next).ok();
 }
 
+fn abx_request(name: &str) -> AbxRequest {
+    AbxRequest {
+        a: abx_song(&format!("{name}-a.wav")),
+        b: abx_song(&format!("{name}-b.wav")),
+        start_secs: 0.0,
+        clip_secs: 3.0,
+        trials: 8,
+    }
+}
+
+/// RTS-01'in kör test ayağı (bağımsız inceleme): şarkı ses aygıtını açarken kör test başlatılırsa
+/// test, hazırlığın bitmesini bekler; açılmakta olan şarkının akışı test aygıtı alınca açık kalmaz.
+#[test]
+fn kor_test_aygiti_acilmakta_olan_sarkiyla_paylasmaz() {
+    let song = rts01_song("kor-sira-eski.wav");
+    let next = rts01_song("kor-sira-yeni.wav");
+    let (opened_tx, opened) = std::sync::mpsc::channel();
+    let (go, go_rx) = std::sync::mpsc::channel::<()>();
+    output::simulated::on_stream_open(&next, move || {
+        opened_tx.send(()).ok();
+        go_rx.recv_timeout(Duration::from_secs(5)).ok();
+    });
+    let mut player = Player::new();
+    player.load(&song, true).unwrap();
+    assert!(wait_until(|| player.status().position_secs > 0.2));
+    let transition = player.begin_transition(&next, true, None);
+    let preparing = std::thread::spawn(move || Player::prepare(transition));
+    opened.recv_timeout(Duration::from_secs(5)).unwrap();
+    // Hazırlık aygıtı açarken durdu; biraz sonra sürecek.
+    let release = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(100));
+        go.send(()).ok();
+    });
+    assert!(player.abx_start(&abx_request("kor-sira")).unwrap().active);
+    assert_eq!(
+        output::simulated::open_streams(&next),
+        0,
+        "kör test, açılmakta olan şarkının akışı açıkken başladı"
+    );
+    release.join().unwrap();
+    let prepared = preparing.join().unwrap();
+    let _ = player.install(prepared);
+    assert!(
+        player.session.is_none(),
+        "şarkı ile test üst üste çalmamalı"
+    );
+    std::fs::remove_file(song).ok();
+    std::fs::remove_file(next).ok();
+}
+
+/// RTS-01'in kör test ayağı: hazırlanmış ama takılmamış şarkı kör test başlarken kısılır (eskiden
+/// takılana kadar tam seviyede testle birlikte çalıyordu).
+#[test]
+fn kor_test_takilmamis_sarkiyi_kisar() {
+    let song = rts01_song("kor-takilmamis-eski.wav");
+    let next = rts01_song("kor-takilmamis-yeni.wav");
+    let mut player = Player::new();
+    player.load(&song, true).unwrap();
+    assert!(wait_until(|| player.status().position_secs > 0.2));
+    let prepared = Player::prepare(player.begin_transition(&next, true, None));
+    let started = prepared.session_shared().expect("hazırlık oturum açtı");
+    assert!(wait_until(
+        || started.output_heard.load(Ordering::Acquire) > 0
+    ));
+    assert!(
+        player
+            .abx_start(&abx_request("kor-takilmamis"))
+            .unwrap()
+            .active
+    );
+    assert!(
+        started.paused.load(Ordering::Acquire),
+        "takılmamış şarkı testle birlikte çalıyor"
+    );
+    assert!(
+        started.faded_out.load(Ordering::Acquire),
+        "kısılması bitmedi"
+    );
+    let _ = player.install(prepared);
+    assert!(player.session.is_none());
+    std::fs::remove_file(song).ok();
+    std::fs::remove_file(next).ok();
+}
+
 #[test]
 fn kor_test_kurulamazsa_calan_sarki_durmaz() {
     let song = ramp_song("kor-test-kurulamaz.wav");

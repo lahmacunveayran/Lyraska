@@ -101,6 +101,8 @@ struct GateState {
 
 /// Yeni hazırlık, önceki hazırlık bitmezse en çok bu kadar bekler.
 const TURN_TIMEOUT: Duration = Duration::from_secs(10);
+/// Kör test, süren hazırlığın bitmesini en çok bu kadar bekler.
+const QUIESCE_TIMEOUT: Duration = Duration::from_secs(2);
 /// Kilit dışında kapanan oturumun bitmesi en çok bu kadar beklenir (kısılma + iş parçacıkları).
 const CLOSING_TIMEOUT: Duration = Duration::from_millis(500);
 
@@ -159,6 +161,38 @@ impl TransitionGate {
         let retired = std::mem::take(&mut self.state().retired);
         for session in retired {
             close_quietly(session);
+        }
+    }
+
+    /// Kör test ses aygıtını almadan önce (oynatıcı kilidi altında): süren hazırlıkların bitmesini
+    /// bekler (eskimiş sayıldıkları için aygıtı açmazlar ya da açtıklarını kısarak kapatırlar),
+    /// kapatılan oturumları kapatır, hazırlanıp takılmamış oturumları kısar. Takılmamış oturumun
+    /// akışı takılınca kapanır (kilit bırakılınca); o ana dek sessizdir. Sınırlıdır: takılan bir
+    /// hazırlık kör testi `QUIESCE_TIMEOUT`'tan uzun bekletmez.
+    pub(super) fn quiesce(&self) {
+        let deadline = Instant::now() + QUIESCE_TIMEOUT;
+        let mut state = self.state();
+        while !state.preparing.is_empty() {
+            let now = Instant::now();
+            if now >= deadline {
+                break;
+            }
+            state = match self.turn.wait_timeout(state, deadline - now) {
+                Ok((state, _)) => state,
+                Err(poisoned) => poisoned.into_inner().0,
+            };
+        }
+        let unsettled: Vec<Arc<SharedState>> =
+            state.unsettled.iter().filter_map(Weak::upgrade).collect();
+        drop(state);
+        self.close_retired();
+        for shared in &unsettled {
+            shared.paused.store(true, Ordering::Release);
+        }
+        for shared in &unsettled {
+            if !shared.ended.load(Ordering::Acquire) && shared.error().is_none() {
+                wait_for_fade_out(shared, FADE_OUT_TIMEOUT);
+            }
         }
     }
 
