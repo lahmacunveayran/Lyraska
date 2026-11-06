@@ -173,3 +173,36 @@ src/audio/lyrics.rs:172:5: replace sidecar_paths -> Vec<PathBuf> with vec![]
 src/audio/lyrics.rs:304:62: replace && with || in parse
 src/audio/lyrics.rs:374:30: replace * with + in parse_time
 src/audio/lyrics.rs:395:5: replace is_id_tag -> bool with true
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with ("xyzzy".into(), vec![(-1.0, "xyzzy".into())], String::new())
+src/audio/lyrics.rs:493:24: delete ! in syllables
+src/audio/normalize.rs:320:5: replace coefficient -> f64 with 1.0
+src/audio/normalize.rs:397:48: replace + with - in Leveler::begin_block
+src/audio/normalize.rs:436:61: replace / with % in Leveler::next_gain
+src/audio/normalize.rs:450:43: replace < with > in Leveler::next_gain
+src/audio/output.rs:82:66: replace - with + in IntFormat::encode
+src/audio/peq.rs:132:42: replace == with != in FilterKind::code
+src/audio/peq.rs:442:55: replace / with * in coefs_peak_db
+src/audio/peq.rs:464:50: replace + with * in refine_peak
+src/audio/peq.rs:502:5: replace shelf_q_from_slope -> Option<f64> with None
+src/audio/peq.rs:508:27: replace - with / in shelf_slope_from_q
+src/audio/peq.rs:596:59: replace > with < in parse_filter
+src/audio/peq.rs:738:9: replace ParametricSettings::boost_db_at -> f64 with 1.0
+src/audio/peq.rs:938:18: replace += with *= in loudness_gain_db_at
+src/audio/peq.rs:1084:38: delete - in PeqControl::design
+src/audio/peq.rs:1209:29: replace - with + in PeqProcessor::process_frame
+src/audio/player/mod.rs:324:54: replace + with * in Player::status
+src/audio/punch.rs:163:37: replace - with + in Punch::process_frame
+src/audio/render.rs:198:44: replace += with *= in Renderer::render
+src/audio/resample.rs:103:59: replace / with * in Converter::input_end_frame
+src/audio/resample.rs:154:55: replace * with / in Converter::run_blocks
+src/audio/spectrum.rs:56:36: replace * with + in bar_hz
+src/audio/spectrum.rs:116:52: replace * with / in at
+src/audio/waveform.rs:50:43: replace * with +
+src/audio/waveform.rs:134:9: replace Decimator::push with ()
+src/audio/waveform.rs:186:9: replace Window<N>::index_at_frame -> i64 with 0
+src/audio/waveform.rs:281:23: replace % with + in WaveformTap::read_window
+src/audio/waveform.rs:333:29: replace < with <= in GainCursor<'a>::at
+src/audio/waveform.rs:366:76: replace * with + in mono_mix
+src/audio/player/next_track.rs:51:9: replace SharedState::take_next -> Option<PathBuf> with None
+src/audio/player/normalization.rs:58:9: replace Player::current_level -> Option<TrackLevel> with None
+src/audio/player/session.rs:185:9: replace SharedState::now_playing_index -> Option<usize> with Some(0)

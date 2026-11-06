@@ -9,3 +9,8 @@ src/analysis/spectrogram.rs:325:9: replace Spectrogram::key -> Option<Arc<KeyAna
 src/audio/abx.rs:233:9: replace Trials::result -> Option<AbxResult> with Some(Default::default())
 src/audio/biquad.rs:467:9: replace Biquad::beyond_nyquist -> Self with Default::default()
 src/audio/eq.rs:274:9: replace EqState::at_rate -> Self with Default::default()
+src/audio/normalize.rs:227:17: delete match arm MEASURED | ESTIMATED in TrackLevels::level
+src/audio/peq.rs:390:5: replace bad -> ProfileError with Default::default()
+src/audio/player/blind_test.rs:98:9: replace Player::begin_abx_stop -> Option<Transition> with Some(Default::default())
+src/audio/player/session.rs:148:9: replace SharedState::now_playing_indexed -> Option<(TrackInfo, f64, Option<u64>, usize)> with Some((Default::default(), -1.0, None, 1))
+src/audio/player/session.rs:352:9: replace Session::now_playing_timed -> (TrackInfo, f64, Option<u64>, usize) with (Default::default(), 1.0, None, 1)
