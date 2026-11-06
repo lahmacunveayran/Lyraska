@@ -158,3 +158,37 @@ src/audio/eq.rs:450:33: replace - with / in Biquad::low_shelf
 src/audio/eq.rs:463:26: replace * with / in Biquad::high_shelf
 src/audio/eq.rs:465:27: replace - with + in Biquad::high_shelf
 src/audio/eq.rs:474:18: replace * with / in Biquad::response_db
+src/audio/eq.rs:478:66: replace * with / in Biquad::response_db
+src/audio/eq.rs:487:53: replace - with + in Biquad::power_gain
+src/audio/eq.rs:494:5: replace db_to_linear -> f64 with -1.0
+src/audio/eq.rs:548:59: replace * with + in Layout::tuned
+src/audio/eq.rs:562:48: replace / with % in Layout::tuned
+src/audio/eq.rs:604:43: replace / with % in design_point_hz
+src/audio/eq.rs:670:28: delete - in Design::with_layout
+src/audio/eq.rs:724:51: replace * with + in solve_gains
+src/audio/eq.rs:814:9: replace EqProcessor::boost_db -> f64 with 1.0
+src/audio/eq.rs:867:9: replace EqProcessor::step with ()
+src/audio/gapless.rs:50:39: replace > with < in mp4_trim
+src/audio/gapless.rs:97:29: replace - with / in find_top_level
+src/audio/gapless.rs:161:5: replace next_box -> Option<([u8; 4], &[u8], usize)> with None
+src/audio/gapless.rs:180:5: replace header_timescale -> Option<u64> with None
+src/audio/limiter.rs:126:9: replace Limiter::gain -> Sample with Default::default()
+src/audio/limiter.rs:169:53: replace - with / in Limiter::true_peak
+src/audio/limiter.rs:198:48: replace + with - in Limiter::next_gain
+src/audio/limiter.rs:241:28: replace / with * in interpolator
+src/audio/limiter.rs:246:30: replace / with * in interpolator
+src/audio/loudness.rs:79:27: replace * with + in Biquad::process
+src/audio/loudness.rs:103:26: replace / with * in k_weighting
+src/audio/loudness.rs:107:19: replace * with / in k_weighting
+src/audio/loudness.rs:115:58: replace / with % in k_weighting
+src/audio/loudness.rs:228:5: replace default_layout -> Option<u64> with Some(1)
+src/audio/loudness.rs:279:33: replace & with ^ in channel_weights
+src/audio/loudness.rs:333:24: replace += with -= in LoudnessMeter::add
+src/audio/loudness.rs:369:73: replace + with * in LoudnessMeter::finish
+src/audio/lyrics.rs:153:41: delete ! in text_for_track
+src/audio/lyrics.rs:304:27: replace match guard same_time && !line.text.is_empty() && !last.text.is_empty() with true in parse
+src/audio/lyrics.rs:374:37: replace + with - in parse_time
+src/audio/lyrics.rs:388:5: replace id_tag -> Option<&'a str> with Some("")
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with ("xyzzy".into(), vec![(-1.0, String::new())], String::new())
+src/audio/lyrics.rs:488:5: replace syllables -> usize with 1
+src/audio/normalize.rs:207:9: replace TrackLevels::set_loudness with ()
