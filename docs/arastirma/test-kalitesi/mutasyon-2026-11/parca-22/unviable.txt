@@ -1,2 +1,3 @@
 src/analysis/annotation.rs:157:9: replace AnnotationStore::save_evaluation -> Result<Annotation, EvaluationSaveError> with Ok(Default::default())
 src/analysis/beats.rs:238:5: replace segment_periods -> Option<Vec<(std::ops::Range<usize>, f64)>> with Some(vec![(Range::from_iter([1]), -1.0)])
+src/analysis/lyrics_model.rs:454:5: replace parse_tokens -> Result<(Vec<usize>, Vocabulary), ModelError> with Ok((vec![1], Default::default()))

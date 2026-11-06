@@ -28,3 +28,31 @@ src/analysis/key.rs:309:30: replace - with / in correlation
 src/analysis/key.rs:410:25: replace * with + in ChromaAnalyzer::process
 src/analysis/key.rs:437:45: replace + with - in ChromaAnalyzer::process
 src/analysis/key.rs:445:42: replace / with % in ChromaAnalyzer::process
+src/analysis/key.rs:486:5: replace fold -> [f64; PITCH_CLASSES] with [-1.0; PITCH_CLASSES]
+src/analysis/levels.rs:55:54: replace / with % in LevelAccumulator::finish
+src/analysis/levels.rs:111:38: replace * with / in vu_reference_db
+src/analysis/lyrics_align.rs:95:9: replace LineTiming::low_confidence -> bool with true
+src/analysis/lyrics_align.rs:193:5: replace log_add -> f64 with 1.0
+src/analysis/lyrics_align.rs:228:34: replace * with + in skip_arcs
+src/analysis/lyrics_align.rs:278:30: replace - with / in viterbi
+src/analysis/lyrics_align.rs:361:14: replace % with + in entry_mass
+src/analysis/lyrics_align.rs:389:31: replace - with / in entry_mass
+src/analysis/lyrics_align.rs:409:44: replace + with - in entry_mass
+src/analysis/lyrics_align.rs:451:26: replace <= with > in align
+src/analysis/lyrics_align.rs:519:48: replace + with - in align
+src/analysis/lyrics_cache.rs:87:13: replace || with && in StoredEmissions::select
+src/analysis/lyrics_cache.rs:222:9: replace StoredEmissions::consistent -> bool with false
+src/analysis/lyrics_cache.rs:277:12: replace > with < in storable
+src/analysis/lyrics_job.rs:183:9: replace AutoAlignment::valid -> bool with true
+src/analysis/lyrics_job.rs:333:5: replace spoken_spans -> Option<Vec<(f64, f64)>> with Some(vec![(0.0, 1.0)])
+src/analysis/lyrics_job.rs:462:9: replace AnalysisCache::emission_letters -> Result<Vec<char>, CacheError> with Ok(vec![])
+src/analysis/lyrics_model.rs:189:64: replace < with > in tensor_f32
+src/analysis/lyrics_model.rs:299:29: replace != with == in dequantize_matmuls
+src/analysis/lyrics_model.rs:355:29: replace == with != in dequantize_matmuls
+src/analysis/lyrics_model.rs:640:37: replace - with / in LyricsModel::emissions
+src/analysis/lyrics_text.rs:226:41: delete ! in strip_brackets
+src/analysis/lyrics_text.rs:294:23: replace > with < in split_repeat
+src/analysis/lyrics_text.rs:402:34: replace == with != in parse_header_words
+src/analysis/lyrics_text.rs:557:15: replace %= with += in turkish_number
+src/analysis/lyrics_text.rs:652:11: replace %= with += in english_number
+src/analysis/lyrics_text.rs:697:70: replace > with < in read_integer
