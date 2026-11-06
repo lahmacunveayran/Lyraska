@@ -168,3 +168,35 @@ src/audio/eq.rs:464:55: replace / with * in Biquad::high_shelf
 src/audio/eq.rs:466:21: replace + with * in Biquad::high_shelf
 src/audio/eq.rs:477:29: replace * with + in Biquad::response_db
 src/audio/eq.rs:479:33: replace / with % in Biquad::response_db
+src/audio/eq.rs:488:43: replace * with / in Biquad::power_gain
+src/audio/eq.rs:533:29: replace * with + in Layout::tuned
+src/audio/eq.rs:553:37: replace * with / in Layout::tuned
+src/audio/eq.rs:582:30: replace - with / in Layout::tail
+src/audio/eq.rs:613:49: replace + with - in design_target
+src/audio/eq.rs:746:37: replace * with / in solve_linear
+src/audio/eq.rs:848:9: replace EqProcessor::process -> Sample with Default::default()
+src/audio/gapless.rs:57:5: replace parse_itunsmpb -> Option<(u64, u64)> with Some((1, 0))
+src/audio/gapless.rs:122:67: replace + with - in walk
+src/audio/gapless.rs:161:42: replace + with - in next_box
+src/audio/gapless.rs:192:20: replace + with * in first_edit
+src/audio/limiter.rs:146:40: replace + with - in Limiter::process_frame
+src/audio/limiter.rs:185:49: replace % with / in Limiter::next_gain
+src/audio/limiter.rs:226:33: replace < with > in interpolator
+src/audio/limiter.rs:244:40: replace * with + in interpolator
+src/audio/loudness.rs:51:9: replace Loudness::gain_db -> f64 with 0.0
+src/audio/loudness.rs:97:17: replace * with + in k_weighting
+src/audio/loudness.rs:105:39: replace / with % in k_weighting
+src/audio/loudness.rs:111:17: replace * with + in k_weighting
+src/audio/loudness.rs:180:32: replace + with - in TruePeak::add
+src/audio/loudness.rs:254:5: replace channel_weights -> Vec<f64> with vec![]
+src/audio/lyrics.rs:195:5: replace decode_text -> String with "xyzzy".into()
+src/audio/lyrics.rs:350:5: replace leading_stamps -> (Vec<f64>, &str) with (vec![0.0], "xyzzy")
+src/audio/lyrics.rs:378:24: replace * with + in parse_time
+src/audio/lyrics.rs:406:5: replace word_stamps -> (String, Vec<(f64, String)>, String) with (String::new(), vec![(0.0, "xyzzy".into())], "xyzzy".into())
+src/audio/lyrics.rs:450:30: replace + with - in timed_words
+src/audio/normalize.rs:132:38: replace % with + in TrackLevels::begin_track
+src/audio/normalize.rs:270:20: replace < with == in TrackLevels::next_start
+src/audio/normalize.rs:324:5: replace db_to_linear -> f64 with -1.0
+src/audio/normalize.rs:415:56: replace > with < in Leveler::next_gain
+src/audio/normalize.rs:469:22: replace + with * in approach
+src/audio/output.rs:178:9: replace FadeWatch::wrote with ()

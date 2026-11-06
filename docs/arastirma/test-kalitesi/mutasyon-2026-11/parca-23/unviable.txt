@@ -4,3 +4,5 @@ src/analysis/key.rs:149:5: replace key_relation -> KeyRelation with Default::def
 src/analysis/lyrics_text.rs:850:5: replace prepare -> Vec<AlignLine> with vec![Default::default()]
 src/analysis/spectrogram.rs:365:9: replace Spectrogram::beat_grid -> Option<Arc<BeatGrid>> with Some(Arc::new(Default::default()))
 src/audio/biquad.rs:279:9: replace Biquad::notch -> Self with Default::default()
+src/audio/loudness.rs:350:9: replace LoudnessMeter::finish -> Option<Loudness> with Some(Default::default())
+src/audio/lyrics.rs:112:5: replace for_track -> Option<Lyrics> with Some(Default::default())
