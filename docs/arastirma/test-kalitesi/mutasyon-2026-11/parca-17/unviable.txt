@@ -3,3 +3,9 @@ src/analysis/cache.rs:193:9: replace AnalysisCache::lock -> Result<std::sync::Mu
 src/analysis/fingerprint.rs:345:25: replace << with >> in ChromaPrint::compare
 src/analysis/lyrics_cache.rs:81:9: replace StoredEmissions::select -> Option<Self> with Some(Default::default())
 src/analysis/lyrics_worker.rs:251:39: replace + with * in LyricsWorker::stop
+src/analysis/map_file.rs:398:37: replace > with < in MapFile::validate
+src/analysis/map_file.rs:461:9: replace MapFile::shifted -> Self with Default::default()
+src/analysis/map_file.rs:521:9: replace MapFile::rhythm -> (BeatGrid, SongMap) with (Default::default(), Default::default())
+src/analysis/spectrogram.rs:334:9: replace Spectrogram::measured_loudness -> Option<Option<Loudness>> with Some(Some(Default::default()))
+src/analysis/tempo.rs:108:5: replace resolve_octave -> BeatGrid with Default::default()
+src/audio/abx.rs:137:9: replace AbxStatus::inactive -> Self with Default::default()
