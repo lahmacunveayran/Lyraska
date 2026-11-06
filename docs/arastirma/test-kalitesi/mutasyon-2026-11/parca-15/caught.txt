@@ -195,3 +195,18 @@ src/audio/peq.rs:1211:24: replace -= with /= in PeqProcessor::process_frame
 src/audio/punch.rs:128:9: replace Punch::gain_db -> f64 with 1.0
 src/audio/punch.rs:173:26: replace -= with += in Punch::process_frame
 src/audio/punch.rs:200:13: replace || with && in Punch::update_gain
+src/audio/render.rs:225:34: replace * with + in Renderer::render
+src/audio/resample.rs:157:45: replace / with % in Converter::run_blocks
+src/audio/spectrum.rs:56:24: replace - with / in bar_hz
+src/audio/spectrum.rs:127:5: replace level -> f32 with -1.0
+src/audio/waveform.rs:81:9: replace Halving::push -> Option<[f64; 2]> with Some([0.0; 2])
+src/audio/waveform.rs:148:42: replace * with / in Decimator::interpolate
+src/audio/waveform.rs:283:12: delete ! in WaveformTap::read_window
+src/audio/waveform.rs:366:70: replace * with / in mono_mix
+src/audio/player/controls.rs:21:9: replace Player::set_headphone -> HeadphoneSettings with Default::default()
+src/audio/player/next_track.rs:57:9: replace SharedState::next_consumed -> bool with false
+src/audio/player/session.rs:197:9: replace SharedState::fail with ()
+src/audio/player/transition.rs:163:38: replace == with != in Player::begin_seek
+src/audio/player/visuals.rs:108:9: replace Player::visual_waveform -> Option<Vec<u8>> with Some(vec![1])
+src/audio/player/visuals.rs:177:54: replace == with != in Player::visual_eq_offsets
+src/audio/player/visuals.rs:238:33: replace + with - in SharedState::window_gains
