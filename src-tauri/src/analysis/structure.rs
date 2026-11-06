@@ -1563,6 +1563,51 @@ mod tests {
     }
 
     #[test]
+    fn enerji_egrisi_saniye_ortalamasi_el_hesabiyla() {
+        // Tanım: enerji[s] = ((s. saniyenin ortalama dBFS'i − P5) / max(P95 − P5, 1)) [0, 1]'e
+        // kırpılmış; Pp kare değerlerinin sıralı listesinde round((n − 1)·p). sırada.
+        // Kurulum: 10 kare/sn, 6 sn (60 kare). s. saniyenin değeri v = −30 + 6s; saniyenin ilk beş
+        // karesi v − 1, son beşi v + 1 (ortalama tam v). Sıralı 60 değerde P5 = 3. sıra = −31,
+        // P95 = 56. sıra = son saniyenin +1'i = 1; aralık 32. El hesabı: enerji[s] = (1 + 6s) / 32.
+        let fps = 10.0;
+        let frames = 60;
+        let loudness: Vec<f32> = (0..frames)
+            .map(|f| {
+                let v = -30.0 + 6.0 * (f / 10) as f32;
+                if f % 10 < 5 {
+                    v - 1.0
+                } else {
+                    v + 1.0
+                }
+            })
+            .collect();
+        let bands = vec![100u8; frames * BASS_BANDS];
+        let grid = BeatGrid {
+            bpm: 120.0,
+            beats: (0..12).map(|i| 0.5 * f64::from(i)).collect(),
+            variable_tempo: false,
+        };
+        let map = map_song(&bands, BASS_BANDS, &loudness, &grid, fps, None).unwrap();
+        let expected: Vec<f32> = (0..6).map(|s| (1.0 + 6.0 * s as f32) / 32.0).collect();
+        assert_eq!(map.energy.len(), expected.len());
+        for (s, (got, want)) in map.energy.iter().zip(&expected).enumerate() {
+            assert!((got - want).abs() < 1e-6, "{s}. saniye: {got} ≠ {want}");
+        }
+
+        // Kare sayısı bantlarla ses yüksekliğinin kısa olanıdır: bantlar 4,5 sn ise eğri 5 saniye
+        // (⌈45 / 10⌉), son saniye yalnızca 40..45 karelerinin ortalaması (v = −6, beşi de −7):
+        // yüzdelikler ses yüksekliği dizisinin tamamından, yine −31 ve 1: ((−7) + 31) / 32 = 0,75.
+        let short = &bands[..45 * BASS_BANDS];
+        let map = map_song(short, BASS_BANDS, &loudness, &grid, fps, None).unwrap();
+        assert_eq!(map.energy.len(), 5);
+        assert!((map.energy[4] - 0.75).abs() < 1e-6, "{}", map.energy[4]);
+
+        // Kare başına bant sayısı bas bantlarından azsa harita yok; tam o kadarsa var.
+        let narrow = vec![100u8; frames * (BASS_BANDS - 1)];
+        assert!(map_song(&narrow, BASS_BANDS - 1, &loudness, &grid, fps, None).is_none());
+    }
+
+    #[test]
     fn tekduze_muzikte_bolum_siniri_yok() {
         // Foote yeniliği iki yanı birbirinden farklı olan ölçüde yükselir. Her ölçünün özelliği
         // aynıysa benzerlik her yerde aynı, yenilik her yerde sıfırdır: sınır yoktur (tekdüze
