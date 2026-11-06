@@ -33,3 +33,36 @@ src/analysis/levels.rs:43:9: replace LevelAccumulator::add with ()
 src/analysis/levels.rs:88:9: delete match arm [rms_l, rms_r, peak_l, peak_r, ..] in decode_frame
 src/analysis/lyrics_align.rs:185:14: replace > with >= in states
 src/analysis/lyrics_align.rs:225:18: replace > with == in skip_arcs
+src/analysis/lyrics_align.rs:274:50: replace * with / in viterbi
+src/analysis/lyrics_align.rs:345:39: replace - with + in entry_mass
+src/analysis/lyrics_align.rs:385:41: replace / with % in entry_mass
+src/analysis/lyrics_align.rs:403:20: replace += with -= in entry_mass
+src/analysis/lyrics_align.rs:454:9: replace || with && in align
+src/analysis/lyrics_align.rs:484:25: replace == with != in align
+src/analysis/lyrics_cache.rs:51:59: replace / with *
+src/analysis/lyrics_cache.rs:175:84: replace * with / in StoredEmissions::decode
+src/analysis/lyrics_cache.rs:272:42: replace || with && in covered
+src/analysis/lyrics_job.rs:110:9: replace ModelSlot::disable with ()
+src/analysis/lyrics_job.rs:299:40: replace < with > in auto_lyrics
+src/analysis/lyrics_model.rs:104:5: replace finite -> f32 with 0.0
+src/analysis/lyrics_model.rs:289:27: replace match guard !outputs.contains(name) with true in dequantize_matmuls
+src/analysis/lyrics_model.rs:338:42: replace || with && in dequantize_matmuls
+src/analysis/lyrics_model.rs:446:23: replace < with > in kept_letter
+src/analysis/lyrics_model.rs:577:37: replace - with / in LyricsModel::run_window
+src/analysis/lyrics_model.rs:632:53: replace / with * in LyricsModel::emissions
+src/analysis/lyrics_model.rs:678:31: replace < with > in LyricsModel::emissions
+src/analysis/lyrics_package.rs:58:5: replace installed -> bool with false
+src/analysis/lyrics_text.rs:207:17: delete match arm 'I' in lowercase
+src/analysis/lyrics_text.rs:281:34: replace match guard RECALL_WORDS.contains(&w) with true in standalone_repeat
+src/analysis/lyrics_text.rs:545:10: replace == with != in turkish_number
+src/analysis/lyrics_text.rs:644:14: replace >= with < in english_number
+src/analysis/lyrics_text.rs:759:21: replace > with < in read_number
+src/analysis/lyrics_text.rs:807:19: delete ! in read_number
+src/analysis/lyrics_worker.rs:238:9: replace LyricsWorker::model_loaded -> bool with true
+src/analysis/map_file.rs:353:53: replace && with || in MapFile::validate
+src/analysis/map_file.rs:372:16: delete ! in MapFile::validate
+src/analysis/map_file.rs:393:16: delete ! in MapFile::validate
+src/analysis/map_file.rs:441:38: replace - with + in MapFile::verify
+src/analysis/map_file.rs:501:31: replace >= with < in MapFile::shifted
+src/analysis/map_file.rs:654:13: replace && with || in MapStore::load
+src/analysis/meter.rs:118:38: replace < with > in detect
