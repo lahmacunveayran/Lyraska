@@ -5982,16 +5982,27 @@ kbd {
   left: 50%;
   z-index: 3;
   width: min(900px, 80vw);
-  height: calc(var(--lyric-size) * 1.5);
+  /* Satır yüksekliği + koyu şeridin sönmesi için üstte ve altta pay (kutu `border-box`). */
+  height: calc(var(--lyric-size) * 2.5);
   overflow: hidden;
   transform: translateX(-50%);
   font-family: "Inter Variable", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   font-size: var(--lyric-size);
   color: var(--ink);
   text-align: center;
+  /* Okunurluk (sahibi, 7 Kasım: kalabalık, açık renkli resimde zor okunuyordu): satırın arkasında
+     kenarlara doğru sönen koyu bir şerit; kelimelerin gölgesi koyu, geniş. Sabit: parlamaz. */
+  padding: 0.5em 0;
+  background: radial-gradient(
+    ellipse 50% 50% at 50% 50%,
+    rgba(0, 0, 0, 0.52),
+    rgba(0, 0, 0, 0.3) 55%,
+    rgba(0, 0, 0, 0) 100%
+  );
   text-shadow:
-    0 0 1px rgba(0, 0, 0, 0.85),
-    0 1px 8px rgba(0, 0, 0, 0.5);
+    0 0 1px rgba(0, 0, 0, 0.95),
+    0 1px 3px rgba(0, 0, 0, 0.8),
+    0 2px 14px rgba(0, 0, 0, 0.6);
   pointer-events: none;
 }
 
@@ -6024,7 +6035,7 @@ kbd {
 .photo-lyrics__line {
   display: inline-block;
   font-size: calc(var(--lyric-size) * var(--lyric-scale, 1));
-  font-weight: 360;
+  font-weight: 460;
   letter-spacing: 0.03em;
   transition: transform 0.6s cubic-bezier(0.3, 0, 0.2, 1);
 }
@@ -6033,7 +6044,7 @@ kbd {
    zamanlaması, docs/arastirma/sozler); yalnızca ışıltının sönüşü yavaş. */
 .photo-lyrics__word {
   white-space: pre;
-  opacity: 0.5;
+  opacity: 0.68;
   transition: text-shadow 0.45s ease-out;
 }
 
