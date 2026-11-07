@@ -72,8 +72,10 @@ pub const VERSIONS: PartVersions = PartVersions {
     // 7: tempo oktavı (drum and bass 87 → 174, yarım tempolu trap 70 → 140, balad 132 → 66).
     // 8: eşit nabız (her vuruşta kick, iki katının araları dolu): hardstyle 80 → 160.
     // 9: üç vuruşta iki (80–100 bulunmuş, gerçek vuruşlar üçte birlerde): KUTE 87 → 130.
-    // 10: ritim modeli varsa vuruşlar ve ölçü ondan (`net_rhythm`).
-    rhythm: 10,
+    // Ritim modelinin gelişi sürümü artırmadı: model yokken hesap aynı; model varken `net` parçası
+    // eskiyse ritim de eski sayılır. Artırılsaydı güncellemeden sonra bütün kütüphanenin BPM'i model
+    // her şarkıda çalışana kadar (saatler) boş kalırdı (bağımsız inceleme).
+    rhythm: 9,
     // Çok kanallı seste kanal ağırlıkları kanalın yerine göre (BS.1770-5; 4.0, 5.0, 6.1, 7.1):
     // tek ve iki kanallıda sonuç aynı, sürüm artırılmadı; çok kanallılar göçle (storage V11)
     // yeniden ölçülür.
@@ -809,7 +811,9 @@ mod tests {
             let cache = AnalysisCache::open(&db)
                 .unwrap()
                 .with_net_expected(expected);
-            let names = ["a-modelsiz", "b-ritim", "c-modelli"];
+            // "d-calismadi": model bu şarkıda çalışamadı (çok uzun); boş sonuç saklandı, bir daha
+            // beklenmez (arka planda döngü olmaz).
+            let names = ["a-modelsiz", "b-ritim", "c-modelli", "d-calismadi"];
             let tracks: Vec<_> = names
                 .iter()
                 .map(|name| {
@@ -829,6 +833,13 @@ mod tests {
                 .unwrap();
             cache
                 .store(Path::new(&file("c-modelli")), STAMP, &with_net(10))
+                .unwrap();
+            let failed = SavedAnalysis {
+                net: Some(NetRhythm::default()),
+                ..sample(10)
+            };
+            cache
+                .store(Path::new(&file("d-calismadi")), STAMP, &failed)
                 .unwrap();
             cache
                 .lock()

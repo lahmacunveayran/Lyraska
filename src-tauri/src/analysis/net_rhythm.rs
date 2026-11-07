@@ -35,6 +35,10 @@ pub const MIN_BEATS: usize = 8;
 /// kendi takipçisiyle aynı ölçüt, `beats.rs`).
 const SEGMENT_SECONDS: f64 = 20.0;
 const VARIABLE_TEMPO_RATIO: f64 = 1.08;
+/// Akla yatkın tempo (BPM): dışındaysa (ör. ambiyans şarkıda dağınık birkaç sahte vuruş) ızgara
+/// sayılmaz, Lyraska'nın kendi takipçisi kullanılır.
+const MIN_BPM: f64 = 40.0;
+const MAX_BPM: f64 = 250.0;
 /// Aranan ölçüler.
 const METERS: std::ops::RangeInclusive<usize> = 2..=7;
 /// Modelin ölçü başı vuruşa taşınmıştır (`rhythm_model::pick`); eşleşme payı (sn).
@@ -61,18 +65,24 @@ fn median_interval(beats: &[f64]) -> Option<f64> {
 
 impl NetRhythm {
     /// Vuruş ızgarası: tempo vuruş aralıklarının ortancasından (0,1 BPM'e yuvarlı); 20 sn'lik
-    /// parçaların ortanca aralıkları birbirinden %8'den çok ayrılıyorsa tempo değişken.
+    /// parçaların (ilk vuruştan sayılır) ortanca aralıkları birbirinden %8'den çok ayrılıyorsa tempo
+    /// değişken. Tempo 40–250 BPM dışındaysa ızgara yok.
     pub fn grid(&self) -> Option<BeatGrid> {
         if self.beats.len() < MIN_BEATS {
             return None;
         }
         let interval = median_interval(&self.beats)?;
         let bpm = (600.0 / interval).round() / 10.0;
+        if !(MIN_BPM..=MAX_BPM).contains(&bpm) {
+            return None;
+        }
         let first = self.beats[0];
         let mut segments: Vec<f64> = Vec::new();
         let mut start = 0;
         while start < self.beats.len() {
-            let limit = first + SEGMENT_SECONDS * (segments.len() + 1) as f64;
+            // Parçanın sırası zamandan: vuruşsuz bir boşluk parçaları kaydırmaz.
+            let k = ((self.beats[start] - first) / SEGMENT_SECONDS).floor();
+            let limit = first + SEGMENT_SECONDS * (k + 1.0);
             let end = self.beats[start..]
                 .iter()
                 .position(|&b| b >= limit)
@@ -197,6 +207,43 @@ mod tests {
             .unwrap()
             .variable_tempo
         );
+    }
+
+    #[test]
+    fn bosluktan_sonra_da_tempo_degisimi_gorulur() {
+        // Bağımsız incelemenin karşı örneği: 15 sn 120 BPM, 25 sn boşluk, 40 sn 120 BPM, 40 sn 100 BPM.
+        let mut b: Vec<f64> = (0..30).map(|i| i as f64 * 0.5).collect();
+        b.extend((0..80).map(|i| 40.0 + i as f64 * 0.5));
+        b.extend((0..67).map(|i| 80.0 + i as f64 * 0.6));
+        let grid = NetRhythm {
+            beats: b,
+            downbeats: Vec::new(),
+        }
+        .grid()
+        .expect("ızgara");
+        assert!(grid.variable_tempo);
+    }
+
+    #[test]
+    fn akla_yatkin_olmayan_tempoda_izgara_yok() {
+        // Beş dakikaya dağılmış on "vuruş": 2 BPM.
+        let sparse = NetRhythm {
+            beats: beats(10, 30.0),
+            downbeats: Vec::new(),
+        };
+        assert!(sparse.grid().is_none());
+        for (interval, ok) in [
+            (60.0 / 39.0, false),
+            (60.0 / 41.0, true),
+            (0.24, true),
+            (0.23, false),
+        ] {
+            let net = NetRhythm {
+                beats: beats(20, interval),
+                downbeats: Vec::new(),
+            };
+            assert_eq!(net.grid().is_some(), ok, "aralık {interval}");
+        }
     }
 
     #[test]

@@ -110,6 +110,10 @@ pub struct PlaybackStatus {
     /// yerini alan eski oturumun geçişlerini buradan ayırır. Arayüzde seçimlik.
     #[cfg_attr(test, ts(optional, type = "number"))]
     pub session_seq: u64,
+    /// Çalan şarkının ritmi analizden sonra kaç kez yenilendi (ritim modeli gelince artar): arayüz
+    /// şarkı haritasını buna bakarak yeniden ister. Arayüzde seçimlik.
+    #[cfg_attr(test, ts(optional, type = "number"))]
+    pub rhythm_revision: u64,
 }
 
 /// Sesin şarkıdan hoparlöre giden yolu (profesyonel çalarlardaki "sinyal yolu").
@@ -306,10 +310,11 @@ impl Player {
         match &self.session {
             Some(session) => {
                 let (track, position_secs, heard_at_us, index) = session.now_playing_timed();
-                let bpm = self
-                    .analysis_for(&track.path)
+                let analysis = self.analysis_for(&track.path);
+                let bpm = analysis
                     .and_then(|a| a.spectrogram.beat_grid())
                     .map(|grid| grid.bpm);
+                let rhythm_revision = analysis.map_or(0, |a| a.spectrogram.rhythm_revision());
                 let mut output = session.path.clone();
                 output.resampled = output.sample_rate != track.sample_rate;
                 output.normalization_db = level
@@ -327,6 +332,7 @@ impl Player {
                     output: Some(output),
                     gapless_count: self.gapless_base + index as u64,
                     session_seq: self.transition_seq,
+                    rhythm_revision,
                 }
             }
             // Geçiş sürüyor (yeni şarkı açılıyor ya da sarılıyor): hedef durum gösterilir.
@@ -342,6 +348,7 @@ impl Player {
                 output: None,
                 gapless_count: self.gapless_base,
                 session_seq: self.transition_seq,
+                rhythm_revision: 0,
             },
         }
     }

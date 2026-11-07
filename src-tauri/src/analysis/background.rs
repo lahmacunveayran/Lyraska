@@ -386,7 +386,13 @@ fn analyze_one(
         // tepeleri FFT'siz tek çözmeyle.
         Some(cached) => {
             let mut open = || Decoder::open(path).ok();
-            spectrogram::refresh_paced(cached, &mut open, &target, &mut pace);
+            spectrogram::refresh_paced(
+                cached,
+                &mut open,
+                &target,
+                &mut pace,
+                spectrogram::BACKGROUND_NET_THREADS,
+            );
         }
         None => {
             let Ok(decoder) = Decoder::open(path) else {

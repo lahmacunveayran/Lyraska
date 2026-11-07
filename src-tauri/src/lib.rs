@@ -106,6 +106,13 @@ pub fn run() {
                 Ok(path) if path.is_file() => {
                     diagnostics::info(&format!("Ritim modeli: {}", path.display()));
                     analysis::rhythm_net::set_bundled_path(path);
+                    // Model ilk şarkıyı beklemeden ayrı iş parçacığında açılır (oynatıcı açılışı
+                    // beklemesin).
+                    let _ = std::thread::Builder::new()
+                        .name("lyraska-ritim-modeli".to_owned())
+                        .spawn(|| {
+                            let _ = analysis::rhythm_net::shared();
+                        });
                 }
                 _ => {
                     diagnostics::info("Ritim modeli kurulumda yok; ritim kendi analiziyle bulunur")
