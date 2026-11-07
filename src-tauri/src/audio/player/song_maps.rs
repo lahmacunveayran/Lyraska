@@ -31,7 +31,7 @@ impl Player {
         marks: Option<&Annotation>,
     ) -> Result<MapFile, MapError> {
         let spectrogram = self.finished_analysis(&track.path)?;
-        let saved = spectrogram.saved().ok_or(MapError::NotAnalyzed)?;
+        let saved = spectrogram.snapshot().ok_or(MapError::NotAnalyzed)?;
         let (Some(beats), Some(map)) = (spectrogram.beat_grid(), spectrogram.song_map()) else {
             return Err(MapError::NoRhythm);
         };
@@ -66,7 +66,7 @@ impl Player {
         source_name: &str,
     ) -> Result<ImportedMapStatus, MapError> {
         let spectrogram = self.finished_analysis(&track.path)?;
-        let saved = spectrogram.saved().ok_or(MapError::NotAnalyzed)?;
+        let saved = spectrogram.snapshot().ok_or(MapError::NotAnalyzed)?;
         let duration = track
             .duration_secs
             .unwrap_or(saved.frames() as f64 / spectrogram::FRAMES_PER_SECOND);

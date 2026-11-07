@@ -1637,4 +1637,151 @@ mod tests {
             assert!((from_complex - filter.response_db(w)).abs() < 1e-9);
         }
     }
+
+    /// Bozma taramasının kaçırdığı (6 Kasım): katsayı testi yalnızca Q = 2'deydi ve orada
+    /// α = sin ω0 / (2·Q) ile sin ω0 / (2 + Q) aynı sayıdır. Q = 0,7 ve 5'te de cookbook ile aynı.
+    #[test]
+    fn rbj_q_nun_her_degerinde_cookbook_ile_ayni() {
+        for q in [0.7, 5.0] {
+            let w0 = 2.0 * PI * 1000.0 / RATE;
+            let (sin, cos) = w0.sin_cos();
+            let alpha = sin / (2.0 * q);
+            let a0 = 1.0 + alpha;
+            let expect = |f: Biquad, b: [f64; 3]| {
+                let got = [f.b0, f.b1, f.b2, f.a1, f.a2];
+                let want = [
+                    b[0] / a0,
+                    b[1] / a0,
+                    b[2] / a0,
+                    -2.0 * cos / a0,
+                    (1.0 - alpha) / a0,
+                ];
+                for (g, w) in got.iter().zip(want) {
+                    assert!((g - w).abs() < 1e-15, "Q {q}: {got:?} != {want:?}");
+                }
+            };
+            expect(
+                Biquad::highpass(1000.0, q, RATE),
+                [(1.0 + cos) / 2.0, -(1.0 + cos), (1.0 + cos) / 2.0],
+            );
+            expect(Biquad::bandpass(1000.0, q, RATE), [alpha, 0.0, -alpha]);
+            expect(Biquad::notch(1000.0, q, RATE), [1.0, -2.0 * cos, 1.0]);
+            expect(
+                Biquad::allpass(1000.0, q, RATE),
+                [1.0 - alpha, -2.0 * cos, 1.0 + alpha],
+            );
+        }
+    }
+
+    /// Nyquist'in ötesindeki (0,49·fs ve üstü) frekans: geçirenler sınıra çekilir, çentik, tüm
+    /// geçiren ve kazançlı süzgeçler (eşlenmiş tasarım dahil) etkisizdir.
+    #[test]
+    fn nyquist_otesindeki_frekans_sinira_cekilir_ya_da_etkisiz() {
+        let top = MAX_FREQ_RATIO * RATE;
+        for f in [0.6 * RATE, 0.9 * RATE, 1.5 * RATE] {
+            assert_eq!(
+                Biquad::highpass(f, 0.7, RATE),
+                Biquad::highpass(top, 0.7, RATE)
+            );
+            assert_eq!(
+                Biquad::bandpass(f, 0.7, RATE),
+                Biquad::bandpass(top, 0.7, RATE)
+            );
+            assert_eq!(Biquad::notch(f, 0.7, RATE), Biquad::IDENTITY);
+            assert_eq!(Biquad::allpass(f, 0.7, RATE), Biquad::IDENTITY);
+            let peak = Spec {
+                kind: Kind::Peaking,
+                freq_hz: f,
+                gain_db: 6.0,
+                q: 1.0,
+            };
+            assert_eq!(Biquad::matched(&peak, RATE), Biquad::IDENTITY, "{f}");
+        }
+        // Sınırın altında süzgeç tasarlanır.
+        assert_ne!(Biquad::notch(0.48 * RATE, 0.7, RATE), Biquad::IDENTITY);
+        assert_ne!(
+            Biquad::highpass(0.48 * RATE, 0.7, RATE),
+            Biquad::highpass(top, 0.7, RATE)
+        );
+    }
+
+    /// Kararlılık üçgeni, el hesabı: kutuplar z² + a1·z + a2 = 0'ın kökleri.
+    #[test]
+    fn kararlilik_ucgeni_el_hesabiyla() {
+        let f = |a1: f64, a2: f64| Biquad {
+            b0: 1.0,
+            b1: 0.0,
+            b2: 0.0,
+            a1,
+            a2,
+        };
+        assert!(f(0.0, 0.5).is_stable(), "±j0,707");
+        assert!(f(1.5, 0.6).is_stable(), "−0,75 ± j0,194: |z| = 0,775");
+        assert!(f(-1.9, 0.95).is_stable(), "0,95 ± j0,22: |z| = 0,975");
+        assert!(!f(1.7, 0.6).is_stable(), "−0,5 ve −1,2");
+        assert!(!f(0.0, 1.0).is_stable(), "±j: birim çemberde");
+        assert!(!f(0.0, -1.0).is_stable(), "±1: birim çemberde");
+        assert!(!f(-2.1, 1.2).is_stable(), "|z|² = 1,2");
+    }
+
+    /// Pay sıfırlarının en büyük yarıçapı, el hesabı: sıfırlar b0·z² + b1·z + b2 = 0'ın kökleri.
+    #[test]
+    fn pay_sifirlarinin_yaricapi_el_hesabiyla() {
+        let radius = |b0: f64, b1: f64, b2: f64| {
+            Biquad {
+                b0,
+                b1,
+                b2,
+                a1: 0.0,
+                a2: 0.0,
+            }
+            .max_zero_radius()
+        };
+        let close = |got: f64, want: f64| assert!((got - want).abs() < 1e-12, "{got} != {want}");
+        close(radius(1.0, -2.5, 1.0), 2.0); // 2 ve 0,5
+        close(radius(1.0, 3.0, 2.0), 2.0); // −1 ve −2
+        close(radius(2.0, -1.0, 0.0), 0.5); // 0,5 ve 0
+        close(radius(1.0, 0.0, 0.81), 0.9); // ±j0,9
+        assert!(radius(0.0, 1.0, 1.0).is_infinite());
+    }
+
+    /// En küçük fazlı pay: birim çemberin dışındaki gerçek sıfır içeri yansır (z → 1/z), kazanç
+    /// |z| ile çarpılır; genlik her frekansta aynı kalır. El hesabı: 1 − 2,5 z⁻¹ + z⁻²'nin sıfırları
+    /// 2 ve 0,5 → 2·(1 − 0,5 z⁻¹)² = 2 − 2 z⁻¹ + 0,5 z⁻².
+    #[test]
+    fn en_kucuk_faz_disaridaki_sifiri_yansitir_genlik_ayni() {
+        let b = [1.0, -2.5, 1.0];
+        let m = min_phase(b);
+        assert_eq!(m, [2.0, -2.0, 0.5]);
+        let filter = |b: [f64; 3]| Biquad {
+            b0: b[0],
+            b1: b[1],
+            b2: b[2],
+            a1: 0.0,
+            a2: 0.0,
+        };
+        for w in [0.0, 0.3, 1.0, 2.0, PI] {
+            let (x, y) = (filter(b).response(w).norm(), filter(m).response(w).norm());
+            assert!((x - y).abs() < 1e-12, "ω {w}: {x} != {y}");
+        }
+        // İki sıfır da dışarıda (−2 ve −4): 1 + 6 z⁻¹ + 8 z⁻² → 8·(1 + 0,75 z⁻¹ + 0,125 z⁻²).
+        assert_eq!(min_phase([1.0, 6.0, 8.0]), [8.0, 6.0, 1.0]);
+        // Sıfırlar içeride (0,7 ve 0,3), karmaşık (±j0,9) ya da b2 = 0: değişmez.
+        for (g, w) in min_phase([1.0, -1.0, 0.21]).iter().zip([1.0, -1.0, 0.21]) {
+            assert!((g - w).abs() < 1e-15, "{g} != {w}");
+        }
+        assert_eq!(min_phase([1.0, 0.0, 0.81]), [1.0, 0.0, 0.81]);
+        assert_eq!(min_phase([1.0, -3.0, 0.0]), [1.0, -3.0, 0.0]);
+    }
+
+    /// Denormal temizleme: 1e-200'den küçük değerler sıfırlanır, gerisi aynen kalır.
+    #[test]
+    fn denormal_degerler_sifirlanir() {
+        let mut state: State = [1e-300, -1e-250];
+        flush(&mut state);
+        assert_eq!(state, [0.0, 0.0]);
+        let mut state: State = [1e-100, -0.5];
+        flush(&mut state);
+        assert_eq!(state, [1e-100, -0.5]);
+    }
 }

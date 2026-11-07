@@ -1660,4 +1660,88 @@ mod tests {
         assert!(map.drops.is_empty(), "{:?}", map.drops);
         assert_eq!(map.section_at(-1.0), None);
     }
+
+    fn plain_map(meter: usize, downbeat_phase: usize) -> SongMap {
+        SongMap {
+            meter,
+            downbeat_phase,
+            grouping: Vec::new(),
+            meter_confidence: 1.0,
+            downbeats: Vec::new(),
+            sections: vec![
+                Section {
+                    start: 0.0,
+                    end: 10.0,
+                    energy: 0.2,
+                    label: 0,
+                },
+                Section {
+                    start: 10.0,
+                    end: 25.0,
+                    energy: 0.8,
+                    label: 1,
+                },
+            ],
+            drops: Vec::new(),
+            drop_confidence: Vec::new(),
+            energy: vec![0.1, 0.4, 0.9],
+        }
+    }
+
+    /// Bozma taramasında kaçan yardımcılar (6 Kasım), el hesabıyla: ölçüdeki yer, saniyedeki enerji,
+    /// bölüm sınırı.
+    #[test]
+    fn olcudeki_yer_enerji_ve_bolum_el_hesabiyla() {
+        // 4/4, ilk ölçü başı 2. vuruşta: vuruş 0 → 3, 1 → 4, 2 → 1, 5 → 4, 6 → 1.
+        let map = plain_map(4, 2);
+        let places: Vec<usize> = (0..7).map(|i| map.bar_beat(i)).collect();
+        assert_eq!(places, [3, 4, 1, 2, 3, 4, 1]);
+        assert_eq!(plain_map(3, 1).bar_beat(0), 3);
+        assert_eq!(plain_map(3, 1).bar_beat(1), 1);
+        // Saniye başına enerji; negatif, sonlu olmayan ve sonrası yok.
+        assert_eq!(map.energy_at(0.0), Some(0.1));
+        assert_eq!(map.energy_at(1.99), Some(0.4));
+        assert_eq!(map.energy_at(2.5), Some(0.9));
+        assert_eq!(map.energy_at(3.0), None);
+        assert_eq!(map.energy_at(-0.5), None);
+        assert_eq!(map.energy_at(f64::NAN), None);
+        assert_eq!(map.energy_at(f64::INFINITY), None);
+        // Bölüm [başlangıç, bitiş): sınır sonraki bölüme ait.
+        assert_eq!(map.section_at(0.0), Some(0));
+        assert_eq!(map.section_at(9.999), Some(0));
+        assert_eq!(map.section_at(10.0), Some(1));
+        assert_eq!(map.section_at(25.0), None);
+        assert_eq!(map.section_at(-1.0), None);
+    }
+
+    /// Küçük sayısal yardımcılar, el hesabıyla.
+    #[test]
+    fn sayisal_yardimcilar_el_hesabiyla() {
+        let close = |got: f64, want: f64| assert!((got - want).abs() < 1e-12, "{got} != {want}");
+        // gauss(x, w) = exp(−½·(x / (w/2))²): x = 0 → 1; x = w/2 → e^−½; x = w → e^−2.
+        close(gauss(0.0, 4.0), 1.0);
+        close(gauss(2.0, 4.0), (-0.5f64).exp());
+        close(gauss(-4.0, 4.0), (-2.0f64).exp());
+        close(gauss(3.0, 6.0), (-0.5f64).exp());
+        // Ortalama 5, sapmalar −3, −1, 1, 3: varyans (9+1+1+9)/4 = 5.
+        let v = [2.0, 4.0, 6.0, 8.0];
+        close(std_dev(&v), 5f64.sqrt());
+        let z = zscores(&v);
+        for (got, want) in z.iter().zip([-3.0, -1.0, 1.0, 3.0]) {
+            close(*got, want / 5f64.sqrt());
+        }
+        // Sabit dizide sapma 0, z-skor 0 (sıfıra bölünmez).
+        assert!(zscores(&[3.0, 3.0, 3.0]).iter().all(|&x| x == 0.0));
+        // Yüzdelik: sıralı [1, 2, …, 11]; %10 → sıra round(10·0,1) = 1 → 2; %95 → round(9,5) = 10 → 11.
+        let values: Vec<f32> = (1..=11).rev().map(|v| v as f32).collect();
+        assert_eq!(percentile_range(&values, 0.1, 0.95), (2.0, 11.0));
+        assert_eq!(percentile_range(&values, 0.0, 1.0), (1.0, 11.0));
+        assert_eq!(percentile_range(&[], 0.1, 0.9), (0.0, 1.0));
+        // Sütun ortalaması.
+        assert_eq!(
+            average(&[vec![1.0, 10.0], vec![3.0, 20.0], vec![5.0, 60.0]]),
+            [3.0, 30.0]
+        );
+        assert!(average(&[]).is_empty());
+    }
 }
