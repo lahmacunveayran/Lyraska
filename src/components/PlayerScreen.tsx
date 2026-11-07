@@ -230,14 +230,15 @@ export function PlayerScreen() {
         : null,
     [songMap, durationSecs],
   );
-  // Büyük kütüphanede aramayı her çizimde yapmamak için.
+  // Büyük kütüphanede aramayı her çizimde yapmamak için. Aramadan bağımsız listeden: arama süzgeci çalan ya da
+  // sıradaki şarkıyı dışarıda bıraksa da etiketleri ve kapağın albümü bilinsin.
   const current = useMemo(
-    () => libraryTrack(library.tracks, statusPath),
-    [library.tracks, statusPath],
+    () => libraryTrack(library.allTracks, statusPath),
+    [library.allTracks, statusPath],
   );
   const upcomingTrack = useMemo(
-    () => libraryTrack(library.tracks, upcoming),
-    [library.tracks, upcoming],
+    () => libraryTrack(library.allTracks, upcoming),
+    [library.allTracks, upcoming],
   );
   const cover = useCover(statusPath, coverAlbum(status.track));
   const upcomingCover = useCover(upcoming, coverAlbum(upcomingTrack ?? null));

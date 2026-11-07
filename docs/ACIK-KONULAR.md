@@ -33,8 +33,7 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 
 ## Ele alınmayı bekleyen geri bildirim ve bulgular
 
-- Şarkı kapağı (0.0.82) küçükleri: kütüphaneden çıkan şarkının kapağı `kapaklar/`'da kalır (temizlik yok); arama
-  süzgeci açıkken "sıradaki" kapağı albümsüz anahtarla okunur, şarkı başlayınca bir kez daha okunur.
+- Şarkı kapağı (0.0.82) küçüğü: kütüphaneden çıkan şarkının kapağı `kapaklar/`'da kalır (temizlik yok).
 - Güvenlik uyarıları (Scorecard): SAST (CodeQL eklendi), Branch-Protection (sahibinin kuralı) ve Pinned-Dependencies
   (#13, #14: söz hizalama betiğinin `pip install`'ları karmalı istek dosyasından) bir sonraki taramada kapanmalı;
   Code-Review ve Binary-Artifacts sahibi "Won't fix" ile kapattı; Maintained zamanla kapanır; Vulnerabilities
