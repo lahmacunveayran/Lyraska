@@ -189,7 +189,17 @@ impl Spectrogram {
     /// Bitmiş analizin saklanacak hâli; analiz bitmediyse, ritim modeli sürüyorsa ya da çözme yarıda
     /// kesildiyse `None`.
     pub fn saved(&self) -> Option<SavedAnalysis> {
-        if !self.is_done() || self.is_truncated() || self.net_pending.load(Ordering::Acquire) {
+        if self.net_pending.load(Ordering::Acquire) {
+            return None;
+        }
+        self.snapshot()
+    }
+
+    /// Bitmiş analizin o anki hâli; ritim modeli henüz sürüyor olabilir (ritim karelerden). Harita
+    /// dışa ve içe aktarma bunu kullanır: kareler, ses yüksekliği ve ton hazırken kullanıcı
+    /// beklemesin. Önbelleğe [`Self::saved`] yazılır.
+    pub fn snapshot(&self) -> Option<SavedAnalysis> {
+        if !self.is_done() || self.is_truncated() {
             return None;
         }
         Some(SavedAnalysis {
@@ -1527,6 +1537,7 @@ mod tests {
         let mut decoder = Decoder::open(&path).unwrap();
         let target = &spectrogram;
         let mut before: Option<(Option<Arc<BeatGrid>>, bool, u64)> = None;
+        let mut early_snapshot = false;
         let mut pace = || {
             if target.is_done() && before.is_none() {
                 before = Some((
@@ -1534,6 +1545,7 @@ mod tests {
                     target.saved().is_some(),
                     target.rhythm_revision(),
                 ));
+                early_snapshot = target.snapshot().is_some();
             }
         };
         analyze_source_with(&mut decoder, target, &mut pace, run(&net));
@@ -1541,6 +1553,7 @@ mod tests {
             before.expect("model parçaları arasında çağrıldı");
         assert!(first_grid.is_some(), "önce karelerin ritmi");
         assert!(!saved_early, "model sürerken saklanmaz");
+        assert!(early_snapshot, "ama harita aktarımı için anlık hâli hazır");
         assert_eq!(revision, 0);
         assert_eq!(spectrogram.rhythm_revision(), 1);
         let net_grid = spectrogram.net_rhythm().unwrap().grid().unwrap();

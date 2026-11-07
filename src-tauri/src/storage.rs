@@ -215,8 +215,19 @@ ALTER TABLE analyses ADD COLUMN net_beats TEXT;
 ALTER TABLE analyses ADD COLUMN net_version INTEGER NOT NULL DEFAULT 0;
 ";
 
+/// 13: 6.1 ve 7.1 kanallı ALAC şarkıların ses yüksekliği yeniden ölçülür. symphonia bu iki düzende
+/// bazı kanalları yanlış yere yazıyordu (`audio::decode::alac_channel_fix`); kanal ağırlığı yerden
+/// geldiği için ölçüm etkilenmişti. Öbür parçalar (kareler, ritim, bas, ton) kanalları yere bakmadan
+/// karıştırır, değişmez. V11 gibi yalnızca bu şarkıların ses yüksekliği sürümü 0 yapılır; V11'deki sınır
+/// burada da geçerli: kütüphanede olmayan böyle bir dosyanın eski kaydı dosya değişene kadar kalır.
+const V13: &str = "
+UPDATE analyses SET loudness_version = 0
+ WHERE loudness_version != 0
+   AND path IN (SELECT path FROM tracks WHERE codec = 'alac' AND channels IN (7, 8));
+";
+
 /// Sıralı göç adımları (bkz. modül belgesi). Yalnızca sona eklenir.
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13];
 
 /// Bu sürümün bildiği en yeni şema.
 pub const SCHEMA_VERSION: i64 = MIGRATIONS.len() as i64;
@@ -650,6 +661,57 @@ mod tests {
                 row("lcr", 0),
                 row("mono", 1),
                 row("stereo", 1),
+            ]
+        );
+    }
+
+    #[test]
+    fn alac_6_1_ve_7_1_sarkilarin_ses_yuksekligi_yeniden_olculur() {
+        // 12. adımın veritabanı: her şarkının ses yüksekliği güncel (sürüm 1).
+        let mut conn = Connection::open_in_memory().unwrap();
+        apply(&mut conn, &MIGRATIONS[..12]).unwrap();
+        conn.execute("INSERT INTO folders (id, path) VALUES (1, 'C:/Müzik')", [])
+            .unwrap();
+        let tracks = [
+            ("alac-6.1", "alac", 7),
+            ("alac-7.1", "alac", 8),
+            ("alac-5.1", "alac", 6),
+            ("flac-7.1", "flac", 8),
+        ];
+        for (path, codec, channels) in tracks {
+            conn.execute(
+                "INSERT INTO tracks (folder_id, path, file_name, codec, sample_rate, channels,
+                     file_size, modified, sort_key, search)
+                 VALUES (1, ?1, ?1, ?2, 48000, ?3, 1, 1, '', '')",
+                rusqlite::params![path, codec, channels],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO analyses (path, file_size, modified, version, frames, levels, meters,
+                     onset, spectrum_version, rhythm_version, loudness_version, bass_version,
+                     key_version)
+                 VALUES (?1, 1, 1, 6, 0, x'', x'', x'', 2, 9, 1, 1, 1)",
+                rusqlite::params![path],
+            )
+            .unwrap();
+        }
+        migrate(&mut conn).unwrap();
+        let rows: Vec<(String, i64, i64)> = conn
+            .prepare("SELECT path, loudness_version, rhythm_version FROM analyses ORDER BY path")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        // Yalnızca 7 ve 8 kanallı ALAC yeniden ölçülür; 5.1 ALAC ve FLAC'a dokunulmaz.
+        let row = |path: &str, loudness| (path.to_owned(), loudness, 9);
+        assert_eq!(
+            rows,
+            [
+                row("alac-5.1", 1),
+                row("alac-6.1", 0),
+                row("alac-7.1", 0),
+                row("flac-7.1", 1)
             ]
         );
     }

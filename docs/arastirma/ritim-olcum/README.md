@@ -64,8 +64,9 @@ cargo run --release --example ritim_olcum -- <ses klasörü> <işaret klasörü>
 ### Karşılaştırma (dikkatle)
 
 Bu sette **eğitilmiş** yapay sinir ağı takipçilerinin yayımlanmış sonuçları (sekiz katlı çapraz doğrulama) vuruşta
-yaklaşık 0,94, ölçü başında yaklaşık 0,86. Kaynak: Böck, Krebs, Widmer 2016, ISMIR, "Joint beat and downbeat tracking
-with recurrent neural networks"; sayılar birincil kaynaktan yeniden okunacak. Beat This bu seti eğitimde kullandığı
+0,938, ölçü başında 0,863. Kaynak: Böck, Krebs, Widmer 2016, ISMIR, "Joint beat and downbeat tracking with recurrent
+neural networks", Tablo 3 (13 kopyası çıkarılmış Ballroom, 685 parça; birincil kaynaktan okundu, iki denetim:
+[`iddia-denetimi/LISTE.md`](../iddia-denetimi/LISTE.md) 3). Beat This bu seti eğitimde kullandığı
 için burada adil karşılaştırılamaz; onun için GTZAN (Beat This'in görmediği test seti) ölçülecek.
 
 ## GTZAN: Lyraska ve Beat This yan yana (6 Kasım 2026)

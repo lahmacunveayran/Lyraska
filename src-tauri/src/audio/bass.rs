@@ -453,6 +453,18 @@ pub struct BassProcessor {
     boost_dirty: bool,
 }
 
+/// 2., 3. ve 4. Chebyshev polinomları: `u = cos θ` için cos 2θ, cos 3θ, cos 4θ (sinüsten tam
+/// olarak 2., 3. ve 4. harmoniği üretir).
+#[inline]
+fn chebyshev(u: f64) -> (f64, f64, f64) {
+    let u2 = u * u;
+    (
+        2.0 * u2 - 1.0,
+        u * (4.0 * u2 - 3.0),
+        8.0 * u2 * (u2 - 1.0) + 1.0,
+    )
+}
+
 impl BassProcessor {
     pub fn new(control: Arc<EqControl>, channels: usize, sample_rate: u32) -> Self {
         let rate = f64::from(sample_rate.max(1));
@@ -616,10 +628,7 @@ impl BassProcessor {
         let amplitude = self.envelope;
         // Zarf her zaman örneğin üstünde: |u| ≤ 1 (çok kısıkta 0'a bölünmesin).
         let u = (low / amplitude.max(1e-9)).clamp(-1.0, 1.0);
-        let u2 = u * u;
-        let t2 = 2.0 * u2 - 1.0;
-        let t3 = u * (4.0 * u2 - 3.0);
-        let t4 = 8.0 * u2 * (u2 - 1.0) + 1.0;
+        let (t2, t3, t4) = chebyshev(u);
         let shaped = WEIGHTS[0] * t2 + WEIGHTS[1] * t3 + WEIGHTS[2] * t4;
         let h = shaped * amplitude * harmonic_amount(self.shelf_db);
         // Bandın dışını (doğru akım, alt bas, yüksek dereceler) at.
@@ -1146,6 +1155,157 @@ mod tests {
             during <= settled * 1.1,
             "geçişte {during:.4}, oturunca {settled:.4}"
         );
+    }
+
+    /// Bozma taramasının kaçırdığı (6 Kasım): ayar değişikliği yalnızca "tık yok" diye sınanıyordu;
+    /// ayar hiç uygulanmasa da (adım atılmasa, rampa ilerlemese) o test geçiyordu. Çalarken değişen
+    /// ayar, oturunca baştan o ayarla kurulmuş işlemciyle aynı sesi verir: 60 Hz ve harmonikleri
+    /// (120, 180 Hz) ve alt oktav (30 Hz) 0,05 dB içinde.
+    #[test]
+    fn calarken_degisen_ayar_bastan_kurulanla_ayni_sese_ulasir() {
+        let tone = |f: usize| 0.2 * sine(60.0, RATE, f);
+        let total = RATE as usize * 2;
+        let change = RATE as usize / 4;
+        let tail = |out: &[Sample]| out[out.len() - RATE as usize / 2..].to_vec();
+        for (bass_db, depth, small) in [
+            (12.0, 0.0, false),
+            (12.0, 0.0, true),
+            (6.0, 0.6, false),
+            (0.0, 0.0, false),
+        ] {
+            let settings = EqSettings {
+                bass_db,
+                small_speaker: small,
+                bass_depth: depth,
+                ..EqSettings::default()
+            };
+            // Başta başka bir ayar (son durum kapalıysa açık başlar).
+            let start = if bass_db == 0.0 {
+                deep(9.0, 0.5, false)
+            } else {
+                control(0.0, false)
+            };
+            let mut changed = BassProcessor::new(Arc::clone(&start), 1, RATE);
+            let mut fresh = BassProcessor::new(Arc::new(EqControl::new(settings)), 1, RATE);
+            let (mut a, mut b) = (Vec::with_capacity(total), Vec::with_capacity(total));
+            for f in 0..total {
+                if f % 480 == 0 {
+                    changed.begin_block();
+                    fresh.begin_block();
+                }
+                if f == change {
+                    start.set(settings);
+                }
+                let mut x = [tone(f)];
+                changed.process_frame(&mut x);
+                a.push(x[0]);
+                let mut y = [tone(f)];
+                fresh.process_frame(&mut y);
+                b.push(y[0]);
+            }
+            let (a, b) = (tail(&a), tail(&b));
+            for freq in [30.0, 60.0, 120.0, 180.0] {
+                let (la, lb) = (fit(&a, freq, RATE).0, fit(&b, freq, RATE).0);
+                // Çok kısık bileşen (ör. kapalıyken 120 Hz) mutlak olarak karşılaştırılır.
+                let ok = (20.0 * (la.max(1e-9) / lb.max(1e-9)).log10()).abs() < 0.05
+                    || (la - lb).abs() < 1e-6;
+                assert!(
+                    ok,
+                    "{bass_db} dB, derinlik {depth}, küçük {small}: {freq} Hz {la:.6} != {lb:.6}"
+                );
+            }
+            assert_eq!(changed.is_bypass(), fresh.is_bypass());
+        }
+    }
+
+    /// Küçük hoparlör karışımı, derinlik ve vuruş örnek başına sabit adımla (40 ms'de tam) değişir:
+    /// ne birden atlar ne takılır.
+    #[test]
+    fn karisim_derinlik_ve_vurus_rampayla_degisir() {
+        let control = control(0.0, false);
+        let mut p = BassProcessor::new(Arc::clone(&control), 1, RATE);
+        control.set(EqSettings {
+            small_speaker: true,
+            bass_depth: 0.6,
+            bass_punch: 0.5,
+            ..EqSettings::default()
+        });
+        p.begin_block();
+        let step = 1.0 / (SMOOTH_SECONDS * f64::from(RATE));
+        let mut frame = [0.0];
+        for k in 1..=(2.0 * SMOOTH_SECONDS * f64::from(RATE)) as usize {
+            p.process_frame(&mut frame);
+            let ramp = |target: f64| (k as f64 * step).min(target);
+            assert!(
+                (p.mix - ramp(1.0)).abs() < 1e-9,
+                "kare {k}: karışım {}",
+                p.mix
+            );
+            assert!(
+                (p.depth - ramp(0.6)).abs() < 1e-9,
+                "kare {k}: derinlik {}",
+                p.depth
+            );
+            assert!(
+                (p.punch_amount - ramp(0.5)).abs() < 1e-9,
+                "kare {k}: vuruş {}",
+                p.punch_amount
+            );
+        }
+        // Geri kapanırken de aynı adımla.
+        control.set(EqSettings::default());
+        p.begin_block();
+        for k in 1..=(SMOOTH_SECONDS * f64::from(RATE) / 2.0) as usize {
+            p.process_frame(&mut frame);
+            assert!(
+                (p.mix - (1.0 - k as f64 * step)).abs() < 1e-9,
+                "kare {k}: {}",
+                p.mix
+            );
+        }
+    }
+
+    /// Bas tepesi ölçümü oranlardır (raf ve bant tepesi / ham tepe): sesin seviyesinden ve aynı sesin
+    /// kaç kanalda çaldığından bağımsız (metamorfik ilişki; bozma taraması kanal ortalamasının ve
+    /// oranın bozulmasını yakalamamıştı: testler tek kanallı ve tam ölçekliydi).
+    #[test]
+    fn bas_tepesi_olcumu_seviyeden_ve_kanal_sayisindan_bagimsiz() {
+        let measure = |amplitude: f64, channels: usize| {
+            let mut meter = BassPeakMeter::new(RATE, channels);
+            for f in 0..RATE as usize {
+                let x = amplitude * (0.7 * sine(60.0, RATE, f) + 0.3 * sine(1000.0, RATE, f));
+                meter.add(&vec![x; channels]);
+            }
+            meter.finish().expect("ses var")
+        };
+        let reference = measure(0.9, 1);
+        for (amplitude, channels) in [(0.09, 1), (0.9, 2), (0.3, 2), (0.9, 6)] {
+            let got = measure(amplitude, channels);
+            for (g, r) in got.shelf_rise_db.iter().zip(reference.shelf_rise_db) {
+                assert!((g - r).abs() < 1e-9, "{amplitude} × {channels}: {g} != {r}");
+            }
+            assert!(
+                (got.octave_band_db - reference.octave_band_db).abs() < 1e-9,
+                "{amplitude} × {channels}: {} != {}",
+                got.octave_band_db,
+                reference.octave_band_db
+            );
+        }
+    }
+
+    /// Chebyshev özdeşliği (bağımsız): T_n(cos θ) = cos nθ.
+    #[test]
+    fn chebyshev_polinomlari_harmonik_uretir() {
+        for i in 0..=40 {
+            let theta = PI * f64::from(i) / 40.0;
+            let (t2, t3, t4) = chebyshev(theta.cos());
+            for (got, n) in [(t2, 2.0), (t3, 3.0), (t4, 4.0)] {
+                assert!(
+                    (got - (n * theta).cos()).abs() < 1e-12,
+                    "θ {theta}, T{n}: {got}"
+                );
+            }
+        }
     }
 
     #[test]

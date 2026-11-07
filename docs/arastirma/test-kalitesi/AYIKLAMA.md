@@ -556,3 +556,86 @@ Erişilemez, eşdeğer.
 | `key_port.py`, `key_vote.py`                          | R6, R7                                                       | `key_port.txt`, `key_vote.txt`                          |
 | `structure_port.py`                                   | R9, N4                                                       | `structure_port.txt`                                    |
 | `loudness_short.py`                                   | R13: 0,3 sn Tech 3341 durum 1                                | ekrana                                                  |
+
+## Tam taramanın ayıklaması, 2. bölüm (7 Kasım 2026): biquad.rs, bass.rs, structure.rs
+
+Tam taramanın (`claude/mutasyon-*`, 1 656 kaçan) üç dosyası. Taramanın commit'i ile bugünkü `main`'de bu dosyaların kod
+bölgesi (test modülünden önceki satırlar) aynı: satır numaraları geçerli. Taramadan sonra eklenen testler bazı kaçanları
+zaten yakalıyor (ör. bant geçirenin Q'su, `analog_prototip_kapali_bicimle_ayni`); kesin durum küçük kopya projede
+yeniden sınamayla ([`betikler/ayiklama/kopya_mutasyon.py`](betikler/ayiklama/kopya_mutasyon.py)) yazılır.
+
+### biquad.rs (165 kaçan)
+
+- **(b) eşdeğer, analog eğride sanal terimin işareti** (116:37, 116:64, 119:25, 119:53, 123:29, 123:55, 125:42,
+  126:45, 127:45, 128:48, 129:37, 129:58): `s` jω olduğu için `±s·k` terimi yalnızca sanal kısmın işaretini çevirir;
+  `analog`'un yalnızca genliği (`norm_sqr`) kullanılır.
+- **(b) `response` eşleniği** (526:43): `Biquad::response`'un yalnızca genliği kullanılır (yalnızca testte).
+- **(b) sınır eşitlikleri** (141:52, 182:69 `< 1e-6`, 570:17, 599:13 ζ = 1'de iki kol aynı, 670:20 `>=` (|z| = 1'in
+  yansıması kendisi), 780:56, 930:24).
+- **(b) aday aramasının yedekliliği** (`matched` 358–449, `beyond_nyquist` 473–504, `Power::at`, `factor`,
+  `Grid::fit`, `error_weight`, GRID sabitleri): eşlenmiş tasarım birkaç adayı dener, en iyisini seçer; bir adayın
+  hesabı bozulunca başka aday aynı sapma sınırında kalıyor. Kullanıcıya etkisi testlerin sınırladığı sapma (≤ RBJ,
+  `tipik_ayarlarda_eslenmis_tasarimin_sapmasi_kucuk`, `dogruluk_tablosu`); aday aday sınamak tasarımı kırılgan test
+  eder. Bilinçli olarak bırakıldı.
+- **(a) gerçek açık, testi yazıldı:**
+  - 273:32, 284:32, 298:32 `sin / (2·Q)` → `sin / (2 + Q)`: katsayı testi yalnızca Q = 2'deydi ve orada ikisi aynı.
+    `rbj_q_nun_her_degerinde_cookbook_ile_ayni` (Q 0,7 ve 5).
+  - 258:47, 270:47, 279:35, 293:35, 343:58 Nyquist sınırı (`sample_rate * 0,49`): üstündeki frekans hiç
+    sınanmıyordu. `nyquist_otesindeki_frekans_sinira_cekilir_ya_da_etkisiz`.
+  - 560 `is_stable` (`true`, `<=`, `||`): yalnızca kararlı tasarımlarda çağrılıyordu. `kararlilik_ucgeni_el_hesabiyla`.
+  - 565–576 `max_zero_radius`: `pay_sifirlarinin_yaricapi_el_hesabiyla`.
+  - 663–672 `min_phase`: `en_kucuk_faz_disaridaki_sifiri_yansitir_genlik_ayni`.
+  - 929 `flush` → `()`: `denormal_degerler_sifirlanir`.
+
+### bass.rs (85 kaçan)
+
+- **(a) ayar çalarken değişince** (584 `step` → `()`, 585–586, 600–605 `ramp`, 642 `update_left`, 643–653
+  karışım/derinlik/vuruş rampası, 530–532): tek test "tık yok" diyordu; ayar hiç uygulanmasa da geçiyordu.
+  `calarken_degisen_ayar_bastan_kurulanla_ayni_sese_ulasir` (dört ayar, 30–180 Hz, 0,05 dB) ve
+  `karisim_derinlik_ve_vurus_rampayla_degisir` (örnek başına adım, iç alanlar).
+- **(a) harmonik polinomları** (620–623): `chebyshev` ayrı fonksiyona alındı, `chebyshev_polinomlari_harmonik_uretir`
+  (Tₙ(cos θ) = cos nθ).
+- **(a) bas tepesi ölçümü oranları** (225 kanal ortalaması, 236 bant/ham oranı): testler tek kanallı ve tam ölçekliydi;
+  `bas_tepesi_olcumu_seviyeden_ve_kanal_sayisindan_bagimsiz` (metamorfik: seviye ve kanal sayısı).
+- **(b)** 219 `mono += x` → `-=` (işaret, genliğe girmez), 234 sınır.
+- Kalan (Octaver 362–402, `begin_block` 558, `process_frame` 658–685): yeniden sınamadan sonra sınıflanacak (#225 alt
+  oktavın bir kısmını yakaladı).
+
+### structure.rs (166 kaçan)
+
+- **(a) küçük yardımcılar, el hesabıyla:** `bar_beat` 159 (4/4'te faz 2 ile `−`/`+` aynı sonucu veriyor: 3/4 faz 1
+  ayırır), `energy_at` 150, `section_at` 166, `gauss` 854, `std_dev` 866–867, `zscores` 873, `percentile_range` 882,
+  `average` 601: `olcudeki_yer_enerji_ve_bolum_el_hesabiyla`, `sayisal_yardimcilar_el_hesabiyla`.
+- Kalan (`map_song` 59, bölüm sınırları, drop bulma ve güveni): sezgisel hesaplar; birim test yerine ölçüm karnesi
+  (drop ve bölüm setleri) ile sınanması doğru. Ayrı iş.
+
+### abx.rs (74 kaçan) ve lyrics_text.rs (62 kaçan)
+
+- **abx (a), ses yüksekliği eşitlemesinin yönü** (412–424): test yalnızca "eşitlenince ikisi aynı" diyordu; alçak
+  olanı yükselten yanlış kod da aynı sonucu verir. Kural: yüksek olan kısılır, alçak aynen kalır.
+  `esitleme_yalnizca_yuksek_olani_kisar` (iki yönde, kaynağın kendisiyle). Taşma sınırı (418–421):
+  `esitlemeden_sonra_tasan_tepe_ikisini_birlikte_kisar`. Kalanlar (çalma, halka tampon, `position_secs`) #235 ve
+  #240'ın testleriyle yeniden sınanacak.
+- **lyrics_text (a):** ayrışık harflerin her kolu (127–141; testler yalnızca İ, ş, ö, ü'yü sınıyordu), görünmez
+  boşluklar (152–153), "İ"nin küçültülmesi (208), İngilizce sayı / yıl / sıra (645–689), ondalık ayırıcı ve saat
+  (767–783): `ayrisik_harflerin_hepsi_birlesir_gorunmez_bosluklar_bosluk_olur`, `dile_gore_kucuk_harf`,
+  `ingilizce_sayi_yil_ve_sira_el_hesabiyla`, `ondalik_ve_saat_dile_gore`. **(b)** `('i', U+0307)` kolunun silinmesi
+  (sonuç yine "i").
+
+### gapless.rs (48 kaçan)
+
+- **(a)** Tarama yalnızca `--lib` testleriyle yapıldı ve `iTunSMPB`'nin dosyadan okunması (udta/meta/ilst/----,
+  `itunes_freeform`, 41, 129–131, 215–234) hiç sınanmıyordu; boş düzenleme kesimi (192), sıfır başlangıç/süre (50–52),
+  64 bitlik ve sona kadar kutu boyu (91, 166–172), iç içe kutu sınırı (112, 143) da. Elle kurulmuş MP4 kutularıyla:
+  `itunsmpb_dosyadan_okunur_ve_duzenleme_listesinin_onune_gecer`,
+  `duzenleme_listesinin_bos_kesimi_atlanir_sifirlar_dolgu_sayilmaz`, `kutu_boyu_64_bit_ya_da_sona_kadar`,
+  `cok_derin_ic_ice_kutu_okunmaz`. **(b)** `MAX_BOX_READ` sabitinin yazılışı (29), sınır eşitlikleri.
+
+### Doğrulama (7 Kasım 2026)
+
+Her yeni testin hedefindeki bozma tek tek uygulanıp test çalıştırıldı
+([`betikler/ayiklama/hedef_bozmalar.py`](betikler/ayiklama/hedef_bozmalar.py), sonuç
+[`hedef-bozmalar-2026-11-07.txt`](betikler/ayiklama/hedef-bozmalar-2026-11-07.txt)): **36 bozmanın 36'sı yakalandı**
+(biquad 9, bass 5, structure 5, abx 3, lyrics_text 7, gapless 5, ritim paketi 2). Bozmasız hâlde bütün takım geçer
+(Rust 938, arayüz 864). Bir yeni test ilk denemede bozmasız kodda düştü (`esitlemeden_sonra_tasan_tepe…`): kod değil
+testin varsayımı yanlıştı (tık ses yüksekliğine +0,15 dB katıyor); sınır gevşetilmeden düzeltildi.

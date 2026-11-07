@@ -1456,4 +1456,107 @@ son ışık";
         );
         assert_eq!(prepare("90'lar ışık")[0].words, ["doksan'lar", "ışık"]);
     }
+
+    /// Bozma taramasında kaçanlar (6 Kasım): ayrışık (NFD) harflerin her biri ayrı ayrı birleşir; testler
+    /// yalnızca İ, ş, ö, ü'yü sınıyordu. Görünmez boşluklar boşluk, satır ayırıcıları satır sonu olur.
+    #[test]
+    fn ayrisik_harflerin_hepsi_birlesir_gorunmez_bosluklar_bosluk_olur() {
+        for (nfd, nfc) in [
+            ("I\u{307}", "İ"),
+            ("i\u{307}", "i"),
+            ("s\u{327}", "ş"),
+            ("S\u{327}", "Ş"),
+            ("c\u{327}", "ç"),
+            ("C\u{327}", "Ç"),
+            ("o\u{308}", "ö"),
+            ("O\u{308}", "Ö"),
+            ("u\u{308}", "ü"),
+            ("U\u{308}", "Ü"),
+            ("a\u{308}", "ä"),
+            ("g\u{306}", "ğ"),
+            ("G\u{306}", "Ğ"),
+            ("a\u{302}", "â"),
+            ("i\u{302}", "î"),
+            ("ı\u{302}", "î"),
+            ("u\u{302}", "û"),
+        ] {
+            assert_eq!(compose(&format!("x{nfd}y")), format!("x{nfc}y"), "{nfd:?}");
+        }
+        // Tanınmayan işaret atılır, harf kalır.
+        assert_eq!(compose("e\u{306}"), "e");
+        for space in ['\u{200b}', '\u{a0}', '\u{2009}', '\u{202f}', '\t'] {
+            assert_eq!(compose(&format!("a{space}b")), "a b", "{space:?}");
+        }
+        for line in ['\u{2028}', '\u{2029}'] {
+            assert_eq!(compose(&format!("a{line}b")), "a\nb", "{line:?}");
+        }
+        assert_eq!(compose("a\u{feff}\u{200d}\u{2060}b"), "ab");
+    }
+
+    #[test]
+    fn dile_gore_kucuk_harf() {
+        assert_eq!(
+            lowercase("İSTANBUL IŞIK", Language::Turkish),
+            "istanbul ışık"
+        );
+        assert_eq!(
+            lowercase("İ", Language::Turkish).chars().count(),
+            1,
+            "birleşik nokta yok"
+        );
+        assert_eq!(lowercase("I KNOW", Language::English), "i know");
+    }
+
+    fn read(token: &str, language: Language) -> Vec<String> {
+        let mut out = Vec::new();
+        read_number(token, language, &mut out);
+        out
+    }
+
+    /// İngilizce sayı, yıl ve sıra sayısı okuma, el hesabıyla.
+    #[test]
+    fn ingilizce_sayi_yil_ve_sira_el_hesabiyla() {
+        let en = |token: &str| read(token, Language::English).join(" ");
+        assert_eq!(en("105"), "one hundred five");
+        assert_eq!(en("300"), "three hundred");
+        assert_eq!(en("40"), "forty");
+        assert_eq!(en("2500017"), "two million five hundred thousand seventeen");
+        assert_eq!(
+            en("999999999"),
+            "nine hundred ninety nine million nine hundred ninety nine thousand nine hundred ninety nine"
+        );
+        // On basamak rakam rakam; dokuz basamak sayı olarak.
+        assert_eq!(en("1234567890").split(' ').count(), 10);
+        // Yıllar: "nineteen oh five", "nineteen ten", "nineteen hundred", "twenty fifteen"; 2000–2009
+        // yıl değil, sayı.
+        assert_eq!(en("1905"), "nineteen oh five");
+        assert_eq!(en("1910"), "nineteen ten");
+        assert_eq!(en("1900"), "nineteen hundred");
+        assert_eq!(en("2015"), "twenty fifteen");
+        assert_eq!(en("2005"), "two thousand five");
+        let mut out = Vec::new();
+        assert!(!english_year(2005, &mut out) && out.is_empty());
+        assert!(!english_year(1099, &mut out) && !english_year(2100, &mut out));
+        // Sıra sayıları.
+        assert_eq!(en("7th"), "seventh");
+        assert_eq!(en("20th"), "twentieth");
+        assert_eq!(english_ordinal("eleven"), "eleventh");
+        assert_eq!(english_ordinal("thirty"), "thirtieth");
+    }
+
+    /// Ondalık ayırıcı ve saat dile göre: Türkçede "3,5" → virgül, İngilizcede "3.5" → point; yıl
+    /// okuması yalnızca tek öbekli dört basamakta; saatin "05"i Türkçede "sıfır beş", İngilizcede rakam rakam.
+    #[test]
+    fn ondalik_ve_saat_dile_gore() {
+        assert_eq!(read("3,5", Language::Turkish), ["üç", "virgül", "beş"]);
+        assert_eq!(read("3.5", Language::English), ["three", "point", "five"]);
+        assert_eq!(read("3.5", Language::Turkish), ["üç", "beş"]);
+        assert_eq!(read("3,5", Language::English), ["three", "five"]);
+        assert_eq!(
+            read("2.1999", Language::English).join(" "),
+            "two point one thousand nine hundred ninety nine"
+        );
+        assert_eq!(read("9:05", Language::English), ["nine", "zero", "five"]);
+        assert_eq!(read("9:05", Language::Turkish), ["dokuz", "sıfır", "beş"]);
+    }
 }

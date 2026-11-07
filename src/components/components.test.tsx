@@ -1027,6 +1027,35 @@ describe("kütüphane", () => {
     expect(drawer).toHaveAttribute("aria-hidden", "true");
   });
 
+  // Açık konulardaki kapak küçüğü (7 Kasım): arama süzgeci açıkken çalan ve sıradaki şarkının etiketleri
+  // süzülmüş listeden aranıyordu; sıradaki süzgeçte yoksa adı dosya adına düşüyor, kapağı albümsüz okunuyordu.
+  it("arama sıradaki şarkıyı dışarıda bıraksa da sıradakinin bilgisi kütüphaneden gelir", async () => {
+    backend.desktop = true;
+    backend.library = library;
+    backend.searchFilters = true;
+    backend.tracks = [song(1, "Mayın Tarlası"), song(2, "Bir Kedi Gördüm"), song(3, "Hoşçakal")];
+    render(<App />);
+    backend.open.mockImplementation((path: string) => {
+      const track = backend.tracks.find((t) => t.path === path)!;
+      backend.status = {
+        ...playing,
+        state: "paused",
+        track: { ...playing.track!, path, title: track.title, durationSecs: 200 },
+      };
+    });
+    const first = await screen.findByText("Mayın Tarlası");
+    await act(async () => fireEvent.doubleClick(first));
+    await waitFor(() =>
+      expect(screen.getByText("Bir Kedi Gördüm · Şebnem Ferah")).toBeInTheDocument(),
+    );
+    // Kütüphane açılır, yalnızca çalan şarkıyı bulan bir arama yazılır.
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Kütüphane" })));
+    const search = screen.getByPlaceholderText("Ara: şarkı, sanatçı, albüm (Ctrl+F)");
+    await act(async () => fireEvent.change(search, { target: { value: "mayın" } }));
+    await waitFor(() => expect(screen.queryByText("Hoşçakal")).not.toBeInTheDocument());
+    expect(screen.getByText("Bir Kedi Gördüm · Şebnem Ferah")).toBeInTheDocument();
+  });
+
   it("çekirdek sıradakine kendisi geçince sıra ilerler, şarkı yeniden açılmaz", async () => {
     backend.desktop = true;
     backend.library = library;

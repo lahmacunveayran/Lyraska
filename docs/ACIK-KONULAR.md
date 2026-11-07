@@ -7,10 +7,8 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 
 Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/README.md` (yedek dallar).
 
-1. Sözleri sese otomatik hizalama (dokunarak zamanlamanın yerine; sahibi elle yapamıyor): iki irdeleme bitti
-   (`docs/arastirma/soz-hizalama/`), sahibi kararları verdi (BILGI §7); sıra RAPOR §8 + DENETIM önerileri, küçük
-   PR'lar: hazırlıktan arayüze, Lyra görünümüne (#165) ve paketin test sürümü sayfasında korunmasına (#167) kadar
-   birleşti; paket test sürümü sayfasında (1 Kasım, SHA denetlendi) → sahibinin 5–10 Türkçe şarkı denemesi.
+1. Sözleri sese otomatik hizalama: hepsi birleşti (`docs/arastirma/soz-hizalama/`), paket test sürümü sayfasında
+   → sahibinin 5–10 Türkçe şarkı denemesi.
 2. Ses motoru denetimi: RTS-01, #56, WASAPI Raw (#231) ve ABX gücü (#235) bitti; dither gerekmiyor (bit-perfect yol);
    sırada albüm modu ses yüksekliği (ürün kararı sahibine sorulacak).
 3. Kaynak ayrıştırma (6 Kasım kararı: bütün modeller yalnızca sahibinin bilgisayarında, harmanlanabilir): ölçü aleti
@@ -33,8 +31,7 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 
 ## Ele alınmayı bekleyen geri bildirim ve bulgular
 
-- Şarkı kapağı (0.0.82) küçükleri: kütüphaneden çıkan şarkının kapağı `kapaklar/`'da kalır (temizlik yok); arama
-  süzgeci açıkken "sıradaki" kapağı albümsüz anahtarla okunur, şarkı başlayınca bir kez daha okunur.
+- Şarkı kapağı (0.0.82) küçüğü: kütüphaneden çıkan şarkının kapağı `kapaklar/`'da kalır (temizlik yok).
 - Güvenlik uyarıları (Scorecard): SAST (CodeQL eklendi), Branch-Protection (sahibinin kuralı) ve Pinned-Dependencies
   (#13, #14: söz hizalama betiğinin `pip install`'ları karmalı istek dosyasından) bir sonraki taramada kapanmalı;
   Code-Review ve Binary-Artifacts sahibi "Won't fix" ile kapattı; Maintained zamanla kapanır; Vulnerabilities
@@ -47,8 +44,8 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
   Ritimde açık: parça parça ölçü, incelemenin küçük bulguları (`devlog/2026-11-07.md`).
 - Kütüphane taslakları: Gökyüzü onaylandı ("fena olmuş"); kapak ve sanatçı levhalarının renk düzeyi soruldu, cevap
   yok. Araştırma `docs/arastirma/kutuphane-arastirma.md`.
-- symphonia'nın kanal sırası (EBU uyumunun bağımsız incelemesi, 6 Kasım; doğrulanmadı): ALAC 6.1/7.1 eşlemesi ffmpeg'den
-  farklı görünüyor; CAF'ın kanal tanımlı (`Custom`) düzeni ve FLAC'ın kanal maskesi etiketi okunmuyor. Nadir; bakılacak.
+- Kanal sırası (`iddia-denetimi/LISTE.md` 11): ALAC 6.1/7.1 düzeltildi (7 Kasım); kalan iki nadir açık: symphonia
+  FLAC'ın kanal maskesi etiketini okumuyor, CAF'ın kanal tanımlı (`Custom`) düzenini Lyraska yok sayıyor (`decode.rs`).
 - WebM: şarkı adı (Matroska Segment Title) okunmuyor, sondaki Opus dolgusu (≤ 20 ms) atılmıyor; ikisi küçük.
 - Köy işi (sahibinin 656 şarkısı, 1 Kasım; araç `examples/koy_isi.rs`): hızlı türlerde yarım tempo
   düzeltildi (eşit nabız, #171; `docs/arastirma/tempo/`). 3:2'nin dördü düzeldi (üç vuruşta iki, #173); açık: Armin, Discobitch, DnB/Skillet

@@ -51,6 +51,12 @@ kısaltılır.
   "yüksek" önemi abartılıydı (taşma koruması zaten yakalıyordu). Takip tablosu `docs/arastirma/hata-avi/`.
   Raporun "belgeyle çelişiyor" dediği yerde önce hangisinin doğru olduğuna bakılır: B10'da kod ve testi doğruydu,
   belge eskiydi.
+- **Dış sayı belgeye girerken "neyle karşılaştırıyorum" yazılır** (7 Kasım 2026, ölçümsüz iddia denetimi; iki denetim,
+  `docs/arastirma/iddia-denetimi/LISTE.md`): 12 iddiada uydurma sayı yoktu, ama 4'ünde karşılaştırma yanlıştı. Demucs'un
+  "9.00 dB"si ince ayarlı modelindi, bizim düz modelin makaledeki karşılığı 8,80 (bizimki de 8,80). Bizim %94,1 alt
+  kümedeydi. Holzapfel'in tablosu yazarların düzeltme sayfasıyla eskimişti. "Fark var, nedeni bilinmiyor" demeden
+  önce makalenin tablosunda aynı model satırı aranır; README'nin özet cümlesi yetmez. Makalenin düzeltme sayfası
+  aranır. İki bağımsız denetim birbirinin kaçırdığını buldu (ikişer bulgu); tek denetim yetmez.
 
 ## 3. Ana dal başka oturumlarla ilerleyebilir
 
@@ -144,6 +150,11 @@ kısaltılır.
   sabitler dönüştüren makinenin işlemcisiyle hesaplanıyor; yerelde iki çalıştırma ve iki Python sürümü aynı özeti
   verdi, CI'da son basamaklar farklı çıktı. `do_constant_folding=False` ile dosyada yalnızca ağırlıklar ve işlemler
   kalır, katlamayı tract yapar; CI'da da aynı özet.
+- **"Yavaş" demeden önce aşama aşama ölç** (7 Kasım 2026, sahibi sordu): MUSDB ölçümü şarkı başına ~6 dk sürüyordu ve
+  "yavaş" diye kabul edildi. Aşama aşama süre + çekirdek sayısı ölçülünce zamanın üçte ikisinde makinenin boşta olduğu
+  görüldü (museval tek çekirdek, indirme ağ bekler); boru hattıyla ~2,5 kat hızlandı. İkinci, bağımsız denetim bellek
+  (uzun şarkıda museval ~11,7 GB) ve torch iş parçacığı çekişmesini buldu. Uzun bir iş başlatırken `ps`/`free` ile
+  birkaç dakika örnekle.
 - **Disk sessizce dolar** (7 Kasım 2026): `TAURI_CONFIG` ile ve onsuz, `clippy` ve `test` derlemeleri crate'lerin
   ayrı kopyalarını kurar; `target/debug` 19 GB'a çıktı, `cargo test` hiçbir çıktı vermeden bitti. Uzun işten önce
   `df -h /`; gerekirse `target/debug` tamamen silinip yeniden derlenir.
