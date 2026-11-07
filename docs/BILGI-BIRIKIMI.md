@@ -51,6 +51,12 @@ kısaltılır.
   "yüksek" önemi abartılıydı (taşma koruması zaten yakalıyordu). Takip tablosu `docs/arastirma/hata-avi/`.
   Raporun "belgeyle çelişiyor" dediği yerde önce hangisinin doğru olduğuna bakılır: B10'da kod ve testi doğruydu,
   belge eskiydi.
+- **Dış sayı belgeye girerken "neyle karşılaştırıyorum" yazılır** (7 Kasım 2026, ölçümsüz iddia denetimi; iki denetim,
+  `docs/arastirma/iddia-denetimi/LISTE.md`): 12 iddiada uydurma sayı yoktu, ama 4'ünde karşılaştırma yanlıştı. Demucs'un
+  "9.00 dB"si ince ayarlı modelindi, bizim düz modelin makaledeki karşılığı 8,80 (bizimki de 8,80). Bizim %94,1 alt
+  kümedeydi. Holzapfel'in tablosu yazarların düzeltme sayfasıyla eskimişti. "Fark var, nedeni bilinmiyor" demeden
+  önce makalenin tablosunda aynı model satırı aranır; README'nin özet cümlesi yetmez. Makalenin düzeltme sayfası
+  aranır. İki bağımsız denetim birbirinin kaçırdığını buldu (ikişer bulgu); tek denetim yetmez.
 
 ## 3. Ana dal başka oturumlarla ilerleyebilir
 

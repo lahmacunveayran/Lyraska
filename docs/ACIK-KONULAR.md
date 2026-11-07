@@ -19,8 +19,6 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 5. En son: drop v2, karar **B** (ikisi programda, varsayılan eski, İşaretle'de yan yana; sahibinin işaretiyle seçim;
    `-yedek-drop` dalındaki `docs/arastirma/drop/DURUM.md`); önce DnB temposu (sürekli sub bas
    kick kanıtını örtüyor, `tempo.rs`) ve hip-hop drop'u; maksumda yanlış aksak (`meter.rs`).
-6. **Ölçümsüz iddia denetimi** (sahibinin isteği, 7 Kasım; MUSDB ve test doğrulamasından sonra): belgelerdeki ölçümsüz
-   sayı ve iddialar listelenip kaynağıyla karşılaştırılır, sonra bağımsız denetçi aynı listeye sonucu bilmeden bakar.
 
 ## Proje sahibinden beklenenler
 
@@ -46,8 +44,9 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
   Ritimde açık: parça parça ölçü, incelemenin küçük bulguları (`devlog/2026-11-07.md`).
 - Kütüphane taslakları: Gökyüzü onaylandı ("fena olmuş"); kapak ve sanatçı levhalarının renk düzeyi soruldu, cevap
   yok. Araştırma `docs/arastirma/kutuphane-arastirma.md`.
-- symphonia'nın kanal sırası (EBU uyumunun bağımsız incelemesi, 6 Kasım; doğrulanmadı): ALAC 6.1/7.1 eşlemesi ffmpeg'den
-  farklı görünüyor; CAF'ın kanal tanımlı (`Custom`) düzeni ve FLAC'ın kanal maskesi etiketi okunmuyor. Nadir; bakılacak.
+- Kanal sırası (iki denetimle doğrulandı, 7 Kasım; `iddia-denetimi/LISTE.md` 11): symphonia ALAC 6.1/7.1'de kanalları
+  yanlış düzleme yazıyor (ffmpeg doğru), FLAC'ın kanal maskesi etiketini okumuyor; CAF'ın `Custom` düzenini Lyraska yok
+  sayıyor (`decode.rs`). Nadir; düzeltilecek.
 - WebM: şarkı adı (Matroska Segment Title) okunmuyor, sondaki Opus dolgusu (≤ 20 ms) atılmıyor; ikisi küçük.
 - Köy işi (sahibinin 656 şarkısı, 1 Kasım; araç `examples/koy_isi.rs`): hızlı türlerde yarım tempo
   düzeltildi (eşit nabız, #171; `docs/arastirma/tempo/`). 3:2'nin dördü düzeldi (üç vuruşta iki, #173); açık: Armin, Discobitch, DnB/Skillet

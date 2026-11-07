@@ -24,8 +24,9 @@ J-STAGE, Habr, Zhihu, HAL vb.); iki tarama da önemli sayıları ve lisansları 
    (~2 M parametre, 8 MB) 0,888 / 0,772. Eski kuralla bile programa girebilir. Kütüphanede ölçü güveni 656 şarkının
    339'unda 0,5'in altında; bunu düzeltmenin en ucuz yolu. Tarama 1'in ek önerisi: ağın olasılığını Lyraska'nın dinamik
    programlamasıyla birleştirmek (ağ zaman zaman periyodik olmayan vuruş üretiyor; yazarlar da söylüyor).
-3. **Söz hizalama dünya düzeyinde ama kırılgan:** ±0,3 sn içindeki kelime oranı Lyraska'da %94,1, Spotify'ın ICASSP
-   2023 sisteminde %94; ortalama hata ise birkaç "kayan" şarkı yüzünden çok daha büyük. Çözüm daha iyi model değil,
+3. **Söz hizalamada kelime isabeti iyi ama kırılgan:** ±0,3 sn içindeki kelime oranı Lyraska'da %94,1 (JamendoLyrics'in
+   39 şarkılık alt kümesi), Spotify'ın ICASSP 2023 sisteminde %94 (tam set; aynı set değil). Ortalama hata 0,89 sn ↔
+   0,18 sn (~5×), birkaç "kayan" şarkı yüzünden: "dünya düzeyinde" denemez (`iddia-denetimi/LISTE.md` 9). Çözüm daha iyi model değil,
    kaymayı yakalamak (satır güveni) ve tekrar eden nakaratla düzeltmek.
 4. **Güvenli modda MilkDrop'un kırmızı parlama freni kapalı** [denetlendi: `MilkDropScene.tsx`'te
    `createFlashGuard(gl, { safe })`, `red: true` yok; "Kendi resmin"de var]. ITU-R BT.1702-3 (2023) doygun kırmızı
@@ -62,7 +63,7 @@ J-STAGE, Habr, Zhihu, HAL vb.); iki tarama da önemli sayıları ve lisansları 
   (Vande Veire 2018'in otomatik DJ sistemi bu önselle şarkıların %91'ini tamamen doğru çözümlüyor). Japonca kaynaklar:
   AIST'in Songle / Songle Sync ve TextAlive çalışmaları.
 - **Aksak kararı önselsiz:** maksum ve Türk pop'u yanlışlıkla aksak sanılabiliyor; usul bilinince aksak 9/8'de ölçü başı F
-  0,886, bilinmeyince 0,651 (Holzapfel ve ark. 2014). İki tarama da aynı makaleye vardı; Tarama 1 bir özet hatasını düzeltti
+  0,886, bilinmeyince 0,651 (Holzapfel ve ark. 2014; yazarların düzeltmesiyle 0,883 ↔ 0,648). İki tarama da aynı makaleye vardı; Tarama 1 bir özet hatasını düzeltti
   ("%69,6" ölçü başı değil, usul tanıma oranı).
 - **Yapı analizi kromasız ve işlev etiketi yok** (nakarat/kıta). Harmonix setinde ölçülebilir.
 - **Rubber Band GPL-2.0-or-later, yani GPL-3.0-only ile uyumlu;** ROADMAP onu "GPL olduğu için ikinci seçenek" sayıyor.

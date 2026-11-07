@@ -28,8 +28,10 @@ burada yalnızca araçlar ve sayılar var.
 - Ham sonuçlar: [`htdemucs-2026-11-07.jsonl`](htdemucs-2026-11-07.jsonl) (50 şarkı; ilk 21'i sıralı akışla, son 29'u
   boru hattıyla, `es_zamanli: true`). İlk 16'nın ara dosyası [`htdemucs-ara-2026-11-06.jsonl`](htdemucs-ara-2026-11-06.jsonl).
 - Demucs tohumsuz rastgele kaydırma kullanır (aşağıda): aynı şarkıyı yeniden ayırmak değerleri biraz oynatabilir.
-- Yayımlanmış HTDemucs sonuçlarıyla karşılaştırma yapılmadı: sayılar birincil kaynaktan okunacak (ölçümsüz iddia
-  denetimi, `ACIK-KONULAR.md`).
+- **Yayımlanmış sonuçla aynı:** makalede (Rouard, Massa, Défossez, arXiv 2211.08553, Tablo 1) ince ayarsız HT Demucs
+  davul 10,05, bas 9,78, diğer 6,42, vokal 8,93, ortalama **8,80**; bizimki 10,07 / 9,76 / 6,46 / 8,89, ortalama 8,80.
+  Dördü de 0,04 dB içinde: ölçü aleti yayımlanmış sonucu tekrarlıyor. README'nin "9.00 dB"si ince ayarlı modelin
+  (`htdemucs_ft`), 9,20 seyrek + ince ayarlının (iki denetim: [`iddia-denetimi/LISTE.md`](../../iddia-denetimi/LISTE.md) 6).
 - Boru hattıyla son 29 şarkı 102 dk sürdü (şarkı başına ~3,5 dk; sıralı akışta ~6 dk).
 
 ## Hız: sıralı akış neden yavaştı (7 Kasım 2026, iki denetim)

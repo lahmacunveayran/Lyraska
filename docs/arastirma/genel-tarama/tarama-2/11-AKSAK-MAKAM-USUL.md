@@ -21,7 +21,10 @@
 | Curcuna 10/8 | 89,1 / 48,6                                           | 89,3 / 41,1                             | 52,8                              |
 | Düyek 8/8    | 85,2 / 75,4                                           | 86,6 / 72,6                             | 70,3                              |
 
-Usulü (ritim sınıfını) tanıma: Türk müziğinde ortalama geri çağırma **%69,6** (A). Yorum: **usul bilinirse ölçü başı
+Yazarlar sonuçları sonradan düzeltti ([düzeltme sayfası](https://www.cp.jku.at/people/krebs/ismir2014/)): Aksak usul
+biliniyor 89,8 / 88,3, bilinmiyor 85,1 / 64,8; fark aynen duruyor (`iddia-denetimi/LISTE.md` 4).
+
+Usulü (ritim sınıfını) tanıma: Türk müziğinde ortalama geri çağırma **%69,6** (A; üç usulün ortalaması, Aksak %66). Yorum: **usul bilinirse ölçü başı
 çok daha iyi** (Aksak'ta 88,6 ↔ 65,1). Klasik, tek kalıplı takipçiler (Lyraska'nın sınıfı) vuruşta ~15–35 puan geride.
 
 ## 2. Lyraska'nın yeri
