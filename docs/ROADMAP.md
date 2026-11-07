@@ -359,9 +359,11 @@ doğrulanır: kod GPL-3.0 ile uyumlu olmalı; ticari olmayan ya da araştırma l
 bilgisayarında yerel paket olarak kullanılır (6 Kasım 2026, `CLAUDE.md` "Yerel model paketleri").
 
 - ~~**Kaynak ayrıştırma**~~: proje sahibi seçti (22 Ekim 2026), Faz 5'e alındı.
-- **Yapay zekâ ile beat/bölüm tespiti**: klasik yöntemlerden daha isabetli. Beat This (JKU Linz, ISMIR 2024)
-  kod ve ağırlıklarıyla MIT. Lyraska'nın ilk standart set karnesi (#233, Ballroom): vuruş F 0,780, ölçü başı
-  0,514, hataların çoğu tempo oktavı. Beat This ile yan yana ölçüm (GTZAN) sürüyor; sonra "ritim paketi" önerilir.
+- ~~**Yapay zekâ ile beat tespiti**~~: sahibi seçti (7 Kasım 2026). Beat This (JKU Linz, ISMIR 2024; kod ve
+  ağırlıklar MIT) GTZAN'da Lyraska'dan belirgin iyi (vuruş F 0,748 → 0,883, ölçü başı 0,445 → 0,767;
+  `docs/arastirma/ritim-olcum/`). Küçük model (small0, 8 MB) **kurulum dosyasına gömülü** gelir: CI derlerken
+  indirir, SHA-256 ile denetler, programa koyar; depoya girmez, program internete bağlanmaz. Giriş/çıkış Rust'ta
+  (#238); sırada tract ile çalıştırma ve analize bağlama.
 - **Her özelliğe bir karne** (6 Kasım 2026, sahibi beğendi): ritim için Ballroom ve GTZAN, ayrıştırma için
   MUSDB18-HQ başladı; ton, bölüm ve sözler için de standart set ya da işaretli küçük set. Sayı yoksa "iyileşti"
   denmez.

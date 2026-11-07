@@ -424,3 +424,5 @@ kısaltılır.
 - **Sıra ve v1.0** (6 Kasım 2026): Faz 7 → Sahneler v2 → Faz 8 (gerçek bilgisayar karnesi, en son); v1.0'ın çıtası Faz
   8'den sonra yazılır. Makam/usul, armonik gerilim ve "her özelliğe karne" fikirlerini beğendi; akademisyenden
   yardım istenmez (Türk müziğinin doğru cevabı başka kaynaktan).
+- **Ritim modeli kurulum dosyasına gömülü** (7 Kasım 2026): Beat This small0 (MIT, 8 MB) CI'da indirilir, SHA-256 ile
+  denetlenir ve programla gelir; depoya girmez, sahibine iş düşmez. Büyük model (final0) gerekirse sonra.
