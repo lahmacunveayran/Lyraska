@@ -225,7 +225,8 @@ function embeddedPackages() {
   ];
 }
 
-/** Programa gömülü veri (kod değil): sanatçı levhalarının yıldız atlası (`src/lib/starAtlas.json`). */
+/** Programa gömülü veri (kod değil): sanatçı levhalarının yıldız atlası (`src/lib/starAtlas.json`) ve
+ * kurulum dosyasındaki ritim modeli. */
 function embeddedData() {
   const ccBySa = readFileSync(join(ROOT, "public", "lisanslar", "CC-BY-SA-4.0.txt"), "utf8");
   const change =
@@ -246,6 +247,16 @@ function embeddedData() {
       repository: "https://github.com/Stellarium/stellarium",
       credit: ['Atıf: Stellarium, "modern" sky culture, Stellarium geliştiricileri'],
       texts: new Map([["CC-BY-SA-4.0.txt", ccBySa]]),
+    },
+    {
+      name: "Beat This ritim modeli, small0 ağırlıkları (Foscarin, Schlüter, Widmer; JKU Linz)",
+      version: "1.1.0",
+      license:
+        "MIT. Değişiklik: ağırlıklar ONNX biçimine çevrildi (src-tauri/ritim-modeli/onnx_cevir.py), değerler aynı",
+      repository: "https://github.com/CPJKU/beat_this",
+      texts: new Map([
+        ["LICENSE", readFileSync(join(ROOT, "src-tauri/ritim-modeli/LICENSE"), "utf8")],
+      ]),
     },
   ];
 }
@@ -351,7 +362,7 @@ function build() {
     embedded,
   );
   const data = embeddedData();
-  section(`GÖMÜLÜ VERİ (${data.length}; sanatçı levhalarının yıldız atlası)`, data);
+  section(`GÖMÜLÜ VERİ (${data.length}; sanatçı levhalarının yıldız atlası, ritim modeli)`, data);
 
   lines.push("=".repeat(78));
   lines.push(`LİSANS METİNLERİ (${texts.size} farklı metin)`);

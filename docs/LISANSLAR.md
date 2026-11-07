@@ -180,6 +180,8 @@ kuralları). Kod bağımlılıklarının lisanslarını CI denetler (`npm run ch
   (README uyarısı); ağırlığın lisansı MIT.
 - **Depoya girmez:** CI ağırlıkları indirir, SHA-256'sını denetler, `src-tauri/ritim-modeli/onnx_cevir.py` ile
   ONNX'e çevirir ve çıkan dosyanın özetini denetler (`scripts/ritim-modeli.sh`). Çevirme betiği projenin kendi kodu.
+- **Kurulum dosyasına girer** (`src-tauri/tauri.ritim.conf.json`, ~9,5 MB): telif ve lisans metni
+  `public/lisanslar/UCUNCU-TARAF.txt`'de ("Gömülü veri"; ONNX'e çevirme değişiklik olarak yazılı).
 - **Deneme modeli** (`src-tauri/tests/data/ritim-modeli/`): projenin `uret.py` ile ürettiği 3 KB'lık özgün ONNX
   dosyası (bir evrişim); dışarıdan alınmadı, proje lisansıyla.
 

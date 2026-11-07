@@ -160,11 +160,33 @@ if (!/\[ "\$name" != "\$PACKAGE_NAME" \]/.test(workflow)) {
   problems.push("test-surumu.yml: eski dosyalar silinirken söz paketi ($PACKAGE_NAME) korunmuyor");
 }
 
+// Ritim modeli kurulum dosyasına girer: iki kurulum derlemesi de modeli kaynak olarak ekler ve sonra
+// kurulumdaki dosyanın programın beklediği dosya olduğunu denetler.
+for (const file of ["ci.yml", "test-surumu.yml"]) {
+  const text = readFileSync(join(ROOT, ".github/workflows", file), "utf8");
+  const builds = text.match(/npm run tauri build\b.*$/gm) ?? [];
+  if (
+    builds.length === 0 ||
+    builds.some((line) => !line.includes("--config src-tauri/tauri.ritim.conf.json"))
+  ) {
+    problems.push(
+      `${file}: kurulum dosyası ritim modelisiz derleniyor (--config src-tauri/tauri.ritim.conf.json)`,
+    );
+  }
+  if (
+    !text.includes("scripts/ritim-modeli-denetle.sh src-tauri/target/release/ritim-modeli.onnx")
+  ) {
+    problems.push(
+      `${file}: kurulumdaki ritim modeli denetlenmiyor (scripts/ritim-modeli-denetle.sh)`,
+    );
+  }
+}
+
 if (problems.length > 0) {
   console.error(`Kural ihlali:\n  ${problems.join("\n  ")}`);
   process.exit(1);
 }
 console.log(
   "Kural denetimi tamam: unsafe yalnızca WASAPI'de, atlanan test yok, test adları doğru, " +
-    "uzak adres yok, CSP sıkı, söz paketi test sürümünde korunuyor.",
+    "uzak adres yok, CSP sıkı, söz paketi test sürümünde korunuyor, ritim modeli kurulumda.",
 );

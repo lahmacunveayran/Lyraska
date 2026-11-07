@@ -321,6 +321,7 @@ jobs:
     name: "Windows: kurulum dosyası"
     # Kurulum dosyası PR'larda derlenir; main için "Test sürümü" iş akışında.
     if: github.event_name != 'push'
+    needs: ritim-modeli
     runs-on: windows-2025
     timeout-minutes: 40
     steps:
@@ -341,13 +342,25 @@ jobs:
         with:
           workspaces: src-tauri -> target
       - run: npm ci
+      # Ritim modeli kurulum dosyasına gömülür (ritim-modeli işinin çıktısı; özeti yeniden denetlenir).
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ritim-modeli
+          path: src-tauri/ritim-modeli
+      - name: Ritim modelinin özeti
+        shell: bash
+        run: scripts/ritim-modeli-denetle.sh src-tauri/ritim-modeli/ritim-modeli.onnx
       - name: Kurulum dosyasını derle
         timeout-minutes: 30
         # Tauri CLI doğrudan: üçüncü taraf eylem ve token gerekmez. Derleme kodu etiket olarak PR'ın
         # ucudur; içerik ise GitHub'ın PR'ı main ile birleştirdiği hâlidir (deneme dosyası, yayın değil).
+        # tauri.ritim.conf.json ritim modelini kaynak olarak ekler.
         env:
           LYRASKA_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: npm run tauri build -- --ci -- --locked
+        run: npm run tauri build -- --ci --config src-tauri/tauri.ritim.conf.json -- --locked
+      - name: Ritim modeli kurulumda mı
+        shell: bash
+        run: scripts/ritim-modeli-denetle.sh src-tauri/target/release/ritim-modeli.onnx
       - name: WebView2 önyükleyicisi Microsoft imzalı mı
         shell: pwsh
         run: ./scripts/webview2-imzasi.ps1
