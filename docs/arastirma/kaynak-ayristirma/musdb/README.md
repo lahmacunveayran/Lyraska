@@ -1,4 +1,4 @@
-# MUSDB18-HQ ölçümü (ara sonuç, 6 Kasım 2026)
+# MUSDB18-HQ ölçümü
 
 Kaynak ayrıştırma modellerinin alanın standart test setinde karşılaştırması (`../RAPOR.md`; proje sahibinin
 6 Kasım kararı: bütün modeller yalnızca sahibinin bilgisayarında, gerekirse harmanlanarak). Ses depoya girmez;
@@ -15,19 +15,22 @@ burada yalnızca araçlar ve sayılar var.
 - **Akış:** [`htdemucs_set.sh`](htdemucs_set.sh): çıkar → ayır → ölç → JSON → sesleri sil; kaldığı yerden sürer.
 - **Ham sonuçlar:** [`htdemucs-ara-2026-11-06.jsonl`](htdemucs-ara-2026-11-06.jsonl) (şarkı başına).
 
-## HTDemucs, 16 / 50 şarkı (ara)
+## HTDemucs, 50 şarkı (7 Kasım 2026)
 
 | Kaynak | SDR ortanca (dB) | SDR ortalama (dB) |
 | ------ | ---------------- | ----------------- |
-| Vokal  | 8,64             | 8,10              |
-| Davul  | 10,07            | 9,51              |
-| Bas    | 8,97             | 8,97              |
-| Diğer  | 5,98             | 5,54              |
+| Vokal  | 8,89             | 7,99              |
+| Davul  | 10,07            | 10,07             |
+| Bas    | 9,76             | 8,90              |
+| Diğer  | 6,46             | 6,01              |
 
-- Ayırma süresi: sesin süresinin 1,11 katı (yüklü bulut makinesi, CPU, 4 çekirdek; başka ölçümlerle paylaşıldı).
-- 16 şarkı küçük bir örnek; karşılaştırma için 50'si tamamlanacak. Bir şarkının süre alanı kabuk tırnak hatasıyla boş
-  yazılmıştı; arşivdeki dosya boyutundan ((bayt − 44) / 176 400) yeniden hesaplandı, ölçümleri değişmedi.
-- Ölçüm makinenin yükü yüzünden durduruldu (ritim ölçümüne yer açmak için); yeni oturumda kaldığı yerden sürer.
+- Şarkı başına değer: pencerelerin ortancası (SiSEC 2018); tablo şarkılar arasında ortanca ve ortalama.
+- Ham sonuçlar: [`htdemucs-2026-11-07.jsonl`](htdemucs-2026-11-07.jsonl) (50 şarkı; ilk 21'i sıralı akışla, son 29'u
+  boru hattıyla, `es_zamanli: true`). İlk 16'nın ara dosyası [`htdemucs-ara-2026-11-06.jsonl`](htdemucs-ara-2026-11-06.jsonl).
+- Demucs tohumsuz rastgele kaydırma kullanır (aşağıda): aynı şarkıyı yeniden ayırmak değerleri biraz oynatabilir.
+- Yayımlanmış HTDemucs sonuçlarıyla karşılaştırma yapılmadı: sayılar birincil kaynaktan okunacak (ölçümsüz iddia
+  denetimi, `ACIK-KONULAR.md`).
+- Boru hattıyla son 29 şarkı 102 dk sürdü (şarkı başına ~3,5 dk; sıralı akışta ~6 dk).
 
 ## Hız: sıralı akış neden yavaştı (7 Kasım 2026, iki denetim)
 
@@ -55,7 +58,6 @@ burada yalnızca araçlar ve sayılar var.
 
 ## Sırada
 
-1. HTDemucs'u 50 şarkıya tamamla.
-2. SCNet XL IHF ve BS-RoFormer (ağırlıklar indirildi; ZFTurbo'nun MIT kodunu çalıştırmak sahibinin onayını bekliyor),
-   harman.
-3. Lyraska'nın ölçütleri (başlangıç F1, zarf ilintisi) ve kazananın Lyraska'ya yolu.
+1. SCNet XL IHF ve BS-RoFormer (ağırlıkları yeni oturumda yeniden indirilir; ZFTurbo'nun MIT kodunu çalıştırmak
+   sahibinin onayını bekliyor), harman. Boru hattı (`ayir_hat.sh`) model komutu değiştirilerek kullanılır.
+2. Lyraska'nın ölçütleri (başlangıç F1, zarf ilintisi) ve kazananın Lyraska'ya yolu.
