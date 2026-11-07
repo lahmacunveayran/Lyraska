@@ -4,10 +4,14 @@
 # aşamalar üst üste biner. Sıralı akışta şarkı başına ~350 sn'nin ~230'unda makine neredeyse boştaydı: museval tek
 # çekirdek (~140 sn), indirme ağ bekler (~90 sn); Demucs 4 çekirdeğin ~3'ünü kullanır.
 # "ayirma_sn" burada eşzamanlı ölçümün yükü altında ölçülür (sıralı akıştakiyle karşılaştırılmaz).
+# Bağımsız denetimin (7 Kasım) iki uyarısı: Demucs 3 iş parçacığıyla çalışır (4. çekirdek museval'e; torch'un 4 iş
+# parçacığı başka işle paylaşınca sesin 3,5–4,5 katına yavaşlamıştı); uzun şarkının (> LONG_SECS) museval'i FFT boyu
+# 2^25 olduğu için ~11,7 GB ister: Demucs ile üst üste gelmesin diye tek başına çalışır.
 # Kullanım: CALISMA=<klasör> ayir_hat.sh [model]   (kaldığı yerden sürer; klasör düzeni htdemucs_set.sh ile aynı)
 S="${CALISMA:-$PWD}"
 M=$S/musdb; URL="https://zenodo.org/api/records/3338373/files/musdb18hq.zip/content"
 MODEL=${1:-htdemucs}
+LONG_SECS=330
 mkdir -p "$M/sonuc/$MODEL" "$M/est/$MODEL"
 mapfile -t SONGS < <(grep " test/.*/mixture.wav$" "$S/musdb-liste.txt" | sed 's#^[0-9]* test/##; s#/mixture.wav$##')
 
@@ -44,13 +48,19 @@ for i in "${!todo[@]}"; do
   if [ -n "$next" ]; then fetch "$next" & fetching=$!; fi
   if [ -s "$M/test/$T/vocals.wav" ]; then
     t0=$(date +%s)
-    if "$S/venv-sep/bin/python" -I -m demucs -n "$MODEL" -j 1 --out "$M/est" "$M/test/$T/mixture.wav" > /dev/null 2>&1; then
+    if OMP_NUM_THREADS=3 "$S/venv-sep/bin/python" -I -m demucs -n "$MODEL" -j 1 --out "$M/est" "$M/test/$T/mixture.wav" > /dev/null 2>&1; then
       secs=$(( $(date +%s) - t0 ))
       rm -rf "$M/est/$MODEL/$T"
       mv "$M/est/$MODEL/mixture" "$M/est/$MODEL/$T"
       # Önceki şarkının ölçümü bitmeden yenisi başlamaz (en çok bir museval: ~6 GB bellek).
       [ -n "$scoring" ] && wait "$scoring"
-      score "$T" "$secs" & scoring=$!
+      scoring=""
+      long=$("$S/venv-sep/bin/python" -I -c "import soundfile as sf,sys;print(int(sf.info(sys.argv[1]).duration > float(sys.argv[2])))" "$M/test/$T/mixture.wav" "$LONG_SECS")
+      if [ "$long" = 1 ]; then
+        score "$T" "$secs"   # uzun şarkı: bellek için tek başına
+      else
+        score "$T" "$secs" & scoring=$!
+      fi
     else
       echo "ayırma hatası: $T"
     fi
