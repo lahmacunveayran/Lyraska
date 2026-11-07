@@ -180,6 +180,45 @@ pub fn map_song(
     fps: f64,
     aksak: Option<&Aksak>,
 ) -> Option<SongMap> {
+    let given = aksak.map(|a| {
+        (
+            a.grouping.len(),
+            a.downbeat_phase % a.grouping.len().max(1),
+            a.confidence,
+            a.grouping.clone(),
+        )
+    });
+    map_song_given(bands, bands_per_frame, loudness_db, beats, fps, given)
+}
+
+/// [`map_song`]; ölçü ritim modelinden ([`super::net_rhythm::NetRhythm::meter`]): ölçüdeki vuruş,
+/// ilk ölçü başının yeri ve güven verilir, bölümler, droplar ve enerji aynı hesaplanır.
+pub fn map_song_with_meter(
+    bands: &[u8],
+    bands_per_frame: usize,
+    loudness_db: &[f32],
+    beats: &BeatGrid,
+    fps: f64,
+    meter: super::net_rhythm::NetMeter,
+) -> Option<SongMap> {
+    let given = (
+        meter.meter.max(1),
+        meter.downbeat_phase % meter.meter.max(1),
+        meter.confidence,
+        Vec::new(),
+    );
+    map_song_given(bands, bands_per_frame, loudness_db, beats, fps, Some(given))
+}
+
+/// Ölçü verilmişse (ölçüdeki vuruş, ilk ölçü başı, güven, gruplama) o, yoksa vuruşlardan seçilir.
+fn map_song_given(
+    bands: &[u8],
+    bands_per_frame: usize,
+    loudness_db: &[f32],
+    beats: &BeatGrid,
+    fps: f64,
+    given: Option<(usize, usize, f32, Vec<u8>)>,
+) -> Option<SongMap> {
     let frames = loudness_db.len().min(bands.len() / bands_per_frame.max(1));
     if beats.beats.len() < 8 || frames == 0 || bands_per_frame < BASS_BANDS {
         return None;
@@ -236,13 +275,8 @@ pub fn map_song(
     let kick_z = zscores(&kicks);
     let change_z = zscores(&changes);
     let score: Vec<f64> = kick_z.iter().zip(&change_z).map(|(k, c)| k + c).collect();
-    let (meter, downbeat_phase, meter_confidence, grouping) = match aksak {
-        Some(aksak) => (
-            aksak.grouping.len(),
-            aksak.downbeat_phase % aksak.grouping.len().max(1),
-            aksak.confidence,
-            aksak.grouping.clone(),
-        ),
+    let (meter, downbeat_phase, meter_confidence, grouping) = match given {
+        Some(given) => given,
         None => {
             let (meter, phase, contrast) = choose_meter(&score);
             let confidence = if contrast < METER_CONTRAST_MIN {

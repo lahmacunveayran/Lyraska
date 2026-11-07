@@ -181,6 +181,7 @@ lyraska/
 │   │   │   ├── meter.rs      #   aksak ölçü (5/8, 7/8, 9/8): sekizlik ızgarası, gruplama, grup başı vuruşlar
 │   │   │   ├── rhythm_model.rs # ritim modelinin (Beat This, MIT) girişi ve çıkışı: log-mel (22 050 Hz, 50 kare/sn, 128 Slaney mel), 30 sn parçalar, logitten vuruş ve ölçü başı; Python koduyla birebir
 │   │   │   ├── rhythm_net.rs #   ritim modelini tract ile çalıştırma: SHA-256 denetimli dosya, 30 sn parçalar kısa ömürlü iş parçacıklarında, vuruş ve ölçü başı zamanları
+│   │   │   ├── net_rhythm.rs #   modelin sonucundan vuruş ızgarası (tempo, değişken tempo) ve ölçü (modelin ölçü başlarıyla en çok uyuşan düzenli ölçü, güven)
 │   │   │   ├── key.rs        #   ton tespiti: kroma, akort, Krumhansl–Kessler, Camelot, bölüm bölüm
 │   │   │   ├── cache.rs      #   analiz önbelleği (SQLite; yol + boyut + değişme zamanı; parça sürümleri)
 │   │   │   └── background.rs #   kütüphanenin arka plan analizi (düşük öncelik; çalan → sıradaki → geri kalan)
@@ -238,9 +239,10 @@ Kurallar:
 - Yeni modüller ilgili klasörün altında alt modül olarak açılır (ör. `audio/decode.rs`).
 - Görseller ses yolundan veri çekmez: şarkı önceden analiz edilir (`analysis`), görseller çalma
   konumuna karşılık gelen analiz karesini `visual_bridge` üzerinden okur.
-- Analiz sonuçları önbellekte (`analysis/cache.rs`) saklanır. Analiz beş parçadır ve her birinin kendi sürümü
+- Analiz sonuçları önbellekte (`analysis/cache.rs`) saklanır. Analiz altı parçadır ve her birinin kendi sürümü
   vardır (`cache::VERSIONS`): spektrum (kareler), ritim (beat, ölçü, bölüm, drop, enerji), ses yüksekliği, bas
-  tepeleri, ton. Bir hesabı değiştiren iş **yalnızca o parçanın** sürümünü artırır; kütüphanede yalnızca o parça yeniden
+  tepeleri, ton, ritim modelinin vuruş ve ölçü başları (yalnızca model kurulumdaysa; ritim onu kullanır). Bir hesabı
+  değiştiren iş **yalnızca o parçanın** sürümünü artırır; kütüphanede yalnızca o parça yeniden
   hesaplanır (ritim karelerden, şarkı çözülmeden). Bütün kütüphaneyi baştan analiz ettiren spektrum sürümü yalnızca
   karelerin kendisi değişince artırılır.
 - Sahneler hareket ve parlaklığı Görsel Yönetmen'in notundan (`VisualFrame.director`) türetir. Epilepsi güvenli

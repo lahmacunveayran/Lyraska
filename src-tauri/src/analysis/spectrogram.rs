@@ -16,11 +16,14 @@ use super::cache::CachedAnalysis;
 use super::key::{ChromaAnalyzer, KeyAnalysis, MusicalKey};
 use super::levels::{self, ChannelLevels, LevelAccumulator, VALUES_PER_FRAME};
 use super::meter;
+use super::net_rhythm::NetRhythm;
+use super::rhythm_net::{self, RhythmNet, RhythmNetError};
 use super::structure::{self, SongMap};
 use super::tempo;
 use crate::audio::bass::{BassPeakMeter, BassPeaks};
 use crate::audio::decode::{Decoder, TrackInfo};
 use crate::audio::loudness::{Loudness, LoudnessMeter};
+use crate::audio::resample::Converter;
 use crate::audio::{AudioError, Sample};
 use crate::director::Choreography;
 
@@ -84,6 +87,11 @@ pub struct Spectrogram {
     imported: RwLock<Option<Imported>>,
     /// Şarkının örnekleme hızı (ritim karelerden yeniden hesaplanırken gerekir).
     sample_rate: RwLock<Option<u32>>,
+    /// Ritim modelinin sonucu ([`super::rhythm_net`]); model yoksa ya da bu analizde
+    /// çalışmadıysa `None`.
+    net: RwLock<Option<NetRhythm>>,
+    /// Ritim modeli çalışıyor: kareler ve ilk ritim yayımlandı ama sonuç henüz saklanmaz.
+    net_pending: AtomicBool,
     /// Hazır kare sayısı.
     ready: AtomicUsize,
     done: AtomicBool,
@@ -110,6 +118,8 @@ impl Spectrogram {
             key: RwLock::new(None),
             imported: RwLock::new(None),
             sample_rate: RwLock::new(None),
+            net: RwLock::new(None),
+            net_pending: AtomicBool::new(false),
             ready: AtomicUsize::new(0),
             done: AtomicBool::new(false),
             cancelled: AtomicBool::new(false),
@@ -149,6 +159,7 @@ impl Spectrogram {
     pub fn from_saved(saved: SavedAnalysis) -> Arc<Self> {
         let spectrogram = Self::new();
         spectrogram.set_sample_rate(saved.sample_rate);
+        spectrogram.set_net(saved.net);
         spectrogram.push(&saved.levels, &saved.meters, &saved.onset);
         spectrogram.complete(
             saved.beats,
@@ -160,9 +171,10 @@ impl Spectrogram {
         spectrogram
     }
 
-    /// Bitmiş analizin saklanacak hâli; analiz bitmediyse ya da çözme yarıda kesildiyse `None`.
+    /// Bitmiş analizin saklanacak hâli; analiz bitmediyse, ritim modeli sürüyorsa (ya da iptalle
+    /// yarıda kaldıysa) ya da çözme yarıda kesildiyse `None`.
     pub fn saved(&self) -> Option<SavedAnalysis> {
-        if !self.is_done() || self.is_truncated() {
+        if !self.is_done() || self.is_truncated() || self.net_pending.load(Ordering::Acquire) {
             return None;
         }
         Some(SavedAnalysis {
@@ -176,7 +188,82 @@ impl Spectrogram {
             bass_peaks: self.bass_peaks(),
             key: self.key().map(|k| (*k).clone()),
             sample_rate: self.sample_rate.read().ok().and_then(|r| *r),
+            net: self.net.read().ok().and_then(|n| n.clone()),
         })
+    }
+
+    fn set_net(&self, net: Option<NetRhythm>) {
+        if let Ok(mut stored) = self.net.write() {
+            *stored = net;
+        }
+    }
+
+    /// Ritim modelinin sonucu (analiz bitince; model yoksa `None`).
+    pub fn net_rhythm(&self) -> Option<NetRhythm> {
+        self.net.read().ok().and_then(|n| n.clone())
+    }
+
+    /// Ritim modelini çalıştırır (kareler ve ilk ritim yayımlandıktan sonra) ve ritmi onunla
+    /// yeniden kurar. Model bu şarkıda çalışamazsa (çok uzun) sonuç boş kalır, ritim karelerden
+    /// kalır. İptal edilirse analiz saklanmaz.
+    fn run_net(&self, net: &RhythmNet, audio: Option<Vec<f32>>, pace: &mut dyn FnMut()) {
+        self.net_pending.store(true, Ordering::Release);
+        let result = match audio {
+            Some(audio) => net.analyze_paced(
+                &audio,
+                super::lyrics_model::window_threads(),
+                &self.cancelled,
+                pace,
+            ),
+            None => Err(RhythmNetError::TooLong),
+        };
+        let found = match result {
+            Ok(out) => NetRhythm {
+                beats: out.beats,
+                downbeats: out.downbeats,
+            },
+            Err(RhythmNetError::Cancelled) => return,
+            Err(e) => {
+                crate::diagnostics::info(&format!("Ritim modeli bu şarkıda çalışmadı: {e}"));
+                NetRhythm::default()
+            }
+        };
+        if self.is_cancelled() {
+            return;
+        }
+        let rate = self
+            .sample_rate
+            .read()
+            .ok()
+            .and_then(|r| *r)
+            .unwrap_or(44_100);
+        let rhythm = match (self.levels.read(), self.meters.read(), self.onset.read()) {
+            (Ok(levels), Ok(meters), Ok(onset)) => {
+                rhythm_from_frames(&levels, &meters, &onset, rate, Some(&found))
+            }
+            _ => return,
+        };
+        self.set_net(Some(found));
+        self.replace_rhythm(rhythm.0, rhythm.1);
+        self.net_pending.store(false, Ordering::Release);
+    }
+
+    /// Vuruş ızgarasını, şarkı haritasını ve koreografiyi yenisiyle değiştirir (ritim modeli
+    /// sonradan gelince); diğer analiz sonuçları aynı kalır.
+    fn replace_rhythm(&self, grid: Option<BeatGrid>, map: Option<SongMap>) {
+        let choreography = match (&grid, &map) {
+            (Some(grid), Some(map)) => self.build_choreography(grid, map),
+            _ => None,
+        };
+        if let Ok(mut stored) = self.beats.write() {
+            *stored = grid.map(Arc::new);
+        }
+        if let Ok(mut stored) = self.choreography.write() {
+            *stored = choreography.map(Arc::new);
+        }
+        if let Ok(mut stored) = self.song_map.write() {
+            *stored = map.map(Arc::new);
+        }
     }
 
     fn set_sample_rate(&self, rate: Option<u32>) {
@@ -395,7 +482,7 @@ impl Spectrogram {
     ) {
         let rhythm = match (self.levels.read(), self.meters.read(), self.onset.read()) {
             (Ok(levels), Ok(meters), Ok(onset)) => {
-                rhythm_from_frames(&levels, &meters, &onset, sample_rate)
+                rhythm_from_frames(&levels, &meters, &onset, sample_rate, None)
             }
             _ => (None, None),
         };
@@ -480,6 +567,9 @@ pub struct SavedAnalysis {
     pub key: Option<KeyAnalysis>,
     /// Şarkının örnekleme hızı; eski önbellek kayıtlarında bilinmeyebilir.
     pub sample_rate: Option<u32>,
+    /// Ritim modelinin sonucu (model yoksa ya da önbellekte bu parça eskimişse `None`; model bu
+    /// şarkıda çalışamadıysa boş).
+    pub net: Option<NetRhythm>,
 }
 
 impl SavedAnalysis {
@@ -571,7 +661,86 @@ pub fn analyze_paced(mut decoder: Decoder, target: &Spectrogram, pace: &mut dyn 
 /// [`analyze_paced`]'in kaynağı soyutlanmış hâli. Çözme dosya sonuna gelmeden hata verirse
 /// (ağ kopması, okunamayan disk) eldeki kareler yayımlanır ama analiz saklanmaz
 /// ([`Spectrogram::is_truncated`]): geçici bir hata o şarkının görsellerini kalıcı kısaltmasın.
+/// Ritim modeli kurulumdaysa ([`rhythm_net::shared`]) kareler ve ilk ritimden sonra çalışır.
 pub fn analyze_source(decoder: &mut dyn ChunkSource, target: &Spectrogram, pace: &mut dyn FnMut()) {
+    let net = rhythm_net::shared();
+    analyze_source_with(decoder, target, pace, net.as_deref());
+}
+
+/// Ritim modelinin girişi: şarkının 22 050 Hz mono kopyası, çözerken parça parça. Model için çok
+/// uzun şarkıda kopya bırakılır (bellek tutulmaz).
+struct NetAudio {
+    converter: Converter,
+    mono: Vec<Sample>,
+    out: Vec<f32>,
+    too_long: bool,
+}
+
+impl NetAudio {
+    const BLOCK: usize = 8192;
+    const LIMIT: usize = rhythm_net::MAX_SECS * super::rhythm_model::SAMPLE_RATE as usize;
+
+    fn new(sample_rate: u32) -> Option<Self> {
+        Some(Self {
+            converter: Converter::new(sample_rate, 1, super::rhythm_model::SAMPLE_RATE, 1).ok()?,
+            mono: Vec::with_capacity(Self::BLOCK),
+            out: Vec::new(),
+            too_long: false,
+        })
+    }
+
+    fn add(&mut self, sample: Sample) {
+        if self.too_long {
+            return;
+        }
+        self.mono.push(sample);
+        if self.mono.len() >= Self::BLOCK {
+            self.flush();
+        }
+    }
+
+    /// Dönüştürülen örnekleri ekler; dönüştürme bozulduysa (`None`) kopya bırakılır.
+    fn take(&mut self, converted: Option<Vec<Sample>>) {
+        match converted {
+            Some(samples) => {
+                self.out.extend(
+                    samples
+                        .iter()
+                        .map(|&v| if v.is_finite() { v as f32 } else { 0.0 }),
+                )
+            }
+            None => self.too_long = true,
+        }
+        if self.out.len() > Self::LIMIT {
+            self.too_long = true;
+        }
+        if self.too_long {
+            self.out = Vec::new();
+        }
+    }
+
+    fn flush(&mut self) {
+        let converted = self.converter.process(&self.mono).map(<[Sample]>::to_vec);
+        self.mono.clear();
+        self.take(converted.ok());
+    }
+
+    /// Kopyanın tamamı; çok uzunsa ya da dönüştürme bozulduysa `None`.
+    fn finish(mut self) -> Option<Vec<f32>> {
+        self.flush();
+        let rest = self.converter.finish().map(<[Sample]>::to_vec);
+        self.take(rest.ok());
+        (!self.too_long).then_some(self.out)
+    }
+}
+
+/// [`analyze_source`]; ritim modeli açıkça verilir (testler deneme modeliyle).
+pub fn analyze_source_with(
+    decoder: &mut dyn ChunkSource,
+    target: &Spectrogram,
+    pace: &mut dyn FnMut(),
+    net: Option<&RhythmNet>,
+) {
     let info = decoder.info().clone();
     let channels = info.channels.max(1);
     // Hız baştan bilinir: `frame_at` kareyi pencere ortasına göre seçerken kullanır.
@@ -598,6 +767,8 @@ pub fn analyze_source(decoder: &mut dyn ChunkSource, target: &Spectrogram, pace:
     let mut bass_peaks = BassPeakMeter::new(info.sample_rate, channels);
     // Ton: uzun pencereli kroma, aynı geçişte.
     let mut chroma = ChromaAnalyzer::new(info.sample_rate);
+    // Ritim modelinin girişi (model varsa).
+    let mut net_audio = net.and_then(|_| NetAudio::new(info.sample_rate));
 
     loop {
         if target.cancelled.load(Ordering::Acquire) {
@@ -618,6 +789,9 @@ pub fn analyze_source(decoder: &mut dyn ChunkSource, target: &Spectrogram, pace:
             bass_peaks.add(frame);
             let mono = frame.iter().sum::<Sample>() / channels as Sample;
             chroma.add(mono);
+            if let Some(audio) = net_audio.as_mut() {
+                audio.add(mono);
+            }
             window[head] = mono;
             head = (head + 1) % fft_size;
             filled = (filled + 1).min(fft_size);
@@ -646,22 +820,45 @@ pub fn analyze_source(decoder: &mut dyn ChunkSource, target: &Spectrogram, pace:
         }
     }
     target.push(&batch, &meter_batch, &onset_batch);
+    // Kareler ve karelerden ritim hemen yayımlanır (görseller modeli beklemez); model sonra
+    // ritmi yeniler.
+    target.net_pending.store(net.is_some(), Ordering::Release);
     target.finish(
         info.sample_rate,
         loudness.finish(),
         bass_peaks.finish(),
         Some(chroma.finish()),
     );
+    if let Some(net) = net {
+        if !target.is_cancelled() && !target.is_truncated() {
+            target.run_net(net, net_audio.and_then(NetAudio::finish), pace);
+        }
+    }
 }
 
 /// Saklanan karelerden ritim: vuruş ızgarası (başlangıç gücünün örnekleme hızına bağlı
 /// gecikmesi düşülerek, [`beats::onset_latency`]) ve şarkı haritası. Şarkı çözülmez.
+///
+/// Ritim modelinin sonucu varsa (`net`, en az 8 vuruş) vuruşlar ve ölçü ondan gelir; bölümler,
+/// droplar ve enerji yine karelerden. Yoksa ya da boşsa Lyraska'nın kendi takipçisi.
 pub fn rhythm_from_frames(
     levels: &[u8],
     meters: &[u8],
     onset: &[f32],
     sample_rate: u32,
+    net: Option<&NetRhythm>,
 ) -> (Option<BeatGrid>, Option<SongMap>) {
+    if let Some((net, grid)) = net.and_then(|n| Some((n, n.grid()?))) {
+        let map = structure::map_song_with_meter(
+            levels,
+            BANDS,
+            &frame_loudness(meters),
+            &grid,
+            FRAMES_PER_SECOND,
+            net.meter(),
+        );
+        return (Some(grid), map);
+    }
     let latency = beats::onset_latency(sample_rate, fft_size(sample_rate));
     // Tempo oktavı (yarısı / iki katı) ızgaranın kendi kanıtıyla seçilir; aksak ölçü düzeltilmiş
     // tempoya göre aranır.
@@ -689,13 +886,23 @@ pub fn structure_for_beats(
     grid: &BeatGrid,
     aksak: Option<&meter::Aksak>,
 ) -> Option<SongMap> {
-    // Kare başına ses yüksekliği: iki kanalın etkin seviyesinin ortalaması.
-    let loudness: Vec<f32> = meters
+    structure::map_song(
+        levels,
+        BANDS,
+        &frame_loudness(meters),
+        grid,
+        FRAMES_PER_SECOND,
+        aksak,
+    )
+}
+
+/// Kare başına ses yüksekliği: iki kanalın etkin seviyesinin ortalaması.
+fn frame_loudness(meters: &[u8]) -> Vec<f32> {
+    meters
         .chunks_exact(VALUES_PER_FRAME)
         .filter_map(levels::decode_frame)
         .map(|m| 0.5 * (m.rms_db[0] + m.rms_db[1]))
-        .collect();
-    structure::map_song(levels, BANDS, &loudness, grid, FRAMES_PER_SECOND, aksak)
+        .collect()
 }
 
 /// Önbellekteki kaydın eskimiş parçalarını yeniden hesaplayıp `target`'ı tamamlar.
@@ -722,12 +929,29 @@ pub fn publish_cached(target: &Spectrogram, cached: &CachedAnalysis) {
     }
 }
 
+///
+/// Ritim modelinin sonucu eskiyse (`stale.net`; yalnızca model kurulumdaysa) şarkı çözülür ve model
+/// çalışır; ritim önce karelerden yayımlanır, model bitince onunla yenilenir.
 pub fn refresh_paced(
     cached: CachedAnalysis,
     open: &mut dyn FnMut() -> Option<Decoder>,
     target: &Spectrogram,
     pace: &mut dyn FnMut(),
 ) -> bool {
+    let net = rhythm_net::shared();
+    refresh_paced_with(cached, open, target, pace, net.as_deref())
+}
+
+/// [`refresh_paced`]; ritim modeli açıkça verilir (testler deneme modeliyle).
+pub fn refresh_paced_with(
+    cached: CachedAnalysis,
+    open: &mut dyn FnMut() -> Option<Decoder>,
+    target: &Spectrogram,
+    pace: &mut dyn FnMut(),
+    net: Option<&RhythmNet>,
+) -> bool {
+    // Model ancak varsa çalışır: yoksa eski kaydın modelsiz ritmi karelerden yeniden hesaplanır.
+    let net = net.filter(|_| cached.stale.net);
     // Kareler çağıran tarafından önceden yayımlanmış olabilir ([`publish_cached`]); iki kez
     // eklenmesin.
     if target.ready_frames() == 0 {
@@ -738,8 +962,9 @@ pub fn refresh_paced(
     let mut loudness = saved.loudness;
     let mut bass_peaks = saved.bass_peaks;
     let mut key = saved.key;
+    let mut net_audio = None;
 
-    if stale.needs_decoding() {
+    if stale.needs_decoding() || net.is_some() {
         let Some(mut decoder) = open() else {
             return false;
         };
@@ -753,6 +978,7 @@ pub fn refresh_paced(
             .bass
             .then(|| BassPeakMeter::new(info.sample_rate, channels));
         let mut chroma = stale.key.then(|| ChromaAnalyzer::new(info.sample_rate));
+        net_audio = net.and_then(|_| NetAudio::new(info.sample_rate));
         loop {
             if target.is_cancelled() {
                 return false;
@@ -774,8 +1000,14 @@ pub fn refresh_paced(
                 if let Some(meter) = bass_meter.as_mut() {
                     meter.add(frame);
                 }
-                if let Some(chroma) = chroma.as_mut() {
-                    chroma.add(frame.iter().sum::<Sample>() / channels as Sample);
+                if chroma.is_some() || net_audio.is_some() {
+                    let mono = frame.iter().sum::<Sample>() / channels as Sample;
+                    if let Some(chroma) = chroma.as_mut() {
+                        chroma.add(mono);
+                    }
+                    if let Some(audio) = net_audio.as_mut() {
+                        audio.add(mono);
+                    }
                 }
             }
         }
@@ -790,6 +1022,8 @@ pub fn refresh_paced(
         }
     }
 
+    // Önbellekteki modelin sonucu (eskimemişse) ritmi kurar; eskiyse ritim önce karelerden.
+    let saved_net = saved.net.filter(|_| !stale.net);
     let (grid, map) = if stale.rhythm {
         let rate = match sample_rate {
             Some(rate) => rate,
@@ -799,12 +1033,29 @@ pub fn refresh_paced(
             },
         };
         sample_rate = Some(rate);
-        rhythm_from_frames(&saved.levels, &saved.meters, &saved.onset, rate)
+        rhythm_from_frames(
+            &saved.levels,
+            &saved.meters,
+            &saved.onset,
+            rate,
+            saved_net.as_ref(),
+        )
     } else {
         (saved.beats, saved.song_map)
     };
     target.set_sample_rate(sample_rate);
+    target.set_net(saved_net);
+    target.net_pending.store(net.is_some(), Ordering::Release);
     target.complete(grid, map, loudness, bass_peaks, key);
+    if let Some(net) = net {
+        if target.is_cancelled() || target.is_truncated() {
+            return false;
+        }
+        target.run_net(net, net_audio.and_then(NetAudio::finish), pace);
+        if target.net_pending.load(Ordering::Acquire) {
+            return false;
+        }
+    }
     true
 }
 
@@ -1089,6 +1340,157 @@ mod tests {
         std::fs::remove_file(path).ok();
     }
 
+    fn analyze_with_net(path: &Path, net: &RhythmNet) -> Arc<Spectrogram> {
+        let spectrogram = Spectrogram::new();
+        let mut decoder = Decoder::open(path).unwrap();
+        analyze_source_with(&mut decoder, &spectrogram, &mut || {}, Some(net));
+        spectrogram
+    }
+
+    #[test]
+    fn ritim_modeli_varsa_vuruslar_ve_olcu_ondan_digerleri_ayni() {
+        let path = drum_song("model-analiz.wav");
+        let net = crate::analysis::rhythm_net::test_model();
+        let plain = analyze_file(&path).saved().unwrap();
+        assert_eq!(
+            plain.net, None,
+            "model verilmedi (testlerde kurulumda model yok)"
+        );
+        let spectrogram = analyze_with_net(&path, &net);
+        let saved = spectrogram.saved().unwrap();
+        let found = saved.net.clone().expect("modelin sonucu saklanır");
+        assert!(found.beats.len() >= 8, "{} vuruş", found.beats.len());
+
+        // Model aynı sesi bağımsız görür: 22 050 Hz mono kopya modelin kendi girişiyle aynı sonucu
+        // verir (şarkı 22 050 Hz, dönüştürme yok).
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+        let audio = crate::analysis::lyrics_model::decode_mono_at(
+            &path,
+            crate::analysis::rhythm_model::SAMPLE_RATE,
+            &cancel,
+        )
+        .unwrap();
+        let direct = net.analyze(&audio, 1, &cancel).unwrap();
+        assert_eq!(found.beats, direct.beats);
+        assert_eq!(found.downbeats, direct.downbeats);
+
+        // Izgara ve ölçü modelden; ölçü başları ölçünün düzenli dizisi.
+        let grid = saved.beats.clone().unwrap();
+        assert_eq!(grid, found.grid().unwrap());
+        let map = saved.song_map.clone().unwrap();
+        let meter = found.meter();
+        assert_eq!(
+            (map.meter, map.downbeat_phase, map.meter_confidence),
+            (meter.meter, meter.downbeat_phase, meter.confidence)
+        );
+        let expected_downbeats: Vec<f64> = (meter.downbeat_phase..grid.beats.len())
+            .step_by(meter.meter)
+            .map(|i| grid.beats[i])
+            .collect();
+        assert_eq!(map.downbeats, expected_downbeats);
+        assert!(spectrogram.choreography().is_some());
+
+        // Kareler, ses yüksekliği, bas ve ton modelden etkilenmez.
+        assert_eq!(saved.levels, plain.levels);
+        assert_eq!(saved.meters, plain.meters);
+        assert_eq!(saved.onset, plain.onset);
+        assert_eq!(saved.loudness, plain.loudness);
+        assert_eq!(saved.bass_peaks, plain.bass_peaks);
+        assert_eq!(saved.key, plain.key);
+
+        // Önbellekten kurulunca aynı.
+        let restored = Spectrogram::from_saved(saved.clone());
+        assert_eq!(restored.saved().unwrap(), saved);
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn model_calisirken_iptal_edilen_analiz_saklanmaz() {
+        let path = drum_song("model-iptal.wav");
+        let net = crate::analysis::rhythm_net::test_model();
+        let spectrogram = Spectrogram::new();
+        let mut decoder = Decoder::open(&path).unwrap();
+        // Kareler ve ilk ritim bitince (model başlarken) başka şarkı açılır.
+        let target = &spectrogram;
+        let mut pace = || {
+            if target.is_done() {
+                target.cancel();
+            }
+        };
+        analyze_source_with(&mut decoder, target, &mut pace, Some(&net));
+        assert!(spectrogram.is_done(), "görseller karelerin ritmini aldı");
+        assert!(spectrogram.beat_grid().is_some());
+        assert!(spectrogram.saved().is_none(), "modelsiz sonuç saklanmaz");
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn modelin_sonucu_eski_kayitta_tek_cozmeyle_eklenir() {
+        let path = drum_song("model-yenile.wav");
+        let net = crate::analysis::rhythm_net::test_model();
+        let plain = analyze_file(&path).saved().unwrap();
+        let full = analyze_with_net(&path, &net).saved().unwrap();
+        // Modelsiz analiz edilmiş kayıt, model kurulduktan sonra: model ve ritim eski.
+        let stale = StaleParts {
+            rhythm: true,
+            net: true,
+            ..StaleParts::default()
+        };
+        let target = Spectrogram::new();
+        let mut opened = 0;
+        let mut open = || {
+            opened += 1;
+            Decoder::open(&path).ok()
+        };
+        assert!(refresh_paced_with(
+            aged(&plain, stale),
+            &mut open,
+            &target,
+            &mut || {},
+            Some(&net)
+        ));
+        assert_eq!(opened, 1, "şarkı bir kez çözüldü");
+        assert_eq!(target.saved().unwrap(), full, "tam analizle birebir aynı");
+
+        // Ritmi eskiyen ama modelin sonucu güncel kayıt: model çalışmaz, şarkı çözülmez.
+        let mut cached = aged(
+            &full,
+            StaleParts {
+                rhythm: true,
+                ..StaleParts::default()
+            },
+        );
+        cached.saved.net = full.net.clone();
+        let target = Spectrogram::new();
+        let mut opened = 0;
+        let mut open = || {
+            opened += 1;
+            Decoder::open(&path).ok()
+        };
+        assert!(refresh_paced_with(
+            cached,
+            &mut open,
+            &target,
+            &mut || {},
+            Some(&net)
+        ));
+        assert_eq!(opened, 0);
+        assert_eq!(target.saved().unwrap(), full);
+
+        // Model yok (geliştirme derlemesi): eski kaydın ritmi karelerden, modelin sonucu yok.
+        let target = Spectrogram::new();
+        let mut open = || Decoder::open(&path).ok();
+        assert!(refresh_paced_with(
+            aged(&plain, stale),
+            &mut open,
+            &target,
+            &mut || {},
+            None
+        ));
+        assert_eq!(target.saved().unwrap(), plain);
+        std::fs::remove_file(path).ok();
+    }
+
     #[test]
     fn eskiyen_ses_yuksekligi_bas_tepeleri_ve_ton_tek_cozmeyle_ayni_olculur() {
         let path = drum_song("olcum-yenile.wav");
@@ -1112,6 +1514,7 @@ mod tests {
                 loudness: true,
                 bass: true,
                 key: true,
+                net: false,
             },
         ] {
             let target = Spectrogram::new();

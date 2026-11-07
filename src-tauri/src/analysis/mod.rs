@@ -14,8 +14,8 @@
 //! - [`lyrics_align`], [`lyrics_model`], [`lyrics_text`], [`lyrics_cache`], [`lyrics_job`],
 //!   [`lyrics_worker`], [`lyrics_package`]: sözleri sese oturtma (hizalama, model, metin hazırlığı,
 //!   emisyon önbelleği, işin kendisi ve sonucu, arka plan iş parçacığı, söz paketinin kurulumu).
-//! - [`rhythm_model`], [`rhythm_net`]: ritim modeli (Beat This): giriş ve çıkışın saf hesabı ve modelin
-//!   `tract` ile çalıştırılması.
+//! - [`rhythm_model`], [`rhythm_net`], [`net_rhythm`]: ritim modeli (Beat This): giriş ve çıkışın saf
+//!   hesabı, modelin `tract` ile çalıştırılması, sonucundan vuruş ızgarası ve ölçü.
 //! - [`background`]: kütüphanenin arka planda, düşük öncelikle analizi.
 //!
 //! Analiz şarkı çalmadan önce yapılır ve sonuç SQLite'ta saklanır; böylece
@@ -39,6 +39,7 @@ pub mod lyrics_text;
 pub mod lyrics_worker;
 pub mod map_file;
 pub mod meter;
+pub mod net_rhythm;
 pub mod rhythm_model;
 pub mod rhythm_net;
 pub mod separation_eval;

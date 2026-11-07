@@ -24,6 +24,7 @@ use thiserror::Error;
 use super::beats::BeatGrid;
 use super::key::{KeyAnalysis, MusicalKey, PITCH_CLASSES};
 use super::levels::VALUES_PER_FRAME;
+use super::net_rhythm::NetRhythm;
 use super::spectrogram::{SavedAnalysis, BANDS};
 use super::structure::SongMap;
 use crate::audio::bass::BassPeaks;
@@ -42,6 +43,9 @@ use crate::audio::loudness::Loudness;
 /// - `bass`: bas tepeleri (bas düğmesinin akıllı koruması). Şarkı yeniden çözülür (FFT'siz).
 /// - `key`: ton (kroma ve tahmin). Şarkı yeniden çözülür (uzun pencereli tek FFT); bant
 ///   kareleri ve ritim yeniden hesaplanmaz.
+/// - `net`: ritim modelinin vuruş ve ölçü başları (yalnızca model kurulumdaysa beklenir). Şarkı
+///   yeniden çözülür ve model çalışır; ritim de onunla yeniden hesaplanır. Ritmin kendi hesabı
+///   değişince model yeniden çalışmaz (sonucu saklıdır).
 ///
 /// Tek sürüm döneminin geçmişi (`ANALYSIS_VERSION`): 2 kareler her örnekleme hızında tam
 /// 1/60 sn, vuruş gecikmesi hıza göre düşülüyor; 3 ses yüksekliği; 4 bas tepeleri; 5 bas
@@ -53,6 +57,7 @@ pub struct PartVersions {
     pub loudness: i64,
     pub bass: i64,
     pub key: i64,
+    pub net: i64,
 }
 
 /// Parçaların şu anki sürümleri.
@@ -67,13 +72,18 @@ pub const VERSIONS: PartVersions = PartVersions {
     // 7: tempo oktavı (drum and bass 87 → 174, yarım tempolu trap 70 → 140, balad 132 → 66).
     // 8: eşit nabız (her vuruşta kick, iki katının araları dolu): hardstyle 80 → 160.
     // 9: üç vuruşta iki (80–100 bulunmuş, gerçek vuruşlar üçte birlerde): KUTE 87 → 130.
-    rhythm: 9,
+    // 10: ritim modeli varsa vuruşlar ve ölçü ondan (`net_rhythm`).
+    rhythm: 10,
     // Çok kanallı seste kanal ağırlıkları kanalın yerine göre (BS.1770-5; 4.0, 5.0, 6.1, 7.1):
     // tek ve iki kanallıda sonuç aynı, sürüm artırılmadı; çok kanallılar göçle (storage V11)
     // yeniden ölçülür.
     loudness: 1,
     bass: 1,
     key: 1,
+    // Ritim modelinin (Beat This small0, `rhythm_net::MODEL_SHA256`) vuruş ve ölçü başları. Model ya
+    // da çalıştırılışı değişince artırılır. Yalnızca model kurulumdaysa hesaplanır; ritim parçası
+    // bunu kullanır (model eskiyse ritim de yeniden hesaplanır).
+    net: 1,
 };
 
 /// Eski tek sürüm sütununa (`version`) yazılan değer. Parça sürümlerinden önceki program
@@ -88,16 +98,19 @@ pub struct StaleParts {
     pub loudness: bool,
     pub bass: bool,
     pub key: bool,
+    /// Ritim modelinin sonucu eski ya da yok (yalnızca model kurulumdaysa; o zaman ritim de eski).
+    pub net: bool,
 }
 
 impl StaleParts {
     pub fn any(self) -> bool {
-        self.rhythm || self.loudness || self.bass || self.key
+        self.rhythm || self.loudness || self.bass || self.key || self.net
     }
 
-    /// Şarkının yeniden çözülmesi gerekir mi (ses yüksekliği, bas tepeleri ya da ton eski)?
+    /// Şarkının yeniden çözülmesi gerekir mi (ses yüksekliği, bas tepeleri, ton ya da ritim
+    /// modeli eski)?
     pub fn needs_decoding(self) -> bool {
-        self.loudness || self.bass || self.key
+        self.loudness || self.bass || self.key || self.net
     }
 }
 
@@ -162,6 +175,10 @@ impl FileStamp {
 /// oynatıcının ve arka plan analizinin iş parçacıklarından kullanılır.
 pub struct AnalysisCache {
     conn: Mutex<Connection>,
+    /// Ritim modelinin sonucu bekleniyor mu (model kurulumda ve açılabiliyor; ilk soruda bir kez
+    /// [`super::rhythm_net::shared`]'dan). Beklenmiyorsa o parça hiç eski sayılmaz: model yokken
+    /// kütüphane boşuna yeniden analiz edilmez.
+    net_expected: std::sync::OnceLock<bool>,
 }
 
 impl AnalysisCache {
@@ -186,7 +203,21 @@ impl AnalysisCache {
         crate::storage::migrate(&mut conn)?;
         Ok(Self {
             conn: Mutex::new(conn),
+            net_expected: std::sync::OnceLock::new(),
         })
+    }
+
+    /// Ritim modelinin sonucunun beklenip beklenmediğini sabitler (testler; program kurulumdaki
+    /// modele bakar).
+    pub fn with_net_expected(self, expected: bool) -> Self {
+        let _ = self.net_expected.set(expected);
+        self
+    }
+
+    fn net_expected(&self) -> bool {
+        *self
+            .net_expected
+            .get_or_init(|| super::rhythm_net::shared().is_some())
     }
 
     pub(super) fn lock(&self) -> Result<std::sync::MutexGuard<'_, Connection>, CacheError> {
@@ -207,12 +238,13 @@ impl AnalysisCache {
         path: &Path,
         stamp: FileStamp,
     ) -> Result<Option<CachedAnalysis>, CacheError> {
+        let net_expected = self.net_expected();
         let conn = self.lock()?;
         let row = conn
             .query_row(
                 "SELECT frames, levels, meters, onset, beats, song_map, loudness_lufs, true_peak_dbtp,
                         bass_peaks, sample_rate, rhythm_version, loudness_version, bass_version,
-                        chroma, musical_key, key_version
+                        chroma, musical_key, key_version, net_beats, net_version
                  FROM analyses
                  WHERE path = ?1 AND file_size = ?2 AND modified = ?3 AND spectrum_version = ?4",
                 params![
@@ -235,11 +267,16 @@ impl AnalysisCache {
                         sample_rate: r.get(9)?,
                         chroma: r.get(13)?,
                         musical_key: r.get(14)?,
-                        stale: StaleParts {
-                            rhythm: r.get::<_, i64>(10)? != VERSIONS.rhythm,
-                            loudness: r.get::<_, i64>(11)? != VERSIONS.loudness,
-                            bass: r.get::<_, i64>(12)? != VERSIONS.bass,
-                            key: r.get::<_, i64>(15)? != VERSIONS.key,
+                        net: r.get(16)?,
+                        stale: {
+                            let net = net_expected && r.get::<_, i64>(17)? != VERSIONS.net;
+                            StaleParts {
+                                rhythm: net || r.get::<_, i64>(10)? != VERSIONS.rhythm,
+                                loudness: r.get::<_, i64>(11)? != VERSIONS.loudness,
+                                bass: r.get::<_, i64>(12)? != VERSIONS.bass,
+                                key: r.get::<_, i64>(15)? != VERSIONS.key,
+                                net,
+                            }
                         },
                     })
                 },
@@ -284,6 +321,12 @@ impl AnalysisCache {
             .filter(MusicalKey::is_confident)
             .map(|k| k.camelot_code());
         let key_version = if key.is_some() { VERSIONS.key } else { 0 };
+        // Ritim modelinin sonucu yoksa (model yok ya da eski kayıt yenilenemedi) sürümü 0.
+        let net_beats = saved
+            .net
+            .as_ref()
+            .and_then(|n| serde_json::to_string(n).ok());
+        let net_version = if net_beats.is_some() { VERSIONS.net } else { 0 };
         let row = params![
             path.to_string_lossy(),
             stamp.size as i64,
@@ -308,15 +351,17 @@ impl AnalysisCache {
             musical_key,
             camelot,
             key_version,
+            net_beats,
+            net_version,
         ];
         self.lock()?.execute(
             "INSERT OR REPLACE INTO analyses
                  (path, file_size, modified, version, frames, bpm, levels, meters, onset, beats,
                   song_map, loudness_lufs, true_peak_dbtp, bass_peaks, sample_rate,
                   spectrum_version, rhythm_version, loudness_version, bass_version,
-                  chroma, musical_key, camelot, key_version)
+                  chroma, musical_key, camelot, key_version, net_beats, net_version)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17,
-                     ?18, ?19, ?20, ?21, ?22, ?23)",
+                     ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)",
             row,
         )?;
         Ok(())
@@ -331,6 +376,7 @@ impl AnalysisCache {
         &self,
         limit: usize,
     ) -> Result<Vec<(PathBuf, FileStamp)>, CacheError> {
+        let net_expected = self.net_expected();
         let conn = self.lock()?;
         let has_tracks: bool = conn
             .query_row(
@@ -348,8 +394,10 @@ impl AnalysisCache {
                  AND a.modified = t.modified
              WHERE a.path IS NULL OR a.spectrum_version != ?1 OR a.rhythm_version != ?2
                  OR a.loudness_version != ?3 OR a.bass_version != ?4 OR a.key_version != ?5
+                 OR (?7 AND a.net_version != ?8)
              ORDER BY (a.path IS NULL OR a.spectrum_version != ?1 OR a.loudness_version != ?3
-                       OR a.bass_version != ?4 OR a.key_version != ?5),
+                       OR a.bass_version != ?4 OR a.key_version != ?5
+                       OR (?7 AND a.net_version != ?8)),
                       t.sort_key
              LIMIT ?6",
         )?;
@@ -360,7 +408,9 @@ impl AnalysisCache {
             v.loudness,
             v.bass,
             v.key,
-            limit as i64
+            limit as i64,
+            net_expected,
+            v.net
         ];
         let rows = stmt.query_map(values, |r| {
             Ok((
@@ -389,6 +439,7 @@ struct Row {
     sample_rate: Option<u32>,
     chroma: Option<Vec<u8>>,
     musical_key: Option<String>,
+    net: Option<String>,
     stale: StaleParts,
 }
 
@@ -430,6 +481,10 @@ impl Row {
                 )?)
             },
             sample_rate: self.sample_rate,
+            net: self
+                .net
+                .filter(|_| !stale.net)
+                .and_then(|j| serde_json::from_str::<NetRhythm>(&j).ok()),
         };
         (saved.is_consistent() && saved.frames() as i64 == self.frames)
             .then_some(CachedAnalysis { saved, stale })
@@ -535,6 +590,7 @@ mod tests {
                 tuning: -0.125,
             }),
             sample_rate: Some(44_100),
+            net: None,
         }
     }
 
@@ -686,6 +742,117 @@ mod tests {
                 "/muzik/b-ses.flac"
             ]
         );
+    }
+
+    fn with_net(frames: usize) -> SavedAnalysis {
+        SavedAnalysis {
+            net: Some(NetRhythm {
+                beats: vec![0.5, 1.0, 1.5],
+                downbeats: vec![0.5],
+            }),
+            ..sample(frames)
+        }
+    }
+
+    #[test]
+    fn ritim_modelinin_sonucu_saklanir_ve_yalnizca_model_varsa_beklenir() {
+        let path = Path::new("/muzik/a.mp3");
+        // Model kurulumda: sonucu olan kayıt güncel, aynen geri okunur.
+        let cache = AnalysisCache::open_in_memory()
+            .unwrap()
+            .with_net_expected(true);
+        let saved = with_net(30);
+        cache.store(path, STAMP, &saved).unwrap();
+        assert_eq!(fresh(&cache, path, STAMP), Some(saved.clone()));
+
+        // Modelsiz analiz edilmiş kayıt: model gelince model ve ritim eski, şarkı çözülür; diğer
+        // parçalar kullanılır.
+        cache.store(path, STAMP, &sample(30)).unwrap();
+        let cached = cache.load(path, STAMP).unwrap().unwrap();
+        assert_eq!(
+            cached.stale,
+            StaleParts {
+                rhythm: true,
+                net: true,
+                ..StaleParts::default()
+            }
+        );
+        assert!(cached.stale.needs_decoding());
+        assert_eq!((cached.saved.beats, cached.saved.net), (None, None));
+        assert_eq!(cached.saved.loudness, saved.loudness);
+
+        // Modelin sürümü artınca da eski.
+        cache.store(path, STAMP, &saved).unwrap();
+        age(&cache, "net_version");
+        let cached = cache.load(path, STAMP).unwrap().unwrap();
+        assert!(cached.stale.net && cached.stale.rhythm);
+        assert_eq!(cached.saved.net, None);
+
+        // Model yok: modelsiz kayıt güncel; modelli kaydın sonucu yine kullanılır.
+        let cache = AnalysisCache::open_in_memory()
+            .unwrap()
+            .with_net_expected(false);
+        cache.store(path, STAMP, &sample(30)).unwrap();
+        assert_eq!(fresh(&cache, path, STAMP), Some(sample(30)));
+        cache.store(path, STAMP, &saved).unwrap();
+        assert_eq!(fresh(&cache, path, STAMP), Some(saved));
+    }
+
+    #[test]
+    fn model_varsa_sonucu_olmayanlar_cozulecekler_arasinda_bekler() {
+        use crate::library::Library;
+        for expected in [true, false] {
+            let db =
+                crate::audio::test_util::temp_path(&format!("model-bekler-{expected}.sqlite3"));
+            let mut library = Library::open(&db).unwrap();
+            let folder = library.add_folder("/muzik").unwrap();
+            let cache = AnalysisCache::open(&db)
+                .unwrap()
+                .with_net_expected(expected);
+            let names = ["a-modelsiz", "b-ritim", "c-modelli"];
+            let tracks: Vec<_> = names
+                .iter()
+                .map(|name| {
+                    let mut info =
+                        crate::audio::test_util::track_info(&format!("/muzik/{name}.flac"));
+                    info.title = Some((*name).to_owned());
+                    (info, STAMP)
+                })
+                .collect();
+            library.apply_changes(folder.id, &tracks, &[]).unwrap();
+            let file = |name: &str| format!("/muzik/{name}.flac");
+            cache
+                .store(Path::new(&file("a-modelsiz")), STAMP, &sample(10))
+                .unwrap();
+            cache
+                .store(Path::new(&file("b-ritim")), STAMP, &with_net(10))
+                .unwrap();
+            cache
+                .store(Path::new(&file("c-modelli")), STAMP, &with_net(10))
+                .unwrap();
+            cache
+                .lock()
+                .unwrap()
+                .execute(
+                    "UPDATE analyses SET rhythm_version = 0 WHERE path = ?1",
+                    [file("b-ritim")],
+                )
+                .unwrap();
+            let pending: Vec<String> = cache
+                .pending_library_tracks(10)
+                .unwrap()
+                .into_iter()
+                .map(|(p, _)| p.to_string_lossy().into_owned())
+                .collect();
+            // Ritmi eskiyen önce (çözülmez); modelin sonucu çözme gerektirir, sona.
+            let want: Vec<String> = if expected {
+                vec![file("b-ritim"), file("a-modelsiz")]
+            } else {
+                vec![file("b-ritim")]
+            };
+            assert_eq!(pending, want, "model bekleniyor: {expected}");
+            std::fs::remove_file(&db).ok();
+        }
     }
 
     #[test]
