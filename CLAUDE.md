@@ -110,7 +110,7 @@ lyraska/
 │   │   ├── lib.rs            # Tauri kurulumu, komut kaydı
 │   │   ├── commands.rs       # Arayüzün çağırdığı ince Tauri komutları
 │   │   ├── audio/            # Ses motoru
-│   │   │   ├── decode.rs     #   symphonia ile çözme → f64 örnekler, etiketler, kapak resmi, gömülü sözler
+│   │   │   ├── decode.rs     #   symphonia ile çözme → f64 örnekler (ALAC 6.1/7.1 kanal sırası düzeltmesi), etiketler, kapak resmi, gömülü sözler
 │   │   │   ├── lyrics.rs     #   şarkı sözleri: kullanıcının düzenlediği, yan .lrc ya da gömülü; LRC, kelime zamanları, Türkçe kodlamalar
 │   │   │   ├── gapless.rs    #   boşluksuz çalma: MP4/AAC kodlayıcı dolgusu (iTunSMPB, elst)
 │   │   │   ├── eq.rs         #   10 bant ekolayzer: taşma düzeltmeli tasarım, kilitsiz ayar, yumuşak geçiş

@@ -8,7 +8,7 @@ use std::sync::LazyLock;
 
 use serde::Serialize;
 use symphonia::core::audio::Channels;
-use symphonia::core::codecs::audio::well_known::CODEC_ID_OPUS;
+use symphonia::core::codecs::audio::well_known::{CODEC_ID_ALAC, CODEC_ID_OPUS};
 use symphonia::core::codecs::audio::{AudioCodecParameters, AudioDecoder, AudioDecoderOptions};
 use symphonia::core::codecs::registry::CodecRegistry;
 use symphonia::core::errors::Error as SymphoniaError;
@@ -235,6 +235,39 @@ pub struct Decoder {
     /// Opus paketinin süresi ise ilk baytından kesin bilinir. Dosyanın başından sayılır
     /// (ilk paket ön boşluk kadar eksiden başlar).
     opus_clock: Option<i64>,
+    /// symphonia'nın ALAC 6.1/7.1 kanal hatasının düzeltmesi ([`alac_channel_fix`]).
+    channel_fix: Option<&'static [usize]>,
+}
+
+/// symphonia 0.6.1, ALAC'ın 6.1 ve 7.1 düzeninde bazı kanalları yanlış düzleme yazar (ALAC'ın
+/// kanal sırası C L R Ls Rs Cs LFE ve C Lc Rc L R Ls Rs LFE; symphonia'nın düzlem sırası konum
+/// bitlerinin sırası). Öbür düzenler doğru. Dönen dizi her çıkış kanalı için symphonia'nın
+/// tamponundaki kaynak kanalı verir: 6.1'de arka sol/sağ/orta, 7.1'de arka çift ve öndeki iç çift
+/// yer değiştirir. Eşleme ffmpeg'in `alac_data.c`'siyle aynı. symphonia bunu düzeltirse
+/// `alac_6_1_ve_7_1_kanallari_yerinde_cozulur` testi düşer, düzeltme kaldırılır.
+fn alac_channel_fix(params: &AudioCodecParameters) -> Option<&'static [usize]> {
+    use symphonia::core::audio::layouts::{CHANNEL_LAYOUT_AAC_6P1, CHANNEL_LAYOUT_MPEG_7P1_B};
+    const FIX_6P1: [usize; 7] = [0, 1, 2, 3, 5, 6, 4];
+    const FIX_7P1: [usize; 8] = [0, 1, 2, 3, 6, 7, 4, 5];
+    if params.codec != CODEC_ID_ALAC {
+        return None;
+    }
+    match params.channels.as_ref()? {
+        c if *c == CHANNEL_LAYOUT_AAC_6P1 => Some(&FIX_6P1),
+        c if *c == CHANNEL_LAYOUT_MPEG_7P1_B => Some(&FIX_7P1),
+        _ => None,
+    }
+}
+
+/// İç içe örneklerde kanalları `fix`'e göre yeniden sıralar (bkz. [`alac_channel_fix`]).
+fn reorder_channels(samples: &mut [Sample], fix: &[usize]) {
+    let mut frame = [0.0; 8];
+    for chunk in samples.chunks_exact_mut(fix.len()) {
+        frame[..fix.len()].copy_from_slice(chunk);
+        for (out, &src) in chunk.iter_mut().zip(fix) {
+            *out = frame[src];
+        }
+    }
 }
 
 impl Decoder {
@@ -373,6 +406,7 @@ impl Decoder {
             source_bits,
             path: path.to_path_buf(),
             opus_clock: (opus && is_matroska).then(|| -(opus_pre_skip(&params) as i64)),
+            channel_fix: alac_channel_fix(&params),
             params,
             demux_until: None,
             is_matroska,
@@ -509,6 +543,9 @@ impl Decoder {
                     }
                     self.buffer.resize(audio.samples_interleaved(), 0.0);
                     audio.copy_to_slice_interleaved(&mut self.buffer);
+                    if let Some(fix) = self.channel_fix {
+                        reorder_channels(&mut self.buffer, fix);
+                    }
                     // Bozuk kayan noktalı kayıtlarda NaN ya da sonsuz değer olabilir:
                     // filtrelerin belleğine girerse şarkının geri kalanı bozulur. Sessizlik say.
                     for sample in &mut self.buffer {
@@ -1345,6 +1382,28 @@ mod tests {
             );
         }
         std::fs::remove_file(path).ok();
+    }
+
+    /// ALAC 6.1 ve 7.1: her kanal kendi yerinde çözülür. Dosyalarda k. kanal (ffmpeg'in ve
+    /// symphonia'nın sırası: sol, sağ, orta, LFE, arka sol, arka sağ, sonra arka orta ya da öndeki
+    /// iç çift) sabit k/16 değeri taşır (tests/data/README.md). symphonia 0.6.1 bu iki düzende
+    /// arka ve iç kanalları yanlış düzleme yazıyor (iddia denetimi 11); ffmpeg doğru çözüyor.
+    #[test]
+    fn alac_6_1_ve_7_1_kanallari_yerinde_cozulur() {
+        for (name, channels, layout) in [
+            ("kanal-6-1.m4a", 7, 0x13F_u64), // FL FR FC LFE RL RR RC
+            ("kanal-7-1.m4a", 8, 0xFF_u64),  // FL FR FC LFE RL RR FLC FRC
+        ] {
+            let mut decoder = Decoder::open(&fixture_named(name)).unwrap();
+            assert_eq!(decoder.info().channels, channels, "{name}");
+            assert_eq!(decoder.info().channel_layout, Some(layout), "{name}");
+            let chunk = decoder.next_chunk().unwrap().unwrap().to_vec();
+            assert!(chunk.len() >= channels * 10, "{name}");
+            for frame in chunk.chunks_exact(channels).take(10) {
+                let expected: Vec<f64> = (1..=channels).map(|k| k as f64 / 16.0).collect();
+                assert_eq!(frame, expected.as_slice(), "{name}");
+            }
+        }
     }
 
     #[test]

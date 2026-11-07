@@ -72,6 +72,16 @@ PY
 rm duz.mp3
 ```
 
+`kanal-6-1.m4a`, `kanal-7-1.m4a`: 8 kHz, 0,05 sn ALAC (16 bit), 6.1 (arkada) ve 7.1 (geniş) düzen. k. kanal (ffmpeg'in
+sırası: sol, sağ, orta, LFE, arka sol, arka sağ, sonra arka orta ya da öndeki iç sol/sağ) sabit k/16 değerini taşır;
+kayıpsız olduğu için çözülen değer tam aynıdır. Her kanalın yerinde çözüldüğünü denetler
+(`decode::tests::alac_6_1_ve_7_1_kanallari_yerinde_cozulur`):
+
+```sh
+ffmpeg -f lavfi -i "aevalsrc=0.0625|0.125|0.1875|0.25|0.3125|0.375|0.4375:s=8000:d=0.05:c=6.1(back)" -c:a alac -sample_fmt s16p kanal-6-1.m4a
+ffmpeg -f lavfi -i "aevalsrc=0.0625|0.125|0.1875|0.25|0.3125|0.375|0.4375|0.5:s=8000:d=0.05:c=7.1(wide)" -c:a alac -sample_fmt s16p kanal-7-1.m4a
+```
+
 `milkdrop/lyraska-parlama.milk`: bu proje için yazılmış (GPL-3.0) küçük bir MilkDrop 2 görseli (preset); ses değil.
 Bir dalga, bir beşgen ve denklemler içerir; ölçümün parlamayı gördüğünü kanıtlamak için **bilerek parlar** (saniyede
 dört kez tersine döner). Yalnızca testlerde ve sahne denetiminde kullanılır, programla dağıtılmaz.

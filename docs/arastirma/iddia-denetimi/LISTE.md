@@ -31,4 +31,5 @@ düzeltilmiş sonuçlarla karşılaştırma. Belgeler aynı PR'da düzeltildi.
   düzeltme sayfasını ve Spleeter makalesindeki lisans satırını. Tek denetimle ikişer bulgu kaçacaktı.
 - Uydurma sayı çıkmadı. Sorunların hepsi "doğru sayı, yanlış karşılaştırma" türündeydi: hangi model, hangi alt küme,
   hangi sürüm. Ders `BILGI-BIRIKIMI.md`'de.
-- symphonia'nın ALAC 6.1/7.1 hatası gerçek; çok kanallı ALAC nadir. Düzeltmesi açık konularda.
+- symphonia'nın ALAC 6.1/7.1 hatası gerçekti; Lyraska çözmeden sonra kanalları yerine koyuyor (`decode.rs`,
+  `alac_channel_fix`; testi düzeltmeden önce düştü), bu şarkıların ses yüksekliği bir kez yeniden ölçülür (göç 13).

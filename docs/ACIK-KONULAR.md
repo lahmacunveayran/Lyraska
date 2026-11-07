@@ -44,9 +44,8 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
   Ritimde açık: parça parça ölçü, incelemenin küçük bulguları (`devlog/2026-11-07.md`).
 - Kütüphane taslakları: Gökyüzü onaylandı ("fena olmuş"); kapak ve sanatçı levhalarının renk düzeyi soruldu, cevap
   yok. Araştırma `docs/arastirma/kutuphane-arastirma.md`.
-- Kanal sırası (iki denetimle doğrulandı, 7 Kasım; `iddia-denetimi/LISTE.md` 11): symphonia ALAC 6.1/7.1'de kanalları
-  yanlış düzleme yazıyor (ffmpeg doğru), FLAC'ın kanal maskesi etiketini okumuyor; CAF'ın `Custom` düzenini Lyraska yok
-  sayıyor (`decode.rs`). Nadir; düzeltilecek.
+- Kanal sırası (`iddia-denetimi/LISTE.md` 11): ALAC 6.1/7.1 düzeltildi (7 Kasım); kalan iki nadir açık: symphonia
+  FLAC'ın kanal maskesi etiketini okumuyor, CAF'ın kanal tanımlı (`Custom`) düzenini Lyraska yok sayıyor (`decode.rs`).
 - WebM: şarkı adı (Matroska Segment Title) okunmuyor, sondaki Opus dolgusu (≤ 20 ms) atılmıyor; ikisi küçük.
 - Köy işi (sahibinin 656 şarkısı, 1 Kasım; araç `examples/koy_isi.rs`): hızlı türlerde yarım tempo
   düzeltildi (eşit nabız, #171; `docs/arastirma/tempo/`). 3:2'nin dördü düzeldi (üç vuruşta iki, #173); açık: Armin, Discobitch, DnB/Skillet
