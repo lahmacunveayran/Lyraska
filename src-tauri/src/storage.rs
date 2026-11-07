@@ -218,7 +218,8 @@ ALTER TABLE analyses ADD COLUMN net_version INTEGER NOT NULL DEFAULT 0;
 /// 13: 6.1 ve 7.1 kanallı ALAC şarkıların ses yüksekliği yeniden ölçülür. symphonia bu iki düzende
 /// bazı kanalları yanlış yere yazıyordu (`audio::decode::alac_channel_fix`); kanal ağırlığı yerden
 /// geldiği için ölçüm etkilenmişti. Öbür parçalar (kareler, ritim, bas, ton) kanalları yere bakmadan
-/// karıştırır, değişmez. V11 gibi yalnızca bu şarkıların ses yüksekliği sürümü 0 yapılır.
+/// karıştırır, değişmez. V11 gibi yalnızca bu şarkıların ses yüksekliği sürümü 0 yapılır; V11'deki sınır
+/// burada da geçerli: kütüphanede olmayan böyle bir dosyanın eski kaydı dosya değişene kadar kalır.
 const V13: &str = "
 UPDATE analyses SET loudness_version = 0
  WHERE loudness_version != 0

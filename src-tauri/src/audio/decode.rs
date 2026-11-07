@@ -243,7 +243,9 @@ pub struct Decoder {
 /// kanal sırası C L R Ls Rs Cs LFE ve C Lc Rc L R Ls Rs LFE; symphonia'nın düzlem sırası konum
 /// bitlerinin sırası). Öbür düzenler doğru. Dönen dizi her çıkış kanalı için symphonia'nın
 /// tamponundaki kaynak kanalı verir: 6.1'de arka sol/sağ/orta, 7.1'de arka çift ve öndeki iç çift
-/// yer değiştirir. Eşleme ffmpeg'in `alac_data.c`'siyle aynı. symphonia bunu düzeltirse
+/// yer değiştirir. Eşleme ffmpeg'in `alac_data.c`'siyle aynı. Kabın değil çözücünün parametrelerine
+/// bakılır: düzlemler ALAC'ın kendi düzenini izler, CAF'ın düzeni ise ondan ayrı olabilir (Apple'ın
+/// `AAC_6_1` etiketini symphonia çevirmez, düzeni kanal sayısından uydurur). symphonia bunu düzeltirse
 /// `alac_6_1_ve_7_1_kanallari_yerinde_cozulur` testi düşer, düzeltme kaldırılır.
 fn alac_channel_fix(params: &AudioCodecParameters) -> Option<&'static [usize]> {
     use symphonia::core::audio::layouts::{CHANNEL_LAYOUT_AAC_6P1, CHANNEL_LAYOUT_MPEG_7P1_B};
@@ -329,6 +331,7 @@ impl Decoder {
             }),
             _ => None,
         };
+        let channel_fix = alac_channel_fix(decoder.codec_params());
         let channels = params
             .channels
             .as_ref()
@@ -406,7 +409,7 @@ impl Decoder {
             source_bits,
             path: path.to_path_buf(),
             opus_clock: (opus && is_matroska).then(|| -(opus_pre_skip(&params) as i64)),
-            channel_fix: alac_channel_fix(&params),
+            channel_fix,
             params,
             demux_until: None,
             is_matroska,
@@ -1403,6 +1406,16 @@ mod tests {
                 let expected: Vec<f64> = (1..=channels).map(|k| k as f64 / 16.0).collect();
                 assert_eq!(frame, expected.as_slice(), "{name}");
             }
+        }
+        // CAF'ta kabın düzeni çözücününkinden ayrı: Apple'ın yazdığı `AAC_6_1` etiketini symphonia
+        // çevirmez, kap düzeni kanal sayısından uydurur. Çözücünün düzlemleri yine ALAC'ın 6.1
+        // düzenindedir; düzeltme kaba değil çözücüye bakmalı.
+        let mut decoder = Decoder::open(&fixture_named("kanal-6-1.caf")).unwrap();
+        assert_eq!(decoder.info().channels, 7);
+        let chunk = decoder.next_chunk().unwrap().unwrap().to_vec();
+        let expected: Vec<f64> = (1..=7).map(|k| k as f64 / 16.0).collect();
+        for frame in chunk.chunks_exact(7).take(10) {
+            assert_eq!(frame, expected.as_slice(), "kanal-6-1.caf");
         }
     }
 
