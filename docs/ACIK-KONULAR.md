@@ -26,6 +26,7 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 
 - ZFTurbo'nun MIT ayrıştırma kodunu bu bulut makinesinde çalıştırma izni (otomatik denetim "dış kod" diye durdurdu):
   mod seçiciden "Accept edits", sonra komutun onay kartı.
+- Ritim modeli (test sürümü): kütüphane bir kez yeniden analiz edilir; Türk aksak/maksumda ölçü ve tempo doğru mu.
 - Bit-perfect yeniden denensin (DOGRULAMA B6, B11; sesi kısık): zamanlama artık ölçülüyor (5 Kasım, vızıltı).
 - DOGRULAMA A7–A11 sonuçları (0.0.64) ve A12 (0.0.65: `.opus`/`.webm`); A13–A14 klasör izleme (0.0.72); A15 drop
   kendi şarkılarında (0.0.73).
@@ -40,10 +41,10 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
   (Linux'a özgü GTK bağımlılığı), Fuzzing, CII-Best-Practices sonra.
 - Sahne denetiminin ara sıra düşmeleri (yavaş Windows CI): `ERR_CONNECTION_REFUSED` (iki kez; #220'den beri adres
   yazıyor). "Resim seç…" düşmesinin kökü bulundu ve düzeltildi (#236: fare gelince cam denetimler beliriyor).
-- Rust `arayuzdeki_ekolayzer_korumasi_aygitin_hizinda` bir kez düştü (5 Kasım; tek başına 5/5); yinelenirse yakala.
 - Test kalitesi: tam mutasyon taraması bitti (%81,0; 1 656 kaçan, `claude/mutasyon-*` dalları); ayıklama sürüyor
   (sırada `structure.rs`, `biquad.rs` `matched`, `bass.rs` `process_frame`); eskimiş 4 yedek dal sahibine soruluyor.
-- Genel tarama (#228): en büyük açık, analizin standart setlerde ölçülmemesi; adımlar `genel-tarama/SENTEZ.md` §5.
+- Genel tarama (#228): ritim standart setlerde ölçülü (`ritim-olcum/`); kalan ton, bölüm, sözler (`SENTEZ.md` §5).
+  Ritimde açık: parça parça ölçü, incelemenin küçük bulguları (`devlog/2026-11-07.md`).
 - Kütüphane taslakları: Gökyüzü onaylandı ("fena olmuş"); kapak ve sanatçı levhalarının renk düzeyi soruldu, cevap
   yok. Araştırma `docs/arastirma/kutuphane-arastirma.md`.
 - symphonia'nın kanal sırası (EBU uyumunun bağımsız incelemesi, 6 Kasım; doğrulanmadı): ALAC 6.1/7.1 eşlemesi ffmpeg'den
