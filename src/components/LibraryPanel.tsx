@@ -58,6 +58,7 @@ import {
   type SortKey,
 } from "../lib/librarySort";
 import { formatTime } from "../lib/format";
+import { menuSide } from "../lib/menuSide";
 import { scrollToRow, visibleRange } from "../lib/virtual";
 import type { LibraryControls } from "../hooks/useLibrary";
 import type { PlayOrder } from "../hooks/usePlayback";
@@ -398,6 +399,9 @@ export function LibraryPanel({
   const listRef = useRef<HTMLDivElement>(null);
   const sourcesRef = useRef<HTMLDetailsElement>(null);
   const addMenuRef = useRef<HTMLDetailsElement>(null);
+  // "Müzik ekle" menüsünün açıldığı yan: başlık dar pencerede alt satıra inince düğme solda kalır, sağa
+  // hizalı menü panelin dışına taşıp kesilirdi; açılırken ölçülür.
+  const [addMenuSide, setAddMenuSide] = useState<"start" | "end">("end");
   const searchRef = useRef<HTMLInputElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -872,7 +876,18 @@ export function LibraryPanel({
             </button>
           )}
         </label>
-        <details className="library__add-menu" ref={addMenuRef}>
+        <details
+          className="library__add-menu"
+          ref={addMenuRef}
+          onToggle={(event) => {
+            const menu = event.currentTarget;
+            if (!menu.open) return;
+            const anchor = menu.querySelector("summary")?.getBoundingClientRect();
+            const list = menu.querySelector(".library__menu-list")?.getBoundingClientRect();
+            const bounds = (menu.closest(".library") ?? document.body).getBoundingClientRect();
+            if (anchor && list) setAddMenuSide(menuSide(anchor, list.width, bounds));
+          }}
+        >
           <summary className="hw-button hw-button--small library__add" title="Müzik ekle">
             <FolderPlusIcon />
             <span>Müzik ekle</span>
@@ -880,7 +895,7 @@ export function LibraryPanel({
               ▾
             </span>
           </summary>
-          <div className="library__menu-list">
+          <div className={`library__menu-list${addMenuSide === "start" ? " is-start" : ""}`}>
             <button
               type="button"
               onClick={() => runMenu(addMenuRef, () => void library.addFolder())}

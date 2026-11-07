@@ -2217,6 +2217,50 @@ describe("kütüphane", () => {
     ).toHaveClass("library__sources");
   });
 
+  it("müzik ekle menüsü düğme solda kalınca panelin dışına taşmaz, sağa açılır", async () => {
+    backend.desktop = true;
+    backend.library = library;
+    backend.tracks = [song(1, "Mayın Tarlası")];
+    render(<App />);
+    await screen.findByText("Mayın Tarlası");
+    const summary = screen.getByText("Müzik ekle").closest("summary");
+    const menu = summary?.closest("details");
+    const list = menu?.querySelector<HTMLElement>(".library__menu-list");
+    const panel = menu?.closest<HTMLElement>(".library");
+    if (!summary || !menu || !list || !panel) throw new Error("menü bulunamadı");
+    const rect = (left: number, width: number) =>
+      ({
+        left,
+        right: left + width,
+        width,
+        top: 0,
+        bottom: 0,
+        height: 0,
+        x: left,
+        y: 0,
+      }) as DOMRect;
+    // Dar pencere: başlık kaydı, düğme alt satırda solda (24–198 px); menü 300 px.
+    panel.getBoundingClientRect = () => rect(20, 1500);
+    summary.getBoundingClientRect = () => rect(24, 174);
+    list.getBoundingClientRect = () => rect(0, 300);
+    await act(async () => {
+      menu.open = true;
+      menu.dispatchEvent(new Event("toggle"));
+    });
+    expect(list).toHaveClass("is-start");
+    // Düğme sağ köşedeyken (geniş pencere) menü eskisi gibi sola uzanır.
+    await act(async () => {
+      menu.open = false;
+      menu.dispatchEvent(new Event("toggle"));
+    });
+    summary.getBoundingClientRect = () => rect(1340, 174);
+    await act(async () => {
+      menu.open = true;
+      menu.dispatchEvent(new Event("toggle"));
+    });
+    expect(list).not.toHaveClass("is-start");
+  });
+
   it("arama kutusuna yazılanla arar ve klasör kaldırılabilir", async () => {
     backend.desktop = true;
     backend.library = library;
