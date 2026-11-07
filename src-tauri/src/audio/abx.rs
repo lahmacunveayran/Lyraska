@@ -1017,17 +1017,26 @@ mod tests {
         let peak_a = clips.a.iter().fold(0.0f64, |m, x| m.max(x.abs()));
         assert!(peak_a <= PEAK_LIMIT + 1e-9, "tepe {peak_a}");
         assert!(peak_a > PEAK_LIMIT - 1e-3, "tepe sınıra kısıldı: {peak_a}");
-        // Tık dışında iki bölüm aynı: eşitlik korundu (ikisi aynı oranda kısıldı).
+        // Taşma kısması ikisini aynı oranda kısar: eşitlemenin oranı korunur. Tık A'nın ses yüksekliğine de
+        // girer (K ağırlıklı ölçümde +0,15 dB; ölçülen fark −5,87 dB): beklenen oran ölçülen farktan.
+        // A = 0,25·s, B = 0,5·s; eşitleme B'yi 10^(fark/20) ile kısar → A/B = 0,5 / 10^(fark/20).
         let start = rate as usize;
-        let diff = clips
-            .a
-            .iter()
-            .zip(clips.b.iter())
-            .enumerate()
-            .filter(|(k, _)| start + k / 2 != click)
-            .map(|(_, (x, y))| (x - y).abs())
-            .fold(0.0, f64::max);
-        assert!(diff < 1e-3, "en büyük fark {diff}");
+        let rms = |x: &[Sample]| {
+            (x.iter()
+                .enumerate()
+                .filter(|(k, _)| start + k / 2 != click)
+                .map(|(_, v)| v * v)
+                .sum::<f64>()
+                / x.len() as f64)
+                .sqrt()
+        };
+        let ratio = rms(&clips.a) / rms(&clips.b);
+        let want = 0.5 / 10f64.powf(clips.level_diff_db / 20.0);
+        assert!(
+            (ratio - want).abs() < 1e-3,
+            "oran {ratio}, beklenen {want} (fark {} dB)",
+            clips.level_diff_db
+        );
     }
 
     #[test]
