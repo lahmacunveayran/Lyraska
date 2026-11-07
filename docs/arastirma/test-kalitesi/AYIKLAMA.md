@@ -630,3 +630,12 @@ yeniden sınamayla ([`betikler/ayiklama/kopya_mutasyon.py`](betikler/ayiklama/ko
   `itunsmpb_dosyadan_okunur_ve_duzenleme_listesinin_onune_gecer`,
   `duzenleme_listesinin_bos_kesimi_atlanir_sifirlar_dolgu_sayilmaz`, `kutu_boyu_64_bit_ya_da_sona_kadar`,
   `cok_derin_ic_ice_kutu_okunmaz`. **(b)** `MAX_BOX_READ` sabitinin yazılışı (29), sınır eşitlikleri.
+
+### Doğrulama (7 Kasım 2026)
+
+Her yeni testin hedefindeki bozma tek tek uygulanıp test çalıştırıldı
+([`betikler/ayiklama/hedef_bozmalar.py`](betikler/ayiklama/hedef_bozmalar.py), sonuç
+[`hedef-bozmalar-2026-11-07.txt`](betikler/ayiklama/hedef-bozmalar-2026-11-07.txt)): **36 bozmanın 36'sı yakalandı**
+(biquad 9, bass 5, structure 5, abx 3, lyrics_text 7, gapless 5, ritim paketi 2). Bozmasız hâlde bütün takım geçer
+(Rust 938, arayüz 864). Bir yeni test ilk denemede bozmasız kodda düştü (`esitlemeden_sonra_tasan_tepe…`): kod değil
+testin varsayımı yanlıştı (tık ses yüksekliğine +0,15 dB katıyor); sınır gevşetilmeden düzeltildi.
