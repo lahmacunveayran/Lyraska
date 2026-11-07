@@ -38,6 +38,17 @@ import { frameAt, type Animation } from "../lib/animatedImage";
 import { createFlashGuard, type FlashGuard } from "../lib/flashGuard";
 import { fitCanvas, getWebGl2 } from "../lib/gl";
 import { measureFrames, measureStill } from "../lib/photoMeasure";
+import {
+  backdropFor,
+  colorLuminance,
+  LUMA_GRID_MAX_WIDTH,
+  lumaGrid,
+  lyricTextElement,
+  mergeLuma,
+  regionLight,
+  type LumaGrid,
+  type PhotoLyricLook,
+} from "../lib/photoLyricLook";
 import { usePrefersReducedMotion } from "../lib/usePrefersReducedMotion";
 import { useBackgroundSource } from "../hooks/useBackgroundSource";
 import { displayLeadSecs, useVisualFeed } from "../hooks/useVisualFeed";
@@ -66,6 +77,11 @@ export interface PhotoSceneProps {
   hasLyrics?: boolean;
   /** Söz satırının yeri (`PhotoLyrics` oraya çizilir; `PlayerScreen` akıcı konumla doldurur). */
   lyricsSlot?: (element: HTMLElement | null) => void;
+  /**
+   * Sözlerin görünümü: zemin otomatikse koyuluğu yazının rengine ve arkasındaki bölgenin
+   * parlaklığına göre (`backdropFor`); sonuç `.app`'e `--photo-lyric-shade` olarak yazılır.
+   */
+  lyricLook?: PhotoLyricLook;
 }
 
 /** Ölçülen çizgi bölgesi ve çubuk renkleri (bir ekran boyu ve bir resim için). */
@@ -80,6 +96,71 @@ interface Measured {
   /** Ölçüldüğü ekran boyu (CSS piksel). */
   width: number;
   height: number;
+  /**
+   * Resmin kaba parlaklık ızgarası (hareketli resimde kareler boyunca hücre hücre en açığı ve en
+   * koyusu): sözlerin zemini bundan. Yoksa (resimsiz ya da bilinmeyen zemin) `undefined`.
+   */
+  luma?: { max: LumaGrid; min: LumaGrid };
+}
+
+/** Sözlerin zemini yarım saniyede bir yeniden ölçülür (yer, pencere ya da resim değişince). */
+const BACKDROP_POLL_MS = 500;
+/** Resimsiz zeminin (`.photo-scene`, #1a1424 → #07060b) parlaklığı: en açık ve en koyu. */
+const NO_IMAGE_LIGHT = { brightest: 0.008, darkest: 0.002 };
+/** Zemin henüz ölçülmediyse en kötüsü varsayılır (yazı ölçümden önce de okunsun). */
+const UNKNOWN_LIGHT = { brightest: 1, darkest: 0 };
+
+/**
+ * Sözlerin arkasındaki zemini ayarlar: ekranda görünen söz satırının (üstte ya da başlık bloğunda;
+ * `lyricTextElement`) yerinden resmin o bölgesinin parlaklığı okunur, yazının rengiyle 7:1 karşıtlık için gereken
+ * örtü `.app`'e `--photo-lyric-shade` olarak yazılır. Zemin müzikle değişmez (parlama değildir);
+ * yalnızca satır, yer, pencere ya da resim değişince ve yumuşak geçişle (CSS) güncellenir. Bilinen
+ * sınır: parçacıklar (Kıvılcım) zemine katılmaz; yazının arkasından geçen kıvılcım anlık açar.
+ */
+function useLyricBackdrop(
+  rootRef: { current: HTMLDivElement | null },
+  measured: { current: Measured | null },
+  look: PhotoLyricLook | undefined,
+) {
+  useEffect(() => {
+    const root = rootRef.current;
+    const app = root?.closest<HTMLElement>(".app");
+    if (!root || !app || !look) return;
+    let last = "";
+    const update = () => {
+      let shade = "rgb(0 0 0 / 0)";
+      if (look.backdrop === "auto") {
+        const box = lyricTextElement(app);
+        const scene = root.getBoundingClientRect();
+        const r = box?.getBoundingClientRect();
+        let light = UNKNOWN_LIGHT;
+        const current = measured.current;
+        if (current && current.source === null) light = NO_IMAGE_LIGHT;
+        else if (current?.luma && r && scene.width > 0 && scene.height > 0) {
+          light =
+            regionLight(current.luma.max, current.luma.min, {
+              left: (r.left - scene.left) / scene.width,
+              right: (r.right - scene.left) / scene.width,
+              top: (r.top - scene.top) / scene.height,
+              bottom: (r.bottom - scene.top) / scene.height,
+            }) ?? UNKNOWN_LIGHT;
+        }
+        const b = backdropFor(colorLuminance(look.color), light.brightest, light.darkest);
+        const tone = b.tone === "dark" ? "0 0 0" : "255 255 255";
+        shade = `rgb(${tone} / ${b.alpha.toFixed(2)})`;
+      }
+      if (shade !== last) {
+        last = shade;
+        app.style.setProperty("--photo-lyric-shade", shade);
+      }
+    };
+    update();
+    const timer = window.setInterval(update, BACKDROP_POLL_MS);
+    return () => {
+      window.clearInterval(timer);
+      app.style.removeProperty("--photo-lyric-shade");
+    };
+  }, [rootRef, measured, look]);
 }
 
 /** Parçacık havuzunu boşaltırken verilen girdi (doğum yok). */
@@ -192,8 +273,9 @@ async function measureImage(
   const sample: number[] = [];
   sampleColors(all, mw, mh, sample);
   const colors = barColors(dominantColor(sample));
+  const luma = mergeLuma(null, lumaGrid(all, mw, mh));
   const map = await measureStill(all, mw, mh, colors);
-  return map ? { colors, map, source: image, width, height } : null;
+  return map ? { colors, map, source: image, width, height, luma } : null;
 }
 
 /**
@@ -230,6 +312,15 @@ async function measureAnimation(
   }
   const colors = barColors(dominantColor(sample));
   const job = measureFrames(mw, mh, colors);
+  // Sözlerin zemini için parlaklık bütün karelerden (hücre hücre en açığı ve en koyusu): kare
+  // küçük bir tuvale (ızgara boyunda) küçültülüp okunur, ek yük az.
+  const gw = Math.min(LUMA_GRID_MAX_WIDTH, mw);
+  const gh = Math.max(1, Math.round((mh * gw) / mw));
+  const small = document.createElement("canvas");
+  small.width = gw;
+  small.height = gh;
+  const sctx = small.getContext("2d", { willReadFrequently: true });
+  let luma: { max: LumaGrid; min: LumaGrid } | null = null;
   for (let i = 0; i < animation.frames.length; i++) {
     if (cancelled()) {
       job.cancel();
@@ -242,10 +333,14 @@ async function measureAnimation(
       return null;
     }
     if (to > from) job.add(ctx.getImageData(0, from, mw, to - from).data);
+    if (sctx) {
+      sctx.drawImage(canvas, 0, 0, gw, gh);
+      luma = mergeLuma(luma, lumaGrid(sctx.getImageData(0, 0, gw, gh).data, gw, gh));
+    }
     if (i % 8 === 7) await new Promise((done) => setTimeout(done, 0));
   }
   const map = await job.finish();
-  return map ? { colors, map, source: animation, width, height } : null;
+  return map ? { colors, map, source: animation, width, height, luma: luma ?? undefined } : null;
 }
 
 /** Hareketli arka planın çizimi: görünen tuvalde fren, kareler görünmeyen tuvalde. */
@@ -300,6 +395,7 @@ export function PhotoScene({
   particleDensity = 1,
   hasLyrics = false,
   lyricsSlot,
+  lyricLook,
 }: PhotoSceneProps) {
   // Yoğunluk kare döngüsünü yeniden kurmasın: ref'ten okunur.
   const densityRef = useRef(particleDensity);
@@ -343,6 +439,8 @@ export function PhotoScene({
   // Son ölçüm; ekran boyu ya da resim değişince yeniden ölçülür. O arada (resim yükleniyor,
   // pencere boyutlanıyor, ölçüm sürüyor) bilinmeyen zemine göre ölçülmüş harita kullanılır.
   const measured = useRef<Measured | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useLyricBackdrop(rootRef, measured, lyricLook);
   const loaded = useRef<HTMLImageElement | null>(null);
   // Süren ölçüm (neyin, hangi boyda).
   const pending = useRef<{ source: Measured["source"]; width: number; height: number } | null>(
@@ -731,7 +829,7 @@ export function PhotoScene({
   const turkish = isTurkishText(title, artist);
 
   return (
-    <div className={`photo-scene${hasLyrics ? " has-lyrics" : ""}`}>
+    <div className={`photo-scene${hasLyrics ? " has-lyrics" : ""}`} ref={rootRef}>
       {animation ? (
         <canvas
           key="guarded"

@@ -13,6 +13,7 @@ import type { ParticleStyle } from "../lib/photoParticles";
 import type { Scene } from "../lib/scene";
 import type { SceneLooks } from "../lib/sceneLook";
 import { isShaderScene } from "../lib/shaderScene";
+import type { PhotoLyricLook } from "../lib/photoLyricLook";
 import type { SkyLook } from "../lib/sky";
 
 const SPECTRUM_BANDS = 16;
@@ -42,6 +43,8 @@ export interface SceneStageProps {
   /** "Kendi resmin": zamanlı sözler gösteriliyor mu ve söz satırının yeri (`PhotoScene`). */
   hasLyrics?: boolean;
   lyricsSlot?: (element: HTMLElement | null) => void;
+  /** "Kendi resmin" sözlerinin görünümü (zeminin koyuluğu yazının rengine ve yerine göre ölçülür). */
+  lyricLook?: PhotoLyricLook;
 }
 
 /** Tüm pencereyi kaplayan görsel sahne. Sahne değişince yenisi yavaşça belirir. */
@@ -61,6 +64,7 @@ export function SceneStage({
   particleDensity,
   hasLyrics,
   lyricsSlot,
+  lyricLook,
 }: SceneStageProps) {
   return (
     <div className="stage" data-scene={scene}>
@@ -79,6 +83,7 @@ export function SceneStage({
           particleDensity={particleDensity}
           hasLyrics={hasLyrics}
           lyricsSlot={lyricsSlot}
+          lyricLook={lyricLook}
         />
       ) : scene === "milkdrop" ? (
         <MilkDropScene playing={playing} safe={safe} controls={milkdrop} />

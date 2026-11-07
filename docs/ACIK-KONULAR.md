@@ -22,9 +22,6 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 
 ## Proje sahibinden beklenenler
 
-- Sözleri otomatik bulma (7 Kasım, "her şarkıya tek tek mi yazacağım"): LRCLIB 80 şarkının 35'inde doğru söz verdi
-  (`arastirma/sozler/lrclib/`); 30 Ekim'deki "programa ağ kodu girmez" kararını yeniden açmak sahibinin kararı.
-
 - ZFTurbo'nun MIT ayrıştırma kodunu bu bulut makinesinde çalıştırma izni (otomatik denetim "dış kod" diye durdurdu):
   mod seçiciden "Accept edits", sonra komutun onay kartı.
 - Ritim modeli (test sürümü): kütüphane bir kez yeniden analiz edilir; Türk aksak/maksumda ölçü ve tempo doğru mu.
@@ -34,6 +31,8 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 
 ## Ele alınmayı bekleyen geri bildirim ve bulgular
 
+- Söz kayması (sahibi, 7 Kasım): Sean Paul – Mad Love'da satırlar kayıyor, panel "çoğu oturmadı" diyor (82 satır, çok
+  tekrar eden "Watch the tempo"). Ses dosyası elimde yok; söz paneli başarısız işi "oturtuluyor" diye gösteriyor.
 - Şarkı kapağı (0.0.82) küçüğü: kütüphaneden çıkan şarkının kapağı `kapaklar/`'da kalır (temizlik yok).
 - Güvenlik uyarıları (Scorecard): SAST (CodeQL eklendi), Branch-Protection (sahibinin kuralı) ve Pinned-Dependencies
   (#13, #14: söz hizalama betiğinin `pip install`'ları karmalı istek dosyasından) bir sonraki taramada kapanmalı;
