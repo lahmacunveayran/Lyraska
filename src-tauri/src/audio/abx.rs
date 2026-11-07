@@ -942,6 +942,94 @@ mod tests {
         assert!(diff < 1e-3, "en büyük fark {diff}");
     }
 
+    /// Eşitlemenin yönü (bozma taraması, 6 Kasım): yüksek olan kısılır, alçak olan aynen kalır (asla
+    /// yükseltilmez: taşabilir). Yalnızca "ikisi eşit" diye bakan test, alçağı yükselten yanlış kodda da
+    /// geçiyordu. Beklenen değer kaynaktan: bölüm 1. saniyeden, kanallar 1,0 ve 0,8 kazançlı.
+    #[test]
+    fn esitleme_yalnizca_yuksek_olani_kisar() {
+        let rate = 44_100;
+        let start = rate as usize;
+        for (b_gain, want_a, want_b) in [(0.5, 0.5, 1.0), (2.0, 1.0, 0.5)] {
+            let (a, b, signal) = test_files(0, b_gain);
+            let request = AbxRequest {
+                a,
+                b,
+                start_secs: 1.0,
+                clip_secs: 4.0,
+                trials: 16,
+            };
+            let clips = prepare(&request, rate, 2).unwrap();
+            let expect = |gain: f64, k: usize| {
+                let (frame, channel) = (k / 2, k % 2);
+                gain * signal[start + frame] * if channel == 0 { 1.0 } else { 0.8 }
+            };
+            let worst = |got: &[Sample], gain: f64| {
+                got.iter()
+                    .enumerate()
+                    .map(|(k, x)| (x - expect(gain, k)).abs())
+                    .fold(0.0, f64::max)
+            };
+            // 16 bitlik dosyanın yuvarlaması (1/32 768) kadar pay.
+            assert!(
+                worst(&clips.a, want_a) < 1e-4,
+                "B ×{b_gain}: A kazancı {want_a} değil"
+            );
+            assert!(
+                worst(&clips.b, b_gain * want_b) < 1e-4,
+                "B ×{b_gain}: B kazancı {want_b} değil"
+            );
+            let sign = if b_gain < 1.0 { 1.0 } else { -1.0 };
+            assert!(
+                (clips.level_diff_db - sign * 6.02).abs() < 0.1,
+                "{}",
+                clips.level_diff_db
+            );
+        }
+    }
+
+    /// Eşitlemeden sonra tam ölçeğe yakın tepe: ikisi birlikte kısılır, tepe 0,99'u aşmaz, eşitlik
+    /// bozulmaz. A alçak ama 3. saniyede tam ölçek bir tık var; B 6 dB yüksek (B kısılır, A kalır →
+    /// A'nın tıkı 1,0 → ikisi de ×0,99).
+    #[test]
+    fn esitlemeden_sonra_tasan_tepe_ikisini_birlikte_kisar() {
+        let rate = 44_100;
+        let frames = 8 * rate as usize;
+        let signal = noise(frames, 11);
+        let click = 3 * rate as usize;
+        let a = temp_path("tepe-a.wav");
+        let b = temp_path("tepe-b.wav");
+        write_wav(&a, rate, 2, frames, |i, _| {
+            if i == click {
+                1.0
+            } else {
+                0.25 * signal[i]
+            }
+        });
+        write_wav(&b, rate, 2, frames, |i, _| 0.5 * signal[i]);
+        let request = AbxRequest {
+            a,
+            b,
+            start_secs: 1.0,
+            clip_secs: 4.0,
+            trials: 16,
+        };
+        let clips = prepare(&request, rate, 2).unwrap();
+        let peak_a = clips.a.iter().fold(0.0f64, |m, x| m.max(x.abs()));
+        assert!(peak_a <= PEAK_LIMIT + 1e-9, "tepe {peak_a}");
+        assert!(peak_a > PEAK_LIMIT - 1e-3, "tepe sınıra kısıldı: {peak_a}");
+        // Tık dışında iki bölüm aynı: eşitlik korundu (ikisi aynı oranda kısıldı).
+        let start = rate as usize;
+        let diff = clips
+            .a
+            .iter()
+            .zip(clips.b.iter())
+            .enumerate()
+            .filter(|(k, _)| start + k / 2 != click)
+            .map(|(_, (x, y))| (x - y).abs())
+            .fold(0.0, f64::max);
+        assert!(diff < 1e-3, "en büyük fark {diff}");
+    }
+
     #[test]
     fn farkli_kayitlar_reddedilir() {
         let (a, _, _) = test_files(0, 1.0);

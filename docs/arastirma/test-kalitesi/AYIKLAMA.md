@@ -608,3 +608,16 @@ yeniden sınamayla ([`betikler/ayiklama/kopya_mutasyon.py`](betikler/ayiklama/ko
   `average` 601: `olcudeki_yer_enerji_ve_bolum_el_hesabiyla`, `sayisal_yardimcilar_el_hesabiyla`.
 - Kalan (`map_song` 59, bölüm sınırları, drop bulma ve güveni): sezgisel hesaplar; birim test yerine ölçüm karnesi
   (drop ve bölüm setleri) ile sınanması doğru. Ayrı iş.
+
+### abx.rs (74 kaçan) ve lyrics_text.rs (62 kaçan)
+
+- **abx (a), ses yüksekliği eşitlemesinin yönü** (412–424): test yalnızca "eşitlenince ikisi aynı" diyordu; alçak
+  olanı yükselten yanlış kod da aynı sonucu verir. Kural: yüksek olan kısılır, alçak aynen kalır.
+  `esitleme_yalnizca_yuksek_olani_kisar` (iki yönde, kaynağın kendisiyle). Taşma sınırı (418–421):
+  `esitlemeden_sonra_tasan_tepe_ikisini_birlikte_kisar`. Kalanlar (çalma, halka tampon, `position_secs`) #235 ve
+  #240'ın testleriyle yeniden sınanacak.
+- **lyrics_text (a):** ayrışık harflerin her kolu (127–141; testler yalnızca İ, ş, ö, ü'yü sınıyordu), görünmez
+  boşluklar (152–153), "İ"nin küçültülmesi (208), İngilizce sayı / yıl / sıra (645–689), ondalık ayırıcı ve saat
+  (767–783): `ayrisik_harflerin_hepsi_birlesir_gorunmez_bosluklar_bosluk_olur`, `dile_gore_kucuk_harf`,
+  `ingilizce_sayi_yil_ve_sira_el_hesabiyla`, `ondalik_ve_saat_dile_gore`. **(b)** `('i', U+0307)` kolunun silinmesi
+  (sonuç yine "i").
