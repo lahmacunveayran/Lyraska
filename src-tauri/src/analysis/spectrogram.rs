@@ -882,6 +882,9 @@ pub fn analyze_source_with(
     }
 }
 
+/// Model varken aksak ölçünün kabulü: grup başı temposu / modelin temposu en az bu kadar.
+const NET_AKSAK_MIN_TEMPO_RATIO: f64 = 0.6;
+
 /// Saklanan karelerden ritim: vuruş ızgarası (başlangıç gücünün örnekleme hızına bağlı
 /// gecikmesi düşülerek, [`beats::onset_latency`]) ve şarkı haritası. Şarkı çözülmez.
 ///
@@ -895,10 +898,14 @@ pub fn rhythm_from_frames(
     net: Option<&NetRhythm>,
 ) -> (Option<BeatGrid>, Option<SongMap>) {
     if let Some((net, grid)) = net.and_then(|n| Some((n, n.grid()?))) {
-        // Aksak ölçü (9/8, 7/8, 5/8) modelin vuruşlarıyla da aranır: model düzenli ölçülerle eğitildi.
+        // Aksak ölçü (9/8, 7/8, 5/8) modelin vuruşlarıyla da aranır (model düzenli ölçülerle eğitildi);
+        // ama grup başları modelin vuruşunun en az %60'ı hızındaysa kabul edilir. Sentetik aksak
+        // davullarda oran 0,80–0,88; GTZAN'da (aksak şarkı yok) 28 yanlış aksağın 27'sinde 0,40–0,54:
+        // takipçi modelin vuruşunu yarıya indirip iki vuruşu bir "grup" sayıyordu.
         let latency = beats::onset_latency(sample_rate, fft_size(sample_rate));
-        if let Some(aksak) = meter::detect(onset, levels, BANDS, &grid, FRAMES_PER_SECOND, latency)
-        {
+        let aksak = meter::detect(onset, levels, BANDS, &grid, FRAMES_PER_SECOND, latency)
+            .filter(|a| a.beat_grid().bpm >= NET_AKSAK_MIN_TEMPO_RATIO * grid.bpm);
+        if let Some(aksak) = aksak {
             let grid = aksak.beat_grid();
             let map = structure_for_beats(levels, meters, &grid, Some(&aksak));
             return (Some(grid), map);
@@ -1671,6 +1678,43 @@ mod tests {
         ));
         assert_eq!(opened, 0);
         assert_eq!(target.saved().unwrap(), full);
+        std::fs::remove_file(path).ok();
+    }
+
+    /// Düzenli aralıklı "model vuruşları" (sn) ve her dördüncüsü ölçü başı.
+    fn regular_net(bpm: f64, seconds: f64) -> NetRhythm {
+        let beats: Vec<f64> = (0..)
+            .map(|i| 0.2 + f64::from(i) * 60.0 / bpm)
+            .take_while(|&t| t < seconds)
+            .collect();
+        let downbeats = beats.iter().step_by(4).copied().collect();
+        NetRhythm { beats, downbeats }
+    }
+
+    #[test]
+    fn model_varken_aksak_modelin_vurusunu_yariya_indirmiyorsa_kabul_edilir() {
+        // 9/8 (2+2+2+3), sekizlik 200 BPM: grup başları ortalama 200 / 2,25 ≈ 88,9 BPM.
+        let rate = 22_050;
+        let (samples, _, _) =
+            crate::analysis::meter::tests::aksak_drums(200.0, &[2, 2, 2, 3], 40.0, rate);
+        let path = temp_path("aksak-model.wav");
+        write_wav(&path, rate, 1, samples.len(), |f, _| {
+            samples[f].clamp(-1.0, 1.0)
+        });
+        let saved = analyze_file(&path).saved().unwrap();
+        assert_eq!(saved.song_map.as_ref().unwrap().grouping, vec![2, 2, 2, 3]);
+        let rhythm = |net: &NetRhythm| {
+            rhythm_from_frames(&saved.levels, &saved.meters, &saved.onset, rate, Some(net))
+        };
+        // Model grup başları hızında (gerçek aksak şarkıda görülen: oran ~0,8–0,9): aksak kalır.
+        let (_, map) = rhythm(&regular_net(100.0, 40.0));
+        assert_eq!(map.unwrap().grouping, vec![2, 2, 2, 3]);
+        // Model iki katı hızda (GTZAN'daki yanlış aksakların oranı ~0,45): aksak, modelin vuruşunu
+        // yarıya indirirdi; modelin ızgarası kalır.
+        let net = regular_net(197.0, 40.0);
+        let (grid, map) = rhythm(&net);
+        assert!(map.unwrap().grouping.is_empty());
+        assert_eq!(grid.unwrap(), net.grid().unwrap());
         std::fs::remove_file(path).ok();
     }
 
