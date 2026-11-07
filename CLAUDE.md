@@ -180,6 +180,7 @@ lyraska/
 │   │   │   ├── tempo.rs      #   tempo oktavı (yarısı / iki katı): kick/snare vuruş arasında mı, yarım tempo hissi, boş aralar
 │   │   │   ├── meter.rs      #   aksak ölçü (5/8, 7/8, 9/8): sekizlik ızgarası, gruplama, grup başı vuruşlar
 │   │   │   ├── rhythm_model.rs # ritim modelinin (Beat This, MIT) girişi ve çıkışı: log-mel (22 050 Hz, 50 kare/sn, 128 Slaney mel), 30 sn parçalar, logitten vuruş ve ölçü başı; Python koduyla birebir
+│   │   │   ├── rhythm_net.rs #   ritim modelini tract ile çalıştırma: SHA-256 denetimli dosya, 30 sn parçalar kısa ömürlü iş parçacıklarında, vuruş ve ölçü başı zamanları
 │   │   │   ├── key.rs        #   ton tespiti: kroma, akort, Krumhansl–Kessler, Camelot, bölüm bölüm
 │   │   │   ├── cache.rs      #   analiz önbelleği (SQLite; yol + boyut + değişme zamanı; parça sürümleri)
 │   │   │   └── background.rs #   kütüphanenin arka plan analizi (düşük öncelik; çalan → sıradaki → geri kalan)
@@ -197,6 +198,8 @@ lyraska/
 │   │                         # çalıştırıcısının küçük, özgün deneme modelleri)
 │   ├── hlsl/                 # MilkDrop gölgelendirici çeviricisi: shim.cpp köprüsü, build.sh (wasi-sdk 30.0;
 │   │                         # CI baytı baytına aynı derlendiğini denetler), hlslparser.wasm, lisanslar/
+│   ├── ritim-modeli/         # ritim modelinin (Beat This small0, MIT) ONNX'e çevrilmesi: onnx_cevir.py, karmalı
+│   │                         # gereksinim.txt, LICENSE; model dosyası depoya girmez (CI scripts/ritim-modeli.sh ile üretir)
 │   ├── soz-modeli/           # söz modelinin harf listesi (tokens.txt, programa gömülür; bayt bayt aynı kalır) ve
 │   │                         # LICENSE (Omnilingual ASR, Apache-2.0); model dosyasının kendisi depoya girmez
 │   ├── vendor/hlslparser/    # projectM'in hlslparser'ı (MIT, 349b7cc2db31; LYRASKA işaretli iki küçük yama)
