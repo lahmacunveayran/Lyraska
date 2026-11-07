@@ -1186,7 +1186,7 @@ mod tests {
                 control(0.0, false)
             };
             let mut changed = BassProcessor::new(Arc::clone(&start), 1, RATE);
-            let mut fresh = BassProcessor::new(Arc::new(EqControl::new(settings.clone())), 1, RATE);
+            let mut fresh = BassProcessor::new(Arc::new(EqControl::new(settings)), 1, RATE);
             let (mut a, mut b) = (Vec::with_capacity(total), Vec::with_capacity(total));
             for f in 0..total {
                 if f % 480 == 0 {
@@ -1194,7 +1194,7 @@ mod tests {
                     fresh.begin_block();
                 }
                 if f == change {
-                    start.set(settings.clone());
+                    start.set(settings);
                 }
                 let mut x = [tone(f)];
                 changed.process_frame(&mut x);
