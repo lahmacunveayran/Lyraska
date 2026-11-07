@@ -418,6 +418,10 @@ kısaltılır.
   düzeltilir); Işık Ustası'nda Normal'de drop flaşı yumuşar (tam flaş Çılgın'da), söz işlerinden hemen sonra bağımsız
   inceleme + PR; drop v2 için **B** (ikisi programda, varsayılan eski, İşaretle'de yan yana; karar sahibinin 5–10
   şarkılık işaretiyle), uygulaması sırada yine en sonda. Sahibinin kendi denemeleri (A16, #25, #27) ona kalır.
+- **"Kendi resmin" sözlerinin görünümü (7 Kasım 2026, sahibi):** "yazı çok küçüktü, resim açık renkli olunca
+  okunmuyor; kullanıcı yazının konumunu, rengini, boyutunu ayarlayabilsin". Galeride "Sözler": boyut (0,8–2,4×,
+  varsayılan 1,4), yer (başlığın altında ya da üstte + yükseklik), renk (hazır ya da özel), zemin (otomatik/kapalı).
+  Otomatik zemin satırın arkasında, koyuluğu resmin o bölgesinin parlaklığından: yazıyla en az 7:1 (WCAG AAA).
 - **Söz düzenleme (30 Ekim 2026):** bulunan düz metin Lyraska'da yapıştırılıp düzenlenir; Lyraska'nın klasöründe
   saklanır (kapaklardaki gibi; müzik dosyalarına dokunulmaz). Program söz indirmez, dağıtmaz. Zamanlama **dokunarak
   değil, otomatik** (sahibi: "onu ben yapamam, çözüm bul"; iki kez irdelensin, ikincisi bağımsız ve üst düzey):

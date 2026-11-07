@@ -2249,6 +2249,8 @@ async function checkPhotoLyrics(browser) {
                     return mid >= r.left - 1 && mid <= r.right + 1;
                   })(),
             fontSize: lineRect && line ? parseFloat(getComputedStyle(line).fontSize) : null,
+            // Söz yerinin kendi yazı boyu (küçülmemiş satırınki; kullanıcının seçtiği boyla).
+            slotFontSize: slot ? parseFloat(getComputedStyle(slot).fontSize) : null,
             current: current?.textContent ?? null,
             panned: line?.style.transform ?? "",
           };
@@ -2265,7 +2267,9 @@ async function checkPhotoLyrics(browser) {
         `çizginin ışıltısı ${Math.round(first.lineTop)} px'ten aşağıda; yazı boyu ` +
         `${first.fontSize?.toFixed(1)} px, söylenen "${first.current}"${first.panned ? `, kayma ${first.panned}` : ""}`,
     );
-    if (long && !(first.fontSize < 16 && first.panned && first.current))
+    // Küçülme söz yerinin kendi boyuna göre (boy kullanıcının seçimiyle değişir; 7 Kasım'dan önce
+    // sabit 16 px'ti, taban boy 1,4 kat büyüyünce göreli oldu): en az %10 küçük.
+    if (long && !(first.fontSize < 0.9 * first.slotFontSize && first.panned && first.current))
       problems.push(`${label}: uzun satır küçülüp kaymadı`);
     if (shown.length < samples.length) problems.push(`${label}: sözler başlık bloğunda görünmüyor`);
     for (const s of samples) {

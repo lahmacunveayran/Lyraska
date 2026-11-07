@@ -3602,6 +3602,29 @@ describe("şarkı sözleri", () => {
     expect(container.querySelector(".photo-lyrics-top")?.textContent).toBe("Gece yolunda yalnız");
   });
 
+  it("Kendi resmin: sözlerin seçilen görünümü (boyut, renk, üstte yükseklik) sahneye yansır", async () => {
+    backend.lyrics = synced;
+    window.localStorage.setItem(
+      "lyraska.photoLyricLook",
+      JSON.stringify({ scale: 2, place: "top", top: 0.3, color: "#FFE2A8", backdrop: "auto" }),
+    );
+    const { container } = await playInPhoto();
+    const app = container.querySelector<HTMLElement>(".app");
+    expect(app?.style.getPropertyValue("--photo-lyric-scale")).toBe("2");
+    expect(app?.style.getPropertyValue("--photo-lyric-color")).toBe("#ffe2a8");
+    expect(app?.style.getPropertyValue("--photo-lyric-top")).toBe("30.0%");
+    await waitFor(() =>
+      expect(
+        container.querySelector(".photo-lyrics-top.is-placed .photo-lyrics__word"),
+      ).not.toBeNull(),
+    );
+    // Üstteyken başlık bloğunda yer ayrılmaz (başlık sözsüz şarkıdaki gibi).
+    expect(container.querySelector(".photo-scene")).not.toHaveClass("has-lyrics");
+    expect(container.querySelector(".photo-scene__lyrics")).toBeNull();
+    // Zemin otomatik: koyuluk yazılır (resim ölçülmeden önce en kötü varsayılır).
+    expect(app?.style.getPropertyValue("--photo-lyric-shade")).toMatch(/^rgb\(0 0 0 \/ 0\.\d\d\)$/);
+  });
+
   it("Kendi resmin: Epilepsi güvenli modunda söylenen kelime ışıldamaz", async () => {
     backend.lyrics = synced;
     backend.safe = true;

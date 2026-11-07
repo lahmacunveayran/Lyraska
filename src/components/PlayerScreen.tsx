@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
@@ -59,6 +60,8 @@ import { useScenePresets } from "../hooks/useScenePresets";
 import { useLyricEffect } from "../hooks/useLyricEffect";
 import { useBackgroundImage } from "../hooks/useBackgroundImage";
 import { usePhotoParticles } from "../hooks/usePhotoParticles";
+import { usePhotoLyricLook } from "../hooks/usePhotoLyricLook";
+import { lookVars, type LyricPlace } from "../lib/photoLyricLook";
 import { useMilkdrop } from "../hooks/useMilkdrop";
 import { useSkyLook } from "../hooks/useSkyLook";
 import { useCover, type CoverAlbum } from "../hooks/useCover";
@@ -114,6 +117,7 @@ export function PlayerScreen() {
   const milkdrop = useMilkdrop(scene === "milkdrop");
   const background = useBackgroundImage(scene === "photo");
   const photoParticles = usePhotoParticles();
+  const photoLyricLook = usePhotoLyricLook();
   const skyLook = useSkyLook();
 
   const playback = usePlayback(info.supportedExtensions);
@@ -330,6 +334,7 @@ export function PlayerScreen() {
         libraryFull ? " has-full-drawer" : ""
       }${status.state === "error" || player.error ? " is-error" : ""}`}
       data-theme={theme}
+      style={lookVars(photoLyricLook.look) as CSSProperties}
     >
       {/* Sahne çizilemezse yalnızca sahne yerine durgun gök kalır; başka sahne seçilince yeniden denenir. */}
       <ErrorBoundary
@@ -354,8 +359,10 @@ export function PlayerScreen() {
           background={background}
           particles={photoParticles.style}
           particleDensity={photoParticles.density}
-          hasLyrics={photoLyrics}
+          // Söz başlık bloğunda mı (yeri ayrılır) yoksa üstte mi (kullanıcının seçimi).
+          hasLyrics={photoLyrics && photoLyricLook.look.place === "title"}
           lyricsSlot={setLyricsSlot}
+          lyricLook={photoLyricLook.look}
           // Başlık etiketi yoksa (ör. yt-dlp'nin .webm'leri) dosya adı: "Lyraska" yazmasın.
           songTitle={credits?.title ?? null}
           songArtist={credits?.artist ?? null}
@@ -408,6 +415,7 @@ export function PlayerScreen() {
               milkdrop={milkdrop}
               background={background}
               particles={photoParticles}
+              lyricLook={photoLyricLook}
             />
           </nav>
           <div className="topbar__actions">
@@ -460,6 +468,7 @@ export function PlayerScreen() {
           lyricEffect={lyricEffect.effect}
           // Sahnenin başlık bloğu çizilemediyse (yer henüz yok, sahne hatası) söz gösterilmez.
           lyricsSlot={photoLyrics ? lyricsSlot : undefined}
+          photoPlace={photoLyricLook.look.place}
           cinema={cinema}
           audioDelaySecs={sync.delayMs / 1000}
           soundShaped={soundShaped}
@@ -670,6 +679,8 @@ interface LiveChromeProps {
    * yer henüz hazır değil (söz gösterilmez, genel katman da çizilmez).
    */
   lyricsSlot?: HTMLElement | null;
+  /** "Kendi resmin" sözlerinin yeri: başlık bloğunda (sinema görünümünde) ya da hep üstte. */
+  photoPlace?: LyricPlace;
   /** Sözlerin görünümü (takımyıldız, lir, sade). */
   lyricEffect: LyricEffect;
   /**
@@ -705,6 +716,7 @@ function LiveChrome({
   lyricShiftSecs,
   lyricNotice,
   lyricsSlot,
+  photoPlace = "title",
   lyricEffect,
   cinema,
   audioDelaySecs,
@@ -734,7 +746,7 @@ function LiveChrome({
         <>
           {/* Kaydırma notu "Kendi resmin"de de görünür. */}
           <LyricsOverlay lyrics={null} positionSecs={0} notice={lyricNotice} />
-          {cinema ? (
+          {cinema && photoPlace === "title" ? (
             lyricsSlot &&
             createPortal(
               <PhotoLyrics
@@ -745,7 +757,10 @@ function LiveChrome({
               lyricsSlot,
             )
           ) : (
-            <div className="photo-lyrics-top" aria-hidden>
+            <div
+              className={`photo-lyrics-top${photoPlace === "top" ? " is-placed" : ""}`}
+              aria-hidden
+            >
               <PhotoLyrics
                 lyrics={lyrics}
                 positionSecs={lyricTime(position, audioDelaySecs, lyricShiftSecs)}

@@ -2,6 +2,8 @@ import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent 
 import type { BackgroundImageControls } from "../hooks/useBackgroundImage";
 import type { MilkdropControls } from "../hooks/useMilkdrop";
 import type { PhotoParticleControls } from "../hooks/usePhotoParticles";
+import type { PhotoLyricLookControls } from "../hooks/usePhotoLyricLook";
+import { PhotoLyricSettings } from "./PhotoLyricSettings";
 import type { ScenePresetControls } from "../hooks/useScenePresets";
 import { GALLERY_SCENES, sceneKey, type Scene } from "../lib/scene";
 import {
@@ -34,6 +36,8 @@ export interface SceneGalleryProps {
   background?: BackgroundImageControls;
   /** "Kendi resmin" sahnesinin parçacıkları (resmin altında seçilir). */
   particles?: PhotoParticleControls;
+  /** "Kendi resmin" sözlerinin görünümü (parçacıkların altında). */
+  lyricLook?: PhotoLyricLookControls;
 }
 
 /** Ok tuşlarıyla gezilen düğmeler: sahneler ve hazır ayarlar. */
@@ -52,6 +56,7 @@ export function SceneGallery({
   milkdrop,
   background,
   particles,
+  lyricLook,
 }: SceneGalleryProps) {
   const [open, setOpen] = useState(false);
   const [naming, setNaming] = useState(false);
@@ -195,6 +200,7 @@ export function SceneGallery({
           {scene === "photo" && background && (
             <PhotoSection controls={background} particles={particles} />
           )}
+          {scene === "photo" && lyricLook && <PhotoLyricSettings controls={lyricLook} />}
 
           {shader && look && (
             <section

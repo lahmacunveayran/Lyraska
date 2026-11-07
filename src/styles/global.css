@@ -430,6 +430,44 @@ kbd {
   gap: 6px;
 }
 
+/* Sözlerin rengi: hazır renkler ve özel renk seçici (Kendi resmin → Sözler). */
+.lyric-colors__swatch {
+  gap: 6px;
+}
+
+.lyric-colors__dot {
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+}
+
+.lyric-colors__custom {
+  cursor: pointer;
+}
+
+.lyric-colors__custom input {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.lyric-colors__custom.is-on {
+  color: var(--ink);
+  border-color: var(--ink-2);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.lyric-colors__label {
+  align-self: center;
+  margin-right: 4px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
 .scene-gallery__chip {
   display: inline-flex;
   align-items: center;
@@ -5976,29 +6014,26 @@ kbd {
 /* Denetimler görünürken "Kendi resmin" sözleri üst ortada aynı tek satır (başlık bloğunun yeri alttaki
    büyük başlıkla çakışır); uzun satır kırılmaz, küçülür ya da kayar. */
 .photo-lyrics-top {
-  --lyric-size: clamp(15px, 1.45vw, 26px);
+  /* Boyut kullanıcının seçimiyle (`--photo-lyric-scale`, Kendi resmin → Sözler; varsayılan 1,4). */
+  --lyric-size: calc(clamp(15px, 1.45vw, 26px) * var(--photo-lyric-scale, 1.4));
   position: absolute;
   top: 16%;
   left: 50%;
   z-index: 3;
-  width: min(900px, 80vw);
-  /* Satır yüksekliği + koyu şeridin sönmesi için üstte ve altta pay (kutu `border-box`). */
-  height: calc(var(--lyric-size) * 2.5);
-  overflow: hidden;
+  isolation: isolate;
+  width: min(1200px, 84vw);
+  height: calc(var(--lyric-size) * 1.5);
+  /* Uzun satır kutunun kenarında kesilir (kayarak okunur); satırın arkasındaki zemin kesilmesin diye
+     kesim kutunun 0,6 em dışından (kutunun boyu ve yerleşim değişmez). */
+  overflow: clip;
+  overflow-clip-margin: 0.6em;
   transform: translateX(-50%);
   font-family: "Inter Variable", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   font-size: var(--lyric-size);
-  color: var(--ink);
+  color: var(--photo-lyric-color, var(--ink));
   text-align: center;
   /* Okunurluk (sahibi, 7 Kasım: kalabalık, açık renkli resimde zor okunuyordu): satırın arkasında
-     kenarlara doğru sönen koyu bir şerit; kelimelerin gölgesi koyu, geniş. Sabit: parlamaz. */
-  padding: 0.5em 0;
-  background: radial-gradient(
-    ellipse 50% 50% at 50% 50%,
-    rgba(0, 0, 0, 0.52),
-    rgba(0, 0, 0, 0.3) 55%,
-    rgba(0, 0, 0, 0) 100%
-  );
+     zemin (`.photo-lyrics__line::before`), kelimelerin gölgesi koyu ve geniş. */
   text-shadow:
     0 0 1px rgba(0, 0, 0, 0.95),
     0 1px 3px rgba(0, 0, 0, 0.8),
@@ -6010,16 +6045,51 @@ kbd {
   text-align: left;
 }
 
+/* "Üstte" yeri: satırın ortası ekranın üstünden seçilen yükseklikte. */
+.photo-lyrics-top.is-placed {
+  top: var(--photo-lyric-top, 16%);
+  transform: translate(-50%, -50%);
+}
+
+/* Zemin satırın arkasında, yazının genişliğinde; kenarları yumuşak. Koyuluğu resmin o bölgesinin
+   parlaklığından (`--photo-lyric-shade`, PhotoScene yazar; yazıyla 7:1 karşıtlık). Satırla
+   birlikte belirip söner; müzikle değişmez. */
+.photo-lyrics-top .photo-lyrics,
+.photo-scene__lyrics .photo-lyrics {
+  overflow: visible;
+}
+
+.photo-lyrics-top .photo-lyrics__line,
+.photo-scene__lyrics .photo-lyrics__line {
+  position: relative;
+}
+
+.photo-lyrics-top .photo-lyrics__line::before,
+.photo-scene__lyrics .photo-lyrics__line::before {
+  content: "";
+  position: absolute;
+  inset: -0.25em -0.5em;
+  z-index: -1;
+  border-radius: 0.6em;
+  background: var(--photo-lyric-shade, rgb(0 0 0 / 0.5));
+  filter: blur(0.3em);
+  pointer-events: none;
+}
+
 .app.has-drawer .photo-lyrics-top {
   left: calc((100vw - var(--drawer-width)) / 2);
   width: min(800px, calc(100vw - var(--drawer-width) - 80px));
 }
 
 .photo-scene__lyrics {
-  --lyric-size: clamp(15px, 1.45vw, 26px);
+  --lyric-size: calc(clamp(15px, 1.45vw, 26px) * var(--photo-lyric-scale, 1.4));
+  isolation: isolate;
   height: calc(var(--lyric-size) * 1.5);
   margin-top: 0.55em;
-  overflow: hidden;
+  /* Kutunun 0,6 em dışından kesilir: zemin yumuşak kalır (bkz. `.photo-lyrics-top`). */
+  overflow: clip;
+  overflow-clip-margin: 0.6em;
+  color: var(--photo-lyric-color, inherit);
   font-family: "Inter Variable", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   font-size: var(--lyric-size);
   -webkit-text-stroke: 0;
@@ -6067,7 +6137,11 @@ kbd {
 
 /* Söylenen kelime çubuk renginden hafifçe ışıldar (`--photo-glow`, PhotoScene yazar). */
 .photo-lyrics__word.is-glow {
-  color: color-mix(in srgb, #fff 74%, rgb(var(--photo-glow, 255 255 255)));
+  color: color-mix(
+    in srgb,
+    var(--photo-lyric-color, #fff) 74%,
+    rgb(var(--photo-glow, 255 255 255))
+  );
   text-shadow:
     0 0 1px rgba(0, 0, 0, 0.6),
     0 0 0.25em rgb(var(--photo-glow, 255 255 255) / 0.95),
