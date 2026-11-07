@@ -8,6 +8,8 @@ T değişkendir: şarkı 30 sn'den kısaysa tek, kısa parça. İki tuzak (BILGI
 - rotary_embedding_torch'un önbelleği (`cache_if_possible`) kapatılmazsa dışa aktarılan grafiğe ilk çalıştırmanın
   uzunluğu sabit yazılır, başka uzunlukta yanlış çıkar;
 - `torch.onnx.export` modülü dönüşte eğitim moduna alır (dropout): karşılaştırmadan önce yeniden `eval()`.
+Sabit katlama kapalı: açıkken bazı sabitler dönüştüren makinenin işlemcisiyle hesaplanıyor, CI'da son basamakları
+farklı çıktı (SHA-256 tutmadı). Kapalıyken dosyada yalnızca ağırlıkların kendisi ve işlemler var; katlamayı tract yapar.
 """
 import sys
 
@@ -44,6 +46,7 @@ def main(ckpt, out):
             dynamic_axes={"spect": {1: "T"}, "beat": {1: "T"}, "downbeat": {1: "T"}},
             opset_version=17,
             dynamo=False,
+            do_constant_folding=False,
         )
     wrapper.eval()
     # Doğrulama: ONNX çıktısı PyTorch'unkiyle aynı mı (iki uzunlukta).

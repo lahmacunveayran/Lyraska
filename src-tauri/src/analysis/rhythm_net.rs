@@ -21,8 +21,8 @@ use super::rhythm_model::{self, MelFrame, CHUNK_FRAMES, N_MELS};
 
 /// Kurulum dosyasındaki model dosyasının adı (Tauri kaynağı) ve bilinen özeti.
 pub const MODEL_FILE: &str = "ritim-modeli.onnx";
-pub const MODEL_SHA256: &str = "b63d4fddc2e1289f4f3689110bf75d5cb892eb88e93ee20853a825c14e5b49f7";
-/// Model dosyasının en büyük boyu (gerçeği 9 491 762 bayt).
+pub const MODEL_SHA256: &str = "5e63d01be38605bad700160461fcb74be03602d25c166290bb23deb3404db4a3";
+/// Model dosyasının en büyük boyu (gerçeği 9 613 626 bayt).
 const MAX_MODEL_BYTES: u64 = 64 << 20;
 /// En uzun şarkı (sn): söz modeliyle aynı sınır; daha uzunu modelle analiz edilmez.
 pub const MAX_SECS: usize = 20 * 60;
