@@ -304,4 +304,173 @@ mod tests {
         assert_eq!(mp4_trim(&path, 44_100), None);
         std::fs::remove_file(path).ok();
     }
+
+    /// Bozma taramasının kaçırdığı (6 Kasım; tarama yalnızca `--lib` testleriyle): `iTunSMPB` etiketinin
+    /// dosyanın içinden (udta/meta/ilst/----) okunması hiç sınanmıyordu.
+    fn freeform(name: &str, value: &str) -> Vec<u8> {
+        let mut mean = vec![0u8; 4];
+        mean.extend_from_slice(b"com.apple.iTunes");
+        let mut name_body = vec![0u8; 4];
+        name_body.extend_from_slice(name.as_bytes());
+        let mut data = vec![0, 0, 0, 1, 0, 0, 0, 0];
+        data.extend_from_slice(value.as_bytes());
+        boxed(
+            b"----",
+            &[
+                boxed(b"mean", &mean),
+                boxed(b"name", &name_body),
+                boxed(b"data", &data),
+            ]
+            .concat(),
+        )
+    }
+
+    /// `ilst` içeriğini `udta/meta` içine koyar (meta'nın 4 baytlık sürüm/bayrak alanıyla).
+    fn udta(ilst: &[u8]) -> Vec<u8> {
+        let mut meta = vec![0u8; 4];
+        meta.extend_from_slice(&boxed(b"ilst", ilst));
+        boxed(b"udta", &boxed(b"meta", &meta))
+    }
+
+    /// Ses izi: elst (başlangıç, süre ms), mdhd ölçeği, hdlr soun.
+    fn audio_trak(edits: &[(u32, i32)], scale: u32) -> Vec<u8> {
+        let mut elst = vec![0, 0, 0, 0];
+        elst.extend_from_slice(&(edits.len() as u32).to_be_bytes());
+        for &(duration, media_time) in edits {
+            elst.extend_from_slice(&duration.to_be_bytes());
+            elst.extend_from_slice(&media_time.to_be_bytes());
+            elst.extend_from_slice(&0x0001_0000u32.to_be_bytes());
+        }
+        let mut mdhd = vec![0u8; 24];
+        mdhd[12..16].copy_from_slice(&scale.to_be_bytes());
+        let mut hdlr = vec![0u8; 24];
+        hdlr[8..12].copy_from_slice(b"soun");
+        boxed(
+            b"trak",
+            &[
+                boxed(b"edts", &boxed(b"elst", &elst)),
+                boxed(
+                    b"mdia",
+                    &[boxed(b"mdhd", &mdhd), boxed(b"hdlr", &hdlr)].concat(),
+                ),
+            ]
+            .concat(),
+        )
+    }
+
+    fn mvhd(scale: u32) -> Vec<u8> {
+        let mut body = vec![0u8; 100];
+        body[12..16].copy_from_slice(&scale.to_be_bytes());
+        boxed(b"mvhd", &body)
+    }
+
+    fn trim_of(moov: &[u8], rate: u32) -> Option<Trim> {
+        let file = [boxed(b"ftyp", b"M4A \0\0\0\0"), boxed(b"moov", moov)].concat();
+        let path = crate::audio::test_util::temp_path("dolgu-etiket.m4a");
+        std::fs::write(&path, file).unwrap();
+        let trim = mp4_trim(&path, rate);
+        std::fs::remove_file(path).ok();
+        trim
+    }
+
+    const SMPB: &str = " 00000000 00000840 000001CA 00000000003F31F6 00000000 00000000";
+
+    #[test]
+    fn itunsmpb_dosyadan_okunur_ve_duzenleme_listesinin_onune_gecer() {
+        let trak = audio_trak(&[(3000, 1024)], 22_050);
+        let tags = [
+            freeform("Encoding Params", "vers"),
+            freeform("iTunSMPB", SMPB),
+        ]
+        .concat();
+        let moov = [mvhd(1000), trak.clone(), udta(&tags)].concat();
+        let want = Some(Trim {
+            delay: 0x840,
+            frames: Some(0x3F31F6),
+        });
+        assert_eq!(trim_of(&moov, 22_050), want);
+        // Etiket örnek sayısıdır: hızdan bağımsız.
+        assert_eq!(trim_of(&moov, 44_100), want);
+        // Başka adlı etiket sayılmaz: düzenleme listesi kullanılır.
+        let other = [mvhd(1000), trak.clone(), udta(&freeform("iTunNORM", SMPB))].concat();
+        assert_eq!(
+            trim_of(&other, 22_050),
+            Some(Trim {
+                delay: 1024,
+                frames: Some(66_150)
+            })
+        );
+        // Etiketteki örnek sayısı 0: uzunluk bilinmiyor.
+        let zero = " 00000000 00000840 000001CA 0000000000000000";
+        let moov = [mvhd(1000), trak, udta(&freeform("iTunSMPB", zero))].concat();
+        assert_eq!(
+            trim_of(&moov, 22_050),
+            Some(Trim {
+                delay: 0x840,
+                frames: None
+            })
+        );
+    }
+
+    #[test]
+    fn duzenleme_listesinin_bos_kesimi_atlanir_sifirlar_dolgu_sayilmaz() {
+        // İlk kesim boş (−1): ikinci kesim (başlangıç 2112, 2 sn) kullanılır.
+        let moov = [mvhd(1000), audio_trak(&[(500, -1), (2000, 2112)], 44_100)].concat();
+        assert_eq!(
+            trim_of(&moov, 44_100),
+            Some(Trim {
+                delay: 2112,
+                frames: Some(88_200)
+            })
+        );
+        // Başlangıç 0 ama süre biliniyor: yalnızca uzunluk.
+        let moov = [mvhd(1000), audio_trak(&[(1000, 0)], 44_100)].concat();
+        assert_eq!(
+            trim_of(&moov, 44_100),
+            Some(Trim {
+                delay: 0,
+                frames: Some(44_100)
+            })
+        );
+        // Başlangıç 0, film ölçeği 0 ya da süre 0: bilgi yok.
+        let moov = [mvhd(0), audio_trak(&[(1000, 0)], 44_100)].concat();
+        assert_eq!(trim_of(&moov, 44_100), None);
+        let moov = [mvhd(1000), audio_trak(&[(0, 0)], 44_100)].concat();
+        assert_eq!(trim_of(&moov, 44_100), None);
+    }
+
+    #[test]
+    fn kutu_boyu_64_bit_ya_da_sona_kadar() {
+        // udta 64 bitlik boyla (size = 1, ardından 8 baytlık boy).
+        let inner = udta(&freeform("iTunSMPB", SMPB))[8..].to_vec();
+        let mut big = 1u32.to_be_bytes().to_vec();
+        big.extend_from_slice(b"udta");
+        big.extend_from_slice(&((inner.len() + 16) as u64).to_be_bytes());
+        big.extend_from_slice(&inner);
+        let moov = [mvhd(1000), big].concat();
+        assert_eq!(trim_of(&moov, 44_100).map(|t| t.delay), Some(0x840));
+        // Son kutu boyu 0: dosyanın (kutunun) sonuna kadar.
+        let mut open = 0u32.to_be_bytes().to_vec();
+        open.extend_from_slice(b"udta");
+        open.extend_from_slice(&inner);
+        let moov = [mvhd(1000), open].concat();
+        assert_eq!(trim_of(&moov, 44_100).map(|t| t.delay), Some(0x840));
+    }
+
+    #[test]
+    fn cok_derin_ic_ice_kutu_okunmaz() {
+        // Etiket `depth` kat udta içinde: 8 kata kadar okunur, daha derini (bozuk ya da kötü niyetli dosya)
+        // dolaşılmaz.
+        let nested = |depth: usize| {
+            let mut b = udta(&freeform("iTunSMPB", SMPB));
+            for _ in 1..depth {
+                b = boxed(b"udta", &b);
+            }
+            [mvhd(1000), b].concat()
+        };
+        // udta → meta → ilst → ---- : etiket `depth + 2`. düzeyde dolaşılır.
+        assert!(trim_of(&nested(6), 44_100).is_some());
+        assert_eq!(trim_of(&nested(7), 44_100), None);
+        assert_eq!(trim_of(&nested(20), 44_100), None);
+    }
 }

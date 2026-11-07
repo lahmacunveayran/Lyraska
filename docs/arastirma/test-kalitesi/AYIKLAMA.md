@@ -621,3 +621,12 @@ yeniden sınamayla ([`betikler/ayiklama/kopya_mutasyon.py`](betikler/ayiklama/ko
   (767–783): `ayrisik_harflerin_hepsi_birlesir_gorunmez_bosluklar_bosluk_olur`, `dile_gore_kucuk_harf`,
   `ingilizce_sayi_yil_ve_sira_el_hesabiyla`, `ondalik_ve_saat_dile_gore`. **(b)** `('i', U+0307)` kolunun silinmesi
   (sonuç yine "i").
+
+### gapless.rs (48 kaçan)
+
+- **(a)** Tarama yalnızca `--lib` testleriyle yapıldı ve `iTunSMPB`'nin dosyadan okunması (udta/meta/ilst/----,
+  `itunes_freeform`, 41, 129–131, 215–234) hiç sınanmıyordu; boş düzenleme kesimi (192), sıfır başlangıç/süre (50–52),
+  64 bitlik ve sona kadar kutu boyu (91, 166–172), iç içe kutu sınırı (112, 143) da. Elle kurulmuş MP4 kutularıyla:
+  `itunsmpb_dosyadan_okunur_ve_duzenleme_listesinin_onune_gecer`,
+  `duzenleme_listesinin_bos_kesimi_atlanir_sifirlar_dolgu_sayilmaz`, `kutu_boyu_64_bit_ya_da_sona_kadar`,
+  `cok_derin_ic_ice_kutu_okunmaz`. **(b)** `MAX_BOX_READ` sabitinin yazılışı (29), sınır eşitlikleri.
