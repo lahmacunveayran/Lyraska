@@ -35,6 +35,8 @@ describe("PhotoLyricSettings", () => {
     expect(screen.getByRole("button", { name: "Sıcak" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.change(screen.getByLabelText("Özel renk"), { target: { value: "#123456" } });
     expect(loadLook().color).toBe("#123456");
+    // Ekran okuyucu özel rengin seçili olduğunu duyar.
+    expect(screen.getByLabelText("Özel renk (seçili)")).toBeInTheDocument();
     // Özel renkte hazır renklerin hiçbiri seçili görünmez.
     expect(screen.getByRole("button", { name: "Sıcak" })).toHaveAttribute("aria-pressed", "false");
 
@@ -51,6 +53,8 @@ describe("PhotoLyricSettings", () => {
     fireEvent.click(reset);
     expect(loadLook()).toEqual(DEFAULT_LOOK);
     expect(reset).toBeDisabled();
+    // Odak sayfaya düşmez: ilk ayara (boyut) geçer.
+    expect(screen.getByRole("slider", { name: "Sözlerin boyutu" })).toHaveFocus();
   });
 
   it("hook geçersiz değeri aralığa oturtur", () => {

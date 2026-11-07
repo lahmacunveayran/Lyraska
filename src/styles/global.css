@@ -455,6 +455,11 @@ kbd {
   cursor: pointer;
 }
 
+.lyric-colors__custom:focus-within {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
 .lyric-colors__custom.is-on {
   color: var(--ink);
   border-color: var(--ink-2);
@@ -6074,6 +6079,8 @@ kbd {
   background: var(--photo-lyric-shade, rgb(0 0 0 / 0.5));
   filter: blur(0.3em);
   pointer-events: none;
+  /* Koyuluk satır ya da resim değişince yumuşakça (sıçramaz). */
+  transition: background-color 0.4s linear;
 }
 
 .app.has-drawer .photo-lyrics-top {
@@ -6114,7 +6121,8 @@ kbd {
    zamanlaması, docs/arastirma/sozler); yalnızca ışıltının sönüşü yavaş. */
 .photo-lyrics__word {
   white-space: pre;
-  opacity: 0.68;
+  /* `DIMMEST_WORD_OPACITY` (photoLyricLook.ts): zeminin karşıtlığı bu saydamlığa göre hesaplanır. */
+  opacity: 0.75;
   transition: text-shadow 0.45s ease-out;
 }
 

@@ -41,7 +41,9 @@ import { measureFrames, measureStill } from "../lib/photoMeasure";
 import {
   backdropFor,
   colorLuminance,
+  LUMA_GRID_MAX_WIDTH,
   lumaGrid,
+  lyricTextElement,
   mergeLuma,
   regionLight,
   type LumaGrid,
@@ -109,10 +111,11 @@ const NO_IMAGE_LIGHT = { brightest: 0.008, darkest: 0.002 };
 const UNKNOWN_LIGHT = { brightest: 1, darkest: 0 };
 
 /**
- * Sözlerin arkasındaki zemini ayarlar: sözlerin kutusunun (üstte ya da başlık bloğunda) ekrandaki
- * yerinden resmin o bölgesinin parlaklığı okunur, yazının rengiyle 7:1 karşıtlık için gereken
- * örtü `.app`'e `--photo-lyric-shade` olarak yazılır. Zemin bir yerde durur, müzikle değişmez
- * (parlama değildir); yalnızca yer, pencere ya da resim değişince güncellenir.
+ * Sözlerin arkasındaki zemini ayarlar: ekranda görünen söz satırının (üstte ya da başlık bloğunda;
+ * `lyricTextElement`) yerinden resmin o bölgesinin parlaklığı okunur, yazının rengiyle 7:1 karşıtlık için gereken
+ * örtü `.app`'e `--photo-lyric-shade` olarak yazılır. Zemin müzikle değişmez (parlama değildir);
+ * yalnızca satır, yer, pencere ya da resim değişince ve yumuşak geçişle (CSS) güncellenir. Bilinen
+ * sınır: parçacıklar (Kıvılcım) zemine katılmaz; yazının arkasından geçen kıvılcım anlık açar.
  */
 function useLyricBackdrop(
   rootRef: { current: HTMLDivElement | null },
@@ -127,7 +130,7 @@ function useLyricBackdrop(
     const update = () => {
       let shade = "rgb(0 0 0 / 0)";
       if (look.backdrop === "auto") {
-        const box = app.querySelector<HTMLElement>(".photo-lyrics-top, .photo-scene__lyrics");
+        const box = lyricTextElement(app);
         const scene = root.getBoundingClientRect();
         const r = box?.getBoundingClientRect();
         let light = UNKNOWN_LIGHT;
@@ -298,14 +301,10 @@ async function measureAnimation(
   // Renk birkaç kareden (en çok 8, eşit aralıklı).
   const sample: number[] = [];
   const every = Math.max(1, Math.floor(animation.frames.length / 8));
-  // Sözlerin zemini için parlaklık aynı karelerden (en çok 8; ara kareler bunların arasında).
-  let luma: { max: LumaGrid; min: LumaGrid } | null = null;
   try {
     for (let i = 0; i < animation.frames.length; i += every) {
       drawCover(ctx, animation.frames[i]!, animation.width, animation.height, mw, mh);
-      const data = ctx.getImageData(0, 0, mw, mh).data;
-      sampleColors(data, mw, mh, sample);
-      luma = mergeLuma(luma, lumaGrid(data, mw, mh));
+      sampleColors(ctx.getImageData(0, 0, mw, mh).data, mw, mh, sample);
     }
   } catch {
     // Resim bu arada değişti, kareleri kapatıldı: ölçülmez.
@@ -313,6 +312,15 @@ async function measureAnimation(
   }
   const colors = barColors(dominantColor(sample));
   const job = measureFrames(mw, mh, colors);
+  // Sözlerin zemini için parlaklık bütün karelerden (hücre hücre en açığı ve en koyusu): kare
+  // küçük bir tuvale (ızgara boyunda) küçültülüp okunur, ek yük az.
+  const gw = Math.min(LUMA_GRID_MAX_WIDTH, mw);
+  const gh = Math.max(1, Math.round((mh * gw) / mw));
+  const small = document.createElement("canvas");
+  small.width = gw;
+  small.height = gh;
+  const sctx = small.getContext("2d", { willReadFrequently: true });
+  let luma: { max: LumaGrid; min: LumaGrid } | null = null;
   for (let i = 0; i < animation.frames.length; i++) {
     if (cancelled()) {
       job.cancel();
@@ -325,6 +333,10 @@ async function measureAnimation(
       return null;
     }
     if (to > from) job.add(ctx.getImageData(0, from, mw, to - from).data);
+    if (sctx) {
+      sctx.drawImage(canvas, 0, 0, gw, gh);
+      luma = mergeLuma(luma, lumaGrid(sctx.getImageData(0, 0, gw, gh).data, gw, gh));
+    }
     if (i % 8 === 7) await new Promise((done) => setTimeout(done, 0));
   }
   const map = await job.finish();

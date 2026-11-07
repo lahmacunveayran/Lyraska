@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import type { PhotoLyricLookControls } from "../hooks/usePhotoLyricLook";
 import {
   DEFAULT_LOOK,
@@ -32,12 +33,15 @@ export function PhotoLyricSettings({ controls }: { controls: PhotoLyricLookContr
   const { look, update, reset } = controls;
   const preset = LYRIC_COLORS.find((c) => c.color === look.color);
   const isDefault = JSON.stringify(look) === JSON.stringify(DEFAULT_LOOK);
+  // "Varsayılana dön" basılınca kapanır: klavye odağı sayfaya düşmesin, ilk ayara geçer.
+  const first = useRef<HTMLInputElement>(null);
   return (
     <section className="scene-gallery__section" role="group" aria-label="Şarkı sözlerinin görünümü">
       <h3 className="scene-gallery__heading">Sözler</h3>
       <label className="scene-gallery__speed">
         <span>Boyut</span>
         <input
+          ref={first}
           type="range"
           min={SCALE_MIN}
           max={SCALE_MAX}
@@ -105,7 +109,7 @@ export function PhotoLyricSettings({ controls }: { controls: PhotoLyricLookContr
           <input
             type="color"
             value={look.color}
-            aria-label="Özel renk"
+            aria-label={preset ? "Özel renk" : "Özel renk (seçili)"}
             onChange={(event) => update({ color: event.target.value })}
           />
           Özel…
@@ -135,7 +139,10 @@ export function PhotoLyricSettings({ controls }: { controls: PhotoLyricLookContr
           type="button"
           className="scene-gallery__button"
           disabled={isDefault}
-          onClick={reset}
+          onClick={() => {
+            reset();
+            first.current?.focus();
+          }}
         >
           Varsayılana dön
         </button>

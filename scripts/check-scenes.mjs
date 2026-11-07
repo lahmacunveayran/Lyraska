@@ -1587,7 +1587,9 @@ const LYRIC_VIEWS = {
     line: ".photo-lyrics__line",
     box: ".photo-lyrics",
     word: ".photo-lyrics__word",
-    lit: (0.5 + 1) / 2,
+    // Söylenmemiş kelimenin saydamlığı ile söylenmekte olanınki (1) arası. Söylenmemiş kelime 7 Kasım'da
+    // okunurluk için 0,5'ten 0,75'e çıktı (`DIMMEST_WORD_OPACITY`, src/lib/photoLyricLook.ts).
+    lit: (0.75 + 1) / 2,
     clock: false,
   },
 };

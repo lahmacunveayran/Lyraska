@@ -2,7 +2,7 @@
  * "Kendi resmin" sahnesindeki şarkı sözlerinin görünümü: boyut, yer, renk ve arkadaki zemin
  * (sahibinin isteği, 7 Kasım 2026: "yazının konumunu, rengini, boyutunu kullanıcı ayarlayabilsin").
  * Ayarlar bu bilgisayarda hatırlanır. Zemin otomatikken koyuluğu yazının arkasındaki bölgenin
- * parlaklığından hesaplanır ([`backdropFor`]): seçilen renkle en az 7:1 karşıtlık.
+ * parlaklığından hesaplanır ([`backdropFor`]): söylenen kelimeyle 7:1, soluk kelimeyle 4,5:1 karşıtlık.
  */
 
 /** Sözlerin yeri: başlık bloğunda sanatçının altında (düğmeler görünürken üst ortada) ya da üstte. */
@@ -24,9 +24,13 @@ export interface PhotoLyricLook {
 export const SCALE_MIN = 0.8;
 export const SCALE_MAX = 2.4;
 export const SCALE_STEP = 0.1;
-/** Üstte yerinin sınırları: çubuk çizgisinin ve alttaki başlığın üstünde kalır. */
+/**
+ * Üstte yerinin sınırları. En alt: satırın ortası ekranın %34'ünde; en büyük boyda (2,4×) bile
+ * sinemadaki başlık bloğunun (alt kenarı ortanın 40 px üstünde) ve ışık çizgisinin üstünde kalır
+ * (bağımsız inceleme: %46 1920×1080'de başlığa biniyordu).
+ */
 export const TOP_MIN = 0.06;
-export const TOP_MAX = 0.46;
+export const TOP_MAX = 0.34;
 export const TOP_STEP = 0.01;
 
 /** Hazır renkler (hepsi açık: koyu zeminde okunur). İlki varsayılan. */
@@ -127,12 +131,21 @@ export function contrastRatio(a: number, b: number): number {
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
 
-/** Yazıyla zemin arasında istenen en küçük karşıtlık (WCAG AAA, normal yazı). */
+/** Söylenmekte olan kelimeyle zemin arasında istenen en küçük karşıtlık (WCAG AAA, normal yazı). */
 export const TARGET_CONTRAST = 7;
+/** Henüz söylenmemiş (soluk) kelimeyle zemin arasında (WCAG AA, normal yazı). */
+export const DIM_TARGET_CONTRAST = 4.5;
 /** Zeminin en çok örtme oranı: resim en açık yerde de seçilir. */
 export const BACKDROP_MAX = 0.82;
 /** Otomatik zeminin en az örtme oranı (koyu resimde de yazının kenarı yumuşak ayrılsın). */
 export const BACKDROP_MIN = 0.2;
+
+/**
+ * Karşıtlığın hesaplandığı en soluk kelime: henüz söylenmemiş kelimenin saydamlığı
+ * (`.photo-lyrics__word`, global.css; söylenen 0,9, söylenmekte olan 1). Emin olunmayan satırlar
+ * ("tahmini", 0,4) bilerek daha soluktur; karşıtlık güvencesi onları kapsamaz.
+ */
+export const DIMMEST_WORD_OPACITY = 0.75;
 
 /** Zemin: renk (`dark`: siyah, `light`: beyaz) ve örtme oranı (0..1). */
 export interface Backdrop {
@@ -148,21 +161,36 @@ function grayFor(luminance: number): number {
 }
 
 /**
- * Yazının arkasındaki zemin. Açık yazı (parlaklık ≥ 0,18) siyah örtüyle, koyu yazı beyaz örtüyle
+ * Yazının arkasındaki zemin: söylenmekte olan kelimeyle 7:1, henüz söylenmemiş soluk kelimeyle
+ * ([`DIMMEST_WORD_OPACITY`]) 4,5:1 karşıtlık. Açık yazı (parlaklık ≥ 0,18) siyah örtüyle, koyu yazı beyaz örtüyle
  * ayrılır. `brightest` / `darkest`: yazının arkasındaki bölgenin en açık ve en koyu yerleri
  * (parlaklığın %90 ve %10'luk dilimleri; tek açık leke de okunmayı bozar). Örtü sRGB'de karışır
  * (tarayıcının yaptığı gibi); oran 0,01 adımla en küçük yeterli değerdir, sınırları
  * [`BACKDROP_MIN`, `BACKDROP_MAX`].
  */
-export function backdropFor(textLuminance: number, brightest: number, darkest: number): Backdrop {
+export function backdropFor(
+  textLuminance: number,
+  brightest: number,
+  darkest: number,
+  textOpacity = DIMMEST_WORD_OPACITY,
+): Backdrop {
   const lightText = textLuminance >= 0.18;
   const tone = lightText ? "dark" : "light";
   const ground = grayFor(lightText ? brightest : darkest);
   const overlay = lightText ? 0 : 255;
+  const text = grayFor(textLuminance);
   for (let step = Math.round(BACKDROP_MIN * 100); step <= BACKDROP_MAX * 100; step++) {
     const alpha = step / 100;
     const mixed = ground * (1 - alpha) + overlay * alpha;
-    if (contrastRatio(textLuminance, linear(mixed)) >= TARGET_CONTRAST) return { tone, alpha };
+    // Soluk kelime zeminle karışır (saydamlık sRGB'de, tarayıcı gibi; renk gri yaklaşımıyla).
+    const seen = text * textOpacity + mixed * (1 - textOpacity);
+    const covered = linear(mixed);
+    if (
+      contrastRatio(textLuminance, covered) >= TARGET_CONTRAST &&
+      contrastRatio(linear(seen), covered) >= DIM_TARGET_CONTRAST
+    ) {
+      return { tone, alpha };
+    }
   }
   return { tone, alpha: BACKDROP_MAX };
 }
@@ -258,4 +286,17 @@ export function lookVars(look: PhotoLyricLook): Record<string, string> {
     "--photo-lyric-color": normalizeColor(look.color) ?? DEFAULT_LOOK.color,
     "--photo-lyric-top": `${(clampTop(look.top) * 100).toFixed(1)}%`,
   };
+}
+
+/**
+ * Zemin için ölçülecek öğe: ekranda görünen söz satırı. Üstteki satır varsa o (başlık bloğundaki yer
+ * de ayrılı olabilir ama denetimler görünürken görünmez); yoksa başlık bloğundaki. Satır henüz
+ * yoksa satırın yeri. Bağımsız inceleme (7 Kasım): ilk sürüm belge sırasıyla ilkini, görünmeyen
+ * boş yeri ölçüyordu.
+ */
+export function lyricTextElement(app: ParentNode): HTMLElement | null {
+  const place =
+    app.querySelector<HTMLElement>(".photo-lyrics-top") ??
+    app.querySelector<HTMLElement>(".photo-scene__lyrics");
+  return place?.querySelector<HTMLElement>(".photo-lyrics__line") ?? place ?? null;
 }

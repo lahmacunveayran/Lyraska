@@ -4,6 +4,8 @@ import {
   BACKDROP_MAX,
   BACKDROP_MIN,
   DEFAULT_LOOK,
+  DIMMEST_WORD_OPACITY,
+  DIM_TARGET_CONTRAST,
   TARGET_CONTRAST,
   backdropFor,
   clampScale,
@@ -12,6 +14,7 @@ import {
   contrastRatio,
   formatScale,
   formatTop,
+  lyricTextElement,
   loadLook,
   lookVars,
   lumaGrid,
@@ -22,12 +25,20 @@ import {
   saveLook,
 } from "./photoLyricLook";
 
-/** Örtüyü tarayıcı gibi sRGB'de karıştırıp karşıtlığı yeniden hesaplar (fonksiyondan bağımsız). */
-function contrastAfter(text: number, ground: number, tone: "dark" | "light", alpha: number) {
+/** Örtüyü tarayıcı gibi sRGB'de karıştırır; söylenen ve soluk kelimenin karşıtlığı (fonksiyondan bağımsız). */
+function contrastsAfter(text: number, ground: number, tone: "dark" | "light", alpha: number) {
   const toSrgb = (l: number) => (l <= 0.0031308 ? 12.92 * l : 1.055 * l ** (1 / 2.4) - 0.055);
   const toLin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
   const c = toSrgb(ground) * (1 - alpha) + (tone === "light" ? 1 : 0) * alpha;
-  return contrastRatio(text, toLin(c));
+  const o = DIMMEST_WORD_OPACITY;
+  const seen = toSrgb(text) * o + c * (1 - o);
+  return { current: contrastRatio(text, toLin(c)), dim: contrastRatio(toLin(seen), toLin(c)) };
+}
+
+/** İkisi de yetiyor mu. */
+function enough(text: number, ground: number, tone: "dark" | "light", alpha: number) {
+  const r = contrastsAfter(text, ground, tone, alpha);
+  return r.current >= TARGET_CONTRAST && r.dim >= DIM_TARGET_CONTRAST;
 }
 
 describe("photoLyricLook", () => {
@@ -39,7 +50,7 @@ describe("photoLyricLook", () => {
     expect(clampScale(0.1)).toBe(0.8);
     expect(clampScale(Number.NaN)).toBe(DEFAULT_LOOK.scale);
     expect(clampTop(0.2049)).toBe(0.2);
-    expect(clampTop(0.9)).toBe(0.46);
+    expect(clampTop(0.9)).toBe(0.34);
     expect(clampTop(0)).toBe(0.06);
     expect(formatScale(1.4)).toBe("1,4×");
     expect(formatTop(0.16)).toBe("%16");
@@ -76,10 +87,10 @@ describe("photoLyricLook", () => {
     for (const ground of [0.05, 0.2, 0.4, 0.6, 0.8]) {
       const b = backdropFor(white, ground, ground);
       expect(b.tone).toBe("dark");
-      expect(contrastAfter(white, ground, b.tone, b.alpha)).toBeGreaterThanOrEqual(TARGET_CONTRAST);
+      expect(enough(white, ground, b.tone, b.alpha)).toBe(true);
       // En küçük yeterli oran: 0,01 eksiği yetmez (en az sınırında değilse).
       if (b.alpha > BACKDROP_MIN) {
-        expect(contrastAfter(white, ground, b.tone, b.alpha - 0.01)).toBeLessThan(TARGET_CONTRAST);
+        expect(enough(white, ground, b.tone, b.alpha - 0.01)).toBe(false);
       }
     }
     expect(backdropFor(white, 0.02, 0.0).alpha).toBe(BACKDROP_MIN);
@@ -91,7 +102,7 @@ describe("photoLyricLook", () => {
     const white = backdropFor(1, 1, 1);
     expect(white.tone).toBe("dark");
     expect(white.alpha).toBeLessThan(BACKDROP_MAX);
-    expect(contrastAfter(1, 1, "dark", white.alpha)).toBeGreaterThanOrEqual(TARGET_CONTRAST);
+    expect(enough(1, 1, "dark", white.alpha)).toBe(true);
     const rose = colorLuminance("#ffc4dc");
     expect(backdropFor(rose, 1, 1).alpha).toBeGreaterThan(white.alpha);
     // Yetmeyen durumda sınırda kalır (resim yine seçilir).
@@ -102,7 +113,7 @@ describe("photoLyricLook", () => {
     const navy = colorLuminance("#10204a");
     const b = backdropFor(navy, 0.9, 0.02);
     expect(b.tone).toBe("light");
-    expect(contrastAfter(navy, 0.02, "light", b.alpha)).toBeGreaterThanOrEqual(TARGET_CONTRAST);
+    expect(enough(navy, 0.02, "light", b.alpha)).toBe(true);
   });
 
   it("parlaklık ızgarası ve bölgenin %90/%10 dilimleri", () => {
@@ -150,5 +161,24 @@ describe("photoLyricLook", () => {
       "--photo-lyric-color": "#ffc4dc",
       "--photo-lyric-top": "30.0%",
     });
+  });
+});
+
+describe("lyricTextElement", () => {
+  it("üstteki satır varsa o ölçülür (başlık bloğundaki boş yer görünmez); yoksa başlık bloğundaki", () => {
+    const app = document.createElement("main");
+    app.innerHTML = `
+      <div class="photo-scene"><div class="photo-scene__text">
+        <div class="photo-scene__lyrics"></div></div></div>
+      <div class="photo-lyrics-top"><p class="photo-lyrics"><span class="photo-lyrics__line">a</span></p></div>`;
+    expect(lyricTextElement(app)).toBe(app.querySelector(".photo-lyrics-top .photo-lyrics__line"));
+    app.querySelector(".photo-lyrics-top")!.remove();
+    const slot = app.querySelector<HTMLElement>(".photo-scene__lyrics")!;
+    // Satır henüz yoksa yerin kendisi; satır gelince satır.
+    expect(lyricTextElement(app)).toBe(slot);
+    slot.innerHTML = `<p class="photo-lyrics"><span class="photo-lyrics__line">b</span></p>`;
+    expect(lyricTextElement(app)).toBe(slot.querySelector(".photo-lyrics__line"));
+    slot.remove();
+    expect(lyricTextElement(app)).toBeNull();
   });
 });
