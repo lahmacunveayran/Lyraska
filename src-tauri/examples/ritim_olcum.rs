@@ -17,7 +17,7 @@
 //! (`olcu_basi_f_model`, düzenli ölçüye oturtulmadan) ölçülür.
 use lyraska_lib::analysis::evaluate::{f_measure, interval_bpm, BEAT_TOLERANCE};
 use lyraska_lib::analysis::rhythm_net::{RhythmNet, MODEL_SHA256};
-use lyraska_lib::analysis::spectrogram::{analyze_source_with, Spectrogram};
+use lyraska_lib::analysis::spectrogram::{analyze_source_with, NetRun, Spectrogram};
 use lyraska_lib::audio::decode::Decoder;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -162,7 +162,9 @@ type Found = (
 fn run_analysis(song: &Path, net: Option<&RhythmNet>) -> Result<Found, String> {
     let mut decoder = Decoder::open(song).map_err(|e| format!("açılamadı: {e}"))?;
     let spectrogram = Spectrogram::new();
-    analyze_source_with(&mut decoder, &spectrogram, &mut || {}, net);
+    // İki iş parçacığı: programda çalan şarkının analizi gibi (4 çekirdekte).
+    let run = net.map(|net| NetRun { net, threads: 2 });
+    analyze_source_with(&mut decoder, &spectrogram, &mut || {}, run);
     let grid = spectrogram.beat_grid();
     let map = spectrogram.song_map();
     Ok((

@@ -64,15 +64,16 @@ fn median_interval(beats: &[f64]) -> Option<f64> {
 }
 
 impl NetRhythm {
-    /// Vuruş ızgarası: tempo vuruş aralıklarının ortancasından (0,1 BPM'e yuvarlı); 20 sn'lik
+    /// Vuruş ızgarası: tempo 0,2–2 sn'lik vuruş aralıklarının ortancasından (0,1 BPM'e yuvarlı); 20 sn'lik
     /// parçaların (ilk vuruştan sayılır) ortanca aralıkları birbirinden %8'den çok ayrılıyorsa tempo
     /// değişken. Tempo 40–250 BPM dışındaysa ızgara yok.
     pub fn grid(&self) -> Option<BeatGrid> {
         if self.beats.len() < MIN_BEATS {
             return None;
         }
-        let interval = median_interval(&self.beats)?;
-        let bpm = (600.0 / interval).round() / 10.0;
+        // Ortanca, 0,2–2 sn arasındaki aralıklardan (`evaluate::interval_bpm`, ölçümlerle aynı): model
+        // zaman zaman fazladan sık vuruş verir (GTZAN metal_00019: tüm aralıklarla 375, böyle 214 BPM).
+        let bpm = super::evaluate::interval_bpm(&self.beats)?;
         if !(MIN_BPM..=MAX_BPM).contains(&bpm) {
             return None;
         }
@@ -179,6 +180,27 @@ mod tests {
         .grid()
         .expect("ızgara");
         assert_eq!(grid.bpm, 120.0);
+    }
+
+    #[test]
+    fn fazladan_sik_vuruslar_tempoyu_bozmaz() {
+        // 140 BPM (0,4286 sn); vuruşların %40'ından 0,1 sn sonra sahte vuruş. Bütün aralıkların
+        // ortancası 0,3286 sn (183 BPM) olurdu; 0,1 sn'lik aralıklar atılınca 0,4286 sn.
+        let mut b = Vec::new();
+        for i in 0..60 {
+            let t = 0.3 + i as f64 * 60.0 / 140.0;
+            b.push(t);
+            if i % 5 == 1 || i % 5 == 3 {
+                b.push(t + 0.1);
+            }
+        }
+        let grid = NetRhythm {
+            beats: b,
+            downbeats: Vec::new(),
+        }
+        .grid()
+        .expect("ızgara");
+        assert!((grid.bpm - 140.0).abs() < 0.2, "{}", grid.bpm);
     }
 
     #[test]
