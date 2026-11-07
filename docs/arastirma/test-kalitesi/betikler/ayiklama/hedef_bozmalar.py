@@ -2,7 +2,9 @@
 (bir kez geçmeli), bozulmuş hâli, çalıştırılacak test süzgeci. Bozma uygulanır, `cargo test --lib <süzgeç>` çalışır:
 düşerse (ya da derlenmezse) "yakalandı"; dosya her seferinde geri yazılır (SIGINT/SIGTERM'de de).
 
-Kullanım (src-tauri'de): python3 -I ../docs/arastirma/test-kalitesi/betikler/ayiklama/hedef_bozmalar.py
+Kullanım (src-tauri'de): python3 -I ../docs/arastirma/test-kalitesi/betikler/ayiklama/hedef_bozmalar.py [başlangıç]
+`başlangıç`: listede kaçıncı hedeften (0'dan) sürüleceği. Derleme artımlıdır (yalnızca bozulan dosyanın crate'i;
+artımsız derlemede bozma başına ~4 dk, artımlıda ~1 dk).
 """
 import pathlib, signal, subprocess, sys
 
@@ -72,7 +74,8 @@ def restore(*_):
 
 signal.signal(signal.SIGINT, restore)
 signal.signal(signal.SIGTERM, restore)
-for path, old, new, filt in TARGETS:
+start = int(sys.argv[1]) if len(sys.argv) > 1 else 0
+for path, old, new, filt in TARGETS[start:]:
     p = pathlib.Path(path)
     text = p.read_text(encoding="utf-8")
     if text.count(old) != 1:
@@ -80,8 +83,7 @@ for path, old, new, filt in TARGETS:
         continue
     current = (p, text)
     p.write_text(text.replace(old, new), encoding="utf-8")
-    r = subprocess.run(["cargo", "test", "-q", "--lib", filt], capture_output=True, text=True,
-                       env={**__import__("os").environ, "CARGO_INCREMENTAL": "0"})
+    r = subprocess.run(["cargo", "test", "-q", "--lib", filt], capture_output=True, text=True)
     p.write_text(text, encoding="utf-8")
     current = None
     print(f"{'yakalandı' if r.returncode != 0 else 'KAÇTI'}\t{path}\t{filt}\t{old.strip()[:50]!r}", flush=True)
