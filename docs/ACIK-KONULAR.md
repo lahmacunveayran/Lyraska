@@ -7,10 +7,8 @@ satır silinir (ayrıntısı devir notunda kalır), yeni iş ya da soru gelince 
 
 Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/README.md` (yedek dallar).
 
-1. Sözleri sese otomatik hizalama (dokunarak zamanlamanın yerine; sahibi elle yapamıyor): iki irdeleme bitti
-   (`docs/arastirma/soz-hizalama/`), sahibi kararları verdi (BILGI §7); sıra RAPOR §8 + DENETIM önerileri, küçük
-   PR'lar: hazırlıktan arayüze, Lyra görünümüne (#165) ve paketin test sürümü sayfasında korunmasına (#167) kadar
-   birleşti; paket test sürümü sayfasında (1 Kasım, SHA denetlendi) → sahibinin 5–10 Türkçe şarkı denemesi.
+1. Sözleri sese otomatik hizalama: hepsi birleşti (`docs/arastirma/soz-hizalama/`), paket test sürümü sayfasında
+   → sahibinin 5–10 Türkçe şarkı denemesi.
 2. Ses motoru denetimi: RTS-01, #56, WASAPI Raw (#231) ve ABX gücü (#235) bitti; dither gerekmiyor (bit-perfect yol);
    sırada albüm modu ses yüksekliği (ürün kararı sahibine sorulacak).
 3. Kaynak ayrıştırma (6 Kasım kararı: bütün modeller yalnızca sahibinin bilgisayarında, harmanlanabilir): ölçü aleti
@@ -21,6 +19,8 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 5. En son: drop v2, karar **B** (ikisi programda, varsayılan eski, İşaretle'de yan yana; sahibinin işaretiyle seçim;
    `-yedek-drop` dalındaki `docs/arastirma/drop/DURUM.md`); önce DnB temposu (sürekli sub bas
    kick kanıtını örtüyor, `tempo.rs`) ve hip-hop drop'u; maksumda yanlış aksak (`meter.rs`).
+6. **Ölçümsüz iddia denetimi** (sahibinin isteği, 7 Kasım; MUSDB ve test doğrulamasından sonra): belgelerdeki ölçümsüz
+   sayı ve iddialar listelenip kaynağıyla karşılaştırılır, sonra bağımsız denetçi aynı listeye sonucu bilmeden bakar.
 
 ## Proje sahibinden beklenenler
 
