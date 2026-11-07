@@ -35,4 +35,9 @@ gaplessCount?: number,
  * Oturum numarası: her açma, sarma ve aygıt değişiminde artar. Arayüz kendi açtığı şarkının
  * yerini alan eski oturumun geçişlerini buradan ayırır. Arayüzde seçimlik.
  */
-sessionSeq?: number, };
+sessionSeq?: number, 
+/**
+ * Çalan şarkının ritmi analizden sonra kaç kez yenilendi (ritim modeli gelince artar): arayüz
+ * şarkı haritasını buna bakarak yeniden ister. Arayüzde seçimlik.
+ */
+rhythmRevision?: number, };

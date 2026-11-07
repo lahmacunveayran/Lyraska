@@ -93,7 +93,7 @@ impl Analysis {
             .spawn(move || {
                 let _busy = busy;
                 if let Some(first) = after {
-                    while !first.is_done() && !first.is_cancelled() && !target.is_cancelled() {
+                    while !first.is_settled() && !target.is_cancelled() {
                         std::thread::sleep(Duration::from_millis(20));
                     }
                 }
@@ -136,12 +136,18 @@ impl Analysis {
             .spawn(move || {
                 let _busy = busy;
                 if let Some(first) = after {
-                    while !first.is_done() && !first.is_cancelled() && !target.is_cancelled() {
+                    while !first.is_settled() && !target.is_cancelled() {
                         std::thread::sleep(Duration::from_millis(20));
                     }
                 }
                 let mut open = || Decoder::open(&file).ok();
-                if !spectrogram::refresh_paced(cached, &mut open, &target, &mut || {}) {
+                if !spectrogram::refresh_paced(
+                    cached,
+                    &mut open,
+                    &target,
+                    &mut || {},
+                    crate::analysis::lyrics_model::window_threads(),
+                ) {
                     return;
                 }
                 if let (Some(cache), Some(saved)) = (cache, target.saved()) {

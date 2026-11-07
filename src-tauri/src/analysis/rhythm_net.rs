@@ -70,6 +70,25 @@ pub fn bundled_path() -> Option<&'static Path> {
     BUNDLED.get().map(|p| p.as_path())
 }
 
+/// Programın ortak modeli: kurulumdaki dosya ilk istendiğinde bir kez açılır. Dosya yoksa ya da
+/// açılamadıysa (günlüğe yazılır) `None`: ritim Lyraska'nın kendi analiziyle bulunur.
+pub fn shared() -> Option<std::sync::Arc<RhythmNet>> {
+    static SHARED: std::sync::OnceLock<Option<std::sync::Arc<RhythmNet>>> =
+        std::sync::OnceLock::new();
+    SHARED
+        .get_or_init(|| {
+            let path = bundled_path()?;
+            match RhythmNet::open(path, MODEL_SHA256) {
+                Ok(net) => Some(std::sync::Arc::new(net)),
+                Err(e) => {
+                    crate::diagnostics::error(&format!("Ritim modeli açılamadı: {e}"));
+                    None
+                }
+            }
+        })
+        .clone()
+}
+
 type Plan = TypedRunnableModel;
 /// Bir parçanın (ya da şarkının) logitleri: vuruş, ölçü başı.
 type Logits = (Vec<f32>, Vec<f32>);
@@ -157,11 +176,24 @@ impl RhythmNet {
         threads: usize,
         cancel: &AtomicBool,
     ) -> Result<Logits, RhythmNetError> {
+        self.logits_paced(spect, threads, cancel, &mut || {})
+    }
+
+    /// [`Self::logits`]; `pace` her parça grubundan önce çağrılır (arka plan analizi burada
+    /// bekleyerek işlemciyi çalan şarkıya bırakır).
+    fn logits_paced(
+        &self,
+        spect: &[MelFrame],
+        threads: usize,
+        cancel: &AtomicBool,
+        pace: &mut dyn FnMut(),
+    ) -> Result<Logits, RhythmNetError> {
         let frames = spect.len();
         let starts = rhythm_model::chunk_starts(frames);
         let mut beat_chunks = Vec::with_capacity(starts.len());
         let mut downbeat_chunks = Vec::with_capacity(starts.len());
         for batch in starts.chunks(threads.max(1)) {
+            pace();
             if cancel.load(Ordering::Relaxed) {
                 return Err(RhythmNetError::Cancelled);
             }
@@ -200,6 +232,17 @@ impl RhythmNet {
         threads: usize,
         cancel: &AtomicBool,
     ) -> Result<RhythmNetOutput, RhythmNetError> {
+        self.analyze_paced(samples, threads, cancel, &mut || {})
+    }
+
+    /// [`Self::analyze`]; `pace` her parça grubundan önce çağrılır.
+    pub fn analyze_paced(
+        &self,
+        samples: &[f32],
+        threads: usize,
+        cancel: &AtomicBool,
+        pace: &mut dyn FnMut(),
+    ) -> Result<RhythmNetOutput, RhythmNetError> {
         if samples.len() > MAX_SECS * rhythm_model::SAMPLE_RATE as usize {
             return Err(RhythmNetError::TooLong);
         }
@@ -207,7 +250,7 @@ impl RhythmNet {
         if cancel.load(Ordering::Relaxed) {
             return Err(RhythmNetError::Cancelled);
         }
-        let (beat_logits, downbeat_logits) = self.logits(&spect, threads, cancel)?;
+        let (beat_logits, downbeat_logits) = self.logits_paced(&spect, threads, cancel, pace)?;
         let (beats, downbeats) = rhythm_model::pick(&beat_logits, &downbeat_logits);
         Ok(RhythmNetOutput {
             beats,
@@ -218,21 +261,27 @@ impl RhythmNet {
     }
 }
 
+/// Deneme modeli (`tests/data/ritim-modeli/uret.py`): beat[t] = s[t−1] + 8·s[t] + s[t+1] − 5 (log-mel
+/// band 0), downbeat aynı biçimde band 1'den; zamanda sıfır dolgulu. Başka modüllerin testleri için.
+#[cfg(test)]
+pub(crate) fn test_model() -> RhythmNet {
+    RhythmNet::open(&tests::test_path(), tests::TEST_SHA256).expect("deneme modeli açılır")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    /// `tests/data/ritim-modeli/uret.py`'nin modeli: beat[t] = s[t−1] + 8·s[t] + s[t+1] − 5 (band 0),
-    /// downbeat aynı biçimde band 1'den; zamanda sıfır dolgulu.
-    const TEST_SHA256: &str = "e0273ad98a3d4ce7c1ae92b4f2b05f3ef8c5af395c5cfb5f3e55a4288e14e4d6";
+    pub(super) const TEST_SHA256: &str =
+        "e0273ad98a3d4ce7c1ae92b4f2b05f3ef8c5af395c5cfb5f3e55a4288e14e4d6";
 
-    fn test_path() -> PathBuf {
+    pub(super) fn test_path() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/ritim-modeli/deneme.onnx")
     }
 
     fn open_test() -> RhythmNet {
-        RhythmNet::open(&test_path(), TEST_SHA256).expect("deneme modeli açılır")
+        test_model()
     }
 
     /// Modelin elle hesabı (bağımsız): evrişim, şarkının kenarında sıfır dolgu.

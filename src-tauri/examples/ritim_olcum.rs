@@ -12,19 +12,17 @@
 //!
 //! Sonuçlar `sonuclar.jsonl`'a satır satır yazılır; `rapor.md` tür (üst klasör) başına ortalamaları verir.
 //!
-//! `LYRASKA_RITIM_MODELI` bir model dosyasını gösterirse analiz yerine ritim modeli (Beat This,
-//! `analysis::rhythm_net`) ölçülür: vuruş ve ölçü başı modelin, tempo vuruş aralıklarının ortancası.
+//! `LYRASKA_RITIM_MODELI` bir model dosyasını gösterirse analiz ritim modeliyle (Beat This,
+//! `analysis::rhythm_net`) yapılır (programdaki gibi); ayrıca modelin kendi ölçü başları
+//! (`olcu_basi_f_model`, düzenli ölçüye oturtulmadan) ölçülür.
 use lyraska_lib::analysis::evaluate::{f_measure, interval_bpm, BEAT_TOLERANCE};
-use lyraska_lib::analysis::lyrics_model::decode_mono_at;
-use lyraska_lib::analysis::rhythm_model::SAMPLE_RATE as MODEL_RATE;
 use lyraska_lib::analysis::rhythm_net::{RhythmNet, MODEL_SHA256};
-use lyraska_lib::analysis::spectrogram::{analyze, Spectrogram};
+use lyraska_lib::analysis::spectrogram::{analyze_source_with, NetRun, Spectrogram};
 use lyraska_lib::audio::decode::Decoder;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
 const AUDIO: [&str; 6] = ["wav", "flac", "mp3", "ogg", "m4a", "au"];
@@ -150,14 +148,23 @@ fn tempo_accuracy(estimated: f64, truth: f64) -> (bool, bool) {
     (acc1, acc2)
 }
 
-/// Bulunan vuruşlar, ölçü başları, tempo, ölçü ve ölçü güveni.
-type Found = (Vec<f64>, Vec<f64>, Option<f64>, Option<usize>, Option<f32>);
+/// Bulunan vuruşlar, ölçü başları, tempo, ölçü, ölçü güveni ve modelin kendi ölçü başları.
+type Found = (
+    Vec<f64>,
+    Vec<f64>,
+    Option<f64>,
+    Option<usize>,
+    Option<f32>,
+    Option<Vec<f64>>,
+);
 
-/// Lyraska'nın analizi: şarkı haritasıyla.
-fn run_analysis(song: &Path) -> Result<Found, String> {
-    let decoder = Decoder::open(song).map_err(|e| format!("açılamadı: {e}"))?;
+/// Lyraska'nın analizi (programdaki gibi; model verilmişse onunla): şarkı haritasıyla.
+fn run_analysis(song: &Path, net: Option<&RhythmNet>) -> Result<Found, String> {
+    let mut decoder = Decoder::open(song).map_err(|e| format!("açılamadı: {e}"))?;
     let spectrogram = Spectrogram::new();
-    analyze(decoder, &spectrogram);
+    // İki iş parçacığı: programda çalan şarkının analizi gibi (4 çekirdekte).
+    let run = net.map(|net| NetRun { net, threads: 2 });
+    analyze_source_with(&mut decoder, &spectrogram, &mut || {}, run);
     let grid = spectrogram.beat_grid();
     let map = spectrogram.song_map();
     Ok((
@@ -168,16 +175,8 @@ fn run_analysis(song: &Path) -> Result<Found, String> {
         grid.as_ref().map(|g| g.bpm),
         map.as_ref().map(|m| m.meter),
         map.as_ref().map(|m| m.meter_confidence),
+        spectrogram.net_rhythm().map(|n| n.downbeats),
     ))
-}
-
-/// Ritim modeli: iki iş parçacığı (programın arka plan analizi gibi).
-fn run_model(net: &RhythmNet, song: &Path) -> Result<Found, String> {
-    let cancel = AtomicBool::new(false);
-    let audio = decode_mono_at(song, MODEL_RATE, &cancel).map_err(|e| e.to_string())?;
-    let out = net.analyze(&audio, 2, &cancel).map_err(|e| e.to_string())?;
-    let bpm = interval_bpm(&out.beats);
-    Ok((out.beats, out.downbeats, bpm, None, None))
 }
 
 fn measure(song: &Path, mark_path: &Path, genre: &str, net: Option<&RhythmNet>) -> Value {
@@ -186,11 +185,8 @@ fn measure(song: &Path, mark_path: &Path, genre: &str, net: Option<&RhythmNet>) 
         return json!({ "sarki": name, "tur": genre, "hata": "işaret okunamadı" });
     };
     let started = Instant::now();
-    let found = match net {
-        Some(net) => run_model(net, song),
-        None => run_analysis(song),
-    };
-    let (detected, detected_down, bpm, meter, meter_confidence) = match found {
+    let found = run_analysis(song, net);
+    let (detected, detected_down, bpm, meter, meter_confidence, net_down) = match found {
         Ok(found) => found,
         Err(e) => return json!({ "sarki": name, "tur": genre, "hata": e }),
     };
@@ -217,6 +213,10 @@ fn measure(song: &Path, mark_path: &Path, genre: &str, net: Option<&RhythmNet>) 
         "gercek_bpm": truth_bpm,
         "acc1": acc1,
         "acc2": acc2,
+        "olcu_basi_f_model": match (&net_down, downbeats.is_empty()) {
+            (Some(d), false) => json!(f_measure(d, &downbeats, BEAT_TOLERANCE)),
+            _ => Value::Null,
+        },
         "olcu": meter,
         "olcu_guveni": meter_confidence,
         "analiz_sn": seconds,

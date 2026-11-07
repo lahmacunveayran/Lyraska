@@ -124,8 +124,73 @@ Tempo oranı (bulunan / gerçek, ±%4):
   5·10⁻⁶ farklı).
 - Makaledeki GTZAN sayılarıyla karşılaştırma birincil kaynaktan yapılacak.
 
+## Ritim modeli Lyraska'da: analize bağlı karne (7 Kasım 2026)
+
+Beat This small0 artık Lyraska'nın içinde (`analysis/rhythm_net.rs`, tract) ve kurulum dosyasıyla geliyor. Ölçülen,
+programın kendisi: `ritim_olcum` modelle tam analizi çalıştırır (`LYRASKA_RITIM_MODELI`; vuruşlar ve tempo modelden,
+ölçü modelin ölçü başlarıyla en çok uyuşan düzenli ölçü, aksak ölçü yalnızca modelin vuruşunu yarıya indirmiyorsa).
+
+- **Rust + tract = Python:** modelin kendisi (`ritim_olcum`'un ilk sürümü, analizden önce) GTZAN'ın 998 parçasının
+  hepsinde Python'daki Beat This small0 ile vuruş ve ölçü başı F'si birebir aynı verdi.
+- **Ham sonuçlar:** [`gtzan-lyraska-modelli-2026-11-07.jsonl`](gtzan-lyraska-modelli-2026-11-07.jsonl),
+  [`ballroom-lyraska-modelli-2026-11-07.jsonl`](ballroom-lyraska-modelli-2026-11-07.jsonl). `olcu_basi_f_model`:
+  modelin kendi ölçü başları (düzenli ölçüye oturtulmadan).
+
+### GTZAN (Beat This'in görmediği set)
+
+| Sistem                        | Vuruş F   | 5 sn kırpık | Ölçü başı F | ACC1      | ACC2      | Parça başına sn |
+| ----------------------------- | --------- | ----------- | ----------- | --------- | --------- | --------------- |
+| Lyraska eski (6 Kasım)        | 0,748     | 0,758       | 0,445       | 0,670     | 0,865     | 0,12            |
+| Beat This small0 (Python)     | 0,883     | 0,885       | 0,767       | 0,811     | 0,935     | 2,90            |
+| **Lyraska modelli (7 Kasım)** | **0,883** | **0,885**   | **0,755**   | **0,826** | **0,944** | 3,35            |
+
+| Tür       | Eski F | Modelli F | Eski ölçü başı | Modelli ölçü başı |
+| --------- | ------ | --------- | -------------- | ----------------- |
+| blues     | 0,739  | 0,816     | 0,313          | 0,630             |
+| classical | 0,415  | 0,644     | 0,226          | 0,419             |
+| country   | 0,814  | 0,916     | 0,599          | 0,874             |
+| disco     | 0,934  | 0,968     | 0,406          | 0,936             |
+| hiphop    | 0,811  | 0,972     | 0,591          | 0,864             |
+| jazz      | 0,565  | 0,853     | 0,243          | 0,687             |
+| metal     | 0,754  | 0,888     | 0,427          | 0,756             |
+| pop       | 0,825  | 0,945     | 0,631          | 0,908             |
+| reggae    | 0,873  | 0,905     | 0,490          | 0,661             |
+| rock      | 0,753  | 0,923     | 0,507          | 0,808             |
+
+- Tempo oranı (bulunan / gerçek): doğru 824 (eski 669), yarı 58 (88), iki kat 48 (98), yok 1 (64).
+- **Ölçü başı 0,767 → 0,755:** program şarkı haritasında düzenli ölçü kullanır (vuruşun ölçüdeki yeri tek bir
+  başlangıçtan sayılır); modelin ölçü başları şarkı ortasında kayınca düzenli ölçü birini kaçırır. 2/4 seçilen
+  215 parça bunun izi (dörtlükte iki başlangıcı da yakalar). Modelin kendi ölçü başları saklanıyor; şarkı haritasının
+  parça parça ölçüye geçmesi ayrı iş.
+- **Aksak ölçü:** model varken de aranır (model düzenli ölçülerle eğitildi). İlk denemede GTZAN'da (aksak şarkı
+  yok) 28 şarkıda yanlış aksak bulundu: grup başları modelin vuruşunun 0,40–0,54 katı hızındaydı (iki vuruş bir
+  "grup"); sentetik 9/8, 7/8, 5/8 davullarda oran 0,80–0,88. Aksak artık yalnızca oran ≥ 0,6 ise kabul ediliyor;
+  28'in 27'si elendi (vuruş F 0,874 → 0,883, ölçü başı 0,744 → 0,755). Gerçek Türk aksak şarkıları bu sette yok:
+  sahibinin kütüphanesinde denenecek.
+- Hız: parça başına 3,35 sn (bulut, 4 çekirdek, model 2 iş parçacığı; çözme ve kareler dahil). 4 dakikalık şarkıda
+  ~15 sn; arka planda tek çekirdekle çalışır.
+
+### Ballroom (Beat This bu seti eğitimde gördü: adil karşılaştırma değil)
+
+| Tür                 | Parça   | Vuruş F (eski → modelli) | Ölçü başı F       | ACC1              | ACC2              |
+| ------------------- | ------- | ------------------------ | ----------------- | ----------------- | ----------------- |
+| ChaChaCha           | 111     | 0,908 → 0,977            | 0,422 → 0,982     | 0,982 → 1,000     | 0,982 → 1,000     |
+| Jive                | 60      | 0,797 → 0,985            | 0,443 → 0,989     | 0,583 → 1,000     | 1,000 → 1,000     |
+| Quickstep           | 82      | 0,624 → 0,986            | 0,258 → 0,988     | 0,110 → 1,000     | 0,951 → 1,000     |
+| Rumba-American      | 7       | 0,895 → 0,970            | 0,857 → 0,959     | 1,000 → 1,000     | 1,000 → 1,000     |
+| Rumba-International | 51      | 0,830 → 0,980            | 0,729 → 0,976     | 0,843 → 1,000     | 1,000 → 1,000     |
+| Rumba-Misc          | 40      | 0,743 → 0,955            | 0,610 → 0,961     | 0,700 → 1,000     | 0,975 → 1,000     |
+| Samba               | 86      | 0,792 → 0,977            | 0,551 → 0,975     | 0,837 → 1,000     | 0,965 → 1,000     |
+| Tango               | 86      | 0,902 → 0,991            | 0,460 → 0,986     | 0,977 → 1,000     | 0,977 → 1,000     |
+| VienneseWaltz       | 65      | 0,704 → 0,988            | 0,698 → 0,986     | 0,446 → 1,000     | 0,785 → 1,000     |
+| Waltz               | 110     | 0,678 → 0,951            | 0,587 → 0,946     | 0,500 → 0,991     | 0,855 → 0,991     |
+| **Hepsi**           | **698** | **0,780 → 0,976**        | **0,514 → 0,976** | **0,675 → 0,999** | **0,940 → 0,999** |
+
+ACC'de tempo bulunamayan parça yanlış sayılır (bu yüzden eski ACC1 yukarıdaki ilk tablodan biraz düşük).
+
 ## Sırada
 
-1. Ritim paketi (Beat This small0, MIT): giriş ve çıkışı Rust'ta (#238); sırada tract ile çalıştırma, dağıtım
-   (sahibine seçenek + öneri) ve analize bağlama; aynı tablolarla uçtan uca ölçüm.
-2. Tempo oktavı seçimi (`tempo.rs`): ritim paketi gelince yeniden değerlendirilir (Beat This oktavda da önde).
+1. Sahibinin bilgisayarında: kütüphanenin yeniden analizi (model ilk açılışta arka planda bütün şarkılarda bir kez
+   çalışır) ve Türk aksak / maksum şarkılarında ölçünün denetimi.
+2. Şarkı haritasında parça parça ölçü (modelin ölçü başlarını düzenli ölçüye oturtmadan); tempo oktavı (`tempo.rs`)
+   modelsiz yolda kalır.

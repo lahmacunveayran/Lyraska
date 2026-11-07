@@ -140,6 +140,13 @@ kısaltılır.
 - **Beat This → ONNX** (6 Kasım 2026): `rotary_embedding_torch`'un önbelleği (`cache_if_possible`) kapatılmadan
   dışa aktarılırsa yanlış çıkar; `torch.onnx.export` modülü dönüşte eğitim moduna alır (dropout), karşılaştırmadan
   önce `eval()`. tract 0.23.9 modeli çalıştırıyor (fark ≤ 5·10⁻⁶).
+- **ONNX dönüşümünü SHA-256 ile denetleyeceksen sabit katlamayı kapat** (7 Kasım 2026, #243): katlama açıkken bazı
+  sabitler dönüştüren makinenin işlemcisiyle hesaplanıyor; yerelde iki çalıştırma ve iki Python sürümü aynı özeti
+  verdi, CI'da son basamaklar farklı çıktı. `do_constant_folding=False` ile dosyada yalnızca ağırlıklar ve işlemler
+  kalır, katlamayı tract yapar; CI'da da aynı özet.
+- **Disk sessizce dolar** (7 Kasım 2026): `TAURI_CONFIG` ile ve onsuz, `clippy` ve `test` derlemeleri crate'lerin
+  ayrı kopyalarını kurar; `target/debug` 19 GB'a çıktı, `cargo test` hiçbir çıktı vermeden bitti. Uzun işten önce
+  `df -h /`; gerekirse `target/debug` tamamen silinip yeniden derlenir.
 
 - **Oynatıcı düzeltmesi arayüzün yolunda sınanır:** arayüz şarkıyı `Player::load` ile değil `open_track`'in üç
   adımıyla (`begin_transition` → `prepare` → `install`) açar. Yalnızca `load`'a konan bir koruma programda

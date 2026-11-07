@@ -134,7 +134,8 @@ export function PlayerScreen() {
   const playing = status.state === "playing";
   const credits = status.track ? sceneCredits(status.track) : null;
   const mapFile = useMapFile(statusPath, status.track ? trackTitle(status.track) : null);
-  const songMap = useSongMap(statusPath, mapFile.revision);
+  // Harita içe aktarılınca ya da ritim modeli ritmi yenileyince yeniden istenir (ikisi de yalnızca artar).
+  const songMap = useSongMap(statusPath, mapFile.revision + (status.rhythmRevision ?? 0));
   const songKey = useSongKey(statusPath, songMap?.sections.length ?? 0, mapFile.revision);
   const sync = useSync(
     player.openPath,

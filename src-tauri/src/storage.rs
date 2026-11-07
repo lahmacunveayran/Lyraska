@@ -207,8 +207,16 @@ UPDATE analyses SET loudness_version = 0
    AND path IN (SELECT path FROM tracks WHERE channels > 2);
 ";
 
+/// 12: ritim modelinin ([`crate::analysis::rhythm_net`]) vuruş ve ölçü başları (JSON) ve parçanın
+/// sürümü. Eski kayıtlarda yoktur (sürüm 0): model kurulumdaysa kütüphane arka planda bir kez
+/// çözülür, kareler yeniden hesaplanmaz; model yoksa bu parça beklenmez.
+const V12: &str = "
+ALTER TABLE analyses ADD COLUMN net_beats TEXT;
+ALTER TABLE analyses ADD COLUMN net_version INTEGER NOT NULL DEFAULT 0;
+";
+
 /// Sıralı göç adımları (bkz. modül belgesi). Yalnızca sona eklenir.
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12];
 
 /// Bu sürümün bildiği en yeni şema.
 pub const SCHEMA_VERSION: i64 = MIGRATIONS.len() as i64;
@@ -608,7 +616,7 @@ mod tests {
             .unwrap();
         }
         migrate(&mut conn).unwrap();
-        assert_eq!(version(&conn), 11);
+        assert_eq!(version(&conn), SCHEMA_VERSION);
         let mut stmt = conn
             .prepare(
                 "SELECT path, spectrum_version, rhythm_version, loudness_version, bass_version,
