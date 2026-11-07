@@ -111,6 +111,15 @@ fn finite(v: f32) -> f32 {
 /// Şarkıyı modelin girişine çevirir: kanalların ortalaması, 16 kHz (`resample` ile), f32. `cancel`
 /// her çözülen dilimde denetlenir; `MAX_SECS`'ten uzun şarkı çözülmeden reddedilir.
 pub fn decode_mono(path: &Path, cancel: &AtomicBool) -> Result<Vec<f32>, ModelError> {
+    decode_mono_at(path, SAMPLE_RATE, cancel)
+}
+
+/// [`decode_mono`]'nun başka hızdaki eşi (ritim modeli 22 050 Hz ister, `rhythm_net`).
+pub fn decode_mono_at(
+    path: &Path,
+    sample_rate: u32,
+    cancel: &AtomicBool,
+) -> Result<Vec<f32>, ModelError> {
     let decode = |e: crate::audio::AudioError| ModelError::Decode(e.to_string());
     let mut decoder = Decoder::open(path).map_err(decode)?;
     if decoder
@@ -122,8 +131,8 @@ pub fn decode_mono(path: &Path, cancel: &AtomicBool) -> Result<Vec<f32>, ModelEr
     }
     let channels = decoder.info().channels.max(1);
     let rate = decoder.info().sample_rate;
-    let mut converter = Converter::new(rate, 1, SAMPLE_RATE, 1).map_err(decode)?;
-    let limit = MAX_SECS * SAMPLE_RATE as usize;
+    let mut converter = Converter::new(rate, 1, sample_rate, 1).map_err(decode)?;
+    let limit = MAX_SECS * sample_rate as usize;
     let mut mono = Vec::new();
     let mut out = Vec::new();
     while let Some(chunk) = decoder.next_chunk().map_err(decode)? {

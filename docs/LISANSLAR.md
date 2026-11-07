@@ -169,6 +169,20 @@ kuralları). Kod bağımlılıklarının lisanslarını CI denetler (`npm run ch
   çevirip int8'e nicemlemesi) ve lisans metni: `public/lisanslar/Omnilingual-ASR-Apache-2.0.txt`. Eğitim verisinin
   tam listesi doğrulanamadı (proje sahibinin kararı, RAPOR karar 3).
 
+## Ritim modeli (Beat This small0)
+
+- **Ne için:** vuruş ve ölçü başı (`src-tauri/src/analysis/rhythm_model.rs`, `rhythm_net.rs`).
+- **Kaynak:** F. Foscarin, J. Schlüter, G. Widmer, "Beat this! Accurate beat tracking without DBN postprocessing",
+  ISMIR 2024; GitHub `CPJKU/beat_this`, pip `beat-this` 1.1.0. Ağırlıklar (`small0.ckpt`, SHA-256
+  `6074be2c…c7d47b`) yazarların sunucusundan (`cloud.cp.jku.at`).
+- **Lisans:** kod ve ağırlıklar MIT (birincil kaynak: README "The code and the published model weights are released
+  under the MIT license" ve LICENSE dosyası; lisans metni `src-tauri/ritim-modeli/LICENSE`). Eğitim setleri karışık
+  (README uyarısı); ağırlığın lisansı MIT.
+- **Depoya girmez:** CI ağırlıkları indirir, SHA-256'sını denetler, `src-tauri/ritim-modeli/onnx_cevir.py` ile
+  ONNX'e çevirir ve çıkan dosyanın özetini denetler (`scripts/ritim-modeli.sh`). Çevirme betiği projenin kendi kodu.
+- **Deneme modeli** (`src-tauri/tests/data/ritim-modeli/`): projenin `uret.py` ile ürettiği 3 KB'lık özgün ONNX
+  dosyası (bir evrişim); dışarıdan alınmadı, proje lisansıyla.
+
 ## Programa girmeyen araştırma dosyaları
 
 ### LAME 3.100 ölçüm yaması

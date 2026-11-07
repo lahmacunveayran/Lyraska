@@ -11,13 +11,20 @@
 //!   vuruş aralıklarının ortancasından.
 //!
 //! Sonuçlar `sonuclar.jsonl`'a satır satır yazılır; `rapor.md` tür (üst klasör) başına ortalamaları verir.
+//!
+//! `LYRASKA_RITIM_MODELI` bir model dosyasını gösterirse analiz yerine ritim modeli (Beat This,
+//! `analysis::rhythm_net`) ölçülür: vuruş ve ölçü başı modelin, tempo vuruş aralıklarının ortancası.
 use lyraska_lib::analysis::evaluate::{f_measure, interval_bpm, BEAT_TOLERANCE};
+use lyraska_lib::analysis::lyrics_model::decode_mono_at;
+use lyraska_lib::analysis::rhythm_model::SAMPLE_RATE as MODEL_RATE;
+use lyraska_lib::analysis::rhythm_net::{RhythmNet, MODEL_SHA256};
 use lyraska_lib::analysis::spectrogram::{analyze, Spectrogram};
 use lyraska_lib::audio::decode::Decoder;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
 const AUDIO: [&str; 6] = ["wav", "flac", "mp3", "ogg", "m4a", "au"];
@@ -41,6 +48,12 @@ fn main() {
         eprintln!("sonuç klasörü açılamadı: {e}");
         std::process::exit(1);
     }
+    let net = std::env::var_os("LYRASKA_RITIM_MODELI").map(|path| {
+        RhythmNet::open(Path::new(&path), MODEL_SHA256).unwrap_or_else(|e| {
+            eprintln!("ritim modeli açılamadı: {e}");
+            std::process::exit(1);
+        })
+    });
     let marks = index_marks(&marks_dir);
     let mut songs: Vec<PathBuf> = walkdir::WalkDir::new(&audio_dir)
         .into_iter()
@@ -73,7 +86,7 @@ fn main() {
             .and_then(|n| n.to_str())
             .unwrap_or("-")
             .to_owned();
-        let line = measure(song, mark_path, &genre);
+        let line = measure(song, mark_path, &genre, net.as_ref());
         if let Err(e) = writeln!(file, "{line}") {
             eprintln!("yazılamadı: {e}");
         }
@@ -137,28 +150,52 @@ fn tempo_accuracy(estimated: f64, truth: f64) -> (bool, bool) {
     (acc1, acc2)
 }
 
-fn measure(song: &Path, mark_path: &Path, genre: &str) -> Value {
+/// Bulunan vuruşlar, ölçü başları, tempo, ölçü ve ölçü güveni.
+type Found = (Vec<f64>, Vec<f64>, Option<f64>, Option<usize>, Option<f32>);
+
+/// Lyraska'nın analizi: şarkı haritasıyla.
+fn run_analysis(song: &Path) -> Result<Found, String> {
+    let decoder = Decoder::open(song).map_err(|e| format!("açılamadı: {e}"))?;
+    let spectrogram = Spectrogram::new();
+    analyze(decoder, &spectrogram);
+    let grid = spectrogram.beat_grid();
+    let map = spectrogram.song_map();
+    Ok((
+        grid.as_ref().map(|g| g.beats.clone()).unwrap_or_default(),
+        map.as_ref()
+            .map(|m| m.downbeats.clone())
+            .unwrap_or_default(),
+        grid.as_ref().map(|g| g.bpm),
+        map.as_ref().map(|m| m.meter),
+        map.as_ref().map(|m| m.meter_confidence),
+    ))
+}
+
+/// Ritim modeli: iki iş parçacığı (programın arka plan analizi gibi).
+fn run_model(net: &RhythmNet, song: &Path) -> Result<Found, String> {
+    let cancel = AtomicBool::new(false);
+    let audio = decode_mono_at(song, MODEL_RATE, &cancel).map_err(|e| e.to_string())?;
+    let out = net.analyze(&audio, 2, &cancel).map_err(|e| e.to_string())?;
+    let bpm = interval_bpm(&out.beats);
+    Ok((out.beats, out.downbeats, bpm, None, None))
+}
+
+fn measure(song: &Path, mark_path: &Path, genre: &str, net: Option<&RhythmNet>) -> Value {
     let name = song.file_name().and_then(|n| n.to_str()).unwrap_or("-");
     let Some((beats, downbeats)) = read_marks(mark_path) else {
         return json!({ "sarki": name, "tur": genre, "hata": "işaret okunamadı" });
     };
-    let decoder = match Decoder::open(song) {
-        Ok(d) => d,
-        Err(e) => return json!({ "sarki": name, "tur": genre, "hata": format!("açılamadı: {e}") }),
-    };
     let started = Instant::now();
-    let spectrogram = Spectrogram::new();
-    analyze(decoder, &spectrogram);
+    let found = match net {
+        Some(net) => run_model(net, song),
+        None => run_analysis(song),
+    };
+    let (detected, detected_down, bpm, meter, meter_confidence) = match found {
+        Ok(found) => found,
+        Err(e) => return json!({ "sarki": name, "tur": genre, "hata": e }),
+    };
     let seconds = started.elapsed().as_secs_f64();
-    let grid = spectrogram.beat_grid();
-    let detected = grid.as_ref().map(|g| g.beats.clone()).unwrap_or_default();
-    let map = spectrogram.song_map();
-    let detected_down = map
-        .as_ref()
-        .map(|m| m.downbeats.clone())
-        .unwrap_or_default();
     let truth_bpm = interval_bpm(&beats);
-    let bpm = grid.as_ref().map(|g| g.bpm);
     let (acc1, acc2) = match (bpm, truth_bpm) {
         (Some(e), Some(t)) => {
             let (a, b) = tempo_accuracy(e, t);
@@ -180,8 +217,8 @@ fn measure(song: &Path, mark_path: &Path, genre: &str) -> Value {
         "gercek_bpm": truth_bpm,
         "acc1": acc1,
         "acc2": acc2,
-        "olcu": map.as_ref().map(|m| m.meter),
-        "olcu_guveni": map.as_ref().map(|m| m.meter_confidence),
+        "olcu": meter,
+        "olcu_guveni": meter_confidence,
         "analiz_sn": seconds,
     })
 }
