@@ -22,6 +22,9 @@ Birleşmemiş işlerin kodu ve iş tanımları: `docs/arastirma/is-tanimlari/REA
 
 ## Proje sahibinden beklenenler
 
+- Sözleri otomatik bulma (7 Kasım, "her şarkıya tek tek mi yazacağım"): LRCLIB 80 şarkının 35'inde doğru söz verdi
+  (`arastirma/sozler/lrclib/`); 30 Ekim'deki "programa ağ kodu girmez" kararını yeniden açmak sahibinin kararı.
+
 - ZFTurbo'nun MIT ayrıştırma kodunu bu bulut makinesinde çalıştırma izni (otomatik denetim "dış kod" diye durdurdu):
   mod seçiciden "Accept edits", sonra komutun onay kartı.
 - Ritim modeli (test sürümü): kütüphane bir kez yeniden analiz edilir; Türk aksak/maksumda ölçü ve tempo doğru mu.
