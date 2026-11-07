@@ -43,6 +43,36 @@ env:
   PACKAGE_SHA256: e3042b2f3b3ef0af2211bf99d2b4bf94a21f5ac0e9898827e7dd6d003a860e91
 
 jobs:
+  # Ritim modeli (Beat This small0, MIT): ağırlıklar yazarların sunucusundan indirilir, SHA-256 denetlenir,
+  # sabit paketlerle ONNX'e çevrilir, çıkan dosyanın özeti denetlenir (CI'daki işin aynısı). Depoya girmez;
+  # kurulum dosyasına gömülür.
+  ritim-modeli:
+    name: Ritim modeli (indir, çevir, SHA-256)
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - name: Modeli hazırla
+        run: scripts/ritim-modeli.sh "$RUNNER_TEMP/ritim-modeli/ritim-modeli.onnx"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ritim-modeli
+          path: ${{ runner.temp }}/ritim-modeli/ritim-modeli.onnx
+          if-no-files-found: error
+          retention-days: 7
+
   derle:
     name: Kurulum dosyasını derle
     # Elle başlatma yalnızca main'den. Otomatik başlatma yalnızca bu deponun main'ine yapılan
@@ -54,6 +84,7 @@ jobs:
        github.event.workflow_run.event == 'push' &&
        github.event.workflow_run.head_branch == 'main' &&
        github.event.workflow_run.head_repository.full_name == github.repository)
+    needs: ritim-modeli
     runs-on: windows-2025
     timeout-minutes: 60
     permissions:
@@ -101,6 +132,14 @@ jobs:
           rustup toolchain install "$toolchain" --profile minimal
           rustc --version
       - run: npm ci
+      # Ritim modeli kurulum dosyasına gömülür (ritim-modeli işinin çıktısı; özeti yeniden denetlenir).
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ritim-modeli
+          path: src-tauri/ritim-modeli
+      - name: Ritim modelinin özeti
+        shell: bash
+        run: scripts/ritim-modeli-denetle.sh src-tauri/ritim-modeli/ritim-modeli.onnx
       - name: Sürüm numarası
         id: surum
         shell: bash
@@ -108,9 +147,13 @@ jobs:
       - name: Kurulum dosyasını derle
         # Tauri CLI doğrudan: üçüncü taraf eylem ve token gerekmez. `--locked`: Cargo.lock aynen.
         # LYRASKA_COMMIT: programın Ayarlar > Program'da gösterdiği derleme kodu (derlenen commit).
+        # tauri.ritim.conf.json ritim modelini kaynak olarak ekler.
         env:
           LYRASKA_COMMIT: ${{ steps.kaynak.outputs.sha }}
-        run: npm run tauri build -- --ci -- --locked
+        run: npm run tauri build -- --ci --config src-tauri/tauri.ritim.conf.json -- --locked
+      - name: Ritim modeli kurulumda mı
+        shell: bash
+        run: scripts/ritim-modeli-denetle.sh src-tauri/target/release/ritim-modeli.onnx
       # Kuruluma gömülen ve karmasız indirilen Microsoft dosyası: imzası doğrulanmadan yayımlanmaz.
       - name: WebView2 önyükleyicisi Microsoft imzalı mı
         shell: pwsh

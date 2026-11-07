@@ -114,7 +114,7 @@ const allFiles = new Set(
 );
 /** Programın çalışırken yazdığı dosyalar (depoda olmaz). */
 const RUNTIME_FILES = new Set(["settings.json", "lyraska.log", "library.sqlite3"]);
-const ROOT_FILES = new Set(["Cargo.toml", "tauri.conf.json", "deny.toml"]);
+const ROOT_FILES = new Set(["Cargo.toml", "tauri.conf.json", "tauri.ritim.conf.json", "deny.toml"]);
 for (const m of treeBlock.matchAll(
   /(?<![\w.-])([\w-][\w.-]*\.(?:rs|ts|tsx|mjs|md|toml|json))\b/g,
 )) {

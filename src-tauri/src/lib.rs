@@ -98,6 +98,19 @@ pub fn run() {
                 }
             };
             app.manage(commands::BigDataDir(big.clone()));
+            // Ritim modeli (Beat This) kurulum dosyasıyla gelir; geliştirme derlemesinde yoktur.
+            match app.path().resolve(
+                analysis::rhythm_net::MODEL_FILE,
+                tauri::path::BaseDirectory::Resource,
+            ) {
+                Ok(path) if path.is_file() => {
+                    diagnostics::info(&format!("Ritim modeli: {}", path.display()));
+                    analysis::rhythm_net::set_bundled_path(path);
+                }
+                _ => {
+                    diagnostics::info("Ritim modeli kurulumda yok; ritim kendi analiziyle bulunur")
+                }
+            }
             // Kütüphane açılır açılmaz arka planda güncellenir.
             // Etiketi okunurken programı kapatan dosya her açılışta yeniden kapatmasın.
             let service = big.clone().and_then(|dir| {

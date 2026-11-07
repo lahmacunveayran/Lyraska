@@ -204,6 +204,7 @@ lyraska/
 │   │                         # LICENSE (Omnilingual ASR, Apache-2.0); model dosyasının kendisi depoya girmez
 │   ├── vendor/hlslparser/    # projectM'in hlslparser'ı (MIT, 349b7cc2db31; LYRASKA işaretli iki küçük yama)
 │   ├── tauri.conf.json       # Pencere, güvenlik, Windows NSIS kurulum ayarları
+│   ├── tauri.ritim.conf.json # kurulum derlemesinde ritim modelini kaynak olarak ekler (CI ve test sürümü)
 │   └── deny.toml             # cargo-deny lisans kuralları
 ├── scripts/                  # Yardımcı betikler (npm lisans denetimi, depoda ses dosyası denetimi, sahne denetimi,
 │                             # komut sözleşmesi denetimi, üçüncü taraf lisans bildirimlerini üretme)

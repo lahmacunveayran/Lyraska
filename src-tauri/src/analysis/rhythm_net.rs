@@ -56,6 +56,20 @@ pub struct RhythmNetOutput {
     pub downbeat_logits: Vec<f32>,
 }
 
+/// Kurulum dosyasıyla gelen model dosyasının yeri (açılışta bir kez bulunur; geliştirme
+/// derlemesinde yoktur, ritim o zaman Lyraska'nın kendi analiziyle bulunur).
+static BUNDLED: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+
+/// Kurulumdaki model dosyasının yerini kaydeder (program açılırken, dosya varsa).
+pub fn set_bundled_path(path: std::path::PathBuf) {
+    let _ = BUNDLED.set(path);
+}
+
+/// Kurulumdaki model dosyası (varsa).
+pub fn bundled_path() -> Option<&'static Path> {
+    BUNDLED.get().map(|p| p.as_path())
+}
+
 type Plan = TypedRunnableModel;
 /// Bir parçanın (ya da şarkının) logitleri: vuruş, ölçü başı.
 type Logits = (Vec<f32>, Vec<f32>);
